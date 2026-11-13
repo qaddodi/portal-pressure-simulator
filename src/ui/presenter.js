@@ -2362,10 +2362,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   async function unhush(cut) {
     if (!hushed) return;
     // Back only once the camera or the sinusoid has landed (its labels laid out there) and the lit set's own eases
-    // (a pill in or out, a label lit or not) have run, unseen.
+    // (a label lit or not, a caption's entrance) have run, unseen.
     await until(() => cut() || (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin')), 2500);
     await waitCut(80, cut);
-    await eased(['opacity', 'pill-in', 'sv-fade-in'], 1500, ':is(.lz-lab, .lz-zone, .sv-region)');
+    await eased(['opacity', 'sv-fade-in'], 1500, ':is(.lz-lab, .lz-zone, .sv-region)');
     if (cut()) return;
     hushed = false;
     app.classList.add('pz-hush-in'); app.classList.remove('pz-hush');

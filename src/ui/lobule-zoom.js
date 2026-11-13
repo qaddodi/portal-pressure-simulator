@@ -1525,11 +1525,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       shown.forEach((L, i) => { if (stack[i]) L.el.classList.add('stack'); });
       const sizes = shown.map((L) => [L.el.offsetWidth || 100, L.el.offsetHeight || 40]), px = (v) => parseFloat(v) || 0;
       for (const L of shown) {
-        // (The padding round the letters, read with the sizes: a leader stops on the letters' box, not at the label's middle; and the
-        // pill's insets, app.css ::before, for a lit label's leader to stop on its outline.)
-        const cs = getComputedStyle(L.el), p = getComputedStyle(L.el, '::before');
+        // (The padding round the letters, read with the sizes: a leader stops on the letters' box, not at the label's middle.)
+        const cs = getComputedStyle(L.el);
         L.pad = ['Left', 'Right', 'Top', 'Bottom'].map((d) => px(cs[`padding${d}`]));
-        L.pillQ = [px(p.left), px(p.top), px(p.right), px(p.bottom), px(p.borderTopLeftRadius)];
         L.rows = inkRows(L.el, L.rows);   // (each line's own box: a leader stops on the line it runs to, not on the corner a longer line makes)
       }
       shown.forEach((L, i) => {
@@ -2360,25 +2358,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (const c of R.cards) cards.push([c.l, c.t, c.r, c.b].map(rnd1));
     labels.setAttribute('data-room', JSON.stringify({ fr: R.fr.map(rnd1), pad: rnd1(R.pad), hx: rnd1(R.hx), hy: rnd1(R.hy), lead: LONG_LEAD, keep, cards }));
   }
-  // The lit terms (a presenter slide's words), split once each time they change.
-  let litRaw2 = null;
-  const litSet2 = new Set();
-  const litIn = (target) => {
-    const raw = document.getElementById('app')?.dataset.lit || '';
-    if (raw !== litRaw2) { litRaw2 = raw; litSet2.clear(); for (const p of raw.split(' ')) litSet2.add(p); }   // alloc-rare: only when the slide's lit terms change
-    return litSet2.has(target);
-  };
-  // A label's letters: its box less the padding, written into `o`.
-  // A label the slide's words light sits in its pill (its ::before, past the box at every side, with rounded corners):
-  // the leader stops on the pill's outline.
+  // A label's letters: its box less the padding, written into `o`. A leader stops on the letters, lit or not: a lit name is outlined
+  // text in its term's colour with no pill (13 Nov 2026, unification audit 12).
   const lettersInto = (o, L, l, t, w, hh) => {
     o.L = L;
-    if (!cap.on && litIn(L.el.dataset.target)) {   // (the GPU draws no pill: the leader stops on the letters)
-      // (Its pill's insets as measured with its size, measureRun; before that, app.css's own sums for them.)
-      const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, q = L.pillQ;
-      o.x0 = l + (q ? q[0] : -4 * lk); o.y0 = t + (q ? q[1] : -5 * lk); o.x1 = l + w - (q ? q[2] : -4 * lk); o.y1 = t + hh - (q ? q[3] : -5 * lk); o.r = q ? q[4] : 12;
-      return o;
-    }
     const p = L.pad;
     o.x0 = l + (p ? p[0] : 0); o.y0 = t + (p ? p[2] : 0); o.x1 = l + w - (p ? p[1] : 0); o.y1 = t + hh - (p ? p[3] : 0); o.r = 0;
     return o;

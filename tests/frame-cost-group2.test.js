@@ -28,16 +28,16 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
   assert.match(src, /set\(points, r = ring\) \{ pts = points \|\| \[\]; ptsVer\+\+;/);
 });
 
-test("item 39: a lit lobule label's pill is read once per layout, not on every frame of its leaders' glide", () => {
+test("item 39: a lobule label's leader stops on its letters, read once per layout, never in a frame", () => {
   const src = read('../src/ui/lobule-zoom.js');
   const lo = src.slice(src.indexOf('const lettersInto = '), src.indexOf('const dropCost = '));
-  // (Since 1 Nov, evening: never read in a frame at all. The pill's insets are measured with the label's size, in a timer task of
-  // their own (measureRun), and the leaders use them from there.)
-  assert.match(lo, /q = L\.pillQ;/);
-  assert.doesNotMatch(lo, /getComputedStyle/);
+  // (13 Nov 2026, unification audit 12: no pill, lit or not, so nothing of a ::before is read; the padding is measured with the label's
+  // size, in a timer task of its own (measureRun), and the leaders use it from there.)
+  assert.match(lo, /const p = L\.pad;/);
+  assert.doesNotMatch(lo, /getComputedStyle|pillQ/);
   const run = src.slice(src.indexOf('function measureRun()'), src.indexOf('const labWH = '));
-  assert.match(run, /getComputedStyle\(L\.el, '::before'\)/);
-  assert.match(run, /L\.pillQ = \[px\(p\.left\), px\(p\.top\), px\(p\.right\), px\(p\.bottom\), px\(p\.borderTopLeftRadius\)\];/);
+  assert.doesNotMatch(run, /'::before'|pillQ/);
+  assert.match(run, /L\.pad = \['Left', 'Right', 'Top', 'Bottom'\]/);
 });
 
 test('item 33: the sinusoid view keeps its size, colours and dark-mode query instead of reading them every frame', () => {

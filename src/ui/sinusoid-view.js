@@ -915,10 +915,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
     const W = geo.W, lk = labelK();
-    // (Clear of each other's halo, which grows with the text, and of each other's pill: app.css .sv-region::before reaches
-    // --pill-x and --pill-y past the name at every side, so two names keep both pills and 3 px between them, lit or not.)
-    const k0 = lk / 0.9, hw = clamp(k0, 0.8, 1.5), pillX = 6 * k0 + 2 * hw, pillY = 3 * k0 + 2 * hw;
-    dgx = Math.max(6 + 2 * lk, 2 * pillX + 3); dgy = Math.max(2 + 2 * lk, 2 * pillY + 3);
+    // (Clear of each other's halo, which grows with the text, with room to read: the spacing the names kept while a lit one had a pill,
+    // kept as it was when the pills went (13 Nov 2026, unification audit 12) so no name moves.)
+    const k0 = lk / 0.9, hw = clamp(k0, 0.8, 1.5), roomX = 6 * k0 + 2 * hw, roomY = 3 * k0 + 2 * hw;
+    dgx = Math.max(6 + 2 * lk, 2 * roomX + 3); dgy = Math.max(2 + 2 * lk, 2 * roomY + 3);
     // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
     dW = W; dT = VW.ins[1]; dB = VW.ins[2];
     plN = 0;

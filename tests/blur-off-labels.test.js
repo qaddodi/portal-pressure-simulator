@@ -7,12 +7,9 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const noglass = css.split('\n').filter((l) => l.startsWith(':root[data-noglass]'));
 
-test('with the blur off, a lit lobule or sinusoid name keeps its pill: the tint on the solid surface, the same ring and box', () => {
-  const rule = noglass.find((l) => /\.lz-lab, \.lz-zone, \.sv-region\)::before/.test(l));
-  assert.ok(rule, 'a rule for the lobule and sinusoid names\' pill');
-  assert.match(rule, /background: color-mix\(in srgb, var\(--term-c, var\(--accent\)\) 18%, var\(--surface\)\) !important;/);
-  // (Only the fill: the ring, the box and the pill's opacity ease are the pill's own, as with the blur.)
-  assert.doesNotMatch(rule, /inset:|border-radius|box-shadow|opacity|transition/);
+test('with the blur off, a lit lobule or sinusoid name is the same outlined text as with it: no pill in either setting', () => {
+  // (13 Nov 2026, unification audit 12: the pill went in both settings; the lit ink is one rule, figure-names-no-pill.test.js.)
+  assert.ok(!noglass.some((l) => /\.lz-lab, \.lz-zone, \.sv-region\)::before/.test(l)), 'no blur-off pill rule');
 });
 
 test('with the blur off, nothing glows in its own colour: no radial cloud, no drop shadow on a label, no glowing words', () => {

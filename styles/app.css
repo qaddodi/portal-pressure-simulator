@@ -1747,9 +1747,8 @@ button.finding { cursor: pointer; }
    names' layer, so the layer's own fades (the view opening, a slide's hush) are the compositor's on the GPU picture. The model stays for
    screen readers and for what reads its boxes, clear and still: its looks are read from it between frames, so nothing on it eases. */
 .cap-gl-on :is(.sv-region, .sv-legend) { opacity: 0 !important; animation: none !important; transition: none !important; }
-.cap-gl-on .sv-region::before { visibility: hidden; animation: none !important; transition: none !important; }
 .lz-labels.cap-gl-on > :is(.lz-lab, .lz-zone, .lz-call) { opacity: 0 !important; animation: none !important; transition: none !important; }   /* (drawn by the GPU, caption-gl.js: the page's are a clear model) */
-.lz-labels.cap-gl-on > :is(.lz-lab, .lz-zone)::before, .lz-labels.cap-gl-on .lz-lab .n::before { visibility: hidden; animation: none !important; transition: none !important; }
+.lz-labels.cap-gl-on .lz-lab .n::before { visibility: hidden; animation: none !important; transition: none !important; }
 .sv-legend { position: absolute; left: 0; top: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(100% - 24px); pointer-events: none; font: 500 calc(var(--t-lab) * var(--label-scale, 1)) / 1.3 var(--font-ui); color: var(--text-2); transition: opacity var(--d-small) var(--ease); }
 .sv-legend { transition-duration: var(--d-surface); padding: 3px 9px; border-radius: 999px; background: var(--frost); box-shadow: 0 1px 6px rgb(var(--black-rgb) / .12); }
 .sv-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
@@ -1758,7 +1757,7 @@ button.finding { cursor: pointer; }
 .sv:not(.on) .sv-legend { opacity: 0; }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
 .lz .lz-leaders { opacity: var(--lz-chrome, 1); } .lz .lz-labels { opacity: var(--lz-chrome, 1); }
-/* The labels fade as layers, by opacity alone (the compositor's, no repaint; 1 Nov 2026): the whole set by .lz-labels' opacity (the camera, the dive, the sinusoid, a slide's hush), each label or zone name by its own (lit or not, coming or going, a caption's entrance), and a lit pill by its ::before's. Their glass is drawn on the GPU (lz-pills.js multiplies the three), so a faded ancestor hides no browser blur. */
+/* The labels fade as layers, by opacity alone (the compositor's, no repaint; 1 Nov 2026): the whole set by .lz-labels' opacity (the camera, the dive, the sinusoid, a slide's hush), each label or zone name by its own (lit or not, coming or going, a caption's entrance). */
 /* A Present card's glass tint, read by glass-gl.js (its card mode) as a colour: each glass rule declares its background through it. */
 /* The Present cards' frost tint (Mohammad, 2 Nov 2026: "the blur sucks now it's just transparent"): 66 % of the surface over a 22 px blur (74 % and 30 px read muddy)
    (glass-gl.js CARD), so a card reads frosted, never see-through. */
@@ -5496,25 +5495,9 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 [data-target="sinusoid:hepatocyte"] { --term-c: var(--accent); }
 [data-target="sinusoid:lymph"] { --term-c: var(--tr-ivc); }
 [data-target="sinusoid:lumen"] { --term-c: var(--tr-wedge); }
-/* Lit, the label is marked like the slide's own term pill: a tinted fill and a ring in the term's colour, no glow.
-   The pill is drawn behind the label, a set gap outside the text and its halo, so it never touches the letters and the layout never shifts.
-   The frost is see-through (about 47% opaque: 18% term colour over a 35% glass tint, 16px blur) so the figure shows through.
-   It fades in over .7s, also when the label is first drawn during a dive. */
-.lz-lab, .lz-zone, .sv-region { isolation: isolate; --pill-y: calc(3px * var(--label-k, 1) + var(--hw, 1px) * 2); --pill-x: calc(6px * var(--label-k, 1) + var(--hw, 1px) * 2); }
-.lz-lab { --pill-y: calc(5px * var(--label-k, 1)); --pill-x: calc(4px * var(--label-k, 1)); }   /* on top of its own padding */
-:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; --gl-pill: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); background: var(--gl-pill); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: 0; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
-.lz-zone::before { inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)) calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x) + .12em); }   /* the trailing letter-spacing would make it lopsided */
-.sv-region::before { right: calc(-1 * var(--pill-x) + .12em); }
-:is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { opacity: 1; background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, color-mix(in srgb, var(--surface) 35%, transparent)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); animation: pill-in var(--d-surface) var(--ease); }
-@keyframes pill-in { from { opacity: 0; } }
-/* (A pill's frost drawn on the GPU instead, on #pillGl under the labels (lobule-zoom.js pillsOn, recs B4): its tint and blur there, its ring
-   still the page's. Specific enough to win over the lit rule above.) */
-.lz .lz-labels :is(.lz-lab, .lz-zone)[data-gl][data-gl][data-gl]::before { background: none; }
-.lz > canvas#pillGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-/* The labels leave and return as one: while the view changes (on into the sinusoid) the labels fade as a whole, so a pill that is added or removed by the slide waits until they are gone, then snaps (unseen), instead of fading ahead of its text. */
-.lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .18s; }
-.sv:not(.on) .sv-region::before { transition: opacity .01s linear .6s; }
-/* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about dim to 35 % with their leaders and keep their places (Mohammad's pick 14.3 B, 3 Nov), so the lit ones read first. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the pill, the rest stay plain, as in Explore. */
+/* A lit name is outlined text in the term's colour, no pill or box behind (13 Nov 2026, unification audit 12: one style on the figure, as
+   label-gl draws every label; the lit ink is the rule near the end of this file). */
+/* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about dim to 35 % with their leaders and keep their places (Mohammad's pick 14.3 B, 3 Nov), so the lit ones read first. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the term's ink, the rest stay plain, as in Explore. */
 .app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"]) :is(.lz-lab, .lz-zone):not(:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])) { opacity: .35; }
 /* A presenter slide change in the liver (presenter.js hush): every label, pill, ring, leader and callout eases out together and
    stays out while the camera moves and the lit set changes underneath; then only the new slide's ease in together. Ahead of
@@ -6699,11 +6682,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data.pz-sheet.pz-sheet { background: none; } }
 :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::before, :root[data-noglass] .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface); }
 :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, :root[data-noglass] .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface); }
-/* (Settings › Blur effect off.) The frost goes; the pill stays. A lit lobule or sinusoid name keeps the tinted fill and the ring it has with the blur
-   (the slide's own term pill), the tint laid on the solid surface as the cards are, so it reads over the tissue and nothing glows. Same box as with
-   the blur, so the labels' spacing and the way it eases in and out (its ::before's opacity) are unchanged. The resistance and problem pills and the figure's
-   focus and term labels are solid fills or plain coloured words in both settings, so they need nothing here. */
-:root[data-noglass] :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 /* No browser blur anywhere (Mohammad, 1 Nov 2026: "Move everything to GPU"; no backdrop-filter is declared in this file at all). A glass the figure's GPU draws ([data-gl]) keeps its frost; any other glass, and a GPU glass whenever the figure's canvas cannot take it
    (the lobule, a dive, a fade, a label across it), shows the solid look of Settings › Blur effect off instead of the browser's backdrop blur, so
    nothing over the moving figure is re-blurred by the browser on any frame. The teaching card's shade keeps a layer of its own the whole time,
@@ -6712,7 +6690,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 :root:root :is(.pz-shade, .pz-shade.pz-card, .pz-shade.stack, .pz-data.pz-data, .pz-case, .pz-bar, .pz.stack .pz-bar, .pz-scales, .cl-glass):not([data-gl]) { background: var(--surface); }
 :root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.stack.stack .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
 :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::before, :root:root .pz.pz-wide.pz-wide .pz-data.pz-sheet:not([data-gl])::after { background: var(--surface); }
-:root:root :is(.lz-lab, .lz-zone, .sv-region):not([data-gl])::before { background: color-mix(in srgb, var(--term-c, var(--accent)) 18%, var(--surface)) !important; }
 :root:root .pz-shade { will-change: transform; }
 /* The teaching card's own edge and drop shadows, drawn with its glass on the GPU (glass-gl.js --gl-line, --gl-drop): the same
    as its border and box-shadow above, which are taken off while the GPU draws them ([data-gl="edge"]), so the glass, its edge and its

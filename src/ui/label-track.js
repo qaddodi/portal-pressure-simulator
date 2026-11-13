@@ -11,26 +11,10 @@
 // custom property, a paused or repeating animation, an easing written as steps) leaves the label to be read each frame, as before.
 // No DOM is touched here beyond the animation objects handed in, so tests can run it.
 
-import { cubicBezier } from './ease.js';
+import { cssCurveOf } from './ease.js';
 
-const KW = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
-const memo = new Map();
-/** A CSS easing as a function of 0..1, or null when it is not one this follows exactly (steps, linear() with stops). */
-export function easingOf(s) {
-  if (typeof s === 'string' && memo.has(s)) return memo.get(s);   // (a string seen before: nothing built)
-  s = String(s ?? 'linear').trim() || 'linear';   // alloc-rare: only an easing string not seen before; read as a label's animations start, never per frame
-  if (memo.has(s)) return memo.get(s);
-  let f = null;
-  if (s === 'linear') f = (u) => u;   // alloc-rare: first sight of this easing string (memoised after)
-  else if (KW[s]) f = cubicBezier(...KW[s]);   // alloc-rare: first sight of this easing string (memoised after)
-  else {
-    const m = /^cubic-bezier\(([^)]+)\)$/.exec(s);
-    if (m) { const v = m[1].split(',').map(Number); if (v.length === 4 && v.every(Number.isFinite)) f = cubicBezier(...v); }   // alloc-rare: first sight of this easing string (memoised after)
-  }
-  if (memo.size >= 400) memo.clear();   // (bounded: an easing string is read from page styles, so a long session cannot grow it without end)
-  memo.set(s, f);
-  return f;
-}
+/** A CSS easing as a function of 0..1, or null when it is not one this follows exactly (steps, linear() with stops): ease.js's one reader. */
+export const easingOf = cssCurveOf;
 
 /** An animation's timing on the page's clock: { t0, delay, dur, ease, fill, es }, or null when it is not followed. */
 export function timingOf(a, now) {

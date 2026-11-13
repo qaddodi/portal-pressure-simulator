@@ -48,22 +48,25 @@ export function cubicBezier(x1, y1, x2, y2) {
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
 export const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN as a function)
-// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values, else linear. 2 Nov 2026: an
-// ease the page runs, worked out in script where the drawing follows it on the GPU.)
+// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values. 2 Nov 2026: an ease the page
+// runs, worked out in script where the drawing follows it on the GPU. 13 Nov 2026, unification audit 9: the one CSS-curve reader;
+// cssCurveOf gives null for a curve it does not follow exactly (steps, linear() with stops), cssCurve linear for it.)
 const NAMED = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+const LINEAR = (t) => t;
 const curves = new Map();
-export function cssCurve(easing) {
+export function cssCurveOf(easing) {
   let f = curves.get(easing);
-  if (!f) {
+  if (f === undefined) {
     // alloc-rare: only the first time an easing text is met (the curve is then kept by its text)
-    const m = /^cubic-bezier\(([^)]*)\)$/.exec(String(easing).trim()), v = m ? m[1].split(',').map(Number) : NAMED[easing];
+    const s = String(easing ?? 'linear').trim() || 'linear', m = /^cubic-bezier\(([^)]*)\)$/.exec(s), v = m ? m[1].split(',').map(Number) : NAMED[s];
     // alloc-rare: only the first time an easing text is met
-    f = v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : (t) => t;
-    if (curves.size > 32) curves.clear();
+    f = s === 'linear' ? LINEAR : v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : null;
+    if (curves.size >= 400) curves.clear();   // (bounded: easing texts are read from page styles, so a long session cannot grow it without end)
     curves.set(easing, f);
   }
   return f;
 }
+export const cssCurve = (easing) => cssCurveOf(easing) || LINEAR;
 
 export const CAM_MS_MIN = 480, CAM_MS_MAX = 900, LOBULE_MS_MAX = 1500;
 /**

@@ -23,10 +23,10 @@ test('lobule labels, zone names and leaders never cut out', () => {
     const p = resolveProps(LOOKS[k], withCtx(makeCtx({ host: 'lobule' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic' }), { gone: true }, {});
     assert.equal(p.opacity, 0, k); assert.ok(p.ease.opacity.ms > 0, `${k} fades, it does not cut`);
   }
-  // The fades are layers' opacities (the compositor's, no repaint), so pill and letters fade together as their label does: no
-  // registered variable is eased for them any more.
+  // The fades are layers' opacities (the compositor's, no repaint), so letters fade as their label does: no registered variable is
+  // eased for them any more, and no pill behind them fades on a clock of its own (13 Nov 2026, unification audit 12: no pills).
   assert.doesNotMatch(css, /--(lab|lit|off|pill)-o|--sv-in/, 'no label fade runs through a variable');
-  assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: 0; transition: opacity var\(--d-surface\) var\(--ease\);/, 'lit pill fade');
+  assert.doesNotMatch(css, /@keyframes pill-in|animation: pill-in/, 'no lit pill fades in');
 });
 
 test('a label\'s colour change does not rebuild it', () => {

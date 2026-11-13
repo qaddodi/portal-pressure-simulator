@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **The lobule's and the sinusoid's names lose their last pills: every name on the figure is one style, outlined text.** (Unification audit 12 and 9, which Mohammad approved in full on 13 Nov; his rule: one label style, outlined text, no boxes.)
+  A lit lobule or sinusoid name is its words in the term's colour with the theme's outline, as in Anatomy and Circuit, in every setting: the tinted, ringed pill that still showed until the GPU's names were up (a view's first frames, a lost GPU context) is gone, with its rules in app.css, its fade (`pill-in`) and its reader `lz-pills.js`. A lit name's leader now stops on its letters like any other's. The sinusoid's names keep the spacing they have now, so nothing moves. One reader of a computed colour as rgba() (`css-color.js rgbaOf`) serves the names and the sheet's glass. Audit 9: `label-track.js` reads a CSS easing with ease.js's one reader (`cssCurveOf`, null for a curve it does not follow; `cssCurve` linear for it). Test: tests/figure-names-no-pill.test.js.
+
 - **The HVPG tracing cards and Explore's EUS-PPG take their readings like every other measurement.** (Mohammad, 13 Nov: "it should just do the readings as i click next", "apply this for all".)
   The HVPG tracing card on the Treatment and Varices slides (`tool: { kind: 'hvpg' }`) no longer plays the whole measurement by itself. Stepped onto, it shows the free pressure and waits; each Next takes the next reading (the balloon up and the wedge, then the HVPG), and Back takes them back (the HVPG off, then the balloon down with the figure's catheter), then leaves the slide. The EUS-PPG panel on Explore's Scope card now draws the same monitor as every measurement, live through the needle's run, above its numbers and steps. Tests: `tests/instruments-draw.test.js`, `tests/instruments-a4.test.js`, `tests/reading.test.js`. Checked by numbers only, not on a device.
 
