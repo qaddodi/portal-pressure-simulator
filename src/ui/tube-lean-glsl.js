@@ -226,7 +226,8 @@ void main() {
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
   float gS = 0.0, gY = 0.0, gW = 0.0;
-  if (lum) {
+  // (A web carries no stream: its vertices hold one place along its owner, vI, so every pixel of it would show the owner's blood and heads at that one place, whatever its own: a head of the trunk passing a branch mouth drew its black core and light rim as slices across the corner fillet, 14 Nov 2026.)
+  if (lum && isWeb == 0) {
     vec2 a = PT(id, clamp(int(vI), 0, ${N_SAMPLES - 2})), ba = PT(id, clamp(int(vI), 0, ${N_SAMPLES - 2}) + 1) - a;
     float across = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(max(dot(ba, ba), 1e-8));
     gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA * smoothstep(0.5, 0.9, je.fl);   // (a branch fading into its trunk hands its blood and heads over to the trunk's before it is half gone: no stray head on the ghost of its end)
@@ -317,7 +318,7 @@ export function tubeLeanJS(o) {
   }
   if (!lum && c[3] < 0.002) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   let flow = null;
-  if (lum && lumA * smooth(0.5, 0.9, fl) > 0.01) flow = { id: o.row ?? 0, s: o.u * clip[2], w: lumA * smooth(0.5, 0.9, fl) };
+  if (lum && !o.isWeb && lumA * smooth(0.5, 0.9, fl) > 0.01) flow = { id: o.row ?? 0, s: o.u * clip[2], w: lumA * smooth(0.5, 0.9, fl) };
   return { kind: 'draw', colour: c, flow, dep };
 }
 

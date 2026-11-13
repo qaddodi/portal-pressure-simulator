@@ -127,6 +127,13 @@ test('a web is drawn in the tier it is given, whichever tier its owner\'s row is
   assert.equal(tubeLeanJS({ ...base, isWeb: true }).kind, 'draw', 'a web in its owner\'s own tier too');
 });
 
+test('a web pixel carries no stream: only a strip pixel shows the owner\'s chevrons and heads', () => {
+  assert.deepEqual(tubeLeanJS(base).flow, { id: 7, s: 50, w: 1 }, 'a strip pixel has its stream');
+  const web = tubeLeanJS({ ...base, isWeb: true });
+  assert.equal(web.kind, 'draw');
+  assert.equal(web.flow, null, 'a fillet web has one stream for all its pixels, so a head would slice across it at a mouth');
+});
+
 test('a dotted gap is empty and a dot is drawn without a stream', () => {
   const dotted = { ...base, R: 1, D: -1, clip: [0, 1, 12], attrs: { ...attrs, flags: gl.F_DIFFUSE | gl.F_DOTTED } };
   // 12 units long: u 0.3125 is 3.75 along, the middle of a gap (2.25 from the nearest dot); u 0.04 is half a unit along, in a dot.
