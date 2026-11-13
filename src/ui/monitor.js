@@ -155,7 +155,9 @@ function monOn({ ctx, w, h: hh }, S, st) {
     return;
   }
   const ymax = S.ymax(v);
-  axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R; axT0 = S.win[0]; axT1 = S.win[1];
+  // (Room kept at the right of the sweep's end for the last level's dashes: a trace that runs to the window's end would leave none, and its level line would vanish.)
+  const reserve = Math.min(STUB_PX + 6, 0.25 * (R - L)), tEnd = S.win[1];
+  axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R; axT0 = S.win[0]; axT1 = tEnd + (tEnd - S.win[0]) * reserve / Math.max(1, R - L - reserve);
   ctx.lineWidth = 1; ctx.font = FONT(500, FS); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let p = 0; p <= ymax; p += 5) {
     ctx.fillStyle = p ? C.grid : C.line; ctx.fillRect(L, Math.round(Y(p)), R - L, 1);   // (boxes, not stroked lines: see inkSeg)
@@ -177,9 +179,9 @@ function monOn({ ctx, w, h: hh }, S, st) {
     if (!narrow) { ctx.font = FONT(600, FS); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = C.caution; ctx.fillText(S.targetWord, R, ty - 4); }
   }
   // The trace, swept up to now, each stretch in the colour of what the tip reads there.
-  const tNow = Math.min(t, axT1);
+  const tNow = Math.min(t, tEnd);
   for (let i = 0; i < S.segs.length; i++) { const sg = S.segs[i]; seg(ctx, S, v, wave, sg[0], sg[1], C[sg[2]], tNow); }
-  if (t < axT1 && t > axT0) { const p = S.at(tNow, v, wave); if (Number.isFinite(p)) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(p), 2.6, 0, Math.PI * 2); ctx.fill(); } }
+  if (t < tEnd && t > axT0) { const p = S.at(tNow, v, wave); if (Number.isFinite(p)) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(p), 2.6, 0, Math.PI * 2); ctx.fill(); } }
   // (Each level's name and number at the right, centred on its line; two pairs kept 28 px apart so they never touch.)
   const L0 = S.levels[0], L1 = S.levels[1];
   const on0 = !!L0 && t >= L0[0], on1 = !!L1 && t >= L1[0];
