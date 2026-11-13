@@ -1246,6 +1246,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
   .seg button { min-height: 36px; }
 }
 
+/* ?embed (O1): the app in someone else's page: no top bar, and a talk has no way out of its last slide */
+html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentation"] { display: none; }
 /* Projector mode (§4.4): figure only, big type */
 .app.projector .topbar, .app.projector .panel, .app.projector .dock, .app.projector .vdock, .app.projector .treat-card, .app.projector .toolbar { display: none; }
 .projector-exit { position: absolute; top: 14px; right: 14px; z-index: var(--z-hud); gap: 8px; background: var(--surface); box-shadow: var(--shadow-2); }
