@@ -237,6 +237,11 @@ export function createBlood(st, live) {
   // the heads forward from the join (HEAD_B_OUT); one that rises pulls them back toward it and goes no faster than HEAD_B.
   const HEAD_CATCH = 0.45, HEAD_FAST = 0.45, HEAD_B = 0.3, HEAD_B_OUT = 0.8, HEAD_J = 0.65;   // (J back at most 0.65, B at most 0.3 of the stream's step: forward)
   const hDp = new Float64Array(GL_ROWS), hT = new Float64Array(GL_ROWS), hTm = new Int32Array(GL_ROWS).fill(-1);
+  // (A row's last move beyond the stream's own (the parent's, followed, and the gap's catch-up), as a part of the stream's step, and the gain it is applied at. The gap is not caught up while
+  // the view changes; the move it had then dies away over CATCH_OUT and comes back over CATCH_IN once the view stands, so that its speed goes up
+  // and down smoothly and a head does not change speed in a frame when a morph starts or ends: 13 Nov 2026, jumps at joins after Anatomy <-> Circuit.)
+  const CATCH_IN = 0.6, CATCH_OUT = 0.25;
+  const hCr = new Float64Array(GL_ROWS), hCg = new Float64Array(GL_ROWS);
   const wrapD = (d) => d - PERIOD * Math.round(d / PERIOD);
   // (The lattice's repeat, in stream units: one spacing, at the coarser of the row's level and its parent's, which the heads keep at the join.
   // At a whole level every head on it is drawn (blood-heads.js headKeep); only while every other head comes or goes (LEVEL_SWAP) does the
@@ -277,12 +282,18 @@ export function createBlood(st, live) {
           const rS = Math.max(0, Math.min(HEAD_CATCH, HEAD_J - f * sd / ad)), e0 = (Jt - J - f) * sd, eSlow = sd * (e0 - M * Math.floor(e0 / M)), eFast = eSlow - sd * M;
           const slow = Math.abs(eSlow) * HEAD_FAST <= Math.abs(eFast) * rS, e = slow ? eSlow : eFast;
           const c = (slow ? HEAD_CATCH : HEAD_FAST) * ad * Math.min(1, Math.abs(e) / (0.1 * M));
-          let dJ = f + (Math.abs(e) <= c || Math.abs(e) < 1e-3 ? e : Math.sign(e) * c);
+          const g = hCg[row] = Math.min(1, hCg[row] + dtL / CATCH_IN), cu = (Math.abs(e) <= c || Math.abs(e) < 1e-3 ? e : Math.sign(e) * c) * g;
+          let dJ = f + cu;
           // (Slowed: the whole move held under HEAD_J of the step, so a head still moves forward. Sped up: HEAD_FAST past the parent's own
           // move, so a branch closes its gap while its parent still closes one; never more than twice the stream's speed.)
           const hi = HEAD_J * ad, lo = -Math.min(1, Math.max(0, -f * sd / ad) + HEAD_FAST) * ad;
           if (dJ * sd > hi) dJ = sd * hi; else if (dJ * sd < lo) dJ = sd * lo;
+          hCr[row] = dJ * sd / ad;
           hA[row] += dJ;
+        }
+        else {   // (a morph: the move of the gap's catch-up dies away, never stops in a frame)
+          hCg[row] = 0;
+          if (hCr[row] !== 0) { hCr[row] = Math.abs(hCr[row]) < 1e-3 ? 0 : hCr[row] * Math.max(0, 1 - dtL / CATCH_OUT); hA[row] += hCr[row] * dD; }
         }
       }
     }
