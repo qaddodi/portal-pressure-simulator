@@ -29,7 +29,10 @@ export function createView(st, live) {
   }
   // Where a world point laid out for `view` (0 anatomy, 1 circuit) is at this frame of the change: found once, on the nearest drawn vessel of that view
   // (its segment and share along it, and what is left over), then carried by that vessel's own two courses, A and C, as the change blends them.
-  // A point on no vessel (an organ's name) keeps its place in the world.
+  // A point on no vessel (an organ's name) keeps its place in the world; on an upright circuit, mid-change, its place on the circuit's side turned
+  // as that side is laid out. A Circuit zone title is on no vessel by rule: it stands on its band of the map, which never morphs (it fades in,
+  // turned with rotU alone, stage.js mapTurn). Tied to the nearest vessel, or left unturned, the iPhone's titles stood off their bands for the
+  // whole switch to the Circuit and jumped to the left edge as it landed (13 Nov 2026).
   const MA_NONE = { i: -1, f: 0, dx: 0, dy: 0, id: null };
   function resolveMorphAnchor(wx, wy, view) {
     const vis = xfVis[view];
@@ -48,8 +51,9 @@ export function createView(st, live) {
   }
   function morphAnchorAt(wx, wy, view, out, s) {
     let r = s ? s.mA : null;
-    if (!r) { r = resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
+    if (!r) { r = view === 1 && s?.pid?.startsWith('z:') ? MA_NONE : resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
     let x = wx, y = wy;
+    if (!r.id && view === 1) { const T = circTurn(live.morph); if (T.on) { const dx = wx - CIRC_C[0], dy = wy - CIRC_C[1]; x = CIRC_C[0] + T.c * dx - T.s * dy; y = CIRC_C[1] + T.s * dx + T.c * dy; } }
     if (r.id) {
       const g = geo[r.id], t = live.easeInOut(live.morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1];
       // (Each of the two points on its own share of the change, as vesselAt moves them: the flow peel, flow-peel.js.)

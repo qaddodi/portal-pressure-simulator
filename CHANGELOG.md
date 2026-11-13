@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **On an upright phone the Circuit's zone titles ride their bands through the switch.** (Found while fixing the switch flicker, 13 Nov: Splanchnic beds, Portal veins and the rest stood off their bands for the whole change to the Circuit and jumped to the map's left edge as it landed, up to 370 px in one frame.) Mid-change the world carries no turn and the Circuit's side, with its map, is laid out turned; a zone title, which sits on no vessel, was left unturned. A zone title now rides the map (it is never tied to a vessel, which morphs while the map only fades in), and any circuit point on no vessel is turned as the Circuit's side is. Test: `tests/zone-titles-switch.test.js`.
+
 - **The Gut to heart chart can draw the EUS-PPG.** (Mohammad, 12 Nov: "we should probably be able to add EUS-PPG to the chart too ... keep it an option for other slides; usually PPG and HVPG is default".)
   A slide's profile chart takes a new `spans` option, such as `spans: ['hvpg', 'eus', 'ppg']`, and draws a bracket and a header pill for each reading it names, the EUS-PPG between the HVPG and the PPG, tinted on the HVPG's cut-offs. The HVPG and PPG pair stays the default on every other slide. The "HVPG, PPG and EUS-PPG compared" talk turns it on for all its chart slides. It is drawn by the GPU chart as the other two are: the pieces are built once per size and a frame only writes numbers. Documented in both deck author guides.
 
