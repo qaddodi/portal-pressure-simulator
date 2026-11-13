@@ -54,32 +54,6 @@ void main() {
 }
 `;
 
-/**
- * The outline's opening at a branch's mouth (GLSL, needs PT, the `rad` texture, vMouthA and vMouthB, N_SAMPLES 64). A mouth code (tube-data.js mouthCode) names a branch row and which end
- * of it lies on this row's side. The branch's lumen runs from its end point E along d (toward its inside: the point 4 samples in) with the radius rb there: a pixel p of this row's
- * outline that lies within rb of that line, from a little behind E out to this row's radius plus 2.5 rb (the near wall, not the far one), has the branch over it, and keeps no wall
- * line. Returns 0 (keep) to 1 (open), soft over a device pixel at the branch's own wall so the two outlines meet.
- */
-export const MOUTH_OPEN_GLSL = `float mouthOpen(vec2 p, float R, float px) {
-  float m[8] = float[8](vMouthA.x, vMouthA.y, vMouthA.z, vMouthA.w, vMouthB.x, vMouthB.y, vMouthB.z, vMouthB.w);
-  float open = 0.0;
-  for (int k = 0; k < 8; k++) {
-    if (m[k] < 1.5) continue;
-    int ci = int(m[k] + 0.5) - 2, row = ci >> 1, s0 = (ci & 1) == 1 ? 63 : 0, s1 = (ci & 1) == 1 ? 59 : 4;
-    vec2 E = PT(row, s0), d = PT(row, s1) - E;
-    float dl = length(d);
-    if (dl < 1e-4) continue;
-    d /= dl;
-    float rb = max(texelFetch(rad, ivec2(s1, row), 0).r, 0.3);
-    vec2 v = p - E;
-    float s = dot(v, d), perp = abs(v.x * d.y - v.y * d.x);
-    float w = 1.0 - smoothstep(rb - px, rb + px, perp);
-    float a = smoothstep(-0.35 * rb - px, -0.35 * rb + px, s) * (1.0 - smoothstep(R + 2.5 * rb, R + 3.5 * rb, s));
-    open = max(open, w * a);
-  }
-  return open;
-}`;
-
 export const tubeLeanFS = (K) => {
   const { F_SEL, F_DOTTED, F_NOCASE, F_SHADOW, EDGE, ENT_W, N_SAMPLES, MAX_TIERS, S_OFF, ALONG_GLSL } = K;
   if (N_SAMPLES !== END_BASE) throw new Error('tube-lean-glsl: vEnd packs the trunk row as row * 64 + sample, so N_SAMPLES must be 64');
@@ -93,8 +67,6 @@ in float vD;                           // signed distance from the lumen's wall,
 in vec2 vG;                            // direction from the centreline to this point (not unit; (0, 0) on the centreline)
 in float vRad;                         // the lumen's radius here, world units
 ${JOIN_IN_GLSL}
-flat in vec4 vMouthA;                  // the branches that end on this row's side (tube-data.js mouthCode): its outline is left open across them
-flat in vec4 vMouthB;
 uniform int mPass;                     // the pass (MP_*)
 uniform int tierNow;                   // the tier it draws
 uniform int isWeb;                     // 0 a strip; 1 a web: drawn in the higher of its two members' tiers, carrying its owner's row (often in the lower tier)
@@ -144,7 +116,6 @@ ${celGLSL(K)}
 
 ${tubeJoinFS(N_SAMPLES)}
 ${joinRampGLSL(K.VEIL_K)}
-${MOUTH_OPEN_GLSL}
 void main() {
   // (Only the shape and its lift: a glow pass stays on the stage 1 program.)
   if (mPass < ${MP.SHAPE_K} || mPass > ${MP.LIFT}) discard;
@@ -208,8 +179,6 @@ void main() {
   int flags = int(aFlag + 0.5);
   bool sel = (flags & ${F_SEL}) != 0;
   float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
-  // (Where a branch joins this row's side its wall line is left open across the branch's width: the line under the branch's faded end showed through it as a seam, tube-data.js mouthCode.)
-  if (D > -2.0 * px && vMouthA.x + vMouthA.y + vMouthA.z + vMouthA.w + vMouthB.x + vMouthB.y + vMouthB.z + vMouthB.w > 1.5) cA *= 1.0 - mouthOpen(p, R, px);
   vec2 g = joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je, clamp((R + D) / max(R, 1e-3), 0.0, 1.0));   // (one tone field over a join: tube-join-glsl.js)
   float aa = px * ${EDGE};
   float aL = clamp(0.5 - D / aa, 0.0, 1.0);
@@ -319,21 +288,6 @@ export function tubeLeanJS(o) {
   let flow = null;
   if (lum && lumA * smooth(0.5, 0.9, fl) > 0.01) flow = { id: o.row ?? 0, s: o.u * clip[2], w: lumA * smooth(0.5, 0.9, fl) };
   return { kind: 'draw', colour: c, flow, dep };
-}
-
-/**
- * mouthOpen in JS, for one pixel. p [x, y] the pixel, R this row's radius there, px the world size of a device pixel; mouths [{ E [x, y], d [x, y] (unit, along the branch toward its inside), rb (its radius) }].
- * Returns 0 (the outline stays) to 1 (open).
- */
-export function mouthOpenJS(p, R, px, mouths) {
-  let open = 0;
-  for (const m of mouths) {
-    const vx = p[0] - m.E[0], vy = p[1] - m.E[1], s = vx * m.d[0] + vy * m.d[1], perp = Math.abs(vx * m.d[1] - vy * m.d[0]), rb = Math.max(m.rb, 0.3);
-    const w = 1 - smooth(rb - px, rb + px, perp);
-    const a = smooth(-0.35 * rb - px, -0.35 * rb + px, s) * (1 - smooth(R + 2.5 * rb, R + 3.5 * rb, s));
-    open = Math.max(open, w * a);
-  }
-  return open;
 }
 
 export { CEL };

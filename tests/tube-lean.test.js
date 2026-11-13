@@ -15,7 +15,7 @@ const gl = await import('../src/ui/veins-gl.js');
 const { EDGE_GLSL } = await import('../src/ui/edge.js');
 const { ENT_W } = await import('../src/ui/veins-bin.js');
 const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-math.js');
-const { tubeLeanFS, TUBE_DEPTH_FS, trunkGapJS, leanDistanceJS, tubeLeanJS, END_SEGS, mouthOpenJS } = await import('../src/ui/tube-lean-glsl.js');
+const { tubeLeanFS, TUBE_DEPTH_FS, trunkGapJS, leanDistanceJS, tubeLeanJS, END_SEGS } = await import('../src/ui/tube-lean-glsl.js');
 const { CEL } = await import('../src/ui/tube-cel-glsl.js');
 
 // What veins-gl.js passes: the same constants it builds the strip with, and the alongAt text it keeps (written out here as a guard: the strip build must contain it).
@@ -190,24 +190,4 @@ test('the lift draws the selected vessel\'s own share only', () => {
   const sel = { ...base, grp: 1, attrs: { ...attrs, sel: 1 }, lift: true };
   near(tubeLeanJS(sel).colour, [...FILL, 1], 'the selected vessel at full share');
   assert.equal(tubeLeanJS({ ...sel, attrs: { ...attrs, sel: 0 } }).kind, 'discard', 'nothing of a vessel that is not selected');
-});
-
-test('mouthOpen: the shader reads the mouth list, and its JS twin opens the wall line across a branch\'s width and nowhere else', () => {
-  const fs = tubeLeanFS(K);
-  assert.match(fs, /flat in vec4 vMouthA;/);
-  assert.match(fs, /flat in vec4 vMouthB;/);
-  assert.match(fs, /float mouthOpen\(vec2 p, float R, float px\)/);
-  assert.match(fs, /cA \*= 1\.0 - mouthOpen\(p, R, px\)/, 'the outline alpha, before the cel shading takes it');
-  // a branch ending at (0, 0) and running up (+y) with radius 2, on a trunk of radius 3 lying along x
-  const m = [{ E: [0, 0], d: [0, 1], rb: 2 }];
-  const o = (x, y) => mouthOpenJS([x, y], 3, 0.05, m);
-  assert.ok(o(0, 3) > 0.99, 'the trunk\'s near wall under the branch\'s middle');
-  assert.ok(o(1.5, 3) > 0.99, 'and within the branch\'s width');
-  assert.equal(o(2.6, 3), 0, 'the wall line beside the branch stays');
-  assert.equal(o(-2.6, 3), 0);
-  assert.ok(o(1.99, 3) > 0 && o(1.99, 3) < 1, 'soft over a pixel at the branch\'s own wall');
-  assert.equal(o(0, -6), 0, 'the far side of the trunk is not opened');
-  assert.equal(mouthOpenJS([0, 3], 3, 0.05, []), 0, 'no mouth, no opening');
-  // symmetric in the branch\'s axis
-  assert.ok(Math.abs(o(1.2, 3) - o(-1.2, 3)) < 1e-9);
 });
