@@ -407,6 +407,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 /* (13 Nov 2026) Over the thumb dock a menu sheet or the Search sheet has no fill of its own (its frost is drawn in the figure's canvas, under the page),
    so the credit, which is page text over the figure, showed through the Search list. It steps out while any of them is up. */
 html.thumb-ui:has(.sheet-layer > :is(.menu, .umenu, .why-pop.show), body > .pal-back:not([hidden])) .stage-credit { visibility: hidden; }
+/* (13 Nov 2026) The message card at the foot is the same: its frost is in the figure's canvas, so on a phone the credit read through the card. It steps out while a message is up. */
+html.thumb-ui:has(#toastsFoot > .toast) .stage-credit { visibility: hidden; }
 
 /* ── Readouts: the live monitor under the figure ─────
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
