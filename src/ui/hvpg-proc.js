@@ -364,6 +364,9 @@ export function createHvpgMonitor() {
     if (!(m === 'free' && bal > 0) && !(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
     // Already wedged (back from the result slide): the pressure is on its plateau, nothing climbs again.
     if (m !== 'free' && bal >= 1) t = Math.max(t, T.wedge);
+    // (Next onto the result while the wedge still holds its plateau: the HVPG comes at once, never after the rest of the plateau has played out. Seen in
+    // headless shots, 13 Nov 2026: a Next pressed on WHVP waited for the clock to reach the result.)
+    if (fwd && m === 'result') t = Math.max(t, span[0]);
     mode = m; t1 = span[1];
     if ((instant || reduceMotionMQ.matches) && !falling()) t = t1;
     // (Once the card is laid out: the canvas sizes itself to it.)

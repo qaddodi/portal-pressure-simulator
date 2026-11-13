@@ -183,6 +183,12 @@ test('the HVPG card shows the finished tracing at once when jumped to, eases to 
   assert.equal(bal, 0, 'the figure\'s balloon down again');
   assert.equal(sweep.step(-1), false, 'then Back leaves the slide');
   assert.deepEqual(cv2.log.bad, []);
+  // A Next pressed while the wedge is still holding its plateau brings the HVPG within a second (its bracket draws in), not after the rest of the plateau (headless shots, 13 Nov 2026).
+  sweep.arrive({ forward: true, again: false }); sweep.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 }); play();
+  sweep.step(1); play(160);
+  const r3 = sweep.step(1); fresh(cv2); play(60);
+  assert.ok(r3, 'the Next is the card\'s');
+  assert.ok(tail(cv2).includes('HVPG'), `the HVPG within a second of its Next: ${tail(cv2)}`);
   // Jumped to (or gone back to), the finished tracing, and Back leaves at once.
   sweep.arrive({ forward: false }); sweep.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 }); play();
   assert.equal(sweep.step(-1), false);
