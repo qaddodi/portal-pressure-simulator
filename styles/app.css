@@ -7638,3 +7638,12 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz.stack .pz-timegraph .pz-flowtime svg { max-height: none; }
 .pz.stack .pz-text:has(.pz-timegraph) { max-height: 50%; }
 .pz.low .pz-timegraph .pz-flowtime { --ft-h: 104px; }
+
+/* A preset's note (Mohammad, 13 Nov 2026, "Let's do D"): the card that names the patient just loaded and says what it is, at the foot of the figure above the dock and the
+   view pill (--toast-foot, main.js), clear of the top bars. A dot, the name, two short lines; no ×: a tap or a swipe closes it. It is its own wrap (#toastsFoot), so
+   an error or a card with buttons still comes down from the top bars. The GPU draws it (toast-gl.js layoutToast, note); these words stay for the page and the reader. */
+.toast-wrap.foot { position: fixed; left: 50%; top: auto; bottom: var(--toast-foot, 150px); transform: translateX(-50%); width: auto; height: auto; padding: 0; overflow: visible; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: calc(var(--z-popover) - 1); pointer-events: none; }
+.toast.note { display: block; padding: 10px 14px 11px 32px; max-width: min(420px, calc(100vw - 24px)); border-radius: var(--r-sheet); --rise-y: 6px; text-align: left; font-size: var(--fs-14); }
+.toast.note .toast-msg { display: block; font-weight: 600; line-height: 1.25; }
+.toast.note .toast-sub { display: block; margin-top: 1px; font-size: 12.5px; line-height: 1.4; color: var(--text-2); }
+.toast.wgl-on .toast-sub { color: transparent; }

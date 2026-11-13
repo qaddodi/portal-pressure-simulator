@@ -643,7 +643,7 @@ export function createCore(post) {
         running, visible, ticking: !!timer, clock, speed, crashed, morph: !!morph, lapse: lapse ? (lapse.bedside ? 'bedside' : 'days') : '', relaxing: now < relaxUntil, easing: !!eng.easing?.(), ackOn, unpainted, edges: eng.E });
       w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
     },
-    presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
+    presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, note, days }) => ({ id, label, group, summary, note, days })) }); },
   };
 
   // Serialize commands while a long job yields. Timer ticks must not advance

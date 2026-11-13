@@ -178,6 +178,7 @@ function dropToast(t) {
 // by the stylesheet. A card kept on screen (a sticky one) is placed again when the screen turns or resizes, and the geometry the
 // docked placement wrote is cleared when a toast is not docked, so it never leaks into the foot placement.
 function placeToasts(wrap) {
+  if (wrap.id === 'toastsFoot') return;   // (a note's wrap rests at the foot by the stylesheet, --toast-foot: nothing to place)
   const bars = document.getElementById('topbar');
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
   const docked = !!(r && r.height);
@@ -187,19 +188,21 @@ function placeToasts(wrap) {
     Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
 }
-addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) { placeToasts(wrap); for (const c of wrap.children) c._refit?.(); } });
+addEventListener('resize', () => { for (const id of ['toasts', 'toastsFoot']) { const wrap = document.getElementById(id); if (wrap?.children.length) { placeToasts(wrap); for (const c of wrap.children) c._refit?.(); } } });
 // A card slides down from behind the top bars and settles just below them (below every row on a phone); docked, it is filled: the
 // largest size that fits, stepping down for longer text, never clipped.
 // (3 Nov 2026: laid out in script from Inter's own advances (toast-gl.js layoutToast), no page measure, and drawn on the GPU (widget-gl.js);
 // the page's own words, set at the size found, stay under it for the screen reader and until the GPU has drawn the card.)
-function toastFit(wrap, t, msg, actions) {
+function toastFit(wrap, t, msg, actions, sub = null) {
   if (!t.isConnected) return;
   placeToasts(wrap);
   const docked = wrap.classList.contains('docked'), bad = t.classList.contains('bad');
-  const L = layoutToast({ msg, bad, acts: actions?.map((a) => a[0]), docked, W: innerWidth });
+  const note = t.classList.contains('note');
+  const L = layoutToast({ msg, sub, note, bad, acts: actions?.map((a) => a[0]), docked, W: innerWidth });
   t._L = L;
   t.classList.toggle('toast-tall', docked && L.h > 52);   // (84 px: app.css, a class, so no height is written)
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
+  if (note) { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
   if (docked) { t.style.width = ''; t.style.height = ''; } else { t.style.width = `${L.w}px`; t.style.height = `${L.h}px`; }
   if (L.btns.length) { const bs = t.querySelectorAll('.toast-acts .btn'); for (let i = 0; i < bs.length; i++) bs[i].style.width = `${L.btns[i].w}px`; }
   if (!t._wgl) {
@@ -214,7 +217,7 @@ function toastFit(wrap, t, msg, actions) {
     }
   }
   t._docked = docked;
-  t._refit = () => restPass(() => toastFit(wrap, t, msg, actions));
+  t._refit = () => restPass(() => toastFit(wrap, t, msg, actions, sub));
   t._wgl?.paint();
   t.style.visibility = '';
 }
@@ -223,18 +226,20 @@ function toastFit(wrap, t, msg, actions) {
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = NO_TOAST) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null } = NO_TOAST) {
   if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
-  const opts = { actions, sticky, onClose };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const opts = { actions, sticky, onClose, sub };   // alloc-rare: one record for each message raised (a message, not a frame)
   const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
   restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
-function toastBuild(msg, kind, { actions, sticky, onClose }) {
-  const wrap = document.getElementById('toasts');
+function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
+  // (A note, a preset's name and what it is, rests at the foot in its own wrap: an error or a card with buttons still comes down from the top.)
+  const note = kind === 'note' && !actions?.length;
+  const wrap = document.getElementById(note ? 'toastsFoot' : 'toasts') || document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
@@ -242,7 +247,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
   const mark = kind === 'bad' ? icon('alert') : null;
   if (mark) mark.setAttribute('class', 'toast-ic');
-  const t = h('div', { class: 'toast ' + kind, role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg));
+  const t = h('div', { class: 'toast ' + (note ? 'note' : kind), role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), note && sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
@@ -255,9 +260,9 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
       return b;
     })));
   }
-  const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
-  x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-  t.append(x);
+  // (A note has no ×: a tap on it, or a swipe, closes it.)
+  const x = note ? null : h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
+  if (x) { x.addEventListener('click', (e) => { e.stopPropagation(); close(); }); t.append(x); }
   // (What the pointer is on, for the GPU's picture: lit under it, pressed while down. An event, not a frame.)
   const st = t._st = { hot: 0, down: 0 };
   const lit = (el, id) => {
@@ -266,7 +271,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
     el.addEventListener('pointerdown', () => { st.down = id; t._wgl?.paint(); });
     for (const ev of ['pointerup', 'pointercancel']) el.addEventListener(ev, () => { st.down = 0; t._wgl?.paint(); });
   };
-  lit(x, 1);
+  if (x) lit(x, 1);
   t.querySelectorAll('.toast-acts .btn').forEach((b, i) => lit(b, 2 + i));
   t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
@@ -280,9 +285,9 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   t.style.visibility = 'hidden';
   wrap.append(t);
   TOASTS.push(t);
-  restPass(() => toastFit(wrap, t, msg, actions));
+  restPass(() => toastFit(wrap, t, msg, actions, sub));
   // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
-  const life = actions?.length ? 9000 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  const life = actions?.length ? 9000 : note && sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();

@@ -293,7 +293,7 @@ async function main() {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
-    loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); if (await loadPreset(id)) toast(store.get().presetList.find((p) => p.id === id)?.label); },
+    loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); if (await loadPreset(id)) { const pr = store.get().presetList.find((p) => p.id === id); toast(pr?.label, pr?.note ? 'note' : '', { sub: pr?.note }); } },
     home: () => mainMenu.open(), theme: () => toggleTheme(), look: (id) => switchTheme(id), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
     library: presenter.library, libraryNow: presenter.libraryNow, present: (id) => presenter.start(id),
   } }));
@@ -1735,6 +1735,9 @@ function wireFloating() {
     // bottom (the cards), --thumb-occ from the screen's (the menu sheets).
     const nbOcc = px(tabOcc);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
+    // (A preset's note rests above the dock and the view pill, 8 px clear: on a thumb dock the pill is 42 px over the dock's top edge, 8 px up, and steps aside when a sheet is open.)
+    const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8);
+    if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }
@@ -1894,9 +1897,9 @@ function sheetGlass() {
 let toastGL = null;
 function toastGlass() {
   if (toastGL) return;
-  const wrap = $('#toasts');
+  const wrap = $('#toasts'), foot = $('#toastsFoot');
   if (!wrap) return;
-  toastGL = stage?.glass?.add(() => TOASTS, { card: true, watch: wrap, before: wrap }) || null;
+  toastGL = stage?.glass?.add(() => TOASTS, { card: true, watch: foot ? [wrap, foot] : wrap, before: wrap }) || null;
 }
 // The figure's own chrome wears the same frosted GPU glass (Mohammad, 4 Nov 2026, "Use the glass for all the menus", "Including UI elements", "Like timeline
 // and stuff"): the top bar's pills (the patient, the view switcher, the Blood/Layers/colour key pill, Treat/Tests/History/Settings/Search), the zoom

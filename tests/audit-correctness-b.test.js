@@ -24,7 +24,7 @@ test('B1/B2: loadPreset says whether it applied; a link, "Restarted" and a patie
   assert.ok(ls.indexOf('if (!(await loadPreset(s.preset))) return false;') > 0 && ls.indexOf('if (!(await loadPreset(s.preset)))') < ls.indexOf('s.params'), 'the link stops before its settings when its patient did not load');
   const rs = main.slice(main.indexOf('async function restartPatient('), main.indexOf('function resetEverything'));
   assert.ok(rs.indexOf('if (!(await loadPreset(id))) return;') < rs.indexOf('toast(`Restarted'), 'no Restarted toast for a load that did not apply');
-  assert.match(main, /if \(await loadPreset\(id\)\) toast\(store\.get\(\)\.presetList/, 'the palette toasts the patient only when it loaded');
+  assert.match(main, /if \(await loadPreset\(id\)\) \{ const pr = store\.get\(\)\.presetList\.find\(\(p\) => p\.id === id\); toast\(pr\?\.label/, 'the palette toasts the patient only when it loaded');
 });
 
 // ── B3: sends during a restart are kept and told in order ──

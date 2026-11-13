@@ -79,3 +79,30 @@ test('the toast wears the cards\' frosted glass: listed to the glass, its tint d
   assert.match(u, /data-gl-wait/);
   assert.match(t, /if \(!glass\) \{/);
 });
+
+test('a preset note: a dot, the name and its lines, as wide as the words need up to 420 px, no ×, fixed once laid out', async () => {
+  const { PRESETS } = await import('../src/engine/scenario.js');
+  for (const p of PRESETS) {
+    assert.ok(p.note && p.note.length > 20 && p.note.length < 130, `${p.id}: a short note`);
+    assert.ok(!/[—]/.test(p.note), `${p.id}: no em dash`);
+    for (const W of [320, 390, 1100]) {
+      const L = layoutToast({ msg: p.label, sub: p.note, note: true, bad: false, acts: undefined, docked: false, W });
+      assert.ok(L.w <= Math.min(420, W - 24) && L.w > 120, `${p.id} at ${W}: ${L.w}`);
+      assert.equal(L.x, null);
+      assert.ok(L.dot && L.dot.r === 4);
+      assert.ok(L.h >= 56 && L.h <= 130, `${p.id} at ${W}: ${L.h}`);
+      for (const ln of L.lines) assert.ok(ln.x + measure(ln.text, ln.font || '600 14px Inter') <= L.w - 14 + 0.5, `${p.id}: ${ln.text}`);
+    }
+  }
+  const again = layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, note: true, docked: false, W: 390 });
+  assert.deepEqual(again.lines.map((l) => l.text), layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, note: true, docked: false, W: 390 }).lines.map((l) => l.text));
+});
+
+test('a preset note rests in its own wrap at the foot, never over the top bars', () => {
+  const html = src('index.html'), css = src('styles/app.css'), util = src('src/ui/util.js'), main = src('src/ui/main.js');
+  assert.match(html, /id="toastsFoot"/);
+  assert.match(css, /\.toast-wrap\.foot \{[^}]*bottom: var\(--toast-foot/);
+  assert.match(util, /kind === 'note' && !actions\?\.length/);
+  assert.match(main, /--toast-foot/);
+  assert.match(main, /watch: foot \? \[wrap, foot\]/);
+});

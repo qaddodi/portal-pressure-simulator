@@ -60,7 +60,7 @@ export function wrapBalanced(text, font, max, lead = 0, out = []) {
  * A toast's layout: { w, h, r, px, lh, weight, lines[{ text, x, y, mark }], mark: {x, y, size}, x: {cx, cy}, btns[{ x, y, w, h, label }] }.
  * msg: its words; bad: an error (the mark); acts: the buttons' labels; docked: below the bars; W: the window's width.
  */
-export function layoutToast({ msg, bad, acts, docked, W }) {
+export function layoutToast({ msg, sub = null, note = false, bad, acts, docked, W }) {
   const nAct = acts?.length || 0;
   const L = { w: 0, h: 0, r: 16, px: 12, lh: 16.8, weight: docked ? 600 : 400, lines: [], mark: null, x: { cx: 0, cy: 0 }, btns: [] };   // alloc-rare: one layout for each message raised
   const btnW = (s) => Math.ceil(measure(s, fontOf(500, 14)) + BTN_PAD * 2 + 2);
@@ -73,6 +73,23 @@ export function layoutToast({ msg, bad, acts, docked, W }) {
   const mk = (px) => (bad ? px * (MARK_EM + MARK_GAP_EM) : 0);
   const base = (px, lh, top) => top + (lh - (ASC + DESC) * px) / 2 + ASC * px;
   const widths = nAct ? acts.map(btnW) : null;
+  if (note) {
+    // A preset's note (app.css .toast.note): a dot, the name (14 px, semibold) and its lines (12.5 px, the second ink), on a card as wide as the words allow up to 420 px.
+    const out = [], outS = [], PL = 14, DOT = 8, GAP = 10, PR = 14, TOP = 10, BOT = 11, LH = 17.5;
+    L.w = Math.min(420, W - 24);
+    const tx = PL + DOT + GAP, max = L.w - tx - PR;
+    const wt = wrapBalanced(msg, fontOf(600, 14), max, 0, out);
+    const ws = sub ? wrapBalanced(sub, fontOf(400, 12.5), max, 0, outS) : 0;
+    L.w = Math.min(L.w, Math.ceil(tx + Math.max(wt, ws) + PR));
+    L.px = 14; L.lh = LH; L.weight = 600; L.note = true; L.x = null;
+    let y = TOP;
+    for (const text of out) { L.lines.push({ text, x: tx, y: base(14, LH, y) }); y += LH; }   // alloc-rare: a note's lines
+    if (outS.length) y += 1;
+    for (const text of outS) { L.lines.push({ text, x: tx, y: base(12.5, LH, y), font: fontOf(400, 12.5), ink: 'text2' }); y += LH; }   // alloc-rare: a note's lines
+    L.h = Math.round(y + BOT);
+    L.dot = { x: PL + DOT / 2, y: TOP + LH / 2, r: DOT / 2 };
+    return L;
+  }
   if (docked) {
     L.w = Math.min(W - 24, 560);
     L.h = msg.length > 60 || nAct ? 84 : 52;
@@ -127,7 +144,7 @@ export function inkOf(cssVar, docked) {
   return {
     fill: cssVar(docked ? '--surface' : '--glass'), text: cssVar('--text'), text2: cssVar('--text-2'), hair: cssVar('--hairline'),
     danger: cssVar('--danger-ink'), border: cssVar('--border'), borderStrong: cssVar('--border-strong'), surface: cssVar('--surface'),
-    surface2: cssVar('--surface-2'), surface3: cssVar('--surface-3'), shadow: rgba('--black-rgb', 0.14), menu: rgba('--shadow-rgb', 0.1), menu2: rgba('--shadow-rgb', 0.06),
+    accent: cssVar('--accent'), surface2: cssVar('--surface-2'), surface3: cssVar('--surface-3'), shadow: rgba('--black-rgb', 0.14), menu: rgba('--shadow-rgb', 0.1), menu2: rgba('--shadow-rgb', 0.06),
     slant: parseFloat(cssVar('--light-slant')) || 1,
   };
 }
@@ -162,7 +179,11 @@ export function paintToast(ctx, L, { pad, docked, bad, state, ink, glass = false
     ctx.beginPath(); ctx.roundRect(x0 + 0.5, y0 + 0.5, L.w - 1, L.h - 1, L.r - 0.5); ctx.stroke();
   }
   ctx.font = fontOf(L.weight, L.px); ctx.fillStyle = ink.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  for (const ln of L.lines) ctx.fillText(ln.text, x0 + ln.x, y0 + ln.y);
+  for (const ln of L.lines) {
+    if (ln.font) { ctx.font = ln.font; ctx.fillStyle = ink[ln.ink]; ctx.fillText(ln.text, x0 + ln.x, y0 + ln.y); ctx.font = fontOf(L.weight, L.px); ctx.fillStyle = ink.text; }
+    else ctx.fillText(ln.text, x0 + ln.x, y0 + ln.y);
+  }
+  if (L.dot) { ctx.globalAlpha = 0.8; ctx.fillStyle = ink.accent; ctx.beginPath(); ctx.arc(x0 + L.dot.x, y0 + L.dot.y, L.dot.r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
   if (bad && L.mark) drawMark(ctx, x0 + L.mark.x, y0 + L.mark.y, L.mark.size, ink.danger);
   // The buttons (app.css .btn.sm): a hairline box, 14 px words; lit while the pointer is on one, pressed while it is down.
   ctx.font = fontOf(500, 14);
@@ -177,7 +198,8 @@ export function paintToast(ctx, L, { pad, docked, bad, state, ink, glass = false
     ctx.fillText(b.label, bx + bw / 2, by + bh / 2 + (ASC - DESC) * 7);
     ctx.textAlign = 'left';
   }
-  // The × (app.css .toast-x): a 22 px disc that lights under the pointer, a 12 px cross in the second ink.
+  // The × (app.css .toast-x): a 22 px disc that lights under the pointer, a 12 px cross in the second ink. (A note has none.)
+  if (!L.x) return;
   const hot = state.hot === 1 || state.down === 1;
   if (hot) { ctx.fillStyle = ink.surface3; ctx.beginPath(); ctx.arc(x0 + L.x.cx, y0 + L.x.cy, X_SIZE / 2 * (state.down === 1 ? 0.88 : 1), 0, Math.PI * 2); ctx.fill(); }
   ctx.strokeStyle = hot ? ink.text : ink.text2; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
