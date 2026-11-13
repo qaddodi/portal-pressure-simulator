@@ -1,7 +1,7 @@
 // Every card fits, on every slide (recs D4, A16). Walks each deck slide by slide with Next, at the Mac and the iPhone width, with the GL draws
 // stubbed (state and DOM only: no GPU, no pixels), and fails when a slide's text card scrolls, cuts a line, or stands partly off the screen.
 //
-//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json]
+//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json] [--slide n]
 //
 // It judges layout only ("does every word the card holds show whole?"), so it says nothing about look or speed, and runs on a runner with no
 // graphics card. A shard takes every n-th deck (balanced by slide count), so CI can split it over jobs (checks.yml).
@@ -30,6 +30,7 @@ const THEME = opt('theme', 'light');
 const JOBS = Math.max(1, +opt('jobs', 2));
 const [SHARD_I, SHARD_N] = opt('shard', '1/1').split('/').map(Number);
 const OUT = opt('out', '');
+const ONLY = +opt('slide', 0);   // (a slide number: open at it and judge that slide alone, for checking a fix)
 const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 const ALLOW_FILE = resolve(ROOT, 'scripts/card-fit-allowance.json');
 const ALLOW = existsSync(ALLOW_FILE) ? JSON.parse(readFileSync(ALLOW_FILE, 'utf8')) : {};
@@ -40,7 +41,11 @@ const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C
 // Runs in the page: what does not fit right now.
 const READ = () => {
   const vw = innerWidth, vh = innerHeight;
-  const vis = (el) => { const cs = getComputedStyle(el); return cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.05; };
+  // (Seen when it, and everything it sits in, would show: opacity does not inherit, so a card faded out or parked by its parent has to be found on the way up.)
+  const vis = (el) => {
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === 'none' || (n === el && cs.visibility === 'hidden') || +cs.opacity <= 0.05 || n.hidden) return false; }
+    return getComputedStyle(el).visibility !== 'hidden';
+  };
   const name = (el) => `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className).split(' ').slice(0, 3).join('.')}`;
   const clipped = [], off = [];
   const root = document.querySelector('.pz');
@@ -57,10 +62,20 @@ const READ = () => {
       if (!sc) off.push(`${name(el)} "${el.textContent.trim().slice(0, 40)}" [${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}]`);
     }
   }
+  // (A card whose real content runs past its box. Not scrollHeight: the GL words' and traces' overlay canvases stand 18 px past the box of a card whose
+  // overflow is clipped, which made every such card look like it scrolled. The content is what is not a canvas.)
   const scroll = ['.pz-text', '.pz-data', '.pz-panel'].map((q) => {
     const e = document.querySelector(q);
     if (!e || !vis(e)) return null;
-    return e.scrollHeight > e.clientHeight + 2 ? `${q} scrollHeight ${e.scrollHeight} > clientHeight ${e.clientHeight}` : null;
+    const box = e.getBoundingClientRect();
+    let low = 0, who = '';
+    for (const k of e.querySelectorAll('*')) {
+      if (k.tagName === 'CANVAS' || k.closest('canvas')) continue;
+      const r = k.getBoundingClientRect();
+      if (!r.width || !r.height || !vis(k)) continue;
+      if (r.bottom - box.bottom > low) { low = r.bottom - box.bottom; who = name(k); }
+    }
+    return low > 2 ? `${q} content runs ${Math.round(low)} px past its box (${who})` : null;
   }).filter(Boolean);
   return { n: document.querySelector('.pzb-n')?.textContent || '', clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll };
 };
@@ -71,7 +86,7 @@ async function walkDeck(browser, d, device) {
   const rec = { deck: d.id, device, steps: [], problems: [], errors: [] };
   let app;
   try {
-    app = await openApp({ device, theme: THEME, query: `script=${d.id}&slide=1`, dir: DIR, initScript: STUB, browser });
+    app = await openApp({ device, theme: THEME, query: `script=${d.id}&slide=${ONLY || 1}`, dir: DIR, initScript: STUB, browser });
     const idle = async (max = 30000) => {
       const t0 = Date.now();
       for (let ok = 0; Date.now() - t0 < max;) {
@@ -87,6 +102,11 @@ async function walkDeck(browser, d, device) {
       await idle();
       await app.page.waitForTimeout(900);
       const r = await app.page.evaluate(READ);
+      // (Judged only on what stands still: a card or a line still gliding in reads 27 px off the screen for a moment, and the second read 0.7 s later no longer agrees.)
+      await app.page.waitForTimeout(700);
+      const r2 = await app.page.evaluate(READ);
+      const both = (x, y) => x.filter((t) => y.includes(t));
+      r.scroll = both(r.scroll, r2.scroll); r.clipped = both(r.clipped, r2.clipped); r.off = both(r.off, r2.off);
       const [a, b] = r.n.split('/').map((x) => parseInt(x, 10));
       const slide = a || k + 1;
       const f = failing(r);
@@ -94,7 +114,7 @@ async function walkDeck(browser, d, device) {
       if (f.length) rec.problems.push({ slide, problems: f });
       same = r.n === last ? same + 1 : 0;
       last = r.n;
-      if ((a && a === b && same >= 2) || same >= 8 || (!r.n && k > 2)) break;
+      if (ONLY || (a && a === b && same >= 2) || same >= 8 || (!r.n && k > 2)) break;
       await app.page.keyboard.press('ArrowRight');
       await app.page.waitForTimeout(250);
     }
