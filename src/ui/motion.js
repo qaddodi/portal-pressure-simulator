@@ -40,8 +40,11 @@ export const VIEW_CHANGE_MS = 1300;   // motion-scale: own pace (decided: 1.3 s)
 export const DIVE_MS = 2200, RISE_MS = 1300;   // motion-scale: own pace (the longest camera moves that are not the view change)
 /** The ring a halo throws out, ms. */
 export const HALO_MS = 1500;   // motion-scale: own pace (an attention cue, a loop's single turn)
-/** A number counting to its new value (the data card's tiles, a callout's reading), ms. */
-export const COUNT_MS = 950;   // motion-scale: own pace (the digits roll as long as the bar beside them travels)
+/** Every timed number roll, ms: Explore's numbers (util.js countTo, its odometer and its GPU words' count), a figure reading's count
+ *  (stage-sites-paint.js siteCount), the data card's tween (presenter.js tweener). One duration on one curve, easeArrive (the odometer's CSS
+ *  --ease, ease-arrive). The owner, 13 Nov 2026: one speed, 400 ms (it was 950 here and 240 in util.js). A number that follows the page's shown
+ *  state (the bottom bar and the slide tiles while they follow, with their bars) is a follower (display-state.js SHOWN_TAU), not a roll. */
+export const COUNT_MS = 400;   // motion-scale: own pace (decided: one roll speed, 13 Nov 2026)
 /** The circuit's quarter turn: the camera's shortest glide. */
 export const TURN_MS = CAM_MS_MIN;
 /** The slack a timer adds to a CSS transition it waits for (the transition ends, then the timer: closeModal's D_FLIP + 20), ms. */

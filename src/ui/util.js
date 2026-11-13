@@ -7,7 +7,7 @@ import { classSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
-import { reduceMotionMQ, easeOut3 } from './motion.js';
+import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
 import { leaveFromHere } from './menu-leave.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -765,11 +765,10 @@ export function swapText(el, txt, then) {
 }
 /** A number that rolls to its new value instead of jumping (MOTION_HEAT_REVIEW P17): el shows fmt(v, d). eased: the caller
  *  already moves this value gently (a running model's mean), so it follows at once, or carries a roll under way on to the
- *  new value. Otherwise a change of at least the last digit counts from the number shown to v over about a third of a
- *  second (ease out) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
+ *  new value. Otherwise a change of at least the last digit counts from the number shown to v over COUNT_MS (motion.js, the one roll
+ *  speed, on easeArrive) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
 const counts = new WeakMap(), rolling = new Set();
 let rollRaf = 0;
-const COUNT_MS = D_SMALL;   // (a roll takes a small step of the motion scale, ease.js)
 // Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
 // element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
 // (Since 2 Nov 2026 (Mohammad: "Move everything to GPU") a number's or word's new text is drawn on the GPU (gl-words.js) and taken into the
@@ -852,7 +851,7 @@ function rollStep(now) {
     const c = counts.get(el);
     // (A frame's time is when it began, which can be before the roll was asked for: below 0 the curve ran backwards, far past the
     // number it started from, and a patient load showed an HVPG of -50 for a moment.)
-    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeOut3(u);
+    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeArrive(u);
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
@@ -920,7 +919,7 @@ function odoBuildRest(el, o, a, b, up, ms, easing) {
     sp.className = up ? 'odo' : 'odo down';
     sp.dataset.s = (up ? seq : seq.slice().reverse()).join('\n');
     sp.style.setProperty('--odo-n', String(n));
-    if (ms !== COUNT_MS) sp.style.setProperty('--odo-ms', `${ms}ms`);
+    sp.style.setProperty('--odo-ms', `${ms}ms`);   // (always: app.css's own default is --d-small, and the one roll speed is COUNT_MS)
     if (easing) sp.style.setProperty('--odo-ease', easing);
     sp.textContent = b[i];
     frag.append(sp);

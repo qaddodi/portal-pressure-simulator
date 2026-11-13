@@ -312,7 +312,7 @@ test('the GPU lint catches what it is for: a bare duration, a marked one, one ma
 test('motion.js: the GPU tokens are the scale and the named exceptions, and smooth01 is the clamped smoothstep', async () => {
   const m = await import('../src/ui/motion.js');
   assert.deepEqual([m.D_FLIP, m.D_SMALL, m.D_SURFACE, m.CAM_MS_MIN, m.CAM_MS_MAX, m.LOBULE_MS_MAX], [120, 240, 420, 480, 900, 1500]);
-  assert.deepEqual([m.VIEW_CHANGE_MS, m.DIVE_MS, m.RISE_MS, m.HALO_MS, m.COUNT_MS, m.TURN_MS], [1300, 2200, 1300, 1500, 950, 480]);
+  assert.deepEqual([m.VIEW_CHANGE_MS, m.DIVE_MS, m.RISE_MS, m.HALO_MS, m.COUNT_MS, m.TURN_MS], [1300, 2200, 1300, 1500, 400, 480]);
   assert.equal((await import('../src/ui/view-xf.js')).VIEW_CHANGE_MS, m.VIEW_CHANGE_MS);
   assert.equal(m.afterMs(m.D_FLIP), 140);
   assert.deepEqual([-1, 0, 0.5, 1, 2].map(m.smooth01), [0, 0, 0.5, 1, 1]);
@@ -382,4 +382,22 @@ test('item 18: the off-scale GPU durations were snapped to the scale', () => {
   for (const f of ['hvpg-clock.js', 'presenter.js', 'stage-doppler.js', 'endo-motion.js']) assert.doesNotMatch(src(f), /4 \* (t|u|p) \* \1 \* \1/, `${f} has no cubic in-out`);
   assert.doesNotMatch(read('src/worker-core.js'), /4 \* x \* x \* x/);
   assert.match(src('stage-glide.js'), /if \(reduceMotion\.matches\) ms = reducedMs\(ms, true\);/, 'the reduced camera glide is motion.js\'s exception, not a 300');
+});
+
+// One roll speed (the owner, 13 Nov 2026: "one speed", 400 ms): every timed number roll reads motion.js COUNT_MS. A second roll duration
+// (a COUNT_MS or ROLL_MS of a file's own, as util.js had at 240 ms beside motion.js's 950) fails here.
+test('one roll speed: COUNT_MS is motion.js\'s alone, and the rolls (util.js countTo, the figure readings, the data card) read it', () => {
+  const bad = [];
+  for (const file of walk(join(ROOT, 'src'))) {
+    const rel = file.slice(ROOT.length);
+    if (rel === 'src/ui/motion.js') continue;
+    read(rel).split('\n').forEach((line, i) => {
+      const code = line.replace(/\/\/.*$/, '');
+      if (/\b(?:COUNT|ROLL)_(?:MS|DUR)\s*=(?!=)/.test(code)) bad.push(`${rel}:${i + 1}: a roll duration of its own: import COUNT_MS from motion.js`);
+    });
+  }
+  assert.deepEqual(bad, []);
+  const importsCount = /import\s*\{[^}]*\bCOUNT_MS\b[^}]*\}\s*from\s*'\.\/motion\.js'/;
+  for (const f of ['src/ui/util.js', 'src/ui/stage-sites-paint.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
+  assert.doesNotMatch(read('src/ui/presenter.js'), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
 });

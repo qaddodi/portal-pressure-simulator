@@ -7,7 +7,7 @@ import { dropLabel } from './drop-label.js';
 import { ROOM_BASE, placeCallout } from './callout-room.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
-import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, COUNT_MS, afterMs } from './motion.js';
+import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, COUNT_MS, easeArrive, afterMs } from './motion.js';
 import { portalSplit } from './table-marks.js';
 import { clamp, fmt, putText } from './util.js';
 
@@ -161,7 +161,7 @@ export function createSitesPaint(st, live) {
   }
   const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };
-  // A reading's number counts to a new value over COUNT_MS (motion.js), eased, as the data card's tiles count (presenter.js tweener), so a slide's
+  // A reading's number counts to a new value over COUNT_MS (motion.js) on easeArrive, as every timed roll does (util.js countTo), so a slide's
   // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
   // it simply follows. A reading just shown, hidden, or under reduced motion takes its number at once.
   const LABEL_GLIDE_MS = D_SURFACE;   // (the figure's labels glide as long as the readings' room: labelGlide)
@@ -181,7 +181,7 @@ export function createSitesPaint(st, live) {
     if (!g) return (el._nv = to);
     g.to = to;
     const u = clamp((now - g.t0) / COUNT_MS, 0, 1);
-    el._nv = g.from + (g.to - g.from) * easeInOut(u);
+    el._nv = g.from + (g.to - g.from) * easeArrive(u);   // (the one roll's curve, motion.js COUNT_MS)
     if (u < 1) sitesAgain(); else el._ng = null;
     return el._nv;
   }

@@ -541,7 +541,7 @@ const tileVal = (k, v, f = null) => (v == null ? '—' : tileOf(k)?.bp && f ? bp
 // state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
-// A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
+// A value counts from where it was to where it goes (eased, over COUNT_MS unless told); reduced motion jumps.
 // (Tiles' numbers and bar marks follow the page's shown state: see tileGlide.)
 // (A touch's history of points, [x or time, time or distance] pairs the drags read the last 100 ms of: kept pairs are written in place. A pair that
 // falls out of a window, or past PT_MAX points, is the next point's, so a drag allocates only for its first points.)
@@ -846,7 +846,7 @@ function bigTiles() {
   // use: the number is drawn by the GPU's words (gl-words.js) and the marks are a translate, both from the same follower in each display
   // frame, so the number, the bar and the figure arrive together. A kept card's polls bend the speed instead of restarting a curve. A
   // number whose shape changes (9.9 to 10.1) simply takes its new text. Not with the endoscopic view (it draws each step), or Reduce Motion.)
-  function tileGlide(to, ms = 950) {   // (ms 0: shown at once; any other time is the follower's, not the caller's)
+  function tileGlide(to, ms = COUNT_MS) {   // (ms 0: shown at once; any other time is the follower's, not the caller's)
     if (!odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
     draw.glide(to);
     return true;
