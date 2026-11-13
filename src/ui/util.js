@@ -238,8 +238,10 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
 }
 function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   // (A note, a preset's name and what it is, rests at the foot in its own wrap: an error or a card with buttons still comes down from the top.)
-  const note = kind === 'note' && !actions?.length;
-  const wrap = document.getElementById(note ? 'toastsFoot' : 'toasts') || document.getElementById('toasts');
+  // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
+  // The wrap at the top, with its card and its ×, is no longer used; its code stays until the one place that still reads it is taken out.)
+  const wrap = document.getElementById('toastsFoot') || document.getElementById('toasts');
+  const note = wrap.id === 'toastsFoot';
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
@@ -247,7 +249,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
   const mark = kind === 'bad' ? icon('alert') : null;
   if (mark) mark.setAttribute('class', 'toast-ic');
-  const t = h('div', { class: 'toast ' + (note ? 'note' : kind), role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), note && sub ? h('span', { class: 'toast-sub' }, sub) : null);
+  const t = h('div', { class: 'toast ' + (note ? (kind === 'bad' ? 'note bad' : 'note') : kind), role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), note && sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);

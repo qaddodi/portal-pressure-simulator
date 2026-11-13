@@ -7648,3 +7648,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .toast.note .toast-msg { display: block; font-weight: 600; line-height: 1.25; }
 .toast.note .toast-sub { display: block; margin-top: 1px; font-size: 12.5px; line-height: 1.4; color: var(--text-2); }
 .toast.wgl-on .toast-sub { color: transparent; }
+.toast.note .toast-ic { display: none; }
+.toast.note .toast-acts { position: absolute; left: 32px; bottom: 11px; }
+.toast-wrap.foot:has(.toast.bad:not(.leaving), .toast.has-acts:not(.leaving)) { z-index: var(--z-toast); }   /* (an error or a card with buttons is never hidden under a menu or a sheet's scrim: audit ZO1) */

@@ -102,7 +102,21 @@ test('a preset note rests in its own wrap at the foot, never over the top bars',
   const html = src('index.html'), css = src('styles/app.css'), util = src('src/ui/util.js'), main = src('src/ui/main.js');
   assert.match(html, /id="toastsFoot"/);
   assert.match(css, /\.toast-wrap\.foot \{[^}]*bottom: var\(--toast-foot/);
-  assert.match(util, /kind === 'note' && !actions\?\.length/);
+  assert.match(util, /const note = wrap\.id === 'toastsFoot'/);
   assert.match(main, /--toast-foot/);
   assert.match(main, /watch: foot \? \[wrap, foot\]/);
+});
+
+test('every message is a note: an error takes the mark in the dot\'s place, buttons sit under the words inside the card', () => {
+  const W = 390;
+  const err = layoutToast({ msg: 'The model stopped. Reload, or restart this patient.', note: true, bad: true, acts: ['Reload'], docked: false, W });
+  assert.ok(err.mark && !err.dot && err.x === null);
+  assert.equal(err.btns.length, 1);
+  const b = err.btns[0];
+  assert.ok(b.x >= 32 && b.x + b.w <= err.w - 14 + 0.5 && b.y + b.h <= err.h - 10, JSON.stringify([b, err.w, err.h]));
+  for (const ln of err.lines) assert.ok(ln.y < b.y);
+  const plain = layoutToast({ msg: 'The Warren shunt is already in place.', note: true, docked: false, W });
+  assert.equal(plain.weight, 500);
+  assert.ok(plain.h >= 40 && plain.h <= 60 && plain.dot);
+  assert.match(src('src/ui/util.js'), /const wrap = document\.getElementById\('toastsFoot'\)/);
 });

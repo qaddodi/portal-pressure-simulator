@@ -78,16 +78,25 @@ export function layoutToast({ msg, sub = null, note = false, bad, acts, docked, 
     const out = [], outS = [], PL = 14, DOT = 8, GAP = 10, PR = 14, TOP = 10, BOT = 11, LH = 17.5;
     L.w = Math.min(420, W - 24);
     const tx = PL + DOT + GAP, max = L.w - tx - PR;
-    const wt = wrapBalanced(msg, fontOf(600, 14), max, 0, out);
+    const wgt = sub ? 600 : 500;   // (a notice with no second line is the words alone, a little lighter)
+    const wt = wrapBalanced(msg, fontOf(wgt, 14), max, 0, out);
     const ws = sub ? wrapBalanced(sub, fontOf(400, 12.5), max, 0, outS) : 0;
-    L.w = Math.min(L.w, Math.ceil(tx + Math.max(wt, ws) + PR));
-    L.px = 14; L.lh = LH; L.weight = 600; L.note = true; L.x = null;
+    let wb = 0;
+    if (nAct) { wb = -BTN_GAP; for (const x of widths) wb += x + BTN_GAP; }
+    L.w = Math.min(L.w, Math.ceil(tx + Math.max(wt, ws, wb) + PR));
+    L.px = 14; L.lh = LH; L.weight = wgt; L.note = true; L.x = null;
     let y = TOP;
     for (const text of out) { L.lines.push({ text, x: tx, y: base(14, LH, y) }); y += LH; }   // alloc-rare: a note's lines
     if (outS.length) y += 1;
     for (const text of outS) { L.lines.push({ text, x: tx, y: base(12.5, LH, y), font: fontOf(400, 12.5), ink: 'text2' }); y += LH; }   // alloc-rare: a note's lines
-    L.h = Math.round(y + BOT);
-    L.dot = { x: PL + DOT / 2, y: TOP + LH / 2, r: DOT / 2 };
+    if (nAct) {   // (buttons under the words, from the words' left edge; app.css .toast.note .toast-acts)
+      y += 8; let at = tx;
+      for (let i = 0; i < nAct; i++) { L.btns.push({ x: at, y, w: widths[i], h: BTN_H, label: acts[i] }); at += widths[i] + BTN_GAP; }   // alloc-rare: a note's buttons
+      y += BTN_H;
+    }
+    L.h = Math.round(Math.max(y + BOT, 40));
+    if (bad) L.mark = { x: PL - 2, y: TOP + (LH - 16) / 2, size: 16 };   // (an error's warning triangle takes the dot's place)
+    else L.dot = { x: PL + DOT / 2, y: TOP + LH / 2, r: DOT / 2 };
     return L;
   }
   if (docked) {
