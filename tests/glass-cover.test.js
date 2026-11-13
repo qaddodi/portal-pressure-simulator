@@ -197,3 +197,47 @@ test('a card the page clips itself (a dock sheet, an app menu) keeps its clip, a
   assert.equal(head.clip(), '', 'the card gone: the cuts taken off');
   assert.equal(body.clip(), '');
 });
+
+test('words that lie beside their paper (the teaching card\'s text and panel are not in its shade) are cut too, and by their own stacking', () => {
+  const shade = el('shade'), text = el('text'), panel = el('panel'), own = el('own'), sheet = el('sheet');
+  const C = coverBoard().part();
+  // (The shade 0..400 × 0..300; its text 20..380 × 40..260 inside the same area, a panel hidden (not given), a part with a clip of its own; the Settings sheet over the lower half.)
+  const also = [{ el: text, o: [20, 40, -20, -40], own: false, st: null }, { el: own, o: [20, 40, -20, -40], own: true, st: null }];
+  C.apply([{ g: shade, box: true, r: rect(0, 0, 400, 300), also }, { g: sheet, box: true, r: rect(0, 150, 400, 400) }], () => false);
+  assert.ok(shade.clip(), 'the paper is cut, as before');
+  const c = text.clip();
+  assert.ok(c, 'its words are cut under the sheet');
+  // (The text's box is 360 × 220 at (20, 40): the sheet's top, y 150, is 50% down it.)
+  assert.equal(shows(c, 50, 25), true, 'above the sheet: shows');
+  assert.equal(shows(c, 50, 75), false, 'under the sheet: hidden');
+  assert.equal(shows(c, 50, 99), false, 'its foot, under the sheet: hidden');
+  assert.equal(own.clip(), '', 'a part with a clip of its own is left');
+  assert.equal(panel.clip(), '', 'an element not given is left');
+  C.apply([{ g: shade, box: true, r: rect(0, 0, 400, 300), also }], () => false);
+  assert.equal(text.clip(), '', 'the sheet gone: the cut is taken off');
+  assert.equal(shade.clip(), '');
+  // (By its own stacking: a card painted under the text's place does not cut it, one above does.)
+  const card = el('card');
+  const S = (el_, z) => [{ el: el_, rank: z }];
+  const tx = S(text, 5), sh = S(shade, 1);
+  C.apply([{ g: shade, box: true, r: rect(0, 0, 400, 300), st: sh, also: [{ el: text, o: [20, 40, -20, -40], own: false, st: tx }] }, { g: card, box: true, r: rect(0, 0, 400, 300), st: S(card, 3) }], () => false);
+  assert.ok(shade.clip(), 'a card above the paper cuts it');
+  assert.equal(text.clip(), '', 'a card below the words does not cut them');
+});
+
+test('a solid card with no glass of its own (bare) is cut under a glass above it, and never cuts another', () => {
+  const panel = el('panel'), sheet = el('sheet'), other = el('other');
+  const C = coverBoard().part();
+  const P = [{ g: panel, box: true, bare: true, r: rect(0, 0, 400, 400), rad: null, a: 1 }, { g: sheet, box: true, r: rect(0, 200, 400, 400) }];
+  C.apply(P, () => false);
+  const c = panel.clip();
+  assert.ok(c, 'the panel is cut under the sheet');
+  assert.equal(shows(c, 50, 25), true, 'above the sheet: shows');
+  assert.equal(shows(c, 50, 75), false, 'under the sheet: hidden');
+  assert.equal(sheet.clip(), '', 'the sheet is not cut by it');
+  // (A bare card over a glass is no hole in it: it has no glass.)
+  C.apply([{ g: other, box: true, r: rect(0, 0, 400, 400) }, { g: panel, box: true, bare: true, r: rect(0, 0, 400, 400), rad: null, a: 1 }], () => false);
+  assert.equal(other.clip(), '', 'a glass under a bare card is not cut by it');
+  C.apply([{ g: panel, box: true, bare: true, r: rect(0, 0, 400, 400), rad: null, a: 1 }], () => false);
+  assert.equal(panel.clip(), '', 'no glass above: the cut is taken off');
+});

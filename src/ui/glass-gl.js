@@ -586,12 +586,44 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     }
     return out.length ? out : null;
   }
+  // (The words of a card that lie in elements of their own beside its paper, cards.with(g): each { el, o (px off the glass's box r), own (a clip of its
+  // own), st (its place in the page's stacking, set where the glasses' are) }, as the parts above; those without a box (hidden) are left out.)
+  function alsoOf(g, r) {
+    const w = cards.with?.(g);
+    if (!w || !w.length) return null;
+    const out = [];   // alloc-rare: read with the page, never in a frame
+    for (const k of w) {
+      const b = k && readBox(k);
+      if (!b || !b.width || !b.height) continue;
+      const c = readStyle(k).clipPath;
+      out.push({ el: k, o: [b.left - r.left, b.top - r.top, b.right - r.right, b.bottom - r.bottom], own: !!c && c !== 'none' && !cover.mine(k), st: null });   // alloc-rare: read with the page, never in a frame
+    }
+    return out.length ? out : null;
+  }
+  // (Cards that have no glass of their own, a solid card laid over the figure (the talk's outline and table cards, cards.bare()), are cut where any glass
+  // above them lies, as the others are, or a sheet over one shows its words through: { g, box, r (its box now), st, bare }. Read with the page, kept
+  // with it; never a glass to draw, never a hole in another.)
+  function bareOf() {
+    const w = cards?.bare?.();
+    if (!w || !w.length) return NONE;
+    const out = [], stack = new Map();   // alloc-rare: read with the page, never in a frame
+    for (const k of w) {
+      const b = k && k.isConnected ? readBox(k) : null;
+      if (!b || !b.width || !b.height) continue;
+      const c = readStyle(k).clipPath;
+      cssClip.set(k, c);
+      out.push({ g: k, el: k, box: true, bare: true, r: b, rad: null, a: 1, st: stackOf(k, stack), kids: null });   // alloc-rare: read with the page, never in a frame
+    }
+    return out.length ? out : NONE;
+  }
   function coverNow() {
     coverOrder.length = 0;
     if (hf && blurOK) {
       // (In the order they are drawn: the low turn's (the teaching card's shade) first, then the others.)
       for (const p of hf.panes) if (host.low?.(p.g)) coverOrder.push(p);
       for (const p of hf.panes) if (!host.low?.(p.g)) coverOrder.push(p);
+      const B = geo?.bare;
+      if (B) for (let i = 0; i < B.length; i++) coverOrder.push(B[i]);
     }
     cover.apply(coverOrder, coverOwn);
   }
@@ -774,7 +806,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const cvo = tb ? [tb.left - r.left, tb.top - r.top, tb.right - r.right, tb.bottom - r.bottom] : null;   // alloc-rare: read with the page, never in a frame
         // (A card with a clip of its own (not one the cover wrote): its parts, which the cover cuts in its place, glass-cover.js.)
         const kids = tc && tc !== 'none' && !cover.mine(cv || g) ? kidsOf(cv || g, g, r) : null;
-        panes.push({ g, el, box: true, cv, cvo, kids, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow && !cdl ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
+        const also = alsoOf(g, r);
+        panes.push({ g, el, box: true, cv, cvo, kids, also, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow && !cdl ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -785,7 +818,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     }
     // (Where each glass lies in the page's stacking (glass-cover.js stackOf): which covers which, and the order they are drawn in, measureGeo.)
     const stack = new Map();   // alloc-rare: one per read of the page
-    for (const p of panes) p.st = stackOf(p.g, stack);
+    for (const p of panes) { p.st = stackOf(p.g, stack); if (p.also) for (const a of p.also) a.st = stackOf(a.el, stack); }
     return panes;
   }
   // (The loading cover waits for the glass's first draw, inside its own cap (index.html): it lifted on cards with no frost, which
@@ -1762,7 +1795,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       p.live = { ...p, r: newRect(), er: newRect(), a: 0 };
     }
     const over = host ? (cards && !co ? { low: host.over?.('low') || [], high: host.over?.('high') || [] } : { all: host.over?.() || [] }) : null;
-    geo = { list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
+    const bare = bareOf();
+    geo = { bare, list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
       vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
@@ -2084,6 +2118,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
  *   before  an element beside the cards' layer (where fades stop counting; default the element itself)
  *   watch   roots whose writes may move it (default: its parent); cut / shift / read / low (true, or e => bool)   the cards' own hooks (glass-gl cards option)
  *   cover   el => the element its words are in (a sheet's paper: the sheet), cut where any glass above it lies (glass-cover.js); default the element itself
+ *   with    el => more elements its words are in, beside the glass (the teaching card's text is not in its shade), each cut where any glass above it lies
+ *   bare    () => cards of this region that have no glass of their own (the talk's solid outline and table card), cut where any glass above them lies
  * Where no renderer can be made yet (the figure's canvas not there) it is asked again, 20 times at 500 ms; a region that never gets one
  * keeps the page's solid card, as the cards did.
  */
@@ -2102,6 +2138,8 @@ export function glassRegions(make, wrap) {
       shift: (e) => { for (const rec of grp.recs) { const s = rec.shift?.(e); if (s) return s; } return null; },
       cut: (e) => { const rec = recOf(grp, e); return rec?.cut ? rec.cut(e) : null; },
       cover: (e) => { const rec = recOf(grp, e); return rec?.cover ? rec.cover(e) : null; },   // alloc-rare: once per region's renderer
+      with: (e) => { const rec = recOf(grp, e); return rec?.with ? rec.with(e) : null; },   // alloc-rare: once per region's renderer
+      bare: () => { const out = []; for (const rec of grp.recs) if (rec.bare) out.push(...rec.bare()); return out; },   // alloc-rare: read with the page
       isLow: (e) => { for (const rec of grp.recs) if (rec.low && (typeof rec.low === 'function' ? rec.low(e) : rec.items().includes(e))) return true; return false; },
     });
     if (!g) return false;
@@ -2113,7 +2151,7 @@ export function glassRegions(make, wrap) {
     const key = `${o.blur ?? CARD.blur}${o.callouts ? 'c' : ''}`;
     const grp = groups.get(key) || (() => { const n = { blur: o.blur ?? CARD.blur, scale: o.scale, margin: o.margin, sat: o.sat, callouts: !!o.callouts, recs: new Set(), out: [], g: null, tries: 0, t: 0 }; groups.set(key, n); return n; })();
     const rec = {
-      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, card: o.card, shape: o.shape, k: o.k, outer: o.outer, shadow: o.shadow, read: o.read, shift: o.shift, cut: o.cut, cover: o.cover, low: o.low,
+      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, card: o.card, shape: o.shape, k: o.k, outer: o.outer, shadow: o.shadow, read: o.read, shift: o.shift, cut: o.cut, cover: o.cover, with: o.with, bare: o.bare, low: o.low,
       items: () => (typeof el === 'function' ? el() : [el]),
       roots: () => (o.watch ? [].concat(o.watch) : typeof el === 'function' ? [] : [el.parentElement || el]).filter(Boolean),
     };

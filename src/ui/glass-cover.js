@@ -12,7 +12,7 @@
 // slide), and taken off once nothing covers it.
 //
 //   const part = glassCover();          // one renderer's place on the board
-//   part.apply(panes, ownClip)          // its glasses as drawn: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box, st, cv, cvo, kids, a }
+//   part.apply(panes, ownClip)          // its glasses as drawn: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box, st, cv, cvo, kids, also, a }
 //   part.clear()                        // its glasses off the board, every cut they made taken off
 import { readStyle } from './layout-snap.js';
 
@@ -159,9 +159,9 @@ export function coverBoard() {
     wrote.delete(g); sigs.delete(g);
   }
   // (Whether glass j lies above glass i: the page's stacking; for glasses whose stacking was not read, the later of one renderer's.)
-  const above = (j, i) => {
-    const q = all[j], p = all[i];
-    if (q.st && p.st) return stackCmp(q.st, p.st) > 0;
+  const above = (j, i, st) => {
+    const q = all[j], p = all[i], mine = st || p.st;
+    if (q.st && mine) return stackCmp(q.st, mine) > 0;
     return allPart[j] === allPart[i] && j > i;
   };
   // (The element a glass's words are in, and its box this frame: the glass's own, or the card it is the paper of (cv, its box cvo px off the glass's).)
@@ -174,14 +174,15 @@ export function coverBoard() {
     return tr;
   }
   // (One element cut where every glass above glass i lies: el (the card, or a part of it, kid) at box r; g the card it belongs to.)
-  function cutOne(i, el, r, g) {
+  // (st: the stacking of el when it is not painted where its glass is: the words of a card, laid in their own element above or below its paper.)
+  function cutOne(i, el, r, g, st) {
     if (now.has(el) || !r.width || !r.height) return;
     holes.length = 0;
     for (let j = 0; j < all.length; j++) {
       const q = all[j];
-      if (j === i || q.g === all[i].g || !(q.a == null || q.a >= UP) || !meets(r, q.r) || (q.cut && q.cut.bottom <= Math.max(r.top, q.r.top))) continue;   // (one still wholly below its foot covers nothing)
+      if (j === i || q.bare || q.g === all[i].g || !(q.a == null || q.a >= UP) || !meets(r, q.r) || (q.cut && q.cut.bottom <= Math.max(r.top, q.r.top))) continue;   // (one still wholly below its foot covers nothing)
       const qt = targetOf(q);
-      if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || !above(j, i)) continue;
+      if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || (el !== g && (el.contains?.(q.g) || q.g.contains?.(el))) || !above(j, i, st)) continue;
       holes.push(hole(holes.length, q));
     }
     if (!holes.length) return;
@@ -207,6 +208,10 @@ export function coverBoard() {
       // (A card the page already cuts with a clip of its own (a phone's dock sheet, sinking under the tab row; an app menu under its bar) keeps
       // that clip: its parts (kids: { el, o, own }, its children as read with the page) are cut instead, each at its own box. A part with a clip
       // of its own is left.)
+      // (The words of a card that lie in an element of their own beside its paper (p.also: { el, o, own, st }, the teaching card's text and panel) are
+      // cut where the glass above them lies, each by its own stacking, whatever is done with the paper.)
+      const A = p.also;
+      if (A) for (let k = 0; k < A.length; k++) if (!A[k].own) cutOne(i, A[k].el, kidBox(p, A[k]), g, A[k].st);
       if (!wrote.has(g) && allOwn[i]?.(g)) {
         const K = p.kids;
         if (K) for (let k = 0; k < K.length; k++) if (!K[k].own) cutOne(i, K[k].el, kidBox(p, K[k]), g);
