@@ -1,7 +1,7 @@
 /* The Scope card on a laptop or tablet (the Tests card at the side), redesigned 11 Nov 2026 (Mohammad, iPad photo: "the scope view
    maximized and the tiles smaller but organized, and the button in a better place").
    One column, top to bottom: the scope's picture takes every pixel the rest leaves; the five readings in one slim row (three and two
-   on a narrow card); one row of actions, "Band a column (EVL)" and the EUS-PPG player side by side. EUS-PPG's numbers, steps and words
+   on a narrow card); one row of actions, "Band (EVL)" and the EUS-PPG player side by side. EUS-PPG's numbers, steps and words
    (.eus-panel, eus-ppg.js) lie over the foot of the picture only while a run is on or done, so they cost the picture nothing at rest.
    Only this card: a phone's sheet (the thumb dock) and Wall mechanics keep the rules in app.css. The id (#app) wins over those by
    specificity, not by order, so the earlier rules stay as they were for the other cards. Nothing here animates but opacity. */
@@ -110,8 +110,6 @@
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { max-width: 100%; text-align: center; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { display: block; text-align: center; }
 }
-/* (One name for the button wherever two buttons share its row: "Band (EVL)", on every phone and tablet card; the long name overflowed a narrow phone's half row.) */
-#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn .band-more { display: none; }
 
 /* A phone held sideways (a pane under 300 px high): the picture on the left; on its right the readings, then both buttons. */
 @container tpane (max-height: 300px) and (min-width: 300px) {
@@ -123,7 +121,6 @@
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { text-align: center; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { text-align: center; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 2; grid-row: 2; min-height: 40px; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn .band-more { display: none; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 3; grid-row: 2; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / -1; grid-row: 1 / span 2; }
 }
