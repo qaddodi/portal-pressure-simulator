@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **TIPS Doppler slide 3: the stent's three point callouts no longer throw.** (13 Nov 2026, reported by the unification thread.) A point callout's key (`n:TIPS:mid`) was taken for a station's and pinned by `nodePos`, which has no such node: the page threw every frame and the three callouts did not show. `stampAnchor` now pins only a station's key; a point keeps its world anchor.
+
 - **Circuit with a TIPS: no label on a resistor's zigzag or under a card.** (13 Nov 2026, headless shot of the Circuit's TIPS slide on an iPhone: "R collaterals ×6.5" lay on the liver's zigzag and "Esophageal route → azygos" ran through the collaterals' zigzag.)
   The labels kept off a 22-unit band round each zigzag, about 5 px on a phone, while the zigzag keeps at least 8 px of teeth; the band is now the zigzag as drawn (teeth, line, outline). A resistor's reading is placed clear of its own zigzag and, where its spot is on another vessel, searched sideways as well as up and down, never under a card. A lane with a zigzag on it is captioned in two lines, beside or along its lane clear of the zigzag, and left out where there is no such room. The labels are laid out again when a zigzag comes, goes or moves (its revision is in the labels' signature, so a cached layout from before it is not reused: that had kept the caption on the zigzag). Traces: tests/res-label-clear.test.js (iPhone), tests/res-label-clear-mac.test.js; the deck sweep (tests/e2e/deck-sweep.mjs) now also flags a figure label under a card, on another label, on a zigzag or off screen.
 

@@ -183,10 +183,11 @@ export function createLabelLayer(st, live) {
   // (Where a label is anchored, taken in the layout's own frame, under the camera it was solved under: a label built later in a rest pass (new,
   // or its pieces changed) keeps these, never the camera of that later moment. 5 Nov 2026 review #2: a pan begun between the layout and the
   // build put its world anchor off by the pan, and it stood rigidly on the wrong spot until the next solve.)
+  // (A stent's point callout (n:TIPS:mid) names no station: it has no node to be pinned to (13 Nov 2026: TIPS Doppler slide 3 threw in nodePos every frame).)
   function stampAnchor(it) {
     if (it.aSt) return;
     it.aSt = true;
-    it.aPk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0;
+    it.aPk = /^n:[^:]+$/.test(it.key) && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0;
     if (it.cls === 'organ' && !it.rot) { it.ax = it.x + it.w / 2; it.ay = it.y + it.h / 2; }
     const gp = !(it.aPk > 0) && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (live.morph === 0 || live.morph === 1) && !NO_ANCHOR.test(it.key);
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
