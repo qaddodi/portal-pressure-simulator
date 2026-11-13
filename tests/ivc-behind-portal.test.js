@@ -15,7 +15,7 @@ test('a cava shown whole stays in its own tier, behind the portal tree and the h
   const tier = stage.match(/const tier = ([^\n]*);/);
   assert.ok(tier, 'the tube sync picks a tier');
   assert.doesNotMatch(tier[1], /ivcOn/, 'selecting the cava does not change its tier');
-  assert.match(stage, /const veil = false, whole = IVC_EDGES\.has\(id\) && ivcOn;/, 'no veil on the cava (13 Nov 2026: solid, so no bowel shows through); shown whole when on');
+  assert.match(stage, /const veil = IVC_EDGES\.has\(id\) && !ivcOn, whole = IVC_EDGES\.has\(id\) && ivcOn;/);
   assert.match(stage, /\(whole \? F_WHOLE : 0\)/, 'its being shown whole goes to the shader as a flag, not as a tier');
 });
 

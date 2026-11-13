@@ -747,7 +747,7 @@ export function createVessels(st, live) {
       // group): the selected vessel eases out of that dimming and, deselected, back into it (selA), so it never snaps.
       if (x.back || tier >= TIER_LIFT) alpha *= live.netA + (1 - live.netA) * easeInOut(Math.max(vh.selA.get(id) || 0, ra ? vh.selA.get(ra.e.id) || 0 : 0));
       const shade = (!x.isArt || x.tube) && !ghost;
-      const veil = false, whole = IVC_EDGES.has(id) && ivcOn;   // (veil: none. The cava is solid, so no bowel loop shows through it; only the liver and heart still cover it, the organ cover of its tier. 13 Nov 2026)
+      const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= SPEC_MIN_W;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (x.e.kind === 'shunt' && x.e.shunt !== 'ap' ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
