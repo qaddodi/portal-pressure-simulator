@@ -21,7 +21,7 @@
 // apart) and the rows it already has (flow, rad, tube). The instance list (createHeadList) is (row, k, run) per possible head, sized
 // from each vessel's length on the CPU and made again only when a size changes.
 
-import { CHEV_PITCH, CHEV_PITCH_GLSL } from './chevron-glsl.js';
+import { CHEV_PITCH, CHEV_PITCH_GLSL, headInksGLSL } from './chevron-glsl.js';
 
 /** The closest two heads of one run ever stand along their stream (chevLevel: the level is at least -1, so 14 world units). */
 export const P_MIN = 14;
@@ -65,11 +65,11 @@ uniform int origin;
 ${zoom}
 ${along}
 ${rows}
-${orange}
+${headInksGLSL(orange)}
 ${pitch}
 flat out vec4 hC;                      // the head's centre (world) and the way it points (unit)
 flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row, its reversed flag (0 … 1)
-flat out vec3 hInk, hRim;              // the colours of its core and of its light rim
+flat out vec3 hInk, hRim;              // the colours of its core and of its rim
 const int N_LAST = ${nSamples - 1};
 void main() {
   zoomOut();
@@ -166,8 +166,8 @@ void main() {
   vec2 q = corner * 2.0 - 1.0;
   vec3 d = world * vec3(c + t * (q.x * ea) + nn * (q.y * ec), 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  // Its colours (the composite's, chevInks: a dark core tinted a fifth toward a deep shade of the vessel with a light rim on a pale lumen,
-  // near-white with a dark rim on a dark one, orange if reversed, cream on an orange vessel), from the vessel's colour at the head.
+  // Its colours (chevron-glsl.js headInksGLSL: cream forward, orange reversed, cream on an orange vessel; the rim cream on a dark lumen and
+  // sepia on a light one), from the vessel's colour at the head.
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, alongAt(id, clamp(sc / len, 0.0, 1.0)));
   chevInks(vc, f1.w, hInk, hRim);
   hC = vec4(c, t);
