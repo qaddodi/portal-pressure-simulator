@@ -19,6 +19,10 @@ import { createTraceGL } from './trace-gl.js';
 import { drawMonitor } from './monitor.js';
 import { specOf, markAt, READS } from './proc-anim.js';
 import { hvpgSev, ppgSev, PPG_CUTS } from '../engine/pressure-cuts.js';
+import { NODES } from '../engine/topology.js';
+import { store } from './store.js';
+
+const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 const fin = (v) => typeof v === 'number' && Number.isFinite(v);
 const or = (a, b) => (fin(a) ? a : fin(b) ? b : NaN);
@@ -151,10 +155,13 @@ function scripts() {
   tips.at = at(gLv, gDamp);
 
   // (The readings, as the procedure's callouts print them once each is taken, the slide's numbers until then.)
-  hvpg.vals = (fp, o) => { o.a = r1(or(READS.hvpgcath.fh, fp?.fhvp)); o.b = r1(or(READS.hvpgcath.wh, fp?.whvp)); o.g = r1(or(READS.hvpgcath.hv, fp?.hvpg)); return o; };
-  eus.vals = (fp, o) => { o.a = r1(or(READS.eus.pv, fp?.lpv)); o.b = r1(or(READS.eus.hv, fp?.lhv)); o.g = r1(or(READS.eus.ppg, fp?.eus)); return o; };
-  ppg.vals = (fp, o) => { o.a = r1(or(READS.irivc.iv, fp?.ivc)); o.b = r1(or(READS.irpv.pv, fp?.pv)); o.g = r1(or(READS.irpv.ppg, fp?.ppg)); return o; };
-  tips.vals = (fp, o) => { o.a = r1(or(READS.tipsgrad.pv, fp?.pv)); o.b = r1(or(READS.tipsgrad.iv, fp?.ivc)); o.g = r1(or(READS.tipsgrad.ppg, fp?.ppg)); return o; };
+  // (Until a reading is taken, the number is the live vein's, as the figure's callout beside the tip prints it (the model's frame, else the slide's
+  // numbers), so it never jumps when the reading lands; the gradient until taken is the difference of the two as printed.)
+  const live = (fp) => store.get().frame?.metrics || fp, nodes = (fp) => store.get().frame?.P || null;
+  hvpg.vals = (fp, o) => { const m = live(fp), R = READS.hvpgcath; o.a = r1(or(R.fh, m?.fhvp)); o.b = r1(or(R.wh, m?.whvp)); o.g = r1(or(R.hv, o.b - o.a)); return o; };
+  eus.vals = (fp, o) => { const P = nodes(fp), R = READS.eus; o.a = r1(or(R.pv, P ? P[NI.LPV] : fp?.lpv)); o.b = r1(or(R.hv, P ? P[NI.LHV] : fp?.lhv)); o.g = r1(or(R.ppg, o.a - o.b)); return o; };
+  ppg.vals = (fp, o) => { const m = live(fp); o.a = r1(or(READS.irivc.iv, m?.ivc)); o.b = r1(or(READS.irpv.pv, m?.pv)); o.g = r1(or(READS.irpv.ppg, o.b - o.a)); return o; };
+  tips.vals = (fp, o) => { const m = live(fp), R = READS.tipsgrad; o.a = r1(or(R.pv, m?.pv)); o.b = r1(or(R.iv, m?.ivc)); o.g = r1(or(R.ppg, o.a - o.b)); return o; };
   for (const S of [hvpg, eus, ppg, tips]) S.ymax = ymaxOf;
   return { hvpg, eus, ppg, tips };
 }
