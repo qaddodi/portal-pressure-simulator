@@ -2,7 +2,7 @@
 // the top bars' room is never given up; the upright circuit fills the room between the bars (A4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { figureShift, squeezeBottom, uprightFitOf } from '../src/ui/card-clear.js';
+import { figureShift, squeezeBottom, topOverColumn, uprightFitOf } from '../src/ui/card-clear.js';
 
 const mac = (r, l = 0) => ({ t: 60, b: 110, l, r, W: 1440, H: 900 });
 
@@ -62,4 +62,16 @@ test('the upright circuit fills the height between the top bar and the view pill
 test('no room, no fit', () => {
   assert.equal(uprightFitOf({ t: 0, b: 0, l: 0, r: 0, W: 0, H: 0 }, 0, 0, [0, 0, 1, 1], [0, 0, 1, 1]), null);
   assert.equal(uprightFitOf({ t: 400, b: 400, l: 0, r: 0, W: 390, H: 800 }, 390, 800, [0, 0, 730, 1360], [0, 0, 700, 1260]), null);
+});
+
+test('a phone on its side: only the top-bar pieces over the figure column cover its top (A11)', () => {
+  const ins = { t: 0, b: 75, l: 0, r: 0, W: 844, H: 390 };
+  // patient chip x 8..240 (y to 54), key x 565..836 (y to 98), toolbar x 650..836 (y to 52): the column is 422 ± (0.9 * 315 / 2 ... 166) = 256..588
+  const tops = [8, 240, 54, 565, 836, 98, 650, 836, 52];
+  assert.equal(topOverColumn(tops, ins), 98, 'a key that reaches into the column counts');
+  const narrow = topOverColumn([8, 240, 54, 600, 836, 98, 650, 836, 52], ins);
+  assert.equal(narrow, 0, 'beside the figure on both sides: the figure takes the full height under it');
+  assert.equal(topOverColumn([8, 240, 54, 600, 836, 98], ins, true), 98, 'a slide keeps the whole bar clear');
+  assert.equal(topOverColumn([300, 500, 60], { ...ins, t: 20 }), 60, 'a piece over the column counts, and never lowers the inset');
+  assert.equal(topOverColumn([], { ...ins, t: 20 }), 20);
 });

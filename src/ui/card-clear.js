@@ -32,3 +32,15 @@ export function uprightFitOf(ins, W, H, vb, art, gap = 12) {
   const tx = (ins.l + W - ins.r) / 2, ty = (ins.t + H - ins.b) / 2;
   return { k, x: (tx - ox) / s0 - (k * (x0 + x1)) / 2, y: (ty - oy) / s0 - (k * (y0 + y1)) / 2 };
 }
+
+// A phone held sideways: the top bar's pieces stand apart with the figure between them (the patient chip at the left, the key and the toolbar
+// at the right), so only the ones over the figure's column cover its top (A11: the whole bar's two rows were kept clear, and the figure had a
+// quarter of the screen). `tops` holds x0, x1, y1 for each piece; the column is the room's centre, as wide as the figure can be there
+// (at most 0.9 of its height: the figure is taller than wide), 24 px more each side. `exact` (a slide's framing) counts them all.
+// Gives the top inset: the lowest edge of the pieces that count, or `t` as it was.
+export function topOverColumn(tops, ins, exact = false) {
+  let t = ins.t;
+  const half = Math.min(ins.W - ins.l - ins.r, (ins.H - ins.b) * 0.9) / 2 + 24, mid = (ins.l + ins.W - ins.r) / 2;
+  for (let i = 0; i < tops.length; i += 3) if (exact || (tops[i] < mid + half && tops[i + 1] > mid - half)) t = Math.max(t, tops[i + 2]);
+  return t;
+}

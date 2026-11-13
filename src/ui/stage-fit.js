@@ -3,7 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { lerpVT } from './cam-arc.js';
 import { caught } from './caught.js';
-import { figureShift, squeezeBottom, uprightFitOf } from './card-clear.js';
+import { figureShift, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -56,16 +56,23 @@ export function createFit(st, live) {
   }
   const flag = { imaging: false, dataLayer: false, hasSel: false, orgSel: false };   // (what update last found: read by the paints after it)
   let cardsSnap = [], pillsSnap = { zoom: null, nav: null }, snapDirty = true, snapAsk = 0, snapSettle = 0;
+  // A phone held sideways: the top bar's pieces (the patient chip, the key, the toolbar) stand apart with the figure between them, so each is
+  // counted by itself and only those over the figure's column cover its top (A11: the figure had a quarter of the screen, the whole bar's two
+  // rows over it). Everywhere else the bar is one box. (data-safe-parts on the bar names the pieces.)
+  const landPhoneMQ = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
   function cardsRead() {
     const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
-      const q = slideRest(el, el.getBoundingClientRect());
-      if (!q.width || !q.height) continue;
-      // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
-      out.push({ el, q, rest: 'safeRest' in el.dataset ? translateRest(el, restBox(el, q)) : q });
+      const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
+      for (const pc of parts || [el]) {
+        const q = slideRest(pc, pc.getBoundingClientRect());
+        if (!q.width || !q.height) continue;
+        // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
+        out.push({ el: pc, q, rest: 'safeRest' in el.dataset ? translateRest(pc, restBox(pc, q)) : q, edge: el.dataset.safe, part: !!parts });
+      }
     }
     return out;
   }
@@ -97,10 +104,10 @@ export function createFit(st, live) {
   function cardSpaceFrom(list) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
-    for (const { el, q } of list) {
+    for (const { el, q, edge: pedge } of list) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
-      const edge = el.dataset.safe;
+      const edge = pedge || el.dataset.safe;
       if (edge === 'top') sp.t = Math.max(sp.t, y1);
       else if (y0 > H * 0.3 && (W < 768 || q.width > W * 0.75 || (edge === 'bottom' && !el.classList.contains('side')))) sp.b = Math.max(sp.b, H - y0);
     }
@@ -119,7 +126,8 @@ export function createFit(st, live) {
     if (!W || !H) return ins;
     // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
     const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
-    for (const { el, rest: q } of list) {
+    const tops = [];   // (a sideways phone's top-bar pieces: [x0, x1, y1] each, judged against the figure's column below)
+    for (const { el, rest: q, edge: pedge, part } of list) {
       if (skip && skip.includes(el)) continue;
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
@@ -127,7 +135,8 @@ export function createFit(st, live) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0);
       const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
-      let edge = el.dataset.safe;
+      let edge = pedge || el.dataset.safe;
+      if (part && edge === 'top') { tops.push(x0, x1, y1); continue; }
       // A card is a side card when it is docked there (the Tests card's class `side`) and a sheet when it spans the screen (a phone's,
       // sideways too, and an upright iPad's), whatever the window's size says: dock.js and the phone block of app.css decide that.
       const side = el.classList.contains('side'), sheet = !side && !store.get().presenting && q.width > W * 0.65;
@@ -138,6 +147,8 @@ export function createFit(st, live) {
       else if (edge === 'right' && (wide || side)) { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
       else if (wide && edge === 'left') ins.l = Math.max(ins.l, x1);
     }
+    // (The top-bar pieces over the figure's column cover its top; the ones beside it do not: card-clear.js. A slide's framing keeps the whole bar clear.)
+    if (tops.length) ins.t = topOverColumn(tops, ins, exact);
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
     // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
     // (Not while presenting: a slide's text and data columns are laid out to leave the figure its own column.)
