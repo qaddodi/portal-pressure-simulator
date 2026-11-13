@@ -250,6 +250,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const iRedo = lp.indexOf('if (redo) {'), iDepth = lp.indexOf('gl.clearBufferfv(gl.DEPTH'), iLum = lp.indexOf('stripCall(P3.lumen');
     if (iRedo < 0 || iDepth < iRedo || iLum < iDepth || (lp.match(/gl\.clearBufferfv\(gl\.DEPTH/g) || []).length !== 1 || /invalidateFramebuffer/.test(lp) || !/if \(redo\) \{\n\s+gl\.depthMask\(true\);\n\s+gl\.clearBufferfv\(gl\.DEPTH/.test(lp)) errors.push('src/ui/tube-pass.js tubeLumenPass: the depth is cleared and drawn only in if (redo), before the lumens, and is never invalidated (a fresh depth is kept)');
   }
+  // The organ stack's shift (13 Nov 2026, heat D-2): the picture's version changes only when a layer moved (a bowel float handed over again unchanged must not make a new picture).
+  if (!/shift: \(name, dy\) => \{ const moved = stack\.shift\(name, dy\); if \(moved\) texVer\+\+; return moved; \}/.test(text('src/ui/veins-gl.js'))) errors.push('src/ui/veins-gl.js organs.shift: bumps texVer only when the stack moved a layer (heat D-2)');
   // The geometry bundle per binning (10 Nov 2026, the Anatomy to Circuit switch): a morph set's derived data (points, join list, patches, the Tube's stage 2 record) is made when the set is
   // (prepareSet, called through api.prepareMorphSet by the caller, a free moment of its own after makeMorphSet), never inside meshGeo for a set that has it, and the patches only where a renderer draws them (not for the Tube's web joins).
   {

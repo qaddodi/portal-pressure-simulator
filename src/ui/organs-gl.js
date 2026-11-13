@@ -763,9 +763,11 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     setLiveAll(organs) { this.setLive(organs, null); full = liveOrgans.size > 0; },
     /** Whether the stack shows every layer live (setLive full). */
     get full() { return full; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-    /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
+    /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. Returns whether it moved a layer (false: nothing changed). */
     shift(name, dy) {
-      for (const c of cuts.values()) { const un = c.under; if (un) for (let i = 0; i < un.length; i++) { const u = un[i]; if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; } } }
+      let moved = false;
+      for (const c of cuts.values()) { const un = c.under; if (un) for (let i = 0; i < un.length; i++) { const u = un[i]; if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; moved = true; } } }
+      return moved;
     },
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { setNames(names); ver++; },

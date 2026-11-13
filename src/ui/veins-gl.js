@@ -4568,7 +4568,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       setLiveAll(organs) { texVer++; const r = stack.setLiveAll(organs); notePlate(); return r; },
       setOrder: (names) => { texVer++; return stack.setOrder(names); },
       /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
-      shift: (name, dy) => { texVer++; return stack.shift(name, dy); },
+      shift: (name, dy) => { const moved = stack.shift(name, dy); if (moved) texVer++; return moved; },   // (the picture's signature changes only when a layer moved: 13 Nov 2026, heat D-2)
     },
     /**
      * The arrowheads' own run per vessel row (blood-heads.js, stage-blood.js chainRows): nTubes × 2 floats, the offset added to the run's
