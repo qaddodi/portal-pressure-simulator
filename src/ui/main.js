@@ -1907,9 +1907,9 @@ function sheetGlass() {
 let toastGL = null;
 function toastGlass() {
   if (toastGL) return;
-  const wrap = $('#toasts'), foot = $('#toastsFoot');
-  if (!wrap) return;
-  toastGL = stage?.glass?.add(() => TOASTS, { card: true, watch: foot ? [wrap, foot] : wrap, before: wrap }) || null;
+  const foot = $('#toastsFoot');
+  if (!foot) return;
+  toastGL = stage?.glass?.add(() => TOASTS, { card: true, watch: foot, before: foot }) || null;
 }
 // The figure's own chrome wears the same frosted GPU glass (Mohammad, 4 Nov 2026, "Use the glass for all the menus", "Including UI elements", "Like timeline
 // and stuff"): the top bar's pills (the patient, the view switcher, the Blood/Layers/colour key pill, Treat/Tests/History/Settings/Search), the zoom

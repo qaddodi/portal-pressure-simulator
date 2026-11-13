@@ -49,7 +49,7 @@ test('a menu: named, focused from the keyboard, focus handed back; a dialog trap
 
 test('a toast with buttons stays 9 s and while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
   const u = read('src/ui/util.js');
-  assert.match(u, /const life = actions\?\.length \? 9000 : note && sub \? 5200 : 4200/);
+  assert.match(u, /const life = actions\?\.length \? 9000 : sub \? 5200 : 4200/);
   assert.match(u, /t\.addEventListener\('focusin', \(\) => clearTimeout\(timer\)\)/);
   assert.match(read('src/ui/timeline.js'), /speedBtn\.setAttribute\('aria-label', `Playback speed, \$\{speedBtn\.textContent\}`\)/);
   assert.match(read('styles/app.css'), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);

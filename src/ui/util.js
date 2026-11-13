@@ -168,55 +168,36 @@ function dropToast(t) {
   const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
   t._wgl?.dispose(); t._wgl = null;
   t.remove();
-  if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
+  if (reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
     const dy = tops[i] - c.getBoundingClientRect().top;
     if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
-// Where the toasts sit: slid down from behind the top bars, or (no bars to sit under: the sinusoid view's) at the foot of the screen
-// by the stylesheet. A card kept on screen (a sticky one) is placed again when the screen turns or resizes, and the geometry the
-// docked placement wrote is cleared when a toast is not docked, so it never leaks into the foot placement.
-function placeToasts(wrap) {
-  if (wrap.id === 'toastsFoot') return;   // (a note's wrap rests at the foot by the stylesheet, --toast-foot: nothing to place)
-  const bars = document.getElementById('topbar');
-  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
-  const docked = !!(r && r.height);
-  wrap.classList.toggle('docked', docked);
-  if (docked) {
-    const W = innerWidth, w = Math.min(W - 24, 560);
-    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
-  } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
-}
-addEventListener('resize', () => { for (const id of ['toasts', 'toastsFoot']) { const wrap = document.getElementById(id); if (wrap?.children.length) { placeToasts(wrap); for (const c of wrap.children) c._refit?.(); } } });
-// A card slides down from behind the top bars and settles just below them (below every row on a phone); docked, it is filled: the
-// largest size that fits, stepping down for longer text, never clipped.
+// (The toasts rest at the foot by the stylesheet, --toast-foot: nothing to place. A card kept on screen, a sticky one, is fitted again when the screen turns or resizes.)
+addEventListener('resize', () => { const wrap = document.getElementById('toastsFoot'); if (wrap?.children.length) for (const c of wrap.children) c._refit?.(); });
 // (3 Nov 2026: laid out in script from Inter's own advances (toast-gl.js layoutToast), no page measure, and drawn on the GPU (widget-gl.js);
 // the page's own words, set at the size found, stay under it for the screen reader and until the GPU has drawn the card.)
 function toastFit(wrap, t, msg, actions, sub = null) {
   if (!t.isConnected) return;
-  placeToasts(wrap);
-  const docked = wrap.classList.contains('docked'), bad = t.classList.contains('bad');
-  const note = t.classList.contains('note');
-  const L = layoutToast({ msg, sub, note, bad, acts: actions?.map((a) => a[0]), docked, W: innerWidth });
+  const bad = t.classList.contains('bad');
+  const L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: innerWidth });
   t._L = L;
-  t.classList.toggle('toast-tall', docked && L.h > 52);   // (84 px: app.css, a class, so no height is written)
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
-  if (note) { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
-  if (docked) { t.style.width = ''; t.style.height = ''; } else { t.style.width = `${L.w}px`; t.style.height = `${L.h}px`; }
+  { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
+  t.style.width = `${L.w}px`; t.style.height = `${L.h}px`;
   if (L.btns.length) { const bs = t.querySelectorAll('.toast-acts .btn'); for (let i = 0; i < bs.length; i++) bs[i].style.width = `${L.btns[i].w}px`; }
   if (!t._wgl) {
     // (The glass marks the card it has drawn (data-gl) or is about to (data-gl-wait): the picture then leaves the card's tint, edge and shadow
     // to it, and draws them itself only where no glass comes. A mark coming or going is drawn again in a rest pass, never in a frame.)
     const glassed = () => t.hasAttribute('data-gl') || t.hasAttribute('data-gl-wait');
-    t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, docked: t._docked, bad, state: t._st, ink: inkOf(cssVar, t._docked), glass: glassed() }), { pad: 18 });
+    t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, bad, state: t._st, ink: inkOf(cssVar), glass: glassed() }), { pad: 18 });
     if (t._wgl) {
       let was = glassed();
       t._glassMo = new MutationObserver(() => { const now = glassed(); if (now !== was) { was = now; restPass(() => t._wgl?.paint()); } });   // alloc-rare: one observer for each toast raised
       t._glassMo.observe(t, { attributes: true, attributeFilter: ['data-gl', 'data-gl-wait'] });
     }
   }
-  t._docked = docked;
   t._refit = () => restPass(() => toastFit(wrap, t, msg, actions, sub));
   t._wgl?.paint();
   t.style.visibility = '';
@@ -237,11 +218,9 @@ export function toast(msg, kind = '', { actions = null, sticky = false, onClose 
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
 function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
-  // (A note, a preset's name and what it is, rests at the foot in its own wrap: an error or a card with buttons still comes down from the top.)
   // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
-  // The wrap at the top, with its card and its ×, is no longer used; its code stays until the one place that still reads it is taken out.)
-  const wrap = document.getElementById('toastsFoot') || document.getElementById('toasts');
-  const note = wrap.id === 'toastsFoot';
+  // index.html has the one wrap, #toastsFoot; the wrap at the top was taken out.)
+  const wrap = document.getElementById('toastsFoot');
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
@@ -249,7 +228,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
   const mark = kind === 'bad' ? icon('alert') : null;
   if (mark) mark.setAttribute('class', 'toast-ic');
-  const t = h('div', { class: 'toast ' + (note ? (kind === 'bad' ? 'note bad' : 'note') : kind), role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), note && sub ? h('span', { class: 'toast-sub' }, sub) : null);
+  const t = h('div', { class: kind === 'bad' ? 'toast note bad' : 'toast note', role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
@@ -262,9 +241,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
       return b;
     })));
   }
-  // (A note has no ×: a tap on it, or a swipe, closes it.)
-  const x = note ? null : h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
-  if (x) { x.addEventListener('click', (e) => { e.stopPropagation(); close(); }); t.append(x); }
+  // (A toast has no ×: a tap on it, or a swipe, closes it.)
   // (What the pointer is on, for the GPU's picture: lit under it, pressed while down. An event, not a frame.)
   const st = t._st = { hot: 0, down: 0 };
   const lit = (el, id) => {
@@ -273,7 +250,6 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
     el.addEventListener('pointerdown', () => { st.down = id; t._wgl?.paint(); });
     for (const ev of ['pointerup', 'pointercancel']) el.addEventListener(ev, () => { st.down = 0; t._wgl?.paint(); });
   };
-  if (x) lit(x, 1);
   t.querySelectorAll('.toast-acts .btn').forEach((b, i) => lit(b, 2 + i));
   t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
@@ -289,7 +265,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   TOASTS.push(t);
   restPass(() => toastFit(wrap, t, msg, actions, sub));
   // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
-  const life = actions?.length ? 9000 : note && sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  const life = actions?.length ? 9000 : sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();

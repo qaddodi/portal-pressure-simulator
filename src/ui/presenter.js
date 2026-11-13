@@ -2312,7 +2312,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   };
   const prev = () => { if (procBack() || (shown?.i === want && ui.tools?.step(-1))) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
   // (N1: the presenter view's window: the slide on show goes to it, its Next, Back and jumps come back as the keys do.)
-  const pview = createPresenterLink({ onBlocked: () => toast('Allow pop-ups to open the presenter view'),
+  const pview = createPresenterLink({ onBlocked: () => toast('Allow pop-ups to open the presenter view', '', { present: true }),
     onCmd: (m) => { if (!deck || leaving) return; if (m.c === 'next') next(); else if (m.c === 'prev') prev(); else if (m.c === 'go' && Number.isFinite(m.i)) go(clamp(m.i | 0, 0, slides.length - 1)); } });
   // A beat asked for: the cards stay, the figure moves (beatMove, run). A zoomed card glides back first, as for a slide.
   function toBeat(k) {

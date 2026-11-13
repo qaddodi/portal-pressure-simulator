@@ -364,7 +364,7 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 
 /* ── Motion primitives (premium-feel R11): everything that enters or leaves is one of four, each with its exit. An exit is
    the entrance reversed, played at the step below (ease.js, tokens.css) and toward where the piece came from.
-   fade-rise: words, rows, chips and panes rise 6 px into place.   slide-from-edge: a sheet, a side card, the docked toast
+   fade-rise: words, rows, chips and panes rise 6 px into place.   slide-from-edge: a sheet, a side card
    come from their edge (--edge-x / --edge-y: how far, --edge-o: the opacity it starts at; a sheet keeps 1).
    scale-settle: a card or popover settles by its opacity alone (since 2 Nov 2026; placed by util.js placeAt).
    crossfade: a swap of text, a lens, the figure's dim. Every other @keyframes below is a loop, an attention cue or a
@@ -628,26 +628,26 @@ div.vital { cursor: default; }
    same answer as the .btn and .ib above: a small sink for a chip, a tint for a row, a darker ink for a link. A control that is on
    (pressed, expanded, current) keeps its own tint and only sinks. Nothing on the figure moves. */
 html.press-fx :is(.pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .menu-btn, .dock-title, .um-link, .um-info, .tl-pop-ic,
-    .toast-x, .reset-btn, .pal-item, .pzj-list button, button.finding, .chg .chg-go, .select, .pz-fold) {
+    .reset-btn, .pal-item, .pzj-list button, button.finding, .chg .chg-go, .select, .pz-fold) {
   transition: scale var(--d-flip) var(--ease); }
 html.press-fx .link { transition: opacity var(--d-flip) var(--ease); }
 html.press-fx .dop-tint { transition: scale var(--d-flip) var(--ease); }
 /* the sink: a chip, a card, a row-sized button (small ones go in further) */
 html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title):not(:disabled):active { scale: .97; }
 html.press-fx :is(.drug, .ac-btn, .ac-toggle, .card):not(:disabled):active { scale: .985; }
-html.press-fx :is(.tl-pop-ic, .toast-x, .um-info, .reset-btn, .pz-zbtn):not(:disabled):active { scale: .88; }
+html.press-fx :is(.tl-pop-ic, .um-info, .reset-btn, .pz-zbtn):not(:disabled):active { scale: .88; }
 html.press-fx .pz-fold:active { scale: .96; }
 /* the tint under a press, for what is not already on */
 html.press-fx :is(.tl-speed, .dop-tint, .pt-chip, .drug, .ac-btn, .ac-toggle, .card):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { background-color: var(--surface-3); }
 html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { --hv-bg: var(--surface-3); } html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active::before { opacity: 1 }   /* (a pressed tint is the hover layer, faded in: nothing snaps) */
-html.press-fx :is(.um-info, .toast-x, .reset-btn, .pal-item, .dock-title, .select, .pz-zbtn):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
+html.press-fx :is(.um-info, .reset-btn, .pal-item, .dock-title, .select, .pz-zbtn):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
 html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { --hv-bg: var(--surface-3); color: var(--text); } html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active::before { opacity: 1 }
 html.press-fx .pz-abb:not(:disabled):active, html.press-fx .pzc-q:active { --hv-bg: var(--hairline); color: var(--text); } html.press-fx .pz-abb:not(:disabled):active::before, html.press-fx .pzc-q:active::after { opacity: 1 }
 html.press-fx .chg .chg-go:active { color: var(--text); } html.press-fx .order-chip:not(:disabled):active .oc-t::before { opacity: 1; }
 html.press-fx .link:active { color: var(--accent-ink); opacity: .7; text-decoration: underline; text-underline-offset: 2px; }
 /* tabs and the segmented options: the label goes to full ink under the press (the glide pill follows the pick) */
 html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > button, .pz-bar button.pzb-n):not([aria-selected="true"]):not([aria-pressed="true"]):active { color: var(--text); }
-@media (prefers-reduced-motion: reduce) { html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title, .drug, .ac-btn, .ac-toggle, .card, .tl-pop-ic, .toast-x, .um-info, .reset-btn, .pz-zbtn, .pz-fold):active { scale: none; } }
+@media (prefers-reduced-motion: reduce) { html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .dop-tint, .pt-chip, .pz-abb, .lens, .dock-title, .drug, .ac-btn, .ac-toggle, .card, .tl-pop-ic, .um-info, .reset-btn, .pz-zbtn, .pz-fold):active { scale: none; } }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .select { height: 32px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); padding: 0 28px 0 12px; font-size: var(--fs-14); appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385878F' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -3989,7 +3989,6 @@ button.finding { cursor: pointer; }
 .pg-on { background: transparent !important; box-shadow: none !important; overflow: visible !important; isolation: isolate; }
 .pg-piece { position: absolute; left: 0; top: 0; z-index: -1; box-sizing: border-box; transform-origin: 0 0; pointer-events: none; will-change: transform;
   background: var(--pg-bg, var(--glass)); border: var(--pg-border, 1px solid var(--hairline)); box-shadow: var(--pg-shadow, calc(1px * var(--light-slant)) 1px 2px rgb(var(--shadow-rgb) / .08)); }
-.toast-wrap.docked .toast.toast-tall { height: 84px; }
 .why-pop { --pg-bg: var(--surface); --pg-shadow: var(--shadow-3); }
 /* (the words' cut: two opposite translates reveal or hide them as the card's height changes, menu.js pvResize; no clip-path) */
 .um-pv-cut, .um-pv-cutin { position: relative; }
@@ -4647,13 +4646,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .toast-wrap { transform: translateX(-50%); }
 .toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, 92vw); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
 .toast.bad { background: var(--glass); color: var(--text); }
-/* An error's mark: the warning triangle in the danger ink, one text-height tall, so it scales with the docked card's fitted size. */
+/* An error's mark: the warning triangle in the danger ink, one text-height tall,so it scales with the words */
 .toast-ic { display: inline-block; width: 1.05em; height: 1.05em; margin: 0 .4em 0 0; vertical-align: -.17em; color: var(--danger-ink); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* Words wrap into even lines, never one word left alone on the last. */
 .toast-msg { text-wrap: balance; }
-.toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
-@media (hover: hover) { .toast-x:hover { background: var(--surface-3); color: var(--text); } }
-.toast-x :is(svg, .ic) { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; } .toast-x .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
 
 /* Concentric corners: a control inside a rounded container uses (container radius - inset), the same on
    every end, so hover, pressed and selected fills sit evenly inside their container. */
@@ -4699,21 +4695,10 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .cmp-table-btn { white-space: nowrap; }
 @media (max-width: 600px) { .cmp-label { display: none; } }
 
-/* Change messages: a compact card, about the size of a top bar, that slides down from behind the top bars
-   and settles just below them, then slides back up. The clipping wrap hides the part still "behind" the bars.
-   It stays below menus, so a menu is never covered. */
-.toast-wrap.docked { transform: none; z-index: calc(var(--z-popover) - 1); display: block; padding: 0; overflow: hidden; height: 130px; pointer-events: none; }
 /* An error, or a card with buttons, is never hidden under a menu or a sheet's scrim: it is the one thing to read (audit ZO1). */
-.toast-wrap.docked:has(.toast.bad:not(.leaving), .toast.has-acts:not(.leaving)) { z-index: var(--z-toast); }
-.toast-wrap.docked .toast { position: absolute; left: 20px; right: 20px; top: 6px; height: 52px; box-shadow: 0 2px 10px rgb(var(--black-rgb) / .14), inset 0 0 0 1px var(--hairline); max-width: none; padding: 4px 40px; justify-content: center; align-items: center; text-align: center; font-weight: 600; line-height: 1.2; border-radius: var(--r-sheet); background: var(--surface); pointer-events: auto; --edge-y: calc(-100% - 12px); animation: slide-from-edge var(--d-surface) var(--ease) both; }
-.toast-wrap.docked .toast.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
-.toast-wrap.docked .toast-msg { flex: 0 1 auto; max-width: 100%; text-align: center; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
-.toast-wrap.docked .toast-x { position: absolute; top: 50%; right: 8px; margin: -11px 0 0; }
 /* A card with buttons (the engine stopped): the words on one line, the buttons centred under them. */
 .toast.has-acts { flex-wrap: wrap; }
 .toast-acts { display: inline-flex; flex: none; gap: 8px; }
-.toast-wrap.docked .toast.has-acts { align-content: center; row-gap: 6px; }
-.toast-wrap.docked .toast.has-acts .toast-msg { flex-basis: 100%; }
 /* A toast the GPU draws (widget-gl.js, toast-gl.js): its box, hit area, focus and words stay for the page; its card, shadow, words, mark and
    buttons are the GPU's picture over it, so the page's own paint steps aside the moment that picture is up (.wgl-on), never before. */
 .toast { position: relative; }
@@ -4726,11 +4711,9 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .toast-wrap .toast[data-gl] { background: none !important; box-shadow: none !important; }   /* (the card's glass is drawn behind it: glass-gl.js) */
 .toast-wrap .toast.wgl-on { background: none !important; box-shadow: none !important; color: transparent; }
 .toast.wgl-on :is(.toast-msg, .toast-acts) { color: transparent; }
-.toast.wgl-on .toast-ic, .toast.wgl-on .toast-x .ic { visibility: hidden; }
+.toast.wgl-on .toast-ic { visibility: hidden; }
 .toast.wgl-on .toast-acts .btn { position: relative; z-index: 1; background: none; border-color: transparent; color: transparent; box-shadow: none; }
 .toast.wgl-on .toast-acts .btn::before { content: none; }
-.toast.wgl-on .toast-x { position: relative; z-index: 1; background: none !important; }
-.toast-wrap.docked .toast.wgl-on .toast-x { position: absolute; }
 /* A tooltip the GPU draws (tip-gl.js): its box, place and fade stay the page's, its card, shadow, words and key are the GPU's picture in it, so
    the page's own paint steps aside the moment that picture is up (.tip-gl), never before. The words stay in the page for a screen reader. */
 .tooltip.tip-gl { color: transparent; }
@@ -4740,10 +4723,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    background and shadow give way (.box-gl) once the plate is drawn. */
 .bp { display: block; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; pointer-events: none; min-width: 0; max-width: none; max-height: none; overflow: visible !important; }
 .box-gl { background: none !important; box-shadow: none !important; }
-@media (prefers-reduced-motion: reduce) {
-  .toast-wrap.docked .toast { animation: crossfade var(--d-small) var(--ease) both; }
-  .toast-wrap.docked .toast.leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
-}
 
 .vdock .stage-bar.bottom { height: auto; min-height: 60px; }
 .vdock .timeline { height: auto; }

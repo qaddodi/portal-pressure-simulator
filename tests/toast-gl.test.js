@@ -29,33 +29,13 @@ test('wrapBalanced: even lines, none wider than the room, never one word left al
   for (const l of long) assert.ok(measure(l, font) <= 100 + 0.01);
 });
 
-test('layoutToast docked: 52 px for a short line, 84 for longer words or buttons; words centred; the largest size that fits', () => {
-  const short = layoutToast({ msg: 'Link copied', bad: false, acts: null, docked: true, W: 390 });
-  assert.equal(short.w, 366); assert.equal(short.h, 52); assert.equal(short.px, 20); assert.equal(short.lines.length, 1);
-  const mid = short.lines[0], tw = measure(mid.text, '600 20px Inter');
-  assert.ok(Math.abs(mid.x - (366 - tw) / 2) < 0.01, 'centred');
-  assert.ok(mid.y > 4 && mid.y < 52, 'its baseline lies inside the card');
-  const wide = layoutToast({ msg: 'Link copied', bad: false, acts: null, docked: true, W: 1440 });
-  assert.equal(wide.w, 560);
-  const long = layoutToast({ msg: 'The shared link had values out of range, so the closest allowed values were used instead of the ones in the link.', bad: false, acts: null, docked: true, W: 390 });
-  assert.equal(long.h, 84);
-  assert.ok(long.px >= 13 && long.px < 17);
-  assert.ok(long.lines.length * long.px * 1.2 <= 84 - 8 + 0.01 || long.px === 13, 'the lines fit the card, or the size is at its floor');
-  const acts = layoutToast({ msg: 'The model stopped. Restart it to continue.', bad: true, acts: ['Restart', 'Dismiss'], docked: true, W: 390 });
-  assert.equal(acts.h, 84); assert.equal(acts.btns.length, 2);
-  const [a, b] = acts.btns;
-  assert.ok(Math.abs((a.x + (b.x + b.w - a.x) / 2) - acts.w / 2) < 0.01, 'the buttons are centred');
-  assert.equal(b.x - (a.x + a.w), 8);
-  assert.ok(a.y > acts.lines[acts.lines.length - 1].y, 'under the words');
-  assert.ok(acts.mark && acts.mark.size > 0, 'an error carries its mark');
-  assert.equal(layoutToast({ msg: 'x', bad: false, acts: null, docked: true, W: 390 }).mark, null);
-});
-
-test('layoutToast not docked: as wide as its words, up to 440 px or 92 % of the window', () => {
-  const s = layoutToast({ msg: 'Saved', bad: false, acts: null, docked: false, W: 1440 });
-  assert.equal(s.px, 12); assert.ok(s.w < 120); assert.equal(s.lines.length, 1);
-  const l = layoutToast({ msg: 'A message long enough that it has to wrap onto more than one line at this width, which is narrow.', bad: false, acts: null, docked: false, W: 390 });
-  assert.ok(l.w <= 390 * 0.92 + 0.01); assert.ok(l.lines.length >= 2);
+// (The docked card and the plain toast with a ×, and their two layout tests, went with the top wrap: index.html keeps the one wrap, #toastsFoot,
+// and every message is laid out as the foot card, which the note tests below cover. This one keeps the width rule for a long plain message.)
+test('layoutToast: a long plain message wraps inside the window and grows taller than a short one', () => {
+  const s = layoutToast({ msg: 'Saved', bad: false, acts: null, W: 1440 });
+  assert.equal(s.lines.length, 1); assert.ok(s.w < 120);
+  const l = layoutToast({ msg: 'A message long enough that it has to wrap onto more than one line at this width, which is narrow.', bad: false, acts: null, W: 390 });
+  assert.ok(l.w <= 390 - 24 + 0.01); assert.ok(l.lines.length >= 2);
   assert.ok(l.h > s.h);
 });
 
@@ -86,37 +66,62 @@ test('a preset note: a dot, the name and its lines, as wide as the words need up
     assert.ok(p.note && p.note.length > 20 && p.note.length < 130, `${p.id}: a short note`);
     assert.ok(!/[—]/.test(p.note), `${p.id}: no em dash`);
     for (const W of [320, 390, 1100]) {
-      const L = layoutToast({ msg: p.label, sub: p.note, note: true, bad: false, acts: undefined, docked: false, W });
+      const L = layoutToast({ msg: p.label, sub: p.note, bad: false, acts: undefined, W });
       assert.ok(L.w <= Math.min(420, W - 24) && L.w > 120, `${p.id} at ${W}: ${L.w}`);
-      assert.equal(L.x, null);
+      assert.equal(L.x, undefined, 'no ×');
       assert.ok(L.dot && L.dot.r === 4);
       assert.ok(L.h >= 56 && L.h <= 130, `${p.id} at ${W}: ${L.h}`);
       for (const ln of L.lines) assert.ok(ln.x + measure(ln.text, ln.font || '600 14px Inter') <= L.w - 14 + 0.5, `${p.id}: ${ln.text}`);
     }
   }
-  const again = layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, note: true, docked: false, W: 390 });
-  assert.deepEqual(again.lines.map((l) => l.text), layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, note: true, docked: false, W: 390 }).lines.map((l) => l.text));
+  const again = layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, W: 390 });
+  assert.deepEqual(again.lines.map((l) => l.text), layoutToast({ msg: 'Healthy', sub: PRESETS[0].note, W: 390 }).lines.map((l) => l.text));
 });
 
 test('a preset note rests in its own wrap at the foot, never over the top bars', () => {
   const html = src('index.html'), css = src('styles/app.css'), util = src('src/ui/util.js'), main = src('src/ui/main.js');
   assert.match(html, /id="toastsFoot"/);
   assert.match(css, /\.toast-wrap\.foot \{[^}]*bottom: var\(--toast-foot/);
-  assert.match(util, /const note = wrap\.id === 'toastsFoot'/);
+  assert.doesNotMatch(util, /placeToasts|getElementById\('toasts'\)/, 'the top wrap is gone');
   assert.match(main, /--toast-foot/);
-  assert.match(main, /watch: foot \? \[wrap, foot\]/);
+  assert.match(main, /watch: foot, before: foot/);
+  assert.doesNotMatch(main, /\$\('#toasts'\)/);
 });
 
 test('every message is a note: an error takes the mark in the dot\'s place, buttons sit under the words inside the card', () => {
   const W = 390;
-  const err = layoutToast({ msg: 'The model stopped. Reload, or restart this patient.', note: true, bad: true, acts: ['Reload'], docked: false, W });
-  assert.ok(err.mark && !err.dot && err.x === null);
+  const err = layoutToast({ msg: 'The model stopped. Reload, or restart this patient.', bad: true, acts: ['Reload'], W });
+  assert.ok(err.mark && !err.dot && err.x === undefined);
   assert.equal(err.btns.length, 1);
   const b = err.btns[0];
   assert.ok(b.x >= 32 && b.x + b.w <= err.w - 14 + 0.5 && b.y + b.h <= err.h - 10, JSON.stringify([b, err.w, err.h]));
   for (const ln of err.lines) assert.ok(ln.y < b.y);
-  const plain = layoutToast({ msg: 'The Warren shunt is already in place.', note: true, docked: false, W });
+  const plain = layoutToast({ msg: 'The Warren shunt is already in place.', W });
   assert.equal(plain.weight, 500);
   assert.ok(plain.h >= 40 && plain.h <= 60 && plain.dot);
   assert.match(src('src/ui/util.js'), /const wrap = document\.getElementById\('toastsFoot'\)/);
+});
+
+test('index.html has one toast wrap, the foot card, and no stylesheet rule docks a wrap', () => {
+  const html = src('index.html');
+  assert.equal((html.match(/class="toast-wrap/g) || []).length, 1);
+  assert.equal((html.match(/id="toasts"/g) || []).length, 0);
+  assert.equal((html.match(/id="toastsFoot"/g) || []).length, 1);
+  assert.doesNotMatch(src('styles/app.css'), /toast-wrap\.docked|toast-tall/);
+});
+
+test('the presenter\'s toasts raised inside a talk carry present: true (a pop-up block, a typed slide number, a copied link)', () => {
+  const p = src('src/ui/presenter.js');
+  const util = src('src/ui/util.js');
+  assert.match(util, /!present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)/, 'toast() drops a message without present while presenting');
+  for (const re of [/onBlocked: \(\) => toast\('Allow pop-ups to open the presenter view', '', \{ present: true \}\)/, /toast\(`Slide \$\{digits\}: press Enter`, '', \{ present: true \}\)/, /toast\(msg, '', \{ present: true \}\)/]) assert.match(p, re);
+  // every other toast( in presenter.js is an error ('bad', always shown) or sits in the script library, which is not inside a talk
+  const lib = p.indexOf('// ── Library (the menu');
+  assert.ok(lib > 0);
+  const loose = [];
+  p.split('\n').forEach((line, i) => {
+    if (!/\btoast\(/.test(line) || /present: true|'bad'/.test(line) || /^\s*(\/\/|\*)/.test(line) || /^import /.test(line)) return;
+    if (p.split('\n').slice(0, i).join('\n').length < lib) loose.push(i + 1);
+  });
+  assert.deepEqual(loose, [], 'a quiet toast in a talk would be swallowed: lines ' + loose.join(', '));
 });
