@@ -28,6 +28,7 @@ import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { reduceMotionMQ } from './motion.js';
+import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
@@ -379,7 +380,7 @@ export function createEndoscopy({ onAction }) {
 const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near rupture', critical: 'Rupture risk' };
 // The meter's four states by the stress's share of the tear point (one rule, read by the bar, the readout and the rim of the varix drawn below).
 const wallState = (r) => (r > 1 ? 'critical' : r > 0.7 ? 'danger' : r > 0.4 ? 'caution' : 'ok');
-const RIM_INK = { ok: '--ok', caution: '--caution', danger: '--danger', critical: '--critical' };
+const RIM_INK = { ...TOKEN_OF_SEV, critical: '--critical' };
 // A name's ink as drawn (centred, baseline middle): the box round its glyphs' own ink, from the GPU atlas (glyph-measure.js inkBox: no
 // canvas is drawn and read back). Names are placed by the ink itself, not their line box.
 const inkRows = (font, t) => inkBox(t, font);

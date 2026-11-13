@@ -22,7 +22,7 @@ import { classSoon, classHas, classNow, runSoon } from './class-soon.js';
 import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked, HVPG_WORDS, PPG_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
@@ -57,17 +57,16 @@ function sameShape(a, b) {
   }
   return i === a.length && j === b.length;
 }
-// (The status words of the readouts, in tables made once: a tile names its state every model frame.)
-const HVPG_WORDS = { ok: 'Normal', caution: 'Mild', danger: 'CSPH' }, PPG_WORDS = { ok: 'Normal', caution: 'High', danger: 'Bleed risk' };
+// (The status words of the readouts, in tables made once: a tile names its state every model frame. The HVPG's and PPG's are pressure-cuts.js's, short form.)
 const ASCITES_WORDS = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
 export const TILES = [
   { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: HVPG = WHVP − FHVP (wedged minus free hepatic venous pressure). Estimates the sinusoidal pressure gradient; normal <5 mmHg, CSPH ≥10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     scale: [0, 25], ticks: [HVPG_CUTS.amber, HVPG_CUTS.red],
     st: hvpgSev,
-    s: (v) => HVPG_WORDS[hvpgSev(v)] },
+    s: (v) => HVPG_WORDS[hvpgSev(v)][0] },
   { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure (portal confluence minus suprahepatic IVC), read directly from the model network. Unlike the HVPG, it includes presinusoidal and prehepatic resistance. Normal <6 mmHg, high ≥12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
-    st: ppgSev, s: (v) => PPG_WORDS[ppgSev(v)] },
+    st: ppgSev, s: (v) => PPG_WORDS[ppgSev(v)][0] },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
@@ -394,7 +393,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (!follow) countTo(x.val, null);
-        s = t.id === 'hvpg' && hvBlocked(st0.params) ? 'Not measurable' : 'Not measured';
+        s = t.id === 'hvpg' && hvBlocked(st0.params) ? NOT_MEASURABLE : 'Not measured';
         sev = 'none';
         x.histT.length = 0; x.histV.length = 0;   // (the trend starts over: it was x.hist, which no tile has, and threw here for every unmeasured reading, so the strip stopped painting past it)
       } else {

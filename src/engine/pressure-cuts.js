@@ -4,7 +4,8 @@
 // the catheter's tracing and labels (hvpg-proc.js, presenter.js), the talk trace (talk-trace.js), the HVPG against PPG plane
 // (visual-plane.js), the pressure ladder (anatomy.js), the patient menu's chips (menu.js) and the engine's events (events.js),
 // so a number is the same colour wherever it is shown. tests/pressure-vocabulary.test.js keeps any other file from writing them
-// again. No imports, so the worker loads it too.
+// again. No imports, so the worker loads it too. The bands' words, the ratings' maps and the missing-number glyph live here as well
+// (below; tests/rating-vocabulary.test.js and scripts/source-shapes/vocab.mjs keep a second copy out).
 //
 // `bleed` is not a guideline cut-off: HVPG 12 is where this model's varices start to rupture (a calibration, src/version.js), drawn
 // as a faint line and named "Bleed risk" on the Over time chart, never as a colour change of its own.
@@ -30,3 +31,25 @@ export const ppgSev = (v) => sevOfCuts(PPG_CUTS, v);
 export const RATE_OF_SEV = Object.freeze({ ok: 'ok', caution: 'mid', danger: 'hi' });
 export const hvpgRate = (v) => RATE_OF_SEV[hvpgSev(v)];
 export const ppgRate = (v) => RATE_OF_SEV[ppgSev(v)];
+/** The other way round: a summary table's rating ('ok', 'mid', 'hi') as the colour tokens name it ('ok', 'caution', 'danger'). */
+export const SEV_OF_RATE = Object.freeze(Object.fromEntries(Object.entries(RATE_OF_SEV).map(([sev, rate]) => [rate, sev])));
+/** A status's colour token, and a rating's: green, amber, red. */
+export const TOKEN_OF_SEV = Object.freeze({ ok: '--ok', caution: '--caution', danger: '--danger' });
+export const TOKEN_OF_RATE = Object.freeze(Object.fromEntries(Object.entries(RATE_OF_SEV).map(([sev, rate]) => [rate, TOKEN_OF_SEV[sev]])));
+
+// The bands' words, one set for every card, tile, chart and table, each [short, long]: the short on a tile, a chip or a table cell, the long where
+// a sentence has room. Never a third wording (unification audit 3). Frozen tables: a tile names its band every model frame.
+const pair = (short, long = short) => Object.freeze([short, long]);
+export const BLEED_WORD = 'Bleed risk';
+export const HVPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('Mild', 'Mild portal hypertension'), danger: pair('CSPH', 'Clinically significant portal hypertension (CSPH)') });
+export const PPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('High'), danger: pair(BLEED_WORD) });
+export const hvpgWord = (v, long = false) => HVPG_WORDS[hvpgSev(v)][long ? 1 : 0];
+export const ppgWord = (v, long = false) => PPG_WORDS[ppgSev(v)][long ? 1 : 0];
+
+// A reading that cannot be taken (the HVPG with the hepatic vein thrombosed: hvBlocked) says this, on every tile, cell and card.
+export const NOT_MEASURABLE = 'Not measurable';
+// A number not known (no reading, no frame yet) prints as one em dash in its number's place, as util.js fmt prints it. In running text (a slide
+// line's or a callout's live value) a dash between words would read as an em-dash aside (docs/ai-humanizer.md), so there a value still to come
+// prints as an ellipsis.
+export const NOT_SHOWN = '—';
+export const VALUE_PENDING = '…';

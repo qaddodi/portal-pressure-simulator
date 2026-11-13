@@ -41,7 +41,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js';
 import { nb, listCase, plateletText } from './glue.js';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js';
 import { fingerprintOf } from '../engine/fingerprint.js';
-import { hvpgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev, TOKEN_OF_RATE, NOT_MEASURABLE, VALUE_PENDING } from '../engine/pressure-cuts.js';
 import { createHvpgMonitor } from './hvpg-proc.js';
 import { createTools } from './presenter-tools.js';
 import { openHandout } from './handout.js';
@@ -282,11 +282,11 @@ export const SITE_NODE = { pv: 'CONF', ivc: 'IVCS', ra: 'RA' };
 const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: '--tour-sys' };
 // A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
 // shows it, on its pill and on its organ's outline; neutral while it is normal.
-const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
-const rateTone = (k, fp) => RATE_TONE[rateShown(k, fp)[0]] || null;   // (judged as its pill prints it)
+const BY_RATE = new Set(['spleen', 'varix', 'gv']);
+const rateTone = (k, fp) => { const r = rateShown(k, fp)[0]; return (r !== 'ok' && TOKEN_OF_RATE[r]) || null; };   // (judged as its pill prints it)
 // A filled pill (the patient) takes its tile's rating colour, as the tile's bar shows it: green, amber or red (Mohammad,
 // 19 Oct). A value its tile does not rate or rates only as information keeps its station's colour, or none.
-const PILL_TONE = { ok: '--ok', mid: '--caution', hi: '--danger' };
+const PILL_TONE = TOKEN_OF_RATE;
 const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its target, as its tile reads it)
 const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.has(k) ? null : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
@@ -359,7 +359,7 @@ let fpAt = () => null;
 const atRe = /^(\w+)@([\w-]+)$/;
 function liveVal(k, s, fp) {
   const T = TILE[k], v = fp?.[k];
-  if (v == null || !Number.isFinite(v)) return '…';
+  if (v == null || !Number.isFinite(v)) return VALUE_PENDING;
   const d = T.d ?? 1;
   if (k === 'plt') return plateletText(v);   // (in running text "88,000/µL"; the tile keeps ×10³/µL)
   return `${fmt(v * (T.x || 1), d)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;   // ("75%": no space before the sign)
@@ -3344,7 +3344,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return el;
   }
   // A cell that cannot be measured: a hollow ring, never the dash that means normal.
-  const noneEl = () => h('span', { class: 'pz-nm', 'aria-hidden': 'true' });
+  const noneEl = () => h('span', { class: 'pz-nm', 'aria-hidden': 'true' }), NOT_MEASURABLE_LC = NOT_MEASURABLE.toLowerCase();
   // A cell whose patient is still being computed: empty (never "…": no ellipsis anywhere), said so to a screen reader; its numbers fade in
   // when the patient arrives (watchRows).
   // (R15: not blank, and the width of a number: a bar the size of a value, faint, so the row keeps its height and the column its width when the
@@ -3382,7 +3382,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // focusRow (V15, opt-in): lights one row; the others recede.
     const focus = focusOf(s);
     const cell = (k, r, n) => {
-      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: NOT_MEASURABLE }, noneEl(), h('span', { class: 'sr-only' }, NOT_MEASURABLE_LC));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return pendEl();
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
       if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
@@ -3399,7 +3399,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,
     // unit words and cells are its own; a row not yet computed waits, and a row's blank columns show the ring, as the others do.
     const extCell = (k, r, n) => {
-      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: NOT_MEASURABLE }, noneEl(), h('span', { class: 'sr-only' }, NOT_MEASURABLE_LC));
       if (!r.f) return colExt(k).pend?.() ?? pendEl();
       const c = safe(() => colExt(k).cell({ ...r, state: states[r.k] ?? null, ref: refOfRow(r) ?? null, isRef: isRef(r, n) }, ctxOf(s, slides.indexOf(s))), null, `columns.${k}`);
       return c?.tagName === 'TD' ? c : h('td', { class: 'num' }, c ?? '—');
@@ -3421,7 +3421,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const key = rel
       ? `↑ higher, ↓ lower than ${perRow ? 'the row named under each' : refTitle}; ↑↑ ↓↓ by ≥40%; • unchanged${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
       : `↑ above normal, ↓ below; ↑↑ ↓↓ past the red cut-off of that column (tap a heading for it); • within normal`;
-    const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
+    const legend = [key, rows.some((r) => r.blank.length) ? `○ ${NOT_MEASURABLE_LC}` : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
       .filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + '.';
     // A heading's cut-offs: its tooltip on hover, and a line under the legend on a tap (a touch screen shows no tooltip).
     const cutLine = h('span', { class: 'pz-cutl' });

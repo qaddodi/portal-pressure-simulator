@@ -20,6 +20,7 @@
 // 'tips10', 'mesocaval', 'portocaval', 'rex', 'recanalization').
 
 import { RATE } from './table-marks.js';
+import { SEV_OF_RATE } from '../engine/pressure-cuts.js';
 import { fittedType } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
@@ -68,7 +69,7 @@ export function menuPoints(opts, outs) {
     .filter((q) => Number.isFinite(q.ppg) && Number.isFinite(q.liver));
 }
 /** The PPG's rating colour token for a dot ('ok', 'caution', 'danger'), from the app's own cut-offs. */
-export const ratingTok = (ppg) => ({ ok: 'ok', mid: 'caution', hi: 'danger' })[RATE.ppg(ppg, {})[0]] || 'ok';
+export const ratingTok = (ppg) => SEV_OF_RATE[RATE.ppg(ppg, {})[0]] || 'ok';
 /** A dot's radius for the share of portal blood that bypasses the liver (0 to 1), in px at type size f. */
 export const dotRadius = (shunt, f) => f * (0.26 + 0.3 * clamp(Number.isFinite(shunt) ? shunt : 0, 0, 1));
 

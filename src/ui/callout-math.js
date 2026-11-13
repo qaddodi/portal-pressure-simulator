@@ -4,9 +4,10 @@ import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { plateletText } from './glue.js';
 import { bpText } from './vital-read.js';
 import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES, CAUDATE } from './anatomy.js';
+import { TOKEN_OF_RATE, NOT_SHOWN, VALUE_PENDING } from '../engine/pressure-cuts.js';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
-const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
+const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return NOT_SHOWN; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
 
 // ── V8: live numbers in a mark's words ──
 // "Varix {varix}": a brace names a tile's reading (table-marks.js TILE). A label with no known brace is not a live one, and is
@@ -28,17 +29,17 @@ export function parseLive(label) {
   text(label.slice(at));
   return live ? runs : null;
 }
-/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one), or "…" while it is unknown. */
+/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one), or "…" (VALUE_PENDING) while it is unknown. */
 export function valueText(k, fp) {
   const T = TILE[k], v = fp?.[k];
-  if (!T || v == null || !Number.isFinite(v)) return '…';
+  if (!T || v == null || !Number.isFinite(v)) return VALUE_PENDING;
   if (k === 'plt') return plateletText(v);
   if (T.bp) return `${bpText(fp.sbp, fp.dbp, v)} ${T.u}`;   // (the blood pressure as the bedside writes it: 120/80 (93) mmHg)
   return `${fmt(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
 }
 // A reading's rating colour, as its tile's bar shows it (and the line's pill: presenter valTone): green, amber or red; after TIPS
 // the PPG is read against its target. A reading its tile does not rate has none.
-const TONE = { ok: '--ok', mid: '--caution', hi: '--danger' };
+const TONE = TOKEN_OF_RATE;
 export function valueTone(k, fp, tips = false) {
   if (fp?.[k] == null) return null;
   const r = tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0];
@@ -51,7 +52,7 @@ export function liveRuns(runs, fp, tips = false) {
 /** The widest a value's words can come to as the model moves: each digit an 8, and a single digit before the point given a
  *  second, so a callout keeps room for its widest value and never changes size as its number ticks ("9.8 cm" to "10.2 cm").
  *  (The stage keeps the widest it has drawn, too: a reading past this still never makes the pill shrink back.) */
-export const widest = (t) => (t === '…' ? '88.8' : t.replace(/\d+/, (n) => '8'.repeat(Math.max(2, n.length))).replace(/\d/g, '8'));
+export const widest = (t) => (t === VALUE_PENDING ? '88.8' : t.replace(/\d+/, (n) => '8'.repeat(Math.max(2, n.length))).replace(/\d/g, '8'));
 export const widestRuns = (runs) => runs.map((r) => (r.tone !== undefined ? { ...r, t: widest(r.t) } : r));
 /** The label as plain words (what a screen reader hears, and the label the presenter stores). */
 export const runsText = (runs) => runs.map((r, i) => (i && r.sp ? ' ' : '') + r.t).join('');
@@ -137,9 +138,9 @@ export function caliperOf(id) {
 export function caliperText(c, fp, params, ei) {
   if (c.key) return valueText(c.key, fp);
   const stent = c.edge === 'TIPS' ? params?.tips : c.edge === 'DIPS' ? params?.dips : null;
-  if (stent) return stent.on && Number.isFinite(stent.d) ? `${fmt(stent.d, Number.isInteger(stent.d) ? 0 : 1)} mm` : '…';
+  if (stent) return stent.on && Number.isFinite(stent.d) ? `${fmt(stent.d, Number.isInteger(stent.d) ? 0 : 1)} mm` : VALUE_PENDING;
   const d = ei >= 0 ? fp?.at?.D?.[ei] : null;
-  return Number.isFinite(d) && d > 0 ? `${fmt(d, 1)} mm` : '…';
+  return Number.isFinite(d) && d > 0 ? `${fmt(d, 1)} mm` : VALUE_PENDING;
 }
 
 // ── V10: numbered steps ──

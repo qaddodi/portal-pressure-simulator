@@ -500,8 +500,8 @@ export default async function register({ check, device, instantMotionOn, open, q
       const txt = g.textContent;
       const card = [...document.querySelectorAll('canvas[data-reading]')].find((c) => c.offsetParent !== null && c.getBoundingClientRect().width > 0);
       const val = probe.querySelector('.sp-val').textContent;
-      if (card && val !== '--' && card.dataset.reading !== val) bad.push(`probe reads ${val}, card reads ${card.dataset.reading}`);   // same number, same rounding (read in one frame)
-      if (!/(\d|--)/.test(txt) || !/kPa/.test(txt)) bad.push(`text "${txt}"`);
+      if (card && val !== '\u2014' && card.dataset.reading !== val) bad.push(`probe reads ${val}, card reads ${card.dataset.reading}`);   // same number, same rounding (read in one frame)
+      if (!/(\d|\u2014)/.test(txt) || !/kPa/.test(txt)) bad.push(`text "${txt}"`);
       return { probe: true, tool, shown: true, bad };
     });
     // The callout fades in with the probe, and a slide's camera glides first: it counts only if it is still wrong a few seconds later.

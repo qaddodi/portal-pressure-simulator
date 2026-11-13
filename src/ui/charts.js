@@ -17,7 +17,7 @@ import { restPass, cancelRest } from './rest-pass.js';
 import { measure } from './glyph-measure.js';
 import { glWords } from './gl-words.js';
 import { textSoon, dataSoon } from './class-soon.js';
-import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/pressure-cuts.js';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -182,17 +182,18 @@ export function createProfile() {
   const side = h('div', { class: 'chart-side' }, legend, note, offscale);
   // The three readings under the chart, as figures (13 Nov 2026): HVPG, PPG and the portal pressure, each with its word only when it is not normal.
   // (Written between frames, and only when the text or the rating changed.)
-  const READ = [['hvpg', 'HVPG', hvpgSev, { caution: 'Mild', danger: 'CSPH' }, 'trueHVPG'], ['ppg', 'PPG', ppgSev, { caution: 'High', danger: 'Bleed risk' }, 'pv'], ['pv', 'Portal vein', null, null, 'pv']]
+  // (The words are pressure-cuts.js's short ones; a normal reading's is left out here.)
+  const READ = [['hvpg', 'HVPG', hvpgSev, HVPG_WORDS, 'trueHVPG'], ['ppg', 'PPG', ppgSev, PPG_WORDS, 'pv'], ['pv', 'Portal vein', null, null, 'pv']]
     .map(([id, name, sev, words, hideKey]) => {
-      const val = h('span', { class: 'num' }, '—'), st = h('span', { class: 'note' });
-      return { id, sev, words, hideKey, val, st, txt: '—', stTxt: '', rate: '', el: h('div', { 'data-id': id }, h('span', { class: 'lab' }, name), h('span', { class: 'v' }, val, h('small', {}, 'mmHg')), st) };
+      const val = h('span', { class: 'num' }, NOT_SHOWN), st = h('span', { class: 'note' });
+      return { id, sev, words, hideKey, val, st, txt: NOT_SHOWN, stTxt: '', rate: '', el: h('div', { 'data-id': id }, h('span', { class: 'lab' }, name), h('span', { class: 'v' }, val, h('small', {}, 'mmHg')), st) };
     });
   const strip = h('div', { class: 'pp-strip strip', 'aria-label': 'HVPG, PPG and portal vein pressure' }, READ.map((x) => x.el));
   function readStrip(f) {
     const m = f?.metrics, hid = hiddenNow();
     for (let i = 0; i < READ.length; i++) {
       const x = READ[i], v = m?.[x.id], on = Number.isFinite(v) && !hid?.has(x.hideKey);
-      const t = on ? v.toFixed(1) : '—', rate = on && x.sev ? x.sev(v) : '', w = rate ? x.words[rate] || '' : '';
+      const t = on ? v.toFixed(1) : NOT_SHOWN, rate = on && x.sev ? x.sev(v) : '', w = rate && rate !== 'ok' ? x.words[rate][0] : '';
       if (t !== x.txt) { x.txt = t; textSoon(x.val, t); }
       if (w !== x.stTxt) { x.stTxt = w; textSoon(x.st, w); }
       if (rate !== x.rate) { x.rate = rate; dataSoon(x.el, 'sev', rate || null); }

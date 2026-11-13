@@ -3,7 +3,7 @@
 // normal (dirAbs) or against a reference patient (dirRel), and the colour that goes with it.
 
 import { FLOW_CUTS } from '../engine/flow-cuts.js';
-import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
+import { PPG_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORDS } from '../engine/pressure-cuts.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { KIDNEY_CUTS, rppSev } from '../engine/kidney-cuts.js';
 
@@ -51,8 +51,9 @@ const T_ok_Low = tup('ok', 'Low');
 const T_ok_10 = tup('ok', '≥10%');
 const T_ok_12_mmHg = tup('ok', '≤12 mmHg');
 const T_hi_10 = tup('hi', '<10%');
-const HVPG_T = { hi: tup('hi', 'CSPH'), mid: tup('mid', 'Mild'), ok: tup('ok', 'Normal') };
-const PPG_T = { hi: tup('hi', 'Bleed risk'), mid: tup('mid', 'High'), ok: tup('ok', 'Normal') };
+// (The HVPG's and PPG's bands as their ratings, each with its short word from pressure-cuts.js: { ok: ['ok', 'Normal'], mid: …, hi: … }.)
+const bandTups = (words) => Object.fromEntries(Object.entries(words).map(([sev, w]) => [RATE_OF_SEV[sev], tup(RATE_OF_SEV[sev], w[0])]));
+const HVPG_T = bandTups(HVPG_WORDS), PPG_T = bandTups(PPG_WORDS);
 const NO_RATE = tup(null, '');
 export const vSize = (v) => (v < 2.5 ? T_ok_None : v < 5 ? T_mid_Small : T_hi_Large);
 

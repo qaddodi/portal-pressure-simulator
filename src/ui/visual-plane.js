@@ -28,7 +28,7 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js';
-import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS, BLEED_WORD } from '../engine/pressure-cuts.js';
 import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
@@ -114,7 +114,7 @@ export const PLANES = {
     // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
     nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
+    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
     source: '',
     key: false,
   },
@@ -127,7 +127,7 @@ PLANES['flow-ppg'] = {
   y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
   zones: [],
   cuts: { y: [PPG_CUTS.red] },
-  lineNames: { y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
+  lineNames: { y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
   iso: { rays: [4, 8, 16, 32] },
   nameGap: 4,
   source: 'Each line is one resistance, PPG ÷ flow, in mmHg per L/min.',

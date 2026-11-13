@@ -10,7 +10,7 @@ import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
-import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
 import { wrapLabel } from './wrap-label.js';
@@ -52,9 +52,11 @@ const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so 
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 const JUMP_S = 0.5;   // (a first sample this far ahead of the last one recorded, or any way behind it, is a clock that was set, not the next frame)
 // HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
-const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `CSPH ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `Bleed risk ${HVPG_CUTS.bleed}`]];
+// (Each named by its band's short word, pressure-cuts.js HVPG_WORDS; from the bleed line the CSPH band adds the risk, made once here.)
+const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `${HVPG_WORDS.danger[0]} ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `${BLEED_WORD} ${HVPG_CUTS.bleed}`]];
 const sevOf = hvpgSev;
-const wordOf = (v) => (v < HVPG_CUTS.amber ? 'Normal' : v < HVPG_CUTS.red ? 'Mild' : v < HVPG_CUTS.bleed ? 'CSPH' : 'CSPH · bleed risk');
+const BLEED_BAND = `${HVPG_WORDS.danger[0]} · ${BLEED_WORD.toLowerCase()}`;
+const wordOf = (v) => (v < HVPG_CUTS.amber ? HVPG_WORDS.ok[0] : v < HVPG_CUTS.red ? HVPG_WORDS.caution[0] : v < HVPG_CUTS.bleed ? HVPG_WORDS.danger[0] : BLEED_BAND);
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 // Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,
@@ -64,7 +66,7 @@ const TICK_CHOICES = [5, 10, 20, 25, 50];
 const HVPG_KEYS = ['hvpg'];
 const RANGE_SPAN = Object.fromEntries(RANGES.map((r) => [r[0], r[2]]));   // (seconds on screen; null: the days)
 const BEAT_TOP_KEYS = ['whvp', 'CONF'];
-const SEV_VAR = { ok: '--ok', caution: '--caution', danger: '--danger' };   // (hvpgSev's three words, as colour tokens)
+const SEV_VAR = TOKEN_OF_SEV;   // (hvpgSev's three words, as colour tokens)
 const AX_BEATS = [], AX_MIN = [], STR5 = [];   // (the time axis' names by seconds back, "−4 s", "−2 min"; the scale's numbers by fives)
 for (let s = 0; s <= 240; s++) { AX_BEATS[s] = `−${s} s`; AX_MIN[s] = s % 60 === 0 ? `−${s / 60} min` : `−${s} s`; }
 for (let i = 0; i <= 600; i++) STR5[i] = String(i * 5);
@@ -96,7 +98,7 @@ const byY = (a, b) => a.y - b.y;
 
 export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
   // ── DOM ───────────────────────────────────────────
-  const heroVal = h('b', { class: 'pt-num' }, '—');
+  const heroVal = h('b', { class: 'pt-num' }, NOT_SHOWN);
   const heroSev = h('span', { class: 'pt-sev' });
   const heroDelta = h('span', { class: 'pt-delta' });
   // The header is one row on every screen: HVPG, the number, and the status over its trend.
@@ -607,7 +609,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     keyRows[0].c = pc; keyRows[0].v = pvNow; keyRows[1].c = wc; keyRows[1].v = wNow; keyRows[2].c = fc; keyRows[2].v = fNow;
     keyRowList.length = 0;
     for (let i = noPv ? 1 : 0; i < 3; i++) keyRowList.push(keyRows[i]);
-    const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—', hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—';
+    const hrT = Number.isFinite(hr) ? fmt(hr, 0) : NOT_SHOWN, hvT = Number.isFinite(hv) ? fmt(hv, 1) : NOT_SHOWN;
     // (the top number gives way to the unit written over it, which it touched)
     const gate = top - 10 > (lay.ekg ? lay.ekg.bot : 0);
     const nyl = Math.floor(hi / 5) + 1;
@@ -619,7 +621,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     SB.L = L; SB.hrT = hrT; SB.hvT = hvT; SB.word = wordOf(hv); SB.sevC = sevC; SB.hrC = hrC; SB.ylN = ylN;
     if (lay.wide) {
       const hrSince = sinceText(hr, was?.hr, 0), hvSince = sinceText(hv, hvWas, 1);
-      for (const r of keyRowList) r.txt = Number.isFinite(r.v) ? fmt(r.v, 1) : '—';
+      for (const r of keyRowList) r.txt = Number.isFinite(r.v) ? fmt(r.v, 1) : NOT_SHOWN;
       SBcol.x = lay.colX; SBcol.plan = colPlan(hh, !!(hrSince || hvSince)); SBcol.hrSince = hrSince; SBcol.hvSince = hvSince;
       SB.col = SBcol;
     } else SB.col = null;
@@ -1269,7 +1271,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     const hidden = hiddenSet();
     if (hidden.has('trueHVPG')) {
       const meas = store.get().lastHVPG;
-      heroVal.textContent = meas ? fmt(meas.hvpg, 1) : '—';
+      heroVal.textContent = meas ? fmt(meas.hvpg, 1) : NOT_SHOWN;
       heroSev.textContent = meas ? 'Measured' : 'Not measured';
       heroSev.dataset.sev = meas ? sevOf(meas.hvpg) : 'none';
       heroDelta.textContent = '';

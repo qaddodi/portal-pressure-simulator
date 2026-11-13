@@ -68,7 +68,7 @@
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE } from './table-marks.js';
-import { HVPG_CUTS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { frameFor } from './frame.js';
 import { restPass, restClass } from './rest-pass.js';
 import { fittedType, tokName } from './chart-ctx.js';
@@ -288,7 +288,7 @@ export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !ax.name.toLowe
 const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (portal − IVC)' };
 export const spellAxis = (ax) => (X_SPELT[ax.k] ? { ...ax, name: X_SPELT[ax.k] } : ax);
 /** The name a cut-off on the x reading goes by on the chart, or '': the HVPG 10 line is the CSPH line ("CSPH ≥10"). */
-export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? 'CSPH' : '');
+export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? HVPG_WORDS.danger[0] : '');
 /** The x axis's numbers and where its name stands (his G2 look, 27 Oct: the name on the numbers' row, as the planes' x name is, so the plot gains
  *  the row it had of its own). The name takes the widest stretch between the numbers (each 6 px clear, and 8 px in from the panel's edges) when it
  *  fits there with at least three numbers kept: the most numbers that leave it room, `most` at the most. { xt, nameAt }: nameAt the name's centre

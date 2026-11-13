@@ -4,7 +4,7 @@
 // (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked } from '../engine/pressure-cuts.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './util.js';
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
@@ -17,7 +17,7 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
 // The data card tile's rating class as this pane's severity: green, amber, red; a reading its tile only informs of (a slow heart rate, a high
 // output) stays the neutral gray.
-const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
+const SEV = SEV_OF_RATE;
 
 // [id, full name, short name for a narrow card]
 const SYSTEMIC = [
@@ -113,7 +113,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? 'Not measurable' : 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)

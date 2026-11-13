@@ -23,6 +23,7 @@ import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
+import { NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -115,7 +116,7 @@ export const icon = (id) => {
 // every frame. Keyed by the number itself, so the text is exactly what toFixed gave; cut when it grows.)
 const fmtTexts = [new Map(), new Map(), new Map(), new Map()];
 export function fmt(v, d = 1) {
-  if (v == null || !Number.isFinite(v)) return '—';
+  if (v == null || !Number.isFinite(v)) return NOT_SHOWN;
   const m = fmtTexts[d] || (fmtTexts[d] = new Map());   // alloc-rare: a precision met for the first time
   let r = m.get(v);
   if (r !== undefined) return r;
@@ -131,7 +132,7 @@ export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
  *  a trickle through a collateral never looks like none. */
 export function fmtFlow(v) {
-  if (v == null || !Number.isFinite(v)) return '—';
+  if (v == null || !Number.isFinite(v)) return NOT_SHOWN;
   const a = Math.abs(v);
   if (a > 0.0005 && a < 0.05) return v < 0 ? '−< 0.1' : '< 0.1';
   return fmt(v, 1);

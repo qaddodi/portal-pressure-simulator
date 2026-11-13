@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { scanKpaOf, scanReadingText } from '../src/ui/scan-ease.js';
+import { NOT_SHOWN } from '../src/engine/pressure-cuts.js';
 
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -24,7 +25,8 @@ test('the probe\'s screen always has a number: the card\'s, else its own eased o
   assert.equal(scanReadingText('13.4', '12.0', 9), '13.4', 'the card\'s frame gives its number');
   assert.equal(scanReadingText(undefined, '12.0', 9), '12.0', 'a card on screen that has not just painted');
   assert.equal(scanReadingText(undefined, null, 9.04), '9.0', 'no card: the probe\'s own reading to a decimal');
-  assert.equal(scanReadingText(null, null, null), '--');
+  assert.equal(scanReadingText(null, null, null), NOT_SHOWN, 'no number: the app\'s one missing-number glyph');
+  assert.equal(NOT_SHOWN, '\u2014');
   assert.equal(scanReadingText(undefined, '', 22.26), '22.3', 'an empty card text is never put on the screen');
   assert.equal(scanReadingText('', null, 5), '5.0');
   for (const k of [null, 0, 4.96, 25, 100]) assert.ok(scanReadingText(undefined, null, k).length > 0);
