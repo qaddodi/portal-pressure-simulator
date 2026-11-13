@@ -188,8 +188,11 @@ export function createClamps(st, live) {
     // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
     const PM = f.Pf || f.P;
     vxBin[0] = heldBin(vxBin[0], PM[NI.VAR]); vxBin[1] = heldBin(vxBin[1], PM[NI.GV]);   // (held: a pressure breathing across a bin's edge must not flip the colour, and the organ layer with it)
-    setVar(ov.varices, '--vx', pressureColor(vxBin[0]));
-    setVar(ov.gvarices, '--vx', pressureColor(vxBin[1]));
+    // (Written only while the group holds something to colour (13 Nov 2026, Mac heat): the varices are drawn by their channels and both groups
+    // are kept empty, and nothing reads --vx then. Each write still made the GPU overlays read the group again, and the glass look at its
+    // boxes again: 1.7 a second at rest in a healthy patient. A group that gets children is written its bin on the next model frame.)
+    if (ov.varices.firstChild) setVar(ov.varices, '--vx', pressureColor(vxBin[0]));
+    if (ov.gvarices.firstChild) setVar(ov.gvarices, '--vx', pressureColor(vxBin[1]));
     const key = overlayInputs(f, p, t);
     live.balloonStep(p, t < 0.5);
     venousSync(p, t < 0.5, key !== live.overlayKey);

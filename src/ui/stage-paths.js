@@ -179,7 +179,27 @@ export function createPaths(st) {
   // The point half way along a drawn vessel, by length, and the direction it runs there.
   // (at: how far along, 0.5 by default: the middle.)
   const arcOut = [0, 0, 0, 0];   // (read at once by every caller, by destructuring or spreading)
+  // (The last answer for each course, kept with a copy of its points (13 Nov 2026, Mac heat): the labels' pins ask for the middle of the same
+  // unchanged course on every present, 30 to 40 times a second, and the walk with its square roots was the main thread's largest single cost
+  // at rest. The points are compared one by one, so a course moved in place is walked again; the answer is the same numbers either way.)
+  const arcMemo = new WeakMap();
   function arcMid(pts, at = 0.5) {
+    const n = pts.length;
+    let k = arcMemo.get(pts);
+    if (k && k.at === at && k.n === n) {
+      const xs = k.xs;
+      let same = true;
+      for (let i = 0, j = 0; i < n; i++, j += 2) { const p = pts[i]; if (p[0] !== xs[j] || p[1] !== xs[j + 1]) { same = false; break; } }
+      if (same) { arcOut[0] = k.r[0]; arcOut[1] = k.r[1]; arcOut[2] = k.r[2]; arcOut[3] = k.r[3]; return arcOut; }
+    }
+    arcWalk(pts, at);
+    if (!k) arcMemo.set(pts, (k = { at, n: -1, xs: null, r: new Float64Array(4) }));   // alloc-rare: once per course array
+    if (!k.xs || k.xs.length !== 2 * n) k.xs = new Float64Array(2 * n);   // alloc-rare: once per course array, again only if it changes length
+    for (let i = 0, j = 0; i < n; i++, j += 2) { k.xs[j] = pts[i][0]; k.xs[j + 1] = pts[i][1]; }
+    k.at = at; k.n = n; k.r[0] = arcOut[0]; k.r[1] = arcOut[1]; k.r[2] = arcOut[2]; k.r[3] = arcOut[3];
+    return arcOut;
+  }
+  function arcWalk(pts, at) {
     let total = 0;
     for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     let run = 0;
