@@ -227,46 +227,84 @@ export function createBlood(st, live) {
   // vessel's upstream join, as the junction's own A does, in steps small enough that no head moves back.
   // Until 13 Nov the offset eased either way at up to a spacing in half a second, faster than the blood, and the junction's own B eased
   // about its upstream join: heads slid backward.
-  const HEAD_CATCH = 0.3, HEAD_B = 0.3;   // (together at most 0.6 of the stream's step: a head always moves forward)
-  const hDp = new Float64Array(GL_ROWS);
+  // (3, 13 Nov 2026: hops at a join in the disease presets, up to 90 px.) A chained vessel's lattice is held at its junction end to the
+  // heads drawn on its parent there (the parent's hA, hB at its downstream end), not to the junction's own A: while a parent eases, its heads
+  // stand off the junction's A, and the branch then took them up somewhere else. J, the stream distance of the row's lattice at its junction
+  // end, follows the parent's own move there each step (a head runs out of the parent and on into the branch in step), and a gap left (a link
+  // formed, a root changed) is caught up whichever way round is quicker: the heads slowed to no less than 1 - HEAD_CATCH of the stream, or
+  // run up to 1 + HEAD_FAST times it. A vessel drawn on its own stream has no join to keep: its lattice stays where it is.
+  // A B that falls (a link let go: the heads had kept the root's larger B, and ran slow) is taken down quickly, since that only spreads
+  // the heads forward from the join (HEAD_B_OUT); one that rises pulls them back toward it and goes no faster than HEAD_B.
+  const HEAD_CATCH = 0.45, HEAD_FAST = 0.45, HEAD_B = 0.3, HEAD_B_OUT = 0.8, HEAD_J = 0.65;   // (J back at most 0.65, B at most 0.3 of the stream's step: forward)
+  const hDp = new Float64Array(GL_ROWS), hT = new Float64Array(GL_ROWS), hTm = new Int32Array(GL_ROWS).fill(-1);
   const wrapD = (d) => d - PERIOD * Math.round(d / PERIOD);
-  function headRun(row, root, k, At, Bt, kH, dtL, len = 0, s0 = 0) {
+  // (The lattice's repeat, in stream units: one spacing, at the coarser of the row's level and its parent's, which the heads keep at the join.
+  // At a whole level every head on it is drawn (blood-heads.js headKeep); only while every other head comes or goes (LEVEL_SWAP) does the
+  // pattern repeat every two, and a join may then pass a fading head on as a whole one for that moment.)
+  const latM = (row, pr) => 28 * 2 ** Math.floor(Math.max(hLv[row], pr >= 0 ? hLv[pr] : -1));
+  function headRun(row, root, k, At, Bt, kH, dtL, len = 0, s0 = 0, pr = -1, sjP = 0) {
     const fresh = hRun[row] === -2;
     hSeen[row] = hStamp;
     const D = streams[k].D;
-    if (fresh) { hA[row] = At; hB[row] = Bt; }
+    // (The parent's heads, when they are drawn on this row's stream and placed this step: what the branch's heads take up at the join.)
+    const viaP = pr >= 0 && hSeen[pr] === hStamp && hRun[pr] !== -2 && hK[pr] === k && (hRun[pr] === root || (hRun[pr] === -1 && root === pr));
+    const Jt = viaP ? hA[pr] + hB[pr] * sjP : At + Bt * s0, joined = root >= 0;
+    if (fresh) { hA[row] = Jt - Bt * s0; hB[row] = Bt; }
     else if (hRun[row] !== root || hK[row] !== k || Math.sign(hB[row]) !== Math.sign(Bt)) {
       // (A new stream: placed where the old run stood, the old stream's distance now and the A it was drawn with. B keeps its size.)
       const sg = Math.sign(Bt) * Math.sign(hB[row]) || 1;
-      const Ad = D + sg * (hA[row] - streams[hK[row]].D), M = 56 * 2 ** Math.floor(hLv[row]);
+      const Ad = D + sg * (hA[row] - streams[hK[row]].D), M = latM(row, viaP ? pr : -1);
       hA[row] = At + (Ad - At) - M * Math.round((Ad - At) / M); hB[row] = sg * hB[row];   // (the same lattice: whole periods taken off)
     } else if (reduceMotion.matches) { hA[row] = At; hB[row] = Bt; }   // (still heads: nothing moves, so nothing to ease)
     else {
       const dD = wrapD(D - hDp[row]);
       if (dD !== 0) {
-        // (2) B toward the junction's, pivoting where the junction's own A pivots (its upstream join, s0), so no offset builds up; each
-        // step small enough that the head furthest from the join moves back by at most HEAD_B of the stream's own step.
+        // (2) B toward the junction's, pivoting at the junction end (s0), so J stands; a rise in steps small enough that the head furthest
+        // from the join moves back by at most HEAD_B of the stream's own step.
         if (hB[row] !== Bt) {
-          const B0 = hB[row], lim = HEAD_B * Math.abs(dD) / Math.max(len, 1);
+          const B0 = hB[row], lim = (Math.abs(Bt) < Math.abs(B0) ? HEAD_B_OUT : HEAD_B) * Math.abs(dD) / Math.max(len, 1);
           const B1 = Math.abs(Bt - B0) <= lim ? Bt : B0 + Math.sign(Bt - B0) * lim;
           hA[row] += (B0 - B1) * s0; hB[row] = B1;
         }
-        // (1) A toward the junction's, the short way round (the lattice repeats every two spacings), by a correction in proportion to
-        // the gap: the heads run between 1 - HEAD_CATCH and 1 + HEAD_CATCH times the stream, and ease into step with no jump in speed.
-        const M = 56 * 2 ** Math.floor(hLv[row]), e0 = At - hA[row], e = e0 - M * Math.round(e0 / M);
-        const step = HEAD_CATCH * Math.abs(dD) * Math.min(1, Math.abs(e) / (0.05 * M));
-        hA[row] += Math.abs(e) <= step || Math.abs(e) < 1e-3 ? e : Math.sign(e) * step;
+        // (3) J with the parent's heads, then (1) the gap, in proportion to it (the heads ease into step with no jump in speed). The lattice
+        // repeats every two spacings, at the coarser of the two vessels' levels.
+        // (Not while the view changes: the vessels' lengths and joins move under the heads then, and the heads ride their own lattice.)
+        if (joined && !(live.morph > 0 && live.morph < 1)) {
+          const J = hA[row] + hB[row] * s0, M = latM(row, viaP ? pr : -1), sd = Math.sign(dD), ad = Math.abs(dD);
+          let f = hTm[row] === (viaP ? pr : -1) ? Jt - hT[row] : 0;
+          if (!(Math.abs(f) <= 1.2 * ad)) f = 0;   // (the parent re-placed, or its own run changed: no move to follow, only a gap)
+          // (Slowed, the heads gain at most what HEAD_J leaves over the parent's own move; the quicker way round by the rate each has.)
+          const rS = Math.max(0, Math.min(HEAD_CATCH, HEAD_J - f * sd / ad)), e0 = (Jt - J - f) * sd, eSlow = sd * (e0 - M * Math.floor(e0 / M)), eFast = eSlow - sd * M;
+          const slow = Math.abs(eSlow) * HEAD_FAST <= Math.abs(eFast) * rS, e = slow ? eSlow : eFast;
+          const c = (slow ? HEAD_CATCH : HEAD_FAST) * ad * Math.min(1, Math.abs(e) / (0.1 * M));
+          let dJ = f + (Math.abs(e) <= c || Math.abs(e) < 1e-3 ? e : Math.sign(e) * c);
+          if (Math.abs(dJ) > HEAD_J * ad) dJ = Math.sign(dJ) * HEAD_J * ad;   // (and never more than HEAD_J faster: no head races)
+          hA[row] += dJ;
+        }
       }
     }
-    hDp[row] = D;
+    hDp[row] = D; hT[row] = Jt; hTm[row] = viaP ? pr : -1;
+    { const g = Jt - hA[row] - hB[row] * s0, M = latM(row, viaP ? pr : -1), e = g - M * Math.round(g / M);
+      if ((joined && Math.abs(e) > 1e-3) || hB[row] !== Bt) live.bloodEasing = true; }
     const off = hA[row] - At;
-    if (Math.abs(off - 56 * 2 ** Math.floor(hLv[row]) * Math.round(off / (56 * 2 ** Math.floor(hLv[row])))) > 1e-3 || hB[row] !== Bt) live.bloodEasing = true;
     hRun[row] = root; hK[row] = k; hAt[row] = At;
     // The level: the one nearest CHEV_PITCH at the zoom the view last settled at, by the B the heads are drawn with.
     const raw = Math.max(-1, Math.log2(Math.max(CHEV_PITCH / (lvSc || scCur) * Math.abs(hB[row]), 1e-6) / 28));
     const lt = levelStep(hLv[row], hLt[row], raw, fresh, dtL);
     hLv[row] = lt[0]; hLt[row] = lt[1];
     headRuns[row * 4] = off; headRuns[row * 4 + 1] = hB[row]; headRuns[row * 4 + 2] = hLv[row]; headRuns[row * 4 + 3] = 1;
+  }
+  // (The heads: on the root's stream while there is any link, else the vessel's own; never mixed. Reduced motion: each its own. A parent's
+  // heads are placed before its branches', which take them up at the join.)
+  const hIx = new Int32Array(GL_ROWS), hIxS = new Uint32Array(GL_ROWS), hDone = new Uint32Array(GL_ROWS);
+  function chainHead(c, i, kH, dtL) {
+    const it = chainIt[i];
+    if (hDone[it.key] === hStamp) return;
+    hDone[it.key] = hStamp;
+    const rk = c.w[i] > 0 ? chainK.get(c.root[i]) : undefined, own = rk == null || reduceMotion.matches, p = own ? -1 : c.par[i];
+    const pi = p >= 0 && hIxS[p] === hStamp ? hIx[p] : -1;
+    if (pi >= 0) chainHead(c, pi, kH, dtL);
+    headRun(it.key, own ? -1 : c.root[i], own ? it.k : rk, own ? 0 : c.A[i], own ? 1 : c.B[i], kH, dtL, Math.abs(it.sj - it.s0), it.s0, pi >= 0 ? p : -1, pi >= 0 ? chainIt[pi].sj : 0);
   }
   function chainRows(kW, kB, kH = kW, dtL = 0) {
     hStamp++;
@@ -300,11 +338,10 @@ export function createBlood(st, live) {
     const c = changed ? (chainLast = chain.step(chainIt, kW, kB)) : chainLast;
     if (c.easing) live.bloodEasing = true;
     for (let i = 0; i < n; i++) chainK.set(chainIt[i].key, chainIt[i].k);
+    for (let i = 0; i < n; i++) { hIx[chainIt[i].key] = i; hIxS[chainIt[i].key] = hStamp; }
+    for (let i = 0; i < n; i++) chainHead(c, i, kH, dtL);
     for (let i = 0; i < n; i++) {
       const o = chainIt[i].key * FLOW_TEXELS * 4, w = c.w[i], ef = c.ef[i], et = c.et[i];
-      // (The heads: on the root's stream while there is any link, else the vessel's own; never mixed. Reduced motion: each its own.)
-      { const rk = w > 0 ? chainK.get(c.root[i]) : undefined, own = rk == null || reduceMotion.matches;
-        headRun(chainIt[i].key, own ? -1 : c.root[i], own ? chainIt[i].k : rk, own ? 0 : c.A[i], own ? 1 : c.B[i], kH, dtL, Math.abs(chainIt[i].sj - chainIt[i].s0), chainIt[i].s0); }
       if (!(w > 0) && !ef && !et) continue;
       if (w > 0) {
         const rk = chainK.get(c.root[i]), rs = rk != null ? streams[rk] : null;

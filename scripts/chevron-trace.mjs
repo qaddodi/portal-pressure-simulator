@@ -254,7 +254,20 @@ const frame = (ms = 16.7) => {
       if (!(F.d[(id * F.w + 4) * 4 + 3] > 0) || !(F.d[(id * F.w + 1) * 4 + 2] > 0)) continue;
       const o = (id * Ax.w + N_SAMPLES) * 2, off = Ax.d[o], B = Ax.d[o + 1], lv = Ax.d[o + 2];
       if (!B) continue;
-      const P = 28 * 2 ** Math.floor(lv), m = Math.abs(off - P * Math.round(off / P)) / Math.abs(B) / (U.u.pxW * (U.u.cssPx || 1));
+      // (Measured here, not taken from the stage: the branch's lattice at its junction end against the heads drawn on its parent at its
+      // downstream end, both as drawn (the junction's A plus the stage's offset, the stage's B). Which ends those are is the pair that makes
+      // the junction's own A, A = pA + pB sj - B s0.)
+      const p = F.d[(id * F.w + 3) * 4 + 3] - 1, r = F.d[(id * F.w + 4) * 4] - 1, Ac = F.d[(id * F.w + 4) * 4 + 1], Bc = F.d[(id * F.w + 4) * 4 + 2];
+      if (!(p >= 0) || p >= Ax.h) continue;
+      const pOwn = p === r, pChained = F.d[(p * F.w + 4) * 4 + 3] > 0 && F.d[(p * F.w + 4) * 4] - 1 === r;
+      if (!pOwn && !pChained) continue;
+      const po = (p * Ax.w + N_SAMPLES) * 2, offP = Ax.d[po], BdP = Ax.d[po + 1], lvP = Ax.d[po + 2];
+      if (!BdP) continue;
+      const AcP = pOwn ? 0 : F.d[(p * F.w + 4) * 4 + 1], BcP = pOwn ? 1 : F.d[(p * F.w + 4) * 4 + 2], ApD = AcP + offP;
+      const Tu = U.tex.tube.sh, lenC = Math.max(Tu.d[(id * Tu.w + 5) * 4 + 2], 1), lenP = Math.max(Tu.d[(p * Tu.w + 5) * 4 + 2], 1);
+      let best = Infinity, s0 = 0, sj = 0;
+      for (const a0 of [0, lenC]) for (const aj of [0, lenP]) { const d = Math.abs(Ac - (AcP + BcP * aj - Bc * a0)); if (d < best) { best = d; s0 = a0; sj = aj; } }
+      const gap = ApD + BdP * sj - (Ac + off + B * s0), P = 28 * 2 ** Math.floor(Math.max(lv, lvP)), m = Math.abs(gap - P * Math.round(gap / P)) / Math.abs(B) / (U.u.pxW * (U.u.cssPx || 1));
       step.joinN = (step.joinN || 0) + 1;
       if (process.env.CHEV_JOIN && step.tag.includes(process.env.CHEV_JOIN) && step.drawn % 20 === 1) console.log('JOIN', step.drawn, 'row', id, 'root', F.d[(id * F.w + 4) * 4] - 1, 'A', F.d[(id * F.w + 4) * 4 + 1].toFixed(2), 'Bj', F.d[(id * F.w + 4) * 4 + 2].toFixed(3), 'off', off.toFixed(2), 'B', B.toFixed(3), 'lv', lv.toFixed(2), 'P', P, 'px', m.toFixed(1), 'v', F.d[(id * F.w) * 4 + 1].toFixed(2));
       if (m > 2) { step.joinOff = (step.joinOff || 0) + 1; step.joinMax = Math.max(step.joinMax || 0, m); }
