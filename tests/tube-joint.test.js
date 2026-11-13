@@ -390,3 +390,17 @@ test('the wall strips: each fan edge from C to its tangent point is doubled two 
   const w = webs(SCENES.t90()).list[0], a = M.attr.subarray(WEB_STRIP * 4, WEB_STRIP * 4 + 4);
   assert.equal(webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, a, AA, { zK: 1, zA: 0.4, zB: 0 }).f, WEB_STRIP_LEVEL + TUBE_LEVEL.LUMEN_H * 0.4, 'in the lobule it follows its own leg\'s z');
 });
+
+test('a marked trunk owns its mouth webs only where the rows carry join ends (the lobule has none: its webs keep their own tone, 14 Nov 2026)', () => {
+  const sc = SCENES.t90();
+  const withEnds = {}, noEnds = {};
+  webInstances(sc.ent, sc.tube, sc.pts, withEnds);
+  webInstances(sc.ent, sc.tube, sc.pts, noEnds, false);
+  assert.equal(withEnds.count, noEnds.count);
+  assert.ok(withEnds.count > 0);
+  for (let n = 0; n < withEnds.count; n++) {
+    assert.ok(withEnds.data[n * WEB_FLOATS + 10] < 1.5, 'the stage: the trunk owns it and its tone (a mouth)');
+    assert.equal(noEnds.data[n * WEB_FLOATS + 10], 2, 'the lobule: the wider member, no mouth tone');
+    for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11]) assert.equal(noEnds.data[n * WEB_FLOATS + k], withEnds.data[n * WEB_FLOATS + k], `float ${k} is the same`);
+  }
+});

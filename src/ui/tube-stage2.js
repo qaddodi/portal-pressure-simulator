@@ -329,7 +329,7 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
   st.ji = new Int32Array(n);   // alloc-rare: a new binning only, sized by its joins
   for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
-  webInstances(st.entries, tubeNow, B.pts.pts, st.W);
+  webInstances(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds);
   tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
   st.gen = B.gen; st.joinBase = joinBase; st.n = n;
   return st;

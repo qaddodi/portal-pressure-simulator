@@ -342,7 +342,7 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
  * second's on its right. owner: 0 or 1 if exactly one of the two legs is a trunk, else 2 (the larger radius, decided in the shader where the radii are).
  * out.at: each web's join place (x, y), for the tests and the diagnostics only. out.joins: the joins read; out.empty: pairs left out for an angle outside the range; out.kinds: webs by the number of legs of their join.
  */
-export function webInstances(joinEntries, tubeData, pts, out) {
+export function webInstances(joinEntries, tubeData, pts, out, ends = true) {
   const nRows = Math.floor(tubeData.length / TUBE_FLOATS), nj = Math.floor(joinEntries.length / 8);
   if (!out.data || out.data.length < nj * 8 * WEB_FLOATS) out.data = new Float32Array(nj * 8 * WEB_FLOATS);   // alloc-rare: grown with the joins (up to 8 legs, 8 webs, a join), only on a new binning
   if (!out.at || out.at.length < nj * 8 * 2) out.at = new Float32Array(nj * 8 * 2);   // alloc-rare: grown with the joins, only on a new binning
@@ -386,7 +386,8 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       data[o + 8] = rho0; data[o + 9] = joinEntries[q + 2];
       out.at[count * 2] = x0; out.at[count * 2 + 1] = y0; out.e[count] = e;
       const ta = S.mark[la] > 0.1, tb = S.mark[lb] > 0.1;
-      data[o + 10] = ta !== tb ? (ta ? 0 : 1) : 2; data[o + 11] = gap < WEB_MIN_DEG * DEG ? 1 : 0;   // (a taper: legs under WEB_MIN_DEG apart, tube-joint.js)
+      data[o + 10] = ends && ta !== tb ? (ta ? 0 : 1) : 2;   // (a marked trunk owns the web, and its mouth tone all over, only where the rows carry join ends: the branch's mouth then carries the trunk's tone field on, tube-join-glsl.js. The lobule's rows have none, its branches keep their own tone to the end, and a web in the trunk's tone drew a dark band along the trunk's wall at each mouth, 14 Nov 2026)
+      data[o + 11] = gap < WEB_MIN_DEG * DEG ? 1 : 0;   // (a taper: legs under WEB_MIN_DEG apart, tube-joint.js)
       count++;
       out.kinds[n]++;
     }
