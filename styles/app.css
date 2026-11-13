@@ -970,7 +970,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .layers-pop .menu-title { display: flex; align-items: baseline; justify-content: space-between; }
 .layers-pop .menu-title .kb { font-size: var(--fs-12); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
 .lens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 8px 8px; }
-.lens { display: grid; grid-template-columns: 1fr; gap: 2px; text-align: left; padding: 8px 8px; border-radius: calc(var(--r-sheet) - 8px); border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--text); font: inherit; }
+.lens { display: grid; grid-template-columns: 1fr; gap: 2px; text-align: left; padding: 8px 8px; border-radius: calc(var(--r-sheet) - 8px); border: 1px solid var(--border); background: transparent; cursor: pointer; color: var(--text); font: inherit; }
 @media (hover: hover) { .lens { --hv-bg: var(--surface-2); } .lens:hover::before { opacity: 1 } }
 .lens.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
 .lens-sw { height: 6px; border-radius: 3px; margin-bottom: 4px; }
@@ -1418,7 +1418,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .tl-gpu > .tl-t-long, .tl-gpu > .tl-t-short { visibility: hidden; }   /* (a jump's day count drawn on the GPU over them, timeline.js) */
 .tl-time { flex: none; min-width: 64px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
 .tl-jumps { display: flex; align-items: center; gap: 2px; flex: none; }
-.tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: transparent; color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .tl-pin { --hv-bg: var(--surface-2); --hv-bd: var(--border-strong); --hv-bw: 1px; } .tl-pin:hover::before { opacity: 1 } }
 .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
 .tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(100vw - 24px)); max-height: 360px; overflow: auto; }
@@ -3791,15 +3791,8 @@ button.finding { cursor: pointer; }
 
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
 .float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
-/* The floating pieces step back while the figure moves (premium-feel R7: .55 once it has moved for 120 ms, over 240 ms, back over 420 ms), but
-   never as a see-through glass (3 Nov 2026, "the figure draws over the UI", iPhone): a bar's own glass at .55 let the GPU's vessels, arrows and
-   labels show through it crisp and unfrosted. So the piece fades as a whole only where its glass is the GPU's frosted plate (.has-plate: the
-   figure under it is blurred there at any opacity); every other piece keeps its glass whole and fades its ink (icons, words, numbers), which is
-   the same step back to the eye with nothing of the figure showing through. stage-busy styles only opacity here (the guard test pins it). */
-.app.stage-busy :is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate:not(:hover):not(:focus-within) { opacity: .55; transition-duration: var(--d-small, .24s); }
-.float-ui :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { transition: opacity var(--d-surface, .42s) var(--ease); }
-.app.stage-busy .float-ui:not(:hover):not(:focus-within) :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { opacity: .55; transition-duration: var(--d-small, .24s); }
-@media (prefers-reduced-motion: reduce) { .app.stage-busy .float-ui :is(#viewSeg > button, :is(button, .lens-btn, .chip-btn) > :not(.chev), .metric, .tl-time) { opacity: 1; } .app.stage-busy :is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate { opacity: 1; } }
+/* The floating pieces no longer step back while the figure moves (13 Nov 2026, Mohammad: "Why do the ui change opacity when I pan around. It
+   shouldn't."): premium-feel R7 faded their ink and the plated cards to .55 under stage-busy; the UI and its glass now stay exactly as they are. */
 
 /* The instrument workspace floats over the bottom of the figure, above the vitals dock. */
 .instrument-workspace.float-ui {
@@ -4511,16 +4504,19 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
 .instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
 #panel.card-leaving, #treatCard.card-leaving, #historyCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) var(--d-flip) var(--ease-in) forwards !important; }
+/* Every card is the one glass, at every width (13 Nov 2026, Mohammad: "Not everything is one glass"): the laptop's Treat, Tests, History and
+   patient-chart cards were painted solid, since their plate (the card's paper, .sheet-plate, sheet-move.js) was shown on a phone only. The box
+   wears nothing; its plate is drawn by the figure's GPU glass (main.js sheetGlass) and keeps the paper where the canvas cannot take it. */
+:is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate { background: transparent !important; box-shadow: none !important; overflow: visible; isolation: isolate; }
+:is(.panel, .treat-card, .instrument-workspace.float-ui).has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+.instrument-workspace.float-ui.has-plate > .sheet-plate { box-shadow: var(--shadow-menu), inset 0 0 0 1px var(--hairline); }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape), (max-width: 1100px) and (orientation: portrait) {
   .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: slide-from-edge; --card-out: slide-to-edge; --edge-x: 0px; --edge-y: 100%; --edge-o: 1; --card-t: var(--d-small); }
   .panel, .treat-card { transform: none; transition: opacity var(--d-surface, .42s) var(--ease); }
   /* A sheet moved by its content (sheet-move.js): its box stands still and wears nothing; its paper and shadow are its plate, the
      first child, which slides with the rest of the content. The box's still clip (the thumb block's polygon, or the screen's edge
      sideways) hides what slides below its resting foot. */
-  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate { background: transparent !important; box-shadow: none !important; overflow: visible; isolation: isolate; }
   :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate:not(.app.thumb *) { clip-path: inset(-48px -48px 0 -48px); }
-  :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)).has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
-  .instrument-workspace.float-ui:not(.side).has-plate > .sheet-plate { box-shadow: var(--shadow-menu), inset 0 0 0 1px var(--hairline); }
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
 
@@ -4609,7 +4605,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lz-lab, .lb { touch-action: none; user-select: none; -webkit-user-select: none; }
 
 /* Split button: one bordered control, play/pause about 2/3 and the speed about 1/3, with a short divider. */
-.tl-split { display: flex; align-items: stretch; height: 34px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); overflow: hidden; }
+.tl-split { display: flex; align-items: stretch; height: 34px; border: 1px solid var(--border); border-radius: var(--r-control); background: transparent; overflow: hidden; }   /* (on the dock's glass: its ring only, no white box; 13 Nov 2026) */
 .tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { position: relative; display: inline-flex; align-items: center; justify-content: center; height: auto; width: 30px; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-2); }
 .tl-split .tl-speed::after { content: ""; position: absolute; right: 1px; top: 9px; bottom: 9px; width: 1px; height: auto; margin: 0; border: 0; opacity: 1; background: color-mix(in srgb, var(--text) 28%, transparent); }
 .timeline .tl-split .ib.play, .vdock .tl-split .ib.play { width: 46px; height: 100%; min-height: 0; align-self: stretch; border-radius: 0; }
@@ -6512,6 +6508,12 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    with a card on it), are layers crossfaded by their opacity alone: the row itself is the open shape, always opaque; ::before puts
    back the closed square top (its corners and hairlines), ::after carries the open shadow. No radius, shadow or border is eased.) */
 .app.thumb .vdock:not(.mini) .thumb-bar::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: var(--r-sheet); background: linear-gradient(var(--glass), var(--glass)), var(--stage-bg); box-shadow: inset 0 1px 0 var(--hairline), inset 1px 0 0 var(--hairline), inset -1px 0 0 var(--hairline); pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
+/* (13 Nov 2026, Mohammad: "Not everything is one glass / How about timeline menu?") Once the GPU draws the dock's glass ([data-gl]) the dock is that one
+   glass and nothing more: the 92 % layer under the play bar and the tab row's own opaque face are taken off (a menu or card never passes under the
+   dock: the sheet layer and the cards are cut on its top line, sheet-layer.js), and the tab row keeps one hairline over it. Without the GPU, as before. */
+.app.thumb .vdock:not(.mini)[data-gl]::before { background: none; box-shadow: none; }
+.app.thumb .vdock:not(.mini)[data-gl] .thumb-bar { background: none; box-shadow: none; }
+.app.thumb .vdock:not(.mini)[data-gl] .thumb-bar::before { background: none; box-shadow: inset 0 1px 0 var(--hairline); }
 .app.thumb .vdock:not(.mini) .thumb-bar::after { content: ""; position: absolute; z-index: -1; inset: 0; border-radius: inherit; box-shadow: var(--shadow-2); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease) .1s; }
 .app.thumb .vdock:not(.mini) > :not(.thumb-bar) { transition: opacity var(--d-small) var(--ease) .1s, translate var(--d-small) var(--ease) .1s; }
 /* (17 Oct, Mohammad: the timeline appearing as a card slides down should be smoother.) The play bar, the views pill and the

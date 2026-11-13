@@ -1897,7 +1897,7 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
-const SHEETS = ['#panel', '#treatCard', '#dock', '.action-card'];   // (the vessel card is glass on the shelf and on a phone alike)
+const SHEETS = ['#panel', '#treatCard', '#historyCard', '#dock', '.action-card'];   // (the vessel card is glass on the shelf and on a phone alike)
 let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
@@ -2109,6 +2109,7 @@ function openHistory() {
   };
   el.replaceChildren(h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'History')),
     h('button', { class: 'ib card-close', 'aria-label': 'Close History', title: 'Close (Esc)', onclick: () => closeHistory({ focus: true }) }, icon('close'))), body);
+  sheetParts(el);   // (its paper is the one glass, like every card: the plate sheetGlass draws, put back after the card is rebuilt)
   paint();
   // (A change or an event adds a row; the count beside the button moves with every entry, including a finished snapshot.)
   // (2 Nov 2026: painted between frames (rest-pass.js), not in the observer's microtask: reconcile reads the rows' boxes.)

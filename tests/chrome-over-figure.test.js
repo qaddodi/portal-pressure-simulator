@@ -20,7 +20,7 @@ const z = (name) => +new RegExp(`--z-${name}:\\s*(\\d+)`).exec(tokens)[1];
 const GESTURE = /\.(?:stage-busy|figure-focus|panning|pinch-hide|lb-ride|off-home)\b/;
 const CHROME = /\.float-ui|\.float-pill|\.topbar|\.vdock|\.zoom-pill|\.stage-bar|\.nb-views|#nbViews|\.stage-fit|\.stage-rotate|\.sb-center|\.instrument-workspace|\.treat-card|\.panel\b|#dock\b/;
 
-test('no gesture class fades a piece of the chrome whose glass is its own: only frosted plates fade whole, the rest fade their ink', () => {
+test('no gesture class fades any piece of the chrome, its glass or its ink (13 Nov 2026)', () => {
   const OWN_GLASS = /^(?:\.float-ui|\.float-pill|\.topbar|\.vdock|\.zoom-pill|\.stage-bar|\.nb-views|#nbViews|\.stage-fit|\.stage-rotate|\.sb-center|\.instrument-workspace|\.treat-card|\.panel|#dock|#vdock|#topbar)(?![\w-])/;
   const bad = [], seen = [];
   for (const [sel, body] of rules) {
@@ -36,7 +36,8 @@ test('no gesture class fades a piece of the chrome whose glass is its own: only 
     seen.push(sel);
   }
   assert.deepEqual(bad, [], 'a bar or card whose glass is the page\'s own, at partial opacity, lets the figure through it unfrosted');
-  assert.ok(seen.length >= 1, 'the step back is still there');
+  // (13 Nov 2026, Mohammad: "Why do the ui change opacity when I pan around. It shouldn't.": no piece of the chrome steps back at all.)
+  assert.deepEqual(seen, [], 'a piece of the chrome fades while the figure moves');
 });
 
 test('the zoom pill is never dimmed as a whole: only its ink is, its glass stays whole', () => {
