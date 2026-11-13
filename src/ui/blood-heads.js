@@ -166,8 +166,8 @@ void main() {
   vec2 q = corner * 2.0 - 1.0;
   vec3 d = world * vec3(c + t * (q.x * ea) + nn * (q.y * ec), 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  // Its colours (chevron-glsl.js headInksGLSL: cream forward, orange reversed, cream on an orange vessel; the rim cream on a dark lumen and
-  // sepia on a light one), from the vessel's colour at the head.
+  // Its colours (chevron-glsl.js headInksGLSL: forward near-black on a light lumen and cream on a dark one, reversed orange, cream on an
+  // orange vessel; the rim sepia on a light lumen and cream on a dark one), from the vessel's colour at the head.
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, alongAt(id, clamp(sc / len, 0.0, 1.0)));
   chevInks(vc, f1.w, hInk, hRim);
   hC = vec4(c, t);

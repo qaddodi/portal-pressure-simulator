@@ -120,10 +120,11 @@ test('the heads stand one CHEV_PITCH apart on screen at every zoom, caliber and 
   assert.equal(headKeep(3, 2, 2), 1);
 });
 
-test('the quads colour their heads by option A: cream forward, orange reversed, the rim cream on a dark lumen and sepia on a light one', () => {
-  // (13 Nov 2026, Mohammad: a darker outline on a bright vessel. The composite's own chevInks, in COMP_FS, is left as it was.)
+test('the quads colour their heads: forward black on a light lumen and cream on a dark one, reversed orange, the rim sepia on light and cream on dark', () => {
+  // (13 Nov 2026, Mohammad: a darker outline on a bright vessel, and "Chevrons here should be black" on the pale portal vein. The composite's
+  // own chevInks, in COMP_FS, is left as it was.)
   const inks = vs.slice(vs.indexOf('void chevInks('), vs.indexOf('}', vs.indexOf('void chevInks(')));
-  assert.ok(inks.includes('core = mix(mix(chevLight, revCol, rk), chevLight, warm);'), 'cream or orange, whatever the lumen');
+  assert.ok(inks.includes('core = mix(mix(mix(ink, chevLight, dark), revCol, rk), chevLight, warm);'), 'dark ink on a light lumen, cream on a dark one, orange reversed');
   assert.ok(inks.includes('rim = mix(vec3(0.2314, 0.1725, 0.1333), chevLight, dark);'), 'sepia on a light lumen, cream on a dark one');
   assert.equal(vs.split('void chevInks(').length, 2, 'one chevInks in the heads\' shader');
   assert.ok(full.includes('vec3 ink = mix(chevInk, vc * 0.3, 0.2);'), 'the composite keeps its own inks');

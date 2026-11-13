@@ -58,11 +58,12 @@ vec2 chevHead(float u, float ay, float hw, float px, float rev) {
 
 /**
  * The flow heads' inks on their own quads (13 Nov 2026, Mohammad picked option A of the chevron-ink mocks, artifact 4FXL4718v2SGucey6y3XLA:
- * "when the vessel color is too bright, it should have a darker outline rather than white"). Forward heads are cream on every lumen and
- * reversed heads orange (cream on an orange lumen); only the rim answers the lumen: cream on a dark one, sepia (the Light look's vessel
- * outline ink, --casing-rgb 59 44 34) on a light one. The heads' vertex shader takes it in place of the composite's chevInks
- * (CHEV_ORANGE_GLSL, part of COMP_FS, which is never touched): headInksGLSL(orange) keeps the composite's chevOrange and swaps chevInks.
- * The composite's per-pixel heads (bleed frames only) keep the composite's own inks.
+ * "when the vessel color is too bright, it should have a darker outline rather than white"; then, of A's cream heads on the pale portal
+ * vein: "Chevrons here should be black"). A forward head is near-black on a light lumen (the composite's ink) and cream on a dark one; a
+ * reversed head orange on both (cream on an orange lumen). The rim answers the lumen: sepia (the Light look's vessel outline ink,
+ * --casing-rgb 59 44 34) on a light one, cream on a dark one, so no head on a bright vessel carries a white rim. The heads' vertex shader
+ * takes it in place of the composite's chevInks (CHEV_ORANGE_GLSL, part of COMP_FS, which is never touched): headInksGLSL(orange) keeps
+ * the composite's chevOrange and swaps chevInks. The composite's per-pixel heads (bleed frames only) keep the composite's own inks.
  */
 export const CHEV_SEPIA = [59, 44, 34];
 export function headInksGLSL(orange) {
@@ -70,13 +71,15 @@ export function headInksGLSL(orange) {
   const at = orange.indexOf('void chevInks(');
   const keep = at >= 0 ? orange.slice(0, at) : orange;
   return `${keep}
-// The heads' inks (chevron-glsl.js headInksGLSL): a cream or orange core whatever the lumen, and a rim that answers the lumen's lightness over
-// the composite's band (luma .38 to .46, so a vessel whose colour eases never pops): cream on a dark lumen, sepia on a light one.
+// The heads' inks (chevron-glsl.js headInksGLSL), by the lumen's lightness over the composite's band (luma .38 to .46, so a vessel whose
+// colour eases never pops): a forward head near-black on a light lumen and cream on a dark one; a reversed head orange on both (cream on an
+// orange lumen); the rim sepia on a light lumen and cream on a dark one (never white on a bright vessel).
 void chevInks(vec3 vc, float rv, out vec3 core, out vec3 rim) {
   float rk = origin == 1 ? rv * (1.0 - blendA.z) : rv;
   float dark = 1.0 - smoothstep(0.38, 0.46, dot(vc, vec3(0.299, 0.587, 0.114)));
   float warm = rk * chevOrange(vc);
-  core = mix(mix(chevLight, revCol, rk), chevLight, warm);
+  vec3 ink = mix(chevInk, vc * 0.3, 0.2);
+  core = mix(mix(mix(ink, chevLight, dark), revCol, rk), chevLight, warm);
   rim = mix(vec3(${CHEV_SEPIA.map((v) => (v / 255).toFixed(4)).join(', ')}), chevLight, dark);
 }
 `;
