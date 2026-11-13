@@ -349,7 +349,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
   {
     // M10 step 2 (8 Nov 2026): a bare `await wait(` is a wait Next cannot cut. The ones left, per file; the number only goes down.
-    const bare = { 'src/ui/presenter.js': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */, 'src/ui/tool-hvpg.js': 2 /* the learner-run sweep, not a slide change */ };
+    const bare = { 'src/ui/presenter.js': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */ };
     for (const [f, n] of Object.entries(bare)) {
       const c = (text(f).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n').match(/await wait\(/g) || []).length;
       if (c !== n) errors.push(`${f}: ${c} bare await wait( (allowance ${n}): use waitCut(ms, cut), or lower the allowance in scripts/rules-lint.mjs when one goes`);

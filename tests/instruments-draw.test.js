@@ -148,15 +148,47 @@ test('the HVPG card shows the finished tracing at once when jumped to, eases to 
   for (let i = 0; i < 120 && frameQueue.length; i++) runFrames(performance.now() + i * 16);
   assert.ok(texts(cv).includes('13.8'), `eased to the new levels: ${texts(cv)}`);
   card.dispose();
-  // Forward onto the slide it starts from the free pressure and has not reached the result yet.
+  // Forward onto the slide it starts from the free pressure and waits; each Next takes the next reading (FHVP, then WHVP, then HVPG), and Back takes them back.
   const sweep = createHvpgCard();
   const cv2 = canvasOf(sweep.el);
   cv2.bw = 420; cv2.bh = 240;
+  let clock = performance.now();
+  const play = (frames = 600) => { for (let i = 0; i < frames && frameQueue.length; i++) runFrames(clock += 16); };
+  sweep.configure({ kind: 'hvpg' }, { slide: {} });
+  // (The last frame drawn: from its header on.)
+  const tail = (c) => { const a = texts(c); let i = a.length - 1; while (i > 0 && !String(a[i]).startsWith('CATHETER')) i--; return a.slice(i); };
+  let bal = -1;
+  sweep.watch((b) => { bal = b; });
   sweep.arrive({ forward: true, again: false });
   sweep.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 });
-  runFrames();
-  assert.ok(!texts(cv2).includes('11.4'), 'the result waits for the sweep');
+  fresh(cv2); play();
+  assert.ok(texts(cv2).includes('FHVP') && texts(cv2).includes('8.2'), `the free pressure: ${texts(cv2)}`);
+  assert.ok(!texts(cv2).includes('WHVP') && !texts(cv2).includes('11.4'), 'nothing more until Next');
+  assert.equal(bal, 0, 'the balloon down');
+  assert.equal(sweep.step(1), true, 'Next: the wedge');
+  fresh(cv2); play();
+  assert.ok(texts(cv2).includes('WHVP') && texts(cv2).includes('19.6'), `the balloon up, the wedged pressure: ${texts(cv2)}`);
+  assert.ok(!texts(cv2).includes('HVPG'), 'the HVPG waits for its Next');
+  assert.equal(bal, 1, 'the figure\'s balloon up with the tracing\'s');
+  assert.equal(sweep.step(1), true, 'Next: the HVPG');
+  fresh(cv2); play();
+  assert.ok(texts(cv2).includes('HVPG') && texts(cv2).includes('11.4'), `the result: ${texts(cv2)}`);
+  assert.equal(sweep.step(1), false, 'then Next moves on');
+  assert.equal(sweep.step(-1), true, 'Back: the HVPG off');
+  fresh(cv2); play();
+  assert.ok(tail(cv2).includes('WHVP') && !tail(cv2).includes('HVPG'), `back on the wedge: ${tail(cv2)}`);
+  assert.equal(sweep.step(-1), true, 'Back: the balloon down');
+  fresh(cv2); play();
+  assert.ok(tail(cv2).includes('FHVP') && !tail(cv2).includes('WHVP') && !tail(cv2).includes('balloon up'), `back on the free pressure: ${tail(cv2)}`);
+  assert.equal(bal, 0, 'the figure\'s balloon down again');
+  assert.equal(sweep.step(-1), false, 'then Back leaves the slide');
   assert.deepEqual(cv2.log.bad, []);
+  // Jumped to (or gone back to), the finished tracing, and Back leaves at once.
+  sweep.arrive({ forward: false }); sweep.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 }); play();
+  assert.equal(sweep.step(-1), false);
+  // Following the figure's catheter, the slides step it: the card takes no Next of its own.
+  sweep.configure({ kind: 'hvpg', catheter: true }, { slide: { cath: 'free' } });
+  assert.equal(sweep.step(1), false);
   sweep.dispose();
 });
 

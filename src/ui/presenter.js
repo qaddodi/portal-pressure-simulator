@@ -2306,10 +2306,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (caseLift) { caseLift(); return; }
     if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
     else if (procNext()) return;   // (a procedure's next step: proc-anim.js)
+    else if (shown?.i === want && ui.tools?.step(1)) return;   // (the card's next reading: the HVPG tracing, tool-hvpg.js)
     else if (beat < lastBeat(want)) toBeat(beat + 1);   // (the slide's next view of the figure)
     else if (want < slides.length - 1) { firstBeat = true; go(want + 1); firstBeat = false; } else stop();
   };
-  const prev = () => { if (procBack()) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
+  const prev = () => { if (procBack() || (shown?.i === want && ui.tools?.step(-1))) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
   // (N1: the presenter view's window: the slide on show goes to it, its Next, Back and jumps come back as the keys do.)
   const pview = createPresenterLink({ onBlocked: () => toast('Allow pop-ups to open the presenter view'),
     onCmd: (m) => { if (!deck || leaving) return; if (m.c === 'next') next(); else if (m.c === 'prev') prev(); else if (m.c === 'go' && Number.isFinite(m.i)) go(clamp(m.i | 0, 0, slides.length - 1)); } });

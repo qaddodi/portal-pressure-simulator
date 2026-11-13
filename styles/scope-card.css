@@ -8,6 +8,7 @@
 
 /* (Where no card lays the panel out, it adds no box: its three parts sit in the pane as they did.) */
 .eus-panel { display: contents; }
+.eus-panel .pz-reading { margin-top: 0; }   /* (the one pressure monitor in the EUS-PPG panel, eus-ppg.js) */
 
 /* The card's grid: the picture over everything, the readings, the actions. Fitted to its content (.nat), rows are their own height. */
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) {
@@ -53,6 +54,8 @@
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv::after { content: 'mmHg'; font-size: 12px; font-weight: 500; color: var(--text-3); }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dd { min-width: 3.2ch; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-caption { min-height: 0; font-size: 12.5px; line-height: 1.4; }
+/* (The monitor in the panel, eus-ppg.js: the one pressure monitor, wide and short so the picture keeps most of its room.) */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .pz-reading .hvpg-box { --ar: 2.6; }
 @media (prefers-reduced-motion: reduce) { #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { transition: none; } }
 
 /* ── The Scope card on a phone and an upright tablet (the thumb dock), 12 Nov 2026 (Mohammad picked mock A: "the endoscopy test card
@@ -92,6 +95,7 @@
 #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv::after { content: 'mmHg'; font-size: 12px; font-weight: 500; color: var(--text-3); }
 #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dd { min-width: 3.2ch; }
 #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-caption { min-height: 0; font-size: 12.5px; line-height: 1.4; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .pz-reading .hvpg-box { --ar: 2.6; }
 @media (prefers-reduced-motion: reduce) { #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { transition: none; } }
 
 /* Full (a pane over 470 px high): the picture the card's width, then the one strip of readings. */

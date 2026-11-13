@@ -153,7 +153,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | A FibroScan reading | `tool: { kind: 'fibroscan' }` (`organ: 'spleen'` for the spleen probe) | liver or spleen stiffness |
 | A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, blood pressure (BP 118/72 (88)), output or hemoglobin, with an EKG strip |
 | The carvedilol hold lines | `tool: { kind: 'vitals', show: ['hr', 'map', 'co'], hold: true }` | a drug that is held when the pressure is low: a rail under the numbers with both Baveno VIII 4.6 lines (systolic 90, mean 65 mmHg), the patient's pressure as a bar from diastolic to systolic and a dot at the mean |
-| The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
+| The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured: one reading per Next, free pressure, then wedge, then the HVPG (Back takes them back) |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
 | The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |

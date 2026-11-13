@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { RATE, TILE, SCALE, bandsOf, rateOf, rateShown, tileShown, dirAbs, COLS, CUT } from '../src/ui/table-marks.js';
 import { VITALS, vitalReading } from '../src/ui/vital-read.js';
 import { vitalsShown, vitalCells, metricsOfFp, VITALS_DEFAULT } from '../src/ui/vitals-monitor.js';
-import { levelsOf, SWEEP_FREE_MS, SWEEP_SETTLE_MS } from '../src/ui/tool-hvpg.js';
+import { levelsOf } from '../src/ui/tool-hvpg.js';
 import { eases, dataPlan } from '../src/ui/card-keep.js';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
@@ -100,13 +100,15 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
   assert.equal(levelsOf({ fhvp: 4.1, whvp: 10.5, hvpg: 6.4 }).hvpg, 6.4);
   assert.equal(levelsOf({ whvp: 10 }), null);
   assert.equal(levelsOf(null), null);
-  assert.ok(SWEEP_FREE_MS > 2000 && SWEEP_FREE_MS < 5000, `free sweep ${SWEEP_FREE_MS} ms`);
-  assert.ok(SWEEP_SETTLE_MS > 1000 && SWEEP_SETTLE_MS < 4000, `settle ${SWEEP_SETTLE_MS} ms`);
   const src = read('../src/ui/tool-hvpg.js');
   assert.match(src, /mon\.set\('free', cur, 0\);/); assert.match(src, /mon\.set\('wedge', cur, 0\);/); assert.match(src, /mon\.set\('result', cur, 1\);/);
-  assert.match(src, /mon\.balloon\(ease\(k\)\)/, 'the balloon is driven from the procedure\'s clock');
+  assert.match(src, /k01\(now - t0, 0, T\.wedge - T\.inflate\), v = a \+ \(b - a\) \* ease\(k\);\s*mon\.balloon\(v\); tell\(v\);/, 'the balloon is driven from the procedure\'s clock');
   assert.match(src, /mon\.set\('result', cur, 1, true\)/, 'jumped to or gone back to: the finished tracing at once');
-  assert.match(src, /pending = forward && !again \? 'sweep' : 'result'/, 'it plays going forward onto the slide, once');
+  assert.match(src, /pending = forward && !again \? 'steps' : 'result'/, 'it steps going forward onto the slide, once');
+  // (One reading a Next, as on every measurement: the presenter hands Next and Back to the card before it moves on.)
+  assert.match(presenter, /else if \(shown\?\.i === want && ui\.tools\?\.step\(1\)\) return;/);
+  assert.match(presenter, /if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return;/);
+  assert.match(tools, /step\(dir\) \{ return !!cur\?\.step\?\.\(dir\); \}/);
   assert.match(src, /cur\.hvpg = tenthGap\(cur\.whvp, cur\.fhvp, target\.hvpg\)/, 'the levels ease and the HVPG follows them');
   assert.match(read('../src/ui/hvpg-proc.js'), /function set\(m, f = null, b = bal, instant = false\)/);
   assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| reduceMotionMQ\.matches\) && !falling\(\)\) t = t1;/);

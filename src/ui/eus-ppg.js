@@ -1,7 +1,9 @@
 // EUS-PPG on the Scope card (Tests › Scope, instruments.js createEndoscopy): the endoscopic ultrasound-guided portal pressure
 // gradient, played step by step on the anatomy as the HVPG card plays TIPS (proc-anim.js MEASURES.eus; eus-scope.js draws the
 // echoendoscope, its ultrasound sector and the 25-gauge needle). The card keeps its numbered steps, the step's words, and the two
-// readings and their difference as the needle takes them. It changes nothing in the model: a measurement.
+// readings and their difference as the needle takes them, drawn on the app's one pressure monitor (monitor.js, through tool-reading.js:
+// the same live number and trace as every other measurement; Mohammad, 13 Nov 2026: "standardize", "apply this for all"). It changes
+// nothing in the model: a measurement.
 
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
@@ -9,12 +11,17 @@ import { hvpgSev } from '../engine/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
+import { createReading } from './tool-reading.js';
+import { NODES } from '../engine/topology.js';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
 export function setEusStage(stage) { stageRef = stage; }
 
 const EUS = MEASURES.eus, NOT = '—';
+const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
+const SLIDE = { procedure: 'eus' };   // (the monitor's measurement: the EUS-PPG, as on a slide that plays it)
+const r1 = (v) => Math.round(v * 10) / 10;
 const IDLE = 'Watch the echoendoscope measure the portal pressure gradient from the stomach, with one needle.';
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT);
 // (Read on the HVPG's cut-offs, as EUS-PPG series do: 5 and over portal hypertension, 10 and over clinically significant.)
@@ -32,7 +39,12 @@ export function createEusPpg() {
   const row = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'EUS-guided portal pressure gradient' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), btn);
   // (The readings, the steps and the words are one panel, .eus-panel: styles/scope-card.css lays it over the foot of the scope's picture on the side card while a run is on
   // or done, so the picture keeps all the room; elsewhere it adds no box. Its state, idle, run or done, is data-state.)
-  const panel = h('div', { class: 'eus-panel' }, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption);
+  // (The monitor: the needle's pressure live as it is taken, on the procedure's own clock. Its readings before each is taken are the live veins'.)
+  const mon = createReading();
+  const fp = { lpv: NaN, lhv: NaN, eus: NaN };
+  const pinLive = () => { const P = store.get().frame?.P; fp.lpv = P ? r1(P[NI.LPV]) : NaN; fp.lhv = P ? r1(P[NI.LHV]) : NaN; fp.eus = r1(fp.lpv - fp.lhv); mon.pin(fp); };
+  mon.configure({ kind: 'reading' }, { slide: SLIDE, fp });
+  const panel = h('div', { class: 'eus-panel' }, mon.el, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption);
   const el = h('div', { class: 'eus-ppg', 'data-eus': '', 'data-state': 'idle' }, row, panel);
 
   let run = null, step = -1, playT = 0, done = false;
@@ -46,8 +58,10 @@ export function createEusPpg() {
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
     const focus0 = store.get().focus;
     step = 0; done = false;
+    mon.configure({ kind: 'reading' }, { slide: { ...SLIDE }, fp }); pinLive();   // (a new run: the monitor starts afresh, waiting for the needle)
     run = playProcedure(stageRef, 'eus', {
       read: () => store.get().frame,
+      onFrame: (f, t) => mon.procAt('eus', t),
       onStep: (k) => { step = k; paint(); },
       // (Each reading's callout names its vessel on the figure, with the reading, as a slide's mark; the result stands on the portal
       // vein with the hepatic vein's reading beside it. Whatever was called out before comes back when it ends.)
@@ -73,6 +87,6 @@ export function createEusPpg() {
     /** The card's own model frame (nothing to read: the readings are taken as the needle reaches each vein). */
     update() {},
     /** Stop a run (the card is going away). */
-    dispose() { run?.stop(); run = null; },
+    dispose() { run?.stop(); run = null; mon.dispose(); },
   };
 }
