@@ -35,9 +35,9 @@ import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
-import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
+import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
-import { releaseSpeed, isFlick, flickAim, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { morphKey, crossfadeText } from './legend-morph.js';
 import { glideNow } from './seg-glide.js';
 import './focus-ring.js';
@@ -1841,84 +1841,28 @@ function wireFloating() {
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
   const busyEnd = (ms) => { if (dimmed) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
-  // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
-  // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
-  // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
+  // On a phone the same gestures also give the figure more room: the top bar's second row (view, colour legend) slides away, while the figure moves and
+  // for three seconds after. A tap anywhere, or an event on the timeline, brings it back at once. The bottom bar (play, speed, time, readings) never
+  // changes with a pan: it stays exactly as it is (Mohammad, 13 Nov: "why does the timeline bar change when I pan"; it used to fold to a pill).
   let focusT = 0;
   let focused = false;   // (the class itself is put on and taken off between frames, class-soon.js: this holds the state meanwhile)
-  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); foldSoon(false); };
+  const unfocus = () => { clearTimeout(focusT); if (!focused) return; focused = false; classSoon(app, 'figure-focus', false); };
   const figureFocus = (ms) => {
     clearTimeout(focusT);
     // (The thumb dock stays put: its tab row is how the tools are reached, and it is slim already.)
     if (!isPhone() || app.classList.contains('thumb') || $('#strip').classList.contains('all') || reduceMotionMQ.matches) return;
     if (!focused) { focused = true; classSoon(app, 'figure-focus', true); }
-    foldSoon(true);
     if (ms) focusT = setTimeout(unfocus, ms);
   };
-  // The dock folds to one line and opens again as an ease, never a jump: its old content fades out, the box takes its new size at
-  // once (laid out once, so the framing and the cards read the settled size straight away) and its glass glides there from the
-  // old size by transform (plate-glide.js: nine pieces of one plate slide and stretch, bottom left corner still) while the new
-  // content fades in. Nothing is measured by the fold itself: the sizes come from the bar's ResizeObserver (geom.js).
   // The zoom pill grows and folds by transform when a button comes or goes (the circuit's turn upright): plate-glide.js glideOnResize.
   { const zp = document.getElementById('zoomPill'); if (zp) glideOnResize(zp, { R: parseFloat(readStyle(zp).borderTopLeftRadius) || 16 }); }
-  const vdockEl = $('#vdock');
-  const vdockPlate = vdockEl ? platePieces(vdockEl) : null;   // (its glass's pieces, put in once here: a fold that starts in a frame adds nothing to the page)
-  let foldTok = 0, foldAnims = [], foldGoal = false, foldEnd = null;
-  watchSize(vdockEl, () => {});   // (keeps sizeOf(vdockEl) current)
-  const foldDone = (tok) => { if (tok !== foldTok) return; foldAnims = []; soon(); };
-  // The bar's size once the browser has laid out a change (the observer reports it before that frame is painted).
-  const sizeAfter = () => new Promise((ok) => {
-    const ro = new ResizeObserver((es) => { ro.disconnect(); const bb = es[0]?.borderBoxSize?.[0]; ok(bb ? { w: bb.inlineSize, h: bb.blockSize } : null); });
-    ro.observe(vdockEl);
-  });
-  let shown = 1;   // (how much of the dock's content shows: 1 at rest, 0 once faded for a fold)
-  // (The fold starts in a task of its own, never inside the gesture's move that asked for it: it begins by fading the content out, so one task's wait shows nothing.)
-  const foldOn = () => foldDock(true), foldOff = () => foldDock(false);
-  const foldSoon = (on) => runSoon(on ? foldOn : foldOff);
-  const foldDock = async (on) => {
-    if (on === foldGoal) return;
-    foldGoal = on;
-    const kids = [...vdockEl.children].filter((k) => !k.classList.contains('pg-piece')), tok = ++foldTok;
-    const reduced = reduceMotionMQ.matches || !vdockEl.animate;
-    const s0 = sizeOf(vdockEl);
-    foldAnims.forEach((a) => a.cancel());
-    foldAnims = [];
-    if (reduced || !s0?.h) { foldEnd?.(); vdockEl.classList.toggle('mini', on); shown = 1; foldDone(tok); return; }
-    if (vdockEl.classList.contains('mini') === on) {   // changed its mind before the old content was gone: fade it back
-      foldAnims = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 1 }], { duration: D_FLIP, easing: EASE_ARRIVE }));
-      shown = 1;
-      Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
-      return;
-    }
-    const out = kids.map((k) => k.animate([{ opacity: shown }, { opacity: 0 }], { duration: Math.round(D_FLIP * shown) || 1, easing: EASE_IN, fill: 'forwards' }));
-    foldAnims = [...out];
-    await Promise.all(out.map((a) => a.finished.catch(() => {})));
-    if (tok !== foldTok) return;
-    shown = 0;
-    // (The glass as it is drawn now: the last glide's pieces, if one is still under way, end where the box stands.)
-    foldEnd?.();
-    const from = sizeOf(vdockEl) || s0;
-    const next = sizeAfter();
-    vdockEl.classList.toggle('mini', on);
-    const s1 = await next;
-    if (tok !== foldTok) { foldAnims.forEach((a) => a.cancel()); return; }
-    foldAnims.forEach((a) => a.cancel());
-    // (Bottom left corner still: in the new box the old one stood from its left edge, its foot on the new one's.)
-    if (s1 && (Math.abs(s1.w - from.w) > 0.5 || Math.abs(s1.h - from.h) > 0.5)) {
-      foldEnd = glidePlateOn(vdockEl, vdockPlate, { x: 0, y: s1.h - from.h, w: from.w, h: from.h }, { x: 0, y: 0, w: s1.w, h: s1.h }, { R: 16, done: () => { foldEnd = null; } });
-    }
-    // (The new words come in as the glass is nearly there, so they never show past it.)
-    foldAnims = kids.map((k) => k.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, delay: D_FLIP, easing: EASE_ARRIVE, fill: 'backwards' }));
-    shown = 1;
-    Promise.all(foldAnims.map((a) => a.finished.catch(() => {}))).then(() => foldDone(tok));
-  };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
   view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { busy(5000); moved = true; figureFocus(0); } });
   addEventListener('pointerup', () => { if (down) { down = null; busyEnd(600); if (moved) figureFocus(3000); else unfocus(); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busyEnd(300); if (moved) figureFocus(3000); } });
   view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
-  $('#vdock').addEventListener('pointerdown', (e) => { if (!(vdockEl.classList.contains('mini') && e.target.closest('.play'))) unfocus(); });   // (play and pause work from the folded pill without opening it)
+  $('#vdock').addEventListener('pointerdown', unfocus);
   $('#topbar').addEventListener('pointerdown', unfocus);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the

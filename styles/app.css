@@ -4800,12 +4800,8 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .chart-side .sub { display: none; }
 }
 
-/* Phone: while the figure is panned or zoomed (and three seconds after), the vitals dock folds to one line
-   (play, clock) and the top bar's second row (view, colour legend) slides away (main.js figureFocus).
-   The dock keeps its place at the bottom; only its top comes down. */
-.vdock.mini { grid-template-columns: auto; grid-template-areas: "tl"; right: auto; width: max-content; }   /* a small pill in the lower-left corner: the lower-right is the zoom controls' */
-.vdock.mini .readouts { display: none; }
-.vdock.mini .stage-bar.bottom { height: 54px; min-height: 54px; padding: 0 12px 0 4px; }
+/* Phone: while the figure is panned or zoomed (and three seconds after), the top bar's second row (view, colour legend) slides away
+   (main.js figureFocus). The bottom bar does not change at all while the figure moves. */
 .app.figure-focus .zoom-pill { transition: opacity var(--d-surface, .42s) var(--ease), translate var(--d-small) var(--ease), transform var(--d-small) var(--ease); }   /* (no font-size: nothing changes it here, and a font-size ease lays the pill out every frame; Holding 120 Hz §3.11) */
 /* The credit is never animated: no glide, no fade, no scale ease. When it must move it vanishes at once, stays hidden until the
    cards and camera settle, and appears at once at its new spot (src/ui/credit.js). */
@@ -4813,15 +4809,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 /* The credit is 12 px everywhere, busy or not, phone or not (the 12 px floor: it had been scaled to about 9 px on a phone). */
 .stage-credit.tight { white-space: normal; max-width: 10.5em; text-wrap: balance; }   /* two lines, for a narrow strip of figure */
 .stage-credit:not(.placed), .stage-credit.moving, .stage-credit.covered { opacity: 0; }   /* not placed yet, changing corner, or no free figure left */
-.vdock.mini .tl-speed, .vdock.mini .tl-left > :not(.tl-split), .vdock.mini .tl-jumps, .vdock.mini .tl-hist, .vdock.mini .tl-pin { display: none !important; }
-.vdock.mini .tl-split { height: 52px; }   /* the play button stays a 44 px touch target */
-.vdock.mini .timeline { flex: none; justify-content: flex-start; gap: 8px; }
-.vdock.mini .tl-time { display: inline !important; min-width: 0; text-align: left; }
-/* The zoom controls drop to the lower-right corner, level with the pill, while the figure is being moved. */
-@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
-  /* (by translate from its usual place, so the drop eases on the compositor: no bottom eased) */
-  .app.figure-focus .zoom-pill:not(.under-sheet) { translate: 0 calc(var(--bot-occ, 120px) + 8px - env(safe-area-inset-bottom) - 12px - var(--sheet-h, 0px)); }
-}
 .topbar .stage-bar.top { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), visibility var(--d-small); }   /* (visibility last, so the fade-out finishes before it flips) */
 .app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-flip) var(--ease-in), visibility var(--d-flip); }   /* (a leave: the step below, on the leaving curve) */
 

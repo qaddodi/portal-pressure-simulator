@@ -354,6 +354,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/presenter.js', [[/function stop\(restore = true\) \{\n {4}if \(!deck \|\| leaving \|\| document\.documentElement\.hasAttribute\('data-embed'\)\) return;/, 'an embedded talk stays on its last slide (stop does nothing; start() ends the old talk itself)']]);
   need('src/ui/presenter-view-page.js', [[/keepAwake\(!!st\);/, "the notes window keeps its screen awake while a talk runs"]]);
 
+  // The bottom bar stays as it is while the figure moves (13 Nov 2026, Mohammad: "why does the timeline bar change when I pan"): a pan once folded
+  // it to a play-and-clock pill on the phone layout. figure-focus now only slides the top bar's second row away; nothing styles the bottom bar with it.
+  forbid('src/ui/main.js', /foldDock|foldSoon|classList\.toggle\('mini'/, 'a pan, pinch or wheel does not fold the bottom bar to a pill (it must stay steady while the figure moves)');
+  forbid('styles/app.css', /\.vdock\.mini\b/, 'the bottom bar has no folded pill any more');
+  forbid('styles/app.css', /\.figure-focus[^{}]*(?:\.vdock|\.timeline|\.readouts|\.stage-bar\.bottom|\.thumb-bar)[^{}]*\{/, 'figure-focus does not style the bottom bar');
+  forbid('styles/app.css', /\.figure-focus \.zoom-pill:not\(\.under-sheet\) \{ translate/, 'the zoom pill does not drop into the bottom bar\'s row during a pan');
+
   // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/presenter.js', [
     [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],
