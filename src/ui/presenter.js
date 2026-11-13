@@ -19,7 +19,8 @@ import { download } from './download.js';
 import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
+import { startChange } from './change-order.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
 import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -1100,6 +1101,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const CATH_SETTLE_MS = 4000;   // motion-scale: not a move (a longest wait); (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
+    // (N1, change-order.js: the change keeps the one order: the colour sets off from its cause, the collaterals after it.)
+    startChange(store.get().params, st.params);
     host.send({ type: 'morph', snap: st.snap, ms });
     store.set({ presetId: st.presetId, presetLoading: false });
     if (mark) app.classList.add('pz-morph');
@@ -1213,6 +1216,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
     frameTo(cam, s, gl);
+    alongOk = false;   // (T4: asked of this framing only)
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
     // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
     if (early && gl) {
@@ -1270,10 +1274,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
   // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
+  // (T4: a slide's move to its framing from a neighbouring slide, the next or the one before, may follow the vessel both framings sit on:
+  // stage-glide.js, cam-routes.js. Set as the slide's change starts, spent by its framing in camera(); refits never follow a path.)
+  let alongOk = false;
   function frameTo(cam, s, ms, opt = {}) {
     // (A Circuit slide's cam is a Circuit region, a raw box in circuit units or 'fit'; a name the circuit lacks is the fit.)
     const circ = s.view === 'circuit', cb = circ && cam !== 'fit' ? regionBox(cam, CIRC_REGIONS) : null;
-    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, opt);
+    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, alongOk && !opt.drift && !opt.steady ? { ...opt, along: true } : opt);
   }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);
@@ -2012,7 +2019,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     caseLift = () => caseGone(card);
     return card;
   }
-  async function caseRun(s, si, st, cut, own = false) {
+  async function caseRun(s, si, st, cut, own = false, swapping = null) {
     // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
     // lifted, so the room has the pause to think.)
     const card = cardUp('Case', h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
@@ -2038,6 +2045,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Then, the camera still, the new patient eases in.
     liveOff = false; shownState = -1;
     // (A time-lapse's own start eases in as before, the days playing on from it; a new patient is swapped in under the dip and the figure comes back.)
+    // (The slide's colours come in with its patient, unseen under the card: T1.)
+    swapping?.();
     if (own) { if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false; }
     else { applyState(st); await drawn(st); if (cut()) return false; figureIn(); }
     shownState = own ? -1 : si;   // (a time-lapse's own start is not a slide's state: the live figure plays the days from it)
@@ -2430,6 +2439,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   async function transitionRun(to) {
     const g = gen, tx = txn, s = slides[to], cut = () => !deck || want !== to || gen !== g || !txnLive(tx);
+    alongOk = Math.abs(to - lastAt) === 1;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
     stage.handClear?.();   // (a new slide frames the figure itself: a pinch on the last one does not hold)
@@ -2488,9 +2498,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     stage.explainClear?.();   // (a label explained by a tap goes with the slide: label-explain.js)
     store.set({ focus: null, stented: stentedKept(s), presentLabels: [], presentTerms: null, lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     figureHooks('clear');   // (and what a deck visuals package put on the figure: slide-ext.js)
-    // The slide's lens: the figure crossfades to its colours (stage.js) while the old words leave. A question, or a
-    // visual over the figure, keeps the colours already showing: they change only when a slide's lens does.
-    if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
+    // The slide's lens belongs to its scene (T1, A6): the leaving scene keeps its own colours until it has gone, and the new one arrives in
+    // its own. The figure crossfades to the slide's colours (stage.js) once, as its scene comes in: under the dip or the case card as a new
+    // patient is put in, as a patient's change starts, or else with the camera's move to the slide. (It changed here, as the old words left,
+    // and the leaving scene, its catheter and readings still up, was recoloured in place: the blue hepatic veins turned teal.) A visual over
+    // the figure keeps the colours already showing.
+    let lensDone = !!s.visual;
+    const lensGo = () => { if (lensDone || cut()) return; lensDone = true; const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); };
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
     strainStop(); stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
@@ -2542,7 +2556,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A time-lapse may open on a case too: the card covers the patient as it loads at the time-lapse's own start, and the days play after the lift.
     // That patient needs a start state, which a time-lapse step has only with params: a case slide with a lapse says params: {} at least.)
     let loaded = false;
-    if (!skipCase && s.vignette && ui && !booting && (!lap || !!own) && to > lastAt && (si !== shownState || liveOff || !!own)) { if (!await caseRun(s, si, st, cut, !!own)) return; loaded = true; }
+    if (!skipCase && s.vignette && ui && !booting && (!lap || !!own) && to > lastAt && (si !== shownState || liveOff || !!own)) { if (!await caseRun(s, si, st, cut, !!own, lensGo)) return; loaded = true; }
     else if (ask) { if (!await questionRun(s, cut)) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
     const swap = !loaded && (si !== shownState || liveOff || !!own);
@@ -2554,10 +2568,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (swap) {
       liveOff = false;
       tx?.phase('morph');
-      if (glide) { shownState = -1; if (!later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } }
+      if (glide) { shownState = -1; if (!later) { lensGo(); if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } }
       else {
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
-        applyState(st); shownState = own ? -1 : si;
+        lensGo(); applyState(st); shownState = own ? -1 : si;
         await drawn(st);
       }
       if (cut()) return;
@@ -2603,6 +2617,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
     if (caseCard) { await caseLifted(cut); if (cut()) return; }
+    // (The scene's colours cross with the camera's move to the slide, when no change of patient brought them in already.)
+    lensGo();
     // One move: over the plate, outside the liver, the cards come in as the glide ends (plate), and a change of patient eases
     // under the glide (under) where the figure can move smoothly while its organs change. (Not behind a question's card: the change
     // would play out unseen before the lift; there it waits for the landing, as before.)
@@ -5657,8 +5673,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // every slide, its buttons popping out and back (MOTION_HEAT_REVIEW P16). A new layout builds it afresh.
     const tab = ph && tabUp(), sig = `${ph}|${tab}|${!!openSettings}`, k = ui.bar._pill;
     if (k && k.sig === sig && k.count.isConnected) {
-      // (The pill's width is measured again once the new count is in: 9 to 10 widens it.)
-      swapText(k.count, `${i + 1} / ${n}`, () => { if (ui?.bar._pill === k) placeBar(); });
+      // (T2: the count never disappears. It was swapped through a fade to nothing and its words then came back between frames or as a GPU
+      // picture, and through a case or question card, the busiest part of a slide change, the pill stood with no number for the whole card.
+      // The number is written in place, at once: a speaker glances at it to pace the talk. The pill's width is measured again, 9 to 10 widens it.)
+      const countTxt = `${i + 1} / ${n}`;
+      if (k.count.textContent !== countTxt) k.count.textContent = countTxt;
       k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
       if (k.prev) k.prev.disabled = i === 0 && beat === 0;
       if (k.next) { k.next.disabled = last; k.next.classList.toggle('skipping', skip); k.next.setAttribute('aria-label', nextLabel); k.next.title = nextTitle; }

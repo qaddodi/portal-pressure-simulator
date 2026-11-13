@@ -57,6 +57,8 @@ export function createColourFollow({ tau, eps = 0.002, small = 3 / 255, n = 6 } 
       if (!still) api.moving = true;
       return s.out;
     },
+    /** What `key` shows now, not stepped (null: not seen yet): a colour held where it is (a change's front not yet at it, change-order.js). */
+    peek(key) { const s = S.get(key); return s ? s.out : null; },
     /** Forget keys not stepped in `keep` (a Set): drawn again later, they start where they are told. */
     // (Keys alone, not each [key, state] pair: no pair is made for every key at every sync.)
     prune(keep) { for (const k of S.keys()) if (!keep.has(k)) { spare.push(S.get(k)); S.delete(k); } },

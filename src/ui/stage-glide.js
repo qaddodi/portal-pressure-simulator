@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VIEW } from './anatomy.js';
 import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.js';
+import { ALONG_MAX_MS, ROUTES, alongPath, routeLine } from './cam-routes.js';
 import { camMs, carried, easeMove, springSlope } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glideClock } from './glide-clock.js';
@@ -11,7 +12,12 @@ import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
-  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
+  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
+  // (T4: the vessel paths as the figure draws them now, for a glide between neighbouring slides that follows one: cam-routes.js. Built when
+  // such a glide is asked for, once a slide change, never in a frame.)
+  const ptsOf = (id) => geo?.[id]?.cur || geo?.[id]?.A || null;
+  const routeLines = () => Object.values(ROUTES).map((ids) => routeLine(ids, ptsOf));
+  let alongAsk = false;   // (frameBox asks for its glide to follow a vessel path: set only around its animateVT call)
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
   // asked.
@@ -59,8 +65,12 @@ export function createGlide(st, live) {
       t0 = prev.t0; ms = prev.ms;
       live.arcRun = { from: prev.from, to, t0, ms, at };
     } else if (room) {
-      const path = camPath(from, to, room.vb, room.wMax);
-      if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; newArc = path.at; }
+      // (A presenter's move between neighbouring slides on one vessel path travels along it, T4, its time lengthened with the path, to
+      // ALONG_MAX_MS at most; any other long move pulls back over the figure on its arc.)
+      const along = alongAsk && live.morphTarget === 0 && !store.get().lobule ? alongPath(from, to, routeLines(), room.vb) : null;
+      const path = along ? null : camPath(from, to, room.vb, room.wMax);
+      if (along) { ms = Math.min(Math.round(ms * along.stretch), ALONG_MAX_MS); at = (u) => along.at(u); live.arcRun = { from, to, t0, ms, at }; newArc = at; }
+      else if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; newArc = path.at; }
     }
     let c0 = 0;
     if (v0 && (!live.arcRun || newArc) && !sameView(from, to)) {
@@ -155,7 +165,9 @@ export function createGlide(st, live) {
     if (live.morphTarget !== 0 && live.morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, live.vtGliding ? live.vtTarget : live.vt)) return;
+    alongAsk = !!opt.along;   // (T4: read by the glide this asks for, at once)
     if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
+    alongAsk = false;
   }
   function riseTo(box, kMax, clear) { live.riseBox = box ? { box, kMax, clear } : null; live.riseExp = performance.now() + 4000; }
   function riseVT() {

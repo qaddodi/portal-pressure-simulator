@@ -20,6 +20,7 @@ const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while 
 import { createSweepClient } from './sweep-client.js';
 import { clamp } from './util.js';
 import { frontKey, fronted } from './collateral-front.js';
+import { FRONT_MAX_MS, changeDrawn, easingFront, edgeHops, frontDelay } from './change-order.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
 import { JOIN_F_NOFADE } from './tube-join-glsl.js';
@@ -300,7 +301,11 @@ export function createVessels(st, live) {
   // (The lens crossfade and the plate's ease over it run on the honest wall clock, frame.js easeNow: the long frame a lens change can
   // bring, the vessels recoloured and the organs' picture redrawn, shows them where the wall clock puts them.)
   const lensNow = () => easeNow();
-  const lensFading = () => !!live.lensFrom && lensNow() - live.lensT0 < LENS_FADE + 20;
+  // (N1 step 3: a change with a cause on the circuit (change-order.js) crosses from the cause outward, each vessel's crossfade waiting
+  // frontDelay of its distance from the cause in vessels. frontHops: the cause's hops, for the crossfade that began at frontT0 only.)
+  let frontHops = null, frontT0 = -1;
+  const frontWait = (e) => (frontHops && live.lensT0 === frontT0 ? frontDelay(edgeHops(frontHops, e)) : 0);
+  const lensFading = () => !!live.lensFrom && lensNow() - live.lensT0 < LENS_FADE + 20 + (frontHops && live.lensT0 === frontT0 ? FRONT_MAX_MS : 0);
   const rgbCache = new Map(), rgbVarName = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
   function toRGB(c, cs) {
@@ -717,7 +722,7 @@ export function createVessels(st, live) {
   const SURGICAL_SHUNTS = new Set(['dsrs', 'portocaval', 'mesocaval', 'rex']);   // (the surgical shunts: their rows keep their own opacity at a join, JOIN_F_NOFADE)
   const ligatedAt = (id) => { for (let q = 0; q < LIGATED.length; q++) if (LIGATED[q][1] === id) return true; return false; };
   function colPass() {
-    const items = cpItems, cs = cpCs, T0 = cpT0, now = cpNow, artery = cpArtery, originMode = cpOrigin, ivcOn = cpIvcOn, colDt = cpDt;
+    const items = cpItems, cs = cpCs, T0 = cpT0, now = cpNow, artery = cpArtery, originMode = cpOrigin, ivcOn = cpIvcOn, colDt = cpDt, cpEase = reduceMotion.matches ? null : easingFront(now);
     for (let q = 0; q < items.length; q++) {
       const it = items[q];
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
@@ -755,12 +760,13 @@ export function createVessels(st, live) {
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (x.e.kind === 'shunt' && x.e.shunt !== 'ap' ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
-      const k = colFollow.step(it.row, colT, colDt, !!live.lensFrom || reduceMotion.matches || live.themeSnap);
+      // (A change easing in, a slide's patient morphing: a vessel the front has not reached yet keeps its colour; easingFront.)
+      const k = (cpEase && now < cpEase.at + frontDelay(edgeHops(cpEase.hops, x.e)) && colFollow.peek(it.row)) || colFollow.step(it.row, colT, colDt, !!live.lensFrom || reduceMotion.matches || live.themeSnap);
       const pair = shownPair(live.shownCol, it.row), s0 = pair[0], s1 = pair[1];
       s0[0] = k[0]; s0[1] = k[1]; s0[2] = k[2]; s1[0] = k[3]; s1[1] = k[4]; s1[2] = k[5];
       colRows.add(it.row);
       if (live.lensFrom) {
-        const was = live.lensFrom.get(it.row), u = easeMove(clamp((easeNow() - live.lensT0) / LENS_FADE, 0, 1));
+        const was = live.lensFrom.get(it.row), u = easeMove(clamp((easeNow() - live.lensT0 - frontWait(x.e)) / LENS_FADE, 0, 1));
         if (was) { mix3To(s0, was[0], s0, u); mix3To(s1, was[1], s1, u); }
       }
       live.shownCol.set(it.row, pair);
@@ -935,11 +941,15 @@ export function createVessels(st, live) {
     // by more than JUMP_MMHG anywhere since the last one drawn. The running model's own steps (well under that) are drawn as
     // they come.
     // (So does a held reversal turning in the Direction lens: B3.)
+    const lensWas = live.lensT0;   // (whether this sync starts a crossfade: the change's front rides only its own)
     const jumped = modelJumped(live.F), flipped = live.revFlip && mode === 'direction';
     live.revFlip = false;
     if (((live.lensMode && mode !== live.lensMode) || jumped || flipped) && !reduceMotion.matches) { live.lensFrom = live.shownCol; live.lensT0 = lensNow(); }
+    // (A jump starts a change's clock (change-order.js): its later steps, the collaterals and the numbers, go from here. A jump with a cause
+    // on the circuit crosses from it outward; a lens switch at the same moment crosses at once, as any lens switch.)
+    if (jumped) { const hops = changeDrawn(); if (live.lensFrom && live.lensT0 !== lensWas && !(live.lensMode && mode !== live.lensMode)) { frontHops = hops; frontT0 = live.lensT0; } }
     live.lensMode = mode;
-    if (live.lensFrom && !lensFading()) live.lensFrom = null;
+    if (live.lensFrom && !lensFading()) { live.lensFrom = null; frontHops = null; }
     live.shownCol = nextShown();
     gpuProbe.time(null, 'vessel sync: radii', sendRadii, items);
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.

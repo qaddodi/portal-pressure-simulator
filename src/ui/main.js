@@ -44,6 +44,7 @@ import './focus-ring.js';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js';
 import { lookChooser } from './look-chooser.js';
 import { moverOf, cancelMoves } from './num-move.js';
+import { atMost, NAME_LEAD_MS, noteChange, stepLeft } from './change-order.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -387,20 +388,29 @@ async function main() {
   for (const p of presets) if (!nameOf.has(p.id)) nameOf.set(p.id, p.label || 'Custom');
   for (const n of [...nameOf.values(), 'Custom']) if (!shortOf.has(n)) shortOf.set(n, shortName(n));
   // (The fill is made once and reads the name asked last, as the swap keeps only the last fill it is given.)
-  let scName = '', scShort = '';
+  let scName = '', scShort = '', scWaits = [];
   const scFill = () => {
     const el = $('#scenarioName');
     el.replaceChildren(h('span', SN_L, scName), h('span', SN_S, scShort), h('span', SN_C, COMPACT[scShort] ?? scShort));
     fitScenarioName();
+    // (The new name is in: a patient waiting on it to lead its change goes on, change-order.js.)
+    const w = scWaits; scWaits = [];
+    for (const r of w) r();
   };
-  const syncScenarioName = () => {
-    const st = store.get(), name = nameOf.get(st.presetId) || 'Custom', short = shortOf.get(name);
+  // (Returns a promise that settles once the name shown is this one, or null when it already is.)
+  const showScenarioName = (id) => {
+    const name = nameOf.get(id) || 'Custom', short = shortOf.get(name);
     // The new name crossfades in (it swapped in one frame, P8); the pill glides to its width as it lands (topbar-motion.js).
     const el = $('#scenarioName');
-    if (el.querySelector('.sn-l')?.textContent === name) return;
+    if (scName === name && el.querySelector('.sn-l')?.textContent === name) return null;
     scName = name; scShort = short;
+    const p = new Promise((r) => scWaits.push(r));
     swapFade(el, scFill);
+    return p;
   };
+  // (A patient being loaded already names itself: N1, the name of what is changing comes first.)
+  const syncScenarioName = () => { showScenarioName(namingId ?? store.get().presetId); };
+  nameFirst = showScenarioName;
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
   for (const k of ['compareSnap', 'compareView']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
@@ -599,9 +609,22 @@ function paintFrame(f) {
   for (const [tag, fn] of PAINT_PARTS) mayTask(tag, () => fn(f, now));
 }
 // (Each part paints the frame it was given: the newest, since asking again replaces the task.)
+// (N1 step 5, change-order.js: in a change with an order (a new patient), the readings are the last step. The card's and the dock's
+// numbers keep the frame they showed until the pressure colour has set off from the cause (stepLeft('numbers')), then take the newest
+// frame and roll (COUNT_MS). Only the painted readouts wait: the traces take every frame as it comes (dock.ingest).)
+const numHeld = new Map();   // (tag → the newest frame it was given while held)
+function numbersLater(tag, paint) {
+  return (f) => {
+    const left = stepLeft('numbers');
+    if (left <= 0) { numHeld.delete(tag); paint(f); return; }
+    const first = !numHeld.has(tag);
+    numHeld.set(tag, f);
+    if (first) appScope.timer(function release() { const g = numHeld.get(tag); if (!g) return; const l = stepLeft('numbers'); if (l > 0) { appScope.timer(release, l + 5); return; } numHeld.delete(tag); paint(g); }, left + 5);
+  };
+}
 const PAINT_PARTS = [
-  ['card update', (f) => card.update(f)],
-  ['dock update', (f) => { dock.update(f); syncDoppler(f); }],
+  ['card update', numbersLater('card', (f) => card.update(f))],
+  ['dock update', numbersLater('dock', (f) => { dock.update(f); syncDoppler(f); })],
   ['inspector update', (f) => {
     // (R17: the side panel's readings are not worked out or written while the panel is shut or under an instrument; the frame is kept,
     // and painted the moment the panel shows (see inspectorSeen).)
@@ -636,18 +659,29 @@ async function openInExplore(id) {
   await loadPreset(id);
 }
 let presetGen = 0;
+// (N1, change-order.js: the patient's name changes first, and the model is asked for the new patient once the new name is in, so the
+// vessels never change under the old name (A7). namingId: the patient being loaded, whose name the top bar shows; nameFirst: the bar's
+// own swap, set where the bar is built.)
+let namingId = null, nameFirst = null;
 async function loadPreset(id, opts = {}) {
   const gen = ++presetGen;
   // (A new patient wakes a resting page, whoever asked for it (a menu, a link, the checks' window.pps): its model must step to
   // arrive, and a page left resting held the old patient's numbers with the new one's name.)
   idleRest?.poke();
+  namingId = id;
+  await atMost(nameFirst?.(id), NAME_LEAD_MS);
+  if (gen !== presetGen) return false;   // (another patient was asked for while this name came in: that one leads now)
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   let res;
-  try { res = await host.request('preset', { id, days: opts.days }); }
+  // (A load that fails gives the bar back its patient's name.)
+  const unname = () => { if (gen === presetGen) { namingId = null; nameFirst?.(store.get().presetId); } };
+  try { res = await host.request('preset', { id, days: opts.days }).catch((e) => { unname(); throw e; }); }
   catch { if (gen === presetGen) store.set({ presetLoading: false }); return false; }   // (the engine stopped: its crash card says so; the figure is not left waiting for a patient)
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
   if (gen !== presetGen) return false;
+  namingId = null;
+  noteChange(store.get().params, res.params);   // (the new patient's steps keep the one order from here: change-order.js)
   // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
   host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
   replaceParams(res.params);

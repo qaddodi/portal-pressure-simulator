@@ -175,7 +175,7 @@ test('no slide card shows while a case card is up, a catheter slide included; th
 test('a case card may open a time-lapse: it covers the patient as it loads at the time-lapse\'s own start, and the days play after the lift', async () => {
   // The presenter: no longer skipped on a lapse slide, but only where the lapse has a start of its own to cover; the card's morph leaves the
   // live figure at that start (not at a slide's state), and the slide does not morph to it a second time.
-  assert.match(src, /let loaded = false;\s*if \(!skipCase && s\.vignette && ui && !booting && \(!lap \|\| !!own\) && to > lastAt && \(si !== shownState \|\| liveOff \|\| !!own\)\) \{ if \(!await caseRun\(s, si, st, cut, !!own\)\) return; loaded = true; \}/);
+  assert.match(src, /let loaded = false;\s*if \(!skipCase && s\.vignette && ui && !booting && \(!lap \|\| !!own\) && to > lastAt && \(si !== shownState \|\| liveOff \|\| !!own\)\) \{ if \(!await caseRun\(s, si, st, cut, !!own, lensGo\)\) return; loaded = true; \}/);
   assert.match(src, /const swap = !loaded && \(si !== shownState \|\| liveOff \|\| !!own\);/);
   const run = src.slice(src.indexOf('async function caseRun('), src.indexOf('// A question card (slide field question)'));
   assert.match(run, /shownState = own \? -1 : si;/);
