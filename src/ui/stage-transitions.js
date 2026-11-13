@@ -1,6 +1,6 @@
 // The model-driven transitions and what rides on them: reveal and exit of vessels, reversal hold, circuit nodes, the ascites fluid, the stent mesh and the surgical ties.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES } from '../engine/topology.js';
+import { EDGES, isCoveredStent } from '../engine/topology.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
 import { FRONT_MS } from './collateral-front.js';
@@ -267,13 +267,14 @@ export function createTransitions(st, live) {
   // The stent as a device (look T2, Mohammad 13 Nov 2026, from the Viatorr photos; stent-mesh.js stentLookD): rings placed on the tube, so they
   // bend away at the edges and the far half shows through; the TIPS and the DIPS (both Viatorr stents) covered by a white graft, white where the
   // light falls and nearly clear on the shaded side, with an open stretch at the portal end ending in round crowns and a gold band where the
-  // graft starts; every other stent (the veins', the stent tool's shunts) the open stretch alone, end to end. Wire widths are world units (a
+  // graft starts; every other stent (the veins', the stent tool's shunts from elsewhere) the open stretch alone, end to end. The stent tool's shunts from the portal vein or a branch
+  // of it into a hepatic vein are covered Viatorrs too (topology.js isCoveredStent, 13 Nov 2026). Wire widths are world units (a
   // twelfth of the stent's half-width each), so the stent keeps its proportions as the figure zooms; the painter keeps a stroke one device pixel at least.
   // ends: kept for its callers. bare > 0: that much open from d0.
   function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
     const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
-    if (id === 'DIPS' && !(bare > 0)) bare = tipsBare(id);   // (the DIPS is a covered Viatorr too, its open end at the portal vein: its drawn path runs from there)
+    if (!(bare > 0) && isCoveredStent(E[id]?.e)) bare = tipsBare(id);   // (the DIPS and every portal vein to hepatic vein stent are covered Viatorrs too, their open end at the portal vein: the drawn path runs from there)
     const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
     const m = stentLookD(f, A, bare > 0 ? bare : A, k), u = R(d0) / 12;
     // (The far half first, under the graft; the graft's fills, lowest light level first; the near half; the bright cores; the gold last.)

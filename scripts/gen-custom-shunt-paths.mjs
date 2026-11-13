@@ -10,12 +10,21 @@ import { writeFileSync } from 'node:fs';
 import { EDGES } from '../src/engine/topology.js';
 import { NODE_POS } from '../src/ui/anatomy.js';
 import { CurveRouter, anatomyLines, anatomyStations, cubicsToD, searchCourse } from './shunt-route-lib.mjs';
+import { isLiverStent, liverStentCourse } from './liver-stent-course.mjs';
 
 const router = new CurveRouter().reset({ lines: Object.values(anatomyLines()), stations: anatomyStations(), bounds: [310, 0, 1110, 940] });
+const sagitta = ([p, c1, c2, q]) => { const dx = q[0] - p[0], dy = q[1] - p[1], d = Math.hypot(dx, dy); let m = 0; for (let k = 1; k < 24; k++) { const t = k / 24, u = 1 - t; const x = u * u * u * p[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * q[0], y = u * u * u * p[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * q[1]; m = Math.max(m, Math.abs(dx * (p[1] - y) - (p[0] - x) * dy) / d); } return m / d; };
 const paths = {};
+// (A stent from the portal vein or a branch of it to a hepatic vein is drawn vessel to vessel like the TIPS, liver-stent-course.mjs: the other stents' courses are the search's. The
+// TIPS and the DIPS lie in the same corridor and are not counted against it: they are the same kind of stent, and one at a time is what the figure shows.)
+const liverLines = anatomyLines(); delete liverLines.TIPS; delete liverLines.DIPS;
 for (const e of EDGES) {
   if (e.shunt !== 'custom') continue;
-  const best = searchCourse(router, NODE_POS[e.from][0], NODE_POS[e.to][0]);
+  if (isLiverStent(e)) { paths[e.id] = liverStentCourse(e.from, e.to, liverLines)[0].d; continue; }
+  const a = NODE_POS[e.from][0], b = NODE_POS[e.to][0];
+  let best = searchCourse(router, a, b);
+  // (A single cubic that is all but a straight run is searched again with a bow of at least 0.08 of its chord: no shunt is straight, tests/shunts-curved.test.js.)
+  if (best.ctl.length === 1 && sagitta(best.ctl[0]) < 0.05) best = searchCourse(router, a, b, 0.08);
   paths[e.id] = cubicsToD(best.ctl);
 }
 const body = Object.entries(paths).map(([id, d]) => `  ${id}: '${d}',`).join('\n');

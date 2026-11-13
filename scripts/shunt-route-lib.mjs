@@ -176,14 +176,15 @@ export class CurveRouter {
 const price = (r, d) => 14 * r.on + 3.5 * r.par + 30 * r.cross + 30 * r.stn + 40 * r.out + 0.5 * (r.len - d) + 0.0012 * (r.len - d) ** 2 + 350 * r.bend;
 
 /** The best single cubic from p to q: { ctl: [[p, c1, c2, q]], cost, r }. */
-export function bestCubic(router, p, q) {
+export function bestCubic(router, p, q, minBow = 0) {
   const dx = q[0] - p[0], dy = q[1] - p[1], d = Math.hypot(dx, dy), u = [dx / d, dy / d];
   let best = null;
   for (let a1 = -90; a1 <= 90; a1 += 15) for (let a2 = -90; a2 <= 90; a2 += 15) for (const hf of [0.3, 0.5, 0.75]) {
     const h = Math.max(30, hf * d), t1 = rot(u, a1), t2 = rot(u, a2);
     const c1 = [p[0] + t1[0] * h, p[1] + t1[1] * h], c2 = [q[0] - t2[0] * h, q[1] - t2[1] * h];
     const r = router.measure(bez(p, c1, c2, q, Math.max(8, Math.ceil((d * 1.3) / 5))), p, q);
-    const cost = price(r, d) + (Math.abs(a1) + Math.abs(a2)) * 0.25;
+    let cost = price(r, d) + (Math.abs(a1) + Math.abs(a2)) * 0.25;
+    if (minBow > 0) { const B = bez(p, c1, c2, q, 24); let dev = 0; for (const b of B) dev = Math.max(dev, Math.abs(dx * (p[1] - b[1]) - (p[0] - b[0]) * dy) / d); cost += 4000 * Math.max(0, minBow - dev / d); }   // (no shunt is a straight run: it bows off its chord by at least minBow of it)
     if (!best || cost < best.cost) best = { ctl: [[p, c1, c2, q]], cost, r };
   }
   return best;
@@ -219,8 +220,8 @@ export function cubicsToD(ctl) {
   return `M${f(ctl[0][0][0])} ${f(ctl[0][0][1])}` + ctl.map(([, a, b, c]) => ` C ${f(a[0])} ${f(a[1])} ${f(b[0])} ${f(b[1])} ${f(c[0])} ${f(c[1])}`).join('');
 }
 /** The best course from p to q among the lines the router was reset with: one cubic, or two when the single one meets other vessels or crosses many. */
-export function searchCourse(router, p, q) {
-  let best = bestCubic(router, p, q);
+export function searchCourse(router, p, q, minBow = 0) {
+  let best = bestCubic(router, p, q, minBow);
   if (best.r.on > 4 || best.r.par > 20 || best.r.cross >= 3) {
     const v = bestVia(router, p, q, best.cost);
     if (v) best = v;

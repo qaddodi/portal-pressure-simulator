@@ -4,7 +4,7 @@
 // The numbers are the lengths (world units) of the course on top of / alongside others, see scripts/shunt-route-lib.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGES } from '../src/engine/topology.js';
+import { EDGES, isLiverStent } from '../src/engine/topology.js';
 import { NODE_POS, VB_ANAT, VB_CIRC, HIDDEN_NODES, CIRCUIT_TREES, route as metroRoute } from '../src/ui/anatomy.js';
 import { CUSTOM_SHUNT_PATH } from '../src/ui/custom-shunt-paths.js';
 import { createRouter } from '../src/ui/circuit-router.js';
@@ -81,8 +81,12 @@ test('anatomy: all 119 custom shunts (92 portal-to-systemic, 27 portal-to-portal
     const d = CUSTOM_SHUNT_PATH[e.id];
     assert.ok(d, `${e.id} has a course`);
     const P = sampleD(d), a = NODE_POS[e.from][0], b = NODE_POS[e.to][0];
-    assert.deepEqual(P[0], a, `${e.id} starts at ${e.from}`);
-    assert.ok(Math.hypot(P.at(-1)[0] - b[0], P.at(-1)[1] - b[1]) < 0.2, `${e.id} ends at ${e.to}`);
+    // (A stent from the portal vein or a branch to a hepatic vein is drawn vessel to vessel, as the TIPS is: its ends are on the two trunks' centre lines, not at their nodes; the hilum's start is the node.
+    // tests/liver-stent-course.test.js holds those.)
+    if (!isLiverStent(e)) {
+      assert.deepEqual(P[0], a, `${e.id} starts at ${e.from}`);
+      assert.ok(Math.hypot(P.at(-1)[0] - b[0], P.at(-1)[1] - b[1]) < 0.2, `${e.id} ends at ${e.to}`);
+    }
     for (const [x, y] of P) assert.ok(x > VB_ANAT[0] && x < VB_ANAT[0] + VB_ANAT[2] && y > -2 && y < VB_ANAT[3] + 2, `${e.id} stays on the plate`);
     // smooth: no turn of more than 6 degrees between pieces of 3 units, except where two curves join (a corner would show there too)
     let worst = 0;
@@ -92,7 +96,9 @@ test('anatomy: all 119 custom shunts (92 portal-to-systemic, 27 portal-to-portal
       worst = Math.max(worst, Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)) / Math.min(1, Math.hypot(bx, by) / 3));
     }
     assert.ok(worst < (14 * Math.PI) / 180, `${e.id} has a bend of ${((worst * 180) / Math.PI).toFixed(0)} degrees`);
-    const j = judge(e.id, P, L, 'anat');
+    // (A stent into a hepatic vein shares the one corridor with the TIPS and the DIPS, the same kind of stent, and is not counted against them: the figure shows one at a time.)
+    const Lj = isLiverStent(e) ? Object.fromEntries(Object.entries(L).filter(([k]) => k !== 'TIPS' && k !== 'DIPS')) : L;
+    const j = judge(e.id, P, Lj, 'anat');
     assert.ok(j.on <= 30 && j.on + j.par <= 150, `${e.id}: ${j.on.toFixed(0)} units on top of ${JSON.stringify(j.onBy)}, ${j.par.toFixed(0)} alongside ${JSON.stringify(j.parBy)}`);
     assert.ok(j.total < 3.2 * Math.hypot(a[0] - b[0], a[1] - b[1]) + 120, `${e.id} is not a long detour`);
   }

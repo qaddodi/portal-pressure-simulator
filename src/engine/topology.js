@@ -189,6 +189,11 @@ const NAMED_SHUNTS = new Set(['RPV>RHV', 'PVH>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'S
 const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0] : x.id) === id); return Array.isArray(n) ? n[1] : n?.label || id; };
 // A node's short name for a stent's course: its id (RPV, RHV), with the hilum portal vein as PV and both IVC levels as IVC.
 const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
+// The stents drawn as the covered Viatorr device (partly covered, with its bare stretch at the portal end): the TIPS, the DIPS and every stent-tool shunt from the portal vein or a branch
+// of it (the hilum, the right or the left branch) into a hepatic vein (13 Nov 2026, Mohammad: "any portal vein branch -> hepatic vein branch should be the Viatorr looking stent").
+export const LIVER_STENT_FROM = ['PVH', 'RPV', 'LPV'], LIVER_STENT_TO = ['RHV', 'MHV', 'LHV'];
+export const isLiverStent = (e) => e?.shunt === 'custom' && LIVER_STENT_FROM.includes(e.from) && LIVER_STENT_TO.includes(e.to);
+export const isCoveredStent = (e) => e?.shunt === 'tips' || e?.shunt === 'dips' || isLiverStent(e);
 // A stent's course from its portal end to its systemic end, read from the model's own connection: "RPV → RHV" for the TIPS.
 const COURSES = new WeakMap();   // alloc-rare: made once; one kept entry per edge
 export const stentCourse = (e) => {
