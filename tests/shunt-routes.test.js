@@ -20,7 +20,8 @@ const named = EDGES.filter((e) => (e.kind === 'collateral' || (e.kind === 'shunt
 // The TIPS now runs between the middles of the right portal and right hepatic veins (11 Nov 2026, Mohammad), through the one corridor the plate leaves there, between the ascending lumbar ghost
 // (C9, x 527-532, behind the liver) and the DIPS: it passes the ghost at 15-28 units for about 115 (and the ghost the stent), and the DIPS at 5 for a few units where both leave the portal vein.
 // (C8 hugs the portal vein and its artery on purpose: a cavernous transformation is a braid round the occluded trunk, 13 Nov 2026, Mohammad: "they should grow all around it".)
-const ALLOW_ANAT = { C8: { on: 250, par: 90 }, C6: { on: 100, par: 100 }, S_DSR: { on: 100, par: 100 }, C9: { par: 130 }, TIPS: { par: 130 } };
+// (The DIPS leaves the hilum, where the portal vein and C8 arrive together, so it runs beside both for its first 33 units.)
+const ALLOW_ANAT = { C8: { on: 250, par: 130 }, C6: { on: 100, par: 100 }, S_DSR: { on: 100, par: 100 }, C9: { par: 130 }, TIPS: { par: 130 }, DIPS: { par: 40 } };
 
 test('anatomy: the named shunts and collaterals do not run on top of other vessels, and keep clear beside them', () => {
   const L = anatomyLines();

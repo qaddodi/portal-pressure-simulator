@@ -221,24 +221,27 @@ function place(P, R, a, o) {
   const px = P[2 * i], py = P[2 * i + 1], rw = rwAt(R, i, 0), w = widthAt(o, rw);
   if (c > 0) {
     const ph = c / TUBE_CAP * Math.PI / 2, g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
-    const nx = nrmX(g, 1), ny = nrmY(g, 1), ox = i === 0 ? -g.tx : g.tx, oy = i === 0 ? -g.ty : g.ty;
     const rc = rw * Math.cos(ph), e = rw * Math.sin(ph);
-    const [d, f] = acrossAt(ac, rc, w, hRef, glow, zz, hK);
+    const [d, f] = acrossAt(ac, rc, w, hRef, glow, zz, hK), sd = d < 0 ? -1 : 1;
+    const nx = sd * nrmX(g, sd), ny = sd * nrmY(g, sd), ox = i === 0 ? -g.tx : g.tx, oy = i === 0 ? -g.ty : g.ty;
     const gx = ox * e + d * nx, gy = oy * e + d * ny;
     return [px + gx, py + gy, f, Math.hypot(gx, gy) - rw, gx, gy, rw];
   }
-  const [d, f] = acrossAt(ac, rw, w, hRef, glow, zz, hK);
+  const [d, f] = acrossAt(ac, rw, w, hRef, glow, zz, hK), sd = d < 0 ? -1 : 1;
+  // (Each side takes its OWN normal, as the Mesh strip does (stripVertex: s > 0 ? mp : mm), and the ring is p + d * n with n = sd * that side's: on a tapering
+  // vessel the two sides' normals lean the same way along it (the tilt), so one normal mirrored to the other side leaned that side the wrong way, its wall ran
+  // inside the samples' discs, and where a joint is bevelled each dome's lumen stuck out of the wall as a hexagon's corner: a saw-tooth, 13 Nov 2026.)
   let nx, ny;
   if (i === 0 || i === N_SAMPLES - 1) {
     const g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
-    nx = nrmX(g, 1); ny = nrmY(g, 1);
+    nx = sd * nrmX(g, sd); ny = sd * nrmY(g, sd);
   } else {
     const sa = segOf(P, R, i - 1, w), sb = segOf(P, R, i, w), W = rwAt(R, i, w);
     const mp = mitreAB(sa, sb, W, 1), mm = mp ? mitreAB(sa, sb, W, -1) : null;
-    if (mp && mm) { nx = mp[0]; ny = mp[1]; }
+    if (mp && mm) { nx = sd * (sd > 0 ? mp : mm)[0]; ny = sd * (sd > 0 ? mp : mm)[1]; }
     else {
-      const ax = nrmX(sa, 1), ay = nrmY(sa, 1), vx = 0.5 * (ax + nrmX(sb, 1)), vy = 0.5 * (ay + nrmY(sb, 1)), al = Math.hypot(vx, vy);
-      if (al < 1e-6) { nx = ax; ny = ay; } else { nx = vx / al; ny = vy / al; }
+      const ax = nrmX(sa, sd), ay = nrmY(sa, sd), vx = 0.5 * (ax + nrmX(sb, sd)), vy = 0.5 * (ay + nrmY(sb, sd)), al = Math.hypot(vx, vy);
+      if (al < 1e-6) { nx = sd * ax; ny = sd * ay; } else { nx = sd * vx / al; ny = sd * vy / al; }
     }
   }
   return [px + d * nx, py + d * ny, f, Math.abs(d) - rw, d * nx, d * ny, rw];
@@ -352,25 +355,27 @@ vec3 tubePlace(int id, vec4 a, float wr, float sp, float hr, bool glow, float zz
   if (c > 0) {
     float ph = float(c) / float(T_CAP) * M_PI / 2.0;
     MSeg g = mSeg(id, i == 0 ? 0 : N_QUADS - 1, w);
-    vec2 n = mNrm(g, 1.0), o = i == 0 ? -g.t : g.t;
     float rc = rw * cos(ph), e = rw * sin(ph);
     vec2 df = tubeAcross(ac, rc, w, hr, glow, zz);
+    float sd = df.x < 0.0 ? -1.0 : 1.0;
+    vec2 n = sd * mNrm(g, sd), o = i == 0 ? -g.t : g.t;
     vec2 og = o * e + df.x * n;
     vG = og; vD = length(og) - rw;
     return vec3(p + og, df.y);
   }
   vec2 df = tubeAcross(ac, rw, w, hr, glow, zz);
+  float sd = df.x < 0.0 ? -1.0 : 1.0;   // (each side its own normal, as the Mesh strip: see place() in the JS twin)
   vec2 n;
-  if (i == 0 || i == N_SAMPLES - 1) n = mNrm(mSeg(id, i == 0 ? 0 : N_QUADS - 1, w), 1.0);
+  if (i == 0 || i == N_SAMPLES - 1) n = sd * mNrm(mSeg(id, i == 0 ? 0 : N_QUADS - 1, w), sd);
   else {
     MSeg sa = mSeg(id, i - 1, w), sb = mSeg(id, i, w);
     float W = mRW(id, i, w);
     vec2 mp, mm;
-    if (mMitreAB(sa, sb, W, 1.0, mp) && mMitreAB(sa, sb, W, -1.0, mm)) n = mp;
+    if (mMitreAB(sa, sb, W, 1.0, mp) && mMitreAB(sa, sb, W, -1.0, mm)) n = sd > 0.0 ? mp : -mm;
     else {
-      vec2 na = mNrm(sa, 1.0), av = 0.5 * (na + mNrm(sb, 1.0));
+      vec2 na = mNrm(sa, sd), av = 0.5 * (na + mNrm(sb, sd));
       float al = length(av);
-      n = al < 1e-6 ? na : av / al;
+      n = sd * (al < 1e-6 ? na : av / al);
     }
   }
   vG = df.x * n; vD = abs(df.x) - rw;

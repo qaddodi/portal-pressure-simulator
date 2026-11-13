@@ -177,7 +177,7 @@ test('a gentle vessel: no dome or segment quad has any area, every joint is a mi
   assert.ok(Math.hypot(V[3 * v(r, 10)] - P[2 * i], V[3 * v(r, 10) + 1] - P[2 * i + 1]) > 3 + w);
 });
 
-test('a tapering vessel: the right outer vertex of a mitred ring is the Mesh strip\'s own', () => {
+test('a tapering vessel: both outer vertices of a mitred ring are the Mesh strip\'s own (each side its own normal: one mirrored normal leaned the other side the wrong way)', () => {
   const { P, R } = bent(5, 3, 17);
   for (let i = 0; i < N_SAMPLES; i++) R[i] = 3 - 0.02 * i;   // 0.004 of the distance travelled: a real taper is 0.02 of it
   const w = 1.2, V = place(P, R, OPT(w, 3));
@@ -185,6 +185,8 @@ test('a tapering vessel: the right outer vertex of a mitred ring is the Mesh str
     const sv = stripVertex(P, R, i, 1, w), r = TUBE_CAP + i;
     // the Mesh strip's vertex is p + (rw + w) * mitre; the Tube's d for the outer skirt is rw + w too
     assert.ok(Math.hypot(V[3 * v(r, 10)] - sv[0], V[3 * v(r, 10) + 1] - sv[1]) < 1e-9, `sample ${i}`);
+    const sm = stripVertex(P, R, i, -1, w);
+    assert.ok(Math.hypot(V[3 * v(r, 0)] - sm[0], V[3 * v(r, 0) + 1] - sm[1]) < 1e-9, `sample ${i}, the other side`);
   }
 });
 
@@ -454,6 +456,8 @@ test('tubeWidth: the outline (clamp(0.14 R, 1.5 px, 3 px), px = aaPad / 2) + aaP
 
 // A table taken from the twin BEFORE brief S2-A, on a curved, tapering vessel with a 140 degree turn at sample 40 (R = 4 - 0.02 i, step 5), w = 1.7, hRef = 6:
 // [kind, ring or sample, across, corner] -> [x, y, f], for a shape pass and a glow pass. The new varyings change no position and no level.
+// (13 Nov 2026: the entries on the ring's minus side (across < 5) retaken: each side now takes its own normal, as the Mesh strip does, so on a taper the minus side
+// leans along the vessel as the plus side does instead of the opposite way: the saw-tooth of dome corners outside a tapering wall, pvt-chronic. The plus side is unchanged.)
 const BEFORE_FIX = (() => {
   const P = new Float64Array(N_SAMPLES * 2), R = new Float64Array(N_SAMPLES);
   let x = 0, y = 0, h = 0;
@@ -461,8 +465,8 @@ const BEFORE_FIX = (() => {
   return { P, R };
 })();
 const BEFORE_ROWS = [[0, 0, 0, 0], [0, 0, 5, 0], [0, 1, 3, 0], [0, 3, 1, 0], [0, 5, 10, 0], [0, 6, 0, 0], [0, 6, 5, 0], [0, 20, 2, 0], [0, 20, 8, 0], [0, 45, 0, 0], [0, 46, 0, 0], [0, 46, 5, 0], [0, 46, 10, 0], [0, 47, 9, 0], [0, 69, 4, 0], [0, 73, 6, 0], [0, 75, 5, 0], [1, 40, 0, 0], [1, 40, 1, 0], [1, 40, 1, 3], [1, 10, 1, 2], [2, 39, 0, 0], [2, 39, 1, 1], [2, 40, 0, 1], [2, 40, 1, 1], [2, 10, 0, 0]];
-const BEFORE_SHAPE = [[-4.0068, -1.699986, 0.1], [-4, 0, 0.3], [-3.86729, -0.896568, 0.343137], [-2.839741, -2.828404, 0.2], [-1.013021, 5.563659, 0.1], [-0.0228, -5.699954, 0.1], [0, 0, 0.633333], [69.129343, 11.707511, 0.3], [65.694008, 18.307205, 0.3], [188.670152, 36.513881, 0.1], [197.239102, 42.034661, 0.1], [192.370969, 42.592589, 0.566667], [187.502837, 43.150518, 0.1], [186.521988, 42.057234, 0.2], [93.353877, 96.802179, 0.497742], [90.218602, 97.052751, 0.398871], [90.450048, 97.793293, 0.3], [192.370969, 42.592589, 0.566667], [198.029002, 42.592589, 0.1], [186.712937, 42.592589, 0.1], [49.238798, 6.689622, 0.1], [188.827004, 36.555213, 0.1], [191.126975, 47.332049, 0.1], [190.178173, 49.240991, 0.1], [185.663396, 40.58808, 0.1], [49.238798, 6.689622, 0.1]];
-const BEFORE_GLOW = [[-4.0068, -1.699986, 0.02], [-4, 0, 0.08], [-3.86729, -0.896568, 0.08], [-2.839741, -2.828404, 0.07], [-1.013021, 5.563659, 0.02], [-0.0228, -5.699954, 0.02], [0, 0, 0.08], [69.129343, 11.707511, 0.08], [65.694008, 18.307205, 0.08], [188.670152, 36.513881, 0.02], [197.239102, 42.034661, 0.02], [192.370969, 42.592589, 0.08], [187.502837, 43.150518, 0.02], [186.521988, 42.057234, 0.07], [93.353877, 96.802179, 0.08], [90.218602, 97.052751, 0.08], [90.450048, 97.793293, 0.08], [192.370969, 42.592589, 0.08], [198.029002, 42.592589, 0.02], [186.712937, 42.592589, 0.02], [49.238798, 6.689622, 0.02], [188.827004, 36.555213, 0.02], [191.126975, 47.332049, 0.02], [190.178173, 49.240991, 0.02], [185.663396, 40.58808, 0.02], [49.238798, 6.689622, 0.02]];
+const BEFORE_SHAPE = [[-3.9932, -1.699986, 0.1], [-4, 0, 0.3], [-3.860117, -0.896568, 0.343137], [-2.817113, -2.828404, 0.2], [-1.013021, 5.563659, 0.1], [0.0228, -5.699954, 0.1], [0, 0, 0.633333], [69.155686, 11.721358, 0.3], [65.694008, 18.307205, 0.3], [188.708436, 36.523076, 0.1], [197.24341, 42.073623, 0.1], [192.370969, 42.592589, 0.566667], [187.502837, 43.150518, 0.1], [186.521988, 42.057234, 0.2], [93.346176, 96.809978, 0.497742], [90.218602, 97.052751, 0.398871], [90.450048, 97.793293, 0.3], [192.370969, 42.592589, 0.566667], [198.029002, 42.592589, 0.1], [186.712937, 42.592589, 0.1], [49.238798, 6.689622, 0.1], [188.827004, 36.555213, 0.1], [191.126975, 47.332049, 0.1], [190.178173, 49.240991, 0.1], [185.663396, 40.58808, 0.1], [49.238798, 6.689622, 0.1]];
+const BEFORE_GLOW = [[-3.9932, -1.699986, 0.02], [-4, 0, 0.08], [-3.860117, -0.896568, 0.08], [-2.817113, -2.828404, 0.07], [-1.013021, 5.563659, 0.02], [0.0228, -5.699954, 0.02], [0, 0, 0.08], [69.155686, 11.721358, 0.08], [65.694008, 18.307205, 0.08], [188.708436, 36.523076, 0.02], [197.24341, 42.073623, 0.02], [192.370969, 42.592589, 0.08], [187.502837, 43.150518, 0.02], [186.521988, 42.057234, 0.07], [93.346176, 96.809978, 0.08], [90.218602, 97.052751, 0.08], [90.450048, 97.793293, 0.08], [192.370969, 42.592589, 0.08], [198.029002, 42.592589, 0.02], [186.712937, 42.592589, 0.02], [49.238798, 6.689622, 0.02], [188.827004, 36.555213, 0.02], [191.126975, 47.332049, 0.02], [190.178173, 49.240991, 0.02], [185.663396, 40.58808, 0.02], [49.238798, 6.689622, 0.02]];
 
 test('positions and levels are those of before the varyings (a fixed width: a glow pass, and any caller that gives w), to 1e-5', () => {
   for (const [glow, want] of [[false, BEFORE_SHAPE], [true, BEFORE_GLOW]]) {
@@ -608,7 +612,7 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes('float th = (float(ac - 2) / float(T_ARC - 1) - 0.5) * M_PI;'));
   assert.ok(VS.includes('float ph = float(c) / float(T_CAP) * M_PI / 2.0;'));
   assert.ok(VS.includes('float rr = (rw + w) / cos(M_PI / float(T_HEX));'));
-  assert.ok(VS.includes('n = al < 1e-6 ? na : av / al;'));
+  assert.ok(VS.includes('n = sd * (al < 1e-6 ? na : av / al);') && VS.includes('n = sd > 0.0 ? mp : -mm;') && VS.includes('vec2 n = sd * mNrm(g, sd)'), 'each side its own normal');
   assert.ok(VS.includes('vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));'));
   assert.ok(VS.includes(`const int T_TRAP = ${TUBE_KIND.TRAP};`));
   assert.ok(VS.includes('if (!(mBevelled(id, r, wd) || mBevelled(id, r + 1, wd))) { vG = vec2(0.0); vD = -rwe; return vec3(q, lv); }'));
