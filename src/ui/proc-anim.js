@@ -745,7 +745,7 @@ export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
 // faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
-const BACK_SPEED = 1.6, RUSH_SPEED = 6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own pace (the landing of a step reversed)
+const BACK_SPEED = 1.6, RUSH_SPEED = 6, AUTO_HOLD = 1600, LAND_MS = 160, STILL_MAX_MS = 3500;   // motion-scale: own pace (the landing of a step reversed)
 
 /**
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
@@ -774,7 +774,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const t00 = park ? goal : from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0;   // (a parked run starts at its stop)
   const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: t00 });
-  let t = t00, raf = 0, held = false, rushing = false, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = park, stops = null, over = false, step = -2, shownMark = -3;
+  let t = t00, raf = 0, held = false, rushing = false, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = park, stops = null, over = false, step = -2, shownMark = -3, stillT = 0;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
     raf = 0;
@@ -804,7 +804,11 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, P.shotMs?.[f.shot] ?? SHOT_MS, P.shotOpt?.[f.shot] || (P.shotMs ? SHOT_OWN : SHOT_CAM))) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
     // (A graft has no shot of its own: the figure stays where it is, so nothing waits for a camera.)
-    const still = P.graft || rushing ? false : !shot || now - landT < LAND_MS;   // (a run being rushed does not wait for a camera)
+    // (Never for long: a shot that cannot land (a route the figure has not drawn, a glide that never reports it is over) used to hold the clock at 0 for ever, the catheter
+    // never moving and every Next only counting steps on a run that went nowhere: Mohammad, 13 Nov 2026, the direct PPG slide stuck on "Needle in". After STILL_MAX_MS the
+    // step plays without its camera.)
+    let still = P.graft || rushing ? false : !shot || now - landT < LAND_MS;
+    if (still) { stillT ||= now; if (now - stillT > STILL_MAX_MS) still = false; } else stillT = 0;
     if (!applied && t >= T.apply) { applied = true; apply?.(); }
     else if (applied && t < T.apply) { applied = false; unapply?.(); }
     onFrame?.(f, t);

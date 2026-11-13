@@ -41,6 +41,16 @@ test('Back to the start, a reading, a slide opened forward or back onto a played
 
 test('a Next on the last step of a run that plays out before its reading (the IVC, then the direct portal pressure) waits for it, rings the reading\'s first step and swallows another Next', () => {
   const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(!procQueued\) \{ procQueued = true; procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+return true;/, 'it rings the reading\'s first step and plays the IVC out at speed');
+  assert.match(q, /if \(!procQueued\) \{ procQueued = true; queuePatience\.reset\(\); procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;/, 'it rings the reading\'s first step and plays the IVC out at speed');
   assert.doesNotMatch(q, /procQueued\) return false/, 'a second Next while it waits never leaves the slide');
+});
+
+test('(never stuck) every place procNext swallows a Next is bounded or checked: the figure\'s turn, the IVC reading\'s play-out, a run that could not start', () => {
+  assert.match(src, /if \(procWait\) return waitPatience\.ok\(performance\.now\(\)\);/);
+  assert.match(src, /procWait = true; waitPatience\.reset\(\); procPaint\(\);/);
+  assert.match(src, /\} finally \{ procWait = false; waitPatience\.reset\(\); \}/);
+  const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
+  assert.match(q, /if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;\n\s+procQueued = false; return false;/);
+  assert.match(src, /procPlay\(s, want, 0, k\);\n\s+if \(!procRun && !procWait\) \{ procThenAt = -1; procDoneAt = want; return false; \}/, 'the reading after a run: if it did not start, this Next moves on');
+  assert.match(src, /procPlay\(s, want, 0\);\n\s+if \(!procRun && !procWait\) return false;/, 'a procedure that did not start: this Next moves on');
 });

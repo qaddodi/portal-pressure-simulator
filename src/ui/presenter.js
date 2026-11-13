@@ -108,6 +108,8 @@ const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of
 import { reduceMotionMQ as reduce, easeMove, COUNT_MS } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
+import { createPatience } from './proc-patience.js';
+const WAIT_PATIENCE_MS = 8000, QUEUE_PATIENCE_MS = 14000;   // motion-scale: not a move (the longest a Next is swallowed: the figure's turn to the anatomy, the IVC reading's play-out)
 import { VIEW_CHANGE_MS } from './view-xf.js';
 const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
@@ -1370,6 +1372,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   let procRun = null, procRunBase = 0, procWait = false, procShown = -1, procShownAt = -1, procRing = -1, procRingAt = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '', procParked = null;
   // (procParked: the run standing at its last stop since Back landed on the slide done, proc-anim.js park: it only shows the scope where the play-through left it and fades it when the slide moves on;
   // it is not a run to step through, so Back from it leaves the slide as it did before, and a swipe back turns the slide.)
+  const waitPatience = createPatience(WAIT_PATIENCE_MS), queuePatience = createPatience(QUEUE_PATIENCE_MS);
   const procHeld = () => !!procRun && procRun !== procParked;
   // (A slide whose procedure is { kind: 'tips', then: 'tipsgrad' } plays a reading after it, as one more step on the same card: the TIPS catheter reads the
   // gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5). procThenAt: the slide whose main run has played through with its reading
@@ -1410,12 +1413,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (lapseOn) stopLapse();
     // (A run that starts fresh lights nothing yet, or, for a reading after the stent, still the stent's last step: never the step another slide ended on.)
     if (!park) { procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; }
-    procWait = true; procPaint();
+    procWait = true; waitPatience.reset(); procPaint();
     try {
       await toAnatomy(null, () => !mine());
       if (!mine()) { drop(); return; }
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
-    } finally { procWait = false; }
+    } finally { procWait = false; waitPatience.reset(); }
     if (!mine() || procRun) { if (!mine()) drop(); procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
@@ -1471,17 +1474,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const procNext = () => {
     if (shown?.i !== want) return false;
     if (procRun) { const ok = procRun.next(); if (ok) procTarget(); return ok || procChain(); }
-    if (procWait) return true;
+    if (procWait) return waitPatience.ok(performance.now());   // (swallowed while the figure turns, never for ever)
     const s = slides[want];
     // (The stent is in and its reading is still to come: this Next plays it.)
     if (procThenAt === want && procThen(s) && !cath.on) {
       const k = procThen(s);
       if (procBlocked(k, store.get().params, store.get().frame?.metrics)) { procThenAt = -1; procDoneAt = want; return false; }
       procPlay(s, want, 0, k);
+      if (!procRun && !procWait) { procThenAt = -1; procDoneAt = want; return false; }   // (it could not start: this Next moves on, never swallowed by a run that is not there)
       return true;
     }
     if (!s?.procedure || procDoneAt === want || cath.on || !procCan(s)) return false;
     procPlay(s, want, 0);
+    if (!procRun && !procWait) return false;   // (it could not start: this Next moves on)
     return true;
   };
   // (A Next on the main run's last step: it holds there with the catheter in, and the reading goes on from the place it stands. A Next while it is still on its way to that
@@ -1500,9 +1505,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const procQueue = () => {
     const s = slides[want];
     if (!procRun || !procRun.running || !procThen(s) || procRunKind !== procKind(s)) return false;   // (a run that is over holds nothing back: a Next never waits on it)
-    if (!procQueued) { procQueued = true; procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
+    if (!procQueued) { procQueued = true; queuePatience.reset(); procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
     procRun.rush();   // (the reading plays out at speed and waits for no camera: Mohammad, 13 Nov 2026, "it's refusing to go to step 4 or 5": the ten seconds of the IVC's own withdrawal swallowed every Next)
-    return true;
+    if (queuePatience.ok(performance.now())) return true;
+    procQueued = false; return false;   // (the reading did not start in time: this Next moves on, never swallowed for ever)
   };
   const procBack = () => { procQueued = false; if (!procHeld() || shown?.i !== want || !procRun.back()) return false; procTarget(); return true; };
   // (A slide's steps: the procedure's, then its reading's if it has one, one more step on the same card.)
