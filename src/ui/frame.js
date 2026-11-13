@@ -797,13 +797,14 @@ export function calmFlowRule(cheapBlood = false) {
 }
 // ── Rest pacing on every device (brief H1, 10 Nov 2026, touch devices; 12 Nov 2026 the Mac too, heat recs H1 picked by Mohammad) ──
 // A screen left alone slows its blood: after REST_AFTER_MS (4 s) with no input and nothing moving, a frame of blood alone is drawn
-// every 28 ms (30 a second); after IDLE_AFTER_MS (30 s) every 62 ms (15 a second), but never in a talk (Mohammad, 5 Nov 2026: "no slide
-// should stop anymore"; a talk holds 30 at the lowest). The blood moves on its own clock in the shader (bT), so a held frame only skips
+// every 28 ms (30 a second); after IDLE_AFTER_MS (30 s) every 62 ms (15 a second), but a talk only steps down to TALK_IDLE_MS (46 ms, 20 a
+// second: every 3rd frame of a 60 Hz screen, every 6th of a 120 Hz one) (Mohammad, 5 Nov 2026: "no slide should stop anymore", so a talk
+// held 30 at the lowest; 13 Nov 2026, Mac heat rec 2 picked by him: a slide untouched for 30 s steps to 20, Full sharpness kept). The blood moves on its own clock in the shader (bT), so a held frame only skips
 // pictures. (Until 12 Nov it was for touch devices only: a whole-app 30 Hz step flickered on Mohammad's Mac on 4 Nov, while the shown canvas
 // was still drawn on part-way through a frame. Since keepScreen (8 Nov) the shown canvas gets one whole copy a frame and nothing else, so a
 // frame that draws nothing leaves the last whole picture; this is blood-only frames at rest, never the whole app.) Sharpness is unchanged and
 // any input brings the full rate back on the next frame. ?rest=off turns it off for comparing.
-export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 62;
+export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 62, TALK_IDLE_MS = 46;
 let restTouch = true, restOff = false, restTalk = null;   // (restTouch: rest pacing on; every device since 12 Nov 2026, the name kept for the tests' hook)
 try { restOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rest') === 'off'; } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
 let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
@@ -811,13 +812,13 @@ let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
 export function setRestTouch(on) { restTouch = !!on; }
 /** ?rest=off (or a test): rest pacing off. */
 export function setRestOff(off) { restOff = !!off; }
-/** The talk's probe (main.js: the presenter is on): a talk at rest holds 30 a second at the lowest, never 15. */
+/** The talk's probe (main.js: the presenter is on): a talk at rest holds 30 a second until 30 s, then 20, never 15. */
 export function setRestTalk(fn) { restTalk = fn; }
 /** An input of any kind (a pointer, touch, wheel or key event, scroll, focus, the page shown again: idle-rest.js hears them all) restarts the rest clock. */
 export function noteInput(t = wall()) { if (t > restInputAt) restInputAt = t; }
 /**
  * The least ms between two drawn frames of blood alone, for rest: 0 (pacing off, ?rest=off, or the last input, motion or change of
- * `activeAt` less than REST_AFTER_MS ago), REST_MS, then IDLE_MS (REST_MS in a talk). `activeAt` is the caller's own last busy stamp (the
+ * `activeAt` less than REST_AFTER_MS ago), REST_MS, then IDLE_MS (TALK_IDLE_MS in a talk). `activeAt` is the caller's own last busy stamp (the
  * figure's and the sinusoid's busyAt, the lobule's calmAt): a camera move, glide, dive, view switch, slide change, time-lapse step, card or
  * model change stamps it. A transition in flight (inMotion) counts as motion too. Battery saver's own gap wins when larger.
  */
@@ -826,8 +827,10 @@ export function restGapFor(now, activeAt = 0) {
   if (inMotion()) restMotionAt = now;
   const since = now - Math.max(restInputAt, restMotionAt, activeAt);
   let gap = 0, rule = '';
-  if (since >= IDLE_AFTER_MS && !(restTalk && restTalk())) { gap = IDLE_MS; rule = 'idle 15 Hz'; }
-  else if (since >= REST_AFTER_MS) { gap = REST_MS; rule = 'rest 30 Hz'; }
+  if (since >= IDLE_AFTER_MS) {
+    if (restTalk && restTalk()) { gap = TALK_IDLE_MS; rule = 'talk idle 20 Hz'; }
+    else { gap = IDLE_MS; rule = 'idle 15 Hz'; }
+  } else if (since >= REST_AFTER_MS) { gap = REST_MS; rule = 'rest 30 Hz'; }
   if (gap && saverOn && SAVER_MS >= gap) return SAVER_MS;   // (Battery saver's own gap wins when larger)
   if (gap) { restRuleNow = rule; restRuleAt = now; }
   return gap;

@@ -377,6 +377,20 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
 }
 
+// Rest pacing, Mac heat rec 2 (13 Nov 2026): tests/talk-rest-20hz.test.js runs the pacing; these pin the wiring a unit test cannot reach
+// without the page. A pattern that no longer matches means the code it guarded changed: look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  need('src/ui/stage.js', [[/const dt = Math\.min\(0\.1, \(now - lastT\) \/ 1000\);/, "the figure's blood steps by the time that passed, capped at 0.1 s: a talk's 20 Hz frame (50 ms) loses no time, so nothing slows"]]);
+  need('src/ui/lobule-zoom.js', [[/const dt = Math\.min\(0\.1, \(now - \(last \|\| now\)\) \/ 1000\);/, "the lobule's blood steps by the time that passed: its 20 Hz talk frame loses no time"]]);
+  need('src/ui/main.js', [[/setRestTalk\(\(\) => presenter\.active\(\)\)/, "a talk's rest steps (30, then 20 after 30 s, never 15) follow the presenter"]]);
+  need('src/ui/frame-hud.js', [['blood pacing (untouched): ${restRule}', '?perf names the rest rule in force']]);
+}
+
 // Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit
 // test cannot reach without the page). A pattern that no longer matches means the code it guarded changed: look before editing the rule.
 {

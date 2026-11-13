@@ -210,7 +210,7 @@ async function main() {
     onInput: noteInput,   // (the rest pacing, frame.js restGapFor: any input brings the full rate back on the next frame)
     onWake: () => { setPageRest(false); host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
   });
-  setRestTalk(() => presenter.active());   // (a talk at rest holds 30 a second at the lowest, never 15: frame.js restGapFor)
+  setRestTalk(() => presenter.active());   // (a talk at rest holds 30 a second, then 20 after 30 s untouched, never 15: frame.js restGapFor)
   compare = createCompare();
   timeline = createTimeline({
     root: $('#timeline'),

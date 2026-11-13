@@ -432,7 +432,8 @@ export function startFrameHud() {
     const w = watchdogStats();
     L.push(`  watchdog ${w.mode}, carried over ${w.shed}${w.governor == null || w.governor < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][w.governor]}, ${w.yielded} chart frames yielded, over budget ${w.streak} in a row`}`);
     if (calmRuleText()) L.push(`  lobule's calm blood: ${calmRuleText()}`);
-    if (restRuleText()) L.push(`  blood pacing (untouched): ${restRuleText()}`);
+    const restRule = restRuleText();   // (rest 30 Hz from 4 s untouched; idle 15 Hz from 30 s; talk idle 20 Hz from 30 s on one slide: any input, motion or slide change gives the full rate back)
+    if (restRule) L.push(`  blood pacing (untouched): ${restRule}${restRule.startsWith('talk') ? ', one slide left 30 s (sharpness unchanged)' : ''}`);
     const may = mayStats();
     if (may) L.push(`  may tasks: ${may.ran} run, ${may.waited} waits for budget, ${may.aged} run past their wait, ${may.queued} queued`);
     const cut = tNow - 10000;

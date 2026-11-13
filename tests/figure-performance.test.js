@@ -237,7 +237,7 @@ test('H1: rest pacing is on for every device by default (the Mac too, 12 Nov 202
   assert.equal(g.restGapFor(40000), 0);
 });
 
-test('H1: Battery saver wins when larger; a talk at rest holds 30 a second at the lowest, never 15; Explore may reach 15', async () => {
+test('H1: Battery saver wins when larger; a talk at rest holds 30 a second, then 20 after 30 s, never 15; Explore may reach 15', async () => {
   const f = await freshRest(true);
   f.noteInput(0);
   f.setSaver(true);
@@ -248,9 +248,11 @@ test('H1: Battery saver wins when larger; a talk at rest holds 30 a second at th
   let talk = true;
   f.setRestTalk(() => talk);
   assert.equal(f.restGapFor(5000), f.REST_MS, 'a talk after 4 s: 30 a second');
-  assert.equal(f.restGapFor(40000), f.REST_MS, 'a talk after 30 s still 30, never 15');
-  assert.equal(f.restGapFor(1e6), f.REST_MS);
   assert.equal(f.restRuleText(), 'rest 30 Hz');
+  assert.equal(f.restGapFor(29999), f.REST_MS, 'a talk under 30 s: still 30');
+  assert.equal(f.restGapFor(40000), f.TALK_IDLE_MS, 'a talk after 30 s: 20, never 15');
+  assert.equal(f.restGapFor(1e6), f.TALK_IDLE_MS);
+  assert.equal(f.restRuleText(), 'talk idle 20 Hz');
   talk = false;
   assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 15 a second');
   assert.equal(f.restRuleText(), 'idle 15 Hz');
