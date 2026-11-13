@@ -96,10 +96,9 @@
 #app.thumb .instrument-view.dop .dop-stats dd { font-size: 19px; }
 #app.thumb .instrument-view.dop .dop-stats > div:not(.dop-speed) dd small { display: none; }
 
-/* Scope: the five readings as a plain column beside the picture. */
+/* Scope: the five readings as plain text, no box and no line round them (a hairline on a rounded tile drew a thin curved sliver along its top, 13 Nov 2026). */
 #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { gap: 0; }
-#app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { background: none; border-radius: 0; border: 0; border-top: 1px solid var(--hairline); padding-inline: 0; }
-#app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div:first-child { border-top: 0; }
+#app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { background: none; border-radius: 0; border: 0; padding-inline: 0; }
 #app.thumb .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: none; }
 
 /* Ascites: spread over the sheet like the laptop's card. */
