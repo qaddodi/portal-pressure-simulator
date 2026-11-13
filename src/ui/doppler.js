@@ -702,6 +702,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const restSame = (sgn) => RK.scale === scale && RK.baseF === baseF && RK.probe === probe && RK.sgn === sgn && RK.sweep === sweepSeconds && RK.mode === mode;
   const ringSet = (RW, RH, sgn) => { RK.ok = true; RK.RW = RW; RK.RH = RH; RK.scale = scale; RK.baseF = baseF; RK.probe = probe; RK.sgn = sgn; RK.sweep = sweepSeconds; RK.mode = mode; };
   let lastCol = null, jit = 0, lineGain = 0;
+  // (backTo: the record's first time before a backfill put the history in front of it. The lines drawn for times before it were drawn with no
+  // sample, black; the next frame draws those columns again from the history, and the lines the monitor recorded itself stay as they are.)
+  let backTo = null;
   const live = () => !!frame?.running;
 
   // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
@@ -738,6 +741,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // velocities and waveform. Each line is its own estimate: its top reaches a little further or less far (jit), and the whole line is a little
   // brighter or dimmer (lineGain), so the outline is jagged and the band shimmers in time (held in the ring, so it scrolls with the trace).
   const BAND = { P: 0, L: 0, sigHi: 0, sigLo: 0 };   // (a line's band, written in place)
+  // Lines c0 … c1 (at most the ring's width) worked out and drawn into their ring columns, on the GPU, in one or two draws.
+  function synthCols(c0, c1, g) {
+    const RW = g.RW;
+    for (let c = c0; c <= c1; c++) lineParams(c, g);
+    const x0 = ((c0 % RW) + RW) % RW, n = c1 - c0 + 1;
+    if (x0 + n <= RW) gpu.synth(x0, n, SYN);
+    else { gpu.synth(x0, RW - x0, SYN); gpu.synth(0, x0 + n - RW, SYN); }
+  }
   function lineParams(c, g) {
     const x = ((c % g.RW) + g.RW) % g.RW;
     const v = velAt(c / g.cps, g);
@@ -1050,13 +1061,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // redraw every line after a change of scale, size or colour, or when time runs backwards
       const full = !RK.ok || RK.RW !== RW || RK.RH !== RH || !restSame(sgn) || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
       const from = full ? cNow - RW + 1 : lastCol + 1;
-      if (cNow >= from) {
+      // (After a backfill, the columns of the history: from the ring's oldest line up to the record's old first time, drawn again with it.)
+      const hFrom = cNow - RW + 1, hTo = !full && backTo != null ? Math.min(lastCol, Math.ceil(backTo * g.cps)) : hFrom - 1;
+      backTo = null;
+      if (cNow >= from || hTo >= hFrom) {
         SYN.rBase = g.rBase; SYN.rPxPerV = g.rPxPerV; SYN.fade = 7 / g.rPxPerV; SYN.wfV = Math.max(1.2, 0.025 * scale); SYN.spkPx = g.spkPx; SYN.spkMix = g.spkMix;
         SYN.span = g.span; SYN.uK = 1 / (0.7 * scale); SYN.mode = mode === 'spectrum' ? 0 : mode === 'velocity' ? 1 : 2;
-        for (let c = from; c <= cNow; c++) lineParams(c, g);
-        const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
-        if (x0 + n <= RW) gpu.synth(x0, n, SYN);
-        else { gpu.synth(x0, RW - x0, SYN); gpu.synth(0, x0 + n - RW, SYN); }
+        if (hTo >= hFrom) synthCols(hFrom, hTo, g);
+        if (cNow >= from) synthCols(from, cNow, g);
       }
       ringSet(RW, RH, sgn); lastCol = cNow;
     }
@@ -1375,6 +1387,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!hs?.t?.length || !hs.vel || hs.probe !== probe || synth || frame?.clock === 'disease') return false;
     const n = olderThan({ t: hs.t.map((t) => t + tOff) }, buf.length ? buf[0][0] : Infinity);
     if (!n) return false;
+    if (buf.length) backTo = Math.max(backTo ?? -Infinity, buf[0][0]); else RK.ok = false;   // (the ring's lines before the record are drawn again with the history)
     const ps = hs[pairOf(meta().kind) === 'PV_TRUNK' ? 'pvVel' : 'hvVel'];
     const rows = [];
     for (let i = 0; i < n; i++) rows.push([hs.t[i] + tOff, hs.vel[i], ps?.[i] ?? NaN]);

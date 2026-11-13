@@ -20,6 +20,10 @@ export default [
   { file: DOP, need: ['const gs = onGpu && gpu.canSynth();', 'lines are drawn only where the GPU makes them; elsewhere the trace is black'] },
   { file: DGL, need: [/if \(stillCompiling\(gl, startedL2\(\)\)\) \{ waitingSynth = true;/, 'a frame that finds the line shader compiling marks that it drew no lines'] },
   { file: DGL, need: [/if \(waitingSynth\) \{ waitingSynth = false; try \{ onReady\?\.\(\); \}/, 'the monitor is drawn again once the line shader is published (a paused model has no next frame)'] },
+  // A backfill's history is drawn into the ring's columns before the record (they were drawn black, with no sample), whatever order the
+  // history and the first full draw come in: before, the left of a slide's sweep could stay black until it scrolled off (13 Nov 2026 shot).
+  { file: DOP, need: ['if (buf.length) backTo = Math.max(backTo ?? -Infinity, buf[0][0]); else RK.ok = false;', 'a backfill marks the history\'s columns to be drawn again'] },
+  { file: DOP, need: [/hTo = !full && backTo != null \? Math\.min\(lastCol, Math\.ceil\(backTo \* g\.cps\)\) : hFrom - 1;[\s\S]*?if \(hTo >= hFrom\) synthCols\(hFrom, hTo, g\);/, 'the next frame draws those columns again from the history'] },
   // One table of normals (velNormal.js PROBE_NORMAL): PROBES read it, and the stent's limits are its probe's normal.
   { file: DOP, need: [inPart(probes, 'every ranged probe reads PROBE_NORMAL by its own id', (s) => [...s.matchAll(/\{ id: '(\w+)'[^\n]*?normal: ([^,}]+)/g)].every((m) => m[2].trim() === 'null' || m[2].trim() === `PROBE_NORMAL.${m[1]}`)), 'the Doppler\'s ranges are the one table\'s'] },
   { file: DOP, forbid: [inPart(probes, 'a range literal in PROBES', (s) => /normal: \[/.test(s)), 'no range written again in PROBES'] },
