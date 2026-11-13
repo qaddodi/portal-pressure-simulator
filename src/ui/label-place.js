@@ -108,3 +108,9 @@ export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL 
     it.ax = P0[0]; it.ay = P0[1]; it.au = au;
   };
 }
+
+// The spots a label may be tried at around its station, as the offset of the label's centre, nearest ring first and each ring round from east (a station
+// with no room beside it on its eight directions: a reversed vein must be named, so it is tried all the way round, wholly on the stage, with a leader that
+// crosses no other label or leader). 13 Nov 2026: the left portal vein on a phone at the home framing, boxed in by the portal vein's, the right portal vein's
+// and the cava's labels and the hepatic artery's.
+export const RING_SPOTS = [36, 52, 68, 84, 100, 120, 140].flatMap((r) => Array.from({ length: 24 }, (_, a) => [Math.round(r * Math.cos((a * Math.PI) / 12)), Math.round(r * Math.sin((a * Math.PI) / 12))]));

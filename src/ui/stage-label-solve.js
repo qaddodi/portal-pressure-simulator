@@ -7,7 +7,7 @@ import { bareDots } from './circuit-nodes.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { heartPass } from './heart-label.js';
 import { HOVER_LINK } from './hover-link.js';
-import { RING_DIRS, boxGap, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
+import { RING_DIRS, RING_SPOTS, boxGap, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
@@ -713,7 +713,7 @@ export function createLabelSolve(st, live) {
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
-          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : it.node === 'HA' || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })) : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
+          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : it.node === 'HA' || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
           if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
           if (it.point) { later.unshift(it); continue; }
