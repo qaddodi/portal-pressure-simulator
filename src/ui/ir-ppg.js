@@ -6,7 +6,7 @@
 // the place of the HVPG tracing while it runs and after it. It changes nothing in the model: a measurement.
 
 import { h, icon, toast } from './util.js';
-import { ppgSev } from '../engine/pressure-cuts.js';
+import { ppgWord } from '../engine/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { MEASURES, READS, playProcedure, procRunning, procBlocked } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
@@ -17,7 +17,6 @@ export function setIrStage(stage) { stageRef = stage; }
 
 const SLIDE = { procedure: { kind: 'irivc', then: 'irpv' } };   // (the monitor's measurement: the PPG by IR, as on a slide that plays both approaches)
 const IDLE = 'PPG by interventional radiology: the IVC pressure through the neck, then the portal vein pressure through the skin and the liver.';
-const SEV_WORD = { ok: 'Normal', caution: 'Portal hypertension', danger: 'Portal hypertension with a risk of variceal bleeding' };
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : '—');
 
 /** `busy()`: the card's other measurement or treatment is playing (one catheter on the figure at a time). `onChange()`: the card repaints. */
@@ -74,7 +73,7 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
       if (run) return stepWords();
       if (!done) return '';
       const rd = READS.irpv, ppg = rd.ppg;
-      return Number.isFinite(ppg) ? `${SEV_WORD[ppgSev(ppg)]}. PPG = PV − IVC = ${word(rd.pv)} − ${word(rd.iv)} = ${word(ppg)} mmHg.` : '';
+      return Number.isFinite(ppg) ? `${ppgWord(ppg, true)}. PPG = PV − IVC = ${word(rd.pv)} − ${word(rd.iv)} = ${word(ppg)} mmHg.` : '';
     },
     /** The HVPG measurement takes the place back, or a new patient is loaded. */
     hide() { run?.stop(); run = null; kind = ''; step = -1; done = false; set(false); },
