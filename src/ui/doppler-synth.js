@@ -43,12 +43,12 @@ float power(float u, float P, float L, float sigHi, float sigLo) {
   if (u >= L) {
     float f = (u - L) / max(1e-6, P - L), S;
     if (venous == 1) { float q = (0.88 - f) / 0.16; S = min(1.0, 0.05 + 0.1 * f + 0.9 * exp(-(q * q))); }
-    else if (stent == 1) { float q = (1.0 - f) / 0.1; S = 0.02 + 0.98 * pow(f, 1.8) + 0.5 * exp(-q * q); }   // a stent: dim at the band's low edge, bright to a clear envelope
+    else if (stent == 1) { float g = clamp(f / 0.9, 0.0, 1.0), q = (1.0 - f) / 0.1; S = pow(10.0, -2.6 * pow(1.0 - g, 1.15)) + 0.5 * exp(-q * q); }   // a stent: 26 dB down at the band's low edge, rising to a clear bright envelope (the display is a log scale, so the grade is set in dB)
     else S = 0.16 + 0.84 * pow(f, 1.3);
     if (u > P - fade) { float z = (u - P + fade) / fade; return S * (1.0 - 0.985 * sqrt(z)); }
     return S;
   }
-  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.03 : 0.16) * exp(-z * z); }
+  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.0025 : 0.16) * exp(-z * z);   // (a stent's low edge meets the band's own 26 dB floor: no ledge under it) }
   return 0.0;
 }
 vec3 shade(vec3 c, float t, float cover) {
@@ -74,7 +74,7 @@ void main() {
   uint b0 = uint(b0f);
   float X0 = speckle(cn, b0), X1 = speckle(cn, b0 + 1u);
   float X = X0 + (X1 - X0) * f;
-  if (stent == 1) X = 1.0 + 0.45 * (X - 1.0);   // a stent's spectrum is averaged over many more bins than a vessel's: a smooth, filled grain
+  if (stent == 1) X = 1.0 + 0.25 * (X - 1.0);   // a stent's spectrum is averaged over many more bins than a vessel's: a smooth, filled grain
   float pw = (1.0 + A_SIG * S * gain * X) * W;
   float I = pw > 0.0 ? (log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0.0;
   I = I <= 0.0 ? 0.0 : (I >= 1.0 ? 1.0 : pow(I, 1.2));

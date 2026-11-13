@@ -745,11 +745,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const f = (u - L) / Math.max(1e-6, P - L);
       // brightest just under the outline, where most of the blood moves (blunt flow), and
       // greyer toward the baseline; a vein keeps a dimmer fill all the way down
-      const S = wVenous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : wStent ? 0.02 + 0.98 * Math.pow(f, 1.8) + 0.5 * Math.exp(-(((1 - f) / 0.1) ** 2)) : 0.16 + 0.84 * Math.pow(f, 1.3);
+      const S = wVenous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : wStent ? Math.pow(10, -2.6 * Math.pow(1 - Math.min(1, f / 0.9), 1.15)) + 0.5 * Math.exp(-(((1 - f) / 0.1) ** 2)) : 0.16 + 0.84 * Math.pow(f, 1.3);
       if (u > P - wFade) { const z = (u - P + wFade) / wFade; return S * (1 - 0.985 * Math.sqrt(z)); }
       return S;
     }
-    if (u > 0) { const z = (L - u) / wSigLo; return (wStent ? 0.03 : 0.16) * Math.exp(-z * z); }
+    if (u > 0) { const z = (L - u) / wSigLo; return (wStent ? 0.0025 : 0.16) * Math.exp(-z * z); }
     return 0;
   };
   // The GPU's way (doppler-synth.js): the same line's numbers, as writeLine works them out, handed to the drawer for ring column x; the
@@ -761,7 +761,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
     const cn = c & 0xFFFFF;
     if (!has || av <= 0.3) { gpu.setCol(x, 0, 0, 1, 1, 1, 0, 0, cn); return; }
-    const P = av * g.k * (1 + 0.035 * jit);
+    const P = av * g.k * (1 + (g.stent ? 0.008 : 0.035) * jit);   // (a stent's outline is a crisp, smooth edge: its lines differ by well under 1 %)
     const L = g.stent ? 0.5 * P : av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     let lineS = 0;
     if (mode !== 'spectrum') {
@@ -769,7 +769,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
     }
     const wraps = g.span > 0 && P > (s > 0 ? g.topV : g.botV);
-    gpu.setCol(x, P, L, 0.02 * P + 0.4, (g.stent ? 0.06 : 0.08) * P + 1.2, 10 ** (0.12 * lineGain), lineS, 1 + (wraps ? 2 : 0) + (s < 0 ? 4 : 0), cn);
+    gpu.setCol(x, P, L, 0.02 * P + 0.4, (g.stent ? 0.06 : 0.08) * P + 1.2, 10 ** ((g.stent ? 0.04 : 0.12) * lineGain), lineS, 1 + (wraps ? 2 : 0) + (s < 0 ? 4 : 0), cn);
   }
   // Synthesise spectral line c into the ring. Geometry in device pixels.
   function writeLine(c, g) {
@@ -786,8 +786,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // the whole line is a little brighter or dimmer, so the outline is jagged and the band shimmers
     // in time (held in the ring, so this scrolls with the trace)
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
-    const P = av * g.k * (1 + 0.035 * jit);
-    const gain = 10 ** (0.12 * lineGain);
+    const P = av * g.k * (1 + (g.stent ? 0.008 : 0.035) * jit);   // (a stent's outline is a crisp, smooth edge: its lines differ by well under 1 %)
+    const gain = 10 ** ((g.stent ? 0.04 : 0.12) * lineGain);
     const L = g.stent ? 0.5 * P : av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = (g.stent ? 0.06 : 0.08) * P + 1.2;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
@@ -826,7 +826,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
       const fb = ry / g.spkPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
       let X = spk[b0] + (spk[b0 + 1] - spk[b0]) * f;
-      if (g.stent) X = 1 + 0.45 * (X - 1);   // (a stent's spectrum: a smooth, filled grain, as on the GPU)
+      if (g.stent) X = 1 + 0.25 * (X - 1);   // (a stent's spectrum: a smooth, filled grain, as on the GPU)
       const pw = (1 + A_SIG * S * gain * X) * W;
       let I = pw > 0 ? (Math.log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0;
       I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);

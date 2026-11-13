@@ -57,7 +57,7 @@ void main() {
   vec3 col = min(vec3(1.0), r + n * noiseA);
   float a = wall.y > 0.0 ? 0.9 * max(0.0, 1.0 - abs(float(ly) + 0.5 - wall.x) / wall.y) : 0.0;
   float ln = rule * max(0.0, 1.0 - abs(float(ly) + 0.5 - wall.x));
-  o = vec4(min(vec3(1.0), col * (1.0 - a) + ln * vec3(0.27, 0.28, 0.30)), 1.0);
+  o = vec4(min(vec3(1.0), col * (1.0 - a) + ln * vec3(0.2, 0.21, 0.23)), 1.0);
 }`;
 
 /**
