@@ -1,8 +1,8 @@
-// fix-text.js: one-decimal text from a table of tenths. It must be exactly what toFixed(1) gives, for every number: the table only saves
+// num.js fix1 (fix-text.js until 13 Nov 2026): one-decimal text from a table of tenths. It must be exactly what toFixed(1) gives, for every number: the table only saves
 // making a string for a tenth already met, and a number within an ulp of a half tenth (or below zero, or out of range) is made the long way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fix1, round1, tenths, printedKey } from '../src/ui/fix-text.js';
+import { fix1, round1, tenths, printedKey } from '../src/ui/num.js';
 
 // (A small deterministic generator: the same numbers each run.)
 const rng = (s) => () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);

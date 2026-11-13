@@ -14,7 +14,7 @@ import { elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
-import { fix1 } from './fix-text.js';
+import { fix1 } from './num.js';
 import { dataSoon } from './class-soon.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { onTheme } from './theme-epoch.js';

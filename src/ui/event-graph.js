@@ -27,7 +27,7 @@ import { frameFor, cancelFrame } from './frame.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
-import { fix1, round1, printedKey } from './fix-text.js';
+import { fix1, round1, printedKey } from './num.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { procKindOf } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';

@@ -30,7 +30,7 @@ test('the FibroScan reads the model median, the number in the tile and words', (
   // (The median, on the shown state's filter, premium-feel R4: a change under 0.05 kPa at rest, a pause or a jump shows at once.)
   assert.match(src, /const kShown = createFollow\(\{ small: 0\.05, eps: 0\.01 \}\)/);
   assert.match(src, /shown = kShown\.step\(model, dt, REDUCED_MQ\.matches \|\| isPaused\(\)\)/);
-  assert.match(src, /const reading = fix1\(shown\)/);   // (fix1 is toFixed(1) from a table of tenths: tests/fix-text.test.js)
+  assert.match(src, /const reading = fix1\(shown\)/);   // (fix1 is toFixed(1) from a table of tenths: num.js, tests/fix-text.test.js)
 });
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {

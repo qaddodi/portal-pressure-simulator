@@ -70,6 +70,7 @@
 import { TILE, SCALE, RATE } from './table-marks.js';
 import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { frameFor } from './frame.js';
+import { minusFixed as fmt } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { restPass, restClass } from './rest-pass.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
@@ -277,7 +278,6 @@ export function xTicks(a, b, most = 6) {
   }
 }
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
-const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 /** An axis number: a whole number stays whole whatever the axis's decimals (0, 5, 10, not 0.0, 5.0, 10.0). */
 export const fmtTick = (v, d) => fmt(v, Math.abs(v - Math.round(v)) < 1e-6 ? 0 : d);
 const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)

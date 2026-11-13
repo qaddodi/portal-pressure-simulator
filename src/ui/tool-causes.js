@@ -22,6 +22,7 @@ import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { numWords, signedWords } from './num-words.js';
 import { reduceMotionMQ } from './motion.js';
+import { minusFixed as fmt } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { chartCtx } from './chart-ctx.js';
 const nextFrame = frameFor('tool-causes');
 const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
@@ -109,7 +110,6 @@ export function domainOf(rows, metric = 'ppg') {
   return { lo, hi: hi - lo < 1 ? lo + 1 : hi };
 }
 
-const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 const signed = (v, d) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? fmt(0, d) : (v > 0 ? '+' : '−') + Math.abs(v).toFixed(d));
 export const shownText = (r, d) => (r.kind === 'step' ? signed(r.shown, d) : fmt(r.shown, d));
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)

@@ -8,6 +8,7 @@ import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
+import { fmt } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -112,21 +113,8 @@ export const icon = (id) => {
   return el;
 };
 
-// (A value's text is made once and kept for the repeats: a readout that holds its value, or comes back to one, asks for the same text on
-// every frame. Keyed by the number itself, so the text is exactly what toFixed gave; cut when it grows.)
-const fmtTexts = [new Map(), new Map(), new Map(), new Map()];
-export function fmt(v, d = 1) {
-  if (v == null || !Number.isFinite(v)) return NOT_SHOWN;
-  const m = fmtTexts[d] || (fmtTexts[d] = new Map());   // alloc-rare: a precision met for the first time
-  let r = m.get(v);
-  if (r !== undefined) return r;
-  const t = v.toFixed(d);
-  // A value that rounds to zero has no sign ("−0" reads as an error).
-  r = /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');   // alloc-rare: the same new value, signed text made once
-  if (m.size > 4096) m.clear();
-  m.set(v, r);
-  return r;
-}
+// (fmt: a value to d decimals with a true minus and never "−0", its text kept for the repeats: num.js, the pure module the Node-loaded files share.)
+export { fmt };
 /** A value as fmt prints it, as a number, for the word beside it: a tile never reads "5.0 L · Grade 2". (−0 reads as 0.) */
 export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v);
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
