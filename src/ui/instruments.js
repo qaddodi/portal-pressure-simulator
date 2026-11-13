@@ -799,7 +799,7 @@ export function createAbdomen({ onAction }) {
     if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
     classSoon(albS, 'ab-warn', warn);
     classSoon(alb, 'ab-warn', warn);
-    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter removed) to prevent post-paracentesis circulatory dysfunction.` : 'Albumin 8 g per liter removed: advised for >5 L, optional for ≤5 L.';   // alloc-rare: the same, paintVol runs only on a change
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter of ascites removed) to prevent post-paracentesis circulatory dysfunction.` : 'Albumin 8 g per liter of ascites removed: advised for >5 L, optional for ≤5 L.';   // alloc-rare: the same, paintVol runs only on a change
     swapText(drain, hasFluid ? 'Drain' : 'No ascites');
     propSoon(drain, 'disabled', !hasFluid);
   }

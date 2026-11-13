@@ -30,7 +30,7 @@ export const ASCITES = {
   checks: [
     ['What SAAG points to portal hypertension?', '≥1.1 g/dL.'],
     ['A high SAAG with an ascitic total protein ≥2.5 g/dL. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoidal fenestrae are still open and let protein through.'],
-    ['How much albumin is given with large-volume paracentesis?', '6 to 8 g per liter removed, when >5 L is removed.'],
+    ['How much albumin is given with large-volume paracentesis?', '6 to 8 g per liter of ascites removed, when >5 L is removed.'],
     ['When is ascites called refractory?', 'It recurs within 4 weeks of LVP despite maximum diuretic doses and sodium restriction, or diuretics cannot be given because of AKI, hyponatremia or hyperkalemia.'],
     ['Ten days after a 6 L paracentesis with albumin, tense ascites has reaccumulated on full-dose diuretics. What has not changed?', 'The portal pressure: paracentesis removes the fluid, not its cause. Ascites that recurs on full-dose diuretics is refractory, and TIPS is the next step to consider.'],
   ],
@@ -118,9 +118,9 @@ export const ASCITES = {
       // (A third tile, where the slide's point needs it: the albumin given with the tap.)
       data: 'tiles', tiles: ['asc', 'pv', 'salb'], key: ['salb'], delta: 'tense',
       kicker: 'Large-volume paracentesis', site: 'sin', title: 'Large-volume paracentesis is given with albumin',
-      line: 'LVP drains the whole 5 L, and the portal pressure falls slightly. When >5 L is removed, give {6 to 8 g} of albumin per liter removed.',
+      line: 'LVP drains the whole 5 L, and the portal pressure falls slightly. When >5 L is removed, give {6 to 8 g} of albumin per liter of ascites removed.',
       notes: 'The model has no kidneys or renin: albumin here raises the serum albumin and the plasma oncotic pressure, and the ascites reaccumulates more slowly on "Ascites returns in two weeks". The model shows only the albumin: the serum albumin tile rises from 2.4 g/dL. It has no renin, serum sodium or renal function, which is where post-paracentesis circulatory dysfunction shows, and in patients the heart rate and blood pressure barely change, so there is no button to compare with and without albumin. For this LVP of just over 5 L, give about 30 to 40 g of 20% albumin, during or after the procedure; it prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. For <5 L, albumin is optional. LVP can safely remove all the ascites in a single session of a few hours. Lowering the IAP lowers the portal and variceal pressure slightly. After removal of >5 L, splanchnic vasodilation worsens and the effective arterial blood volume falls over the following days: post-paracentesis circulatory dysfunction, with a rise in plasma renin, hyponatremia, AKI and faster reaccumulation of ascites.',
-      ask: ['Why give albumin rather than saline after a 5 L paracentesis, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less AKI, less hyponatremia, slower reaccumulation. About 30 to 40 g, at 6 to 8 g per liter removed.'],
+      ask: ['Why give albumin rather than saline after a 5 L paracentesis, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less AKI, less hyponatremia, slower reaccumulation. About 30 to 40 g, at 6 to 8 g per liter of ascites removed.'],
     },
     {
       id: 'back', days: 14, lapse: { seconds: 7 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two weeks' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',

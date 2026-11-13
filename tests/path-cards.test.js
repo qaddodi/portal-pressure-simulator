@@ -125,17 +125,17 @@ test('psvdscore: Baveno VIII 8.44 totals 0-2 no PSVD or NCPF, 3-4 possible, 5 or
   assert.equal(zoneText(psvdscore.zones[2], false), 'Definite · ≥5');
 });
 
-test('recomp: all three criteria together (7.15); one missing is not recompensated, and the list says which', () => {
+test('recomp: all three criteria together (7.4); one missing is not recompensated, and the list says which', () => {
   const at = (p) => { const q = patientFor({ of: 'recomp', patient: p }), { t, v } = scoreState(recomp, q); return { t, v, key: outcomeOf('recomp', litOf('recomp', q)) }; };
   const a = at({ ca: 0, ev: 0, lf: 0 });
   assert.deepEqual([a.t, a.v.head, a.v.tone, a.v.z, a.key], [3, 'Recompensated', 'ok', 1, 'z1']);
   assert.match(a.v.next, /CSPH may also resolve with time/);
   const b = at({ ca: 0, ev: 1, lf: 0 });
   assert.deepEqual([b.t, b.v.head, b.v.tone, b.v.z, b.key], [2, 'Not recompensated yet', 'warn', 0, 'z0']);
-  assert.equal(b.v.next, 'All three are needed. Missing: no events off treatment for ≥6 months.');
+  assert.equal(b.v.next, 'All three are needed. Missing: no events for >6 consecutive months.');
   const c = at({ ca: 1, ev: 1, lf: 1 });
   assert.deepEqual([c.t, c.v.z], [0, 0]);
-  assert.equal(c.v.next, 'All three are needed. Missing: the etiology is cured, controlled or suppressed; no events off treatment for ≥6 months; liver function has improved.');
+  assert.equal(c.v.next, 'All three are needed. Missing: the etiology is removed, controlled or suppressed; no events for >6 consecutive months; liver function has improved.');
   assert.equal(at({ ca: 1, ev: 0, lf: 0 }).t, 2, 'each criterion is one point');
   for (const p of patientsOf(recomp)) assert.equal(scoreState(recomp, p).v.z === 1, p.ca === 0 && p.ev === 0 && p.lf === 0, JSON.stringify(p));
   assert.equal(patientsOf(recomp).length, 8);
