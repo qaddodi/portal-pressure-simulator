@@ -219,7 +219,7 @@ export const tubeJoinFS = (N_SAMPLES) => {
   if (N_SAMPLES !== END_BASE) throw new Error('tube-join-glsl: vEnd packs a row as row * 64 + sample, so N_SAMPLES must be 64');
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row (tube-join-glsl.js): the decisions, from the vertex shader's flat data; no reads ----
-struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; float rot; vec2 tg; float tw; };   // tg: the trunk's tone vector here (offset from its axis / its radius), tw its share   // wc: the share of the other row's colour col this pixel takes
+struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; float rot; vec2 tg; float tw; float gp; };   // gp: a cut end's signed gap to its trunk's wall (negative inside it), 1000 for none: the outline's pixels inside the wall are the trunk's (lean shader)   // tg: the trunk's tone vector here (offset from its axis / its radius), tw its share   // wc: the share of the other row's colour col this pixel takes
 vec3 joinUnpackColour(float v) {
   float r = floor(v / 65536.0), g = floor((v - r * 65536.0) / 256.0);
   return vec3(r, g, v - r * 65536.0 - g * 256.0) / 255.0;
@@ -235,7 +235,7 @@ vec2 joinNear(vec2 p, vec2 a, vec2 b, bool line) {   // (the point of the segmen
 }
 JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2 p, float R, float px) {
   JoinEnd j;
-  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0; j.rot = 0.0; j.tg = vec2(0.0); j.tw = 0.0;
+  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0; j.rot = 0.0; j.tg = vec2(0.0); j.tw = 0.0; j.gp = 1000.0;
   bool atStart = vI < ${JOIN_WIN}.0;
   if (!atStart && !(vI > ${LAST - JOIN_WIN}.0)) return j;
   vec4 J = atStart ? vJ0 : vJ1;
@@ -270,6 +270,7 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   }
   // (K.y 1: a branch in a higher tier than its trunk is cut at the wall as any other, but its edge is one device pixel soft, and the trunk shows through that pixel: it lies in its own tier's pass.)
   bool soft = K.y > 0.5;
+  j.gp = beyond ? 1000.0 : gap;   // (past a trunk's own end the pixel is the branch's, outline too)
   if (gap < (soft ? -px : -${f(JOIN_CUT_IN)} * px) && !beyond) { j.drop = true; return j; }
   // (A trunk much narrower than the branch — a small tributary the join happens to mark as its trunk — does not recolour or flatten the wide branch: the share rk, and the reach by the narrower of the two.)
   float rk = smoothstep(0.3, 0.9, K.x / max(R, 1e-3)), rn = min(R, K.x);

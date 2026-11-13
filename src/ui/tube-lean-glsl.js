@@ -148,6 +148,8 @@ void main() {
   }
   // A row's end on another row (tube-join-glsl.js): a pixel inside the trunk the row ends on, or beyond a continuation's bisector plane, is the other row's.
   JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, vC0, vC1, p, R, px);
+  // (A cut end's outline lying inside the trunk's wall is the trunk's: dropped, so it leaves no dotted hairline in the mouth, 13 Nov 2026.)
+  if (D > 0.0 && je.gp < 0.0) je.drop = true;
   if (je.drop) {
     if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
     discard;

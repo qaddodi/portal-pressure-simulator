@@ -219,17 +219,18 @@ export function webVertex(PA, RA, PB, RB, inst, a, aaPad, zo = {}) {
   const g = webGeometry(PA, RA, PB, RB, inst, aaPad), kind = Math.round(a[0]), k = Math.round(a[1]);
   const res = { x: g.wa[0], y: g.wa[1], f: WEB_LEVEL, vD: 0, gx: 0, gy: 0, rad: 4 * g.Rm, sample: g.ownB ? inst[5] : inst[1], ownB: g.ownB, empty: g.empty };
   if (g.empty) return res;
-  if (kind === WEB_KIND.APEX) { res.x = g.C[0]; res.y = g.C[1]; res.vD = g.vDapex; res.gx = g.bis[0]; res.gy = g.bis[1]; return res; }
+  const mouthN = inst[10] < 1.5 ? (g.ownB ? g.B.n : g.A.n) : null;   // (a mouth, a web with a marked trunk: its tone is the trunk's wall tone all over, the field the branch's mouth carries on; 13 Nov 2026)
+  if (kind === WEB_KIND.APEX) { res.x = g.C[0]; res.y = g.C[1]; res.vD = g.vDapex; if (mouthN) { res.gx = mouthN[0]; res.gy = mouthN[1]; } return res; }   // (vG 0: the fan's tone follows its rays, each the tone of the arc point it runs to, so the fan matches the leg beside it along each edge; 13 Nov 2026)
   if (kind === WEB_KIND.STRIP_A || kind === WEB_KIND.STRIP_B) {
     // (the wall strip: the fan's straight edge from C to the tangent point, two device pixels thick, inside its leg: it covers the leg's lumen edge pixels that win the depth test and carry the leg's outline mix, so the web shows there)
     const B = kind === WEB_KIND.STRIP_B, leg = B ? g.B : g.A, tl = g.rho / Math.tan(0.5 * g.theta), along = k === 1 || k === 2 ? tl : 0, inw = k >= 2 ? aaPad : 0;
     res.x = g.C[0] + leg.d[0] * along - leg.n[0] * inw; res.y = g.C[1] + leg.d[1] * along - leg.n[1] * inw;
     res.f = WEB_STRIP_LEVEL + L.LUMEN_H * clamp((zo.zK ?? 0) * (B ? zo.zB ?? 0 : zo.zA ?? 0), 0, 1);
-    res.vD = -aaPad; res.gx = g.bis[0]; res.gy = g.bis[1];
+    res.vD = -aaPad; res.gx = mouthN ? mouthN[0] : leg.n[0]; res.gy = mouthN ? mouthN[1] : leg.n[1];   // (the wall strip carries its leg's own wall tone: the trunk's, not the bisector's)
     return res;
   }
   const q = g.arc[k], ox = g.O[0] - q[0], oy = g.O[1] - q[1], ol = Math.hypot(ox, oy), ux = ox / ol, uy = oy / ol;
-  res.x = q[0]; res.y = q[1]; res.gx = ux; res.gy = uy;
+  res.x = q[0]; res.y = q[1]; res.gx = mouthN ? mouthN[0] : ux; res.gy = mouthN ? mouthN[1] : uy;
   if (kind === WEB_KIND.IN) res.f = L.CASE1;
   else if (kind === WEB_KIND.OUT) { const wk = g.skirt(k); res.x = q[0] + ux * wk; res.y = q[1] + uy * wk; res.f = L.CASE0; res.vD = wk; }
   return res;
@@ -398,6 +399,8 @@ void main() {
   vD = 0.0; vG = vec2(0.0);
   float Rm = max(A.r, B.r);
   vRad = 4.0 * Rm;
+  bool mouth = aWeb.z < 1.5;                // (a marked trunk owns the web: its wall tone all over, as the branch's mouth carries it on)
+  vec2 gOwn = ownB ? B.n : A.n;
   if (mPass < ${MP.SHAPE_K}) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }   // no glow, up-glow or shadow of a web
   int idA = int(aLegA.x + 0.5), iA = int(aLegA.y + 0.5), sA = aLegA.z > 0.0 ? 1 : -1, idB = int(aLegB.x + 0.5), iB = int(aLegB.y + 0.5), sB = aLegB.z > 0.0 ? 1 : -1;
   float dA = aLegA.w > 0.0 ? 1.0 : -1.0, dB = aLegB.w > 0.0 ? 1.0 : -1.0;
@@ -446,18 +449,18 @@ void main() {
     float px = 0.5 * aaPad;
     float rk = mix(A0.r, B0.r, float(k) / float(W_ARC));   // (the skirt's width follows the radius along the arc: each arm's own outline at its end)
     float w = min(clamp(0.14 * rk, 1.5 * px, 3.0 * px) + aaPad, 0.98 * rho);
-    if (kind == W_APEX) { q = vec3(C, W_LEVEL); vD = min(-(length(C - O) - rho), -2.0 * aaPad); vG = bis; }
-    else if (kind == W_FILL) { q = vec3(pt, W_LEVEL); vG = up; }
-    else if (kind == W_IN) { q = vec3(pt, W_CASE1); vG = up; }
+    if (kind == W_APEX) { q = vec3(C, W_LEVEL); vD = min(-(length(C - O) - rho), -2.0 * aaPad); vG = mouth ? gOwn : vec2(0.0); }
+    else if (kind == W_FILL) { q = vec3(pt, W_LEVEL); vG = mouth ? gOwn : up; }
+    else if (kind == W_IN) { q = vec3(pt, W_CASE1); vG = mouth ? gOwn : up; }
     else if (kind >= W_STRIP_A) {
       bool sb = kind == W_STRIP_B;
       vec2 sd = sb ? B.d : A.d, sn = sb ? B.n : A.n;
       vec2 sq = C + sd * (k == 1 || k == 2 ? tl : 0.0);
       if (k >= 2) sq -= sn * aaPad;
       q = vec3(sq, W_STRIP + W_LUMEN_H * clamp(zK * texelFetch(tube, ivec2(2, sb ? idB : idA), 0).y, 0.0, 1.0));
-      vD = -aaPad; vG = bis;
+      vD = -aaPad; vG = mouth ? gOwn : sn;
     }
-    else { q = vec3(pt + up * w, W_CASE0); vD = w; vG = up; }
+    else { q = vec3(pt + up * w, W_CASE0); vD = w; vG = mouth ? gOwn : up; }
   }
   vec3 d = world * vec3(q.xy, 1.0);
   d.xy += lOff;

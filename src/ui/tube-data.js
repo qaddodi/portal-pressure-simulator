@@ -58,6 +58,7 @@ function stubLength(pts, row, from, to) {
 /** A row's points flat (x0, y0, x1, y1 ...) as legDirection reads them, for one row, into `into` (N_SAMPLES * 2 floats). */
 function rowFlat(pts, row, into) { for (let i = 0; i < N_SAMPLES; i++) { into[2 * i] = ptX(pts, row, i); into[2 * i + 1] = ptY(pts, row, i); } return into; }
 const FLAT = new Float64Array(N_SAMPLES * 2), FLAT2 = new Float64Array(N_SAMPLES * 2);
+export const MOUTH_WEB_DEG = 50;               // a branch ending on a trunk through it gets no fillet web where the crotch is narrower than this (a mouth: the join's cut and tone carry make the V)
 const THRU_DEG = 10;                          // a trunk's chord reaches on past an end only into a row that runs on straight (within this): the chord is a straight line, and past a bend it would leave the real trunk
 const CONT_DEG = 45;                          // two rows meeting end to end are one surface when they bend by no more than this
 
@@ -356,6 +357,11 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       let gap = S.ang[lb] - S.ang[la];
       if (gap < 0) gap += 2 * Math.PI;
       if (gap < WEB_MIN_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
+      // A mouth: one leg is a branch that ends here (one leg of its row), the other a trunk running through (two legs). The join cuts the branch at the trunk's wall and carries the trunk's tones on,
+      // so its crotch is a plain V; a fillet web there adds a round bay whose outline steps off the branch's real wall, a dark wedge of the branch's shade and a pale rim. Under MOUTH_WEB_DEG it is left out (13 Nov 2026).
+      let nA = 0, nB = 0;
+      for (let c = 0; c < n; c++) { if (S.row[c] === S.row[la]) nA++; if (S.row[c] === S.row[lb]) nB++; }
+      if ((nA === 1) !== (nB === 1) && gap < MOUTH_WEB_DEG * DEG) { skipped++; continue; }
       const o = count * WEB_FLOATS;
       data[o] = S.row[la]; data[o + 1] = S.sample[la]; data[o + 2] = S.dir[la]; data[o + 3] = 1;
       data[o + 4] = S.row[lb]; data[o + 5] = S.sample[lb]; data[o + 6] = S.dir[lb]; data[o + 7] = -1;

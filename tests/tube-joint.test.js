@@ -90,7 +90,8 @@ test('the legs: a direction looks past a zero-length segment, and an end with no
 test('synthetic joins: the number of webs and the corner each one fills', () => {
   const r = {};
   for (const [name, make] of Object.entries(SCENES)) { const w = webs(make()); r[name] = w.list.length; }
-  assert.deepEqual(r, { t90: 2, t45: 2, y: 3, elbow: 1, deep: 2, short: 2, fork: 3 });
+  assert.deepEqual(r, { t90: 2, t45: 1,  // (the 45 degree crotch of a branch ending on its trunk is a mouth: no web under MOUTH_WEB_DEG, 13 Nov 2026)
+     y: 3, elbow: 1, deep: 2, short: 2, fork: 3 });
   // a T at 90 degrees with trunk radius 4 and branch radius 2: the corners are at (+-2, 4)
   const { list } = webs(SCENES.t90());
   const Cs = list.map((w) => geo(w).C.map((v) => +v.toFixed(6))).sort((a, b) => a[0] - b[0]);
@@ -139,7 +140,7 @@ test('synthetic joins: every web\'s arc is tangent to both walls, none of its fi
   for (const [name, make] of Object.entries(SCENES)) {
     for (const [i, w] of webs(make()).list.entries()) { checkWeb(w, geo(w), `${name} web ${i}`); n++; }
   }
-  assert.equal(n, 15);
+  assert.equal(n, 14);
 });
 
 test('a T at 90 degrees: the fillet is the join\'s own (k times its fillet share), and the corner pocket is filled between the walls', () => {
@@ -222,14 +223,17 @@ test('vertex values: levels, vD, vG, vRad as the contract has them', () => {
   const M = webIndex(), w = list[0], g = geo(w);
   const V = Array.from({ length: WEB_VERTS }, (_, v) => webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, M.attr.subarray(v * 4, v * 4 + 4), AA));
   assert.equal(V[0].f, WEB_LEVEL); assert.ok(V[0].vD <= -2 * AA + 1e-12, 'the fill is solid at C');
-  assert.ok(Math.abs(V[0].gx * V[0].gx + V[0].gy * V[0].gy - 1) < 1e-9);
+  // (the apex's tone vector is 0 in a fork, so each ray of the fan takes the tone of the arc point it runs to and the fan matches the leg beside it along each edge; a mouth, a marked trunk's web, has the trunk's wall normal, one unit long: 13 Nov 2026)
+  const apLen = Math.hypot(V[0].gx, V[0].gy);
+  assert.ok(w.rec[10] < 1.5 ? Math.abs(apLen - 1) < 1e-9 : apLen < 1e-12);
   for (let k = 0; k < WEB_PTS; k++) {
     assert.equal(V[WEB_FILL + k].f, WEB_LEVEL); assert.equal(V[WEB_FILL + k].vD, 0);
     assert.equal(V[WEB_IN + k].f, TUBE_LEVEL.CASE1); assert.equal(V[WEB_IN + k].vD, 0);
     assert.equal(V[WEB_OUT + k].f, TUBE_LEVEL.CASE0); assert.ok(Math.abs(V[WEB_OUT + k].vD - g.skirt(k)) < 1e-12);
-    // vG points from the arc toward O
+    // vG points from the arc toward O (a fork); a mouth's, a marked trunk's web, is the trunk's wall normal, one unit long, all over the web
     const q = V[WEB_FILL + k];
-    assert.ok((g.O[0] - q.x) * q.gx + (g.O[1] - q.y) * q.gy > 0);
+    if (w.rec[10] < 1.5) assert.ok(Math.abs(Math.hypot(q.gx, q.gy) - 1) < 1e-9);
+    else assert.ok((g.O[0] - q.x) * q.gx + (g.O[1] - q.y) * q.gy > 0);
     assert.equal(V[WEB_IN + k].x, q.x); assert.equal(V[WEB_OUT + k].gx, q.gx);
   }
   for (const v of V) { assert.equal(v.rad, 4 * g.Rm); assert.equal(v.sample, g.ownB ? w.rec[5] : w.rec[1]); }
@@ -307,7 +311,7 @@ test('the shader text and the JS twin agree on a table of vertices (every vertex
       n++;
     }
   }
-  assert.ok(n >= 30 * 19);
+  assert.ok(n >= 28 * 19);
   assert.ok(worst < 1e-6);
 });
 
