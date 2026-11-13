@@ -180,7 +180,7 @@ export const EDGES = [
   { id: 'REX', from: 'SMV', to: 'LPV', kind: 'shunt', shunt: 'rex', d: 8, label: 'Meso-Rex bypass' },
 ];
 
-// Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent
+// Custom portosystemic shunts: any portal vessel to any systemic vein (and, below, any two portal veins), created with the stent
 // tool. Each exists in the topology from the start, closed (zero conductance) until the learner
 // opens it; params.customShunts[id] holds its diameter in mm.
 export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
@@ -193,7 +193,7 @@ const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
 const COURSES = new WeakMap();   // alloc-rare: made once; one kept entry per edge
 export const stentCourse = (e) => {
   let c = COURSES.get(e);
-  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
+  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} ${e.portal ? '↔' : '→'} ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
   return c.text;
 };
 export const customShuntId = (p, q) => `X_${p}_${q}`;
@@ -201,6 +201,21 @@ for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
   if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
   EDGES.push({ id: customShuntId(p, q), from: p, to: q, kind: 'shunt', shunt: 'custom', label: `${nodeLabel(p)} → ${nodeLabel(q)} shunt` });
 }
+// Portal-to-portal shunts (13 Nov 2026, Mohammad: "who cares if it's not real", e.g. splenic vein to the right or left portal vein): a stent between
+// any two portal-system veins that no vessel already joins. They are custom shunts like the rest (one diameter in params.customShunts, the same stent look
+// and conductance), flagged `portal`: their blood stays in the portal system, so it is never counted as shunted. The pair is stored upstream end first (a
+// vein nearer the gut before one nearer the liver); the flow takes whichever way the pressure gives, so a link between equals can run either way.
+export const SHUNT_PORTAL_VEINS = SHUNT_PORTAL.filter((n) => n !== 'VAR' && n !== 'GV');   // (the varices are what a shunt relieves, not a vein to sew one to)
+const PORTAL_RANK = { SMV: 0, IMV: 0, SVD: 0, SV: 1, LGV: 1, CONF: 2, PVH: 3, RPV: 4, LPV: 4 };
+const JOINED = new Set(EDGES.filter((e) => e.kind !== 'wedge').flatMap((e) => [`${e.from}>${e.to}`, `${e.to}>${e.from}`]));
+const PORTAL_ORDER = [...SHUNT_PORTAL_VEINS].sort((a, b) => PORTAL_RANK[a] - PORTAL_RANK[b] || SHUNT_PORTAL.indexOf(a) - SHUNT_PORTAL.indexOf(b));
+for (let i = 0; i < PORTAL_ORDER.length; i++) for (let j = i + 1; j < PORTAL_ORDER.length; j++) {
+  const p = PORTAL_ORDER[i], q = PORTAL_ORDER[j];
+  if (JOINED.has(`${p}>${q}`)) continue;
+  EDGES.push({ id: customShuntId(p, q), from: p, to: q, kind: 'shunt', shunt: 'custom', portal: true, label: `${nodeLabel(p)} ↔ ${nodeLabel(q)} shunt` });
+}
+/** A custom shunt between two portal-system veins (its blood never leaves the portal system). */
+export const isPortalLink = (e) => e?.shunt === 'custom' && !!e.portal;
 
 // Collaterals: diameter floor. R(d) = Ropen·(dMax/d)^4, closed ≈ 256·Ropen.
 export const COLLATERAL_DMIN_RATIO = 1 / 4;

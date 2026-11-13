@@ -73,7 +73,7 @@ export function routeFlows(Q, params = null) {
   const stented = Math.min(stentQ, Math.max(0, Math.max(0, q('PV_TRUNK')) - portalIn - Math.max(0, q('C3'))));
   for (const id of STENTS) if (stentQ > 0) by[of[id]] += stented * (stent[id] || 0) / stentQ;
   let custom = 0;
-  for (const e of EDGES) if (e.shunt === 'custom' && params?.customShunts?.[e.id]) custom += Math.max(0, q(e.id));
+  for (const e of EDGES) if (e.shunt === 'custom' && !e.portal && params?.customShunts?.[e.id]) custom += Math.max(0, q(e.id));
   const inflow = SPLANCHNIC_ARTERIES.reduce((s, id) => s + q(id), 0) + Math.max(0, q('AP_R')) + Math.max(0, q('AP_L'));
   return { by, custom, inflow };
 }

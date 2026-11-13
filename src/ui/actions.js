@@ -226,7 +226,7 @@ function buildEdgeCard(e) {
       const q = f.Qf ? f.Qf[k] : f.Q[k];
       const refQ = store.get().healthy?.Q?.[k] ?? 1;
       if (Math.abs(q) < 0.05) return ST_STAGNANT;
-      if (q < -Math.max(0.12, 0.02 * Math.abs(refQ))) return ST_REVERSED;
+      if (q < -Math.max(0.12, 0.02 * Math.abs(refQ)) && !e.portal) return ST_REVERSED;   // (a link between two portal veins has no physiological direction: the pressure picks it)
       return ST_OK;
     },
   };

@@ -1,6 +1,6 @@
 // Hover and pick: the interaction section (pointer reads, hover link, label explain) and the shunts card.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js';
+import { EDGES, SHUNT_PORTAL, SHUNT_PORTAL_VEINS, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js';
 import { ABDOMEN_CLIP, BACK_EDGES, CONTEXT_EDGES, IVC_EDGES, LIVER_SPLIT_X, ORGANS } from './anatomy.js';
 import { classSoon } from './class-soon.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
@@ -401,7 +401,26 @@ export function createHover(st, live) {
       const id = customShuntId(pn, sn);
       if (EI[id] != null) return { key: 'custom', id, label: EDGES[EI[id]].label };
     }
-    return null;
+    return portalLinkRule(a, b, ax, ay, bx, by);
+  }
+  // Two portal-system veins (13 Nov 2026): the shunt joins each at its end nearer the other when a link between those two stations exists; when they are
+  // already joined by a vessel (or are one station), the pair of ends with a link that lie nearest the other vessel decide, so the splenic vein dropped
+  // on the right portal vein still makes a splenic vein to portal vein shunt.
+  function portalLinkRule(a, b, ax, ay, bx, by) {
+    const t = easeInOut(live.morph);
+    const ends = (id) => [E[id].e.from, E[id].e.to].filter((n) => SHUNT_PORTAL_VEINS.includes(n));
+    const na = ends(a), nb = ends(b);
+    if (!na.length || !nb.length) return null;
+    const near = (n, x, y) => { const q = nodePos(n, t); return Math.hypot(q[0] - x, q[1] - y); };
+    let pick = null;
+    for (const m of na) for (const n of nb) {
+      if (m === n) continue;
+      const id = EI[customShuntId(m, n)] != null ? customShuntId(m, n) : EI[customShuntId(n, m)] != null ? customShuntId(n, m) : null;
+      if (!id) continue;
+      const away = near(m, bx, by) + near(n, ax, ay);
+      if (!pick || away < pick.away) pick = { away, id };
+    }
+    return pick ? { key: 'custom', id: pick.id, label: EDGES[EI[pick.id]].label } : null;
   }
   function startShunt(src, { only } = {}) {
     if (!E[src]?.vis) return false;

@@ -84,8 +84,8 @@ export function computeMetrics(eng, out = null) {
   // A stent (TIPS or DIPS) also drains arterial blood that recirculates through the sinusoids and back out by the
   // portal branches, so only the portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
   shunted += clamp(Math.max(0, qf(eng, 'PV_TRUNK')) - portalIn - Math.max(0, qf(eng, 'C3')), 0, stentQ);
-  // Custom shunts the learner has made carry portal blood to systemic veins as well.
-  for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(eng, e.id));
+  // Custom shunts the learner has made carry portal blood to systemic veins as well (one between two portal veins keeps its blood in the portal system).
+  for (const e of EDGES) if (e.shunt === 'custom' && !e.portal && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(eng, e.id));
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(eng, e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 

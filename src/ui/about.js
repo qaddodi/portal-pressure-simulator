@@ -57,6 +57,8 @@ const VESSEL = {
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
   REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a clotted portal trunk. It returns the gut\u2019s blood to the liver instead of to the veins of the body.',
 };
+// A stent between two portal-system veins (13 Nov 2026): the blood stays in the portal system, so it bypasses a segment of the portal system, not the liver.
+const PORTAL_LINK = 'A stent between two veins of the portal system. It bypasses the segment between them, and its blood stays in the portal system and still reaches the liver.';
 const BY_KIND = {
   artery: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',
   arteriole: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',
@@ -88,7 +90,7 @@ export function aboutVessel(e, f, st) {
       const q = f.Qf ? f.Qf[k] : f.Q[k];
       JF_OPTS.ref = st.healthy?.Q?.[k] ?? 1;
       const jf = judgeFlow(null, q, null, JF_OPTS);
-      still = !!jf.still; rev = !still && !!jf.reversed;
+      still = !!jf.still; rev = !still && !!jf.reversed && !e.portal;
     }
     if (e.kind === 'collateral') {
       const d = f.slow.dEff?.[e.id] ?? f.slow.d[e.id], r = clamp((d - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1);
@@ -106,7 +108,7 @@ export function aboutVessel(e, f, st) {
   if (m.lines && m.has === !!f && m.still === still && m.rev === rev && m.rec === rec && m.clot === clot && m.sten === sten && m.rise === rise) return m.lines;
   m.has = !!f; m.still = still; m.rev = rev; m.rec = rec; m.clot = clot; m.sten = sten; m.rise = rise;
   const out = [];
-  const first = VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of the liver’s blood and most of its oxygen.' : BY_KIND[e.kind] || '');
+  const first = VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of the liver’s blood and most of its oxygen.' : e.portal ? PORTAL_LINK : BY_KIND[e.kind] || '');
   if (first) out.push(first);
   if (f) {
     if (still) out.push('Flow here has almost stopped: stagnant blood can clot.');
