@@ -1651,7 +1651,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const m = anims.get(e);
     if (m) {
       for (const [an, rec] of m) {
-        if (dn && isDrivenAnimation(an)) continue;
+        // (A number-driven drag's paused animation is always represented by driven(), never by its own clock. One let go is cancelled in the frame it
+        // lands in, and its clock then reads as nothing: the glass took it for the animation's first keyframe, the sheet 1024 px up, and drew the menu's
+        // frost there for one frame, the figure sharp through the words (13 Nov 2026, a short pull let go on Settings and the Menu).)
+        if (isDrivenAnimation(an)) { if (!dn) m.delete(an); continue; }
         const kf = rec.kf, S = stateOf(an, rec), st = S.st;
         if (st === 'idle' || (st === 'finished' && !S.fills)) {
           m.delete(an); flag.ended = true;

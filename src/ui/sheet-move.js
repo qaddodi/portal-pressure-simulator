@@ -10,6 +10,7 @@
 import { D_SMALL, EASE_ARRIVE, cssCurve } from './ease.js';
 import { moverOf, signalMove } from './num-move.js';
 import { glideTranslate, glideStop, glideY, glideCall } from './script-glide.js';
+import { restPass } from './rest-pass.js';
 
 /** The sheet's moving parts (its plate first, put in once). */
 export function sheetParts(el) {
@@ -74,6 +75,7 @@ export function setSheetOffset(el, y) {
 }
 
 export function stopSheet(el) {
+  el._sheetRun = (el._sheetRun || 0) + 1;   // (a let-go's landing that has not run yet is out of date: glideSheet's `land`)
   dropDrag(el);
   const r = runs.get(el);
   if (!r) return;
@@ -99,7 +101,14 @@ export function glideSheet(el, y, { easing = EASE_ARRIVE, duration = D_SMALL, do
   const r = { parts, to: y, timer: 0 };
   runs.set(el, r);
   // (Put where it lands, in the exact text the stylesheet and a pull expect; every part's glide ended first, so none writes after.)
-  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } signalMove(); done?.(); };
+  // (What the landing does to the page (a sheet committed at its height, a swiped one closed and hidden) is done in a task between two frames, not in
+  // the frame the glide ends in: the glass takes a write made in a frame from its last reading and reads the page after the frame, so it drew the card
+  // once more in its old box with the offset gone, an empty frosted card for a frame (13 Nov 2026, Mohammad: "after it closes an empty card in its place
+  // pops up and disappears"; the same after a short pull let back). A task's write is read in the next frame's first phase, before the glass is drawn.
+  // Out of date if anything took the sheet over meanwhile: stopSheet.)
+  const mine = el._sheetRun;
+  const land = () => { if (el._sheetRun === mine) done(); };
+  const end = () => { if (runs.get(el) !== r) return; runs.delete(el); clearTimeout(r.timer); for (const c of parts) { glideStop(c); c.style.translate = v; } signalMove(); if (done) restPass(land); };
   for (let i = 0; i < parts.length; i++) glideTranslate(parts[i], 0, from, 0, y, duration, ease, i ? undefined : end);
   if (frame) glideCall(el, duration, ease, (e) => frame(from + (y - from) * e));   // (after the parts: the same frame, the same ease)
   r.timer = setTimeout(end, duration + 120);   // (a page whose frames stall, in the background or a busy browser, still lands on time)
