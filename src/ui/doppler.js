@@ -684,10 +684,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let ovLast = '', ovAt = 0, ovOn = false, ovTop = 26;   // the report in the top strip (see draw)
   let img = null;
   const TB = [0, 0, 0, 0];
-  const GEO = { RW: 0, RH: 0, rBase: 0, rPxPerV: 0, cps: 0, binPx: 0, spkPx: 0, spkMix: 0, pol: 0, k: 0, venous: false, stent: false, span: 0, topV: 0, botV: 0 };   // (the spectrum's geometry for a frame, written in place)
-  const SYN = { rBase: 0, rPxPerV: 0, fade: 0, wfV: 0, spkPx: 0, spkMix: 0, span: 0, uK: 0, venous: false, stent: false, mode: 0 };   // (the spectrum shader's geometry for a frame, written in place)
+  const GEO = { RW: 0, RH: 0, rBase: 0, rPxPerV: 0, cps: 0, binPx: 0, spkPx: 0, spkMix: 0, pol: 0, k: 0, venous: false, span: 0, topV: 0, botV: 0 };   // (the spectrum's geometry for a frame, written in place)
+  const SYN = { rBase: 0, rPxPerV: 0, fade: 0, wfV: 0, spkPx: 0, spkMix: 0, span: 0, uK: 0, venous: false, mode: 0 };   // (the spectrum shader's geometry for a frame, written in place)
   let synthed = false, ringW = 0, ringH = 0;   // (whether the GPU wrote the ring's lines, and the ring's size there)
-  const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, rule: 0, base: 0, wf: 0, nBin: 2, nRun: 1 };
+  const RENDER = { W: 0, H: 0, dx: 0, dy: 0, RW: 0, RH: 0, p: 0, nx: 0, ny: 0, noiseA: 0, base: 0, wf: 0, nBin: 2, nRun: 1 };
   const FS_ST = { scale: null, baseF: null, settleAt: 0, refit: false }, FS_IN = { fixed: null, holding: false, fits: false, target: 0, tbF: 0, tNow: 0 };   // (fitScale's state and input, written in place)
   let noiseAt = 0, nx = 0, ny = 0, traceBox = null;
   let glFrom = null;    // 'img': the GPU's ring texture needs the whole ImageData, else only new columns
@@ -734,7 +734,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // and smooth over a few frequency bins, shown at a new random offset about ten times a second, cleared at the baseline by the wall filter.
 
   // The line being written, for power(): its top, its low edge, the widths of the soft ends, the fade, and whether the vessel is a vein.
-  let wP = 0, wL = 0, wSigHi = 0, wSigLo = 0, wFade = 0, wVenous = false, wStent = false;
+  let wP = 0, wL = 0, wSigHi = 0, wSigLo = 0, wFade = 0, wVenous = false;
   const CIN = { u: 0, s: 0 };   // (the colour map's input, written in place)
   const rn = () => Math.random() + Math.random() + Math.random() - 1.5;
   // The signal's power at velocity u along the flow direction.
@@ -745,11 +745,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const f = (u - L) / Math.max(1e-6, P - L);
       // brightest just under the outline, where most of the blood moves (blunt flow), and
       // greyer toward the baseline; a vein keeps a dimmer fill all the way down
-      const S = wVenous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : wStent ? Math.pow(10, -2.6 * Math.pow(1 - Math.min(1, f / 0.9), 1.15)) + 0.5 * Math.exp(-(((1 - f) / 0.1) ** 2)) : 0.16 + 0.84 * Math.pow(f, 1.3);
+      const S = wVenous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
       if (u > P - wFade) { const z = (u - P + wFade) / wFade; return S * (1 - 0.985 * Math.sqrt(z)); }
       return S;
     }
-    if (u > 0) { const z = (L - u) / wSigLo; return (wStent ? 0.0025 : 0.16) * Math.exp(-z * z); }
+    if (u > 0) { const z = (L - u) / wSigLo; return 0.16 * Math.exp(-z * z); }
     return 0;
   };
   // The GPU's way (doppler-synth.js): the same line's numbers, as writeLine works them out, handed to the drawer for ring column x; the
@@ -761,15 +761,15 @@ export function createDoppler({ onProbe, pickGate = true }) {
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
     const cn = c & 0xFFFFF;
     if (!has || av <= 0.3) { gpu.setCol(x, 0, 0, 1, 1, 1, 0, 0, cn); return; }
-    const P = av * g.k * (1 + (g.stent ? 0.008 : 0.035) * jit);   // (a stent's outline is a crisp, smooth edge: its lines differ by well under 1 %)
-    const L = g.stent ? 0.5 * P : av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
+    const P = av * g.k * (1 + 0.035 * jit);
+    const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     let lineS = 0;
     if (mode !== 'spectrum') {
       const vp = velAt(c / g.cps - 0.3, g);
       lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
     }
     const wraps = g.span > 0 && P > (s > 0 ? g.topV : g.botV);
-    gpu.setCol(x, P, L, 0.02 * P + 0.4, (g.stent ? 0.06 : 0.08) * P + 1.2, 10 ** ((g.stent ? 0.04 : 0.12) * lineGain), lineS, 1 + (wraps ? 2 : 0) + (s < 0 ? 4 : 0), cn);
+    gpu.setCol(x, P, L, 0.02 * P + 0.4, 0.08 * P + 1.2, 10 ** (0.12 * lineGain), lineS, 1 + (wraps ? 2 : 0) + (s < 0 ? 4 : 0), cn);
   }
   // Synthesise spectral line c into the ring. Geometry in device pixels.
   function writeLine(c, g) {
@@ -786,10 +786,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // the whole line is a little brighter or dimmer, so the outline is jagged and the band shimmers
     // in time (held in the ring, so this scrolls with the trace)
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
-    const P = av * g.k * (1 + (g.stent ? 0.008 : 0.035) * jit);   // (a stent's outline is a crisp, smooth edge: its lines differ by well under 1 %)
-    const gain = 10 ** ((g.stent ? 0.04 : 0.12) * lineGain);
-    const L = g.stent ? 0.5 * P : av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
-    const sigHi = 0.02 * P + 0.4, sigLo = (g.stent ? 0.06 : 0.08) * P + 1.2;
+    const P = av * g.k * (1 + 0.035 * jit);
+    const gain = 10 ** (0.12 * lineGain);
+    const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
+    const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
     // the spectrum fades out over its last few pixels, so the speckle decides the contour
     const fadeV = 7 / rPxPerV;
@@ -813,7 +813,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let ry = 0, q = x * 4; ry < RH; ry++, q += RW * 4) { D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = 255; }
       return;
     }
-    wP = P; wL = L; wSigHi = sigHi; wSigLo = sigLo; wFade = fadeV; wVenous = g.venous; wStent = g.stent;
+    wP = P; wL = L; wSigHi = sigHi; wSigLo = sigLo; wFade = fadeV; wVenous = g.venous;
     // A slide's fixed scale (aliasing): velocities past the scale's end wrap round to the other side, as a pulsed scanner samples
     // them, so each row also shows the velocities one whole scale span (twice the Nyquist limit) above and below it. Only while
     // the band reaches past an end; otherwise the line is drawn as before.
@@ -825,8 +825,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const a = Math.abs(vel) / wf;
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
       const fb = ry / g.spkPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
-      let X = spk[b0] + (spk[b0 + 1] - spk[b0]) * f;
-      if (g.stent) X = 1 + 0.25 * (X - 1);   // (a stent's spectrum: a smooth, filled grain, as on the GPU)
+      const X = spk[b0] + (spk[b0 + 1] - spk[b0]) * f;
       const pw = (1 + A_SIG * S * gain * X) * W;
       let I = pw > 0 ? (Math.log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0;
       I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);
@@ -1121,7 +1120,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
     const g = GEO;
     g.RW = RW; g.RH = RH; g.rBase = baseY * dpr; g.rPxPerV = pxPerV * dpr; g.cps = RW / sweepSeconds; g.binPx = Math.max(1.5, RH / 200); g.spkPx = Math.max(2, RH / 110);
-    g.spkMix = clamp(1 - 1 / dpr, 0.3, 0.65); g.pol = sgn; g.k = k; g.venous = meta().kind !== 'artery' && meta().kind !== 'tips'; g.stent = meta().kind === 'tips';
+    g.spkMix = clamp(1 - 1 / dpr, 0.3, 0.65); g.pol = sgn; g.k = k; g.venous = meta().kind !== 'artery' && meta().kind !== 'tips';
     // (a fixed scale's span, and how far the display reaches above and below the baseline, cm/s: where the spectrum wraps)
     g.span = fixed ? H / pxPerV : 0; g.topV = baseY / pxPerV; g.botV = (H - baseY) / pxPerV;
     const cNow = Math.floor(tNow * g.cps);
@@ -1142,7 +1141,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       from = full ? cNow - RW + 1 : lastCol + 1;
       if (cNow >= from) {
         SYN.rBase = g.rBase; SYN.rPxPerV = g.rPxPerV; SYN.fade = 7 / g.rPxPerV; SYN.wfV = Math.max(1.2, 0.025 * scale); SYN.spkPx = g.spkPx; SYN.spkMix = g.spkMix;
-        SYN.span = g.span; SYN.uK = 1 / (0.7 * scale); SYN.venous = g.venous; SYN.stent = g.stent; SYN.mode = mode === 'spectrum' ? 0 : mode === 'velocity' ? 1 : 2;
+        SYN.span = g.span; SYN.uK = 1 / (0.7 * scale); SYN.venous = g.venous; SYN.mode = mode === 'spectrum' ? 0 : mode === 'velocity' ? 1 : 2;
         for (let c = from; c <= cNow; c++) lineParams(c, g);
         const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
         if (x0 + n <= RW) gpu.synth(x0, n, SYN);
@@ -1185,7 +1184,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       if (glFrom === 'img') gpu.ringAll(img, RW, RH);
       glFrom = null;
       const R = RENDER;
-      R.W = CW; R.H = CH; R.dx = dx; R.dy = dy; R.RW = RW; R.RH = RH; R.p = p; R.nx = nx; R.ny = ny; R.noiseA = mode === 'spectrum' && !g.stent ? 1 : g.stent ? 0.12 : 0.3; R.rule = g.stent ? 1 : 0; R.base = g.rBase; R.wf = wfPx; R.nBin = g.binPx * 2; R.nRun = Math.max(1, Math.round((1 + Math.max(1, dpr)) / 2));
+      R.W = CW; R.H = CH; R.dx = dx; R.dy = dy; R.RW = RW; R.RH = RH; R.p = p; R.nx = nx; R.ny = ny; R.noiseA = mode === 'spectrum' ? 1 : 0.3; R.base = g.rBase; R.wf = wfPx; R.nBin = g.binPx * 2; R.nRun = Math.max(1, Math.round((1 + Math.max(1, dpr)) / 2));
       drawn = gpu.render(R);
     }
     if (!drawn) {

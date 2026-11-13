@@ -20,7 +20,7 @@ precision highp float;
 precision highp int;
 uniform sampler2D colA, colB;   // a line's numbers by ring column: A (P, L, sigHi, sigLo), B (gain, variance, flags, line number)
 uniform float rBase, rPxPerV, fade, wfV, spkPx, spkMix, span, uK;
-uniform int venous, stent, mode;   // stent: a TIPS or DIPS (a clean, filled spectrum); mode: 0 grey spectrum, 1 colour velocity, 2 colour variance
+uniform int venous, mode;       // mode: 0 grey spectrum, 1 colour velocity, 2 colour variance
 uniform uint seed;
 uniform vec3 cToward, cAway, cVarT0, cVarT1, cVarA0, cVarA1, cWhite;   // the colour maps' colours, 0 to 255
 out vec4 o;
@@ -43,12 +43,11 @@ float power(float u, float P, float L, float sigHi, float sigLo) {
   if (u >= L) {
     float f = (u - L) / max(1e-6, P - L), S;
     if (venous == 1) { float q = (0.88 - f) / 0.16; S = min(1.0, 0.05 + 0.1 * f + 0.9 * exp(-(q * q))); }
-    else if (stent == 1) { float g = clamp(f / 0.9, 0.0, 1.0), q = (1.0 - f) / 0.1; S = pow(10.0, -2.6 * pow(1.0 - g, 1.15)) + 0.5 * exp(-q * q); }   // a stent: 26 dB down at the band's low edge, rising to a clear bright envelope (the display is a log scale, so the grade is set in dB)
     else S = 0.16 + 0.84 * pow(f, 1.3);
     if (u > P - fade) { float z = (u - P + fade) / fade; return S * (1.0 - 0.985 * sqrt(z)); }
     return S;
   }
-  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.0025 : 0.16) * exp(-z * z); }   // (a stent's low edge meets the band's own 26 dB floor: no ledge under it)
+  if (u > 0.0) { float z = (L - u) / sigLo; return 0.16 * exp(-z * z); }
   return 0.0;
 }
 vec3 shade(vec3 c, float t, float cover) {
@@ -74,7 +73,6 @@ void main() {
   uint b0 = uint(b0f);
   float X0 = speckle(cn, b0), X1 = speckle(cn, b0 + 1u);
   float X = X0 + (X1 - X0) * f;
-  if (stent == 1) X = 1.0 + 0.25 * (X - 1.0);   // a stent's spectrum is averaged over many more bins than a vessel's: a smooth, filled grain
   float pw = (1.0 + A_SIG * S * gain * X) * W;
   float I = pw > 0.0 ? (log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0.0;
   I = I <= 0.0 ? 0.0 : (I >= 1.0 ? 1.0 : pow(I, 1.2));
@@ -91,5 +89,5 @@ void main() {
   o = vec4(clamp(rgb / 255.0, 0.0, 1.0), 1.0);
 }`;
 
-export const SYNTH_UNIS = ['colA', 'colB', 'rBase', 'rPxPerV', 'fade', 'wfV', 'spkPx', 'spkMix', 'span', 'uK', 'venous', 'stent', 'mode', 'seed',
+export const SYNTH_UNIS = ['colA', 'colB', 'rBase', 'rPxPerV', 'fade', 'wfV', 'spkPx', 'spkMix', 'span', 'uK', 'venous', 'mode', 'seed',
   'cToward', 'cAway', 'cVarT0', 'cVarT1', 'cVarA0', 'cVarA1', 'cWhite'];
