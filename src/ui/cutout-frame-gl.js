@@ -180,8 +180,13 @@ export function createCutoutFrame({ top, xform }) {
       key = k; plan = next || null;
       if (plan) again(); else sync();
     },
-    /** Whether a point (stage px) is on the liver's spot as last drawn, with a finger's margin. */
-    hit(x, y) { return seen.on && Math.hypot(x - seen.x, y - seen.y) <= Math.max(SPOT_R + 8, 22); },
+    /** Whether a point (stage px) is on the liver's spot through the camera now, with a finger's margin. */
+    // (Worked out from the camera at the press, never read back from the last frame drawn: a frame that was not drawn, or a label's solve that stood the spot elsewhere, can no more make the ring unpressable.)
+    hit(x, y) {
+      const b = stageBox();
+      if (plan && b && spotNow(Math.max(1, Math.round(b.width || b.sw || 1)), Math.max(1, Math.round(b.height || b.sh || 1)), plan.win, plan.open !== false)) return Math.hypot(x - seen.x, y - seen.y) <= Math.max(SPOT_R + 8, 22);
+      return false;
+    },
     /** The spot's box (stage px, its ring and the finger's margin) through the camera now, written into o; false while it is not shown. The labels keep clear of it. */
     box(o) {
       const b = stageBox(); if (!plan || !b) return false;

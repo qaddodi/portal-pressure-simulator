@@ -29,9 +29,11 @@ import { chartCtx } from './chart-ctx.js';
 import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale, scaleCentre } from './scale-switch.js';
 import { offeredCutouts, cutoutSubject, plateRects, columnOf } from './cutouts.js';
+import { createRingTap } from './plate-ring-tap.js';
 import { createCutoutFrame } from './cutout-frame-gl.js';
 // The spot of the liver the windows are taken from: the open right lobe, between the portal branches and the hepatic veins (fractions of the liver's box in the figure's units).
 const PLATE_SPOT = [0.32, 0.5];
+const PLATE_CHIP_W = 104;   // (the shut window's chip: styles/app.css .pz-plate-show)
 import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
 import { runSoon } from './class-soon.js';
 import { NODE_POS } from './anatomy.js';
@@ -4439,7 +4441,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return { kinds, free, rects: plateRects(free, kinds, 'plate'), open: plateOpen, take: plateOpen ? col.colW + 16 : 0, reach: rBase + 18 + col.colW + 16, subject: cutoutSubject(s) };
   }
   // The windows the plan names are shown in the figure, and hidden when it names none (a slide with none, a phone, a deck that closes).
-  let plateKey = '', platePlan = null, plateGL = null, plateSlide = null, plateOpen = true;
+  let plateKey = '', platePlan = null, plateGL = null, plateSlide = null, plateOpen = true, plateRing = null, plateToggles = 0;
   function plateApply(plan) {
     const was = !!platePlan;
     platePlan = plan;
@@ -4450,6 +4452,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stage.plateLobule?.(plan?.open ? plan.rects.lobule || null : null, !!plan && plan.subject === 'lobule');
     }
     stage.onPlateTap?.(plan ? plateTap : null, plan ? plateAt : null, plan ? plateBox : null);
+    // (The ring is also pressed by a listener of its own on the figure, plate-ring-tap.js, for a press the gesture code did not turn into a tap.)
+    if (plan && !plateRing && view) plateRing = createRingTap({ target: view, at: plateAt, toggles: () => plateToggles, toggle: () => plateSet(!plateOpen) });
+    else if (!plan && plateRing) { plateRing.dispose(); plateRing = null; }
     platePlace(plan);
     // (The camera may still be gliding to the liver's place: the ring is put where the liver is once it has landed.)
     if (plan) stimer(() => { if (ui) platePlace(platePlan); }, 1700);
@@ -4465,7 +4470,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     ui.pshow.hidden = !plan || plan.open || !win;
     if (!plan || !win) return;
     // (A shut window leaves a small chip where it stood, a second way to open it beside the liver's spot.)
-    ui.pshow.style.left = `${(win.x + win.w).toFixed(1)}px`;
+    // (Its right edge on the window's own right edge, by its left and a width of its own, never a shift by its own width: it cannot stand past the room the plate has.)
+    ui.pshow.style.left = `${(win.x + win.w - PLATE_CHIP_W).toFixed(1)}px`;
     ui.pshow.style.top = `${(win.y + win.h / 2 - 15).toFixed(1)}px`;
     ui.pshow.textContent = plan.kinds.includes('lobule') ? 'Lobule' : 'Sinusoid';
     ui.psafe.style.width = `${plan.reach.toFixed(0)}px`;
@@ -4479,7 +4485,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (Shut or opened again: by the x, or by a tap on the liver's spot, as the scope view's ring is tapped. The figure frames itself again in the room that is left.)
   function plateSet(open) {
     if (plateOpen === open || !platePlan) return;
-    plateOpen = open;
+    plateOpen = open; plateToggles++;
     layout();
   }
   // (The spot's ring is a button: what a press there is, the label over it never wins (stage-gestures), and the labels keep clear of its box (stage-label-items calloutBoxes).)
