@@ -554,9 +554,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   const say = (dir, sev, pattern, note, pi, expected) => { const o = IT; o.dir = dir; o.sev = sev; o.pattern = pattern; o.note = note; o.pi = pi; o.expected = expected; return o; };
 
-  // The phone's tile row (app.css #app.thumb: every tile in one row, about 60 px each): a class, not a layout read.
-  const appEl = document.getElementById('app');
-  const phoneRow = () => !!appEl?.classList.contains('thumb');
   // A tile value: the number, with its unit small beside it.
   function setStat(dd, v, unit = '') {
     if (dd._v === v && dd._u === unit) return;
@@ -704,10 +701,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
-      // (On a phone the tiles share one row, five of them on the main portal vein: each is about 60 px wide on a 375 px iPhone, 43 px inside,
-      // and "0.07 cm·s" is about 69 px, so the rightmost tile's words never fit whole and were not drawn (gl-words draws only words that
-      // fit). The number alone (about 38 px) fits; the unit goes, as the tile's name, CI, already means cm·s. 13 Nov 2026.)
-      vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2), phoneRow() ? '' : 'cm·s') : setStat(statEls.CI.dd, '—');
+      // (The number alone, on every screen (Mohammad, 13 Nov 2026): on a phone's one row of tiles "0.07 cm·s" (about 69 px) never fit a
+      // 60 px tile and was not drawn (gl-words draws only words that fit whole); the tile's name, CI, already means cm·s.)
+      vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2)) : setStat(statEls.CI.dd, '—');
     }
     // A stent: velocity at its portal end, middle and hepatic vein end, in place of trough and pulsatility.
     const isStent = p.kind === 'tips';
