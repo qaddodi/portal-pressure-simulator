@@ -13,7 +13,7 @@
 import { N_SAMPLES, memberOf } from './veins-mesh.js';
 import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
 import { WEB_FLOATS, WEB_MIN_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
-import { endTrunk, endContinues, END_THRU_START, END_THRU_END } from './tube-join-glsl.js';
+import { endTrunk, endContinues, END_THRU_START, END_THRU_END, joinThruSideJS, joinNextCode } from './tube-join-glsl.js';
 
 export const TUBE_ROW_FLOATS = 4;             // a row record: row, endStart, endEnd, kind + 2
 export const TUBE_NO_END = -1;
@@ -233,6 +233,22 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       const dA = legDirection(rowFlat(pts, row, FLAT), sl === 1 ? 0 : N_SAMPLES - 1, sl === 1 ? 1 : -1), dB = legDirection(rowFlat(pts, q, FLAT2), qs, qs === 0 ? 1 : -1);
       return dA[0] * dB[0] + dA[1] * dB[1] <= -Math.cos(THRU_DEG * DEG);
     };
+    // (13 Nov 2026: an open end on a trunk's end where the trunk runs on into another row takes that row as its trunk when the row lies in the branch's own tier and the
+    // trunk does not: the cut is the same (the arms follow both rows past the seam), and a same-tier trunk is cut 4 px inside its wall with the branch's lumen over the wall's
+    // outline. On the other, a branch in a higher tier fades into the trunk over one pixel and the run-on row's wall showed through it as a dashed hairline across the
+    // mesocaval's mouth on the SMV, whose two rows lie in two tiers.)
+    for (let r = 0; r < nRows; r++) for (let sl = 1; sl <= 2; sl++) {
+      const b = r * TUBE_ROW_FLOATS + sl, c = rows[b];
+      if (c < 0) continue;
+      const tr = Math.floor(c / N_SAMPLES), ts = c % N_SAMPLES;
+      if (ts !== 0 && ts !== N_SAMPLES - 1) continue;
+      const pc = rows[tr * TUBE_ROW_FLOATS + (ts === 0 ? 1 : 2)];
+      if (pc > -2) continue;
+      const k = -pc - 2, q = Math.floor(k / N_SAMPLES);
+      if (q === tr || q === r) continue;
+      const tb0 = tierOf(tubeData, r * TUBE_FLOATS);
+      if (tierOf(tubeData, tr * TUBE_FLOATS) !== tb0 && tierOf(tubeData, q * TUBE_FLOATS) === tb0) rows[b] = endTrunk(q, k % N_SAMPLES);
+    }
     for (let r = 0; r < nRows; r++) for (let sl = 1; sl <= 2; sl++) {
       const b = r * TUBE_ROW_FLOATS + sl, c = rows[b];
       if (c < 0) continue;
@@ -286,7 +302,11 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
     if (!on[r] || !(tube[o + T_ALPHA] > 0)) continue;
     const t = tierOf(tube, o), b = r * TUBE_ROW_FLOATS;
     const kd = rowData[b + 3], at2 = (kd > 3.5 ? curE[t]++ : kd > 2.5 ? curX[t]++ : curP[t]++) * TUBE_ROW_FLOATS;
-    rows[at2] = rowData[b]; rows[at2 + 1] = rowData[b + 1]; rows[at2 + 2] = rowData[b + 2]; rows[at2 + 3] = rowData[b + 3];
+    rows[at2] = rowData[b]; rows[at2 + 1] = rowData[b + 1]; rows[at2 + 2] = rowData[b + 2];
+    // (13 Nov 2026: an open end whose trunk runs on into another row hands the shader that row, so the trunk's arm follows its samples past the seam: w = 5 + the start's + 4096 * the end's
+    // (joinNextCode, at most 4094 with the 2047 rows the lumen target holds: under 2^24, exact in a float). The shader reads w only as over 1.5 (ends) and this.)
+    const n0 = nextOf(rowData, rowData[b + 1]), n1 = nextOf(rowData, rowData[b + 2]);
+    rows[at2 + 3] = n0 || n1 ? 5 + n0 + 4096 * n1 : rowData[b + 3];
   }
   out.n = at;
   return out;
@@ -373,6 +393,17 @@ export function websByTier(webData, count, tube, out, on = null, noMixed = false
   }
   out.n = at;
   return out;
+}
+/** An open end's code c (tubeRows): the next row its trunk runs on into on the side joinThruSide names, as joinNextCode, or 0. */
+function nextOf(rowData, c) {
+  if (!(c >= 0)) return 0;
+  const ci = Math.floor(c + 0.1), fe = c - ci, tr = Math.floor(ci / N_SAMPLES), sm = ci % N_SAMPLES;
+  const side = joinThruSideJS((fe > 0.2 && fe < 0.3) || fe > 0.7, fe > 0.45, sm);
+  if (!side) return 0;
+  const pc = rowData[tr * TUBE_ROW_FLOATS + (side < 0 ? 1 : 2)];
+  if (!(pc <= -2)) return 0;
+  const k = Math.round(-pc - 2);
+  return joinNextCode(Math.floor(k / N_SAMPLES), k % N_SAMPLES);
 }
 /** The tier a web is drawn in, or -1 when it is not drawn. */
 function webTier(webData, p, tube, nRows, on, noMixed) {

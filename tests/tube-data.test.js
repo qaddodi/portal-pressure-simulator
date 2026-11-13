@@ -165,6 +165,30 @@ test('tubeRows: an open end on a trunk that runs on into another row at an end c
   assert.equal(out.rows[4 * 4 + 2], endTrunk(3, N_SAMPLES - 1), 'row 4 ends on row 3, which ends there and nothing runs on (its end is its own: flat): no fraction');
 });
 
+test('tubeBuckets: an open end whose trunk runs on into another row hands that row to the shader in w (13 Nov 2026: 5 + the start\'s + 4096 * the end\'s, row * 2 + (1 at its end) + 1), so the arm follows its samples past the seam', () => {
+  const sc = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1)], [
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }, { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 2] },
+  ]);
+  const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+  assert.equal(out.rows[2 * 4 + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END);
+  const on = new Uint8Array(sc.nRows).fill(1), b = tubeBuckets(sc.tube, on, sc.nRows, out.rows, {});
+  let w = null;
+  for (let q = 0; q < b.n; q++) if (b.rows[q * 4] === 2) w = b.rows[q * 4 + 3];
+  assert.equal(w, 5 + 4096 * (1 * 2 + 0 + 1), 'row 2\'s end: the next row is row 1, which meets the seam with its start');
+  for (let q = 0; q < b.n; q++) if (b.rows[q * 4] !== 2) assert.equal(b.rows[q * 4 + 3], out.rows[b.rows[q * 4] * 4 + 3], 'the other rows keep their kind');
+});
+
+test('tubeRows: an open end on a trunk\'s end where it runs on into a row in the branch\'s own tier, the trunk\'s not, ends on that row (13 Nov 2026: the mesocaval\'s mouth on the SMV, two rows in two tiers)', () => {
+  const rows = [straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1)];
+  rows[0].tier = 16; rows[1].tier = 17;
+  const E = [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }, { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 2] }];
+  for (const [tier, want] of [[17, endTrunk(1, 0)], [16, endTrunk(0, N_SAMPLES - 1)], [3, endTrunk(0, N_SAMPLES - 1)]]) {
+    rows[2].tier = tier;
+    const sc = scene(rows, E), out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+    assert.equal(Math.floor(out.rows[2 * 4 + 2]), want, `a branch in tier ${tier}`);
+  }
+});
+
 test('tubeRows: a join entry the binning lists once for each cell it touches is read once (the same codes with every entry repeated)', () => {
   const rows = () => [straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1), straight(0, 80, 0, 0, 1)];
   const E = (members) => ({ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members });

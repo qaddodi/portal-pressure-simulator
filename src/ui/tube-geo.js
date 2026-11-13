@@ -408,7 +408,7 @@ void main() {
   int id = int(aRow.x + 0.5);
   vRow = id;${ZOOM_VS ? '\n  zoomOut();' : ''}
   vEnd = aRow.w > 1.5 && joinCut == 1 ? aRow.yz : vec2(-1.0);
-  joinOut(id, vEnd);
+  joinOut(id, vEnd, aRow.w);
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
   vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};

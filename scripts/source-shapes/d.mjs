@@ -77,5 +77,5 @@ export default [
   { file: CSS, need: [/\.stent-gold \{[^}]*var\(--dev-stent-gold\)/, 'the gold marker band and tab'] },
   { file: VENOUS, need: [/meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once'] },
   { file: VENOUS, need: [/d0 = tips \? TIPS_ENDS\[0\] : /, 'drawn from the portal end (its open stretch at d0)'] },
-  { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal and portocaval shunts are in the portal tree\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },
+  { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal, portocaval and (13 Nov 2026) mesocaval shunts and the Meso-Rex bypass are in the portal tree\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },
 ];

@@ -177,7 +177,7 @@ void main() {
   int flags = int(aFlag + 0.5);
   bool sel = (flags & ${F_SEL}) != 0;
   float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
-  vec2 g = joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je);   // (one tone field over a join: tube-join-glsl.js)
+  vec2 g = joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je, clamp((R + D) / max(R, 1e-3), 0.0, 1.0));   // (one tone field over a join: tube-join-glsl.js)
   float aa = px * ${EDGE};
   float aL = clamp(0.5 - D / aa, 0.0, 1.0);
   if (aL > 0.0) dep = true;
@@ -261,7 +261,7 @@ export function tubeLeanJS(o) {
   if (D > 8 + 2 * px) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const flags = at.flags, grp = o.grp ?? 1, dotted = (flags & F_DOTTED) !== 0;
   const cA = (flags & F_NOCASE) !== 0 ? 0 : dotted ? 0.35 : 1;
-  const gl = Math.hypot(o.g[0], o.g[1]), g0 = gl > 1e-5 ? [o.g[0] / gl, o.g[1] / gl] : [0, 0], g = jn ? joinToneJS(g0, jn) : g0;   // (one tone field over a join)
+  const gl = Math.hypot(o.g[0], o.g[1]), g0 = gl > 1e-5 ? [o.g[0] / gl, o.g[1] / gl] : [0, 0], g = jn ? joinToneJS(g0, jn, clamp((o.R + D) / Math.max(o.R, 1e-3), 0, 1)) : g0;   // (one tone field over a join)
   const aa = o.aa;
   const aL = clamp(0.5 - D / aa, 0, 1);
   const dep = aL > 0 || !!o.glowOwn ? 1 : 0;

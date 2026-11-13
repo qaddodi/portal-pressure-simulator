@@ -999,7 +999,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The splenorenal shunts (the spontaneous C6 and the Warren shunt S_DSR) and the portocaval shunt (S_PC), and the periportal plexus (C8, whose strands part from the confluence and join the hilum), leave a portal vein, which is in the portal tree's tier: a lower-tier end runs under the vein's wall, and the
   // wall's dark outline crosses the shunt's mouth, a line between the two (12 Nov 2026, Mohammad: "should be connected at its ends, not separated by lines"). In the vein's own tier
   // the join cuts the shunt at the wall and the wall is not drawn over its mouth.
-  for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8']) if (E[id]) E[id].over = true;
+  // The mesocaval shunt (S_MC) and the Meso-Rex bypass (REX) leave the SMV where its two rows meet (the network's V_INT below, SMV_CONF in the portal tree's tier above), and
+  // the Rex ends on the left portal vein: in the network's tier, SMV_CONF's wall outline crossed the mouth as a black sliver (13 Nov 2026, the shunt checks).
+  for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX']) if (E[id]) E[id].over = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.

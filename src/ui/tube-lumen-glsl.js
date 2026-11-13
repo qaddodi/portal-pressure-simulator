@@ -279,7 +279,7 @@ void main() {
     }
   }
   // The vessel layer's fill had the cel tones (a lift toward the top left, two darker steps away from it, a light line); this colour replaces it, so it gets them too.
-  if (fx == 1 && (flags & ${K.F_DIFFUSE}) != 0) col = celTones(min(col, vec3(1.0)), D, R, joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je), aa);
+  if (fx == 1 && (flags & ${K.F_DIFFUSE}) != 0) col = celTones(min(col, vec3(1.0)), D, R, joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je, clamp((R + D) / max(R, 1e-3), 0.0, 1.0)), aa);
   // A disc cut across (the lobule's portal venule, central vein, arteriole, bile ductule): the ink line and the pale band just inside its wall, over the blood too,
   // and none where a vessel joins it (celDisc; the vessel layer's own fill, which this replaces, has them the same way).
   if (fx == 1 && (flags & ${F_RING}) != 0) col = celDisc(min(col, vec3(1.0)), T(id, 4).rgb, D, R, 0.8 * clamp(${f(CEL.LINE_R)} * R, ${f(CEL.LINE_MIN)} * pxW, ${f(CEL.LINE_MAX)} * pxW), aa, ringOpen(T(id, 3).xyz, length(vG) > 1e-5 ? normalize(vG) : vec2(0.0)));

@@ -43,6 +43,22 @@ test('an open end: the vertex shader\'s data is the trunk\'s chord about the sam
   assert.deepEqual(joinOneJS({ e: -1, atStart: true, own: { pts: branch, tier: 3 }, rows }).K, [-1, -1], 'no end: none');
 });
 
+test('an arm that runs on past the trunk\'s end follows the next row\'s samples (13 Nov 2026: the mesocaval and Rex mouths at the SMV\'s seam; a straight line left the bending row by 1.26 units)', () => {
+  // row 0 straight up to (0, 100), radius 6; row 1 runs on from there, bending right on a circle of radius 60
+  const tr = line(0, 0, 0, 100), nx = Array.from({ length: 64 }, (_, i) => { const a = (i / 63) * 1.2; return [60 - 60 * Math.cos(a), 100 + 60 * Math.sin(a)]; });
+  const rw = rowsOf({ 0: { pts: tr, rad: tr.map(() => 6), tier: 3 }, 1: { pts: nx, rad: nx.map(() => 6), tier: 3 } });
+  const own = { pts: line(-60, 100, 0, 100), tier: 3 };
+  const straightOn = joinOneJS({ e: endTrunk(0, 63) + END_THRU_END, atStart: false, own, rows: rw });
+  const follows = joinOneJS({ e: endTrunk(0, 63) + END_THRU_END, atStart: false, own, rows: rw, pq: 1 * 2 + 0 + 1 });
+  const offAxis = (q) => Math.abs(Math.hypot(q[0] - 60, q[1] - 100) - 60);   // (from row 1's circle)
+  assert.ok(offAxis([straightOn.J[2], straightOn.J[3]]) > 1, `in a line it leaves the bending row: ${offAxis([straightOn.J[2], straightOn.J[3]])}`);
+  assert.ok(offAxis([follows.J[2], follows.J[3]]) < 0.05, `along its samples it stays on it: ${offAxis([follows.J[2], follows.J[3]])}`);
+  assert.ok(Math.abs(Math.hypot(follows.J[2], follows.J[3] - 100) - JOIN_REACH * 6) < 0.3, 'and reaches about as far');
+  assert.deepEqual([follows.J[0], follows.J[1]], [straightOn.J[0], straightOn.J[1]], 'the other arm is the trunk\'s own');
+  const vs = tubeJoinVS(64);
+  assert.ok(vs.includes('int tq = thru > 4.5 ? int(thru + 0.5) - 5 : 0;') && vs.includes('tq % 4096') && vs.includes('tq / 4096'), 'the shader unpacks w as tubeBuckets packs it');
+});
+
 test('an open end on a trunk\'s end: the chord stops at the trunk\'s end (flat, the branch drawn beyond) unless the trunk runs on into another row there (END_THRU_*): then it reaches on, and nothing of the branch is drawn whole beyond the seam (the azygos arch\'s hooked tip at the SVC)', () => {
   // a vertical trunk row 0 from y = 0 to y = 100, radius 6; a branch arriving at its end (0, 100) from the left, tier 16
   const tr = line(0, 0, 0, 100), br = line(-60, 130, 0, 100);
@@ -171,7 +187,8 @@ ${tubeJoinVS(64)}`;
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
   assert.match(vs, /int ei = int\(e \+ 0\.1\), tr = ei \/ 64, sm = ei % 64;/);
-  assert.match(vs, /return vec4\(joinArm\(tr, sm, -1, sp, hl, tb\), joinArm\(tr, sm, 1, sp, hl, tf\)\);/, 'the arms follow the trunk\'s samples; the knee is the sample');
+  // (13 Nov 2026: an arm that runs on past the trunk's end follows the next row's samples, joinThruSide picks which arm)
+  assert.match(vs, /return vec4\(joinArm\(tr, sm, -1, sp, hl, tb, ts < 0 \? pq : 0\), joinArm\(tr, sm, 1, sp, hl, tf, ts > 0 \? pq : 0\)\);/, 'the arms follow the trunk\'s samples; the knee is the sample');
   assert.ok(fs.includes('float gap = min(joinSeg(p, J.xy, CC.yz), joinSeg(p, CC.yz, J.zw)) - K.x;'), 'the fragment measures to the two arms');
   assert.match(vs, /uniform int joinCut;/);
   assert.throws(() => tubeJoinVS(32), /N_SAMPLES|64/);
@@ -294,7 +311,12 @@ test('one tone field over a join: at a bent continuation the cel tones\' directi
   const rt = rowsOf({ 0: { pts: t, rad: t.map(() => 6), tier: 7, colour: () => [0, 0, 0] } });
   const cut = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: br, tier: 7 }, rows: rt });
   const c = (y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: cut.J, K: [-1, -1, ...cut.K], C0: [0, 0, 0], C1: cut.C, p: [0, y], R: 4, px: PX });
-  assert.ok(c(6.2).tk < 0.05 && c(60).tk === 1, 'flat at the trunk\'s wall, whole far off');
+  // (13 Nov 2026: at the trunk's wall the branch's tones are the trunk's own field, not flat: a flat block met the trunk's bands in a step)
+  const w = c(6.2);
+  assert.ok(w.tw > 0.99 && c(60).tw === 0, 'the trunk\'s tones at its wall, the branch\'s own far off');
+  assert.ok(Math.abs(w.tg[0]) < 1e-9 && Math.abs(w.tg[1] - 6.2 / 6) < 1e-9, 'the trunk\'s tone vector: the offset from its axis over its radius');
+  const gw = joinToneJS([1, 0], w, 0.5);
+  assert.ok(Math.abs(0.5 * gw[1] - ((1 - w.tw) * 0 + w.tw * 6.2 / 6)) < 1e-9 && Math.abs(0.5 * gw[0] - (1 - w.tw) * 0.5) < 1e-9, 'rho times the result is the mix of the two fields');
 });
 
 test('the outer corner of a bend is round, not notched: past the bisector plane a row still draws the wedge between its own end line and the next row\'s start line (the two end caps are one circle there); the inner side and the straight on are the other row\'s', () => {
