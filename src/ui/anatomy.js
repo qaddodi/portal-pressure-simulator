@@ -72,7 +72,9 @@ export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
 // (Not the left renal vein, LRV_IVC and V_KID_L: it is where the splenorenal shunts land, so it is drawn over the bowel loops,
 // never veiled by them. 13 Nov 2026, Mohammad's iPhone shot: the vein read as lying under the small bowel.)
-export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'C7', 'C9', 'S_MC']);
+// (Nor the mesocaval shunt, S_MC: a surgical shunt is drawn in the network's tier like the portocaval and the Rex, so its SMV end sits with the SMV and
+// only the last stretch fades into the faint cava (IVC_JOIN). Behind the organs the whole shunt was veiled grey and cut hard where it met the SMV. 13 Nov 2026.)
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'C7', 'C9']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
