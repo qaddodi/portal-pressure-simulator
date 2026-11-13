@@ -36,6 +36,7 @@ export function createBlood(st, live) {
   // added to the run's A, and its B (0: the run's own, A 0 and B 1 for the vessel's own stream). The streaks cross-fade from one stream
   // to another through a junction's link (texel 4, w); the heads move over at once, onto the new stream placed where the old one stood
   // (chainRows), and then ease to the junction's own A and B, so a head never fades out for another to come in somewhere else.
+  // Then the spacing level the row's heads are drawn at (whole numbers at rest; between two while every other head comes or goes) and 1.
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
@@ -200,21 +201,36 @@ export function createBlood(st, live) {
   // every head stays where it is (the sign keeps B's own: a run the other way round is the same set, j for −j). The offset to the junction's
   // own A is cut to the nearest two spacings at the zoom now (so every other head's fade matches too) and then eases to 0, and B to its
   // own, over HEAD_EASE seconds: the heads slide into step with the junction instead of fading out and in at new places.
-  const HEAD_EASE = 0.5;
+  // The level (13 Nov 2026, no faint in-between heads at any zoom): a whole number per row at rest, the one that stands the heads nearest
+  // CHEV_PITCH apart on screen (blood-heads.js headLevel), with a margin so a row near the middle does not swing between two. It is held
+  // while the view zooms (the heads ride the figure, closer or wider) and taken up LEVEL_QUIET seconds after the zoom stops, every other
+  // head then coming or going over LEVEL_SWAP seconds: one short change after the gesture, never a faint set at rest.
+  const HEAD_EASE = 0.5, LEVEL_QUIET = 0.2, LEVEL_SWAP = 0.3, LEVEL_MARGIN = 0.65;
+  const hLv = new Float64Array(GL_ROWS), hLt = new Float64Array(GL_ROWS);
+  let lvSc = 0, lvQuiet = 0, lvEasing = false, scCur = 1, lvG = NaN, lvGt = NaN;   // (lvG: the level of every row outside the chain, a vessel's own stream)   // (scCur: CSS px per world unit now, stage-camera refreshCTM; the last known while the camera record is being made again)
   const hRun = new Int32Array(GL_ROWS).fill(-2), hK = new Int32Array(GL_ROWS), hA = new Float64Array(GL_ROWS), hAt = new Float64Array(GL_ROWS), hB = new Float64Array(GL_ROWS), hDel = new Float64Array(GL_ROWS);
-  const hSeen = new Uint32Array(GL_ROWS), headRuns = new Float32Array(GL_ROWS * 2);
+  const hSeen = new Uint32Array(GL_ROWS), headRuns = new Float32Array(GL_ROWS * 4);
   let hStamp = 0;
-  function headRun(row, root, k, At, Bt, kH) {
+  // (A level toward its target over LEVEL_SWAP seconds; the target taken up only once the zoom has stood still, and only past the margin.)
+  function levelStep(cur, tgt, raw, fresh, dtL) {
+    if (fresh || !(cur === cur)) return [Math.max(-1, Math.round(raw)), Math.max(-1, Math.round(raw))];
+    if (lvQuiet >= LEVEL_QUIET && Math.abs(raw - tgt) > LEVEL_MARGIN) tgt = Math.max(-1, Math.round(raw));
+    const d = tgt - cur, st = dtL / LEVEL_SWAP;
+    if (d !== 0) { cur = Math.abs(d) <= st ? tgt : cur + Math.sign(d) * st; lvEasing = true; }
+    return [cur, tgt];
+  }
+  function headRun(row, root, k, At, Bt, kH, dtL) {
+    const fresh = hRun[row] === -2;
     hSeen[row] = hStamp;
     const D = streams[k].D;
     // (Two spacings at the zoom now, in stream units: blood-heads.js headLevel, from the CSS px a world unit spans.)
-    const sk = live.CTM?.sc || 1, Pt = CHEV_PITCH / sk;
+    const sk = scCur, Pt = CHEV_PITCH / sk;
     if (hRun[row] === -2) { hB[row] = Bt; hDel[row] = 0; }
     else if (hRun[row] !== root || hK[row] !== k || Math.sign(hB[row]) !== Math.sign(Bt) || Math.abs(At - hAt[row]) > 0.25 * Pt * Math.abs(hB[row])) {
       // (A new stream, or the junction's A moving by more than a quarter of a spacing in a frame: placed where it stood.)
       // (Placed where the old run stood: the old stream's distance now, the A it was last drawn with.)
       const sg = Math.sign(Bt) * Math.sign(hB[row]) || 1, B = sg * hB[row], Ad = D + sg * (hA[row] - streams[hK[row]].D);
-      const n = Math.floor(Math.max(-1, Math.log2(Math.max(Pt * Math.abs(B), 1e-6) / 28))), M = 56 * 2 ** n;
+      const n = Math.floor(hLv[row]), M = 56 * 2 ** n;
       const d = Ad - At;
       hDel[row] = d - M * Math.round(d / M); hB[row] = B;
     } else if (kH > 0) {
@@ -223,14 +239,26 @@ export function createBlood(st, live) {
     }
     if (hDel[row] !== 0 || hB[row] !== Bt) live.bloodEasing = true;
     hRun[row] = root; hK[row] = k; hA[row] = At + hDel[row]; hAt[row] = At;
-    headRuns[row * 2] = hDel[row]; headRuns[row * 2 + 1] = hB[row];
+    // The level: the one nearest CHEV_PITCH at the zoom the view last settled at, by the B the heads are drawn with.
+    const raw = Math.max(-1, Math.log2(Math.max(CHEV_PITCH / (lvSc || sk) * Math.abs(hB[row]), 1e-6) / 28));
+    const lt = levelStep(hLv[row], hLt[row], raw, fresh, dtL);
+    hLv[row] = lt[0]; hLt[row] = lt[1];
+    headRuns[row * 4] = hDel[row]; headRuns[row * 4 + 1] = hB[row]; headRuns[row * 4 + 2] = hLv[row]; headRuns[row * 4 + 3] = 1;
   }
-  function chainRows(kW, kB, kH = kW) {
+  function chainRows(kW, kB, kH = kW, dtL = 0) {
     hStamp++;
+    // (The zoom: held while it moves, taken up once it has stood still LEVEL_QUIET seconds.)
+    const scNow = live.CTM?.sc || scCur; scCur = scNow;
+    if (scNow !== lvSc) { if (!lvSc) lvQuiet = LEVEL_QUIET; else lvQuiet = 0; lvSc = scNow; } else lvQuiet += dtL;
+    lvEasing = lvQuiet < LEVEL_QUIET;
     let n = 0, changed = !chainLast || chainLast.easing;
     for (let ix = 0; ix < EV.length; ix++) {
       const x = EV[ix];
-      if (!x.vis || x.isArt || x.ghost || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) continue;
+      if (!x.vis || x.isArt || x.ghost || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) {
+        // (Never chained, still drawing blood: its heads on its own stream, at a level held as any other's.)
+        if (x.vis && flowNow[x.row] && EI[x.e.id] != null) headRun(x.row, -1, EI[x.e.id], 0, 1, kH, dtL);
+        continue;
+      }
       const g = geo[x.e.id], P = g?.cur, len = g?.len;
       if (!P || P.length < 2 || !(len > 0)) continue;
       const k = EI[x.e.id], sm = streams[k], sg = sm.sgn || 1, fwd = sg > 0;
@@ -253,7 +281,7 @@ export function createBlood(st, live) {
       const o = chainIt[i].key * FLOW_TEXELS * 4, w = c.w[i], ef = c.ef[i], et = c.et[i];
       // (The heads: on the root's stream while there is any link, else the vessel's own; never mixed. Reduced motion: each its own.)
       { const rk = w > 0 ? chainK.get(c.root[i]) : undefined, own = rk == null || reduceMotion.matches;
-        headRun(chainIt[i].key, own ? -1 : c.root[i], own ? chainIt[i].k : rk, own ? 0 : c.A[i], own ? 1 : c.B[i], kH); }
+        headRun(chainIt[i].key, own ? -1 : c.root[i], own ? chainIt[i].k : rk, own ? 0 : c.A[i], own ? 1 : c.B[i], kH, dtL); }
       if (!(w > 0) && !ef && !et) continue;
       if (w > 0) {
         const rk = chainK.get(c.root[i]), rs = rk != null ? streams[rk] : null;
@@ -266,7 +294,11 @@ export function createBlood(st, live) {
       flowData[o + 22] = ef; flowData[o + 23] = et;
     }
     // (A row no longer in the chain starts afresh when it comes back: its heads come in with its blood.)
-    for (let r = 0; r < GL_ROWS; r++) if (hSeen[r] !== hStamp) { hRun[r] = -2; headRuns[r * 2] = 0; headRuns[r * 2 + 1] = 0; }
+    // (A row outside the chain (the circuit's liver branches, the feeders) draws its own stream at the one level lvG, held as any other's.)
+    const g = levelStep(lvG, lvGt, Math.max(-1, Math.log2(CHEV_PITCH / (lvSc || scCur) / 28)), false, dtL);
+    lvG = g[0]; lvGt = g[1];
+    for (let r = 0; r < GL_ROWS; r++) if (hSeen[r] !== hStamp) { hRun[r] = -2; headRuns[r * 4] = 0; headRuns[r * 4 + 1] = 0; headRuns[r * 4 + 2] = lvG; headRuns[r * 4 + 3] = 1; }
+    if (lvEasing) live.bloodEasing = true;
   }
   // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
   const NONE = Object.freeze([]), NO_OBJ = Object.freeze({});
@@ -384,9 +416,10 @@ export function createBlood(st, live) {
     if (on) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
       // still on its way does not keep the figure awake. It goes on from there when the motion comes back.)
-      if (restStill()) { const was = live.bloodEasing; chainRows(0, 0, 0); live.bloodEasing = was; }
-      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1), reduceMotion.matches ? 1 : -Math.expm1(-dt / HEAD_EASE));
+      if (restStill()) { const was = live.bloodEasing; chainRows(0, 0, 0, dt); live.bloodEasing = was || lvEasing; }
+      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1), reduceMotion.matches ? 1 : -Math.expm1(-dt / HEAD_EASE), reduceMotion.matches ? 1e9 : dt);
     }
+    live.veins.setHeadRuns?.(headRuns);   // (every step: the heads' level eases at rest too; veins-gl sends only what changed)
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
     if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
     // (While the blood stands still, a table within a hundredth of what the GPU holds is not sent: the same picture, so the
@@ -395,7 +428,6 @@ export function createBlood(st, live) {
     if (flowing || flowKeptFor !== live.veins || !flowClose(flowData, flowKept, FLOW_TEXELS * 4, GL_ROWS)) {
       flowKeptFor = live.veins;
       live.veins.setFlow(flowData);
-      live.veins.setHeadRuns?.(headRuns);
       if (flowing) flowKept = null; else (flowKept ||= new Float32Array(flowData.length)).set(flowData);
     }
     // The dye bolus, through every vessel (hidden ones take a second each).

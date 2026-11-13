@@ -106,7 +106,9 @@ void main() {
   // (chevLevel: one spacing on screen for every vessel and run; reduced motion's still heads spaced by flow, 2.5 times its level's 28 units.)
   float stillLv = still == 1 ? texelFetch(flow, ivec2(3, id), 0).y + 1.3219281 : -1.0;
   vec2 lw = chevLevel(pxW, cssPx, B, stillLv);
-  float lvOwn = lw.x, Pt = lw.y, lvUp = lvOwn, eu = 0.0;
+  // (The level the stage holds for this row, a whole number at rest: stage-blood.js headRun. Without it, the zoom's own.)
+  vec2 lr = texelFetch(axis, ivec2(N_LAST + 2, id), 0).xy;
+  float lvOwn = lr.y > 0.5 ? max(lr.x, stillLv) : lw.x, Pt = lw.y, lvUp = lvOwn, eu = 0.0;
   // A root run comes in through its upstream join at the level its parent draws the same stream at (the parent's own B on it, or its own
   // stream's where the parent is the root): from there it eases to its own over one spacing, so a head running into a slower or faster
   // branch keeps its strength as it crosses and thins or fills out along the way, instead of fading in a frame at the join.
@@ -116,8 +118,10 @@ void main() {
     if (eu > 0.0 && pid >= 0) {
       vec4 p4 = texelFetch(flow, ivec2(4, pid), 0);
       float pB = texelFetch(axis, ivec2(N_LAST + 1, pid), 0).y;
-      float Bp = pid == rid || (abs(p4.x - ch4.x) < 0.5 && p4.w > 0.0) ? (pB != 0.0 ? pB : (pid == rid ? 1.0 : p4.z)) : 1.0;
-      lvUp = chevLevel(pxW, cssPx, Bp, stillLv).x;
+      bool same = pid == rid || (abs(p4.x - ch4.x) < 0.5 && p4.w > 0.0);
+      float Bp = same ? (pB != 0.0 ? pB : (pid == rid ? 1.0 : p4.z)) : 1.0;
+      vec2 pl = texelFetch(axis, ivec2(N_LAST + 2, pid), 0).xy;
+      lvUp = !same ? lvOwn : pl.y > 0.5 ? max(pl.x, stillLv) : chevLevel(pxW, cssPx, Bp, stillLv).x;
     } else eu = 0.0;
   }
   float n0 = floor(min(lvOwn, mix(lvOwn, lvUp, eu)));
@@ -130,8 +134,10 @@ void main() {
   float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;
   float reach = 0.6 * L + 0.15 * hw + 4.0 * pxW;   // (how far along a head and its rim reach: chevOne's bound)
   if (sc < -reach || sc > len + reach) return;
-  // (Over one spacing, or most of a short vessel, so the level is its own by the far end, where the next vessel takes it up.)
-  float lvAt = mix(lvOwn, mix(lvUp, lvOwn, smoothstep(0.0, min(Pt, 0.9 * len), runDir > 0.0 ? sc : len - sc)), eu);
+  // (A head from the parent keeps the parent's level to the middle of the first spacing, or of most of a short vessel, and takes this
+  // vessel's within a few CSS px of travel there: a head that the slower branch thins out leaves at one place, quickly, never a faint run.)
+  float cut = 0.5 * min(Pt, 0.9 * len), cwid = min(0.03 * Pt, 0.5 * cut);
+  float lvAt = mix(lvOwn, mix(lvUp, lvOwn, smoothstep(cut - cwid, cut + cwid, runDir > 0.0 ? sc : len - sc)), eu);
   float keep = chevKeep(j, n0, lvAt);
   if (keep <= 0.0) return;
   // Toward either end a head fades out (and the next vessel's fades in); through a chained end it runs on (chevOne). (The ramp: an
@@ -278,7 +284,7 @@ export function createHeadList(nTubes) {
         if (has[r] && bloodRow[r]) {
           // (A run's heads stand P / |B| apart along the vessel, B its own (runs: while it eases after a hand-over) or 1 and the link's;
           // counted in fours, so a B easing by a little does not send a new list every frame.)
-          const len = Math.max(tube[r * rowW + 22] || 0, 1), bh = runs ? Math.abs(runs[r * 2 + 1] || 0) : 0;
+          const len = Math.max(tube[r * rowW + 22] || 0, 1), bh = runs ? Math.abs(runs[r * 4 + 1] || 0) : 0;
           ko = Math.ceil((Math.ceil(len * Math.max(1, bh) / P_MIN) + 3) / 4) * 4;
           if (flow && flow[r * stride + 19] > 0) kr = Math.ceil((Math.ceil(len * Math.max(Math.abs(flow[r * stride + 18]), bh, 1e-3) / P_MIN) + 3) / 4) * 4;
         }

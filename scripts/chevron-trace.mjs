@@ -137,14 +137,17 @@ function heads(U) {
       let P, Pc, n0 = 0, lvOwn = 0, lvUp = 0, eu = 0, fr = 0, Pt = 0;
       if (LAYOUT) {
         const stillLv = still ? f3[1] + 1.3219281 : -1, lw = LAYOUT.headLevel(pxW, cssPx, B, stillLv);
-        lvOwn = lvUp = lw.lv; Pt = lw.Pt;
+        const lr = A.w > N_SAMPLES + 1 ? ax(N_SAMPLES + 1, id) : [0, 0];
+        lvOwn = lvUp = lr[1] > 0.5 ? Math.max(lr[0], stillLv) : lw.lv; Pt = lw.Pt;
         if (root) {
           eu = Math.min(1, Math.max(0, runDir > 0 ? ch5[2] : ch5[3]));
           const pid = Math.round(f3[3]) - 1;
           if (eu > 0 && pid >= 0) {
             const p4 = fl(4, pid), pB = binary ? ax(N_SAMPLES, pid)[1] : 0;
-            const Bp = pid === rid || (Math.abs(p4[0] - ch4[0]) < 0.5 && p4[3] > 0) ? (pB !== 0 ? pB : pid === rid ? 1 : p4[2]) : 1;
-            lvUp = LAYOUT.headLevel(pxW, cssPx, Bp, stillLv).lv;
+            const same = pid === rid || (Math.abs(p4[0] - ch4[0]) < 0.5 && p4[3] > 0);
+            const Bp = same ? (pB !== 0 ? pB : pid === rid ? 1 : p4[2]) : 1;
+            const pl = A.w > N_SAMPLES + 1 ? ax(N_SAMPLES + 1, pid) : [0, 0];
+            lvUp = !same ? lvOwn : pl[1] > 0.5 ? Math.max(pl[0], stillLv) : LAYOUT.headLevel(pxW, cssPx, Bp, stillLv).lv;
           } else eu = 0;
         }
         n0 = Math.floor(Math.min(lvOwn, lvOwn + (lvUp - lvOwn) * eu)); P = 28 * 2 ** n0; Pc = 0.4 * Pt;
@@ -163,9 +166,10 @@ function heads(U) {
         if (sc < -reach || sc > len + reach) continue;
         let keep;
         if (LAYOUT) {
-          const lvAt = lvOwn + (lvUp + (lvOwn - lvUp) * ss(0, Math.min(Pt, 0.9 * len), runDir > 0 ? sc : len - sc) - lvOwn) * eu;
+          const lvAt = lvOwn + (lvUp + (lvOwn - lvUp) * ss(0.5 * Math.min(Pt, 0.9 * len) - Math.min(0.03 * Pt, 0.25 * Math.min(Pt, 0.9 * len)), 0.5 * Math.min(Pt, 0.9 * len) + Math.min(0.03 * Pt, 0.25 * Math.min(Pt, 0.9 * len)), runDir > 0 ? sc : len - sc) - lvOwn) * eu;
           keep = LAYOUT.headKeep(j, n0, lvAt);
           if (keep <= 0) continue;
+          if (process.env.CHEV_FAINT && keep < 0.95 && keep > 0.05) console.log('faint', id, root ? 'r' + rid : 'o', 'j', j, 'n0', n0, 'own', lvOwn.toFixed(3), 'up', lvUp.toFixed(3), 'eu', eu.toFixed(2), 'at', lvAt.toFixed(3), 'sc', sc.toFixed(1), '/', len.toFixed(1), 'lvcol', A.w > N_SAMPLES + 1 ? ax(N_SAMPLES + 1, id).map((v) => v.toFixed(3)).join(',') : '-');
         } else keep = gmod(j, 2) > 0.5 ? 1 - ss(0.15, 0.85, fr) : 1;
         const lo = 0.6 * L, ramp = Math.max(2 * L, 0.3 * Pc);
         let endF;
@@ -217,7 +221,7 @@ const POP = 0.12, JUMP_PX = 6;
 const rows = [];
 let prev = null, step = null, fi = 0;
 const linkW = new Map();
-const newStep = (tag) => { step = { tag, links: 0, frames: 0, pops: 0, popBy: {}, jumps: 0, lostBy: {}, gainBy: {}, dens: [], heads: 0 }; rows.push(step); };
+const newStep = (tag) => { step = { tag, links: 0, frames: 0, pops: 0, popBy: {}, jumps: 0, lostBy: {}, gainBy: {}, dens: [], heads: 0, faint: 0 }; rows.push(step); };
 const inv3 = (m) => {   // (column-major mat3 → its inverse)
   const [a, b, c, d, e, f, g, h, i] = m, A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
   return [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
@@ -247,6 +251,8 @@ const frame = () => {
   // (Density: heads' strength per 1000 CSS px of each vessel's on-screen run, vessels with at least 300 CSS px drawn.)
   const per = new Map();
   for (const h of map.values()) { const o = per.get(h.id) || { s: 0 }; o.s += h.fade; per.set(h.id, o); }
+  // (Faint by the spacing level: a head the level keeps between a twentieth and nineteen twentieths, per frame.)
+  for (const h of map.values()) if (h.fac.level > 0.05 && h.fac.level < 0.95) step.faint++;
   const lenPx = vesselScreenLen(U, scr);
   for (const [id, L] of lenPx) if (L > 300) step.dens.push(1000 * (per.get(id)?.s || 0) / L);
   if (prev) {
@@ -328,9 +334,9 @@ for (const id of ['cirr-decomp', 'pvt-acute', 'cirr-comp']) {
 
 const pct = (a, q) => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
 const fmt = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(', ') || '-';
-console.log('step                         links frames  heads  pops (by)                      jumps  lost (by cause)                       density /1000 css px p10 · p50 · p90');
+console.log('step                         links frames  heads  faint  pops (by)                      jumps  lost (by cause)                       density /1000 css px p10 · p50 · p90');
 for (const r of rows) {
-  console.log(`${r.tag.padEnd(28)} ${String(r.links).padStart(5)} ${String(r.frames).padStart(6)} ${(r.heads / Math.max(1, r.frames)).toFixed(1).padStart(6)}  ${String(r.pops).padStart(4)} ${JSON.stringify(r.popBy).slice(0, 28).padEnd(28)} ${String(r.jumps).padStart(6)}  ${fmt(r.lostBy).padEnd(38)} ${pct(r.dens, 0.1).toFixed(2)} · ${pct(r.dens, 0.5).toFixed(2)} · ${pct(r.dens, 0.9).toFixed(2)}`);
+  console.log(`${r.tag.padEnd(28)} ${String(r.links).padStart(5)} ${String(r.frames).padStart(6)} ${(r.heads / Math.max(1, r.frames)).toFixed(1).padStart(6)} ${(r.faint / Math.max(1, r.frames)).toFixed(1).padStart(6)}  ${String(r.pops).padStart(4)} ${JSON.stringify(r.popBy).slice(0, 28).padEnd(28)} ${String(r.jumps).padStart(6)}  ${fmt(r.lostBy).padEnd(38)} ${pct(r.dens, 0.1).toFixed(2)} · ${pct(r.dens, 0.5).toFixed(2)} · ${pct(r.dens, 0.9).toFixed(2)}`);
 }
 if (process.env.CHEV_TRACE_JSON) writeFileSync(process.env.CHEV_TRACE_JSON, JSON.stringify(rows.map((r) => ({ ...r, dens: [pct(r.dens, 0.1), pct(r.dens, 0.5), pct(r.dens, 0.9)] })), null, 1));
 process.exit(0);

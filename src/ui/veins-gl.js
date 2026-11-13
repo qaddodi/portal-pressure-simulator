@@ -2537,13 +2537,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // rows written since the last send, and which rows have one. The texture is made on the first send. One column more, N_SAMPLES: each
   // row's arrowhead run (setHeadRuns: the offset added to the run's A, and its B), which only the quads read.)
   const axisAll = new Float32Array(N_SAMPLES * 2 * nTubes), axisHas = new Uint8Array(nTubes);
-  const runsAll = new Float32Array(nTubes * 2);
+  const runsAll = new Float32Array(nTubes * 4);   // (per row: the heads' run offset and B, their level and 1: two texels past the axis)
   let axisLo = Infinity, axisHi = -1, axisTex = null, axisN = 0, runsOwed = false;
   function flushAxis() {
     if (axisHi < axisLo && !runsOwed) return;
     if (!axisTex) {
       axisTex = dataTex(gl);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES + 1, nTubes, 0, gl.RG, gl.FLOAT, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES + 2, nTubes, 0, gl.RG, gl.FLOAT, null);
       axisLo = 0; axisHi = nTubes - 1; runsOwed = true;
     } else gl.bindTexture(gl.TEXTURE_2D, axisTex);
     if (axisHi >= axisLo) {
@@ -2551,7 +2551,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (gpuProbe.on) gpuProbe.note('uploaded: axes', n * N_SAMPLES * 8 / 1024);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, axisLo, N_SAMPLES, n, gl.RG, gl.FLOAT, axisAll, axisLo * N_SAMPLES * 2);
     }
-    if (runsOwed) gl.texSubImage2D(gl.TEXTURE_2D, 0, N_SAMPLES, 0, 1, nTubes, gl.RG, gl.FLOAT, runsAll);
+    if (runsOwed) gl.texSubImage2D(gl.TEXTURE_2D, 0, N_SAMPLES, 0, 2, nTubes, gl.RG, gl.FLOAT, runsAll);
     axisLo = Infinity; axisHi = -1; runsOwed = false;
   }
   // (The heads' quads: the corner quad and, per head, its row, place and run: createHeadList.)
@@ -4586,7 +4586,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     setHeadRuns(data) {
       // (A row whose run changed is drawn again, as a row whose blood changed: its heads with it.)
       const n = Math.min(data.length, runsAll.length);
-      for (let i = 0; i < n; i++) if (runsAll[i] !== data[i]) { runsAll[i] = data[i]; runsOwed = true; moved[i >> 1] = 1; }
+      for (let i = 0; i < n; i++) if (runsAll[i] !== data[i]) { runsAll[i] = data[i]; runsOwed = true; moved[i >> 2] = 1; }
     },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {
