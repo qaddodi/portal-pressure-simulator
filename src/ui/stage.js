@@ -1026,7 +1026,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // lifted portal vein.)
   }
   // Context veins are always translucent; collaterals start faint until the model says otherwise.
-  for (const x of EV) if (!x.isArt) { if (CONTEXT_EDGES.has(x.e.id) && !IVC_EDGES.has(x.e.id)) setLevel(x, 0.6); else if (x.e.kind === 'collateral') setLevel(x, 0.3); }
+  // (The left renal vein, where the shunts land, is near-solid (0.9, not 1, so the portal tree stays in front of it where they cross): drawn over the bowel, not seen through.)
+  for (const x of EV) if (!x.isArt) { if (CONTEXT_EDGES.has(x.e.id) && !IVC_EDGES.has(x.e.id)) setLevel(x, x.e.id === 'LRV_IVC' || x.e.id === 'V_KID_L' ? 0.9 : 0.6); else if (x.e.kind === 'collateral') setLevel(x, 0.3); }
   // Performance: every model frame (≈10 a second) would otherwise rewrite hundreds of SVG
   // attributes with values that differ only in the third decimal, and each write makes the
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
