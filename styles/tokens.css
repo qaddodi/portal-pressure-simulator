@@ -162,6 +162,9 @@
 :root {
   --bg: #F1EBE0;
   --stage-bg: #F1EBE0;
+  --vg-keep: 83%;
+  --vg-tint: #5A3C1E;
+  --vg-lift: 0%;
   --surface: #FCF9F3;
   --surface-2: #F5F0E6;
   --surface-3: #E9E2D4;
@@ -436,6 +439,9 @@
     --surface: #242321;
     --surface-2: #2B2A27;
     --surface-3: #333130;
+    --vg-keep: 62%;
+    --vg-tint: #000000;
+    --vg-lift: 0%;
     --on-accent: #15140F;
     --on-status: #15140F;
     --skin: #7A5E55;
@@ -677,6 +683,9 @@
   --surface: #242321;
   --surface-2: #2B2A27;
   --surface-3: #333130;
+  --vg-keep: 62%;
+  --vg-tint: #000000;
+  --vg-lift: 0%;
   --on-accent: #15140F;
   --on-status: #15140F;
   --skin: #7A5E55;
@@ -918,6 +927,8 @@
   --organ-a: .52;
   --bg: #DDD0B9;
   --stage-bg: #DDD0B9;
+  --vg-keep: 80%;
+  --vg-tint: #5A3C19;
   --surface: #F0E9DC;
   --surface-2: #E5D9C3;
   --surface-3: #D3C5AB;
@@ -1129,6 +1140,8 @@
   --surface: #161E30;
   --surface-2: #1B2438;
   --surface-3: #232D44;
+  --vg-keep: 58%;
+  --vg-tint: #00000A;
   --on-accent: #0B1120;
   --on-status: #0B1120;
   --glass: rgba(16, 23, 42, .95);
@@ -1215,6 +1228,8 @@
   --surface: #0D0D0E;
   --surface-2: #141416;
   --surface-3: #1C1C1F;
+  --vg-keep: 100%;
+  --vg-lift: 7.5%;
   --on-accent: #0A0A0B;
   --on-status: #0A0A0B;
   --glass: rgba(10, 10, 11, .95);
