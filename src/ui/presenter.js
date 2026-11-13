@@ -2297,6 +2297,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
   const PREP_MS = 160;   // motion-scale: not a move (a budget for a slide's preparation)
+  // (A talk opening has nothing to answer: its cover is up, so the first slide waits for its preparation up to PREP_BOOT_MS, not PREP_MS. On Mohammad's
+  // iPhone the lap of 13 Nov 2026 showed the opening slide unprepared ("prep-preparing"): its data card and shaders needed more than 160 ms.)
+  const PREP_BOOT_MS = 1500;   // motion-scale: not a move (a budget for the opening slide's preparation, under the cover)
   let prepT = 0;
   // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
   // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
@@ -2305,9 +2308,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const degrade = (why) => { degraded.n++; degraded.last = why; if (ui) ui.root.dataset.pzDegraded = why; };
   function prepHold(i, then) {
     clearTimeout(prepT);
-    const t0 = performance.now(), tx = txn;
+    const t0 = performance.now(), tx = txn, budget = booting ? PREP_BOOT_MS : PREP_MS;
     txn?.onRelease(() => { clearTimeout(prepT); prepT = 0; });
-    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i)) then(); else if (performance.now() - t0 >= PREP_MS) { const st = slidePrep.state(i); degrade('prep-' + st); if (st !== 'preparing') slidePrep.aim(i, turn, tx ? tx.live : undefined); then(); } else prepT = setTimeout(look, 16); };
+    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i)) then(); else if (performance.now() - t0 >= budget) { const st = slidePrep.state(i); degrade('prep-' + st); if (st !== 'preparing') slidePrep.aim(i, turn, tx ? tx.live : undefined); then(); } else prepT = setTimeout(look, 16); };
     prepT = setTimeout(look, 16);
   }
   // (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the way. it should all be responsive". A Next while the last

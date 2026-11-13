@@ -1942,7 +1942,31 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // final phase of the frame that shows it, so the glass still never trails its outline, and one made in a frame before the glass's turn
   // is taken by its loop (takeRecords). The microtask draw it was had drawn a second time in a frame while callouts moved; 30 Oct,
   // review H4b.)
-  const mo = new MutationObserver((recs) => { if (!recs?.length || changed(recs)) measureEarly(); quiet = 0; ask(); });
+  // (A translation or an opacity written on an element inside a glass, none of them a glass, or holding one: a tile's bar, a mark, a word's fade. It
+  // cannot move a glass or change its box, so it wakes nothing. The shown state wrote those 40 times a second at rest on Mohammad's iPhone and
+  // each write asked this loop for a frame, so the glass looked at a figure that had not moved: the lap of 13 Nov 2026, glass-cards 60 callbacks a second.)
+  function innerOnly(recs) {
+    const list = geo?.list;
+    if (!list?.length) return false;
+    for (const r of recs) {
+      const e = r.target;
+      if (r.type !== 'attributes' || r.attributeName !== 'style' || !e) return false;
+      let inside = false;
+      for (let i = 0; i < list.length; i++) {
+        const g = list[i];
+        if (g === e || e.contains?.(g)) return false;
+        if (g.contains?.(e)) inside = true;
+      }
+      if (!inside) return false;
+    }
+    return true;
+  }
+  const mo = new MutationObserver((recs) => {
+    const moves = !!recs?.length && !changed(recs);
+    if (moves && innerOnly(recs)) return;
+    if (!recs?.length || !moves) measureEarly();
+    quiet = 0; ask();
+  });
   const watched = cards ? [...cards.watch] : layers;   // (a copy: watch(root) adds to it)
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
   const again = () => measureEarly();

@@ -53,7 +53,7 @@ const readFrame = readFrameFor('stage-read');
 // (recs.md 2.1: a solve of the figure's labels runs in slices of LABEL_SLICE_MS, yielding between labels, the rest in the next frames'
 // spare time (frame.js mayTask), the labels standing as they were meanwhile; a solve that fits its first slice lands in the same frame, as
 // before. A camera that moves under it drops it, and the labels carry as they always did.)
-const LABEL_SLICE_MS = 2, LABEL_REST_SLICE_MS = 8, LABEL_FIRST_REST_MS = 24;   // motion-scale: not a move (budgets of the label solve)
+const LABEL_SLICE_MS = 2, LABEL_REST_SLICE_MS = 8, LABEL_FIRST_REST_MS = 12;   // motion-scale: not a move (budgets of the label solve; the first slice at rest 24 -> 12 on 13 Nov 2026: the iPhone's lap showed a 68 ms "update: labels" at the end of a view change, a solve that runs on over frames in 8 ms slices lands a frame or two later instead)
 function sameDeps(a, b) { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; }
 let themeKeyTheme, themeKeyPalette, themeKeyVal = '';   // (the last theme and palette read, and the key made of them: built again only when one changed)
 const themeKey = () => {

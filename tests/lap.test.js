@@ -54,6 +54,18 @@ test('runSteps cuts the recorder per step, writes a failed step down and goes on
   assert.equal(part.length, 1);
 });
 
+test('a rest step waits its lead before it is measured, so rest pacing (4 s after the last touch) is what is read', async () => {
+  let t = 0, frames = 0;
+  const reads = [];
+  const res = await lap.runSteps([{ name: 'rest, start', lead: 5000, hold: 8000 }], {
+    sleep: async (ms) => { t += ms; frames += ms / 10; }, now: () => t, read: () => { reads.push(t); return edge({ frames }); }, watch: () => () => {}, onStep: () => {},
+  });
+  assert.deepEqual(reads, [5000, 13000], 'counts are read after the lead and after the hold');
+  assert.equal(res[0].secs, 8); assert.equal(res[0].frames, 800);
+  const route = lap.buildRoute({ loadPreset: async () => {}, presenter: { start: async () => {}, go() {}, stop() {} } }, () => {});
+  for (const n of ['rest, start', 'rest, end']) assert.ok(route.find((r) => r.name === n).lead >= 4000, `${n} leads by more than the 4 s before rest pacing`);
+});
+
 test('the report names the device, every step, rest against rest, the long frames, what was caught and what was shown unprepared', () => {
   const mk = (name, o) => ({ name, secs: 5, frames: 100, fps: 20, gapP50: 16.7, gapP95: 20, gapMax: 40, scriptP95: 4, long: 0, longList: [], vesselDraws: 5, composites: 2, wholes: 0, blurs: 0, presents: 3, surfaces: '  surfaces (callbacks / draws): stage 40 / 30', ...o });
   const steps = [mk('rest, start', { fps: 30, composites: 25, vesselDraws: 800 }), mk('Anatomy to Circuit', { long: 2, longList: [{ at: 4000, gap: 90, script: 70, phases: { early: 60, late: 10, final: 0 }, top: [['presenter', 'early', 60]], outside: 20 }] }),
