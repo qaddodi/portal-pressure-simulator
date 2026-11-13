@@ -449,8 +449,9 @@ export function createBlood(st, live) {
     }
     // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
     // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
-    // review, B4).
-    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st ? 1 : 0, tO = originOn() ? 1 : 0;
+    // review, B4). The chevrons also stand aside while the figure changes between Anatomy and Circuit and come back as it lands (Mohammad,
+    // 13 Nov 2026, "do 2"): a vessel sliding against its own flow carried its arrows backward on the screen.
+    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st && live.morph === live.morphTarget ? 1 : 0, tO = originOn() ? 1 : 0;
     blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
     blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);

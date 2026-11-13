@@ -61,7 +61,7 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   assert.match(gl, /UC\.f3\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
   const blood = fn(stage, '  function stepBlood(dt) {');
   // Eased from their switches (the catheter hides the chevrons), kept awake while on the way (bloodEasing); Reduce Motion fades too.
-  assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
+  assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st && live\.morph === live\.morphTarget \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
   assert.match(blood, /blendA\.c = blendA\.c == null \? tC : eased\(blendA\.c, tC, kF\);/);
   assert.match(blood, /const on = blendA\.s > 0 \|\| blendA\.c > 0 \|\| blendA\.o > 0;/);
   // Reveals and strands: blood strength follows the stroke and the strand's share; nothing waits for 0.5 or the reveal's end.
