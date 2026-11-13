@@ -188,3 +188,20 @@ test('pairScales: each axis fills the height, the steps are shared, a flat line 
   const [F] = pairScales([60, 60, 60], [1, 2]);
   assert.ok(F.min < 60 && F.max > 60);
 });
+
+test('a days chart with a view: honest scales from zero, the state before the change at day 0, the ripple calmed and the ends kept', () => {
+  // (Encephalopathy, "Closing the shunt raises the portal pressure again": the model's day-by-day PPG and risk ripple with the beat's phase.)
+  const rip = (d, a, b) => [d, a + (d % 2 ? 0.3 : -0.3) * (d % 7 ? 1 : 0.5), b + (d % 2 ? 0.02 : -0.02)];
+  const tr = Array.from({ length: 61 }, (_, d) => rip(d, 18.9 + 0.005 * d, 0.44 + 0.0007 * d));
+  const view = { smooth: 5, scales: { ppg: [0, 25, 5], he: [0, 1, 0.2] }, before: { ppg: 10.1, he: 0.81 } };
+  const raw = flowTimeSeries(tr, 'days', ['ppg', 'he']), ser = flowTimeSeries(tr, 'days', ['ppg', 'he'], null, view);
+  assert.equal(ser.min.length, 61);
+  assert.equal(ser.pv[0], 10.1); assert.equal(ser.flow[0], 0.81);
+  assert.equal(ser.pv[1], raw.pv[1]); assert.equal(ser.pv.at(-1), raw.pv.at(-1), 'the last day is the slide\'s own reading');
+  assert.deepEqual([ser.pScale.min, ser.pScale.max, ser.fScale.min, ser.fScale.max], [0, 25, 0, 1]);
+  assert.equal(ser.pScale.ticks.length, ser.fScale.ticks.length, 'one set of gridlines');
+  const wob = (a) => Math.max(...a.slice(2, -1).map((v, i) => Math.abs(v - a[i + 1])));
+  assert.ok(wob(ser.pv) < 0.25 && wob(raw.pv) > 0.5, `ripple ${wob(ser.pv)} against ${wob(raw.pv)}`);
+  // (Without a view the chart is as it was.)
+  assert.deepEqual(flowTimeSeries(tr, 'days', ['ppg', 'he'], null, null).pv, raw.pv);
+});

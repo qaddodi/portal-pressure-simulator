@@ -3163,7 +3163,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     holdEase = answerAfter(s, i);
     holdAnswer(!s.visual && (!!s.hold || holdEase), true);
   }
-  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
+  // (A days chart that starts from an earlier slide's state, tool.view.since: that state's readings of the chart's two lines, for its first day.)
+  const viewBefore = (t, i) => {
+    const j = t.view?.since ? slides.findIndex((x, k) => k <= i && x.id === t.view.since) : -1, fp = j >= 0 ? states[stateOf[j]]?.fp : null;
+    return fp ? Object.fromEntries(t.lines.map((k) => [k, fp[k]])) : null;
+  };
+  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, before: viewBefore(s.tool, i), chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
 
   // ── Cards that stay between slides ──
   // A slide change used to fade both cards out and build both again. When the next slide's data card is the same (the same instrument

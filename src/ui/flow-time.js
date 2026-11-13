@@ -85,6 +85,7 @@ const fixedScale = ([lo, hi, step]) => scaleOf({ lo, step }, Math.round((hi - lo
  *  with a scale given (LINE option scale) keeps it and the other is fitted to its step count; else the count (2 to 5) that wastes the
  *  least of either axis, four preferred. → [left scale, right scale], each { min, max, ticks }. */
 export function pairScales(vl, vu, optL = {}, optU = {}) {
+  if (optL.scale && optU.scale) return [fixedScale(optL.scale), fixedScale(optU.scale)];   // (both given, in the same number of steps: a slide's own honest scales)
   if (optL.scale) { const L = fixedScale(optL.scale), n = L.ticks.length - 1, [a, b] = rangeOf(vu, optU.pad); return [L, scaleOf(fitSteps(a, b, n), n)]; }
   if (optU.scale) { const U = fixedScale(optU.scale), n = U.ticks.length - 1, [a, b] = rangeOf(vl, optL.pad); return [scaleOf(fitSteps(a, b, n), n), U]; }
   const [la, lb] = rangeOf(vl, optL.pad), [ua, ub] = rangeOf(vu, optU.pad);
@@ -99,8 +100,14 @@ export function pairScales(vl, vu, optL = {}, optU = {}) {
 /** trail: [[day, ...the model's lines], ...] → { min (the clock: minutes, or days), pv (the lower line), flow (the upper), one
  *  value a step from ax.from to ax.end, each one's scale, and ax }. On the meal clock the trail's first day is the meal
  *  (0 min), its last the end of the rise; on the 'days' clock each model day is its own step. lines: their keys, their scales;
- *  given: the end value of a line the slide gives (LINE option given), which climbs from 0 to it as the time-lapse runs. */
-export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null) {
+ *  given: the end value of a line the slide gives (LINE option given), which climbs from 0 to it as the time-lapse runs.
+ *  view (the days clock, optional; the slide's tool): { scales: { key: [min, max, step] } (a line's own scale in place of a fitted one: a
+ *  pressure from zero, so a change keeps its true size; both lines need one, in as many steps), smooth: n (each model day is the mean of the
+ *  2n + 1 days around it, fewer toward the two ends, whose own readings stay: the model's day-by-day readings carry the beat's and the
+ *  breath's phase at the moment each was taken, a ripple of a few tenths of a mmHg that is no part of a two-month trend), before: { key:
+ *  value } (the state before the change the time-lapse starts from, drawn at day 0 on the day of the change; the model's own first day
+ *  is then day 1, a step at the very left, as sudden as the change is) }. */
+export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null, view = null) {
   const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
   const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));
   if (pts.length < 2 || lines.some((k) => opt(k).given && !Number.isFinite(given?.[k]))) return null;
@@ -115,9 +122,25 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
     return (pts[i - 1][col(k)] + (pts[i][col(k)] - pts[i - 1][col(k)]) * f) * x[j];
   };
   const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
-  const pv = min.map((m) => at(0, m)), flow = min.map((m) => at(1, m));
-  const [pScale, fScale] = pairScales(pv, flow, opt(lines[0]), opt(lines[1]));
+  const lead = clock === 'days' && view?.before && lines.every((k) => Number.isFinite(view.before[k])) ? 1 : 0;   // (days drawn from the state before the change)
+  const col0 = (j) => Array.from({ length: min.length }, (_, k) => (k < lead ? view.before[lines[j]] * x[j] : at(j, min[k])));
+  const calm = (a, j) => (clock !== 'days' || !(view?.smooth > 0) || opt(lines[j]).given ? a : smoothed(a, view.smooth, lead));
+  const pv = calm(col0(0), 0), flow = calm(col0(1), 1);
+  const o = (j) => (view?.scales?.[lines[j]] ? { ...opt(lines[j]), scale: view.scales[lines[j]] } : opt(lines[j]));
+  const [pScale, fScale] = pairScales(pv, flow, o(0), o(1));
   return { min, pv, flow, pScale, fScale, ax };
+}
+// Each value from index `from` on, the mean of the values within h days of it (the window shortened toward either end so it stays centred,
+// the first and last readings kept as they are, so the ends match the numbers beside the chart). The first `from` values are left alone.
+function smoothed(a, h, from = 0) {
+  const n = a.length;
+  return a.map((v, i) => {
+    if (i <= from || i === n - 1) return v;
+    const r = Math.min(h, i - from, n - 1 - i);
+    let t = 0;
+    for (let k = i - r; k <= i + r; k++) t += a[k];
+    return t / (2 * r + 1);
+  });
 }
 
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
@@ -218,7 +241,7 @@ export function createFlowTime() {
   el.className = 'pz-flowtime';
   const gl = createSvgGL(el, { host: 'flowtime' });
   el.dataset.lines = MEAL_LINES.join(',');
-  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
+  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, view = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
   const Yof = yOf;
@@ -372,10 +395,10 @@ export function createFlowTime() {
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper], given? } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */
     set(trail, k = 1, spec) {
-      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; given = spec.given || null; el.dataset.lines = keys.join(','); el.classList.toggle('days', clock === 'days'); }
-      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, given, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
+      if (spec) { clock = spec.clock || 'meal'; keys = spec.lines || MEAL_LINES; given = spec.given || null; view = spec.view || null; el.dataset.lines = keys.join(','); el.classList.toggle('days', clock === 'days'); }
+      const s2 = trail === undefined ? sig : trail ? JSON.stringify([clock, keys, given, view, trail[0], trail.at(-1), ...(rx.length ? [rx] : [])]) : '';
       if (s2 !== sig) {
-        sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys, given);
+        sig = s2; LINES = linesOf(keys); ser = flowTimeSeries(trail, clock, keys, given, view);
         const old = [...el.children].filter((c) => c.hasAttribute('data-svg-model'));
         parts = ser ? make() : null;
         shown = goal = minuteOf(k);

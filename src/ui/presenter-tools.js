@@ -18,7 +18,8 @@
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //   tool: { kind: 'evgraph', title? }                a TIPS, BRTO or BATO slide's procedure graph (event-graph.js) in the data card, drawn live after the stent as the presenter plays it
-//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too)
+//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too;
+//   view: { scales, smooth, since } shapes the days chart, see flowTimeSeries: since is a slide's id, whose state the lines start from)
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
@@ -136,11 +137,12 @@ export function createTools({ host, stage }) {
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
+     *  before: for a flow-time chart with view.since, the readings of that slide's state ({ key: value }).
      *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js).
      *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()).
      *  balloon: the catheter's balloon on the figure now, for a tracing that follows it (balloon()).
      *  figure: { move, start } for a tracing card with the catheter on the figure beside it: told the card's own balloon (tool-hvpg.js watch). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null, figure = null } = {}) {
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null, figure = null, before = null } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -173,7 +175,7 @@ export function createTools({ host, stage }) {
       cur = inst; kind = k;
       box.dataset.kind = k === 'evgraph' ? 'flowtime' : k;   // (the procedure's graph is the flow-time chart's box and looks: its card sizes and fits as that one does)
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given });
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view ? { scales: t.view.scales, smooth: t.view.smooth, before } : null });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
       if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },
