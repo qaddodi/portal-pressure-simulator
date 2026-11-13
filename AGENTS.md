@@ -11,7 +11,8 @@ Work happens in the cloud; previews are published to GitHub Pages.
   `claude/**` pushes are checked but leave the preview alone, so merge into the integration
   branch to preview. Pushing it triggers `.github/workflows/pages.yml`, which republishes
   the live site at `/` and that branch at `/preview/` (about a minute or two).
-  Pushing `main` republishes both from `main`, so after a merge `/preview/` equals the live site
+  Pushing `main` republishes the live site from `main`; `/preview/` is rebuilt from the integration branch's head while it has commits main does not (owner, 13 Nov 2026:
+  a slow main deploy must never put an older build over a newer branch deploy), and from `main` once the branch is merged, so after a merge `/preview/` equals the live site
   (still badged, "PREVIEW · main <commit>", so it stays recognisable as the preview).
   `/preview/preview-info.txt` shows which branch and commit the preview was built from.
   Do not publish preview artifacts.
@@ -39,7 +40,7 @@ Loop for every change (fast previews first, full tests before merge):
    GPU; `/mnt/project-files/portal-reliability/checks-redesign-recs.md`). Their scripts stay in the repo as local tools, and
    several unit tests reuse their judging code. In the app, `?perf` lists every frame over 50 ms with its surfaces and phase and
    the slowest inputs, and Copy puts them in the paste.
-5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
+5. Merge to `main` only when the owner says so. Once the branch is merged, `/preview/` matches `main` again.
    If the branch is already merged, restart it from the latest `main` before more work.
 
 **Nothing off the GPU (owner, 1 Nov 2026: "block everything until everything is on GPU").** `npm run lint` and the unit tests run
