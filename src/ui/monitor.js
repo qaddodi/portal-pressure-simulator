@@ -15,7 +15,7 @@ import { FONT } from './charts.js';
 import { ease, k01 } from './hvpg-clock.js';
 import { fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
-import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
+import { dropK, inkSeg } from './trace-callouts.js';
 
 // The monitor's colours, dark in both themes (theme-tokens.js --mon-*; a reading's are the dark looks' trace colours, theme-tokens.js DARK_TRACE).
 export const MON_TOKENS = { bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
@@ -61,7 +61,8 @@ export function rrect(ctx, x, y, w, h2, r) {
 // What monitorNote keeps for each note it has drawn: its words wrapped for one width and font, so a frame measures once and wraps never.
 const noteWrap = new Map();   // text → { maxW, probe, tw, lines }
 const NOTE_BOX = { x: 0, y: 0, w: 0, h: 0, lines: null };
-let FS = 12;   // the monitor's word size this frame (traceRoom's fs: 12 on a small monitor, up to 15 on a wide one)
+let FS = 13;   // the monitor's word size this frame (traceRoom's fs: 13 on a small monitor, up to 17 on a wide one)
+let PW = 0, PX = 9;   // the width of the widest reading tag at the right axis this frame, and its side padding (monOn sets them)
 /** A note on the monitor, centred between x0 and x1 about cy, wrapped at word breaks to that width (the current font, 16 px
  *  lines), on a patch of the monitor's own background 8 px wider and 4 px taller than the words each side. Returns its box (a kept
  *  object, valid until the next note). The wrap is redone only when the width, or the width the font gives the whole text, changes. */
@@ -121,17 +122,17 @@ function monOn({ ctx, w, h: hh }, S, st) {
   const { ph, t, v, wave } = st;
   ctx.clearRect(0, 0, w, hh);
   rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
-  const x = 14, y = 10, W = w - 28, H = hh - 18;
-  const narrow = W < 300;
+  const x = 12, y = 10, W = w - 24, H = hh - 18;
+  const narrow = W < 300, tags = W >= 200;   // (narrow: the words give way; tags: room for each reading's tag at the right end of its line)
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
+  // (Every word on the monitor at 13 px or more; the header takes the longest form that clears the big reading. Mohammad, 13 Nov 2026: "the fonts are way too small for the size of the monitor".)
   const { big, fs, k: HK } = traceRoom(W, H, 10); FS = fs;
   ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
-  ctx.fillStyle = C.text; ctx.font = FONT(600, FS);
-  ctx.fillText(fitLine(ctx, S.heads, room), x, y + 13 * HK);
   if (ph === 'abort') {
+    ctx.fillStyle = C.text; ctx.font = FONT(600, FS);
+    ctx.fillText(fitLine(ctx, S.heads, room), x, y + 15 * HK);
     const [title, line, sub] = S.abort;
-    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32 * HK);
+    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 34 * HK);
     ctx.textAlign = 'center'; ctx.font = FONT(600, FS); ctx.fillText(narrow ? title : line, w / 2, hh / 2 + 8);
     ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.fillText(sub, w / 2, hh / 2 + 28);
     return;
@@ -141,9 +142,16 @@ function monOn({ ctx, w, h: hh }, S, st) {
   else if (ph === 'enter') ST.label = S.enterWord || 'Catheter advancing';
   else S.status(t, v, st, ST);
   const col = C[ST.col] || C.text;
-  ctx.font = FONT(600, FS); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.fillText(ST.label, x, y + 32 * HK);
-  if (ST.num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(ST.num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const { top, bot } = traceRoom(W, H, y), L = x + Math.round(FS * 1.8), R = x + W - (narrow ? 2 : Math.round(FS * 4.2));
+  // (What the tip reads, then the words for the axis, on one row when they fit beside each other and on two when they do not; the big reading at the right.)
+  ctx.font = FONT(700, FS + 2); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.fillText(ST.label, x, y + 15 * HK);
+  const lw = ST.label ? ctx.measureText(ST.label).width + 14 : 0, room1 = room - lw;
+  ctx.font = FONT(600, FS); ctx.fillStyle = C.text;
+  const head1 = fitLine(ctx, S.heads, room1);
+  if (ctx.measureText(head1).width <= room1) ctx.fillText(head1, x + lw, y + 15 * HK);
+  else ctx.fillText(fitLine(ctx, S.heads, room), x, y + 34 * HK);
+  if (ST.num) { ctx.font = FONT(700, big); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.textAlign = 'right'; ctx.fillText(ST.num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
+  // (The trace takes the monitor's whole width, its axis numbers inside it and each reading's tag at the right end of its dashed line: Mohammad, 13 Nov 2026, option C.)
+  const { top, bot } = traceRoom(W, H, y), L = x, R = x + W;
   const note = st.probing ? S.notes.probe : ph === 'idle' ? S.notes.idle : S.notes.wait;
   if (bot - top < TRACE_MIN) {
     // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
@@ -156,13 +164,18 @@ function monOn({ ctx, w, h: hh }, S, st) {
   }
   const ymax = S.ymax(v);
   // (Room kept at the right of the sweep's end for the last level's dashes: a trace that runs to the window's end would leave none, and its level line would vanish.)
-  const reserve = Math.min(STUB_PX + 6, 0.25 * (R - L)), tEnd = S.win[1];
+  const L0 = S.levels[0], L1 = S.levels[1];
+  ctx.font = FONT(700, FS); PX = Math.round(FS * 0.7);
+  PW = !tags ? 0 : Math.ceil(Math.max(L0 ? ctx.measureText(L0[3]).width : 0, L1 ? ctx.measureText(L1[3]).width : 0) + FS * 0.4 + ctx.measureText('88.8').width + 2 * PX);
+  // (The tags stand over the right end of their lines, so the sweep ends left of them: 26 px clear for the difference's bracket.)
+  const reserve = !tags ? Math.min(STUB_PX + 6, 0.25 * (R - L)) : Math.min(PW + 26, 0.34 * (R - L)), tEnd = S.win[1];
   axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R; axT0 = S.win[0]; axT1 = tEnd + (tEnd - S.win[0]) * reserve / Math.max(1, R - L - reserve);
-  ctx.lineWidth = 1; ctx.font = FONT(500, FS); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 1; ctx.font = FONT(500, FS); ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   for (let p = 0; p <= ymax; p += 5) {
     ctx.fillStyle = p ? C.grid : C.line; ctx.fillRect(L, Math.round(Y(p)), R - L, 1);   // (boxes, not stroked lines: see inkSeg)
-    if (p % 10 === 0 || ymax <= 20) { ctx.fillStyle = C.text; ctx.fillText(tick(p), L - 5, Y(p)); }
+    if (p % 10 === 0 || ymax <= 20) { ctx.fillStyle = C.text; ctx.fillText(tick(p), L + 3, Math.round(Y(p)) - 4); }   // (inside the grid, just above its line)
   }
+  ctx.textBaseline = 'middle';
   if (ph === 'idle' || ph === 'enter') {
     // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
     // so no gridline runs through it: sweep 2 review items 14 and 15.)
@@ -176,31 +189,30 @@ function monOn({ ctx, w, h: hh }, S, st) {
     ctx.fillStyle = C.caution; ctx.globalAlpha = 0.7;
     for (let xx = L; xx < R; xx += dash + gap) ctx.fillRect(xx, ty, Math.min(dash, R - xx), 1);
     ctx.globalAlpha = 1;
-    if (!narrow) { ctx.font = FONT(600, FS); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = C.caution; ctx.fillText(S.targetWord, R, ty - 4); }
+    if (!narrow) { ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = C.caution; ctx.fillText(S.targetWord, L + Math.round(FS * 2.6), ty - 4); }   // (at the left, past the axis numbers: the right end is the readings' tags)
   }
   // The trace, swept up to now, each stretch in the colour of what the tip reads there.
   const tNow = Math.min(t, tEnd);
   for (let i = 0; i < S.segs.length; i++) { const sg = S.segs[i]; seg(ctx, S, v, wave, sg[0], sg[1], C[sg[2]], tNow); }
   if (t < tEnd && t > axT0) { const p = S.at(tNow, v, wave); if (Number.isFinite(p)) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(p), 2.6, 0, Math.PI * 2); ctx.fill(); } }
-  // (Each level's name and number at the right, centred on its line; two pairs kept 28 px apart so they never touch.)
-  const L0 = S.levels[0], L1 = S.levels[1];
+  // (Each level's name and number in a tag at the right end of its line; two tags kept apart so they never touch.)
   const on0 = !!L0 && t >= L0[0], on1 = !!L1 && t >= L1[0];
   if (on0 || on1) {
     const a = on0 ? v[L0[1]] : NaN, b = on1 ? v[L1[1]] : NaN;
     const both = on0 && on1, lo = both ? (a <= b ? 0 : 1) : on0 ? 0 : 1;   // (the lower level's label goes below, the upper's above)
-    const yA = Y(a), yB = Y(b), sep = both ? Math.max(0, 28 * HK - Math.abs(yA - yB)) / 2 : 0;
-    const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 12), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - 28 * HK);
+    const yA = Y(a), yB = Y(b), SEP = Math.max(28 * HK, FS * 2), sep = both ? Math.max(0, SEP - Math.abs(yA - yB)) / 2 : 0;
+    const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 16), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - SEP);
     // (Each level's line is faded and dashed, from the end of its own trace to the right axis where its label stands, not a solid rule across the whole screen: Mohammad, 13 Nov 2026.)
     const sa = on0 ? stubAt(S, L0, tNow) : 0, sb = on1 ? stubAt(S, L1, tNow) : 0;
     if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, a, tNow, sa);
-    if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 12), narrow, R, cLv0, sa);
-    if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 12), narrow, R, cLv1, sb);
+    if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 16), !tags, R, cLv0, sa);
+    if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 16), !tags, R, cLv1, sb);
   }
   const res = S.result;
   if (res && t >= res.show) {
     const lo = v[res.lo], hi = v[res.hi], g = v[res.key];
     if (Number.isFinite(lo) && Number.isFinite(hi) && Number.isFinite(g)) {
-      const a = ease(k01(t, res.at - 400, res.at + 200)), xa = L + (R - L) * 0.9, y1 = Y(lo), y2 = Y(lo + (hi - lo) * a), col2 = C[SEV_C[res.sev(g)]];
+      const a = ease(k01(t, res.at - 400, res.at + 200)), xa = !tags ? R - 0.1 * (R - L) : R - PW - 14, y1 = Y(lo), y2 = Y(lo + (hi - lo) * a), col2 = C[SEV_C[res.sev(g)]];
       ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
       ctx.fillRect(xa - 0.8, Math.min(y1, y2), 1.6, Math.abs(y2 - y1));
       if (Math.abs(y1 - y2) > 10) { const d = hi >= lo ? 1 : -1; arrowHead(ctx, xa, y1, d); arrowHead(ctx, xa, y2, -d); }
@@ -217,12 +229,14 @@ function monOn({ ctx, w, h: hh }, S, st) {
   }
   // (A marker drops onto the trace where each reading is taken, at the moment the figure's callout prints it: they stand on the trace itself, so they move with it.)
   for (let i = 0; i < S.drops.length; i++) {
-    const [at, word, key, ck, want] = S.drops[i];
+    const [at, , key, ck] = S.drops[i];
     if (t < at || !Number.isFinite(v[key])) continue;
     const p = S.at(at, v, wave);
     if (!Number.isFinite(p)) continue;
-    const yp = Y(p);
-    drawCallout(ctx, calloutText(cDrop[i] ||= calloutCell(), word, v[key]), X(at), yp, sideFor(yp, want, top, bot), C[ck], C.bg, dropK(t - at), 1, L, R, top, bot, FS);   // alloc-rare: a marker's cell, once
+    const yp = Y(p), k = dropK(t - at);
+    // (A dot only: each reading's name and number stand in its tag at the right end of its line, so the trace is not lettered twice.)
+    ctx.globalAlpha = k; ctx.fillStyle = C[ck]; ctx.beginPath(); ctx.arc(X(at), yp, 3.8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
   }
   // (A step's tick and its words come with the step, not before: the balloon's "balloon up", Mohammad, 12 Nov 2026.)
   for (let i = 0; i < S.ticks.length; i++) {
@@ -233,7 +247,7 @@ function monOn({ ctx, w, h: hh }, S, st) {
     ctx.fillStyle = C.line; ctx.fillRect(X(at) - 0.5, bot, 1, 4);
   }
 }
-const cLv0 = cell(), cLv1 = cell(), cRes = { v: undefined, w: '', s: '' }, cDrop = [];
+const cLv0 = cell(), cLv1 = cell(), cRes = { v: undefined, w: '', s: '' };
 
 // The trace from a to b (ms on the script's clock), swept as far as tNow; a stretch where the script reads nothing (NaN: the needle out, another
 // way in) is left blank. (Drawn with the axes monOn set: Y, X.)
@@ -263,7 +277,16 @@ function level(ctx, p, colr, txt, ly, narrow, R, c, x0) {
     for (let xx = x0; xx < x1; xx += DASH + DASH_GAP) ctx.fillRect(xx, dy, Math.min(DASH, x1 - xx), 1);   // (boxes, not a stroked dash: see seg)
     ctx.restore();
   }
-  if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(txt, R + 6, ly - FS * 0.6); ctx.font = FONT(700, FS); ctx.fillText(fm1(c, p), R + 6, ly + FS * 0.6); }
+  if (!narrow) {
+    // (The reading's tag: its name and number on the monitor's ground, tinted in its colour, ending at the right axis.)
+    ctx.font = FONT(700, FS); const nm = ctx.measureText(txt).width, num = fm1(c, p), tw = nm + FS * 0.4 + ctx.measureText(num).width;
+    const bw = Math.round(tw + 2 * PX), bh = Math.round(FS * 1.7), bx = R - bw, by = ly - bh / 2;
+    rrect(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = C.bg; ctx.fill();
+    ctx.save(); ctx.globalAlpha = 0.2; rrect(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = colr; ctx.fill(); ctx.restore();
+    ctx.fillStyle = colr; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(txt, bx + PX, ly + 0.5); ctx.fillText(num, bx + PX + nm + FS * 0.4, ly + 0.5);
+    ctx.textBaseline = 'alphabetic';
+  }
 }
 /** The segment (index in S.segs) drawn in a level's colour: the trace that reading was taken on; -1 if none. */
 function segOfLevel(S, lv) {
