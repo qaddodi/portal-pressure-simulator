@@ -2,7 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { writeGlowTexels } from '../src/ui/glow-texels.js';
+import { writeGlowTexels, GLOW_DRAWN } from '../src/ui/glow-texels.js';
 import { wavePacks, paintWave } from '../src/ui/scan-waves.js';
 
 // Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font caching,
@@ -46,11 +46,28 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
     const want = new Float32Array(48), got = new Float32Array(48).map(() => (kind === 'v' || kind === 's' ? rnd() : 0));   // stale values from an earlier frame
     const litB = new Map([...lit].map(([k, l]) => [k, { ...l }]));
     before(want, 0, kind, 'A', ra, len, lit, hov);
-    writeGlowTexels(got, 0, kind, 'A', ra, len, litB, hov, rgb, ease);
+    writeGlowTexels(got, 0, kind, 'A', ra, len, litB, hov, rgb, ease, true);
     // (Only the glow texels are the helper's: the rest of the row is the whole sync's, zero in this stand-in.)
     for (let i = 0; i < 39; i++) got[i] = 0;
     assert.deepEqual([...got], [...want], `case ${n}`);
     for (const k of lit.keys()) assert.deepEqual(litB.get(k).rgb, lit.get(k).rgb);
+  }
+});
+
+test('no glow is drawn on any vessel (13 Nov 2026): every glow texel is zero whatever lights the vessel, the hover brightening stays', () => {
+  assert.equal(GLOW_DRAWN, false);
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let n = 0; n < 500; n++) {
+    const kind = ['v', 's'][n % 2], ra = n % 3 === 0 ? 'B' : undefined;
+    const mk = () => ({ v: 1, amt: 1 + rnd(), col: n % 2 ? 'red' : null, from: null, cu: 1, end: [5, 5], span: [0, 1], wide: 1, top: n % 5 === 0 });
+    const lit = new Map([['A', mk()]]);
+    if (ra) lit.set('B', mk());
+    const hov = new Map([['A', 0.5]]);
+    const T = new Float32Array(48).fill(0.7);
+    writeGlowTexels(T, 0, kind, 'A', ra, 30, lit, hov, rgb, ease);
+    assert.deepEqual([...T.slice(40, 48)], new Array(8).fill(0), `case ${n}: no glow colour, amount, ends or width`);
+    assert.equal(T[39], ease(0.5), 'the hover brightening is not a glow');
   }
 });
 

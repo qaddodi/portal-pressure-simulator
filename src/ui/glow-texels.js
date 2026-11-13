@@ -3,16 +3,23 @@
 // Doppler glow eases, only these texels change from frame to frame, so the glow-only sync rewrites them alone and leaves
 // every other texel as the last whole sync wrote it.
 
+/** Whether a lit vessel's glow is drawn at all. Off since 13 Nov 2026 (Mohammad, of the halo round the varices: "remove it", "it's disgusting"): no vessel takes a glow or a
+ *  halo, whoever asks (hover, selection, a slide, the Doppler, a change). The glow engine (stage-glow.js) still keeps its sources and eases, and every texel is written here, so
+ *  they stay for tests; but the glow texels (o + 40 … o + 47) are all zero, so no row is lit and the glow passes draw nothing. The hover's own brightening (o + 39) is not a glow
+ *  and stays. This is the one switch: nothing else draws a glow. */
+export const GLOW_DRAWN = false;
+
 /**
  * T: the tube data; o: the row's first float; kind: 'v' (vessel) or 's' (strand), other kinds have no glow texels;
  * id / raId: the vessel and, on the cava drawn as one, its upper stretch; len: a strand's arc length;
  * lit: the glow engine's eased glows by vessel; hov: the hover amounts by vessel; rgb: CSS colour → [r, g, b] (0–1);
- * ease: the stage's easeInOut.
+ * ease: the stage's easeInOut; drawn: false (GLOW_DRAWN) writes no glow at all.
  */
-export function writeGlowTexels(T, o, kind, id, raId, len, lit, hov, rgb, ease) {
+export function writeGlowTexels(T, o, kind, id, raId, len, lit, hov, rgb, ease, drawn = GLOW_DRAWN) {
   if (kind !== 'v' && kind !== 's') return;
   const h = Math.max(hov.get(id) || 0, raId ? hov.get(raId) || 0 : 0);
   T[o + 39] = h ? ease(h) : 0;
+  if (!drawn) { T.fill(0, o + 40, o + 48); return; }
   const la = lit.get(id), lb = raId && lit.get(raId), l = la || lb;
   // A strand's glow fades out toward both its ends, where it meets its own glowing vessel: run on, it would be
   // cut off square by the strand's cells at the junction.
