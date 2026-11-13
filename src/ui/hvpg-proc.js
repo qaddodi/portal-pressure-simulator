@@ -10,7 +10,7 @@
 
 import { h, fmt, icon, toast, swapText } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
@@ -63,7 +63,7 @@ export function createHvpgProcedure() {
   const vals = {};
   // On top: the button and the three readings; then the tracing; then the steps and what is happening.
   const kv = h('dl', { class: 'hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].map((k) => {
-    vals[k] = h('dd', {}, '—');
+    vals[k] = h('dd', {}, NOT_SHOWN);
     return h('div', {}, h('dt', {}, { fhvp: 'FHVP', whvp: 'WHVP', hvpg: 'HVPG' }[k]), vals[k]);
   }));
   const stepEls = STEPS.map(([id, title, , short]) => h('li', { 'data-step': id, title }, h('span', {}, short)));
@@ -234,7 +234,7 @@ export function createHvpgProcedure() {
     else { shown.fhvp = ph !== 'idle' && ph !== 'enter' && ph !== 'abort'; shown.whvp = ph === 'result' || (ph === 'wedge' && t >= T.callout); shown.hvpg = ph === 'result' && (t0 == null || t >= T.sum); }
     for (let ki = 0; ki < 3; ki++) {
       const k = KEYS3[ki];
-      const txt = shown[k] ? fmt(v[k], 1) : '—';
+      const txt = shown[k] ? fmt(v[k], 1) : NOT_SHOWN;
       if (valW[k].text !== txt) {
         valW[k].set(txt);
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:

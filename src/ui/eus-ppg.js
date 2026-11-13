@@ -7,7 +7,7 @@
 
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvpgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
@@ -18,14 +18,13 @@ let stageRef = null;
 /** main.js hands over the figure once it exists. */
 export function setEusStage(stage) { stageRef = stage; }
 
-const EUS = MEASURES.eus, NOT = '—';
+const EUS = MEASURES.eus, NOT = NOT_SHOWN;
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const SLIDE = { procedure: 'eus' };   // (the monitor's measurement: the EUS-PPG, as on a slide that plays it)
 const r1 = (v) => Math.round(v * 10) / 10;
 const IDLE = 'EUS-guided portal pressure gradient: portal and hepatic vein pressures measured transgastrically with one needle.';
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT);
 // (Read on the HVPG's cut-offs, as EUS-PPG series do: 5 and over portal hypertension, 10 and over clinically significant.)
-const SEV_WORD = { ok: 'Normal', caution: 'Portal hypertension', danger: 'Clinically significant portal hypertension (CSPH)' };
 
 export function createEusPpg() {
   const vals = {}, keys = [['pv', 'PV'], ['hv', 'HV'], ['ppg', 'EUS-PPG']];
@@ -78,7 +77,7 @@ export function createEusPpg() {
     for (const [k] of keys) { const t = word(rd[k]); if (valW[k].text !== t) valW[k].set(t); }
     dataSoon(vals.ppg, 'sev', Number.isFinite(rd.ppg) ? hvpgSev(rd.ppg) : '');
     for (let i = 0; i < stepEls.length; i++) dataSoon(stepEls[i], 'state', step < 0 ? (done ? 'done' : null) : i < step ? 'done' : i === step ? 'now' : null);
-    const cap = step >= 0 ? EUS.steps[step][2] : done && Number.isFinite(rd.ppg) ? `${SEV_WORD[hvpgSev(rd.ppg)]}. EUS-PPG = PV − HV = ${word(rd.pv)} − ${word(rd.hv)} = ${word(rd.ppg)} mmHg.` : IDLE;
+    const cap = step >= 0 ? EUS.steps[step][2] : done && Number.isFinite(rd.ppg) ? `${hvpgWord(rd.ppg, true)}. EUS-PPG = PV − HV = ${word(rd.pv)} − ${word(rd.hv)} = ${word(rd.ppg)} mmHg.` : IDLE;
     // (Written between frames: a step changes inside the procedure's frame.)
     if (cap !== capT) { capT = cap; propSoon(caption.firstChild, 'nodeValue', cap); }
     dataSoon(el, 'state', run ? 'run' : done ? 'done' : 'idle');
