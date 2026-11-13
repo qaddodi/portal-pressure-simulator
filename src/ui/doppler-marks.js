@@ -42,8 +42,11 @@ export function caliperWindow(tNow, sweep, W, markPx) {
 }
 
 /** One frame's calipers: the marks, the index the strip shows beside them and the window they come from, all from one pick. */
-export function caliperFrame(buf, tNow, sweep, W, markPx) {
-  const win = caliperWindow(tNow, sweep, W, markPx), t0 = win[0], t1 = win[1];
+/** b0, b1 (optional): one beat inside the window to read instead of the whole window, a portal vein's, whose index is read within a beat
+ *  (doppler.js medianBeat); left out, or not inside the window, the whole window is read. */
+export function caliperFrame(buf, tNow, sweep, W, markPx, b0 = NaN, b1 = NaN) {
+  const win = caliperWindow(tNow, sweep, W, markPx), beat = b0 >= win[0] && b1 <= win[1] && b1 > b0;
+  const t0 = beat ? b0 : win[0], t1 = beat ? b1 : win[1];
   const c = t1 > t0 ? caliperPick(buf, t0, t1) : null;
   if (c) { c.t0 = t0; c.t1 = t1; }
   return c;

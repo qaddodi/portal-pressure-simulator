@@ -120,6 +120,11 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
   near(c.pi, 16 / 28, 0.01, 'the swing over the larger extreme');
   assert.ok(c.hi[0] > 5 && c.lo[0] > 5, 'both on the newest beat');
   assert.equal(caliperPick(buf.map(([t]) => [t, 0.2]), 3, 6), null, 'no flow, no calipers');
+  // Given one beat inside the window, the calipers read that beat alone; a beat outside it is ignored and the window is read.
+  const one = caliperFrame(buf, 6, 3, 280, 16, 4.0, 5.0);
+  assert.ok(one.t0 === 4.0 && one.t1 === 5.0 && one.hi[0] >= 4 && one.hi[0] <= 5 && one.lo[0] >= 4 && one.lo[0] <= 5, 'the marks on that beat');
+  const off = caliperFrame(buf, 6, 3, 280, 16, 1.0, 2.0);
+  assert.ok(off.t0 > 2.9 && off.t1 < 6, 'a beat outside the window: the window');
   // A record scrolling past the window's edge, its beats growing and shrinking, on a phone's 3 s sweep and a 6 s one: every
   // frame the marks sit inside the trace, on the window's own highest and lowest samples, and the index is theirs.
   const rec = [];
@@ -158,7 +163,10 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
   assert.ok(DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('// Baseline') && DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('ring(ctx, off, dx, dy)'), 'drawn over the trace');
   assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, lvHi\); ctx\.lineTo\(x1, lvHi\); ctx\.moveTo\(xc, lvLo\); ctx\.lineTo\(x1, lvLo\)/);
   // The reading's own formula (doppler.js interpret), read from its source.
-  assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
+  assert.match(DOP, /const pi = p\.kind === 'portal' && r\.beatPi >= 0 \? r\.beatPi : big > 0\.5 \? swing \/ big : 0;/);
+  // (A portal vein's index is read within one beat, 13 Nov 2026: the calipers stand on the same beat, so their index is the reading's.)
+  assert.match(DOP, /BEAT_PIS\[nb\] = pulsatility\(hi, lo\);/);
+  assert.match(DOP, /caliperFrame\(buf, tNow, sweepSeconds, W, CAL_W, mb \? mb\.beatB0 : NaN, mb \? mb\.beatB1 : NaN\)/);
 });
 
 test('V20, V21, V29: the Doppler takes a slide\'s options, and a slide that names none is plain Spectrum', () => {

@@ -3,6 +3,9 @@
 Status (11 Nov 2026): BUILT, all 14 recs. Shown everywhere as Sys/Dia (MAP), e.g. 119/78 (92) (Mohammad: "Sys/Dia (MAP) is usually how
 clinically we write it"). Two changes from the recs: the arterial compliance stays 1.8 and there is no cirrhosis compliance rise (both moved
 blood volume and broke the calibrated cases), and the hepatic artery compliance stays 0.05 (HA RI now 0.70 healthy, 0.74 decompensated).
+Update 13 Nov 2026: the hepatic artery compliance is now 0.03 and the buffer response reads a breath-averaged portal inflow (HA RI 0.61
+healthy, 0.65 decompensated; `tests/ha-doppler.test.js`). Risk 1's suggested fix had the direction backwards: compliance past the Doppler's
+gate is filled through it each systole and raises the RI; less of it lowers the RI.
 Built numbers: healthy 119/78 (92), compensated 115/76 (89), CSPH 113/72 (85), decompensated 114/68 (82). Guard tests:
 `tests/arterial-pressure.test.js`. Asked by Mohammad: "We should probably add systolic and diastolic since
 we're able to model it right? And calculate the MAP subsequently?" Opened by the features thread's Systolic 90 card (item 41): the

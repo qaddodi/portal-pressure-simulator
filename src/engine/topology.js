@@ -15,7 +15,12 @@
 export const NODES = [
   // id, label, P, C, ext, kind
   ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],   // (arterial compliance, physiology.js ARTERY)
-  ['HA', 'Hepatic artery', 88, 0.05, 'none', 'artery'],
+  // (The hepatic arterial tree's compliance, all of it past the Doppler's gate on the common hepatic artery: each systolic upstroke fills it
+  // through the gate, so it alone sets the artery's resistive index and how sharp its systolic peak is. 0.05 was set before the heart beat
+  // and read RI 0.70 to 0.80 with a 140 cm/s spike once it did; 0.03 reads RI about 0.62 healthy to 0.70 in CSPH, inside the native
+  // artery's reported range (RI 0.76 ± 0.07, PSV 68 ± 33 cm/s in healthy volunteers, Iran J Radiol; RI varies by 0.08 between sonographers,
+  // Paulson et al., Radiology 1996). No direct measurement of it exists: it is calibrated to the waveform. Mohammad, 13 Nov 2026.)
+  ['HA', 'Hepatic artery', 88, 0.03, 'none', 'artery'],
 
   ['INT', 'Intestinal capillary bed', 12, 8, 'abd', 'bed'],
   ['COL', 'Colon / rectal bed', 12, 2, 'abd', 'bed'],
@@ -79,8 +84,13 @@ export const EDGES = [
   { id: 'A_SPL', from: 'AO', to: 'SPL', Q: 5.0, kind: 'arteriole', tone: 'splanchnic', d: 5, label: 'Splenic artery' },
   { id: 'A_LGA', from: 'AO', to: 'STO', Q: 1.6, kind: 'arteriole', tone: 'splanchnic', d: 3, label: 'Left gastric artery' },
   { id: 'A_HEP', from: 'AO', to: 'HA', Q: 6.7, kind: 'artery', d: 5, label: 'Common hepatic artery' },
-  { id: 'A_HR', from: 'HA', to: 'SIN_R', Q: 4.0, kind: 'arteriole', tone: 'habr', d: 3, label: 'Right hepatic artery' },
-  { id: 'A_HL', from: 'HA', to: 'SIN_L', Q: 2.7, kind: 'arteriole', tone: 'habr', d: 2.5, label: 'Left hepatic artery' },
+  // (A_HR and A_HL are the lobes' arterioles, where the arterial resistance and the buffer response's tone sit, and also the lobar arteries
+  // the Doppler samples (lobar: the lobe's arterioportal shunt). Sampled, each is the conduit before its lobe's tree: its arterioles' flow, its
+  // lobe's arterioportal shunt (intrahepatic, past the lobar artery) and its share of the tree's filling
+  // (engine.js velocity), at the lobar artery's width vd, from Murray's law (d³ shared as the flow: 5 mm × 0.6^⅓ = 4.2, × 0.4^⅓ = 3.7 mm).
+  // Read through the arterioles' own drawn width they ran at 120 cm/s with an RI of 0.32, 13 Nov 2026.)
+  { id: 'A_HR', from: 'HA', to: 'SIN_R', Q: 4.0, kind: 'arteriole', tone: 'habr', d: 3, vd: 4.2, lobar: 'AP_R', label: 'Right hepatic artery' },
+  { id: 'A_HL', from: 'HA', to: 'SIN_L', Q: 2.7, kind: 'arteriole', tone: 'habr', d: 2.5, vd: 3.7, lobar: 'AP_L', label: 'Left hepatic artery' },
   { id: 'A_REN_L', from: 'AO', to: 'KID_L', Q: 8.3, kind: 'arteriole', tone: 'systemic', d: 5, label: 'Left renal artery' },
   { id: 'A_REN_R', from: 'AO', to: 'KID_R', Q: 8.3, kind: 'arteriole', tone: 'systemic', d: 5, label: 'Right renal artery' },
   { id: 'A_LOW', from: 'AO', to: 'LOWV', Q: 17.0, kind: 'arteriole', tone: 'systemic', d: 9, label: 'Lower-body arteries' },

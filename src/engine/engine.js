@@ -188,7 +188,7 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
     this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
@@ -836,7 +836,11 @@ export class Engine {
     const mapSet = this.mapSetOf();
     const bt = clamp(1 + 4 * (mapSet - this.MAPf) / mapSet, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
-    const Qp = this.portalInflow();
+    // The buffer response answers the portal inflow averaged over several breaths (two 5 s stages, qpm), not each instant's: the liver's
+    // inlet flow swings by about half its mean with every beat and breath, and a deficit read beat by beat (and floored at zero, as a
+    // surplus does not constrict) dilated the artery on the ripple alone, with the mean portal flow normal (healthy with the heartbeat
+    // on: HA flow 402 to about 495 mL/min, habr 1.29; Mohammad, 13 Nov 2026, the hepatic artery's Doppler).
+    const Qp = this.portalInflowMean(dt);
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
     const ht = 1 + kh * clamp((this.Qpref - Qp) / this.Qpref, 0, 1);
     this.habr += (ht - this.habr) * Math.min(0.3, dt / (10 + dt));
@@ -866,6 +870,13 @@ export class Engine {
 
   portalInflow() {
     return Math.max(0, this.Q[this.ei.PRE_R]) + Math.max(0, this.Q[this.ei.PRE_L]);
+  }
+  /** The portal inflow averaged over several breaths (two first-order stages of 5 s each), advanced by dt: what the buffer response reads. */
+  portalInflowMean(dt) {
+    const q = this.portalInflow(), a = Math.min(1, dt / 5);
+    if (!this.qpm || !Number.isFinite(this.qpm[1])) this.qpm = [q, q];
+    else { this.qpm[0] += (q - this.qpm[0]) * a; this.qpm[1] += (this.qpm[0] - this.qpm[1]) * a; }
+    return this.qpm[1];
   }
 
   /** Processes on the hemodynamic clock: bleeding, clotting, rupture hazard, ascites trickle. */
@@ -943,7 +954,7 @@ export class Engine {
       h.restore(this.snapshot());
       // (Restoring starts the copy's averages over from this instant of the beat: it takes this model's own instead.)
       h.Pf = Float64Array.from(this.Pf || this.P); h.Qf = Float64Array.from(this.Qf || this.Q);
-      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
+      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, qpm: this.qpm && [...this.qpm], vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
       h._paramsOf = null;
       this._hiddenOn = true;
     }
@@ -966,6 +977,7 @@ export class Engine {
     // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
     for (const k of ['shift', 'preg', 'ref', 'rbc', 'own']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
     for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
+    this.qpm = h.qpm && [...h.qpm];
     if (this.Pf) this.Pf.set(h.Pf);
     if (this.Qf) this.Qf.set(h.Qf);
     if (h.vitM) { this.vitM = [...h.vitM]; this.vitM1 = [...h.vitM1]; }
@@ -1334,12 +1346,28 @@ export class Engine {
 
   /** Mean velocity (cm/s), signed. */
   velocity(id) {
-    const q = this.Q[this.ei[id]];
-    const e = EDGES[this.ei[id]];
+    const k = this.ei[id], e = EDGES[k];
+    const q = e.lobar ? this.lobarFlow(k) : this.Q[k];
     // A lumped bundle (e.g. the jejunal and ileal veins) is drawn at one vein's width but its flow
     // reaches the probe through a wider trunk: vd is the diameter the probe sees.
     const d = Math.max(0.5, this.diameter(id) * (e.vd ? e.vd / e.d : 1)) / 10; // cm
     return q / (Math.PI * d * d / 4);
+  }
+
+  /** The flow (mL/s) in a lobar hepatic artery (topology lobar: A_HR, A_HL): its lobe's arteriolar flow plus its share of the flow filling
+   *  the hepatic arterial tree's compliance (the HA node's: what the common hepatic artery brings in less what leaves the node). The two
+   *  lobes' shares, by their arteriolar flow, add up to the common hepatic artery's flow at every instant; over a beat the filling averages out. */
+  lobarFlow(k) {
+    // (The two lobes, with their shunts, add up to the common hepatic artery's flow at every instant.)
+    const HA = this.ni.HA;
+    let qin = 0, qart = 0, qout = 0;
+    for (let j = 0; j < this.E; j++) {
+      if (this.edgeT[j] === HA) qin += this.Q[j];
+      else if (this.edgeF[j] === HA) { qout += this.Q[j]; if (EDGES[j].lobar) qart += Math.abs(this.Q[j]); }
+    }
+    const share = qart > 1e-9 ? Math.abs(this.Q[k]) / qart : 0;
+    const ap = this.ei[EDGES[k].lobar];   // (the lobe's arterioportal shunt, intrahepatic: it leaves the tree past the lobar artery)
+    return this.Q[k] + (ap != null ? this.Q[ap] : 0) + share * (qin - qout);
   }
 
   /** Doppler velocity (cm/s), signed: the time-averaged peak of the spectrum (see dopplerK). */
@@ -1496,7 +1524,7 @@ export class Engine {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
-      cyc: this.cyc || 0, COf: this.COf,   // (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
+      cyc: this.cyc || 0, COf: this.COf, qpm: this.qpm,   // (qpm: the buffer response's averaged portal inflow, portalInflowMean) (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
       lv: this.lv,   // (the lungs' and ventricle's share of the beat, lvStep)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
@@ -1522,6 +1550,7 @@ export class Engine {
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)
     this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();
     this.computeExt(this.t);
