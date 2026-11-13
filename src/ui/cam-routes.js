@@ -15,11 +15,16 @@ export const ROUTES = Object.freeze({
 });
 
 /** How near the middle of each framing the path must run (a share of the framing's width) for the glide to follow it. */
-export const ALONG_NEAR = 0.4;
+export const ALONG_NEAR = 0.25;
 /** A path shorter than this (a share of the smaller framing's width) between the two framings is not worth following: the plain glide. */
 export const ALONG_MIN = 0.25;
+// (13 Nov 2026, Mohammad: "the camera did a swirl after outline into slide 2". A wide framing has its middle "near" every path, and a path
+// from there wound round the figure. A glide follows a vessel only when it is a calm move: the two framings close in zoom (ALONG_ZOOM), the
+// stretch between them short (ALONG_LONG, in widths of the smaller framing), nearly straight (ALONG_BOW: its length over its chord) and never
+// turning back or swinging off its chord (ALONG_OFF, a share of the chord). Anything else takes the normal camera move.)
+export const ALONG_ZOOM = 1.5, ALONG_LONG = 1.5, ALONG_BOW = 1.25, ALONG_OFF = 0.18;
 /** The most a path may lengthen the glide's time, and the longest a glide along a path takes (ms): a path is longer than a straight move. */
-export const ALONG_STRETCH = 1.6, ALONG_MAX_MS = 1800;
+export const ALONG_STRETCH = 1.25, ALONG_MAX_MS = 1500;
 
 const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
 
@@ -68,6 +73,26 @@ export function pointAlong(pts, s, out = [0, 0]) {
   return out;
 }
 
+/** Whether the stretch of `pts` from s0 to s1 (ends p0, p1) is a calm line: nearly straight, every step forward along its chord, never far
+ *  off it. Sampled every 1/32 of the stretch. */
+export function calmStretch(pts, s0, s1, p0, p1) {
+  const cx = p1[0] - p0[0], cy = p1[1] - p0[1], chord = Math.hypot(cx, cy);
+  if (chord < 1e-6) return false;
+  const ux = cx / chord, uy = cy / chord, N = 32, P = [0, 0];
+  let len = 0, px = p0[0], py = p0[1], along = 0;
+  for (let i = 1; i <= N; i++) {
+    pointAlong(pts, s0 + (s1 - s0) * (i / N), P);
+    const dx = P[0] - px, dy = P[1] - py, fwd = dx * ux + dy * uy;
+    len += Math.hypot(dx, dy);
+    if (fwd < -1e-6) return false;   // (turning back)
+    along += fwd;
+    const off = Math.abs((P[0] - p0[0]) * uy - (P[1] - p0[1]) * ux);
+    if (off > ALONG_OFF * chord) return false;   // (swinging off the line)
+    px = P[0]; py = P[1];
+  }
+  return len <= ALONG_BOW * chord && along > 0;
+}
+
 /**
  * The camera's path from view `from` to view `to` along one of `lines` (polylines in world units), or null when no path runs near the
  * middle of both framings, or the stretch between them is too short to follow. vb: the viewBox units the stage shows ({ w, h, cx, cy }).
@@ -86,8 +111,10 @@ export function alongPath(from, to, lines, vb) {
     if (!pick || far < pick.far) pick = { pts, a, b, far };
   }
   if (!pick || Math.abs(pick.b.s - pick.a.s) < ALONG_MIN * wMin) return null;
+  if (Math.max(g0.w, g1.w) / wMin > ALONG_ZOOM || Math.abs(pick.b.s - pick.a.s) > ALONG_LONG * wMin) return null;
   const { pts, a, b } = pick;
   const p0 = pointAlong(pts, a.s, [0, 0]), p1 = pointAlong(pts, b.s, [0, 0]);
+  if (!calmStretch(pts, a.s, b.s, p0, p1)) return null;
   const o0 = [c0[0] - p0[0], c0[1] - p0[1]], o1 = [c1[0] - p1[0], c1[1] - p1[1]];
   const stretch = straight > 1e-6 ? Math.min(ALONG_STRETCH, Math.max(1, Math.abs(b.s - a.s) / straight)) : 1;
   const P = [0, 0], G = { cx: 0, cy: 0, w: 0 };
