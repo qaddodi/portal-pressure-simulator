@@ -2754,7 +2754,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (Rest pacing, every device (frame.js restGapFor, after 4 s with no input and nothing moving), counted from restAt, not busyAt: the running
     // model's own vessel updates (a colour or a width easing, a few rows drawn again, about twice a second) stamp busyAt, so the figure was never
     // calm for 4 s and rest pacing never began while the model ran: 57 frames a second drawn at rest on Mohammad's Mac and about 51 on his iPhone,
-    // 12 Nov 2026. Those updates are drawn on the paced frames at rest, within a gap of 28, 46 (a talk) or 62 ms.)
+    // 12 Nov 2026. Those updates are drawn on the paced frames at rest, within a gap of 28 or 46 ms.)
     const restGap = restGapFor(now, restAt);
     const interval = calm ? Math.max(base, CALM_MS, restGap) : Math.max(base, restGap);
     // (At rest the held frames are not asked for one by one (12 Nov 2026, Mohammad's iPhone hot at 0.5 MP with the blur off): the loop asked the

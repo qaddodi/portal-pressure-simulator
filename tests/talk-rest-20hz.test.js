@@ -20,7 +20,7 @@ test('a talk: full rate for 4 s, 30 a second to 30 s, then 20 a second, never 15
   const t0 = 200000;
   f.noteInput(t0);
   assert.equal(f.TALK_IDLE_MS, 46);
-  assert.ok(f.TALK_IDLE_MS > f.REST_MS && f.TALK_IDLE_MS < f.IDLE_MS, 'between the rest step and the Explore idle step');
+  assert.ok(f.TALK_IDLE_MS > f.REST_MS && f.TALK_IDLE_MS === f.IDLE_MS, 'above the rest step, and the same as Explore\'s idle step (13 Nov 2026)');
   assert.equal(f.restGapFor(t0 + 3999), 0, 'under 4 s: every frame');
   assert.equal(f.restGapFor(t0 + 4000), f.REST_MS, '4 s: 30 a second');
   assert.equal(f.restGapFor(t0 + 29999), f.REST_MS, 'under 30 s: still 30');
@@ -66,8 +66,8 @@ test('a talk at 20 Hz: Battery saver\'s 15 still wins, ?rest=off turns it off, a
   assert.equal(f.restGapFor(40000), f.TALK_IDLE_MS);
   assert.equal(f.restRuleText(), 'talk idle 20 Hz', '?perf names the rule');
   f.setRestTalk(() => false);
-  assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 15 a second, as before');
-  assert.equal(f.restRuleText(), 'idle 15 Hz');
+  assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 20 a second too');
+  assert.equal(f.restRuleText(), 'idle 20 Hz');
 });
 
 test('not a whole-app cap: the motion gaps are untouched in a talk, and the loops\' time steps cover a 20 Hz frame whole', async () => {

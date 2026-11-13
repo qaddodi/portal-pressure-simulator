@@ -72,7 +72,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
@@ -198,18 +198,12 @@ async function main() {
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
 
-  // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
-  // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
-  // Never while a talk is open, a time-lapse plays or the patient is still changing.
-  // A talk never rests (Mohammad, 5 Nov 2026: "no slide should stop anymore"; slide 12 of the variceal bleed froze about 15 s in, when the
-  // 8 s talk rest of 4 Nov fired once the slide had settled): every slide keeps its blood, its model and its figure moving for as long as it shows.
-  idleRest = createIdleRest({
-    after: REST_AFTER_MS,
-    canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
-    onRest: () => { setPageRest(true); stage.rest(true); host.send({ type: 'visibility', visible: false }); },
-    onInput: noteInput,   // (the rest pacing, frame.js restGapFor: any input brings the full rate back on the next frame)
-    onWake: () => { setPageRest(false); host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
-  });
+  // Idle rest: the inputs only (frame.js noteInput: the rest pacing restarts its clock from each one). The figure never stops: until 13 Nov
+  // 2026, left alone 30 s in Explore, the blood eased to a stop and the model held (1 Nov idle heat), which Mohammad read as the chevrons
+  // "slow down randomly when nothing has changed" (13 Nov). The blood now keeps its speed for as long as the page shows, in Explore as in a
+  // talk (5 Nov: "no slide should stop anymore"); the heat is taken by rest pacing instead (frame.js restGapFor: 30 frames a second after
+  // 4 s untouched, 20 after 30 s), which draws fewer frames, never slower blood.
+  idleRest = createIdleRest({ after: REST_AFTER_MS, canRest: () => false, onInput: noteInput });
   setRestTalk(() => presenter.active());   // (a talk at rest holds 30 a second, then 20 after 30 s untouched, never 15: frame.js restGapFor)
   compare = createCompare();
   timeline = createTimeline({

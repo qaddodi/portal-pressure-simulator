@@ -184,7 +184,7 @@ async function freshRest(touch) {
 // (A loop's draw rule, as the three loops have it: a frame is drawn when now − last drawn ≥ the gap; no phase is carried.)
 const drawnPerSecond = (hz, gap) => { let last = -1e9, n = 0; for (let t = 0; t < 1000; t += 1000 / hz) if (t - last >= gap) { last = t; n++; } return n; };
 
-test('H1: on a touch device the gap is 0 for 4 s after an input, 28 ms after that, 62 ms after 30 s, and 0 on the frame after any input', async () => {
+test('H1: on a touch device the gap is 0 for 4 s after an input, 28 ms after that, 46 ms after 30 s, and 0 on the frame after any input', async () => {
   const f = await freshRest(true);
   const t0 = 100000;
   f.noteInput(t0);
@@ -192,14 +192,14 @@ test('H1: on a touch device the gap is 0 for 4 s after an input, 28 ms after tha
   assert.equal(f.restGapFor(t0 + f.REST_AFTER_MS - 1), 0, 'under 4 s');
   assert.equal(f.restGapFor(t0 + f.REST_AFTER_MS), f.REST_MS, '4 s: 28 ms');
   assert.equal(f.restGapFor(t0 + f.IDLE_AFTER_MS - 1), f.REST_MS, 'under 30 s still 28');
-  assert.equal(f.restGapFor(t0 + f.IDLE_AFTER_MS), f.IDLE_MS, '30 s: 62 ms');
-  assert.equal(f.REST_MS, 28); assert.equal(f.IDLE_MS, 62); assert.equal(f.REST_AFTER_MS, 4000); assert.equal(f.IDLE_AFTER_MS, 30000);
+  assert.equal(f.restGapFor(t0 + f.IDLE_AFTER_MS), f.IDLE_MS, '30 s: 46 ms');
+  assert.equal(f.REST_MS, 28); assert.equal(f.IDLE_MS, 46); assert.equal(f.REST_AFTER_MS, 4000); assert.equal(f.IDLE_AFTER_MS, 30000);
   f.noteInput(t0 + 31000);
   assert.equal(f.restGapFor(t0 + 31001), 0, 'the frame after an input is drawn at once, at the full rate');
   assert.equal(f.restGapFor(t0 + 31000 + f.REST_AFTER_MS), f.REST_MS, 'and the clock runs again');
   for (const hz of [60, 120]) {
     assert.ok(Math.abs(drawnPerSecond(hz, f.REST_MS) - 30) <= 1, `${hz} Hz screen: 30 a second at rest`);
-    assert.ok(Math.abs(drawnPerSecond(hz, f.IDLE_MS) - 15) <= 1, `${hz} Hz screen: 15 a second idle`);
+    assert.ok(Math.abs(drawnPerSecond(hz, f.IDLE_MS) - 20) <= 1, `${hz} Hz screen: 20 a second idle`);
   }
 });
 
@@ -237,12 +237,12 @@ test('H1: rest pacing is on for every device by default (the Mac too, 12 Nov 202
   assert.equal(g.restGapFor(40000), 0);
 });
 
-test('H1: Battery saver wins when larger; a talk at rest holds 30 a second, then 20 after 30 s, never 15; Explore may reach 15', async () => {
+test('H1: Battery saver wins when larger; a talk at rest holds 30 a second, then 20 after 30 s, never 15; Explore the same 20 (13 Nov 2026)', async () => {
   const f = await freshRest(true);
   f.noteInput(0);
   f.setSaver(true);
   assert.equal(f.restGapFor(5000), f.SAVER_MS, 'saver\'s gap is larger than 28');
-  assert.equal(f.restGapFor(40000), f.SAVER_MS, 'and than 62');
+  assert.equal(f.restGapFor(40000), f.SAVER_MS, 'and than 46');
   assert.equal(f.restGapFor(100), 0, 'before rest nothing is added (the loop\'s own saver gap stands)');
   f.setSaver(false);
   let talk = true;
@@ -254,8 +254,9 @@ test('H1: Battery saver wins when larger; a talk at rest holds 30 a second, then
   assert.equal(f.restGapFor(1e6), f.TALK_IDLE_MS);
   assert.equal(f.restRuleText(), 'talk idle 20 Hz');
   talk = false;
-  assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 15 a second');
-  assert.equal(f.restRuleText(), 'idle 15 Hz');
+  assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 20 a second, as a talk');
+  assert.equal(f.IDLE_MS, f.TALK_IDLE_MS);
+  assert.equal(f.restRuleText(), 'idle 20 Hz');
 });
 
 test('H1: the Mac\'s other gaps are untouched; every kind of input reaches the rest clock through idle-rest', async () => {
