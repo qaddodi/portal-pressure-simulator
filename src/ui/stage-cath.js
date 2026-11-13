@@ -205,7 +205,8 @@ export function createCath(st, live) {
     cath.g.style.display = r && !gpu ? '' : 'none';
     cath.labels.hidden = !r;
     if (!gpu) cathLast = null;   // (its fade-out only redraws what the GPU last drew)
-    if (!r) { if (live.veins?.canCath) live.veins.setCath(null); return; }
+    // (Nothing is painted while the route is off (the Circuit): the tip is not known to be at rest, so no reading is pinned until a paint says so.)
+    if (!r) { cath.still = false; cath.lastTipD = null; if (live.veins?.canCath) live.veins.setCath(null); return; }
     cathLive(r);
     if (!live.CTM) refreshCTM();
     // A blocked hepatic vein: the tip only reaches the ostium and probes it (st.probe 0..1 nudges it in).
