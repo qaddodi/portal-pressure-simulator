@@ -9,6 +9,8 @@ import { MP } from './veins-mesh-glsl.js';
 import { tierBuckets, patchesByTier, PG_W, PG_M } from './veins-mesh-data.js';
 import { CEL } from './tube-cel-glsl.js';
 import { WEB_FLOATS } from './tube-joint.js';
+import { TUBE_ROW_FLOATS, MOUTH_AT } from './tube-data.js';
+const ROW_BYTES = TUBE_ROW_FLOATS * 4;   // a stage 2 row record's stride in the row buffer (tube-data.js)
 import { tubeStage, stage1Why, createStage2Data, lumenRect } from './tube-stage2.js';
 
 /** Makes the pass for one renderer. E: gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
@@ -40,6 +42,8 @@ export function createTubePass(E) {
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.vertexAttribPointer(1, size, gl.FLOAT, false, stride, first * stride);
+    // (The strip program's mouth lists, attributes 2 and 3: floats MOUTH_AT to MOUTH_AT + 7 of the same record, moved to the first row drawn as attribute 1 is. Only the stage 2 vertex array has them.)
+    if (FR.D && vao === FR.D.stripVAO) for (let a = 2; a <= 3; a++) gl.vertexAttribPointer(a, 4, gl.FLOAT, false, stride, first * stride + (MOUTH_AT + 4 * (a - 2)) * 4);
     gl.drawElementsInstanced(gl.TRIANGLES, MG.tubeIndexN, gl.UNSIGNED_SHORT, 0, n);
     if (!keyPre) MG.strips += n;   // (counted once, in the colour draw: the prepass draws the same rows again)
   }
@@ -81,7 +85,7 @@ export function createTubePass(E) {
     const tb = FR.tb;
     if (tb.count[t]) {
       const P = pass === MP.GLOW || pass === MP.UP ? glowP : E.tubeS;   // (a glow pair: the short glow program when it is ready, else the strip program)
-      if (FR.two) stripCall(P, pass, t, base, H, px, look, MG.tubeVAO, FR.D.rowBuf, 1, 16, tb.start[t], tb.count[t]);
+      if (FR.two) stripCall(P, pass, t, base, H, px, look, MG.tubeVAO, FR.D.rowBuf, 1, ROW_BYTES, tb.start[t], tb.count[t]);
       else stripCall(P, pass, t, base, H, px, look, MG.tubeVAO, MG.rowBuf, 1, 4, tb.start[t], tb.count[t]);
     }
     if (patches && FR.pb && FR.pb.count[t]) patchCall(pass, t, base, H);
@@ -93,10 +97,10 @@ export function createTubePass(E) {
     const tb = FR.tb, P = E.tube2, D = FR.D, n = tb.count[t], pl = tb.plain[t], s0 = tb.start[t];
     const en = tb.ends ? tb.ends[t] : 0;
     if (pre) {
-      if (pl) stripCall(P.depth, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, pl);
-      if (en) stripCall(P.joinDepth || P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl, en);   // (the rows exact only for a join end: the join-only depth program)
-      if (n > pl + en) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl + en, n - pl - en);
-    } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n); MG.plain += pl + en; }   // (the plain ones among them, and the rows exact only for a join end, are the rows whose prepass cost next to no fragment work)
+      if (pl) stripCall(P.depth, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, ROW_BYTES, s0, pl);
+      if (en) stripCall(P.joinDepth || P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, ROW_BYTES, s0 + pl, en);   // (the rows exact only for a join end: the join-only depth program)
+      if (n > pl + en) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, ROW_BYTES, s0 + pl + en, n - pl - en);
+    } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, ROW_BYTES, s0, n); MG.plain += pl + en; }   // (the plain ones among them, and the rows exact only for a join end, are the rows whose prepass cost next to no fragment work)
     if (FR.wb.count[t]) webCall(pre ? P.webDepth : P.web, pass, t, base, H, px, look, FR.wb.start[t], FR.wb.count[t]);
     MG.passes++;
   }
@@ -276,7 +280,7 @@ export function createTubePass(E) {
     for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
       if (TG[t] !== g || !has(t)) continue;
       const n = tb.count[t], w = FR.wb.count[t];
-      if (n) { stripCall(P3.lumen, MP.SHAPE, t, BASES[t], H, px, look, D.stripVAO, D.rowBuf, 4, 16, tb.start[t], n); MG.lumStrips += n; }
+      if (n) { stripCall(P3.lumen, MP.SHAPE, t, BASES[t], H, px, look, D.stripVAO, D.rowBuf, 4, ROW_BYTES, tb.start[t], n); MG.lumStrips += n; }
       if (w && tubePass.webColour) { webCall(P3.webLumen, MP.SHAPE, t, BASES[t], H, px, look, FR.wb.start[t], w); MG.lumWebs += w; }
     }
     keyPre = 0;
