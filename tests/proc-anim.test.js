@@ -394,7 +394,7 @@ test('a TIPS is placed step by step only where a slide teaches the placement; el
     if (s.procedure.kind === 'irivc') { reads.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'irpv'); continue; }
     thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad');
   }
-  assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips', 'variceal-bleed/tipscoil']);
+  assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
   assert.deepEqual(reads, ['gradients/how-ppg']);
   for (const d of DECKS) {
     assert.ok(d.slides.filter((s) => procKindOf(s.procedure) === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);

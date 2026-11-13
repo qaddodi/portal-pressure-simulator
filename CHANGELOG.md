@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Acute variceal bleed talk: the coil-embolization of the left gastric (coronary) vein slide is gone.** (13 Nov 2026, Mohammad.)
+  The `tipscoil` slide between the preemptive TIPS and the second patient is removed (the talk now runs TIPS, then "The first bleed is controlled"), with its handout figure, pill and adopted-feature entries. The algorithm slide still names Baveno VIII's "TIPS with or without embolization". The `tipscoil` and `tipscoilin` procedure kinds stay in `proc-anim.js` for a later slide; no deck uses them now.
+
 - **The lobule and sinusoid windows on the anatomy slides are gone.** (13 Nov 2026, Mohammad: "the callout for the lobule sucks ... remove the callout option completely".)
   The slide fields `cutouts` and `cutoutSubject`, the round windows with their ring, spot and cone, the close and reopen controls, the right-hand room the windows took, the lobule's plate mode, the windowed `top.lay` and its shader, the tests and `docs/cutouts.md` are deleted, not hidden. Ten slides carried them (stiffness/fibrosis, masld/regress, cause-treated/year1 and year2, ascites/fill, hvpg/wedge, lobule/wedge, circulation/series and ladder, encephalopathy/firstpass) and now show the anatomy alone, with the whole screen for the figure. To show something in the lobule or the sinusoid, a deck adds a slide that dives into it (`cam: 'lobule:...'` or `'sinusoid'`), as the Lobule deck already does.
 

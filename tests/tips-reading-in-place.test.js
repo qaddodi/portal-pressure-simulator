@@ -89,10 +89,7 @@ test('on the stage: the TIPS holds with its catheter in, and the reading goes on
   run.stop?.({ home: false });
 });
 
-test('the slide after the TIPS slide goes in through the stent that is already there, and the TIPS slides each read in place', () => {
-  const bleed = DECKS.find((d) => d.id === 'variceal-bleed'), ids = bleed.slides.map((s) => s.id);
-  const s = bleed.slides[ids.indexOf('tipscoil')];
-  assert.equal(procKindOf(s.procedure), 'tipscoilin');
+test('a slide after a TIPS goes in through the stent that is already there, and the TIPS slides each read in place', () => {
   const P = specOf('tipscoilin');
   assert.equal(P.steps.length, P.stops.length, 'a stop for each step');
   assert.equal(P.apply({ tips: { on: true } }).tips.on, true, 'the stent is left as it is');

@@ -530,10 +530,6 @@
  "variceal-bleed/tips": [
   "{ppg}"
  ],
- "variceal-bleed/tipscoil": [
-  "{ppg}",
-  "{varix}"
- ],
  "variceal-bleed/controlled": [
   "{hr}",
   "{hb}"

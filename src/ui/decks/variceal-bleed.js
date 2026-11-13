@@ -108,17 +108,6 @@ export const BLEED = {
       ask: ['Which patients get a preemptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, Child–Pugh B >7 with active bleeding at endoscopy, or an HVPG ≥20 mmHg, in a patient aged <75 with a creatinine <3 mg/dL and no heart failure.'],
     },
     {
-      // (The same TIPS, with the coronary vein coiled: Baveno VIII 5.41, "TIPS ± variceal embolisation". The stent is already in from the slide before, so it is not placed twice
-      // (stented: true): the catheter goes in through it and up the vein, and the coils are all that is played; proc-anim.js PLUGS.tipscoilin. The spec that places the stent
-      // and the coils together, PLUGS.tipscoil ({ kind: 'tips', target: 'C1a' }), is for a slide that does not follow a TIPS.)
-      id: 'tipscoil', params: { tips: { on: true }, occluded: { C1a: true } }, procedure: { kind: 'tips', target: 'C1a', stented: true, then: 'tipsgrad' }, cam: 'liver', ripple: true, data: 'tiles',
-      tool: { kind: 'evgraph', title: 'PPG and varix after the coils' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: 'path',
-      kicker: 'After endoscopy', site: 'sin', title: 'The TIPS tract allows coil embolization of the left gastric vein',
-      line: 'Through the stent, the left gastric (coronary) vein that feeds the varices is coil-embolized and the gradient remeasured. The PPG stays at {ppg}; the varix shrinks to {varix}.',
-      notes: 'Source: Baveno VIII 5.41; AASLD 2024. Baveno VIII names TIPS with or without variceal embolization, as soon as possible, as the preferred definitive treatment after a bleed from GOV2 or IGV1. AASLD adds that obliterating the varices at the time of the TIPS lowers rebleeding further and the risk of encephalopathy. In practice the catheter that created the tract is advanced through it into the portal vein, selects the left gastric (coronary) vein, which feeds the esophageal and cardiac varices, and embolizes it with coils before the covered stent is deployed. (On this slide the stent from the previous slide is already in place, so only the coils are shown: the catheter is advanced through the stent.) The model occludes the left gastric vein with the coils: the esophageal varices lose their feeding vein whatever the gradient, so the varix decompresses to a normal-caliber vein. The stent alone has already brought the PPG to <12 mmHg here, so the coils change the numbers little; their benefit is the further fall in rebleeding that AASLD describes.',
-      ask: ['What does Baveno VIII advise after a bleed from GOV2 or IGV1, as the definitive treatment?', 'A TIPS, with or without embolization of the varices, as soon as possible.'],
-    },
-    {
       // (Two days on from a bleed of about a quarter of her blood: the plasma has refilled, so the hemoglobin has fallen to where the tiles of the first
       // case said it was heading.)
       id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [{ kind: 'hemorrhage', mL: 1200 }, BAND], days: 2, cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],
