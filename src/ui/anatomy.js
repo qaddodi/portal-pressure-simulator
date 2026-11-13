@@ -70,7 +70,9 @@ export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
 export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC']);
+// (Not the left renal vein, LRV_IVC and V_KID_L: it is where the splenorenal shunts land, so it is drawn over the bowel loops,
+// never veiled by them. 13 Nov 2026, Mohammad's iPhone shot: the vein read as lying under the small bowel.)
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'C7', 'C9', 'S_MC']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
