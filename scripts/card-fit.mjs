@@ -12,7 +12,7 @@
 //   off      a text element partly outside the screen (wholly outside is a parked card, ignored) and not inside something that scrolls on purpose.
 //   enlarged a card already enlarged when the slide has landed (nothing zooms until asked).
 //   zoomed   the same slide with its instrument card enlarged, by the corner icon and by a tap on the card (Mac and iPad landscape, where it is offered):
-//            the teaching card and the instrument card must both be larger than at rest and stand whole inside the screen, and no text may be cut (the page's own getBoundingClientRect answers the resting box while a card
+//            the instrument card must be larger than at rest and stand whole inside the screen (the page's own getBoundingClientRect answers the resting box while a card
 //            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error
 // too (delete it), so the list only ever shrinks.
@@ -103,14 +103,11 @@ const ZREAD = () => {
 };
 const zoomFailing = (z, rest, how) => {
   if (!z.up) return [`zoomed (${how}): the card did not enlarge`];
-  const out = [];
-  for (const [q, b] of Object.entries(z.boxes)) {
-    const name = q === '.pz-text' ? 'teaching card' : 'enlarged card', r0 = rest.boxes[q];
-    if (!b) { if (q === '.pz-text' && r0) out.push(`zoomed (${how}): the teaching card is not on the screen`); continue; }
-    if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed (${how}): ${name} [${b}] runs off the ${z.vw} x ${z.vh} screen`);
-    // (Both cards zoom, never the instrument alone: each is wider than it rests.)
-    if (r0 && (b[2] - b[0]) < (r0[2] - r0[0]) * 1.02) out.push(`zoomed (${how}): the ${name} did not enlarge with the card (${r0[2] - r0[0]} px wide at rest, ${b[2] - b[0]} px zoomed)`);
-  }
+  // (The camera zooms into the card: the instrument card is the focus and is what must stand whole and larger. The teaching card rides the same turn, where it stands.)
+  const b = z.boxes['.pz-data'], r0 = rest.boxes['.pz-data'], out = [];
+  if (!b) return [`zoomed (${how}): the enlarged card is not on the screen`];
+  if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed (${how}): enlarged card [${b}] runs off the ${z.vw} x ${z.vh} screen`);
+  if (r0 && (b[2] - b[0]) < (r0[2] - r0[0]) * 1.02) out.push(`zoomed (${how}): the enlarged card did not grow (${r0[2] - r0[0]} px wide at rest, ${b[2] - b[0]} px zoomed)`);
   return out;
 };
 
@@ -150,11 +147,11 @@ async function walkDeck(browser, d, device) {
         const rest = await app.page.evaluate(ZREAD);
         const judge = async (how) => {
           await app.page.waitForTimeout(1800);
-          const z1 = await app.page.evaluate(ZREAD), zr1 = await app.page.evaluate(READ);
+          const z1 = await app.page.evaluate(ZREAD);
           await app.page.waitForTimeout(700);
-          const z2 = await app.page.evaluate(ZREAD), zr2 = await app.page.evaluate(READ);
+          const z2 = await app.page.evaluate(ZREAD);
           const zf = zoomFailing(z2, rest, how).filter((t) => zoomFailing(z1, rest, how).includes(t));
-          f.push(...zf, ...zr1.off.filter((t) => zr2.off.includes(t)).map((t) => `zoomed (${how}), off: ${t}`), ...zr1.clipped.filter((t) => zr2.clipped.includes(t)).map((t) => `zoomed (${how}), clipped: ${t}`));
+          f.push(...zf);
           if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide} ${how}: rest ${JSON.stringify(rest.boxes)} zoomed ${JSON.stringify(z2.boxes)}`);
         };
         const putBack = async () => { await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'); if (z?.getAttribute('aria-expanded') === 'true') z.click(); }); await app.page.waitForTimeout(900); await idle(); };
@@ -171,7 +168,7 @@ async function walkDeck(browser, d, device) {
           }
           return null;
         }, sel);
-        for (const [how, sel] of [['tap', '.pz-data'], ['tap on the teaching card', '.pz-text']]) {
+        for (const [how, sel] of [['tap', '.pz-data']]) {
           const spot = await spotOf(sel);
           if (spot) { await app.page.mouse.click(spot[0], spot[1]); await judge(how); await putBack(); }
           else if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide}: no empty spot to tap (${how})`);

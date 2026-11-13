@@ -4329,9 +4329,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // resize still lays out at once, onResize. The talk and the cards it was asked for must still be the ones on screen.)
   const thrown = () => throwCards().some((el) => el && throwing(el));
   let landQ = false;
-  // (The corner icon is offered while the cards, as they rest now, have room to grow together (card-zoom.js plan). Asked again where they come to rest, and at the
-  // press itself: a plan made while a card was still gliding in had offered an icon that did nothing when pressed.)
-  function zoomOffer(wide = ui?.root.classList.contains('pz-wide')) { if (ui) ui.data.classList.toggle('pz-zoomable', !!wide && !ui.data.hidden && zoomCard() && !!ui.zoom.plan()); }
   function layoutAtLanding() {
     if (landQ || !ui) return;
     landQ = true;
@@ -4339,7 +4336,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     Promise.all(throwCards().map((el) => el && throwLanded(el))).then(() => {
       landQ = false;
       if (ui !== u || sess !== s || !s?.live()) return;
-      restPass(() => { if (ui !== u || sess !== s) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) { fitCards(ui.data); zoomOffer(); } else layout(); });
+      restPass(() => { if (ui !== u || sess !== s) return; if (cardMoving()) { if (thrown()) layoutAtLanding(); return; } if (cardsStill()) fitCards(ui.data); else layout(); });
     });
   }
   // ── The data card zoomed to the middle of the screen (Mac and iPad landscape; src/ui/card-zoom.js; Mohammad, 28 Oct) ──
@@ -4385,7 +4382,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await until(() => !ui || !('folding' in ui.data.dataset), 1500);
       if (!zoomReady()) return;
     }
-    if (focus !== 'text' && !z.plan()) { zoomOffer(); return; }   // (no room for both now: the icon goes, nothing half-opens)
     ui.scope?.close();   // (the scope view shuts as a card zooms: it would stand over the card; Mohammad 6 Nov 2026)
     zoomU0 = underU(ui.data);
     // (The teaching card's glass, the shade, stands at the figure's level, under the page's veil: framed, it is veiled by fscrim, laid under the
@@ -4855,7 +4851,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
     // (The corner icon is offered where the card has room to grow, and only on a wide screen with an instrument: card-zoom.js.)
-    zoomOffer(wide);
+    ui.data.classList.toggle('pz-zoomable', wide && !ui.data.hidden && zoomCard() && !!ui.zoom.plan());
     placeBar();
     if (!insets.held) dispatchEvent(new Event('pps:occ'));
   }
