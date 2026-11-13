@@ -4,13 +4,14 @@ import { MAX_TIERS, TUBE_FLOATS } from '../src/ui/veins-mesh-data.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS } from '../src/ui/tube-joint.js';
 import { endTrunk, endContinues, END_THRU_END } from '../src/ui/tube-join-glsl.js';
-import { F_DOTTED, TUBE_ROW_FLOATS, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
+import { F_DOTTED, TUBE_ROW_FLOATS, MOUTH_AT, MOUTH_N, mouthCode, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
 import { scene, straight, ray } from './tube-web-helpers.js';
 
 // The Tube's row records, tier buckets and web instances (brief S2-J). Node only; hand-built scenes (tests/tube-web-helpers.js).
 
 const T = 4;
-const rec = (rows, r) => Array.from(rows.subarray(r * TUBE_ROW_FLOATS, (r + 1) * TUBE_ROW_FLOATS));
+const rec = (rows, r) => Array.from(rows.subarray(r * TUBE_ROW_FLOATS, r * TUBE_ROW_FLOATS + 4));   // (the row's id, its two ends, its kind; the mouth list after them has its own tests)
+const recFull = (rows, r) => Array.from(rows.subarray(r * TUBE_ROW_FLOATS, (r + 1) * TUBE_ROW_FLOATS));
 
 test('the flags tube-data.js keeps are the renderer\'s', async () => {
   // (veins-gl.js needs a page: the stand-ins tests/vessel-fs-tube.test.js uses)
@@ -56,7 +57,7 @@ test('tubeRows: a dotted row, a clipped row and a row ending on a trunk are exac
   assert.equal(out.ended, 2, 'rows 1 and 2 carry a join end (the ?perf lumen line counts them)');
   for (const [row, want] of [[0, false], [1, true], [2, true], [3, true], [4, true], [5, true], [6, false]]) assert.equal(rowIsExact(out.rows, row), want, `row ${row}`);
   // a one-float buffer reads as "no ends": the + 2 puts a record's w above 1.5 whatever its kind
-  for (let q = 0; q < 7; q++) assert.ok(out.rows[q * 4 + 3] > 1.5);
+  for (let q = 0; q < 7; q++) assert.ok(out.rows[q * TUBE_ROW_FLOATS + 3] > 1.5);
   // without the points no row has an end
   const bare = tubeRows(sc.tube, sc.nRows, sc.ent, {});
   assert.deepEqual(rec(bare.rows, 1), [1, TUBE_NO_END, TUBE_NO_END, 2]);
@@ -81,16 +82,16 @@ test('tubeRows: an end of the trunk\'s own does not end it on itself, and a row 
   ]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
   assert.deepEqual(rec(out.rows, 0), [0, endContinues(0, 0), TUBE_NO_END, 4], 'a trunk is not on a vessel; its own end the branches leave from, with no row carrying on, is flat, its cap gone (it ends on itself)');
-  assert.equal(out.rows[1 * 4 + 1], endContinues(1, 0), 'and so is the second trunk\'s');
-  assert.equal(out.rows[2 * 4 + 1], 0 * N_SAMPLES + 0, 'row 2 starts on row 0 at its sample 0');
-  assert.equal(out.rows[2 * 4 + 2], 1 * N_SAMPLES + 0, 'and ends on row 1 at its sample 0');
+  assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1], endContinues(1, 0), 'and so is the second trunk\'s');
+  assert.equal(out.rows[2 * TUBE_ROW_FLOATS + 1], 0 * N_SAMPLES + 0, 'row 2 starts on row 0 at its sample 0');
+  assert.equal(out.rows[2 * TUBE_ROW_FLOATS + 2], 1 * N_SAMPLES + 0, 'and ends on row 1 at its sample 0');
 });
 
 test('tubeRows: a branch ends on the row that runs through its join whether or not the join marks it the trunk (a T with no mark)', () => {
   const sc = scene([straight(-100, 0, 100, 0, T), straight(0, 0, 0, 100, 2)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-  assert.equal(out.rows[1 * 4 + 1], endTrunk(0, 31), 'row 1 starts on row 0 at its nearest sample');
-  assert.equal(out.rows[1 * 4 + 2], TUBE_NO_END);
+  assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1], endTrunk(0, 31), 'row 1 starts on row 0 at its nearest sample');
+  assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 2], TUBE_NO_END);
   assert.deepEqual(rec(out.rows, 0).slice(1, 3), [TUBE_NO_END, TUBE_NO_END], 'the trunk is not on a vessel');
   assert.ok(rowIsExact(out.rows, 1) && !rowIsExact(out.rows, 0));
 });
@@ -99,28 +100,28 @@ test('tubeRows: rows touching end to end continue each other even when the join 
   // the node 8 units back along row 0 (past SNAP_REACH of the reach), the rows' end points one point: row 0's last stretch is a stub, not a vessel running on
   const sc = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T)], [{ x: -8, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-  assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'row 0 ends where row 1 starts, so no round cap is left inside row 1');
-  assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
+  assert.equal(out.rows[0 * TUBE_ROW_FLOATS + 2], endContinues(1, 0), 'row 0 ends where row 1 starts, so no round cap is left inside row 1');
+  assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
   // a row that really does run on through the node (its end is nowhere near the other row's end) keeps its two legs
   const through = scene([straight(-100, 0, 100, 0, T), straight(-8, 0, -8, 80, T)], [{ x: -8, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1], trunk: 0 }]);
   const o2 = tubeRows(through.tube, through.nRows, through.ent, {}, through.pts);
-  assert.equal(o2.rows[0 * 4 + 1], TUBE_NO_END);
-  assert.equal(o2.rows[0 * 4 + 2], TUBE_NO_END);
+  assert.equal(o2.rows[0 * TUBE_ROW_FLOATS + 1], TUBE_NO_END);
+  assert.equal(o2.rows[0 * TUBE_ROW_FLOATS + 2], TUBE_NO_END);
 });
 
 test('tubeRows: two rows meeting end to end, bent by 45 degrees at most, continue each other (mutually); a sharper bend, a third row or a taken end does not', () => {
   const straightPair = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
   let out = tubeRows(straightPair.tube, straightPair.nRows, straightPair.ent, {}, straightPair.pts);
-  assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'row 0 ends where row 1 starts');
-  assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
-  assert.equal(out.rows[0 * 4 + 1], TUBE_NO_END);
+  assert.equal(out.rows[0 * TUBE_ROW_FLOATS + 2], endContinues(1, 0), 'row 0 ends where row 1 starts');
+  assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
+  assert.equal(out.rows[0 * TUBE_ROW_FLOATS + 1], TUBE_NO_END);
   assert.ok(rowIsExact(out.rows, 0) && rowIsExact(out.rows, 1) && out.exact === 2);
   const bent = (deg) => scene([straight(-100, 0, 0, 0, T), ray(0, 0, deg, 100, T)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
   for (const [deg, want] of [[30, true], [44, true], [50, false], [90, false]]) {
     const sc = bent(deg);
     out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-    assert.equal(out.rows[0 * 4 + 2] !== TUBE_NO_END, want, `a ${deg} degree bend`);
-    assert.equal(out.rows[1 * 4 + 1] !== TUBE_NO_END, want, `and the partner, at ${deg}`);
+    assert.equal(out.rows[0 * TUBE_ROW_FLOATS + 2] !== TUBE_NO_END, want, `a ${deg} degree bend`);
+    assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1] !== TUBE_NO_END, want, `and the partner, at ${deg}`);
   }
   // a taken end: row 1's start is already given to another join, so the pair is not made (never half a pair)
   const three = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(-100, 30, 0, 0, T)], [
@@ -128,7 +129,7 @@ test('tubeRows: two rows meeting end to end, bent by 45 degrees at most, continu
     { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] },
   ]);
   out = tubeRows(three.tube, three.nRows, three.ent, {}, three.pts);
-  const back = (r, slot) => out.rows[r * 4 + slot];
+  const back = (r, slot) => out.rows[r * TUBE_ROW_FLOATS + slot];
   for (const [r, slot] of [[0, 2], [1, 1], [2, 2]]) {
     const v = back(r, slot);
     if (v === TUBE_NO_END || v >= 0) continue;
@@ -146,9 +147,9 @@ test('tubeRows: an end that meets a junction where two rows run on into each oth
   for (const order of [[[0, 1], [1, 2], [0, 2]], [[2, 0], [1, 2], [0, 1]], [[1, 2], [0, 2], [0, 1]]]) {
     const sc = scene(rows(), order.map(E));
     const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-    assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'the pair stays a pair');
-    assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1));
-    const v = out.rows[2 * 4 + 2];
+    assert.equal(out.rows[0 * TUBE_ROW_FLOATS + 2], endContinues(1, 0), 'the pair stays a pair');
+    assert.equal(out.rows[1 * TUBE_ROW_FLOATS + 1], endContinues(0, N_SAMPLES - 1));
+    const v = out.rows[2 * TUBE_ROW_FLOATS + 2];
     assert.ok(v >= 0, `the third row's end is an open end on the pair's row (${JSON.stringify(order)})`);
     assert.ok(Math.floor(v) === endTrunk(0, N_SAMPLES - 1) || Math.floor(v) === endTrunk(1, 0), `on one of the pair's two rows at the junction: ${v}`);
     assert.ok(rowIsExact(out.rows, 2));
@@ -161,8 +162,8 @@ test('tubeRows: an open end on a trunk that runs on into another row at an end c
     { x: 300, y: 0, reach: 14, k: 0.4, fillet: 1, members: [4, 3.25] },
   ]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-  assert.equal(out.rows[2 * 4 + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END, 'row 0 runs on into row 1 at its end');
-  assert.equal(out.rows[4 * 4 + 2], endTrunk(3, N_SAMPLES - 1), 'row 4 ends on row 3, which ends there and nothing runs on (its end is its own: flat): no fraction');
+  assert.equal(out.rows[2 * TUBE_ROW_FLOATS + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END, 'row 0 runs on into row 1 at its end');
+  assert.equal(out.rows[4 * TUBE_ROW_FLOATS + 2], endTrunk(3, N_SAMPLES - 1), 'row 4 ends on row 3, which ends there and nothing runs on (its end is its own: flat): no fraction');
 });
 
 test('tubeBuckets: an open end whose trunk runs on into another row hands that row to the shader in w (13 Nov 2026: 5 + the start\'s + 4096 * the end\'s, row * 2 + (1 at its end) + 1), so the arm follows its samples past the seam', () => {
@@ -170,12 +171,12 @@ test('tubeBuckets: an open end whose trunk runs on into another row hands that r
     { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }, { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 2] },
   ]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-  assert.equal(out.rows[2 * 4 + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END);
+  assert.equal(out.rows[2 * TUBE_ROW_FLOATS + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END);
   const on = new Uint8Array(sc.nRows).fill(1), b = tubeBuckets(sc.tube, on, sc.nRows, out.rows, {});
   let w = null;
-  for (let q = 0; q < b.n; q++) if (b.rows[q * 4] === 2) w = b.rows[q * 4 + 3];
+  for (let q = 0; q < b.n; q++) if (b.rows[q * TUBE_ROW_FLOATS] === 2) w = b.rows[q * TUBE_ROW_FLOATS + 3];
   assert.equal(w, 5 + 4096 * (1 * 2 + 0 + 1), 'row 2\'s end: the next row is row 1, which meets the seam with its start');
-  for (let q = 0; q < b.n; q++) if (b.rows[q * 4] !== 2) assert.equal(b.rows[q * 4 + 3], out.rows[b.rows[q * 4] * 4 + 3], 'the other rows keep their kind');
+  for (let q = 0; q < b.n; q++) if (b.rows[q * TUBE_ROW_FLOATS] !== 2) assert.equal(b.rows[q * TUBE_ROW_FLOATS + 3], out.rows[b.rows[q * TUBE_ROW_FLOATS] * TUBE_ROW_FLOATS + 3], 'the other rows keep their kind');
 });
 
 test('tubeRows: an open end on a trunk\'s end where it runs on into a row in the branch\'s own tier, the trunk\'s not, ends on that row (13 Nov 2026: the mesocaval\'s mouth on the SMV, two rows in two tiers)', () => {
@@ -185,7 +186,7 @@ test('tubeRows: an open end on a trunk\'s end where it runs on into a row in the
   for (const [tier, want] of [[17, endTrunk(1, 0)], [16, endTrunk(0, N_SAMPLES - 1)], [3, endTrunk(0, N_SAMPLES - 1)]]) {
     rows[2].tier = tier;
     const sc = scene(rows, E), out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-    assert.equal(Math.floor(out.rows[2 * 4 + 2]), want, `a branch in tier ${tier}`);
+    assert.equal(Math.floor(out.rows[2 * TUBE_ROW_FLOATS + 2]), want, `a branch in tier ${tier}`);
   }
 });
 
@@ -224,7 +225,7 @@ test('tubeBuckets: tiers ascending, each tier\'s plain rows first, the records w
   for (let q = 0; q < b.n; q++) ids.push(b.rows[q * TUBE_ROW_FLOATS]);
   assert.deepEqual(ids, [1, 6, 3, 5, 0, 7, 2], 'tier 0: plain 1, 6 then exact 3; tier 1: 5; tier 2: plain 0, 7 then exact 2 (row 4 is hidden)');
   // each record is the row's own
-  for (let q = 0; q < b.n; q++) assert.deepEqual(Array.from(b.rows.subarray(q * 4, q * 4 + 4)), rec(data.rows, ids[q]));
+  for (let q = 0; q < b.n; q++) assert.deepEqual(Array.from(b.rows.subarray(q * TUBE_ROW_FLOATS, (q + 1) * TUBE_ROW_FLOATS)), recFull(data.rows, ids[q]));
   assert.deepEqual(Array.from(b.lit.subarray(0, 3)), [1, 0, 0]); assert.deepEqual(Array.from(b.litUp.subarray(0, 3)), [0, 1, 0]);
   assert.deepEqual(Array.from(b.sel.subarray(0, 3)), [1, 0, 0]); assert.deepEqual(Array.from(b.shadow.subarray(0, 3)), [0, 0, 1]);
   // a row off (on 0) is left out as well
@@ -319,4 +320,20 @@ test('websByTier: a web is drawn in the higher of its two rows\' tiers, once; a 
   const kept = [out.data, out.start, out.count];
   websByTier(w.data, w.count, sc.tube, out);
   assert.deepEqual([out.data, out.start, out.count].map((x, i) => x === kept[i]), [true, true, true]);
+});
+
+test('tubeRows: a trunk lists the mouths of the branches that end on its side, one code per end, and tubeBuckets copies them', () => {
+  const sc = scene([ray(-60, 0, 0, 120, 3), ray(0, 0, 90, 60, 2), ray(0, 0, -90, 60, 2)], [
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1], trunk: 0 },
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 2], trunk: 0 },
+  ]);
+  const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+  const mouths = (r) => Array.from(out.rows.subarray(r * TUBE_ROW_FLOATS + MOUTH_AT, r * TUBE_ROW_FLOATS + MOUTH_AT + MOUTH_N));
+  assert.deepEqual(mouths(0).filter((c) => c > 0).sort(), [mouthCode(1, false), mouthCode(2, false)], 'rows 1 and 2 start on row 0: a start end, code 2 + 2 row');
+  assert.deepEqual(mouths(1), new Array(MOUTH_N).fill(0), 'a branch has none of its own');
+  assert.equal(mouthCode(3, true), 9);
+  assert.equal(mouthCode(0, false), 2, 'a code is above 1.5 and is never 0, so an empty slot reads as none');
+  const b = tubeBuckets(sc.tube, new Uint8Array(3).fill(1), 3, out.rows, {});
+  assert.equal(b.n, 3);
+  for (let q = 0; q < b.n; q++) assert.deepEqual(Array.from(b.rows.subarray(q * TUBE_ROW_FLOATS + MOUTH_AT, (q + 1) * TUBE_ROW_FLOATS)), Array.from(out.rows.subarray(b.rows[q * TUBE_ROW_FLOATS] * TUBE_ROW_FLOATS + MOUTH_AT, (b.rows[q * TUBE_ROW_FLOATS] + 1) * TUBE_ROW_FLOATS)));
 });

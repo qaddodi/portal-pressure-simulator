@@ -299,6 +299,8 @@ out float vD;
 out vec2 vG;
 out float vRad;
 flat out vec2 vEnd;
+flat out vec4 vMouthA;                 // (a web opens no outline: both zero)
+flat out vec4 vMouthB;
 ${JOIN_WEB_OUT_GLSL}
 invariant gl_Position;
 struct WLeg { vec2 p; vec2 d; vec2 n; float r; float len; int seg; float over; };
@@ -396,6 +398,7 @@ void main() {
   vI = ownB ? aLegB.y : aLegA.y;
   vEnd = vec2(-1.0);
   ${JOIN_WEB_SET_GLSL}
+  vMouthA = vec4(0.0); vMouthB = vec4(0.0);
   vD = 0.0; vG = vec2(0.0);
   float Rm = max(A.r, B.r);
   vRad = 4.0 * Rm;

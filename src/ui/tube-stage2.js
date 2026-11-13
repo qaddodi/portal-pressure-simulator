@@ -10,7 +10,7 @@ import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeGlowFS } from './tube-glow-glsl.js';
-import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
+import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS, MOUTH_AT } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
 import { rowBoxes, rowsInside } from './tube-cull.js';
 
@@ -406,6 +406,7 @@ export function createStage2Data(gl, MG) {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, MG.tubeIB);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, TUBE_ROW_FLOATS * 4, 0); gl.vertexAttribDivisor(1, 1);
+    for (let a = 2; a <= 3; a++) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 4, gl.FLOAT, false, TUBE_ROW_FLOATS * 4, (MOUTH_AT + 4 * (a - 2)) * 4); gl.vertexAttribDivisor(a, 1); }   // (the mouth codes: floats 4 to 7 and 8 to 11 of the record)
     // (The web: its 22 vertices and the index, the web records as three vec4 per instance.)
     gl.bindVertexArray(D.webVAO);
     gl.bindBuffer(gl.ARRAY_BUFFER, extra[0]); gl.bufferData(gl.ARRAY_BUFFER, T.attr, gl.STATIC_DRAW);
