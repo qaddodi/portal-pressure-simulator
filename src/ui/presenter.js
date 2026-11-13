@@ -356,11 +356,11 @@ export const camOn = (on) => camNames(expandIds(on), { targets: TARGETS, organs:
 // A live value pill ({pv}): the model's reading for this slide, to its usual decimal.
 // {ppg@before}: the value at another slide of the deck (its id), set by the presenter while a deck plays.
 let fpAt = () => null;
-const atRe = /^(\w+)@([\w-]+)$/;
-function liveVal(k, s, fp) {
+const atRe = /^(\w+)@([\w-]+)$/, wholeRe = /^(\w+):0$/;
+function liveVal(k, s, fp, whole = false) {
   const T = TILE[k], v = fp?.[k];
   if (v == null || !Number.isFinite(v)) return VALUE_PENDING;
-  const d = T.d ?? 1;
+  const d = whole ? 0 : T.d ?? 1;   // ({hvpg:0}: a whole mmHg, as the ladder's brackets and pills read it)
   if (k === 'plt') return plateletText(v);   // (in running text "88,000/µL"; the tile keeps ×10³/µL)
   return `${fmt(v * (T.x || 1), d)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;   // ("75%": no space before the sign)
 }
@@ -413,6 +413,7 @@ function rich(t, s = {}, fp = null, tips = false, cuts = null) {
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
     else if (mk && /^#\d+$/.test(mk)) out.push(stepMark(+mk.slice(1), mkStop));
     else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
+    else if (mk && wholeRe.test(mk) && TILE[mk.match(wholeRe)[1]]) { const k = mk.match(wholeRe)[1]; out.push(pill(liveVal(k, s, fp, true), mkStop, '', valTone(k, fp, tips), pillRate(k, fp, tips))); }
     else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(cutText(mk), mkStop, ' cut'));   // (a cut-off keeps its sign, "≥10 mmHg": a comparison is a symbol, never "at or above", Mohammad 26 Oct)
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)

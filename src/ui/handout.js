@@ -94,10 +94,11 @@ const fig = (base, d, s) => (base && !d.mine && s.id && !NO_FIGURE.has(s.visual)
 // at(id): another slide's. A value not known prints as a dash.
 export function lineText(t, fp = null, at = () => null) {
   // (to the slide's decimals, with a true minus and no "−0", num.js fmt)
-  const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${fmt(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
+  const val = (k, f, whole = false) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
     if (/^#\d+$/.test(mk)) return `(${mk.slice(1)})`;   // (a figure's step marker, {#2}: its number in brackets, as a printed line says it)
     if (TILE[mk]) return val(mk, fp);
+    if (/^\w+:0$/.test(mk) && TILE[mk.slice(0, -2)]) return val(mk.slice(0, -2), fp, true);   // ({hvpg:0}: a whole mmHg, as the ladder's brackets read it)
     const m = mk.match(/^(\w+)@([\w-]+)$/);
     if (m && TILE[m[1]]) return val(m[1], at(m[2]));
     return cutText(mk);

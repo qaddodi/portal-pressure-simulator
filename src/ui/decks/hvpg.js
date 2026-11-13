@@ -50,7 +50,7 @@ export const HVPG = {
       id: 'presin', lens: 'drop', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile' }, key: ['pv', 'whvp', 'hvpg'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
       vignette: 'A 34-year-old woman who grew up by the Nile has had variceal bleeding. Her liver tests are normal, she has splenomegaly, and her HVPG was normal.',
-      line: 'In schistosomiasis the resistance is in the portal tracts, upstream of the sinusoids. The HVPG is {hvpg} and the portal pressure {pv}.',
+      line: 'In schistosomiasis the resistance is in the portal tracts, upstream of the sinusoids. The HVPG is {hvpg:0} and the portal pressure {pv}.',
       notes: 'The WHVP reflects only the pressure downstream of the resistance. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly elevated and underestimate the portal pressure. A normal HVPG in a patient with varices or splenomegaly points to a presinusoidal or prehepatic cause. The large pressure drop is in the portal venules, upstream of the wedged position.',
       ask: ['A 30-year-old man from Egypt has varices and a normal HVPG. What is the likely cause?', 'Schistosomiasis: presinusoidal resistance that the WHVP does not reflect.'],
     },
@@ -75,7 +75,7 @@ export const HVPG = {
       // (The three gradients of the patient the EUS slide just measured, on the ladder: the EUS-PPG is taught on the slide before, so its bracket stands here.)
       id: 'eus-ladder', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }, key: ['hvpg', 'eus'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'The EUS-PPG spans the resistance that the wedge leaves out',
-      line: 'The HVPG is {hvpg}. The EUS-PPG starts in the portal vein, upstream of the resistance, and reads {eus}, close to the PPG of {ppg}.',
+      line: 'The HVPG is {hvpg:0}. The EUS-PPG starts in the portal vein, upstream of the resistance, and reads {eus:0}, close to the PPG of {ppg:0}.',
       notes: 'The same patient, with the three gradients side by side. The HVPG is the wedged minus the free hepatic venous pressure, so it spans the sinusoids only. The EUS-PPG is the left portal vein minus the left hepatic vein pressure, so it starts upstream of the portal tracts and spans the resistance; the PPG spans the portal vein to the IVC. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test.',
       ask: ['The HVPG is 3 mmHg and the EUS-PPG 15 mmHg in the same patient. Where does the resistance lie?', 'Between the left portal vein and the wedge, in the portal tracts. The EUS-PPG spans it and the HVPG does not.'],
     },

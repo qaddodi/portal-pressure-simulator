@@ -37,6 +37,7 @@ test('the handout prints each line\'s values and words, never a raw placeholder'
   }
   assert.equal(lineText('An HVPG of {hvpg} in the [portal vein](pv), {<15 cm/s}; {6 to 8 g}; before {ppg@a}.', { hvpg: 11.64 }, (id) => (id === 'a' ? { ppg: 4.25 } : null)),
     'An HVPG of 11.6 mmHg in the portal vein, <15 cm/s; 6 to 8 g; before 4.3 mmHg.');
+  assert.equal(lineText('HVPG {hvpg:0}, EUS-PPG {eus:0}', { hvpg: 3.5, eus: 15.3 }), 'HVPG 4 mmHg, EUS-PPG 15 mmHg', '{k:0}: a whole mmHg, as the ladder brackets read it');
   assert.equal(lineText('{>=10 mmHg}, {<=12 mmHg}, {> 5 mmHg}, {≥25 kPa}'), '≥10 mmHg, ≤12 mmHg, >5 mmHg, ≥25 kPa', 'a cut-off in the words keeps its sign (a symbol, never "or more")');
   assert.equal(lineText('{asc} and {plt} and {shunt}', { asc: 4300, plt: 92.4, shunt: 0.715 }), '4.3 L and 92,000/µL and 72%');
 });
