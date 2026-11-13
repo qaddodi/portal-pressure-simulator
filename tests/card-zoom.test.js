@@ -664,16 +664,16 @@ test('zoom: a slide with no data card zooms its teaching card alone (Sites and c
   assert.match(js, /\(\(zoomCard\(\) && dataStands\(\)\) \|\| wordsAlone\(\)\)/);
 });
 
-test('zoom: a tap on the data card fits and centres the data card alone; the teaching card rides but never changes the framing', () => {
+test('zoom: a tap on the data card fits and centres the card and the teaching card together, so neither is cut', () => {
   const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
   const words = new El({ left: 480, top: 300, width: 120, height: 380 });
   const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
   const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
   const back = stands();
   try {
-    const want = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }) * STACK_ROOM);
+    const want = zoomPlan({ left: 40, top: 276, width: 560, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }) * STACK_ROOM);
     assert.equal(z.open(), true);
-    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'the fit is the instrument card and its handle, not the words');
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'the fit is the whole of them: the instrument card, its handle and the words');
     z.reset();
   } finally { back(); }
 });
@@ -685,7 +685,13 @@ test('zoomPlanClear: pieces that would run off the screen stay where they are an
   // Beside the card and narrow: riding keeps it whole, so it is the old plan.
   { const p = zoomPlanClear({ left: 40, top: 300, width: 420, height: 380 }, [{ left: 480, top: 300, width: 120, height: 380 }], area);
     assert.equal(p.ride, true); assert.equal(p.s, zoomPlan({ left: 40, top: 300, width: 420, height: 380 }, area).s); }
-  // Above the card (the Mac and iPad stack): scaled about the card it lands above the top of the screen.
+  // Together: card and pieces are one picture where that still enlarges it (a tall screen).
+  { const big = { left: 0, top: 0, width: 1907, height: 1185 }, c = { left: 37, top: 600, width: 490, height: 336 }, w = { left: 37, top: 220, width: 491, height: 353 };
+    const t = zoomPlanClear(c, [w], big);
+    assert.equal(t.ride, true); assert.deepEqual(t.box, unionBox([c, w]));
+    const mid = { x: t.box.left + t.box.width / 2, y: t.box.top + t.box.height / 2 }, mg = zoomMargin(big);
+    for (const r of [c, w]) { const b = landedBox(r, t, mid); assert.ok(b.top >= mg - 1e-9 && b.top + b.height <= big.height - mg + 1e-9 && b.left >= mg - 1e-9 && b.left + b.width <= big.width - mg + 1e-9, 'both whole inside the margin'); } }
+  // Above the card (the Mac and iPad stack), on a screen too short to enlarge both: scaled about the card it lands above the top of the screen.
   const card = { left: 37, top: 484, width: 490, height: 336 }, words = { left: 37, top: 109, width: 491, height: 353 };
   const p = zoomPlanClear(card, [words], area);
   assert.equal(p.ride, false, 'the teaching card does not ride');
@@ -718,4 +724,15 @@ test('zoom: a teaching card above the instrument is left whole, unmoved, while t
     assert.ok(z.scale >= ZOOM_MIN - 1e-9);
     const shut = z.close(); fl.run(); await shut;
   } finally { back(); }
+});
+
+// Nothing enlarges a card unasked (Mohammad, 13 Nov 2026: "why is this zooming in alone?!"): the zoom opens from the corner icon and from a tap on an empty part of
+// a card, and from nowhere else, and a slide, a resize and Escape put it back.
+test('zoom: only the corner icon and a tap on a card open the zoom', () => {
+  const calls = [...js.matchAll(/\b(zoomOpen|zoomToggle|cellOpen|cellTap)\(/g)].map((m) => m[1]);
+  assert.equal(calls.filter((c) => c === 'zoomOpen').length, 2, 'the definition and the one call, in zoomToggle');
+  assert.match(js, /onclick: \(\) => zoomToggle\(\) \}/, 'the corner icon');
+  assert.match(js, /tapTracker\(data, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up, onTap: \(\) => zoomToggle\(\) \}\)/);
+  assert.match(js, /tapTracker\(text, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up, onTap: \(\) => zoomToggle\('text'\) \}\)/);
+  assert.equal([...js.matchAll(/\bzoom\.open\(|ui\.zoom\.open\(|z\.open\(/g)].length, 2, 'card-zoom open is called from zoomOpen and cellOpen only');
 });

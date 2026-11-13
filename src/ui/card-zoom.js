@@ -67,18 +67,22 @@ export const landedBox = (r, plan, mid) => {
 
 /**
  * zoomPlan for a card with pieces standing round it that must stay whole on the screen (the teaching card and its glass: Mohammad, 13 Nov 2026,
- * "when i zoom into this slide, the teaching card text is cut off"; "probably happens to a lot of other cards"). The pieces ride the card's transform
- * (the page as one picture that zooms toward the card, 4 Nov) when, grown by it, they still stand whole inside the area: then it is zoomPlan, and
- * `ride` is true. When they would not (a teaching card above the instrument, scaled about the instrument's middle, ran off the top of the screen),
- * they stay where they are, unmoved and unscaled, and the card takes only the room left beside them: the largest of the four bands of the area
- * that lie right, left, below or above them (a gap clear of them, the margin at the screen's own edges), centred in that band; `room` is that
- * band and `margin` the margin it was fitted with, for the readings' re-fit (follow). null when no band has room for ZOOM_MIN.
- * card, keep, area: { left, top, width, height }; keep: the boxes of the pieces, as they rest.
+ * "when i zoom into this slide, the teaching card text is cut off"; "probably happens to a lot of other cards"). In this order:
+ *  1. Together: card and pieces are fitted and centred as one picture (the page zooms toward the card, 4 Nov: "zoom the entire camera"), when that
+ *     still enlarges it ZOOM_MIN: `ride` is true and `box` the whole of them. (Fitted by the card alone, a teaching card above the instrument,
+ *     turned about the instrument's middle, ran off the top of the screen.)
+ *  2. The card's own fit, the pieces riding it, when they still land whole inside the screen: `ride` true, no `box`.
+ *  3. Where the whole of them is too tall or wide to enlarge, the pieces stay put, unmoved and unscaled, and the card takes the largest of the
+ *     four bands of the area that lie right, left, below or above them (a gap clear of them, the margin at the screen's own edges), centred in
+ *     that band: `ride` false, `room` that band and `margin` the margin it was fitted with, for the readings' re-fit (follow).
+ * null when none has room for ZOOM_MIN: no zoom, never a cut card. card, keep, area: { left, top, width, height }; keep: the pieces' boxes as they rest.
  */
 export function zoomPlanClear(card, keep, area, margin = zoomMargin(area), gap = 28) {
   const kept = keep.filter((r) => r && r.width > 0 && r.height > 0);
   const own = zoomPlan(card, area, margin);
   if (!kept.length) return own && { ...own, ride: true, room: area, margin };
+  const U = unionBox([card, ...kept]), together = zoomPlan(U, area, margin);
+  if (together) return { ...together, ride: true, box: U, room: area, margin };
   if (own) {
     const mid = { x: card.left + card.width / 2, y: card.top + card.height / 2 }, tol = 2;
     const whole = kept.every((r) => { const b = landedBox(r, own, mid); return b.left >= area.left - tol && b.top >= area.top - tol && b.left + b.width <= area.left + area.width + tol && b.top + b.height <= area.top + area.height + tol; });
@@ -246,6 +250,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       let plan = q && (part || main ? zoomPlan(q, a, mg) : zoomPlanClear(q, riders.filter((r) => r.pass).map((r) => r.rest), a, mg));
       if (!plan) return false;
       if (plan.ride === false) riders = riders.filter((r) => !r.pass);
+      else if (plan.box) q = plan.box;   // (together: the whole of them is what is centred, so the teaching card is as whole on the screen as the card is)
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the

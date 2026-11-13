@@ -10,6 +10,7 @@
 //   scroll   a card (.pz-text, .pz-data, .pz-panel) whose content is taller than its box: its last lines are hidden from the room.
 //   clipped  a text element wider than its box where the box clips (overflow not visible): a cut or ellipsised word.
 //   off      a text element partly outside the screen (wholly outside is a parked card, ignored) and not inside something that scrolls on purpose.
+//   enlarged a card already enlarged when the slide has landed (nothing zooms until asked).
 //   zoomed   the same slide with its instrument card enlarged (the corner icon, Mac and iPad landscape): the teaching card and the enlarged card must
 //            both stand whole inside the screen, and no text may be cut (the page's own getBoundingClientRect answers the resting box while a card
 //            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
@@ -86,7 +87,9 @@ const READ = () => {
     }
     return low > 2 ? `${q} content runs ${Math.round(low)} px past its box (${who}; box ${Math.round(box.width)} x ${Math.round(box.height)} at y ${Math.round(box.top)}, screen ${vw} x ${vh}; teaching card ${(() => { const t = document.querySelector('.pz-text')?.getBoundingClientRect(); return t ? `y ${Math.round(t.top)}-${Math.round(t.bottom)}` : 'none'; })()})` : null;
   }).filter(Boolean);
-  return { n: document.querySelector('.pzb-n')?.textContent || '', clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll };
+  // (No card is enlarged until it is asked: a slide that lands with one up, or the zoomed state left over from the one before, is a finding.)
+  const enlarged = [document.querySelector('#app')?.classList.contains('pz-zoomed') && 'the page is in its zoomed state', document.querySelector('.pz-data')?.dataset.zoomed !== undefined && 'the data card is zoomed', document.querySelector('.pz-zbtn')?.getAttribute('aria-expanded') === 'true' && 'the enlarge icon says it is up'].filter(Boolean).map((t) => `${t} on entry`);
+  return { n: document.querySelector('.pzb-n')?.textContent || '', enlarged, clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll };
 };
 
 // Runs in the page with a card enlarged: where the two cards really are (getClientRects: the zoom pins getBoundingClientRect to the resting box).
@@ -108,7 +111,7 @@ const zoomFailing = (z) => {
   return out;
 };
 
-const failing = (r) => [...r.scroll.map((t) => `scroll: ${t}`), ...r.clipped.map((t) => `clipped: ${t}`), ...r.off.map((t) => `off: ${t}`)];
+const failing = (r) => [...(r.enlarged || []).map((t) => `enlarged: ${t}`), ...r.scroll.map((t) => `scroll: ${t}`), ...r.clipped.map((t) => `clipped: ${t}`), ...r.off.map((t) => `off: ${t}`)];
 
 async function walkDeck(browser, d, device) {
   const rec = { deck: d.id, device, steps: [], problems: [], errors: [] };
@@ -134,7 +137,7 @@ async function walkDeck(browser, d, device) {
       await app.page.waitForTimeout(700);
       const r2 = await app.page.evaluate(READ);
       const both = (x, y) => x.filter((t) => y.includes(t));
-      r.scroll = both(r.scroll, r2.scroll); r.clipped = both(r.clipped, r2.clipped); r.off = both(r.off, r2.off);
+      r.enlarged = both(r.enlarged, r2.enlarged); r.scroll = both(r.scroll, r2.scroll); r.clipped = both(r.clipped, r2.clipped); r.off = both(r.off, r2.off);
       const [a, b] = r.n.split('/').map((x) => parseInt(x, 10));
       const slide = a || k + 1;
       const f = failing(r);
