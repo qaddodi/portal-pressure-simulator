@@ -714,13 +714,14 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 /* (The circuit's map (its dot grid in --map-dot, its tinted zones in --text at .028, a slide's lit zone in --accent at .09) and its station
    dots (--stage-bg under a 1.6 ring in --text) are drawn by the GPU from the tokens: stage.js MAP, syncMapInk; veins-gl.js mapAt.) */
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
-.tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: round; stroke-linejoin: round; }
+.tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: butt; stroke-linejoin: round; }   /* (butt ends: a round cap lay over the vein it joins as a pale blob) */
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.suture-thread { fill: none; stroke: var(--suture-thread); stroke-width: 1.1; stroke-opacity: .92; stroke-linecap: round; stroke-linejoin: round; }
-.suture-back { fill: none; stroke: var(--suture-thread); stroke-width: 1; stroke-opacity: .3; stroke-linecap: round; stroke-linejoin: round; }
-.suture-seam { fill: none; stroke: var(--text); stroke-width: .8; stroke-opacity: .2; stroke-linecap: round; stroke-linejoin: round; }
-.suture-ridge { fill: none; stroke: var(--white); stroke-width: .8; stroke-opacity: .22; stroke-linecap: round; stroke-linejoin: round; }
-.suture-knot { fill: none; stroke: var(--suture-thread); stroke-width: 2.6; stroke-linecap: round; }   /* (a dot: a path of nearly no length with round caps, so the marks' painter draws it as a disc) */
+.suture-thread { fill: none; stroke: var(--suture-thread); stroke-width: .75; stroke-linecap: round; stroke-linejoin: round; }
+.suture-halo { fill: none; stroke: #3a1d0a; stroke-width: 1.9; stroke-opacity: .4; stroke-linecap: round; stroke-linejoin: round; }   /* (a thin dark edge under the thread, so it reads on any vessel colour) */
+.suture-back { fill: none; stroke: var(--suture-thread); stroke-width: .7; stroke-opacity: .3; stroke-linecap: round; stroke-linejoin: round; }
+.suture-seam { fill: none; stroke: #3a1d0a; stroke-width: .6; stroke-opacity: .16; stroke-linecap: round; stroke-linejoin: round; }
+.suture-knot { fill: none; stroke: var(--suture-thread); stroke-width: 2.1; stroke-linecap: round; }   /* (a dot: a path of nearly no length with round caps, so the marks' painter draws it as a disc) */
+.suture-knot-halo { fill: none; stroke: #3a1d0a; stroke-width: 3.3; stroke-opacity: .4; stroke-linecap: round; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }

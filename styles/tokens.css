@@ -287,7 +287,7 @@
   --map-dot: rgba(160, 182, 255, .11);
   --fx-ink: rgba(22, 24, 29, .88);
   --stent-metal: #667285;
-  --suture-thread: #3d54a8;
+  --suture-thread: #E8742A;
   --stent-marker: #545D6C;
   --stent-alpha: .5;
   --stent-glint: .24;
@@ -565,7 +565,7 @@
     --lit-lo: .18;
     --fx-ink: rgba(233, 237, 246, .9);
     --stent-metal: #A0ABBE;
-    --suture-thread: #9db1f2;
+    --suture-thread: #E8742A;
     --stent-marker: #BAC2D0;
     --stent-alpha: .5;
     --stent-glint: .24;
@@ -804,7 +804,7 @@
   --lit-lo: .18;
   --fx-ink: rgba(233, 237, 246, .9);
   --stent-metal: #A0ABBE;
-  --suture-thread: #9db1f2;
+  --suture-thread: #E8742A;
   --stent-marker: #BAC2D0;
   --stent-alpha: .5;
   --stent-glint: .24;
@@ -1034,7 +1034,7 @@
   --map-dot: rgba(160, 182, 255, .12);
   --fx-ink: rgba(233, 237, 246, .9);
   --stent-metal: #A0ABBE;
-  --suture-thread: #9db1f2;
+  --suture-thread: #E8742A;
   --stent-marker: #BAC2D0;
   --stent-alpha: .5;
   --stent-glint: .24;
@@ -1088,7 +1088,7 @@
     --map-dot: rgba(160, 182, 255, .12);
     --fx-ink: rgba(233, 237, 246, .9);
     --stent-metal: #A0ABBE;
-    --suture-thread: #9db1f2;
+    --suture-thread: #E8742A;
     --stent-marker: #BAC2D0;
     --stent-alpha: .5;
     --stent-glint: .24;

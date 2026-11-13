@@ -49,7 +49,7 @@ export function seamTable(pt, du, maxSl) {
 export const seamAt = (tab, a) => { const f = (Math.max(-1, Math.min(1, a)) + 1) / 2 * (NS - 1), i = Math.min(NS - 2, Math.floor(f)); return tab[i] + (tab[i + 1] - tab[i]) * (f - i); };
 
 /**
- * The paths of one join: { seam, ridge, back, front } as path data. `h` is half the stitch's length along the shunt.
+ * The paths of one join: { seam, ridge, back, front } (the ridge is no longer drawn) as path data. `h` is half the stitch's length along the shunt.
  */
 export function runningStitch(pt, tab, h) {
   const poly = (sl, a0, a1, k) => { let d = ''; for (let i = 0; i <= k; i++) { const a = a0 + ((a1 - a0) * i) / k, p = pt(sl(a), a); d += `${i ? 'L' : 'M'}${f1(p[0])} ${f1(p[1])} `; } return d; };
@@ -84,7 +84,8 @@ export function woundTie(fr, d0, R, step, turns = 5, pinch = 0) {
     out.front += nearD; out.back += farD;
   }
   const kd = d0 - (turns / 2 + 0.15) * step, kp = at(kd, Rr(kd) * Math.sin(0.95));
-  out.knot = { x: kp[0], y: kp[1], r: step * 0.72 };
-  for (const sg of [-1, 1]) { const t = at(kd - step * 2.4, Rr(kd) * Math.sin(0.95) + sg * step * 1.2); out.tails += `M${f1(kp[0])} ${f1(kp[1])} L${f1(t[0])} ${f1(t[1])} `; }
+  out.knot = { x: kp[0], y: kp[1] };
+  const lim = Rr(kd) * 0.9;
+  for (const sg of [-1, 1]) { const t = at(kd - step * 1.9, Math.max(-lim, Math.min(lim, Rr(kd) * Math.sin(0.95) + sg * step * 0.6))); out.tails += `M${f1(kp[0])} ${f1(kp[1])} L${f1(t[0])} ${f1(t[1])} `; }
   return out;
 }

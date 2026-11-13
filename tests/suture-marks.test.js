@@ -41,7 +41,7 @@ test('a wound tie: five turns near and far, a knot and two tails', () => {
   assert.equal((w.front.match(/M/g) || []).length, 5);
   assert.equal((w.back.match(/M/g) || []).length, 5);
   assert.equal((w.tails.match(/M/g) || []).length, 2);
-  assert.ok(w.knot.r > 0 && Number.isFinite(w.knot.x) && Number.isFinite(w.knot.y));
+  assert.ok(Number.isFinite(w.knot.x) && Number.isFinite(w.knot.y));
   assert.ok(!/NaN|Infinity/.test(w.front + w.back + w.tails));
 });
 
@@ -54,4 +54,9 @@ test('the stump narrows 20 % at its tie and is back to full caliber a few units 
   // the turns lie on the narrowed wall: a pinched tie's rings are closer to the vein's axis than an unpinched one's
   const fr = (d) => ({ x: d, y: 50, nx: 0, ny: 1 }), lat = (w) => Math.max(...(w.front.match(/-?[\d.]+ (-?[\d.]+)/g) || []).map((q) => Math.abs(Number(q.split(' ')[1]) - 50)));
   assert.ok(lat(woundTie(fr, 20, 6, 1.9, 5, 1)) < lat(woundTie(fr, 20, 6, 1.9, 5, 0)));
+});
+
+test('the tails stay inside the vein: no tie shape reaches past its radius', () => {
+  const fr = (d) => ({ x: d, y: 50, nx: 0, ny: 1 }), R = 6, w = woundTie(fr, 20, R, 1.9);
+  for (const k of ['front', 'back', 'tails']) for (const q of w[k].match(/-?[\d.]+ -?[\d.]+/g)) assert.ok(Math.abs(Number(q.split(' ')[1]) - 50) <= R, `${k} within the radius`);
 });

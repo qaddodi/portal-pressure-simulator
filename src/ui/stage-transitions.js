@@ -341,7 +341,7 @@ export function createTransitions(st, live) {
       }
       if (!tab) { els.push(...sutureTicks(id, atEnd ? Math.max(L - 10, L * 0.9) : Math.min(10, L * 0.1), R + 2)); continue; }
       const j = runningStitch(pt, tab, Math.max(2, Math.min(4, R * 0.4)));
-      els.push(...sutureEls([['suture-seam', j.seam], ['suture-ridge', j.ridge], ['suture-back', j.back], ['suture-thread', j.front]]));
+      els.push(...sutureEls([['suture-seam', j.seam], ['suture-back', j.back], ['suture-halo', j.front], ['suture-thread', j.front]]));
     }
     putMark(ov.stents, `suture:${id}`, id, els);
   }
@@ -354,12 +354,18 @@ export function createTransitions(st, live) {
     const R = x.width / 2 + (x.wallPx || 1);
     if (at != null) {
       let w = '';
-      geo[id].cur.forEach((q, i) => { w += `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)} `; });
+      // (The grey wash starts where the vein leaves the vein it joins, not on top of it: the points inside either host's wall are left out, 13 Nov 2026.)
+      const cur = geo[id].cur, inHost = (q) => { const h = sutureHost(id, q[0], q[1]); return !!h && distToLine(geo[h.e.id].cur, q[0], q[1]) < (h.width / 2 + (h.wallPx || 1)) * 0.95; };
+      let i0 = 0, i1 = cur.length - 1;
+      while (i0 < i1 - 2 && inHost(cur[i0])) i0++;
+      while (i1 > i0 + 2 && inHost(cur[i1])) i1--;
+      for (let i = i0; i <= i1; i++) w += `${i > i0 ? 'L' : 'M'}${cur[i][0].toFixed(1)} ${cur[i][1].toFixed(1)} `;
       putMark(ov.stents, `tieGrey:${id}`, shunt, [s('path', { class: 'tied-off', d: w, 'stroke-width': (x.width + 2 * (x.wallPx || 1)).toFixed(1) })]);
     }
     // (A wound tie, S1 of the suture mocks: five turns of thin thread, the far half faint, a knot and two short tails. On a divided vein it sits a little in from the cut end.)
     const w = woundTie((u) => frameAt(id, u), at != null ? c : stumpCentre(divideLen(id), geo[id].len), R, 1.9, 5, at != null ? 0 : 1);
-    putMark(ov.stents, `tie:${id}`, shunt, sutureEls([['suture-back', w.back], ['suture-thread', w.front], ['suture-thread', w.tails], ['suture-knot', `M${w.knot.x.toFixed(1)} ${w.knot.y.toFixed(1)} L${(w.knot.x + 0.4).toFixed(1)} ${w.knot.y.toFixed(1)}`]]));
+    const kn = `M${w.knot.x.toFixed(1)} ${w.knot.y.toFixed(1)} L${(w.knot.x + 0.4).toFixed(1)} ${w.knot.y.toFixed(1)}`;
+    putMark(ov.stents, `tie:${id}`, shunt, sutureEls([['suture-back', w.back], ['suture-halo', w.front], ['suture-halo', w.tails], ['suture-knot-halo', kn], ['suture-thread', w.front], ['suture-thread', w.tails], ['suture-knot', kn]]));
     if (at == null) return;
     const m = frameAt(id, geo[id].len * TIED_X);
     putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
