@@ -20,7 +20,7 @@ const step01 = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3
 export const graftAlpha = (lam) => 0.86 * (0.1 + 0.9 * step01((lam - 0.45) / 0.45));
 /** The light levels the graft is cut at; each fill covers where the light is at least its level. */
 export const GRAFT_LEVELS = [0.45, 0.55, 0.65, 0.75, 0.84];
-const RING_STEPS = 18;   // (points per half ring)
+const RING_STEPS = 40;   // (points per half ring: about 16 per crown, so a crown is a round turn at any zoom, never a corner; 18 drew them as kinks, 13 Nov 2026)
 
 /**
  * f(a, v): the point at arc length a along the stent (0 = its portal end) and v across it (-1 to 1, the wall's two sides). A: its length.
@@ -83,6 +83,14 @@ export function stentLookD(f, A, bare = A, k = 1) {
     const r = z * Math.sqrt(m2 - lvl * lvl), lo = Math.max(-1, (p * lvl - r) / m2), hi = Math.min(1, (p * lvl + r) / m2);
     return hi > lo ? [lo, hi] : null;
   };
+  // The graft's two ends, from v0 round to v1, at the place at(v) along it: evenly spaced round the tube (in the angle, not across it), finely enough that the
+  // scallops are round, and the same curve for every light level's fill, so the fills' ends lie on one another (13 Nov 2026: sampled a few times across the width,
+  // each fill cut its own chords through the crowns near the sides, and the stacked ends showed as a ragged top end).
+  const arcAt = (v0, v1, at) => {
+    const t0 = Math.asin(Math.max(-1, Math.min(1, v0))), t1 = Math.asin(Math.max(-1, Math.min(1, v1))), n = Math.max(6, Math.ceil(Math.abs(t1 - t0) / Math.PI * 2 * RING_STEPS)), o = [];
+    for (let i = 0; i <= n; i++) { const v = Math.sin(t0 + (t1 - t0) * i / n); o.push(f(at(v), v)); }
+    return o;
+  };
   const levels = [0, ...GRAFT_LEVELS];
   let below = 0;   // (the opacity the fills under this one already give)
   for (let j = 0; j < levels.length; j++) {
@@ -90,7 +98,7 @@ export function stentLookD(f, A, bare = A, k = 1) {
     const op = Math.max(0, 1 - (1 - want) / (1 - below)); below = want;
     if (!(op > 0.004) || sMax <= SB) continue;
     const hiE = [], loE = [], sp0 = edgeOf(lvl, SB), start = [];
-    if (sp0) for (let i = 0; i <= 8; i++) { const v = sp0[0] + (sp0[1] - sp0[0]) * i / 8; start.push(f(startAt(v), v)); }
+    if (sp0) start.push(...arcAt(sp0[0], sp0[1], startAt));
     for (let a = Math.min(sMax, SB + BOW); ; a = Math.min(sMax, a + step)) {
       const sp = edgeOf(lvl, a);
       if (sp) { hiE.push(f(a, sp[1])); loE.push(f(a, sp[0])); }
@@ -98,7 +106,7 @@ export function stentLookD(f, A, bare = A, k = 1) {
     }
     if (hiE.length < 2) continue;
     const spEnd = edgeOf(lvl, sMax), cap = [];
-    if (spEnd) for (let i = 0; i <= 12; i++) { const v = spEnd[1] + (spEnd[0] - spEnd[1]) * i / 12; cap.push(f(Math.max(sMax, endAt(v)), v)); }
+    if (spEnd) cap.push(...arcAt(spEnd[1], spEnd[0], (v) => Math.max(sMax, endAt(v))));
     out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(3)]);
   }
   // the gold band where the graft starts (bowed with the cylinder), and the gold tab near the far end

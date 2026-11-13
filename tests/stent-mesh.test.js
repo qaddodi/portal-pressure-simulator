@@ -74,6 +74,30 @@ test('the graft is white where the light falls and nearly clear on the shaded si
   assert.equal(GRAFT_LEVELS.length + 1, 6);
 });
 
+test('a clean far end: every light level\'s fill lies inside the whole graft, and the scalloped end is round, not cut by chords (13 Nov 2026, "ragged top end")', () => {
+  // a vessel that turns (a quarter circle of radius 200), as the TIPS does on its way to the hepatic vein
+  const Rc = 200, g = (a, v) => { const t = a / Rc, r = Rc + R * v; return [r * Math.sin(t), Rc - r * Math.cos(t)]; };
+  const m = stentLookD(g, A, bare), G = m.graft.map(([d]) => pts(d));
+  const inside = (p, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > p[1]) !== (P[j][1] > p[1]) && p[0] < (P[j][0] - P[i][0]) * (p[1] - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; return c; };
+  const dseg = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vy); };
+  const near = (p, P) => { let d = 1e9; for (let i = 0; i < P.length; i++) d = Math.min(d, dseg(p, P[i], P[(i + 1) % P.length])); return d; };
+  for (let j = 1; j < G.length; j++) for (const p of G[j]) assert.ok(inside(p, G[0]) || near(p, G[0]) < 0.05, `level ${j} pokes out of the graft at ${p.map((x) => x.toFixed(1))}`);
+  // the base fill's outline turns gently everywhere (no corner over 50 degrees but where the end meets the sides)
+  const P = G[0];
+  let sharp = 0;
+  for (let i = 1; i + 1 < P.length; i++) {
+    const a = [P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]], b = [P[i + 1][0] - P[i][0], P[i + 1][1] - P[i][1]], la = Math.hypot(...a), lb = Math.hypot(...b);
+    if (la > 1e-6 && lb > 1e-6 && Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / la / lb))) > 50 * Math.PI / 180) sharp++;
+  }
+  assert.ok(sharp <= 4, `the graft's outline has ${sharp} corners`);
+  // the rings are drawn to their crowns' tips (sampled finely enough that no crown is cut flat, ring after ring by a different amount)
+  const s = stentLookD(f, A, bare), Ac = 0.42 * 11;
+  for (const ring of s.frontCov.split('M').filter((x) => x.trim()).map((x) => pts(x))) {
+    const xs = ring.map((p) => p[0]), span = Math.max(...xs) - Math.min(...xs);
+    if (Math.max(...xs) < A - 1) assert.ok(span > 2 * Ac - 0.12, `a ring's crowns cut flat: ${span.toFixed(2)} of ${(2 * Ac).toFixed(2)}`);
+  }
+});
+
 test('unrolled part of the way, nothing past the front is drawn', () => {
   const m = stentLookD(f, A, bare, 0.5);
   for (const d of [m.frontBare, m.backBare, m.frontCov, m.backCov, ...m.graft.map((g) => g[0])]) for (const [x] of pts(d)) assert.ok(x <= A / 2 + 0.01, `past the front: ${x}`);
