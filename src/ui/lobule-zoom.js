@@ -19,6 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
+import { lerp } from './num.js';
 import { stageCovered } from './seen.js';
 import { carryCovers, carryBetween } from './carry-cover.js';
 import { runFlick, FLICK } from './flick.js';
@@ -81,7 +82,6 @@ const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
 useTokens(tk);   // (the tissue's painting, lobule-paint.js, reads the same live tokens on the page)
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-const lerp = (a, b, t) => a + (b - a) * t;
 
 // Deterministic jitter so the tissue does not shimmer between frames.
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)

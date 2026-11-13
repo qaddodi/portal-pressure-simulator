@@ -9,11 +9,11 @@
 // ones 0.5 less theirs, the share of a pixel a straight edge leaves, as the browser's own edges are drawn. A shape is sharp at
 // any zoom: it is drawn again from its outline at the screen's resolution.
 
+import { clamp } from './num.js';
 import { ucOf } from './uniform-cache.js';
 import { EDGE_GLSL } from './edge.js';
 import { prestart, linkProgram } from './gl-compile.js';
 
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // The path text is read with a character scanner over module state, not a regular expression's match array: a path parsed on a cache
 // miss (a shape the frame has not seen) makes only its result, none of the strings, token arrays, closures and spreads the first

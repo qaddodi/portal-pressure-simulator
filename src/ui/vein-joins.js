@@ -6,6 +6,7 @@
 // path flips between two stores (stage.js), so the courses a frame handed to the renderer are not written over while it reads them.
 // (Written first with a fresh array, Map and Set for every node and every join; tests/vein-joins.test.js holds a copy of that code
 // and checks this against it on random figures, join for join and point for point.)
+import { clamp } from './num.js';
 import { nodeJoinsInto, newJoinAnswer } from './fork-joins.js';
 import { STRAND_SOFT } from './anatomy.js';
 
@@ -40,7 +41,6 @@ function setKey(r) {
   r.key = joinKeyOf(r);
 }
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 // Whether q lies within `lim` of a drawn course: the distance to it below lim, in squared lengths and stopping at the
 // first segment near enough (start-up profile, 2 Nov 2026: Math.hypot on every segment of every vessel near every end was 1.4 s

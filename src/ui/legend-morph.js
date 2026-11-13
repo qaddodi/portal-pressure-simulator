@@ -10,13 +10,13 @@
 // All of it is opacity and translate/scale on the compositor, but the bar's colour, which is repainted by CSS for the
 // 420 ms (one small bar, once per switch). A key switched again before it has landed finishes at once, the bar carrying
 // its colour on from where it had got to. Reduce Motion keeps the plain fade out and in (swapFade).
+import { clamp01 } from './num.js';
 import { rgb2oklab, oklab2rgb } from './colormap.js';
 import { cssRGB, swapFade, hasBox } from './util.js';
 import { D_SURFACE, EASE_MOVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 
 export const MORPH_STOPS = 24;
-const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 const splitTop = (s) => { const out = []; let d = 0, cur = ''; for (const ch of s) { if (ch === '(') d++; if (ch === ')') d--; if (d === 0 && ch === ',') { out.push(cur.trim()); cur = ''; } else cur += ch; } out.push(cur.trim()); return out; };   // alloc-rare: once per lens, mode or reference switch (a store change of the key's model, main.js renderLegend), the gesture that starts the key's morph; never per frame, the morph itself runs on the compositor
 

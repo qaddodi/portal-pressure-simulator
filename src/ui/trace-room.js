@@ -1,9 +1,9 @@
 // Where the catheter monitor puts its trace: under the big reading, above the time axis. TRACE_MIN is the least height
 // the grid and trace need; below it the monitor would show only its header and number (a blank screen), so the card's
 // monitor box never goes shorter than MON_MIN (styles/app.css --mon-min, tests/trace-room.test.js keeps them in step).
+import { clamp } from './num.js';
 export const TRACE_MIN = 30;
 export const MON_MIN = 132;
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // W, H: the drawn area (the canvas less its padding); y: the padding above it.
 const ROOM = { big: 0, fs: 12, k: 1, top: 0, bot: 0 };   // alloc-rare: made once; every caller takes its numbers out at once
 // k: how much the header's lines are spread for words past 15 px.

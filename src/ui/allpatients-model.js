@@ -7,6 +7,7 @@
 // slide by slide, so the chart's 1 and 2 year numbers are the slides' numbers); the chart samples them every three months. A patient with one year in
 // the deck gets a second: pace: true runs a year more on the last slide's ramp, carried on at the pace of that slide (a ramp from 0.45 to 0.35 goes on
 // from 0.35 to 0.25). That year is the model's, not a slide's, and the chart draws it dotted.
+import { clamp } from './num.js';
 import { TILE } from './table-marks.js';
 
 export const KEYS = ['hvpg', 'lsm', 'plt'];
@@ -112,7 +113,6 @@ export function dodge(items, gap, lo = -1e9, hi = 1e9) {
   return items;
 }
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /** Words broken into lines of at most px px at type f (a letter averaging 0.54 em, a little over what the app's face draws, so a line fits). */
 export function wrap(text, px, f) {
   const max = Math.max(8, Math.floor(px / (0.54 * f))), out = [];

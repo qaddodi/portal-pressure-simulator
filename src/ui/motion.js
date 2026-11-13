@@ -52,8 +52,8 @@ export const SLACK_MS = 20;
 /** A timer that waits for a CSS transition of `ms` to end: the token plus the fixed slack. */
 export const afterMs = (ms) => ms + SLACK_MS;
 
-/** The smoothstep 3t² − 2t³ of t clamped to 0..1: the ease of a FADE or a mix against a clock (a thing that travels takes easeMove). */
-export const smooth01 = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+/** The smoothstep 3t² − 2t³ of t clamped to 0..1: the ease of a FADE or a mix against a clock (a thing that travels takes easeMove). num.js. */
+export { smooth01 } from './num.js';
 
 /** The page's one prefers-reduced-motion list (a stand-in with matches:false where there is no matchMedia, as in a unit test). */
 export const reduceMotionMQ = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false, addEventListener() {}, removeEventListener() {} };

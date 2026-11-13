@@ -19,7 +19,7 @@ import { restPass } from './rest-pass.js';
 import { plotPanel } from './plot-look.js';
 import { RX, bandKeys } from './rx-bands.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
-import { fix1, round1, printedKey } from './num.js';
+import { fix1, round1, printedKey, clamp } from './num.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
@@ -29,7 +29,7 @@ const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
 // alloc-rare: a printed number's text, made only when the printed number changes (paint) or a chart is built
-const fmt = (v, d) => v.toFixed(d), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const fmt = (v, d) => v.toFixed(d);
 const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 
 // Minutes on the teaching clock: fasting from `from` to 0, the rise over `rise`, the state reached held to `end`.

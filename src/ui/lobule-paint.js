@@ -3,12 +3,11 @@
 // in it: it draws through a 2D-context API that paint-gl.js records and the GPU paints (1 Nov 2026, nothing off the GPU), from
 // the same plain values (the view's worldInput).
 
+import { clamp, lerp } from './num.js';
 import { cordToneInto, bandOutlineFlat } from './lobule-look.js';
 
 const TAU = Math.PI * 2;
 const TONE = [0, 0, 0];   // (a cell's tone, written anew for each cell and read at once)
-const lerp = (a, b, t) => a + (b - a) * t;
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));   // (as util.js clamp)
 // A band's centre line along the septum's points o.pts, written into out (the `path` of a band's options: (o, u, out)).
 function septumPath(o, u, out) {
   const pts = o.pts, f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;

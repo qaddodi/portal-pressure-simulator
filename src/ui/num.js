@@ -1,8 +1,10 @@
-// The app's number helpers in one pure module (unification audit 17, 13 Nov 2026): no DOM, so the tests and the pure chart builders load it
-// in Node as the page does. util.js re-exports fmt from here.
+// The app's number helpers in one pure module (unification audit 17 and 19, 13 Nov 2026): no DOM, so the tests and the pure modules (chart
+// builders, the geometry, the workers' helpers) load it in Node as the page does. util.js re-exports fmt, clamp and lerp from here, and
+// motion.js smooth01.
 //   text    fmt(v, d): a value to d decimals with a true minus (U+2212) and never "−0", NOT_SHOWN for a missing one; minusFixed(v, d): the
 //           same text with a true minus but kept as toFixed gives it otherwise ("−0.0" for a small negative, no dash for a missing value);
 //           fix1, round1, tenths, printedKey: toFixed(1) and its number from a table of tenths (fix-text.js until 13 Nov 2026)
+//   shape   clamp(x, a, b) (always this order), clamp01, lerp, smooth01 (the ease of a fade against a clock)
 
 // (The text a value that is not there (null, NaN, ±Infinity) is shown as: one glyph, kept with the bands' words in pressure-cuts.js.)
 import { NOT_SHOWN } from '../engine/pressure-cuts.js';
@@ -59,3 +61,13 @@ export function printedKey(v, d) {
   const q = v * POW10[d], f = Math.floor(q);
   return v >= 0 && q < 1e15 && Math.abs(q - f - 0.5) > 1e-6 ? (q - f < 0.5 ? f : f + 1) : NaN;
 }
+
+// ── Shaping (unification audit 19) ──
+/** x held to a..b (a ≤ b; NaN stays NaN). Always (x, a, b). */
+export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+/** x held to 0..1 (NaN stays NaN). */
+export const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+/** a to b at t (not clamped). */
+export const lerp = (a, b, t) => a + (b - a) * t;
+/** The smoothstep 3t² − 2t³ of t clamped to 0..1: the ease of a FADE or a mix against a clock (a thing that travels takes easeMove). */
+export const smooth01 = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));

@@ -10,6 +10,7 @@
 //   part    where the chart sits: 'text' | 'panel' | 'data' | 'table' | 'grid' | 'cell'  ('data' also serves an instrument inside the data card)
 //   card    the words sit in the floating card (.pz-card, on every layout but stack)
 //   ts      the text size setting (--ts)   bk, tk  the words' and title's steps (--pz-bk, --pz-tk)   dk  a data card's block step (--pz-dk)
+import { clamp } from './num.js';   // (x, lo, hi: it was (lo, v, hi) here, the one copy that took another order)
 
 // ── The roles: [floor, per --pzh, ceiling] (app.css:1876-1878) ──
 const ROLE = { cap: [12, 1.733, 21], lab: [14, 2.022, 24.5], body: [17, 2.311, 28], val: [20, 3.178, 38.5], big: [28, 4.622, 56], title: [32, 6.356, 77] };
@@ -23,12 +24,11 @@ const T = {
   big: (m) => Math.min(32, Math.max(20, 20 + (m - 390) * 0.02353)),
   title: (m) => Math.min(44, Math.max(28, 28 + (m - 390) * 0.03137)),
 };
-const clamp = (lo, v, hi) => Math.min(Math.max(v, lo), hi);
 
 /** --pzh in px (app.css:26-27): 1vh, and on an upright tablet the smaller of that and .75vw. */
 export function pzh(vw, vh) { return vw >= 700 && vh >= vw ? Math.min(vh / 100, 0.75 * vw / 100) : vh / 100; }
 
-const wide = (h, ts, pk = 1, k = 1) => { const o = {}; for (const n of NAMES) { const [lo, a, hi] = ROLE[n]; o[n] = clamp(lo, a * h, hi) * ts * pk * k; } return o; };
+const wide = (h, ts, pk = 1, k = 1) => { const o = {}; for (const n of NAMES) { const [lo, a, hi] = ROLE[n]; o[n] = clamp(a * h, lo, hi) * ts * pk * k; } return o; };
 const tok = (m, ts, pk = 1) => { const o = {}; for (const n of NAMES) o[n] = T[n](m) * ts * pk; return o; };
 
 /** The six roles for one place on the card, in px (before the derived sizes). */
@@ -41,7 +41,7 @@ function roles(i, h, m) {
     if (stack || low) return tok(m, ts, tp);                                                  // app.css:1884-1885, 1895-1896
     if (card) {                                                                               // app.css:1880-1883
       const r = wide(h, ts, tp, bk);
-      r.cap = Math.max(12, r.cap); r.title = clamp(32, 5.546 * h, 67) * ts * tp * tk;
+      r.cap = Math.max(12, r.cap); r.title = clamp(5.546 * h, 32, 67) * ts * tp * tk;
       return r;
     }
     return wide(h, ts, tp);                                                                   // app.css:1876-1878

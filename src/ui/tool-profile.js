@@ -9,6 +9,7 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
+import { lerp } from './num.js';
 import { frame, cancelFrame } from './frame.js';
 import { restPass, cancelRest, restAttr } from './rest-pass.js';
 import { PROFILE_PATHS } from './anatomy.js';
@@ -430,7 +431,6 @@ const sv = svgModel;
 const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
   sv('rect', { class: 'pz-hb', 'data-look': 'card.hatch.bg', width: s, height: s }), sv('rect', { class: 'pz-hs', 'data-look': 'card.hatch.stripe', width: s / 2, height: s }));
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
-const lerp = (a, b, k) => a + (b - a) * k;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
 const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 

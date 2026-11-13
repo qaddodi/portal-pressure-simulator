@@ -9,6 +9,7 @@
 // of strangulated tissue with the band as a tight ring at its base. The result is drawn once per
 // state into an offscreen bitmap and cached, so it never flickers.
 
+import { lerp as mix } from './num.js';
 import { cssRGB } from './util.js';
 const TAU = Math.PI * 2;
 const T = 1.55;          // tan(half field of view)
@@ -29,7 +30,6 @@ function nz(x, y, P) {
 }
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const wrapPi = (a) => { a %= TAU; return a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a; };
-const mix = (a, b, t) => a + (b - a) * t;
 
 // The seeded generator, one state kept here (makeColumns restarts it at 7 each call, as a new generator was).
 let seedX = 7;

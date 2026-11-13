@@ -7,6 +7,7 @@
 // disorder), the nutmeg, the zones, and the limiting plate's hairline. A state with anything else in it (the collagen of fibrosis, the
 // stellate cells, septa, tracts, the central vein's cuff) is drawn from the bitmap, as before, until the shader draws that too.
 
+import { lerp } from './num.js';
 import { D_SURFACE, smooth01 } from './motion.js';
 import { fibHash, bandGeomInto, bandFibreInto, bandNucleusInto, bandFibreCount, bandNucleiCount, scarGrowth } from './lobule-paint.js';
 
@@ -16,7 +17,6 @@ export const IDX_ROW = 1024;
 export const SEG_ROW = 512;    // the segment texture: two texels a segment, so 1024 wide
 export const K_ROW = 1024;      // the per-state texture (radii, stellate cells, bands): a flat run of texels, K_ROW to a row
 
-const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 /** Whether the shader draws everything this tissue state shows (paintLobule): now every state. */

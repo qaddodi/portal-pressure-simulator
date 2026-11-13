@@ -10,12 +10,12 @@
 //   cutouts: ['lobule', 'sinusoid']        the windows beside the anatomy, in the order they hang off each other
 //   cutoutSubject: 'anatomy'               the scale that runs its blood: 'anatomy' (the default), 'lobule' or 'sinusoid'
 
+import { clamp } from './num.js';
 import { scaleViews } from './scale-switch.js';
 
 export const CUTOUT_KINDS = ['lobule', 'sinusoid'];
 export const SUBJECTS = ['anatomy', ...CUTOUT_KINDS];
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 /** The windows a slide asks for, in plate order (the lobule first, then the sinusoid), from `cutouts` (a list of kinds). A slide that
  *  names none but offers other scales (`scales`, scale-switch.js) gets a window for each of the lobule and sinusoid it offers: on the

@@ -8,6 +8,7 @@
 // lookOf makes the same record from it: { raw, o, tr, trT }.
 //
 // Built for the node unit tests too: this file loads with no page.
+import { clamp01 } from '../num.js';
 import { mixColor, parseCssColor } from '../css-color.js';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, cssCurve } from '../ease.js';
 import { LOOKS, HOSTS } from './index.js';
@@ -90,7 +91,6 @@ export function withCtx(c, over) { const n = { ...c, ...over }; n.sig = ctxSig(n
 export const hostSizeFor = (ctx) => ctx.hostPx;
 
 // ── Values ──
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const f6 = (v) => (Math.round(clamp01(v) * 1e6) / 1e6);
 const colourString = (c) => `color(srgb ${f6(c[0])} ${f6(c[1])} ${f6(c[2])} / ${f6(c[3])})`;
 function num(v) { return typeof v === 'number' ? v : 0; }

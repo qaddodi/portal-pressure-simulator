@@ -8,6 +8,7 @@
 //   focus (the legs the close-up frames), build(B) (lays the legs in the order the catheter travels).
 // B: pts(list, id, f, name) loose points (a lead-in from outside the plate); vessel(id, { rev, a, b, until, near, name, r }) a vessel, whole or in
 //   part, the way the catheter travels it.
+import { lerp } from './num.js';
 
 const TIPS_IDS = ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'];
 /** How far up the coronary vein the TIPS catheter goes to coil it, of the vein from where it joins the portal trunk (0..1 of its length). */
@@ -85,7 +86,6 @@ export function procSpecs(geo, radOf) {
 }
 
 const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
-const lerp = (a, b, u) => a + (b - a) * u;
 /** The part of a polyline from length a to length b (cumulative lengths in cum). */
 export function cutLen(pts, cum, a, b) {
   const out = [];

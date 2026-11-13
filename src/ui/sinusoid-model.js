@@ -2,7 +2,7 @@
 // what fills the space of Disse, the stellate cell, the lumen, and the traffic across the wall.
 // No DOM here, so the tests can read it.
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+import { clamp } from './num.js';
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 /** Targets for the sinusoid view's drawing, from a lobule model (lobuleState). */

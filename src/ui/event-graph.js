@@ -27,7 +27,7 @@ import { frameFor, cancelFrame } from './frame.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
-import { fix1, round1, printedKey } from './num.js';
+import { fix1, round1, printedKey, clamp } from './num.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { procKindOf } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
@@ -98,7 +98,6 @@ export function eventScale(k, vals, target = null) {
 const sv = svgModel;
 const FT_MIN = 12;   // (px on the screen: the smallest its words are drawn, as flow-time's)
 const CAP = 600;   // (points kept after the change: a poll every 100 ms for EVENT_S, with room to spare; past it the newest overwrite the last)
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
 const fmtN = (v) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1));
 const NO_BOXES = [];

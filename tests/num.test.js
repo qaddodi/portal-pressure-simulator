@@ -2,7 +2,8 @@
 // byte as the copies it replaced printed them: fmt's true minus and no "−0", minusFixed's "−0.0" kept for the chart tools, and the shapes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fmt, NOT_SHOWN, minusFixed, fix1, round1 } from '../src/ui/num.js';
+import { fmt, NOT_SHOWN, minusFixed, fix1, round1, clamp, clamp01, lerp, smooth01 } from '../src/ui/num.js';
+import * as motion from '../src/ui/motion.js';
 
 // (The copies num.js replaced, as they were written: util.js fmt without its cache, and the chart tools' signed text.)
 const oldFmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
@@ -43,4 +44,22 @@ test('fix1 and round1 stay toFixed(1) below zero, where the table does not reach
   assert.equal(fix1(-1.25), (-1.25).toFixed(1));
   assert.equal(fix1(-0.04), '-0.0');
   assert.ok(Object.is(round1(-0.04), -0));
+});
+
+test('clamp(x, a, b) in that order, lerp, clamp01 and smooth01: the copies they replaced, value for value', () => {
+  const minOuter = (x, a, b) => Math.min(b, Math.max(a, x)), maxOuter = (x, a, b) => Math.max(a, Math.min(b, x)), loVHi = (lo, v, hi) => Math.min(Math.max(v, lo), hi);
+  const r = rng(9);
+  for (let i = 0; i < 20000; i++) {
+    const x = (r() - 0.5) * 10, a = (r() - 0.5) * 4, b = a + r() * 4;   // (a ≤ b, as every call that moved here has it)
+    assert.ok(Object.is(clamp(x, a, b), maxOuter(x, a, b)));
+    assert.equal(clamp(x, a, b), minOuter(x, a, b));
+    assert.equal(clamp(x, a, b), loVHi(a, x, b), 'card-scale.js took (lo, v, hi): the same value with its arguments in this order');
+    const t = r() * 1.4 - 0.2;
+    assert.ok(Object.is(lerp(a, b, t), a + (b - a) * t));
+    assert.ok(Object.is(clamp01(x), x < 0 ? 0 : x > 1 ? 1 : x));
+  }
+  assert.equal(clamp(5, 0, 1), 1); assert.equal(clamp(-5, 0, 1), 0); assert.ok(Number.isNaN(clamp(NaN, 0, 1)));
+  assert.ok(Object.is(clamp01(-0), -0)); assert.ok(Number.isNaN(clamp01(NaN)));
+  assert.equal(smooth01(-1), 0); assert.equal(smooth01(2), 1); assert.equal(smooth01(0.5), 0.5);
+  assert.equal(motion.smooth01, smooth01, 'motion.js hands on the one smoothstep');
 });

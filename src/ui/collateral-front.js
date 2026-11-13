@@ -5,7 +5,7 @@
 // The radii are the ones the GPU already draws every tube from (the per-sample radii of sendRadii), so Classic, Mesh and Tube all show it,
 // and no shader is touched. The vessel's reveal record (stage-transitions.js) keeps the time, the direction of its flow and the way
 // (opening or leaving); this file is only the arithmetic, so a node test can hold it.
-const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+import { clamp } from './num.js';
 
 /** How long a collateral takes to open or to close (ms): "about a second". */
 export const FRONT_MS = 1150;

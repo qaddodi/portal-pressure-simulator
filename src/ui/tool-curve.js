@@ -70,7 +70,7 @@
 import { TILE, SCALE, RATE } from './table-marks.js';
 import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { frameFor } from './frame.js';
-import { minusFixed as fmt } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
+import { minusFixed as fmt, clamp } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { restPass, restClass } from './rest-pass.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
@@ -81,7 +81,6 @@ import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-curve');
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const CV_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const MAX_PTS = 41;
 

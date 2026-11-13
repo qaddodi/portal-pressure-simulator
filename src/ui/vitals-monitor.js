@@ -21,6 +21,7 @@ import { olderThan, inFront } from './backfill.js';
 import { dropFrontNums } from './drop-front.js';
 import { attrSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
+import { headStep } from './display-state.js';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
@@ -220,7 +221,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
       let sv = shownV.get(key);
       if (sv == null) sv = v;
       else if (Math.abs(v - sv) < Math.pow(10, -d) * 0.05) sv = v;
-      else { sv += (v - sv) * (1 - Math.exp(-clamp((now - last) / 1000, 0, 0.1) / EASE_S)); moving = true; }
+      else { sv = headStep(sv, v, (now - last) / 1000, EASE_S); moving = true; }   // (display-state.js: the one first-order follower, its gap held to 0..0.1 s)
       shownV.set(key, sv);
       return sv;
     };

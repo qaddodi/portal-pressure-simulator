@@ -8,7 +8,7 @@ import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
-import { fmt } from './num.js';
+import { fmt, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -1269,11 +1269,11 @@ export function askText({ title, label, value = '', yes = 'Save', hint = null })
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 
-export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+export { clamp };   // (num.js)
 /** A touch that starts on the phone's own edge (the home indicator's swipe up, a back swipe): the
  *  system's gesture, not the figure's. */
 export const systemEdge = (ev) => ev.pointerType === 'touch' && (ev.clientY > innerHeight - 34 || ev.clientX < 12 || ev.clientX > innerWidth - 12);
-export const lerp = (a, b, t) => a + (b - a) * t;
+export { lerp };   // (num.js)
 
 // Theme tokens are read many times per frame by the canvas instruments, and never from the page inside a frame: every token the
 // stylesheets declare (and those set on the root's own style) is read outside the frames, at load and whenever the theme can change

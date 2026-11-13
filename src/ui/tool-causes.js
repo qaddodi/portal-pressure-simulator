@@ -22,10 +22,9 @@ import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { numWords, signedWords } from './num-words.js';
 import { reduceMotionMQ } from './motion.js';
-import { minusFixed as fmt } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
+import { minusFixed as fmt, lerp as mix } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { chartCtx } from './chart-ctx.js';
 const nextFrame = frameFor('tool-causes');
-const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 export const METRICS = ['ppg', 'hvpg', 'pv'];
