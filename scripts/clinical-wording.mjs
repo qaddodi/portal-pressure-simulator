@@ -72,11 +72,12 @@ async function main() {
   const hits = [];
   for (const f of files) {
     const rel = relative(ROOT, f).split('\\').join('/');
-    let toks;
-    try { toks = tokenize(readFileSync(f, 'utf8'), { ecmaVersion: 'latest', sourceType: 'module', loc: true }); } catch { continue; }
+    let toks, src;
+    try { src = readFileSync(f, 'utf8').split('\n'); toks = tokenize(src.join('\n'), { ecmaVersion: 'latest', sourceType: 'module', loc: true }); } catch { continue; }
     for (const t of toks) {
       if (t.type !== 'String' && t.type !== 'Template') continue;
       const v = t.type === 'String' ? t.value.slice(1, -1) : t.value.replace(/^[`}]/, '').replace(/(?:\$\{|`)$/, '');
+      if (/\bgpuProbe\.|\bperfLog\(/.test(src[t.loc.start.line - 1])) continue;   // (the ?perf probe's own readout, a developer view)
       if (!isWords(v) || /\bcolor colour\b/.test(v) || /\w\|\w/.test(v)) continue;   // (a search entry's spelling aliases; a term pill's alternatives)
       for (const h of check(v)) hits.push(`${rel}:${t.loc.start.line}  ${h.rule}: "${h.match}" → ${h.fix}`);
     }
