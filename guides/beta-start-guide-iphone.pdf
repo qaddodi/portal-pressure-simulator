@@ -131,7 +131,7 @@ endstream
 endobj
 12 0 obj
 <<
-/Contents 13 0 R
+/Contents 31 0 R
 /MediaBox [ 0 0 390 844 ]
 /Parent 2 0 R
 /Resources <<
@@ -520,8 +520,56 @@ endobj
 /Trapped /False
 >>
 endobj
+31 0 obj
+<<
+/Length 1226
+>>
+stream
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+350 0 0 233.3333 20 590.6667 cm
+/FormXob.7d6b19440282bc000b7e7a75344d1540 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 20 590.6667 350 233.3333 re S
+q
+1 0 0 1 20 572.0667 cm
+q
+.333333 .333333 .333333 rg
+BT 1 0 0 1 0 3.24 Tm /F1 9.36 Tf 12.6 TL (iPhone: the main menu opened.) Tj T* ET
+Q
+Q
+q
+195.8333 0 0 300 20 256.0667 cm
+/FormXob.1544b2fc7d64ab6ec5c971ef48c6f042 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 20 256.0667 195.8333 300 re S
+q
+1 0 0 1 20 237.4667 cm
+q
+.333333 .333333 .333333 rg
+BT 1 0 0 1 0 3.24 Tm /F1 9.36 Tf 12.6 TL (Mac: the main menu opened.) Tj T* ET
+Q
+Q
+q
+1 0 0 1 20 138.6667 cm
+q
+BT 1 0 0 1 0 70.8 Tm 16.56 TL /F2 12 Tf .113725 .113725 .121569 rg (Tests) Tj /F1 12 Tf (: opens the Tests card with tabs for Pressure, HVPG,) Tj T* (Doppler, Scope, Ascites, Fibro and Readouts, the measurements) Tj T* (you can take on this patient. On iPhone it is in the bar along the) Tj T* (bottom \(Treat, Tests, Search, Layers, Settings\), and the tabs) Tj T* (show as icons.) Tj T* ET
+Q
+Q
+BT /F1 8.16 Tf 9.792 TL ET
+.333333 .333333 .333333 rg
+BT 1 0 0 1 20 14 Tm (Educational simulation; simplified values, not for clinical decisions.) Tj T* ET
+BT 1 0 0 1 365.463 14 Tm (2) Tj T* ET
+ 
+
+endstream
+endobj
 xref
-0 31
+0 32
 0000000000 65535 f 
 0000000015 00000 n 
 0000000083 00000 n 
@@ -553,13 +601,14 @@ xref
 0002629927 00000 n 
 0002666184 00000 n 
 0002706245 00000 n 
+0002706633 00000 n 
 trailer
 <<
-/Size 31
+/Size 32
 /Root 1 0 R
 /Info 30 0 R
 /ID [ <be73c1cf7c4a85cf0ce72964f389eabf> <be73c1cf7c4a85cf0ce72964f389eabf> ]
 >>
 startxref
-2706633
+2707912
 %%EOF

@@ -419,7 +419,7 @@ export default async function register({ check, device, open, pickView, shot, st
     await page.waitForTimeout(800);
     if (!(await page.evaluate(() => document.querySelector('#app').classList.contains('thumb')))) throw new Error('an upright phone has no thumb dock');
     const tabs = await page.$$eval('#thumbBar .nb-tab', (els) => els.filter((e) => e.offsetParent).map((e) => e.querySelector('.nb-l').textContent));
-    if (tabs.join('|') !== 'Treat|Tests|History|Layers|Settings') throw new Error(`the tab row reads ${tabs.join(', ')}`);
+    if (tabs.join('|') !== 'Treat|Tests|Search|Layers|Settings') throw new Error(`the tab row reads ${tabs.join(', ')}`);
     const shown = await page.evaluate(() => ['.top-right', '#btnBlood', '.tl-hist', '#zoomIn'].filter((q) => document.querySelector(q)?.offsetParent));
     if (shown.length) throw new Error(`still shown outside the tab row: ${shown.join(', ')}`);
     const row = await page.evaluate(() => { const a = document.querySelector('.tb-id').getBoundingClientRect(), b = document.querySelector('#btnLayers').getBoundingClientRect(); return Math.abs(a.top - b.top) < 8 && a.right <= b.left && b.right <= innerWidth; });
@@ -451,7 +451,7 @@ export default async function register({ check, device, open, pickView, shot, st
     if (await page.evaluate(() => document.querySelector('#app').classList.contains('dock-open'))) throw new Error('Tests stayed open under Treat');
     await page.click('#thumbBar [data-tab="treat"]');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
-    for (const tab of ['history', 'layers', 'settings']) {
+    for (const tab of ['layers', 'settings']) {
       await page.click(`#thumbBar [data-tab="${tab}"]`);
       await page.waitForSelector('.menu.as-sheet:not(.leaving)');
       await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);   // (risen in full)
@@ -460,13 +460,14 @@ export default async function register({ check, device, open, pickView, shot, st
       await page.waitForTimeout(300);
     }
     // Switching straight from one tab's sheet to another's: only one sheet at a time, and it too sits above the dock.
-    await page.click('#thumbBar [data-tab="history"]');
+    await page.click('#thumbBar [data-tab="layers"]');
     await page.waitForSelector('.menu.as-sheet:not(.leaving)');
     await page.click('#thumbBar [data-tab="settings"]');
     if (await page.locator('.menu.as-sheet:not(.leaving)').count() !== 1) throw new Error('two sheets open at once');
     await page.waitForFunction(() => !document.querySelector('.menu.as-sheet:not(.leaving)').getAnimations().length);
-    if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error('Settings, opened from History, does not sit on the tab row');
-    if (!(await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("Search")').count())) throw new Error('Search is not in Settings');
+    if (!(await above('.menu.as-sheet:not(.leaving)'))) throw new Error('Settings, opened from Layers, does not sit on the tab row');
+    if (!(await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("History")').count())) throw new Error('History is not in Settings');
+    if (await page.locator('.menu.as-sheet:not(.leaving) .menu-item:has-text("Search")').count()) throw new Error('Search is still in Settings, beside its own tab');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   });

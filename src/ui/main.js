@@ -1268,10 +1268,10 @@ function openSettings(anchor, withSearch = false) {
   const toggleStored = (key, caught_) => (on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { caught(caught_, e); /* storage unavailable */ } };
   popover(anchor, [
     // (Send feedback heads the sheet in every mode and on every device, above the dock's Search and Help, talks included, so a tester reaches it in one tap from any Settings button.)
-    // (From the thumb dock's Settings tab, Search and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
+    // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
-      ...(withSearch ? [menuItem('Search', { icon: 'search', onClick: () => { closePopover(); palette.open(); } }),
+      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => { closePopover(); timeline.openHistory(anchor); } }),
         menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
       fullscreenControl()),
     menuSection('Appearance',
@@ -1975,21 +1975,20 @@ function wireThumbBar() {
   const treat = tab('treat', 'pill', 'Treat', () => { outOfSin(); if (!treatOpen()) clear('treat'); $('#btnTreat').click(); });
   const tests = tab('tests', 'gauge', 'Tests', () => { outOfSin(); if (!app.classList.contains('dock-open')) clear('tests'); $('#tabInstruments').click(); });
   const menuTab = (open) => (e) => { const a = e.currentTarget; if (a.getAttribute('aria-expanded') !== 'true') clear(); open(a); };
-  const badge = h('span', { class: 'nb-badge', 'aria-hidden': 'true' });
-  const hist = tab('history', 'clock', 'History', menuTab((a) => timeline.openHistory(a)));
-  hist.append(badge);
+  // (Search takes History's place in the tab row, 13 Nov 2026, Mohammad; History is a row in the Settings sheet, openSettings.) Search opens the palette over
+  // everything, so the tab puts away what else is open first and keeps no pressed state of its own.
+  const find = tab('search', 'search', 'Search', () => { clear(); palette.open(); });
   const layers = tab('layers', 'layers', 'Layers', menuTab((a) => { outOfSin(); openLayersMenu(a); }));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
-  for (const b of [hist, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
+  for (const b of [layers, more]) b.setAttribute('aria-haspopup', 'dialog');
   $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
-  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, hist, layers, more));
-  // The tabs follow the cards they open (and History's count), however those were opened or closed.
+  $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, find, layers, more));
+  // The tabs follow the cards they open, however those were opened or closed.
   const sync = () => {
     const t = String(treatOpen()), i = String(app.classList.contains('dock-open'));
     if (treat.getAttribute('aria-pressed') !== t) treat.setAttribute('aria-pressed', t);
     if (tests.getAttribute('aria-pressed') !== i) tests.setAttribute('aria-pressed', i);
     const n = $('#timeline .tl-hc')?.textContent || '';
-    if (badge.textContent !== n) badge.textContent = n;
     const tb = $('#btnHistory .tb-hc');
     if (tb && tb.textContent !== n) tb.textContent = n;
   };

@@ -16,7 +16,7 @@ endobj
 endobj
 3 0 obj
 <<
-/Contents 4 0 R
+/Contents 23 0 R
 /MediaBox [ 0 0 612 792 ]
 /Parent 2 0 R
 /Resources <<
@@ -422,38 +422,170 @@ endobj
 /Trapped /False
 >>
 endobj
+23 0 obj
+<<
+/Length 4553
+>>
+stream
+1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
+q
+40.32 0 0 40.32 42 709.68 cm
+/FormXob.2c9786982a23b158ad0c1512701125e8 Do
+Q
+.113725 .113725 .121569 rg
+BT /F2 14.88 Tf 17.856 TL ET
+BT 1 0 0 1 92.88 735.6 Tm (Portal Pressure Simulator) Tj T* ET
+.266667 .266667 .266667 rg
+BT /F1 9.12 Tf 10.944 TL ET
+BT 1 0 0 1 92.88 724.56 Tm (Beta tester start-up guide) Tj T* ET
+BT /F1 8.16 Tf 9.792 TL ET
+BT 1 0 0 1 92.88 714.48 Tm (Created by Mohammad Almeqdadi, MD) Tj T* ET
+.8 .8 .8 RG
+.6 w
+n 42 702 m 570 702 l S
+.85098 .282353 .058824 rg
+n
+55.824 683.568 m
+55.824 687.3854 52.72939 690.48 48.912 690.48 c
+45.09461 690.48 42 687.3854 42 683.568 c
+42 679.7506 45.09461 676.656 48.912 676.656 c
+52.72939 676.656 55.824 679.7506 55.824 683.568 c
+f*
+1 1 1 rg
+BT /F2 9.12 Tf 10.944 TL ET
+BT 1 0 0 1 46.37664 680.4 Tm (1) Tj T* ET
+.113725 .113725 .121569 rg
+BT /F2 11.52 Tf 13.824 TL ET
+BT 1 0 0 1 61.584 679.536 Tm (Open the preview link) Tj T* ET
+q
+1 0 0 1 65 619.344 cm
+q
+BT 1 0 0 1 0 43.392 Tm 13.248 TL /F1 9.6 Tf .113725 .113725 .121569 rg (Go to ) Tj /F2 9.6 Tf (https://qaddodi.github.io/portal-pressure-simulator/preview/) Tj /F1 9.6 Tf ( in a current browser on a Mac, iPad or iPhone.) Tj T* (Nothing to install and no account. A short loading screen draws the blood up into the liver while the app opens. ) Tj /F2 9.6 Tf (iPhone) Tj T* (or iPad:) Tj /F1 9.6 Tf ( in Safari tap Share, then ) Tj /F2 9.6 Tf (Add to Home Screen) Tj /F1 9.6 Tf (, and open the app from its icon for the full-screen view. The) Tj T* (small orange ) Tj /F2 9.6 Tf (PREVIEW) Tj /F1 9.6 Tf ( tab at the top shows which build you are on. Tap it to load the newest version.) Tj T* ET
+Q
+Q
+q
+300 0 0 43.75 42 567.594 cm
+/FormXob.fdc3a6d0c3e539056b0cb90e379b4493 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 42 567.594 300 43.75 re S
+q
+243.75 0 0 43.75 354 567.594 cm
+/FormXob.64a0450eb30e67c8a47997ab9ab4bc9b Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 354 567.594 243.75 43.75 re S
+q
+1 0 0 1 42 553.514 cm
+q
+.333333 .333333 .333333 rg
+BT 1 0 0 1 0 2.592 Tm /F1 7.488 Tf 10.08 TL (The orange PREVIEW tab, top centre on Mac \(left\) and iPhone \(right\).) Tj T* ET
+Q
+Q
+.85098 .282353 .058824 rg
+n
+55.824 532.602 m
+55.824 536.4194 52.72939 539.514 48.912 539.514 c
+45.09461 539.514 42 536.4194 42 532.602 c
+42 528.7846 45.09461 525.69 48.912 525.69 c
+52.72939 525.69 55.824 528.7846 55.824 532.602 c
+f*
+1 1 1 rg
+BT /F2 9.12 Tf 10.944 TL ET
+BT 1 0 0 1 46.37664 529.434 Tm (2) Tj T* ET
+.113725 .113725 .121569 rg
+BT /F2 11.52 Tf 13.824 TL ET
+BT 1 0 0 1 61.584 528.57 Tm (The two most important buttons) Tj T* ET
+q
+1 0 0 1 65 468.378 cm
+q
+BT 1 0 0 1 0 43.392 Tm -0.010578 Tw 13.248 TL /F2 9.6 Tf .113725 .113725 .121569 rg (Main menu) Tj /F1 9.6 Tf ( \(top left, shows the patient name, "Healthy" here\): opens the list of presentations and patients. On ) Tj /F2 9.6 Tf (Present) Tj /F1 9.6 Tf  T* 0 Tw (pick a talk to play it; on ) Tj /F2 9.6 Tf (Patients) Tj /F1 9.6 Tf ( pick a case to load. It also has search, Copy link to this view and Help. ) Tj /F2 9.6 Tf (Tests) Tj /F1 9.6 Tf (: opens) Tj T* (the Tests card with tabs for Pressure, HVPG, Doppler, Scope, Ascites, Fibro and Readouts, the measurements you) Tj T* (can take on this patient.) Tj T* ET
+Q
+Q
+q
+120.7639 0 0 185 42 275.378 cm
+/FormXob.1544b2fc7d64ab6ec5c971ef48c6f042 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 42 275.378 120.7639 185 re S
+q
+207.4242 0 0 185 172.7639 275.378 cm
+/FormXob.b143755ea2320e57ade969a9d92de23d Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 172.7639 275.378 207.4242 185 re S
+q
+1 0 0 1 42 261.298 cm
+q
+.333333 .333333 .333333 rg
+BT 1 0 0 1 0 2.592 Tm /F1 7.488 Tf 10.08 TL (Mac: the main menu opened \(left\) and Tests opened \(right\).) Tj T* ET
+Q
+Q
+q
+121.083 0 0 80.72202 42 170.576 cm
+/FormXob.7d6b19440282bc000b7e7a75344d1540 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 42 170.576 121.083 80.72202 re S
+q
+121.083 0 0 172 175.083 79.298 cm
+/FormXob.bd7d08d97bddceb394ecc091ff48f2f9 Do
+Q
+.815686 .815686 .815686 RG
+.5 w
+n 175.083 79.298 121.083 172 re S
+q
+1 0 0 1 308.1661 217.698 cm
+q
+BT 1 0 0 1 0 25.2 Tm 11.2 TL /F2 8.4 Tf .113725 .113725 .121569 rg (On iPhone) Tj /F1 8.4 Tf ( the same two buttons: the main menu is still top left, and) Tj T* (Tests is in the bar along the bottom \(Treat, Tests, Search, Layers,) Tj T* (Settings\). Tests tabs show as icons; the open tab shows its name.) Tj T* ET
+Q
+Q
+BT /F1 6.528 Tf 7.8336 TL ET
+.333333 .333333 .333333 rg
+BT 1 0 0 1 42 29.4 Tm (Educational simulation with simplified, illustrative values; not for clinical decisions.) Tj T* ET
+BT 1 0 0 1 560.9261 29.4 Tm (1/2) Tj T* ET
+ 
+
+endstream
+endobj
 xref
-0 23
+0 24
 0000000000 65535 f 
 0000000015 00000 n 
 0000000083 00000 n 
 0000000149 00000 n 
-0000000694 00000 n 
-0000003075 00000 n 
-0000003116 00000 n 
-0000003223 00000 n 
-0000003335 00000 n 
-0000155564 00000 n 
-0000166868 00000 n 
-0000168133 00000 n 
-0000204580 00000 n 
-0000267012 00000 n 
-0000920769 00000 n 
-0001185166 00000 n 
-0001207974 00000 n 
-0001208424 00000 n 
-0001210200 00000 n 
-0001246457 00000 n 
-0002158853 00000 n 
-0002663777 00000 n 
-0002703838 00000 n 
+0000000695 00000 n 
+0000003076 00000 n 
+0000003117 00000 n 
+0000003224 00000 n 
+0000003336 00000 n 
+0000155565 00000 n 
+0000166869 00000 n 
+0000168134 00000 n 
+0000204581 00000 n 
+0000267013 00000 n 
+0000920770 00000 n 
+0001185167 00000 n 
+0001207975 00000 n 
+0001208425 00000 n 
+0001210201 00000 n 
+0001246458 00000 n 
+0002158854 00000 n 
+0002663778 00000 n 
+0002703839 00000 n 
+0002704212 00000 n 
 trailer
 <<
-/Size 23
+/Size 24
 /Root 1 0 R
 /Info 22 0 R
 /ID [ <0861ad86bb7fdb53eb3d353341594fb0> <0861ad86bb7fdb53eb3d353341594fb0> ]
 >>
 startxref
-2704211
+2708818
 %%EOF
