@@ -725,7 +725,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   function tubeRadius(x, u) {
     const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL, bd = x.rBd, pc = x.rPc;
     const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
-    const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) * (x.rFl ? flareScale((1 - u) * L, h1) : 1) : 1);
+    const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? (x.rSk ? sideEndScale((1 - u) * L, h1) : 1) * (x.rFl ? flareScale((1 - u) * L, h1) : 1) : 1);
     return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side * (pc ? stumpPinch(u * L, pc) : 1) * (bd ? beadRadius(1, bd, u, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
   }
   // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
@@ -748,7 +748,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       if (ra) { if (u < f) v = u / f; else { v = (u - f) / (1 - f); q = ra; } }
       const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd, pc = q.rPc;
       const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
-      const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) * (q.rFl ? flareScale((1 - v) * L, h1) : 1) : 1);
+      const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? (q.rSk ? sideEndScale((1 - v) * L, h1) : 1) * (q.rFl ? flareScale((1 - v) * L, h1) : 1) : 1);
       R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (pc ? stumpPinch(v * L, pc) : 1) * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
     }
   }
@@ -788,7 +788,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ; x.rFl = FLARED.has(id);   // (the Warren shunt's renal end flares: fork-joins.js flareScale)
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ; x.rFl = FLARED.has(id); x.rSk = !SINK[id];   // (the Warren shunt's renal end flares: fork-joins.js flareScale)
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }

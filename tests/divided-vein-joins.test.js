@@ -30,3 +30,15 @@ test('a vein that ends on the cut stretch is not joined to it', () => {
   f.push(item('X', 'a', 'b', line([5, -60], [-10, 4]), 3));
   assert.ok(!rowsOf(veinJoins(f, N, newJoinStore())).includes(1));
 });
+
+// The portocaval confluence: the portal trunk's cut-away start (ghost0) still counts in choosing the groups (the whole junction's), then is taken out of them.
+test('a ghost start is in no join and no run-on, and the other ends still join', () => {
+  const at = (id, from, to, dir, row, extra = {}) => item(id, from, to, line([0, 0], [dir[0] * 100, dir[1] * 100]), row, extra);
+  const make = (ghost0) => [
+    at('SMV', 'smv', 'conf', [-0.12, 0.99], 0), at('SV', 'sv', 'conf', [0.98, -0.18], 1), at('S_PC', 'conf', 'ivc', [-0.5, 0.86], 2), at('PV', 'conf', 'pvh', [-0.6, -0.8], 3, { ghost0 }),
+  ].map((it, i) => (i === 0 || i === 1 ? { ...it, x: { ...it.x, e: { ...it.x.e, from: it.x.e.from, to: 'conf' } }, pts: it.pts.slice().reverse() } : it));
+  const withGhost = veinJoins(make(true), N, newJoinStore()), without = veinJoins(make(false), N, newJoinStore());
+  assert.ok(rowsOf(without).includes(3), 'without the ghost flag the cut start joins');
+  assert.ok(!rowsOf(withGhost).includes(3), 'with it the ghost start is in no join');
+  assert.ok(withGhost.some((j) => j.members.length >= 2), 'the drawn ends still join');
+});

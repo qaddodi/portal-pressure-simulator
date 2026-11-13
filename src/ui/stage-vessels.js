@@ -420,7 +420,7 @@ export function createVessels(st, live) {
   }
   function veinJoins(items, st = newJoinStore(), margin = 0) {
     live.glRadDirty = true; live.glStore = st;
-    for (let i = 0; i < items.length; i++) { const it = items[i]; it.cut = it.kind === 'v' && it.x.e.id === 'SV_MID' ? divideLen(it.x.e.id) : 0; }   // (the Warren shunt's cut splenic vein: its cut-away start meets nothing, vein-joins.js cutAway. Not the portal trunk's: the portocaval junction keeps its five ends, whose pairwise fillets drew it whole; four ends read as one blended group and sheared, 13 Nov)
+    for (let i = 0; i < items.length; i++) { const it = items[i], id = it.kind === 'v' ? it.x.e.id : ''; it.cut = id === 'SV_MID' ? divideLen(id) : 0; it.ghost0 = id === 'PV_TRUNK' && divideLen(id) > 0; }   // (the Warren shunt's cut splenic vein: its cut-away start meets nothing, vein-joins.js cutAway. Not the portal trunk's: the portocaval junction keeps its five ends, whose pairwise fillets drew it whole; four ends read as one blended group and sheared, 13 Nov)
     const J = joinsPass(items, N_SAMPLES, st, margin);
     live.glStraight = st.straight;
     return J;

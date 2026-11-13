@@ -262,7 +262,7 @@ export const EDGE_PATH = {
   DIPS: 'M602 442 C 566 414 572 336 620 304',
   // (An end-to-side portocaval shunt meets the cava above the renal veins: it ended at the iliac confluence's node, below the left
   // renal vein, crossing it. It ends on the cava's wall, as the renal vein does, a side join on the IVC.)
-  S_PC: 'M700 556 C 692 584 654 570 625 590',
+  S_PC: 'M700 556 C 692 584 652 572 620 590',
   S_DSR: 'M962 448 C 932 490 926 536 946 574 C 957 600 960 612 953 618',
   S_MC: 'M690 660 C 676 678 646 634 620 650',
   // The Meso-Rex bypass: from the superior mesenteric vein below the confluence, up round the patient's left of the clotted

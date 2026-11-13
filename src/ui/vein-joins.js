@@ -111,6 +111,7 @@ function reachOfEnds(nu, skipStrands, cx, cy, N) {
 }
 const kOf = (rMin) => clamp(1.2 * rMin + 1.2, 1.5, 11);
 
+const ghostAt = (u) => UI[u] === 0 && UIT[u].ghost0 === true;   // (an end of the joined vessels by place among them: the start of a vein whose cut-away start still counts in choosing the groups)
 // One join (or several: the groups a node's ends fall into) at (cx, cy) of the nn ends in NIT/NI.
 function addJoin(st, nn, cx, cy, trunk, N) {
   // (A vessel once: its place the first time it is named, the end it is named by the last.)
@@ -142,7 +143,9 @@ function addJoin(st, nn, cx, cy, trunk, N) {
     e.dir = e.d;
   }
   nodeJoinsInto(PEND, nu, OUT);
-  if (OUT.ra >= 0) {
+  // (A cut-away start that still counts in choosing the groups, as the portal trunk's does at the portocaval confluence: the groups are the ones the whole
+  // junction gives, then the ghost leg is taken out of them, so no run-on bends a drawn vein toward a stretch that is not drawn and no web is owned by it. 13 Nov 2026.)
+  if (OUT.ra >= 0 && !ghostAt(OUT.ra) && !ghostAt(OUT.rb)) {
     let s = st.straightPool[st.straight.length];
     if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false }; st.straightPool.push(s); }   // alloc-rare: a run-on record, made the first time a figure has that many
     s.a = UIT[OUT.ra].row; s.ia = UI[OUT.ra]; s.b = UIT[OUT.rb].row; s.ib = UI[OUT.rb]; s.fork = nu - strands > 2;
@@ -151,16 +154,21 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   for (let a = 0; a < nu; a++) for (let b = a + 1; b < nu; b++) pairAdd(UIT[a].row, UIT[b].row);
   for (let gi = 0; gi < OUT.ng; gi++) {
     const g = OUT.groups[gi];
+    let live = 0;
+    for (let q = 0; q < g.members.length; q++) if (!ghostAt(g.members[q])) live++;
+    if (live < 2) continue;
     // (The vessels' own groups take the blend width their own radii give, the strands' pairs the one all the ends give, as before.)
     const k = kOf(g.strand ? allMin : ownMin), reach = allSpread + 2 * allMax + k + 6;
     let r = st.pool[st.nOut];
     if (!r) { r = { x: 0, y: 0, reach: 0, k: 0, fillet: 0, members: [], trunk: undefined, fork: false, key: '', km: [], kt: undefined, kf: false }; st.pool.push(r); }   // alloc-rare: a join's record, made the first time a figure has that many
     const ms = g.members, m = r.members;
-    for (let q = 0; q < ms.length; q++) m[q] = UIT[ms[q]].row;
-    if (m.length !== ms.length) m.length = ms.length;
+    let nm = 0;
+    for (let q = 0; q < ms.length; q++) if (!ghostAt(ms[q])) m[nm++] = UIT[ms[q]].row;
+    if (m.length !== nm) m.length = nm;
     r.x = cx; r.y = cy; r.reach = reach; r.k = k; r.fillet = g.fillet;
-    r.trunk = g.trunk >= 0 ? UIT[g.trunk].row : trunk;
-    r.fork = g.trunk >= 0;
+    const tk = g.trunk >= 0 && !ghostAt(g.trunk);
+    r.trunk = tk ? UIT[g.trunk].row : trunk;
+    r.fork = tk;
     setKey(r);
     st.out[st.nOut++] = r;
   }

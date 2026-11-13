@@ -70,7 +70,7 @@ test('a join whose trunk changed is binned again, entry for entry what a fresh b
 test('the figure names a trunk only for a vein ending on another vessel, not on another stretch of its own', () => {
   const src = readFileSync(new URL('../src/ui/vein-joins.js', import.meta.url), 'utf8');
   assert.match(src, /addJoin\(st, 2, qx, qy, y\.x\.e\.id === it\.x\.e\.id \? undefined : y\.row, N\)/);
-  assert.match(src, /r\.trunk = g\.trunk >= 0 \? UIT\[g\.trunk\]\.row : trunk;\n\s+r\.fork = g\.trunk >= 0;/);
+  assert.match(src, /const tk = g\.trunk >= 0 && !ghostAt\(g\.trunk\);\n\s+r\.trunk = tk \? UIT\[g\.trunk\]\.row : trunk;\n\s+r\.fork = tk;/);
 });
 
 test('the shader tests only the tributary-off-trunk side where a trunk is named, and both at a node', () => {
