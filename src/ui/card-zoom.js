@@ -220,7 +220,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       const focus = (rs) => { if (main) for (const r of rs) r.pass = !main.includes(r.el); return rs; };
       let riders = focus(pieces(el, rides, part ? [] : scene(), true)), q = whole(riders, el) || (main && unionBox(riders.filter((r) => !r.pass).map((r) => r.rest))), withScene = !part && riders.some((r) => r.pass), mg = zoomMargin(a) * (stacked && !main && !withScene ? STACK_ROOM : 1);   // (the stack's wider margin only for a card alone: with the teaching card fitted too the screen has none to spare)
       // (The data card's zoom: the teaching card is part of what is fitted and centred, so it is as whole on the screen as the card: zoomPlanTogether.)
-      let plan = q && (part || main ? zoomPlan(q, a, mg) : zoomPlanTogether(q, riders.filter((r) => r.pass).map((r) => r.rest), a, mg));
+      // (The teaching card tapped: the same, the data card with it: both are the box that is fitted, so neither runs off the screen. A teaching card alone is fitted alone.)
+      const dataIn = main && riders.some((r) => r.el === el);
+      let plan = q && (part ? zoomPlan(q, a, mg) : main ? (dataIn ? zoomPlanTogether(unionBox(riders.filter((r) => !r.pass).map((r) => r.rest)), riders.filter((r) => r.pass).map((r) => r.rest), a, mg) : zoomPlan(q, a, mg)) : zoomPlanTogether(q, riders.filter((r) => r.pass).map((r) => r.rest), a, mg));
       if (!plan) return false;
       if (plan.box) q = plan.box;   // (the whole of them is what is centred)
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;

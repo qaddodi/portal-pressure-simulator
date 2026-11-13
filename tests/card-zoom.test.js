@@ -630,7 +630,7 @@ test('the teaching card hears a tap in landscape: .pz lets none through, so the 
   assert.match(js, /tapTracker\(text, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up/);
 });
 
-test('zoom: a tap on the teaching card frames and centres it, the data card riding along', async () => {
+test('zoom: a tap on the teaching card frames and centres it with the data card, both whole', async () => {
   const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
   const words = new El({ left: 500, top: 200, width: 400, height: 300 }), shade = new El({ left: 500, top: 200, width: 400, height: 300 });
   const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
@@ -638,8 +638,8 @@ test('zoom: a tap on the teaching card frames and centres it, the data card ridi
   const back = stands();
   try {
     assert.equal(z.open({ main: [words, shade] }), true);
-    const want = zoomPlan({ left: 500, top: 200, width: 400, height: 300 }, { left: 0, top: 0, width: 1440, height: 900 });
-    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card, not the data card');
+    const want = zoomPlan({ left: 40, top: 200, width: 860, height: 480 }, { left: 0, top: 0, width: 1440, height: 900 });
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card and the data card together, so neither is cut');
     assert.equal(z.follow(10, 10), false, 'the readings do not refit a zoom on the words');
     assert.ok(words.classList.contains('pz-zmain'), 'the words stand above the veil, not dimmed');
     z.reset();

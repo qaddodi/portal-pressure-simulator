@@ -162,17 +162,20 @@ async function walkDeck(browser, d, device) {
         await judge('icon');
         await putBack();
         // (A tap on an empty corner of the card: one that is not a control or something drawn to be pressed, as card-zoom.js emptyTap says.)
-        const spot = await app.page.evaluate(() => {
-          const card = document.querySelector('.pz-data'), r = card.getBoundingClientRect(), LIVE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="slider"], [role="tab"], [role="switch"], [role="checkbox"], .range-wrap, .pz-lip, [data-no-zoom]';
+        const spotOf = (sel) => app.page.evaluate((q) => {
+          const card = document.querySelector(q), r = card.getBoundingClientRect(), LIVE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="slider"], [role="tab"], [role="switch"], [role="checkbox"], .range-wrap, .pz-lip, [data-no-zoom]';
           for (const [x, y] of [[r.left + 10, r.top + 10], [r.right - 10, r.bottom - 10], [r.left + 10, r.bottom - 10], [r.right - 10, r.top + 10]]) {
             let n = document.elementFromPoint(x, y), live = !n || !card.contains(n);
             for (; n && n !== card && !live; n = n.parentElement) if (n.matches(LIVE) || getComputedStyle(n).cursor === 'pointer') live = true;
             if (!live) return [x, y];
           }
           return null;
-        });
-        if (spot) { await app.page.mouse.click(spot[0], spot[1]); await judge('tap'); await putBack(); }
-        else if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide}: no empty spot to tap`);
+        }, sel);
+        for (const [how, sel] of [['tap', '.pz-data'], ['tap on the teaching card', '.pz-text']]) {
+          const spot = await spotOf(sel);
+          if (spot) { await app.page.mouse.click(spot[0], spot[1]); await judge(how); await putBack(); }
+          else if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide}: no empty spot to tap (${how})`);
+        }
         await idle();
       }
       rec.steps.push({ slide, n: r.n, problems: f });
