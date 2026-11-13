@@ -252,6 +252,21 @@ function drawGrid(spec, W, compact, p, H) {
 }
 
 // ── ladder ──
+/** A word wider than its column ("decompensation" in a Mac staircase column) is hyphenated at the last syllable break that fits, so it
+ *  wraps instead of running past the column and being cut at the card's edge. Words that fit are left as they are. */
+const VOW = /[aeiouy]/i;
+function hyphenate(H, face, textIn, width) {
+  const room = width * 0.97;
+  return textIn.split(' ').map((w) => {
+    if (wOf(H, face, w) <= room) return w;
+    for (let i = w.length - 3; i >= 3; i--) {
+      const a = w[i - 1], b = w[i], c = w[i + 1] || '';
+      const syl = !VOW.test(b) && VOW.test(c) && (VOW.test(a) || (!VOW.test(a) && VOW.test(w[i - 2])));
+      if (syl && wOf(H, face, `${w.slice(0, i)}-`) <= room) return `${w.slice(0, i)}- ${w.slice(i)}`;
+    }
+    return w;
+  }).join(' ');
+}
 function drawLadder(spec, W, compact, p, H) {
   const { ROLE, TOKEN } = H, ops = [], n = spec.steps.length, s = p.s, rc = !!p.rc && s >= 2;
   // one step's words from (x, y) in a width: → height. The lit one says "Patient is here" above and what the stage means below.
@@ -262,7 +277,7 @@ function drawLadder(spec, W, compact, p, H) {
     if (on || reserveYou) y += ROLE.yo.lh;
     ops.push(text('sn', x, y + baseOf(ROLE.sn), `Stage ${i + 1}`, on, tone));
     y += ROLE.sn.lh + 4;
-    const name = fl(H, [[{ text: st[0], face: 'r' }]], width);
+    const name = fl(H, [[{ text: hyphenate(H, 'r', st[0], width), face: 'r' }]], width);
     put(ops, name.items, x, y, on, tone);
     y += name.h + 4;
     const sd = fl(H, [[{ text: st[1], face: 't' }]], width);
