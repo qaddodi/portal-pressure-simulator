@@ -50,11 +50,3 @@ test('a refused request, or a browser without the API, leaves the talk alone', a
   b.keepAwake(true); b.keepAwake(false);
   assert.equal(b.awakeState().supported, false);
 });
-
-test('the talk and the projector both hold it (main.js), and the notes window does too', async () => {
-  const { readFileSync } = await import('node:fs');
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /store\.on\('presenting', \(v\) => keepAwake\(!!v \|\| projector\)\)/);
-  assert.match(main, /keepAwake\(projector \|\| !!store\.get\(\)\.presenting\)/);
-  assert.match(readFileSync(new URL('../src/ui/presenter-view-page.js', import.meta.url), 'utf8'), /keepAwake\(!!st\)/);
-});

@@ -64,6 +64,7 @@ export const PARAM_EASE_S = 0.15;
 // Numbers that are choices, not amounts: they change at once.
 const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
+const PERICARDIAL_FILL = 0.6;   // constriction limits diastolic filling: the heart's pump capacity falls by this share at full constraint (as the tricuspid term below; 13 Nov 2026, constrictive pericarditis reaches RA 15+ with a low-normal output)
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
 // vital signs barely change, 15–30 % raises the heart rate with the pressure held, 30–40 % brings hypotension, and over
 // 40 % is severe shock. Two reflexes the arterial baroreflex alone misses:
@@ -423,7 +424,7 @@ export class Engine {
     const pg = pregnancyLevel(p.gestation), add = PREGNANCY.hr * pg, rest = HR_REST * symp + add;
     const hr = clamp(HR_REST * d.hr * (reflex > 0 ? symp + reflex * blunt : symp * (1 + reflex)) + d.hr * add * (reflex > 0 ? 1 : 1 + reflex), 38, 170);
     const contr = p.contractility * (1 + PREGNANCY.contr * pg) * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr);
+    const cap = contr * Math.pow(hr / rest, 0.6) * (1 - 0.3 * p.tr) * (1 - PERICARDIAL_FILL * p.pericardial);
     return { hr, cap };
   }
 

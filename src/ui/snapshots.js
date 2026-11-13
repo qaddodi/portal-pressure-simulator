@@ -4,7 +4,7 @@ export const PATH = [["INT","Gut"],["SMV","SMV"],["CONF","Portal v."],["SIN_R","
 export const SNAPSHOTS = {
   "healthy":{"P":[12,9,7.8,7,4.8,4.1,3.5,3],"hvpg":2.4,"pv":7.8,"pvFlow":1.09,"ascites":0,"fp":{"pv":7.8,"whvp":6.5,"fhvp":4.1,"ra":3,"ivc":3.5,"ppg":4.3,"hvpg":2.4,"asc":0,"saag":2.3,"tp":2.9,"lsm":5}},
   "postprandial":{"P":[14.8,10.7,9,7.9,5,4.1,3.3,2.7],"hvpg":3.2,"pv":9,"pvFlow":1.65,"ascites":0,"fp":{"pv":9,"whvp":7.3,"fhvp":4.1,"ra":2.7,"ivc":3.3,"ppg":5.7,"hvpg":3.2,"asc":0,"saag":2.1,"tp":3.2,"lsm":5.4}},
-  "pvt-acute":{"P":[29.7,29.1,28.8,5.1,3.1,2.5,2,1.5],"hvpg":2.2,"pv":28.8,"pvFlow":0,"ascites":0,"fp":{"pv":28.8,"whvp":4.7,"fhvp":2.5,"ra":1.5,"ivc":2,"ppg":26.8,"hvpg":2.2,"asc":0,"saag":3.2,"tp":1.3,"lsm":5}},
+  "pvt-acute":{"P":[32.2,31.5,31.2,6.1,4.3,3.7,3.2,2.7],"hvpg":2.1,"pv":31.2,"pvFlow":0,"ascites":0,"fp":{"pv":31.2,"whvp":5.8,"fhvp":3.7,"ra":2.7,"ivc":3.2,"ppg":28,"hvpg":2.1,"asc":0,"saag":3.3,"tp":1.2,"lsm":5}},
   "pvt-chronic":{"P":[22.6,20.2,19.4,7.7,5.8,5.2,4.7,4.1],"hvpg":2.1,"pv":19.4,"pvFlow":0,"ascites":0,"fp":{"pv":19.4,"whvp":7.3,"fhvp":5.2,"ra":4.1,"ivc":4.7,"ppg":14.7,"hvpg":2.1,"asc":0,"saag":2.7,"tp":2.2,"lsm":5}},
   "svt":{"P":[11.1,8.1,6.9,6.5,4.4,3.7,3.2,2.7],"hvpg":2.3,"pv":6.9,"pvFlow":0.66,"ascites":0,"fp":{"pv":6.9,"whvp":6,"fhvp":3.7,"ra":2.7,"ivc":3.2,"ppg":3.7,"hvpg":2.3,"asc":0,"saag":2.4,"tp":2.8,"lsm":5}},
   "schisto":{"P":[23.5,21.3,20.6,9.3,5.5,5,4.5,4],"hvpg":3.5,"pv":20.6,"pvFlow":0.86,"ascites":0,"fp":{"pv":20.6,"whvp":8.5,"fhvp":5,"ra":4,"ivc":4.5,"ppg":16.1,"hvpg":3.5,"asc":0,"saag":2.6,"tp":2.4,"lsm":6.1}},
@@ -20,5 +20,5 @@ export const SNAPSHOTS = {
   "budd-chiari":{"P":[28.8,26.3,25.3,24.8,24.4,24.4,4,3.5],"hvpg":0.3,"pv":25.3,"pvFlow":0.69,"ascites":7.3,"fp":{"pv":25.3,"whvp":24.7,"fhvp":24.4,"ra":3.5,"ivc":4,"ppg":21.3,"hvpg":0.3,"asc":7275,"saag":1.4,"tp":4.3,"lsm":41.7}},
   "ivc-web":{"P":[20.2,18.1,17.2,16.6,15.8,15.6,15.2,2.9],"hvpg":0.9,"pv":17.2,"pvFlow":0.99,"ascites":2.5,"fp":{"pv":17.2,"whvp":16.5,"fhvp":15.6,"ra":2.9,"ivc":15.2,"ppg":2,"hvpg":0.9,"asc":2545,"saag":1.4,"tp":4.3,"lsm":24.1}},
   "rhf":{"P":[22.6,21.1,20.5,20.1,19.6,19.4,19.1,19],"hvpg":0.6,"pv":20.5,"pvFlow":0.68,"ascites":5.5,"fp":{"pv":20.5,"whvp":20,"fhvp":19.4,"ra":19,"ivc":19.1,"ppg":1.4,"hvpg":0.6,"asc":5471,"saag":1.4,"tp":4.3,"lsm":31.8}},
-  "constrictive":{"P":[14.9,13.3,12.7,12.3,11.3,11,10.7,10.5],"hvpg":1.1,"pv":12.7,"pvFlow":0.66,"ascites":0.4,"fp":{"pv":12.7,"whvp":12.1,"fhvp":11,"ra":10.5,"ivc":10.7,"ppg":2,"hvpg":1.1,"asc":399,"saag":1.5,"tp":4.1,"lsm":15}},
+  "constrictive":{"P":[20.3,18.5,17.8,17.2,16.5,16.3,15.9,15.7],"hvpg":0.8,"pv":17.8,"pvFlow":0.86,"ascites":3.3,"fp":{"pv":17.8,"whvp":17.1,"fhvp":16.3,"ra":15.7,"ivc":15.9,"ppg":1.9,"hvpg":0.8,"asc":3294,"saag":1.4,"tp":4.3,"lsm":25.6}},
 };

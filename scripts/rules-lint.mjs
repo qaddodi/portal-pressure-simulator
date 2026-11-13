@@ -336,6 +336,24 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
+  // Link previews, ?embed and the wake lock (13 Nov 2026, A23/A24/O1): source shapes moved out of tests (PR-02), each with its reason.
+  need('index.html', [
+    [/setAttribute\('data-embed',''\)/, '?embed marks <html> before the first paint, so the top bar never shows in an iframe'],
+    [/property="og:image" content="https:\/\/[^"]+\/brand\/share\/healthy\.jpg"/, 'a link to the app shows the healthy patient card (an absolute address: previewers do not resolve a relative one)'],
+    [/name="twitter:card" content="summary_large_image"/, 'the card is a large picture, not a thumbnail'],
+    [/name="theme-color" content="#F1EBE0" media="\(prefers-color-scheme: light\)"/, 'the manifest theme colour (#F1EBE0) matches the light page colour'],
+  ]);
+  need('styles/app.css', [[/html\[data-embed\] \.topbar/, '?embed hides the top bar']]);
+  need('src/ui/main.js', [
+    [/location\.protocol !== 'file:' && !EMBED\)/, 'an embed on another site installs no offline worker'],
+    [/function showFirstHint\(\) \{\n {2}if \(EMBED\) return;/, 'an embed shows no first-run hint'],
+    [/function armFeedbackAsk\(\) \{\n {2}if \(EMBED\) return;/, 'an embed never asks for feedback'],
+    [/store\.on\('presenting', \(v\) => keepAwake\(!!v \|\| projector\)\)/, 'a talk keeps the screen awake (wake-lock.js)'],
+    [/keepAwake\(projector \|\| !!store\.get\(\)\.presenting\)/, 'so does projector mode'],
+  ]);
+  need('src/ui/presenter.js', [[/function stop\(restore = true\) \{\n {4}if \(!deck \|\| leaving \|\| document\.documentElement\.hasAttribute\('data-embed'\)\) return;/, 'an embedded talk stays on its last slide (stop does nothing; start() ends the old talk itself)']]);
+  need('src/ui/presenter-view-page.js', [[/keepAwake\(!!st\);/, "the notes window keeps its screen awake while a talk runs"]]);
+
   // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/presenter.js', [
     [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],

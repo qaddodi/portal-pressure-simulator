@@ -661,7 +661,7 @@ handle opens the view. (Varices 3 used it; it now has the scope ring instead.)
 | `cirr-comp` | Sinusoidal (`sin`) | Compensated cirrhosis | 365 | cirrhosis 0.4, HVPG 6–9, no varices |
 | `csph` | Sinusoidal | Clinically significant PH | 365 | cirrhosis 0.6, HVPG ≥ 10, small varices |
 | `cirr-decomp` | Sinusoidal | Decompensated cirrhosis | 540 | cirrhosis 0.85, albumin 2.8, diuretics; large varices, ascites |
-| `cirr-hepatofugal` | Sinusoidal | End-stage cirrhosis, hepatofugal flow | 540 | cirrhosis 0.95, arterioportal shunting, splenorenal shunt |
+| `cirr-hepatofugal` | Sinusoidal | Cirrhosis with reversed portal flow | 540 | cirrhosis 0.95, arterioportal shunting, splenorenal shunt |
 | `masld-csph` | Sinusoidal | MASLD cirrhosis, HVPG under-reads | 365 | cirrhosis 0.6 with the presinusoidal multiplier 4 in both lobes: HVPG about 11, PPG about 14, small varices, no ascites (Baveno VIII 2.5) |
 | `gastric-varix` | Sinusoidal | Cirrhosis with gastrorenal shunt | 450 | isolated fundal varices (IGV1) fed by the short and posterior gastric veins, draining through the `C5` gastrorenal shunt (BRTO target); no esophageal varices until BRTO closes the shunt |
 | `pregnancy` | Sinusoidal | Cirrhosis in pregnancy | 365 | cirrhosis 0.62 (small varices, HVPG about 12), then `gestation: 24` once the disease days have run; `params: { gestation: 0 }` shows her before pregnancy |
@@ -671,7 +671,7 @@ handle opens the view. (Varices 3 used it; it now has the scope ring instead.)
 | `rhf` | Cardiac (`cardiac`) | Right heart failure + TR | 60 | HVPG stays normal; pulsatile portal vein |
 | `constrictive` | Cardiac | Constrictive pericarditis | 60 | high RA, HVPG normal |
 
-`ivc-web`, `rhf` and `constrictive` also load extra blood volume (800, 1300 and 600 mL) with the patient.
+`ivc-web`, `rhf`, `constrictive` and `pvt-acute` also load extra blood volume (800, 1300, 1150 and 300 mL) with the patient.
 
 ### 8.2 Parameters (`params`, deep-merged; ranges are clamped)
 

@@ -42,27 +42,13 @@ test('a page names the case\'s picture, absolute when the site address is known,
   assert.match(bare, /twitter:card" content="summary"/);
 });
 
-test('the app\'s own page and manifest carry the preview picture and one theme colour', async () => {
+test('the manifest\'s theme colour is the light page colour', async () => {
   const { readFileSync } = await import('node:fs');
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /og:image" content="https:\/\/[^"]+\/brand\/share\/healthy\.jpg"/);
-  assert.match(html, /twitter:card" content="summary_large_image"/);
   const man = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
   assert.equal(man.theme_color, '#F1EBE0');
-  assert.match(html, /name="theme-color" content="#F1EBE0" media="\(prefers-color-scheme: light\)"/);
 });
 
-test('?embed: set on <html> before the first paint, hides the top bar, and the app skips its worker, hint and ask', async () => {
-  const { readFileSync } = await import('node:fs');
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /\[\?&\]embed\(\?=\[=&#\]\|\$\)\/\.test\(location\.search\)\)document\.documentElement\.setAttribute\('data-embed',''\)/);
-  assert.ok(html.indexOf("'data-embed'") < html.indexOf('styles/app.css'));
-  assert.match(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /html\[data-embed\] \.topbar/);
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /location\.protocol !== 'file:' && !EMBED/);
-  assert.match(main, /function showFirstHint\(\) \{\n {2}if \(EMBED\) return;/);
-  assert.match(main, /function armFeedbackAsk\(\) \{\n {2}if \(EMBED\) return;/);
-  assert.match(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'), /function stop\(restore = true\) \{\n {4}if \(!deck \|\| leaving \|\| document\.documentElement\.hasAttribute\('data-embed'\)\) return;/);
+test('?embed is told apart from other words that start with it', () => {
   const re = /[?&]embed(?=[=&#]|$)/;
   for (const q of ['?embed', '?embed&preset=x', '?preset=x&embed=1', '?x=1&embed#s=1']) assert.ok(re.test(q), q);
   for (const q of ['?embedded', '?notembed', '']) assert.ok(!re.test(q), q);

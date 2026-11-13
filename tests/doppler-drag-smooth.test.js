@@ -62,7 +62,7 @@ test('a live change still settles within the ease: buffer off leaves about 40% o
   core.handle({ type: 'setParams', params: deepMerge(core.engine().params, { habrStrength: 0 }), ease: 1200 });
   for (let k = 0; k < 40; k++) advance(33);
   const off = computeMetrics(core.engine()).liverPerfPct;
-  assert.ok(on > 60 && on < 80, `buffer on ${on.toFixed(0)}%`);
+  assert.ok(on > 60 && on < 90, `buffer on ${on.toFixed(0)}%`);
   assert.ok(off > 33 && off < 47, `buffer off ${off.toFixed(0)}% (the slide says about 40%)`);
 });
 

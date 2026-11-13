@@ -92,7 +92,9 @@ export const PRESETS = [
   { id: 'postprandial', group: 'Normal', label: 'Postprandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.',
     note: 'Postprandial splanchnic vasodilation raises portal inflow, so the portal pressure rises slightly.' },
-  { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
+  // (volume 300: the congested mesenteric bed gives back blood to the central circulation by venoconstriction and the sympathetic reflex, so cardiac output stays near normal
+  // (4.9 L/min, MAP 92 mmHg, heart rate 63) instead of falling to 3.5 with the splanchnic return blocked; 13 Nov 2026.)
+  { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0, volume: 300,
     summary: 'Occlusive thrombus in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic arterial buffer response maintains liver perfusion. HVPG normal.',
     note: 'Occlusive thrombus in the main portal vein. No collaterals yet; the hepatic arterial buffer maintains liver perfusion.' },
   { id: 'pvt-chronic', group: 'Pre-hepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
@@ -125,7 +127,7 @@ export const PRESETS = [
   { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥16 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
     note: 'HVPG ≥16 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
-  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
+  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
     note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
   { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
@@ -148,7 +150,8 @@ export const PRESETS = [
   { id: 'rhf', group: 'Cardiac', label: 'Right heart failure + TR', apply: P({ contractility: 0.25, tr: 0.9 }), days: 60, volume: 1300,
     summary: 'High RA pressure is transmitted back: FHVP and WHVP both rise so HVPG stays normal; the portal vein becomes pulsatile.',
     note: 'High right atrial pressure is transmitted back. FHVP and WHVP both rise, so HVPG stays normal; portal flow is pulsatile.' },
-  { id: 'constrictive', group: 'Cardiac', label: 'Constrictive pericarditis', apply: P({ pericardial: 0.9 }), days: 60, volume: 600,
+  // (volume 1150 with the pericardium limiting the heart's filling (engine.js PERICARDIAL_FILL): RA about 16 mmHg, cardiac output 3.9, MAP 89, ascites about 3 L, HVPG normal; 13 Nov 2026.)
+  { id: 'constrictive', group: 'Cardiac', label: 'Constrictive pericarditis', apply: P({ pericardial: 0.9 }), days: 60, volume: 1150,
     summary: 'Pericardial constraint raises RA pressure; congestive hepatopathy without an HVPG rise.',
     note: 'Pericardial constriction raises RA pressure. Congestive hepatopathy without a rise in HVPG.' },
 ];
