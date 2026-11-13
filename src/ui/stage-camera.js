@@ -103,7 +103,12 @@ addEventListener('orientationchange', saRead);
     const s = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
     // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
-    const th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * live.vt.k;
+    const deg = rotDeg(), th = (deg * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * live.vt.k;
+    // (The circuit's map is turned against this same turn, so it is set here with it, never a frame apart. The world's turn moves with the
+    // landing (rotDeg reads lastMorph), not with the camera: set only in flushVT, the map kept the old turn for the one frame where the view
+    // landed on, or left, an upright circuit, and its bands showed as columns for that frame. Mohammad's iPhone, 12 Nov 2026: "when I
+    // switch to circuit view there is a flicker of the background".)
+    mapTurn(deg);
     const ma = sk * co, mb = sk * si, mc = -sk * si, md = sk * co, me = ox + s * live.vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), mf = oy + s * live.vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]);
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved; a new one is made only when it moved.
     if (!(ctmLast && ctmLast.a === ma && ctmLast.b === mb && ctmLast.c === mc && ctmLast.d === md && ctmLast.e === me && ctmLast.f === mf && ctmLast.sc === sk)) ctmLast = { a: ma, b: mb, c: mc, d: md, e: me, f: mf, sc: sk };
