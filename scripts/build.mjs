@@ -138,13 +138,40 @@ const dataFiles = {
 // file of its own, and the build runs again until no such chunk is left. (A single module over the limit has to be split in its source.)
 const CHUNK_LIMIT = 200 * 1024;
 const appEntries = new Set([join(ROOT, 'src/ui/main.js')]);
+// The module to make an entry next: the one that takes the most bytes out of the chunk with it, meaning itself and every module of the chunk
+// that is reached only through it (it dominates them), so one new file carries a whole subtree. The largest single module (the old rule) took the
+// chunk down a few KB a file: the presenter's chunk held ~40 small modules besides the presenter, 60 rounds ran out, and ~50 more files would have
+// broken the first-load file ceiling. Roots of the chunk: its entry module, and any module an importer outside the chunk reaches.
+function subtreeEntry(meta, inChunk, mods, out) {
+  const size = new Map(mods);
+  const edges = (i) => (meta.inputs[i]?.imports || []).filter((e) => e.kind === 'import-statement' && inChunk.has(e.path)).map((e) => e.path);
+  const roots = new Set(out.entryPoint ? [out.entryPoint] : []);
+  for (const [i, x] of Object.entries(meta.inputs)) if (!inChunk.has(i)) for (const e of x.imports || []) if (e.kind === 'import-statement' && inChunk.has(e.path)) roots.add(e.path);
+  const reach = (skip) => {
+    const seen = new Set(), stack = [...roots].filter((r) => r !== skip && inChunk.has(r));
+    while (stack.length) { const n = stack.pop(); if (seen.has(n)) continue; seen.add(n); for (const m of edges(n)) if (m !== skip) stack.push(m); }
+    return seen;
+  };
+  const all = reach(null);
+  let best = null, bestBytes = 0;
+  for (const x of all) {
+    if (appEntries.has(resolve(ROOT, x)) || roots.has(x)) continue;
+    const after = reach(x);
+    let bytes = 0;
+    for (const n of all) if (!after.has(n)) bytes += size.get(n) || 0;
+    if (bytes > bestBytes) { best = x; bestBytes = bytes; }
+  }
+  return best && resolve(ROOT, best);
+}
 const appOpts = () => ({ ...common, plugins: [stripStamps, workerUrl, dataFiles], entryPoints: [...appEntries], outdir: ASSETS, splitting: true, entryNames: '[name]-[hash]', chunkNames: 'chunk-[hash]', metafile: true });
 for (let round = 0; round < 60; round++) {
   const trial = await build({ ...appOpts(), write: false });
   const over = Object.values(trial.metafile.outputs).filter((o) => o.bytes > CHUNK_LIMIT && Object.values(o.inputs).filter((i) => i.bytesInOutput > 0).length > 1);
   if (!over.length) break;
   for (const o of over) {
-    const top = Object.entries(o.inputs).sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput).map(([i]) => resolve(ROOT, i)).find((i) => !appEntries.has(i));
+    const mods = Object.entries(o.inputs).filter(([, x]) => x.bytesInOutput > 0).map(([i, x]) => [i, x.bytesInOutput]);
+    const picked = subtreeEntry(trial.metafile, new Set(mods.map(([i]) => i)), mods, o);
+    const top = picked || Object.entries(o.inputs).sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput).map(([i]) => resolve(ROOT, i)).find((i) => !appEntries.has(i));
     if (top) appEntries.add(top);
   }
 }
