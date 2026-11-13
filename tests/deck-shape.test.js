@@ -55,7 +55,7 @@ const THREE_TILES = new Set([
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
   'encephalopathy/srs',       // (the point is the third: the portal vein barely moves in a large splenorenal shunt)
-  'gradients/agree', 'gradients/masld', 'gradients/psvd',   // (the span ruler's header: HVPG, EUS-PPG and PPG for one patient, the point being which one misses)
+  'gradients/agree', 'gradients/masld', 'gradients/psvd',   // (the ladder's header: HVPG, EUS-PPG and PPG for one patient, the point being which one misses)
   'hvpg/heart',               // (the point is the third: the right atrial pressure that holds the other two up)
   'ascites/tips',             // (the price of the stent is the third: the encephalopathy tile beside the ascites it clears and the portal pressure)
   'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)

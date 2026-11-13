@@ -50,6 +50,14 @@ export const NCPH = {
       ask: ['Why can EUS-PPG detect portal hypertension that the HVPG missed?', 'It measures the portal vein itself, upstream of the presinusoidal resistance; the WHVP reflects only sinusoidal pressure.'],
     },
     {
+      // (The three gradients of the patient the EUS slide just measured, on the ladder: the EUS-PPG is taught on the slide before, so its bracket stands here.)
+      id: 'eus-ladder', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }, key: ['hvpg', 'eus'],
+      kicker: 'Site of resistance', site: 'presin', title: 'The EUS-PPG spans the resistance that the wedge leaves out',
+      line: 'The HVPG is {hvpg}. The EUS-PPG starts in the portal vein, upstream of the resistance, and reads {eus}, close to the PPG of {ppg}.',
+      notes: 'The same patient, with the three gradients side by side. The HVPG is the wedged minus the free hepatic venous pressure, so it spans the sinusoids only. The EUS-PPG is the left portal vein minus the left hepatic vein pressure, so it starts upstream of the portal tracts and spans the resistance; the PPG spans the portal vein to the IVC. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test.',
+      ask: ['The HVPG is 3 mmHg and the EUS-PPG 15 mmHg in the same patient. Where does the resistance lie?', 'Between the left portal vein and the wedge, in the portal tracts. The EUS-PPG spans it and the HVPG does not.'],
+    },
+    {
       id: 'stiff', cam: 'liver', terms: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm'], key: ['lsm'],
       kicker: 'Site of resistance', site: 'presin', title: 'Liver stiffness stays low despite high portal pressure',
       line: 'Liver stiffness (LSM) reflects fibrosis and congestion, not portal pressure, so it stays at {lsm}, <10 kPa. Varices with a normal LSM point to a noncirrhotic cause.',
