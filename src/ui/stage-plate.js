@@ -536,7 +536,7 @@ export function createPlate(st, live) {
     const dataLayer = flag.dataLayer, own = flag.hasSel || wrap.classList.contains('shunting'), sel = own || spotOn();
     // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
     // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
-    plateTgt[0] = (sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1); plateTgt[1] = dataLayer ? 0.12 : 1; plateTgt[2] = own ? 0.42 : sel ? SPOT_NET : 1;
+    plateTgt[0] = (sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1); plateTgt[1] = dataLayer ? 0.12 : 1; plateTgt[2] = own || flag.orgSel ? 0.42 : sel ? SPOT_NET : 1;
     return plateTgt;
   };
   const plateLook = { alpha: 0, sat: 1, stack: false };   // (the plate's look handed to the vessels' painter: kept, written over, read at once)

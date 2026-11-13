@@ -53,7 +53,7 @@ export function createFit(st, live) {
     insMemo.set(key, v);
     return v;
   }
-  const flag = { imaging: false, dataLayer: false, hasSel: false };   // (what update last found: read by the paints after it)
+  const flag = { imaging: false, dataLayer: false, hasSel: false, orgSel: false };   // (what update last found: read by the paints after it)
   let cardsSnap = [], pillsSnap = { zoom: null, nav: null }, snapDirty = true, snapAsk = 0, snapSettle = 0;
   function cardsRead() {
     const out = [];

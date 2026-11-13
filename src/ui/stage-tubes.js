@@ -515,6 +515,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     gpuProbe.time(null, 'update: tubes', renderTubes, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
+    // (An organ's card steps the whole network back the same way; the organ itself keeps full ink and its outline.)
+    flag.orgSel = st.selection?.type === 'organ';
     syncLift();
     syncVeins(t);
     live.updateOrganSel(st.selection, t);
