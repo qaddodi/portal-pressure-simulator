@@ -3471,6 +3471,12 @@ button.finding { cursor: pointer; }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; } .cath-label.in-sum::before { transition: none; }
 .cath-label.in-sum > * { transition: opacity var(--d-surface) var(--ease); }
+.cath-sum-box.swap .cath-sum-col > :first-child { order: 1; }   /* (the readings stack in the order of their points: the lower point's reading is the lower row, stage-cath.js) */
+/* A short free band (a phone's, between the cards) keeps each reading to one line (name, value, unit), so the stack fits beside the vein. */
+.cath-sum-box.tight .cath-sum-col { gap: 6px; }
+.cath-sum-box.tight .cath-label.in-sum { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px 5px; border-radius: 11px; }
+.cath-sum-box.tight .cath-label.in-sum b { font-size: 17px; }
+.cath-sum-box.tight .cath-label.in-sum b + span { margin-top: 0; }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* The shadow fades with the body (the label's own shadow is not under the children's fade). */

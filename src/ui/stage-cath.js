@@ -3,7 +3,7 @@
 import { glassCallout, withGlass } from './callout.js';
 import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
-import { outlineBox, placeSummary } from './cath-place.js';
+import { outlineBox, placeBeside } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
 import { D_SMALL, D_SURFACE, easeOut3 } from './ease.js';
 import { cancelFrame } from './frame.js';
@@ -541,7 +541,7 @@ export function createCath(st, live) {
   const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
-  const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, gap: 0, blockers: NO_LIST, keep: cathKeep };
+  const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, off: 0, blockers: NO_LIST, keep: cathKeep };
   const CATH_MID = { x: 0, y: 0 };
   function cathSumMid(ps) {
     const A = ps.A, yMax = Math.max(ps.top, ps.lim - ps.bh - 12);
@@ -709,14 +709,29 @@ export function createCath(st, live) {
       cathFill(el._calc, l.calc);
       const A = cathA;
       { const pt = cathPinAt(at, 'tip'), pa = cathPinAt(at, 'ahead'); worldToLocalInto(A.tip, pt[0], pt[1]); worldToLocalInto(A.ahead, pa[0], pa[1]); }
+      // The stack follows its points (Mohammad, 13 Nov 2026: "the call out that's closer to whatever it's calling out goes below"): the reading whose
+      // point stands lower on the stage is the lower row, whatever the order the readings were made in (the wedged is below the free where the vein
+      // runs on down past the tip), so the leaders never cross each other. A near tie keeps the last order, so a reading never swaps back and forth.
+      // (Written as a class on the box, which the size key below reads: the rows' places are measured again after it changes.)
+      const top = Math.max(70, sp.t + 6), off = 16;
+      if (rows.length === 2) {
+        const dy = A[l.rows[0].at][1] - A[l.rows[1].at][1];
+        const swap = dy > 4 ? true : dy < -4 ? false : box._swap === true;
+        if (box._swap !== swap) { box._swap = swap; box.classList.toggle('swap', swap); }
+      }
+      // A short free band (a phone's, between the ladder card and the teaching card) takes the readings on one line each, so the stack fits beside the vein.
+      const tight = !l.mid && lim - top < 300;
+      if (box._tight !== tight) { box._tight = tight; box.classList.toggle('tight', tight); }
       // (read before any write below; kept while the readings' texts and classes stay as they are)
       const sz = cathSize(box, cathSumKey(l), rows), bw = sz[0], bh = sz[1], R = sz[2];
-      const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
       // the wedged balloon and the point ahead (cath-place.js). Its leaders stay on the vein.
       cathKeep.length = 0;
-      { const k0 = cathKeepRecs[0], k1 = cathKeepRecs[1]; k0.x0 = A.tip[0] - 8; k0.y0 = A.tip[1] - 8; k0.x1 = A.tip[0] + 8; k0.y1 = A.tip[1] + 8; k1.x0 = A.ahead[0] - 8; k1.y0 = A.ahead[1] - 8; k1.x1 = A.ahead[0] + 8; k1.y1 = A.ahead[1] + 8; cathKeep.push(k0, k1); }
+      // (The two points and, unless the readings are far apart by design (l.mid), the stretch of vein between them: the stack never stands on it.)
+      { const k0 = cathKeepRecs[0], k1 = cathKeepRecs[1], seg = !l.mid;
+        k0.x0 = (seg ? Math.min(A.tip[0], A.ahead[0]) : A.tip[0]) - 8; k0.y0 = (seg ? Math.min(A.tip[1], A.ahead[1]) : A.tip[1]) - 8; k0.x1 = (seg ? Math.max(A.tip[0], A.ahead[0]) : A.tip[0]) + 8; k0.y1 = (seg ? Math.max(A.tip[1], A.ahead[1]) : A.tip[1]) + 8;
+        k1.x0 = A.ahead[0] - 8; k1.y0 = A.ahead[1] - 8; k1.x1 = A.ahead[0] + 8; k1.y1 = A.ahead[1] + 8; cathKeep.push(k0, k1); }
       if (cath.balBox) {
         const b = cath.balBox, k2 = cathKeepRecs[2];
         let mx0 = Infinity, my0 = Infinity, mx1 = -Infinity, my1 = -Infinity;
@@ -727,10 +742,10 @@ export function createCath(st, live) {
         k2.x0 = mx0; k2.y0 = my0; k2.x1 = mx1; k2.y1 = my1; cathKeep.push(k2);
       }
       const ps = cathPS;
-      ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.gap = gap; ps.blockers = room.blk;
+      ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.off = off; ps.blockers = room.blk;
       // (EUS-PPG's, l.mid: midway between the two points it names, on the liver between the needle's two readings, kept inside the stage:
       // his ask, 6 Nov 2026, "should be in the middle between the HV and PV they're measured".)
-      let { x, y } = l.mid ? cathSumMid(ps) : placeSummary(ps);
+      let { x, y } = l.mid ? cathSumMid(ps) : placeBeside(ps);
       { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
       // (Written only when the place moved; the same text is no change.)
       if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }
@@ -738,7 +753,7 @@ export function createCath(st, live) {
       sb.x0 = x; sb.y0 = y; sb.x1 = x + bw; sb.y1 = y + bh; el._box = sb;
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
-      const ys0 = R[0][1] + R[0][3] / 2, ys1 = R[1][1] + R[1][3] / 2;
+      const m0 = R[0][1] + R[0][3] / 2, m1 = R[1][1] + R[1][3] / 2, ys0 = Math.min(m0, m1), ys1 = Math.max(m0, m1);   // (the rows may be swapped: top to bottom)
       if (brace._h !== bh) { brace._h = bh; brace.setAttribute('height', bh); }   // (written only when its numbers moved)
       if (path._y0 !== ys0 || path._y1 !== ys1) { path._y0 = ys0; path._y1 = ys1; path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`); }
       // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
@@ -746,8 +761,13 @@ export function createCath(st, live) {
       const svg = el.querySelector('.cath-leads');
       if (svg._w !== W) { svg._w = W; svg.setAttribute('width', W); }
       if (svg._hh !== H) { svg._hh = H; svg.setAttribute('height', H); }
-      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
-      const c0 = R[0], c1 = R[R.length - 1], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
+      // (The rows' places, top to bottom: the first and the last row on the stack, whichever readings they are.)
+      let rTop = 0, rBot = 0;
+      for (let j = 1; j < rows.length; j++) { if (R[j][1] < R[rTop][1]) rTop = j; if (R[j][1] > R[rBot][1]) rBot = j; }
+      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rBot : rTop;
+      const c0 = R[rTop], c1 = R[rBot], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
+      // The stack stands right of its points (the placer's short side): each row's own leader runs straight out of its left edge, short, crossing nothing.
+      const beside = !l.mid && x >= Math.max(A.tip[0], A.ahead[0]) + 4;
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
       // (Made between frames, never in the frame that finds the readings changed (2 Nov 2026, "Move everything to GPU"): the leaders are
       // drawn from the next frame, which the build asks for.)
@@ -762,6 +782,7 @@ export function createCath(st, live) {
         // (Midway between its points, l.mid: the top reading's leader leaves its top edge, the bottom one's its bottom edge, each straight
         // to its own point, so they never cross: EUS-PPG's HV above, PV below.)
         if (l.mid) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(j === 0 ? ry0 : ry1).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
+        else if (beside) d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
