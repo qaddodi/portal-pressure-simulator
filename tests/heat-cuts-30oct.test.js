@@ -85,7 +85,8 @@ test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too
 
 test('H4b: the glass observer asks for the glass\'s frame; it never draws in a microtask', () => {
   const g = src('glass-gl.js');
-  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{ if \(!recs\?\.length \|\| changed\(recs\)\) measureEarly\(\); quiet = 0; ask\(\); \}\);/);
+  // (13 Nov 2026: a translation or opacity written inside a glass, on none of them, asks for nothing, tests/glass-inner-writes.test.js; every other write still reads the page when it changed a box and asks for the frame.)
+  assert.match(g, /const mo = new MutationObserver\(\(recs\) => \{\n\s+const moves = !!recs\?\.length && !changed\(recs\);\n\s+if \(moves && innerOnly\(recs\)\) return;\n\s+if \(!recs\?\.length \|\| !moves\) measureEarly\(\);\n\s+quiet = 0; ask\(\);\n\s+\}\);/);
   assert.doesNotMatch(g, /queueMicrotask|batched/);
 });
 
