@@ -2,7 +2,7 @@
 // the HVPG catheter tracing). Every measurement in the app draws on this monitor, the same way: the HVPG procedure pane (Measure › HVPG), the HVPG
 // talk's catheter tracing card and the measurement card of a procedure slide (the HVPG, the EUS-PPG, the PPG by IR and the PPG through a TIPS). A
 // dark bedside screen, both themes: the header names what the tip reads and gives ONE big number, the live reading; under it the trace, swept as the
-// procedure's clock runs, with its beat and breath, a marker dropping onto the trace where each reading is taken, each reading's level (a short faded dash from the end of its trace) and name at the
+// procedure's clock runs, with its beat and breath, a marker dropping onto the trace where each reading is taken, each reading's level (a faded dashed line from the end of its trace to the right axis) and name at the
 // right once taken, a very faint dashed curve between two readings taken apart in time, and the gradient as a bracket between the two with its pill in its cut-off colour.
 //
 // What differs between measurements is only their script (the procedure's clock, what the tip reads when, its colours and words): a script is
@@ -190,7 +190,7 @@ function monOn({ ctx, w, h: hh }, S, st) {
     const both = on0 && on1, lo = both ? (a <= b ? 0 : 1) : on0 ? 0 : 1;   // (the lower level's label goes below, the upper's above)
     const yA = Y(a), yB = Y(b), sep = both ? Math.max(0, 28 * HK - Math.abs(yA - yB)) / 2 : 0;
     const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 12), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - 28 * HK);
-    // (Each level's line is a short faded dash from the end of its own trace, not a rule across the screen: Mohammad, 13 Nov 2026. The label stays at the right, where it was.)
+    // (Each level's line is faded and dashed, from the end of its own trace to the right axis where its label stands, not a solid rule across the whole screen: Mohammad, 13 Nov 2026.)
     const sa = on0 ? stubAt(S, L0, tNow) : 0, sb = on1 ? stubAt(S, L1, tNow) : 0;
     if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, a, tNow, sa);
     if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 12), narrow, R, cLv0, sa);
@@ -254,10 +254,10 @@ function seg(ctx, S, v, wave, a, b, colr, tNow) {
   }
   ctx.fill();
 }
-// A level: its short dashed line and, when there is room, its name and number at the right (c: the number's text cell; x0: where the dashes start).
-const STUB_PX = 40, DASH = 5, DASH_GAP = 4;   // (the level line's length from the trace's end, and its dashes)
+// A level: its dashed, faded line from the end of its trace to the right axis and, when there is room, its name and number at the right (c: the number's text cell; x0: where the dashes start).
+const STUB_PX = 40, DASH = 5, DASH_GAP = 4;   // (STUB_PX: the room kept after a trace's end and the first level's share of the gap; the dashes)
 function level(ctx, p, colr, txt, ly, narrow, R, c, x0) {
-  const x1 = Math.min(R, x0 + STUB_PX), dy = Math.round(Y(p));
+  const x1 = R, dy = Math.round(Y(p));   // (to the right axis, where its name stands: Mohammad, 13 Nov 2026)
   if (x1 - x0 > 3) {
     ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.5;
     for (let xx = x0; xx < x1; xx += DASH + DASH_GAP) ctx.fillRect(xx, dy, Math.min(DASH, x1 - xx), 1);   // (boxes, not a stroked dash: see seg)
