@@ -41,6 +41,6 @@ test('Back to the start, a reading, a slide opened forward or back onto a played
 
 test('a Next on the last step of a run that plays out before its reading (the IVC, then the direct portal pressure) waits for it, rings the reading\'s first step and swallows another Next', () => {
   const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(!procQueued\) \{ procQueued = true; procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+return true;/);
+  assert.match(q, /if \(!procQueued\) \{ procQueued = true; procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+return true;/, 'it rings the reading\'s first step and plays the IVC out at speed');
   assert.doesNotMatch(q, /procQueued\) return false/, 'a second Next while it waits never leaves the slide');
 });

@@ -745,7 +745,7 @@ export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
 // faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
-const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own pace (the landing of a step reversed)
+const BACK_SPEED = 1.6, RUSH_SPEED = 6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own pace (the landing of a step reversed)
 
 /**
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
@@ -774,7 +774,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const t00 = park ? goal : from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0;   // (a parked run starts at its stop)
   const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: t00 });
-  let t = t00, raf = 0, held = false, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = park, stops = null, over = false, step = -2, shownMark = -3;
+  let t = t00, raf = 0, held = false, rushing = false, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = park, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
     raf = 0;
@@ -804,14 +804,14 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, P.shotMs?.[f.shot] ?? SHOT_MS, P.shotOpt?.[f.shot] || (P.shotMs ? SHOT_OWN : SHOT_CAM))) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
     // (A graft has no shot of its own: the figure stays where it is, so nothing waits for a camera.)
-    const still = P.graft ? false : !shot || now - landT < LAND_MS;
+    const still = P.graft || rushing ? false : !shot || now - landT < LAND_MS;   // (a run being rushed does not wait for a camera)
     if (!applied && t >= T.apply) { applied = true; apply?.(); }
     else if (applied && t < T.apply) { applied = false; unapply?.(); }
     onFrame?.(f, t);
     if (t >= T.end) { finish(false); return; }
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
-    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : 1); t = clock.step(dt); holdT = 0; }
+    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : rushing ? 1 / RUSH_SPEED : 1); t = clock.step(dt); holdT = 0; }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = stopAt(at); holdT = 0; } }
     else if (!still && !stepped && P.parkMs && goal < T.end) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { goal = T.end; holdT = 0; } }   // (autoplay: the scope parked at its last stop is shown for a hold, then fades out and the run ends; a presentation waits there for the slide to move on)
     // (Held at its last stop with the catheter in: the reading that goes on from here is asked for once, when this stop is reached and the camera has landed.)
@@ -854,11 +854,13 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   wake();
   return {
     /** On to the next step's stop (false on the last: the caller moves on). */
-    next() { if (over || at >= n - 1) return false; at++; goal = stopAt(at); holdT = 0; held = false; wake(); return true; },
+    next() { if (over || at >= n - 1) return false; at++; goal = stopAt(at); holdT = 0; held = false; rushing = false; wake(); return true; },
     /** Back to the stop before, running the step backwards; from the first, back to before the start, where it ends. */
-    back() { if (over) return false; at = at > 0 ? at - 1 : -1; goal = at < 0 ? 0 : stopAt(at); holdT = 0; held = false; wake(); return true; },
+    back() { if (over) return false; at = at > 0 ? at - 1 : -1; goal = at < 0 ? 0 : stopAt(at); holdT = 0; held = false; rushing = false; wake(); return true; },
     /** To step k's stop, forward or back. */
-    to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = stopAt(at); holdT = 0; held = false; wake(); return true; },
+    to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = stopAt(at); holdT = 0; held = false; rushing = false; wake(); return true; },
+    /** Play the rest of the run out fast (a reading waits for it: the IVC's, which ends in its own withdrawal): the clock runs RUSH_SPEED times as fast and waits for no camera. */
+    rush() { if (over) return false; rushing = true; wake(); return true; },
     stop,
     /** Handing the catheter on to the reading that follows (it needs the run held at its last stop): this run is over without taking the catheter out or sending
      *  the view home, and the place, u, the reading goes on from and the route it is on is returned (null when the run is not held there). */

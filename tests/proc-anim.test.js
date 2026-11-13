@@ -231,6 +231,37 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
+// The direct PPG slide (Mohammad, 13 Nov 2026: "it's refusing to go to step 4 or 5"): the IVC run ends in its own reading and withdrawal, ten seconds in which a
+// Next waits for the portal reading. A rushed run plays that out at speed and waits for no camera.
+test('rush: a run played to its last stop finishes in a fraction of the time once rushed, and a Next or Back stops the rush', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    const endAfter = (rush) => {
+      const R = rig(), ends = [];
+      const play = playProcedure(R.stage, 'irivc', { stepped: true, onEnd: (e) => ends.push(e) });
+      R.run(12000);
+      assert.ok(play.next(), 'the IVC reading step');
+      R.run(1000);
+      assert.equal(ends.length, 0, 'still playing its reading');
+      if (rush) assert.ok(play.rush());
+      const t0 = R.now();
+      let waited = 0;
+      while (!ends.length && waited < 30000) { R.run(100); waited += 100; }
+      assert.deepEqual(ends, [{ done: true, rewound: false }]);
+      return R.now() - t0;
+    };
+    const slow = endAfter(false), fast = endAfter(true);
+    assert.ok(fast * 3 < slow, `rushed ${fast} ms against ${slow} ms`);
+    const R = rig();
+    const play = playProcedure(R.stage, 'irivc', { stepped: true });
+    R.run(12000); play.next(); R.run(500);
+    assert.ok(play.rush());
+    assert.ok(play.back(), 'Back is taken and the run is no longer rushed');
+    play.stop(); R.run(1200);
+    assert.equal(play.rush(), false, 'a finished run cannot be rushed');
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
 // Back onto a played-through eusglue slide (his ask, 10 Nov 2026, eus-glue-steps item 5): a parked run starts at the last stop, never calls apply, shows
 // the scope parked with its fan off, and still gives the change back (unapply) and rewinds if stepped back; stopping it fades the scope in place.
 test('park: a run started at its last stop shows the parked scope, applies nothing, fades on stop, and still rewinds', () => {

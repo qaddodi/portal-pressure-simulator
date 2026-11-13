@@ -80,8 +80,19 @@ flat out vec4 vJK;                     // the start's (trunk radius, mode), the 
 flat out vec4 vC0;                     // the other row's colour at the start's end (rgb), and a continuation's partner's tier (w; -1 otherwise)
 flat out vec4 vC1;                     // and at the end's
 ${JOIN_ALONG_GLSL}
+// The row's colour at u as vesAttrs gives it, the recoloured stretch included (texels 8 and 9: the HVPG's wedged vein, a sclerosant column, a cast, the wale). Without the
+// stretch a row tinted up to its seam blended toward the partner's UNtinted colour there (13 Nov 2026, Mohammad: the WHVP colour "interrupted at the joint": a pale blue band
+// across the right hepatic vein where the tinted rows meet, each row mixing in the other's plain blue over 3 radii).
 vec3 joinColour(int row, float u) {
-  return mix(texelFetch(tube, ivec2(0, row), 0).rgb, texelFetch(tube, ivec2(1, row), 0).rgb, joinAlong(row, u));
+  vec3 col = mix(texelFetch(tube, ivec2(0, row), 0).rgb, texelFetch(tube, ivec2(1, row), 0).rgb, joinAlong(row, u));
+  vec4 tc = texelFetch(tube, ivec2(8, row), 0);
+  if (tc.w > 0.0) {
+    vec4 tr = texelFetch(tube, ivec2(9, row), 0);
+    float Lv = max(texelFetch(tube, ivec2(5, row), 0).z, 1.0), uu = u * Lv;
+    float k = smoothstep(tr.x * Lv - tr.z, tr.x * Lv + tr.z, uu) * (1.0 - smoothstep(tr.y * Lv - tr.z, tr.y * Lv + tr.z, uu));
+    col = mix(col, tc.rgb, k * min(tc.w, 1.0));
+  }
+  return col;
 }
 // A row's own fade at p (veins-mesh-glsl.js vesAttrs: a dip, a radial or a linear fade along it, texels 3 and 4): the alpha the partner shows at the seam, not its flat row alpha (the SVC fades to 0.3 as it enters the atrium: the cava's ramp ended on a step, 10 Nov).
 float joinFade(int row, vec2 p) {
