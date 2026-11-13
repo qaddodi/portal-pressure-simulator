@@ -54,7 +54,7 @@ test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU co
   assert.match(lz, /function freshDraw\(\) \{ tissueKey = ''; drawKey = ''; glDirty = true; idleDrawn = ''; \}/, 'every layer drawn whole');
   assert.match(swap, /freshDraw\(\);[\s\S]*?freshDraw\(\);/, 'before the copy is made and again once the new resolution stands');
   assert.match(lz, /if \(u >= 1 \|\| diveScaled \|\| wide \|\| fade <= 0\) \{ resCoverEnd\(\); return; \}/);
-  assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y\) \{\n\s*if \(k < 0\.9999\) resCoverEnd\(\);/, 'a dive takes it away before the layers scale');
+  assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y, out = false\) \{\n\s*if \(k < 0\.9999\) resCoverEnd\(\);/, 'a dive takes it away before the layers scale');
   assert.match(lz, /function release\(\) \{\n\s*dropWide\(\);\n\s*resCoverEnd\(\);/);
   assert.match(lz, /if \(fade === 0\) \{ resCoverEnd\(\);/);
 });

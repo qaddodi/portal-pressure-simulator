@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createRefine, REFINE_MS } from '../src/ui/refine.js';
 
 // Optional refinement (the organ pictures made sharper, the gut's) shares one small CPU allowance per display frame, and waits out a

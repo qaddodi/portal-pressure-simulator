@@ -128,7 +128,7 @@ test('the words stay when they are the same and the patient is: whatever only th
   assert.notEqual(textPlan(a), textPlan(scope({ key: [] })), 'the key words are bold in the line');
   assert.equal(textPlan({ visual: 'table', title: 'x' }), null);
   // what the viewer may have changed on the slide before is never kept
-  for (const k of ['compare', 'whatIf', 'column', 'scales', 'ask']) {
+  for (const k of ['compare', 'whatIf', 'strain', 'column', 'scales', 'ask']) {
     const x = scope({ [k]: ['x'] });
     assert.equal(keepText({ from: textPlan(x), to: textPlan(x), prev: x, next: x }), false, k);
   }

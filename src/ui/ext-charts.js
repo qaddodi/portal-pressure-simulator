@@ -8,20 +8,24 @@
 //                                                shunt route's, largest first, names on the segments or, where too narrow,
 //                                                in pills under it, a dashed Healthy bracket over it (tool-flows.js)
 //   tool: { kind: 'flows', of: 'inflow' }        the same bar for the liver's inflow, portal against arterial
+//   tool: { kind: 'menu' }                      every treatment this patient could get, run on the slide's own state: a dot for each at the PPG it
+//                                                reaches against the sinusoidal flow it costs, sized by the blood that bypasses the liver (tool-menu.js)
 //   bands: ['carvedilol', 'anticoag', 'tips', …] on a trace or flowtime tool: the treatments shaded (rx-bands.js RX); drawn by
 //                                                talk-trace.js and flow-time.js themselves
 //   style: 'milestones' on a trace tool ('talk')  the HVPG line alone in its cut-off colours, the slides that set milestone:
 //                                                'Dx' (a short name) named level above their points (talk-trace.js)
 import { createProfileTool } from './tool-profile.js';
 import { createFlowsTool } from './tool-flows.js';
+import { createMenu, warmMenu } from './tool-menu.js';
 
 export default {
   tools: {
     profile: { make: () => createProfileTool(), title: () => 'Pressure, gut to heart', short: () => 'Gut to heart' },
+    menu: { make: () => createMenu(), warm: (t, ctx) => warmMenu(t, ctx), title: () => 'Every treatment option in this case', short: () => 'Treatment menu' },
     flows: {
       make: () => createFlowsTool(),
-      title: (t) => (t.of === 'inflow' ? 'Blood into the liver' : 'Where the portal blood goes'),
-      short: (t) => (t.of === 'inflow' ? 'Liver inflow' : 'Portal blood'),
+      title: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow distribution'),
+      short: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow'),
     },
   },
 };

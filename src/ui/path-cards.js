@@ -119,42 +119,154 @@ function drawScore(spec, W, compact, p, H) {
 }
 
 // ── grid ──
-function drawGrid(spec, W, compact, p, H) {
-  const { ROLE, TOKEN } = H, ops = [];
-  const hdrW = compact ? 84 : 100, g = compact ? 4 : 6, cw = (W - hdrW - 3 * g) / 3, padX = compact ? 4 : 8, padY = compact ? 7 : 9, minH = compact ? 76 : 62, cFace = compact ? 'ctc' : 'ct';
-  const colX = (i) => hdrW + g + i * (cw + g);
-  let y = 0;
-  // the column headers (standing on the cells, as tall as the tallest)
-  const hd = spec.colsH.map((c) => fl(H, [[{ text: c[1], face: 'gh' }]], cw, { align: 'center' })), hh = Math.max(...hd.map((f) => f.h));
-  hd.forEach((f, i) => put(ops, f.items, colX(i), y + hh - f.h, false, 'text'));
-  y += hh + 2 + g;
-  spec.rowsH.forEach((r, ri) => {
-    const cells = spec.colsH.map((c) => {
-      const ce = spec.cells[`${r[0]}|${c[0]}`];
-      return { ce, f: fl(H, [[{ text: ce[0], face: cFace }], ...(ce[1] ? [[{ text: ce[1], face: 'cs' }]] : [])], cw - 2 * padX, { align: 'center', gap: 2 }) };
-    });
-    const rh = fl(H, [[{ text: r[1], face: 'gr' }], [{ text: r[2], face: 'gs' }]], hdrW, { gap: 2 });
-    const rowH = Math.max(minH, rh.h, ...cells.map((c) => c.f.h + 2 * padY));
-    put(ops, rh.items, 0, y + (rowH - rh.h) / 2, false, 'text');
-    cells.forEach((c, ci) => {
-      const on = r[0] === p.r && spec.colsH[ci][0] === p.c, tone = TOKEN[c.ce[2]];
-      ops.push(rect('path.cell', colX(ci), y, cw, rowH, compact ? 8 : 10, on, tone));
-      put(ops, c.f.items, colX(ci) + padX, y + (rowH - c.f.h) / 2, on, tone);
-    });
-    y += rowH + (ri < spec.rowsH.length - 1 ? g : 0);
+// The grid's shapes (Mohammad, 7 Nov 2026, mock C at artifact DuDRLrqEd5tz6mfhbtNP6R): the cells that give the same answer are one shape (Fig. 5
+// has three answers, not six), each answer written once and centred in the widest block of its shape; the patient's cell is a filled inset in it.
+/** The cells of a grid joined by answer: → [{ key (the answer's words), tone, cells: [[ri, ci]], box: [r0, r1, c0, c1] (the block its words sit in) }]. */
+export function gridGroups(spec) {
+  const nr = spec.rowsH.length, nc = spec.colsH.length, ans = (ri, ci) => spec.cells[`${spec.rowsH[ri][0]}|${spec.colsH[ci][0]}`];
+  const seen = new Set(), out = [];
+  for (let ri = 0; ri < nr; ri++) for (let ci = 0; ci < nc; ci++) {
+    if (seen.has(ri * nc + ci)) continue;
+    const ce = ans(ri, ci), cells = [], q = [[ri, ci]];
+    seen.add(ri * nc + ci);
+    while (q.length) {   // the joined cells next to each other with the same words (one shape each)
+      const [r, c] = q.pop();
+      cells.push([r, c]);
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const r2 = r + dr, c2 = c + dc;
+        if (r2 < 0 || c2 < 0 || r2 >= nr || c2 >= nc || seen.has(r2 * nc + c2)) continue;
+        const o = ans(r2, c2);
+        if (o[0] === ce[0] && o[1] === ce[1] && o[2] === ce[2]) { seen.add(r2 * nc + c2); q.push([r2, c2]); }
+      }
+    }
+    const has = (r, c) => cells.some((x) => x[0] === r && x[1] === c);
+    let box = null, best = -1;   // the block of whole cells inside the shape with the most cells (the wider on a tie): the words go there
+    for (let r0 = 0; r0 < nr; r0++) for (let r1 = r0; r1 < nr; r1++) for (let c0 = 0; c0 < nc; c0++) for (let c1 = c0; c1 < nc; c1++) {
+      let all = true;
+      for (let r = r0; r <= r1 && all; r++) for (let c = c0; c <= c1; c++) if (!has(r, c)) { all = false; break; }
+      const sc = all ? ((r1 - r0 + 1) * (c1 - c0 + 1)) * 10 + (c1 - c0) : -1;
+      if (sc > best) { best = sc; box = [r0, r1, c0, c1]; }
+    }
+    out.push({ ce, tone: ce[2], cells, box });
+  }
+  return out;
+}
+/** The outline of a set of grid cells (one piece, no holes) as corner points, clockwise, each side pulled in by `ins`: xs and ys are the lines between the cells. */
+function outlineOf(cells, xs, ys, ins) {
+  const has = (r, c) => cells.some((x) => x[0] === r && x[1] === c), edges = new Map();
+  // the sides with no cell of the shape beyond them, clockwise (the inside on the right, y down): from (col, row) line points
+  for (const [r, c] of cells) {
+    if (!has(r - 1, c)) edges.set(`${c},${r}`, [c + 1, r]);
+    if (!has(r, c + 1)) edges.set(`${c + 1},${r}`, [c + 1, r + 1]);
+    if (!has(r + 1, c)) edges.set(`${c + 1},${r + 1}`, [c, r + 1]);
+    if (!has(r, c - 1)) edges.set(`${c},${r + 1}`, [c, r]);
+  }
+  const k0 = edges.keys().next().value, pts = [];
+  let k = k0, guard = 0;
+  do { const [a, b] = k.split(',').map(Number); pts.push([a, b]); const n = edges.get(k); k = `${n[0]},${n[1]}`; } while (k !== k0 && ++guard < 64);
+  const corners = pts.filter((pt, i) => {   // drop the points along a straight side
+    const a = pts[(i - 1 + pts.length) % pts.length], b = pts[(i + 1) % pts.length];
+    return !((a[0] === pt[0] && pt[0] === b[0]) || (a[1] === pt[1] && pt[1] === b[1]));
   });
+  return corners.map((pt, i) => {
+    const a = corners[(i - 1 + corners.length) % corners.length], b = corners[(i + 1) % corners.length];
+    // each side's inward normal (clockwise in y-down: (−dy, dx)), the corner moved along both
+    const n1 = [-(Math.sign(pt[1] - a[1])), Math.sign(pt[0] - a[0])], n2 = [-(Math.sign(b[1] - pt[1])), Math.sign(b[0] - pt[0])];
+    return [xs[pt[0]] + (n1[0] + n2[0]) * ins, ys[pt[1]] + (n1[1] + n2[1]) * ins];
+  });
+}
+/** A path through corner points with each corner rounded (at most half of either side). */
+function roundedPath(P, rad) {
+  let d = '';
+  P.forEach((p1, i) => {
+    const p0 = P[(i - 1 + P.length) % P.length], p2 = P[(i + 1) % P.length];
+    const d1 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), d2 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), r = Math.min(rad, d1 / 2, d2 / 2);
+    const a = [p1[0] - (p1[0] - p0[0]) / d1 * r, p1[1] - (p1[1] - p0[1]) / d1 * r], b = [p1[0] + (p2[0] - p1[0]) / d2 * r, p1[1] + (p2[1] - p1[1]) / d2 * r];
+    d += `${i ? 'L' : 'M'}${a[0].toFixed(2)},${a[1].toFixed(2)}Q${p1[0].toFixed(2)},${p1[1].toFixed(2)} ${b[0].toFixed(2)},${b[1].toFixed(2)}`;
+  });
+  return `${d}Z`;
+}
+
+function drawGrid(spec, W, compact, p, H) {
+  const ops = [], nc = spec.colsH.length;
+  const hdrW = compact ? 76 : 100, g = compact ? 4 : 6, ins = g / 2, cw = (W - hdrW) / nc, padX = compact ? 6 : 10, padY = compact ? 8 : 10, minH = compact ? 64 : 58, cFace = compact ? 'ctc' : 'ct';
+  const xs = [...spec.colsH, null].map((_, i) => hdrW + g / 2 + i * cw);   // the lines between the columns (a shape is pulled in by half a gap from each, so the last ends at W)
+  const groups = gridGroups(spec);
+  // a grid's words break at spaces only ("long-term" stays whole), each line its own paragraph, centred
+  const wrap = (t, face, width) => {
+    const out = [];
+    for (const w of t.split(' ')) { const last = out[out.length - 1], tryLn = last ? `${last} ${w}` : w; if (last && wOf(H, face, tryLn) > width * 0.97) out.push(w); else if (last) out[out.length - 1] = tryLn; else out.push(w); }
+    return out.map((ln) => [{ text: ln, face }]);
+  };
+  const block = (parts, width, gapAfter = 2) => {   // [[text, face]] → one flow, the lines of a part together, a small gap between parts
+    const paras = [], ends = new Set();
+    for (const [t, face] of parts) { if (!t) continue; paras.push(...wrap(t, face, width)); ends.add(paras.length - 1); }
+    return fl(H, paras, width, { align: 'center', gap: (pi) => (ends.has(pi) ? gapAfter : 0) });
+  };
+  const word = (ce, width) => block([[ce[0], cFace], [ce[1], 'cs']], width);
+  const pTone = H.TOKEN[spec.cells[`${p.r}|${p.c}`][2]];
+  // (each word of the grid is centred in its frame, kept on the op as box [x0, x1, y0, y1] so a test can hold it inside: nothing spills)
+  const putIn = (items, ox, oy, on, tone, box) => { const n = ops.length; put(ops, items, ox, oy, on, tone); for (let i = n; i < ops.length; i++) ops[i].box = box; };
+  let y = 0;
+  // the column headers, centred over their columns, standing on the shapes (as tall as the tallest); lit on the patient's answer
+  const hd = spec.colsH.map((c) => block([[c[1], 'gh']], cw - 2 * ins - 4)), hh = Math.max(...hd.map((f) => f.h));
+  hd.forEach((f, i) => putIn(f.items, xs[i] + ins + 2, y + hh - f.h, spec.colsH[i][0] === p.c, pTone, [xs[i] + ins, xs[i + 1] - ins, y, y + hh]));
+  y += hh + 6;
+  // the rows' heights: each row holds its name and the words of every shape that sits in that row alone; words over two rows or more share them
+  const rows = spec.rowsH.map((r) => block([[r[1], 'gr'], [r[2], 'gs']], hdrW - 6));
+  const rowH = rows.map((rh) => Math.max(minH, rh.h + 2 * padY - 8));
+  const gw = groups.map((gr) => { const [r0, r1, c0, c1] = gr.box; return { gr, f: word(gr.ce, (c1 - c0 + 1) * cw - 2 * ins - 2 * padX), r0, r1 }; });
+  // (the patient's shape writes its words in the patient's own cell, inside the filled inset: every cell of a shape can hold them)
+  const one = groups.map((gr) => word(gr.ce, cw - 2 * ins - 2 * padX));
+  const spans = [...gw.map(({ f, r0, r1 }) => ({ f, r0, r1 })), ...groups.flatMap((gr, i) => gr.cells.map(([r]) => ({ f: one[i], r0: r, r1: r })))];
+  for (const { f, r0, r1 } of spans.sort((a, b) => (a.r1 - a.r0) - (b.r1 - b.r0))) {
+    const need = f.h + 2 * padY + 2 * ins, have = rowH.slice(r0, r1 + 1).reduce((s, h) => s + h, 0);
+    if (need > have) for (let r = r0; r <= r1; r++) rowH[r] += (need - have) / (r1 - r0 + 1);
+  }
+  const ys = [y];
+  rowH.forEach((h) => ys.push(ys[ys.length - 1] + h));
+  // the rows' names, centred in their rows; lit on the patient's answer
+  rows.forEach((rh, ri) => putIn(rh.items, 3, ys[ri] + (rowH[ri] - rh.h) / 2, spec.rowsH[ri][0] === p.r, pTone, [0, hdrW, ys[ri], ys[ri + 1]]));
+  // the shapes (each answer once), the patient's cell filled inside its shape, then the words
+  const pr = spec.rowsH.findIndex((r) => r[0] === p.r), pc = spec.colsH.findIndex((c) => c[0] === p.c);
+  gw.forEach(({ gr, f: fBox }, gi) => {
+    const on = gr.cells.some(([r, c]) => r === pr && c === pc), tone = H.TOKEN[gr.tone];
+    ops.push({ k: 'd', look: 'path.group', pts: outlineOf(gr.cells, xs, ys, ins), rad: compact ? 8 : 10, on, tone });
+    if (on) {
+      const ii = ins + (compact ? 3 : 4);
+      ops.push(rect('path.cell', xs[pc] + ii, ys[pr] + ii, xs[pc + 1] - xs[pc] - 2 * ii, ys[pr + 1] - ys[pr] - 2 * ii, compact ? 6 : 7, true, tone));
+    }
+    const [r0, r1, c0, c1] = on ? [pr, pr, pc, pc] : gr.box, f = on ? one[gi] : fBox, bx = xs[c0] + ins + padX, by = ys[r0] + ((ys[r1 + 1] - ys[r0]) - f.h) / 2;
+    putIn(f.items, bx, by, on, tone, [xs[c0] + ins + padX, xs[c1 + 1] - ins - padX, ys[r0] + ins, ys[r1 + 1] - ins]);
+  });
+  y = ys[ys.length - 1];
   // the reading: the cell's words, why, and what it needs
   const r = spec.reading(`${p.r}|${p.c}`, p);
   y += 12;
   ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5));
   y += 1 + 12;
   const rd = fl(H, H.readParas(r), W, { gap: 4 });
-  put(ops, rd.items, 0, y, true, TOKEN[r.tone]);
+  put(ops, rd.items, 0, y, true, H.TOKEN[r.tone]);
   y += rd.h;
   return { h: y, ops };
 }
 
 // ── ladder ──
+/** A word wider than its column ("decompensation" in a Mac staircase column) is hyphenated at the last syllable break that fits, so it
+ *  wraps instead of running past the column and being cut at the card's edge. Words that fit are left as they are. */
+const VOW = /[aeiouy]/i;
+function hyphenate(H, face, textIn, width) {
+  const room = width * 0.97;
+  return textIn.split(' ').map((w) => {
+    if (wOf(H, face, w) <= room) return w;
+    for (let i = w.length - 3; i >= 3; i--) {
+      const a = w[i - 1], b = w[i], c = w[i + 1] || '';
+      const syl = !VOW.test(b) && VOW.test(c) && (VOW.test(a) || (!VOW.test(a) && VOW.test(w[i - 2])));
+      if (syl && wOf(H, face, `${w.slice(0, i)}-`) <= room) return `${w.slice(0, i)}- ${w.slice(i)}`;
+    }
+    return w;
+  }).join(' ');
+}
 function drawLadder(spec, W, compact, p, H) {
   const { ROLE, TOKEN } = H, ops = [], n = spec.steps.length, s = p.s, rc = !!p.rc && s >= 2;
   // one step's words from (x, y) in a width: → height. The lit one says "Patient is here" above and what the stage means below.
@@ -165,7 +277,7 @@ function drawLadder(spec, W, compact, p, H) {
     if (on || reserveYou) y += ROLE.yo.lh;
     ops.push(text('sn', x, y + baseOf(ROLE.sn), `Stage ${i + 1}`, on, tone));
     y += ROLE.sn.lh + 4;
-    const name = fl(H, [[{ text: st[0], face: 'r' }]], width);
+    const name = fl(H, [[{ text: hyphenate(H, 'r', st[0], width), face: 'r' }]], width);
     put(ops, name.items, x, y, on, tone);
     y += name.h + 4;
     const sd = fl(H, [[{ text: st[1], face: 't' }]], width);
@@ -196,7 +308,7 @@ function drawLadder(spec, W, compact, p, H) {
   }
   if (s >= 2) {
     y += 12;
-    const f = fl(H, [[{ text: rc ? 'Back to compensated. ' : 'The way back. ', face: 'bb' }, { text: spec.back, face: 'bk' }]], W - 20);
+    const f = fl(H, [[{ text: rc ? 'Recompensated. ' : 'Reversible. ', face: 'bb' }, { text: spec.back, face: 'bk' }]], W - 20);
     ops.push(rect('path.back', 0.5, y + 0.5, W - 1, f.h + 14, 10, rc, TOKEN.ok));
     put(ops, f.items, 10, y + 7, rc, TOKEN.ok);
     y += f.h + 14;
@@ -226,6 +338,7 @@ export function model(spec, L, patient, H, oy = 0) {
     const cls = o.on ? 'lit' : '';
     if (o.k === 't') return svg('text', { x: o.x, y: o.y + oy, class: cls, 'data-look': `path.${o.face}`, 'data-p-tone': o.tone || 'text', 'text-anchor': 'start', 'font-size': ROLE[o.face].size }, o.text);
     if (o.k === 'r') return svg('rect', { x: o.x, y: o.y + oy, width: o.w, height: o.h, rx: o.rx, class: cls, 'data-look': o.look, 'data-p-tone': o.tone || 'text' });
+    if (o.k === 'd') return svg('path', { d: roundedPath(o.pts.map((q) => [q[0], q[1] + oy]), o.rad), class: cls, 'data-look': o.look, 'data-p-tone': o.tone || 'text' });
     return svg('path', { d: `M${o.x1},${o.y1 + oy}L${o.x2},${o.y2 + oy}`, class: cls, 'data-look': o.look, 'data-p-tone': o.tone || 'text' });
   });
 }

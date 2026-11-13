@@ -4,7 +4,8 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { easeMove, easeArrive, cubicBezier, camMs, CAM_MS_MIN, CAM_MS_MAX } from '../src/ui/ease.js';
+import { easeMove, easeArrive, easeOut3, cubicBezier, camMs, CAM_MS_MIN, CAM_MS_MAX } from '../src/ui/ease.js';
+import * as motion from '../src/ui/motion.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const quad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -64,4 +65,15 @@ test('stage and lobule glides run on the quintic; scaled glides take their reach
   assert.match(lob, /e = ease === 'in' \? u \* u : easeMove\(u\);/);
   assert.match(lob, /const c0 = v0 \? carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms : 0;/);
   assert.doesNotMatch(lob, /CAM_M2|camease/);
+});
+
+test('easeOut3 is the ease-out cubic the moves always ran: 1 - (1 - u) ** 3 exactly, quick off the mark, at rest at the end (motion.js the same)', () => {
+  for (let i = 0; i <= 1000; i++) { const u = i / 1000; assert.equal(easeOut3(u), 1 - (1 - u) ** 3, `${u}`); }
+  assert.equal(easeOut3(0), 0); assert.equal(easeOut3(1), 1);
+  let last = -1;
+  for (let u = 0; u <= 1; u += 0.001) { const v = easeOut3(u); assert.ok(v >= last); last = v; }
+  const slope = (f, u, h = 1e-6) => (f(u + h) - f(u - h)) / (2 * h);
+  assert.ok(Math.abs(slope(easeOut3, 1e-3) - 3) < 0.01 && Math.abs(slope(easeOut3, 1 - 1e-3)) < 1e-4);
+  assert.equal(motion.easeOut3, easeOut3);
+  assert.equal(motion.easeArrive, easeArrive);
 });

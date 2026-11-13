@@ -79,9 +79,9 @@ const prop = (k) => ({ get: (p) => p[k], set: (p, v) => { p[k] = v; } });
 // Every global control, addressable by id.
 export const CONTROLS = {
   cirrhosis: { type: 'slider', key: 'cirrhosis', label: 'Cirrhosis severity', min: 0, max: 1, step: 0.01, ...prop('cirrhosis'), format: pct, def: 0,
-    info: 'Macro control: sinusoidal fibrosis and capillarization, a stiffer liver, less buffer reserve and arterioportal shunting. Run the Months clock to watch collaterals and varices develop.',
+    info: 'Macro control: sinusoidal fibrosis and capillarization, higher liver stiffness, a smaller hepatic arterial buffer reserve and arterioportal shunting. Run the Months clock to watch collaterals and varices develop.',
     sub: '40% compensated · 60% CSPH · 85% decompensated' },
-  fibPre: { type: 'slider', key: 'fibrosis', label: 'Presinusoidal', min: 1, max: 80, step: 0.5, ...fibAll('pre'), format: mult, def: 1, info: 'Resistance in the portal tracts and venules (e.g. schistosomiasis). Raises portal pressure without raising the wedged pressure.' },
+  fibPre: { type: 'slider', key: 'fibrosis', label: 'Presinusoidal', min: 1, max: 80, step: 0.5, ...fibAll('pre'), format: mult, def: 1, info: 'Resistance in the portal tracts and venules (e.g. schistosomiasis). Raises portal pressure without raising the WHVP.' },
   fibSin: { type: 'slider', key: 'fibrosis', label: 'Sinusoidal', min: 1, max: 40, step: 0.5, ...fibAll('sin'), format: mult, def: 1, info: 'Extra sinusoidal resistance on top of the cirrhosis macro.' },
   fibPost: { type: 'slider', key: 'fibrosis', label: 'Postsinusoidal', min: 1, max: 40, step: 0.5, ...fibAll('post'), format: mult, def: 1, info: 'Central vein / terminal hepatic venule (e.g. sinusoidal obstruction syndrome).' },
   pvt: { type: 'slider', key: 'thrombus', label: 'Portal vein', min: 0, max: 1, step: 0.01, ...occl('PV_TRUNK'), format: pct, def: 0 },
@@ -95,7 +95,7 @@ export const CONTROLS = {
   contractility: { type: 'slider', key: 'contractility', label: 'Right-heart contractility', min: 0.15, max: 1.6, step: 0.01, ...prop('contractility'), format: pct, def: 1, normal: [0.85, 1.2] },
   tr: { type: 'slider', key: 'tr', label: 'Tricuspid regurgitation', min: 0, max: 1, step: 0.01, ...prop('tr'), format: pct, def: 0, info: 'Systolic backflow into the right atrium: large v-waves reach the liver (turn on Pulsatile mode and use the Doppler).' },
   pericardial: { type: 'slider', key: 'pericardial', label: 'Pericardial constraint', min: 0, max: 1, step: 0.01, ...prop('pericardial'), format: pct, def: 0 },
-  grShunt: { type: 'toggle', key: 'spontaneous', label: 'Gastrorenal shunt present', get: (p) => p.spontaneous.C5 !== false, set: (p, v) => { p.spontaneous.C5 = v; }, def: false, info: 'Present in most patients with gastric varices (about 80–85%) and required for them: fundal varices drain through it into the left renal vein. It stays small until the portal-to-caval gradient is high.' },
+  grShunt: { type: 'toggle', key: 'spontaneous', label: 'Gastrorenal shunt present', get: (p) => p.spontaneous.C5 !== false, set: (p, v) => { p.spontaneous.C5 = v; }, def: false, info: 'Present in most patients with gastric varices (about 80–85%) and required for them: fundal varices drain through it into the left renal vein. It stays small until the portosystemic gradient is high.' },
   srShunt: { type: 'toggle', key: 'spontaneous', label: 'Splenorenal shunt present', get: (p) => p.spontaneous.C6, set: (p, v) => { p.spontaneous.C6 = v; }, info: 'A large spontaneous shunt from the splenic to the left renal vein.' },
   tips: { type: 'toggle', key: 'tips', label: 'TIPS', get: (p) => p.tips.on, set: (p, v) => { p.tips.on = v; }, info: 'Transjugular intrahepatic portosystemic shunt, right portal → right hepatic vein. You can also drag one with the Stent tool.' },
   tipsD: { type: 'slider', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.', showIf: (p) => p.tips.on },
@@ -106,42 +106,42 @@ export const CONTROLS = {
   balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade (second step)', get: (p) => p.balloonEso, set: (p, v) => { p.balloonEso = v; if (v) p.balloonGas = true; } },
   balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade (first step)', get: (p) => p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; } },
   brto: { type: 'toggle', key: 'occluded', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
-  splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => SPLENIC_RX[v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the spleen\u2019s blood supply, splenectomy removes all of it. Less inflow means a lower portal pressure and less flow to the varices.' },
-  portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
-  dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
+  splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => SPLENIC_RX[v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the splenic arterial supply, splenectomy removes all of it. Lower splenic inflow lowers portal pressure and variceal inflow.' },
+  portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', get: (p) => p.portocaval, set: (p, v) => { p.portocaval = v; if (!v) p.portocavalSide = false; }, info: 'End-to-side: total diversion; the liver loses all portal perfusion. Side-to-side (the shunt\u2019s own card) keeps the portal trunk, which then carries hepatofugal flow out of the liver.' },
+  dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: the coronary vein is ligated and the gastroesophageal varices decompress through the short gastric veins and the splenic vein to the left renal vein, while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
-  rex: { type: 'toggle', key: 'rex', label: 'Meso-Rex bypass', ...prop('rex'), info: 'A vein graft from the superior mesenteric vein to the left portal vein, past a clotted trunk: the gut\u2019s blood goes back into the liver.' },
+  rex: { type: 'toggle', key: 'rex', label: 'Meso-Rex bypass', ...prop('rex'), info: 'A vein graft from the superior mesenteric vein to the left portal vein, past a thrombosed main portal vein, restoring splanchnic inflow to the liver.' },
   gestation: { type: 'slider', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, ...prop('gestation'), format: (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant'), def: 0, info: PREGNANCY_INFO },
   albumin: { type: 'slider', key: 'albumin', label: 'Serum albumin', min: 1.5, max: 5, step: 0.1, ...prop('albumin'), format: (v) => `${v.toFixed(1)} g/dL`, def: 4, normal: [3.5, 5], info: 'Plasma oncotic pressure opposes filtration out of capillaries (Starling).' },
   diuretics: { type: 'toggle', key: 'diuretics', label: 'Diuretics', ...prop('diuretics'), info: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.' },
   splanchnicTone: { type: 'slider', key: 'splanchnicTone', label: 'Splanchnic arteriolar tone', min: 0.4, max: 2.5, step: 0.01, ...prop('splanchnicTone'), format: tone, def: 1, normal: [0.85, 1.15], info: 'Forward-flow theory: splanchnic vasodilation raises portal inflow, and so portal pressure.' },
   systemicTone: { type: 'slider', key: 'systemicTone', label: 'Systemic arteriolar tone', min: 0.4, max: 2.5, step: 0.01, ...prop('systemicTone'), format: tone, def: 1, normal: [0.85, 1.15] },
   habr: { type: 'slider', key: 'habrStrength', label: 'Hepatic arterial buffer', min: 0, max: 2, step: 0.05, ...prop('habrStrength'), format: mult, def: 1, info: 'Adenosine washout: when portal flow falls the hepatic artery dilates to preserve liver perfusion.' },
-  apShunt: { type: 'slider', key: 'apShunt', label: 'Arterioportal shunting', min: 0, max: 1, step: 0.01, ...prop('apShunt'), format: pct, def: 0, info: 'Hepatic-artery blood entering portal branches directly. With high sinusoidal resistance it can drive the portal vein backwards.' },
+  apShunt: { type: 'slider', key: 'apShunt', label: 'Arterioportal shunting', min: 0, max: 1, step: 0.01, ...prop('apShunt'), format: pct, def: 0, info: 'Hepatic-artery blood entering portal branches directly. With high sinusoidal resistance it can reverse portal vein flow (hepatofugal).' },
   pulsatile: { type: 'toggle', key: 'pulsatile', label: 'Pulsatile (beat-to-beat)', ...prop('pulsatile'), info: 'Adds the right-atrial waveform (a, x, v, y). Needed for Doppler pulsatility.' },
   respiration: { type: 'toggle', key: 'respiration', label: 'Respiration', ...prop('respiration') },
   respDepth: { type: 'slider', key: 'respDepth', label: 'Breath depth', min: 0, max: 3, step: 0.1, ...prop('respDepth'), format: mult, def: 1 },
-  bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can tear once its wall stress passes the critical value.' },
+  bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can rupture once its wall stress exceeds the critical value.' },
   detRupture: { type: 'toggle', key: 'deterministicRupture', label: 'Deterministic rupture', ...prop('deterministicRupture'), info: 'Rupture exactly when wall stress exceeds the critical value, instead of a random hazard.' },
 };
 for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', drug: k };
 
-const DRUG_SHORT = { propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
+const DRUG_SHORT = { propranolol: 'Nonselective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
 // What the About card says of a vessel: the words by its id, or by its left-hand twin's.
 const ABOUT_EDGE = {
-    PV_TRUNK: 'Carries about 75% of liver blood flow (≈ 1.1 L/min). Normal Doppler velocity 15–40 cm/s, toward the liver (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow goes wherever the gradient points.',
+    PV_TRUNK: 'Carries about 75% of hepatic blood flow (≈1.1 L/min). Normal Doppler velocity 15 to 40 cm/s, hepatopetal (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow follows the pressure gradient.',
     C1a: 'The left gastric (coronary) vein feeds the esophageal submucosal plexus: the source of esophageal varices.',
     C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured stress).',
     C2: 'Short and posterior gastric veins connect the splenic vein to the fundus: the route of isolated gastric varices in splenic vein thrombosis.',
     C3: 'The recanalized paraumbilical vein runs from the left portal vein along the falciform ligament to the umbilicus (caput medusae, Cruveilhier–Baumgarten murmur).',
     C4: 'Superior rectal (portal) ↔ middle and inferior rectal (systemic) veins: anorectal varices, not hemorrhoids.',
     C5: 'Gastrorenal shunt: fundal varices → left inferior phrenic / adrenal → left renal vein. The target of BRTO.',
-    C6: 'Spontaneous splenorenal shunt: large, can steal portal flow and cause encephalopathy.',
+    C6: 'Spontaneous splenorenal shunt: large, can divert portal flow from the liver and cause hepatic encephalopathy.',
     C7: 'Retroperitoneal veins of Retzius connect mesenteric veins to lumbar and renal veins.',
     C8: 'Periportal (pericholedochal) collaterals bypass an occluded portal vein: cavernous transformation, which stays hepatopetal.',
-    C9: 'The ascending lumbar–azygos route decompresses the IVC when its outflow is resistant.',
-    TIPS: 'A covered stent from a portal branch to a hepatic vein. Target portosystemic gradient < 12 mmHg. Costs: encephalopathy, liver hypoperfusion, higher cardiac preload.',
+    C9: 'The ascending lumbar–azygos route decompresses the IVC when IVC outflow resistance is high.',
+    TIPS: 'A covered stent from a portal branch to a hepatic vein. Target portosystemic gradient <12 mmHg. Risks: hepatic encephalopathy, reduced hepatic perfusion, increased cardiac preload.',
     CAUD: 'The caudate lobe drains straight into the IVC through its own short veins, so it is spared (and hypertrophies) in Budd–Chiari syndrome.',
     PRE_R: 'Presinusoidal segment: portal venules in the portal tract. Resistance rises here in schistosomiasis and other non-cirrhotic portal hypertension.',
     SIN_RR: 'Sinusoids: normally low-resistance, fenestrated and compliant. In cirrhosis, collagen in the space of Disse, stellate-cell contraction and capillarization raise their resistance.',
@@ -312,12 +312,12 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   const ORGAN_ABOUT = {
-    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis raises it in the portal tracts; sinusoidal obstruction syndrome, in the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f, c) => pressText(c, Pof(f)[NI.SIN_R])], ['HVPG', (f, c) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : numText(c, f.metrics.hvpg, 1, ' mmHg'))], ['Liver perfusion', (f, c) => numText(c, f.metrics.liverPerfPct, 0, '%')], ['Hepatic artery flow', (f, c) => lpmText(c, f.metrics.arterialIn)]], 'hvpg'],
-    heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f, c) => pressText(c, Pof(f)[NI.RA])], ['Cardiac output', (f, c) => lpmText(c, f.metrics.co)], ['MAP', (f, c) => numText(c, f.metrics.map, 0, ' mmHg')], ['Heart rate', (f, c) => numText(c, f.metrics.hr, 0, ' /min')]], 'ra'],
+    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis raises it in the portal tracts; sinusoidal obstruction syndrome, in the central veins. The hepatic arterial buffer response offsets falls in portal flow.', [['Sinusoids (R)', (f, c) => pressText(c, Pof(f)[NI.SIN_R])], ['HVPG', (f, c) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : numText(c, f.metrics.hvpg, 1, ' mmHg'))], ['Hepatic perfusion', (f, c) => numText(c, f.metrics.liverPerfPct, 0, '%')], ['Hepatic artery flow', (f, c) => lpmText(c, f.metrics.arterialIn)]], 'hvpg'],
+    heart: ['Organ', 'Right heart', 'The right atrium receives both venae cavae. Right atrial pressure (RAP) sets the downstream pressure of the whole venous system: right ventricular failure or tricuspid regurgitation raises every pressure upstream, including the FHVP, so the HVPG stays normal.', [['RAP', (f, c) => pressText(c, Pof(f)[NI.RA])], ['Cardiac output', (f, c) => lpmText(c, f.metrics.co)], ['MAP', (f, c) => numText(c, f.metrics.map, 0, ' mmHg')], ['Heart rate', (f, c) => numText(c, f.metrics.hr, 0, ' /min')]], 'ra'],
     varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall stress follows Laplace: σ = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f, c) => pressText(c, Pof(f)[NI.VAR])], ['Diameter', (f, c) => numText(c, f.metrics.varix.d, 1, ' mm')], ['Wall stress', (f, c) => numText(c, f.metrics.varix.ratioShown * 100, 0, '% of rupture')], ['Grade', (f) => f.metrics.varix.grade.label]], 'varix'],
     gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f, c) => pressText(c, Pof(f)[NI.GV])], ['Diameter', (f, c) => numText(c, f.metrics.gastricVarix.d, 1, ' mm')], ['Wall stress', (f, c) => numText(c, f.metrics.gastricVarix.ratioShown * 100, 0, '% of rupture')]], 'varix'],
-    spleen: ['Organ', 'Spleen', 'Portal hypertension congests and enlarges the spleen, which sequesters platelets. Splenic vein thrombosis isolates it: sinistral portal hypertension with fundal varices.', [['Length', (f, c) => numText(c, f.metrics.spleen.length, 1, ' cm')], ['Platelets (illustrative)', (f, c) => cachedText(c, Math.round(f.metrics.spleen.platelets), pltMake, 0)]], 'spleen'],
-    abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and gut capillaries outpaces lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f, c) => numText(c, f.metrics.ascites.volume / 1000, 2, ' L')], ['Formation', (f, c) => numText(c, liveBalance(f.metrics.ascites.ratePerDay), 0, ' mL/day')], ['IAP', (f, c) => numText(c, f.metrics.ascites.iap, 1, ' mmHg')], ['Hepatic lymph', (f, c) => numText(c, f.metrics.ascites.hepLymph, 1, ' mL/min')]], 'ascites'],
+    spleen: ['Organ', 'Spleen', 'Portal hypertension causes congestive splenomegaly and platelet sequestration. Splenic vein thrombosis causes left-sided (sinistral) portal hypertension with fundal varices.', [['Length', (f, c) => numText(c, f.metrics.spleen.length, 1, ' cm')], ['Platelets (illustrative)', (f, c) => cachedText(c, Math.round(f.metrics.spleen.platelets), pltMake, 0)]], 'spleen'],
+    abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and splanchnic capillaries exceeds lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f, c) => numText(c, f.metrics.ascites.volume / 1000, 2, ' L')], ['Formation', (f, c) => numText(c, liveBalance(f.metrics.ascites.ratePerDay), 0, ' mL/day')], ['IAP', (f, c) => numText(c, f.metrics.ascites.iap, 1, ' mmHg')], ['Hepatic lymph', (f, c) => numText(c, f.metrics.ascites.hepLymph, 1, ' mL/min')]], 'ascites'],
   };
   function organPanel(id) {
     const o = ORGAN_ABOUT[id];
@@ -407,7 +407,8 @@ const C = {
   embolization: worded('splenicRx', 'Partial splenic embolization', (q) => { q.splenicRx = 0; }),
   tips: numbered('tips', 'TIPS ', ' mm', (q) => { q.tips.on = false; }),
   dips: numbered('dips', 'DIPS ', ' mm', (q) => { q.dips.on = false; }),
-  portocaval: worded('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; }),
+  portocaval: worded('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; q.portocavalSide = false; }),
+  portocavalSide: worded('portocaval', 'Portocaval shunt (side-to-side)', (q) => { q.portocaval = false; q.portocavalSide = false; }),
   dsrs: worded('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; }),
   mesocaval: worded('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; }),
   rex: worded('rex', 'Meso-Rex bypass', (q) => { q.rex = false; }),
@@ -443,7 +444,7 @@ export function activeInterventions(p) {
   if (p.splenicRx) changes.push(p.splenicRx === 2 ? C.splenectomy : C.embolization);
   if (p.tips.on) put(C.tips, p.tips.d, 1, -2);
   if (p.dips.on) put(C.dips, p.dips.d, 1, -2);
-  if (p.portocaval) changes.push(C.portocaval);
+  if (p.portocaval) changes.push(p.portocavalSide ? C.portocavalSide : C.portocaval);
   if (p.dsrs) changes.push(C.dsrs);
   if (p.mesocaval) changes.push(C.mesocaval);
   if (p.rex) changes.push(C.rex);

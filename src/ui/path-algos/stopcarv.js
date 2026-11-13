@@ -6,8 +6,8 @@
 import { act, inheritTone } from './helpers.js';
 
 const tree = inheritTone({
-  id: 'root', t: 'Recompensated, on carvedilol', r: 'Stop only if CSPH has resolved', s: 'Varices and collaterals can stay after CSPH resolves, so they prove nothing.', stmt: '7.17, 7.18', tone: 'n', kids: [
-    { id: 'res', t: 'Resolution shown', r: 'CSPH has resolved', s: 'HVPG <10 mmHg off carvedilol, or LSM <10 kPa, or LSM <15 with SSM <25 kPa.', stmt: '7.16, 7.19', tone: 'ok', sh: 'Resolved', kids: [act('stop', 'Carvedilol may stop', { stmt: '7.18' })] },
+  id: 'root', t: 'Recompensated, on carvedilol', r: 'Stop only if CSPH has resolved', s: 'Varices and collaterals can persist after CSPH resolves, so they do not show it persists.', stmt: '7.17, 7.18', tone: 'n', kids: [
+    { id: 'res', t: 'Resolution shown', r: 'CSPH has resolved', s: 'HVPG <10 mmHg off carvedilol, or LSM <10 kPa, or LSM <15 with SSM <25 kPa.', stmt: '7.16, 7.19', tone: 'ok', sh: 'Resolved', kids: [act('stop', 'Carvedilol may be stopped', { stmt: '7.18' })] },
     { id: 'open', t: 'Resolution not shown', r: 'CSPH not ruled out', s: 'LSM >25 kPa may rule it in.', stmt: '7.19c', tone: 'warn', sh: 'Not shown', kids: [act('keep', 'Keep carvedilol')] },
   ],
 }, 'n');
@@ -31,8 +31,8 @@ export default {
   outcomes: ['stop', 'keep'],
   outcomeOf: (L) => (L.has('stop') ? 'stop' : L.has('keep') ? 'keep' : null),
   reading(key, p) {
-    if (key === 'stop') return { head: 'Carvedilol may stop', tone: 'ok', stmt: '7.18', why: p.hv === 'low' ? 'HVPG is <10 mmHg off carvedilol, which confirms the resolution.' : p.lsm < 10 ? `LSM ${p.lsm} kPa is <10, which may rule CSPH out.` : `LSM ${p.lsm} kPa is <15 and SSM ${p.ssm} kPa is <25, which may rule CSPH out.`, next: 'Varices or collaterals that remain do not mean CSPH remains.' };
-    return { head: 'Keep carvedilol', tone: 'warn', stmt: '7.19', why: p.hv === 'high' ? 'HVPG is ≥10 mmHg off carvedilol, so CSPH persists.' : p.lsm > 25 ? `LSM ${p.lsm} kPa is >25, which may rule CSPH in.` : 'No test has shown that CSPH resolved.', next: 'Measure HVPG off carvedilol if it matters, or repeat the stiffness later.' };
+    if (key === 'stop') return { head: 'Carvedilol may be stopped', tone: 'ok', stmt: '7.18', why: p.hv === 'low' ? 'HVPG is <10 mmHg off carvedilol, which confirms that CSPH has resolved.' : p.lsm < 10 ? `LSM ${p.lsm} kPa is <10, which may rule CSPH out.` : `LSM ${p.lsm} kPa is <15 and SSM ${p.ssm} kPa is <25, which may rule CSPH out.`, next: 'Persistent varices or collaterals do not mean CSPH persists.' };
+    return { head: 'Keep carvedilol', tone: 'warn', stmt: '7.19', why: p.hv === 'high' ? 'HVPG is ≥10 mmHg off carvedilol, so CSPH persists.' : p.lsm > 25 ? `LSM ${p.lsm} kPa is >25, which may rule CSPH in.` : 'No test has shown that CSPH resolved.', next: 'Measure HVPG off carvedilol if the decision depends on it, or repeat LSM and SSM later.' };
   },
   chips: (p) => [p.hv === 'low' ? 'HVPG <10 off carvedilol' : p.hv === 'high' ? 'HVPG ≥10 off carvedilol' : 'HVPG not measured', `LSM ${p.lsm} kPa`, `SSM ${p.ssm} kPa`],
   patientFor(tool, fp, shown = (k, v) => v) {
@@ -41,5 +41,5 @@ export default {
     return { hv: ['none', 'low', 'high'].includes(b.hv) ? b.hv : 'none', lsm: live('lsm', b.lsm), ssm: live('ssm', b.ssm) };
   },
   worst: { hv: 'high', lsm: 99.9, ssm: 99.9 },
-  notes: 'Carvedilol (or another non-selective beta-blocker) in a recompensated patient may be stopped only if resolution of clinically significant portal hypertension can be confirmed (7.18, weak). CSPH may resolve over time after recompensation (7.15). Resolution is confirmed by an HVPG <10 mmHg measured off carvedilol (7.16). Portosystemic collaterals and varices may persist after CSPH has resolved, so they are not reliable signs that it persists, and the risk of bleeding from them seems low (7.17). Without an HVPG, stiffness may be used (7.19): LSM <10 kPa may rule CSPH out, LSM <15 kPa with SSM <25 kPa may rule it out, and LSM >25 kPa may rule it in. Where none of these shows resolution, carvedilol is kept. An HVPG of ≥10 mmHg off carvedilol shows that CSPH persists.',
+  notes: 'Carvedilol (or another nonselective beta-blocker) in a recompensated patient may be stopped only if resolution of clinically significant portal hypertension can be confirmed (7.18, weak). CSPH may resolve over time after recompensation (7.15). Resolution is confirmed by an HVPG <10 mmHg measured off carvedilol (7.16). Portosystemic collaterals and varices may persist after CSPH has resolved, so they are not reliable signs that it persists, and the risk of bleeding from them seems low (7.17). Without an HVPG, stiffness may be used (7.19): LSM <10 kPa may rule CSPH out, LSM <15 kPa with SSM <25 kPa may rule it out, and LSM >25 kPa may rule it in. Where none of these shows resolution, carvedilol is kept. An HVPG of ≥10 mmHg off carvedilol shows that CSPH persists.',
 };

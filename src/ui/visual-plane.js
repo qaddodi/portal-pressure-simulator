@@ -20,13 +20,18 @@
 // diag: { label } (or true) draws the dashed line where the two readings are equal (the wedge against the portal pressure: a point
 // on it means the wedge reads the portal vein), named along its upper end, the points' names keeping clear of it.
 //
+// iso: { rays: [5, 10, 20], label?: 'R' } (or an array of rays) draws lines of equal resistance from the origin, y = R x, for a plane whose x
+// axis is a flow and whose y axis is a pressure drop starting at 0 (pvFlow against ppg: Ohm's law, ΔP = Q × R). Each ray is named at its
+// far end ('R = 10'), mmHg per L/min, and the points' names keep clear of every ray and its name.
+//
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js';
-import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS, BLEED_WORD } from '../engine/pressure-cuts.js';
 import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
+import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
 import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
@@ -66,16 +71,24 @@ export function rangeOf(when, key, min, max) {
 // TIPS under 12 mmHg), so each line is named for its own meaning.
 export const PLANES = {
   csph: {
-    x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: 'LSM kPa' },
-    y: { key: 'plt', min: 0, max: 300, ticks: [0, 100, 150, 300], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: 'PLT' },
+    // (11 Nov 2026, Mohammad: this plane and the guideline card's graph show the same zones, so they look alike: the one geometry, tint, type and axis
+    // writing of baveno-zones.js. look: 'guide' draws the zones as the muted non-overlapping tints, no dashed lines, the words in the outlined type;
+    // the axes are written as the guideline card writes them, 15 20 25 along the foot, 150K up the left, LSM kPa and PLT (only: the one form).)
+    x: { key: 'lsm', min: BAVENO_AXES.x[0], max: BAVENO_AXES.x[1], ticks: BAVENO_AXES.xTicks, name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: BAVENO_AXES.xName, only: 'abbr' },
+    y: { key: 'plt', min: BAVENO_AXES.y[0], max: BAVENO_AXES.y[1], ticks: [BAVENO_AXES.yTick[0]], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: BAVENO_AXES.yName, only: 'abbr' },
+    look: 'guide',
+    tickText: { [BAVENO_AXES.yTick[0]]: BAVENO_AXES.yTick[1] },
+    // (12 Nov 2026, Mohammad: "the same Baveno chart, the smaller one, just plot on it ... one unified size": the ranges, the proportions and the hatch of the guideline card's graph.)
+    rectsOf: bavenoRects,
+    hatchOf: bavenoHatch,
     // (Mohammad's three words, 19 Oct: "No CSPH", "CSPH" and "Indeterminate", each on its own zone and no key. at: the middle of
     // the zone's largest open part, the amber L's lower band; edges: its cut-offs only where zones meet.)
     zones: [
-      { when: [['lsm', '>=', 25]], t: 'CSPH', tone: 'hi', at: [32.5, 225], note: '≥25 kPa (not in obese MASLD)' },
-      { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'No CSPH', tone: 'ok', at: [7.5, 225], note: '≤15 kPa with platelets ≥150' },
+      { when: [['lsm', '>=', BAVENO.in]], t: 'CSPH', tone: 'hi', at: [32.5, 225], note: '≥25 kPa (not in obese MASLD)' },
+      { when: [['lsm', '<=', BAVENO.out], ['plt', '>=', BAVENO.plt]], t: 'No CSPH', tone: 'ok', at: [7.5, 225], note: '≤15 kPa with platelets ≥150' },
       { t: 'Indeterminate', tone: 'mid', at: [12.5, 75], note: 'A model or spleen stiffness decides' },
     ],
-    cuts: { x: [15, 25], y: [150] },
+    cuts: { x: [BAVENO.out, BAVENO.in], y: [BAVENO.plt] },
     source: 'Baveno VIII 1.15, 1.16',
     key: 'never',
     edges: true,
@@ -85,11 +98,11 @@ export const PLANES = {
     // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12'
     // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
     // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
-    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (wedged − free), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
+    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
     y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
       { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
+      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
       { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG ≥${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
       { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG ≥${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
@@ -101,10 +114,24 @@ export const PLANES = {
     // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
     nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
+    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
     source: '',
     key: false,
   },
+};
+PLANES['flow-ppg'] = {
+  // (Ohm's law, C1 of docs/recommendations/new-features-recs.md: portal flow across, the PPG up, lines of equal resistance from the origin. A
+  // beta-blocker slides a patient down their line; carvedilol drops them to a lower one; a meal moves them right; a TIPS takes them near the floor.
+  // No zones: it is a scatter with axes. The PPG 12 line is the bleed-risk cut-off the other planes name.)
+  x: { key: 'pvFlow', min: 0, max: 2, ticks: [0, 0.5, 1, 1.5, 2], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' },
+  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
+  zones: [],
+  cuts: { y: [PPG_CUTS.red] },
+  lineNames: { y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
+  iso: { rays: [4, 8, 16, 32] },
+  nameGap: 4,
+  source: 'Each line is one resistance, PPG ÷ flow, in mmHg per L/min.',
+  key: 'never',
 };
 /** A slide's plane: a named one, or the deck's own, filled from the named one it starts from (base). */
 export function planeOf(p) {
@@ -177,17 +204,18 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
     out.push({ text, x, y, anchor, cls, box });
   };
   const foot = H - PAD - fs * 0.25 - 3, cut = (a, v) => (pl.cuts?.[a] || []).includes(v), ticks = [];
+  const tx = (v) => pl.tickText?.[v] ?? String(v);   // (a number's own writing: 150 as 150K)
   for (const v of pl.x.ticks || [pl.x.min ?? 0, pl.x.max]) {
-    const x = X(v), w = est(String(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
-    ticks.push([cut('x', v), String(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
+    const x = X(v), w = est(tx(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
+    ticks.push([cut('x', v), tx(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
   }
-  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
+  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), tx(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
   if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
-    const forms = [...new Set([a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
+    const forms = [...new Set(a.only ? [a[a.only]] : [a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
     const ok = forms.find((t) => !taken.some((o) => hit(boxOf(t, x, y, anchor), o)));
     put(ok ?? forms.at(-1) ?? a.key, x, y, anchor, 'pze-ax', true);
   };
@@ -320,7 +348,31 @@ export function diagOf(pl, X, Y, fs = 13) {
   if (label) boxes.push(label.box);
   return { seg, boxes, label };
 }
-/** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges and the diagonal. */
+/** The plane's lines of equal resistance (pl.iso: rays in y per x, or { rays }), each a ray from the origin, y = R x, clipped to the plot:
+ *  its segment in px, its name ("R = 10") just inside its far end (over the line where it ends at the right edge, under the top edge and
+ *  right of the line where it ends there), and the thin boxes words keep clear of (every 8 px, 3 px either side, and each name's own box).
+ *  null without iso, or where the axes do not both start at 0. [{ r, seg, label: { text, x, y, anchor, box } }] and boxes. */
+export function isoOf(pl, X, Y, fr, fs = 13) {
+  const iso = pl.iso;
+  const rays = (Array.isArray(iso) ? iso : iso?.rays || []).filter((r) => Number.isFinite(r) && r > 0);
+  if (!rays.length || (pl.x.min ?? 0) !== 0 || (pl.y.min ?? 0) !== 0) return null;
+  const lines = [], boxes = [];
+  for (const r of [...rays].sort((a, b) => a - b)) {
+    const xe = Math.min(pl.x.max, pl.y.max / r), ye = r * xe, atTop = pl.y.max / r < pl.x.max;
+    const seg = { x1: X(0), y1: Y(0), x2: X(xe), y2: Y(ye) }, n = Math.max(1, Math.ceil(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / 8));
+    for (let i = 1; i <= n; i++) { const x = seg.x1 + (seg.x2 - seg.x1) * i / n, y = seg.y1 + (seg.y2 - seg.y1) * i / n; boxes.push([x - 3, y - 3, x + 3, y + 3]); }
+    const text = `R = ${r}`, w = est(text, fs, 0.62);
+    const label = atTop
+      ? { text, anchor: 'start', x: seg.x2 + 5, y: seg.y2 + fs * 0.95 }
+      : { text, anchor: 'end', x: seg.x2 - 4, y: seg.y2 - 4 };
+    const x0 = label.anchor === 'start' ? label.x : label.x - w;
+    label.box = [x0 - 2, label.y - fs * 0.8 - 2, x0 + w + 2, label.y + fs * 0.25 + 2];
+    boxes.push(label.box);
+    lines.push({ r, seg, label });
+  }
+  return { lines, boxes };
+}
+/** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges, the diagonal and the lines of equal resistance. */
 export function lineBoxes(pl, X, Y, fr, fs = 13) {
   const out = [];
   // (4 px either side, so a word never sits against a line either.)
@@ -329,7 +381,7 @@ export function lineBoxes(pl, X, Y, fr, fs = 13) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
   }
-  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []));
+  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []), ...(isoOf(pl, X, Y, fr, fs)?.boxes || []));
   return out;
 }
 /** The cut-off lines that carry a meaning of their own (pl.lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: '…' } }), each named beside
@@ -769,6 +821,8 @@ export function planePlot(pl, { card = false } = {}) {
     // again then. It was left undrawn before, and the plot came back at the same size showing the slide before's case.)
     let W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) [W, H] = lastSize;
+    // (A plane that shares the guideline card's graph is drawn at that graph's proportions, whatever the card gives it: one size for every case.)
+    if (card && W && pl.look === 'guide') { const ph = plotHeight(W); if (H !== ph) { el.style.height = `${ph}px`; H = ph; } }
     if (!W || !H) return;
     lastSize = [W, H];
     size = `${W}x${H}`;
@@ -788,11 +842,15 @@ export function planePlot(pl, { card = false } = {}) {
     // Zones, the rest of the plane first, the first listed last (on top), as zoneOf reads them: out to the element's edge where they end at
     // the plot's, the whole of them one rounded shape (plot-look.js, his G2 look).
     const panel = plotPanel(sv, 0, 0, W, H, { fill: axed });
-    const fills = [...pl.zones].reverse().map((z) => {
+    // (look: 'guide', the plane the guideline card's graph is the same as: the shared tints, laid side by side and never over each other, baveno-zones.js.)
+    const guide = pl.look === 'guide' && typeof pl.rectsOf === 'function';
+    const rr = (a) => { const b = bleed({ x1: X(a.x[0]), x2: X(a.x[1]), y1: Y(a.y[1]), y2: Y(a.y[0]) }, fr, W, H); return { x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 }; };
+    const art = guide ? zoneArt(sv, { rects: pl.rectsOf([pl.x.min ?? 0, pl.x.max], [pl.y.min ?? 0, pl.y.max]), hatch: pl.hatchOf ? pl.hatchOf([pl.x.min ?? 0, pl.x.max], [pl.y.min ?? 0, pl.y.max]) : null, box: rr }) : null;
+    const fills = art ? art.g : [...pl.zones].reverse().map((z) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), b = bleed({ x1: X(x0), x2: X(x1), y1: Y(y1), y2: Y(y0) }, fr, W, H);
       return sv('rect', { class: 'pze-zone', 'data-look': 'plane.zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
     });
-    kids.push(sv('defs', {}, panel.clip), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
+    kids.push(sv('defs', {}, panel.clip, ...(art?.defs || [])), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
     const ax = axed ? axesMarks(pl, fr, X, Y, fs, W) : null;
     if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', 'data-look': 'plane.grid', ...g }));
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
@@ -814,19 +872,21 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('rect', { class: 'pze-box', 'data-look': 'plane.box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
     }
     for (const w of words) {
-      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
+      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': guide ? 'plane.gzt' : 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
     // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
     // smeared them on a light card.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
+    for (const c of guide ? [] : gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
+    const io = isoOf(pl, X, Y, fr, fs);
+    if (io) for (const l of io.lines) kids.push(sv('line', { class: 'pze-iso', 'data-look': 'plane.iso', ...l.seg }), sv('text', { class: 'pze-isot', 'data-look': 'plane.isot', x: l.label.x, y: l.label.y, 'text-anchor': l.label.anchor, 'font-size': fs }, l.label.text));
     // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
     if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
     // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).
-    for (const n of nums) kids.push(sv('text', { class: n.cls, 'data-look': n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
+    for (const n of nums) kids.push(sv('text', { class: guide && n.cls === 'pze-ax' ? `${n.cls} q` : n.cls, 'data-look': guide ? 'crit.word' : n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
@@ -858,7 +918,7 @@ export function planePlot(pl, { card = false } = {}) {
         let t = cardWords.get(w.z);
         const pos = `translate(${w.x.toFixed(1)}px, ${w.y.toFixed(1)}px)`, body = w.lines.join('\n') + '|' + w.fs;
         if (!t) {
-          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
+          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': guide ? 'plane.gzt' : 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
           t.style.transform = pos; t.dataset.pos = pos;
           cardWords.set(w.z, t); wordsG.append(t);
         } else if (t.dataset.pos !== pos) {
@@ -886,7 +946,7 @@ export function planePlot(pl, { card = false } = {}) {
       for (const e of base.children) if (e.classList.contains('pze-pt')) gl.fadeEl(e, reduceDot.matches ? 0 : D_SURFACE, EASE_ARRIVE, reduceDot.matches ? 0 : 200 + 140 * k++);
     }
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
-      + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
+      + (rg ? `; this case ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };
   // The trail's rings and names, redrawn in place (a persistent group, so they fade in once and stay, not again at every redraw while
   // the dot moves); returns the boxes the zones' words keep clear of.
@@ -1048,7 +1108,7 @@ export function createPlaneTool() {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }
         plot = planePlot(pl, { card: true });
-        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
+        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), pl.hatchOf ? hatchKey() : null, read].filter(Boolean));
         if (last) this.pin(last);
       }
       if (tr) { want = tr; wantCtx = ctx || null; had = 'y'; trailFrom(); } else if (had) { want = null; had = ''; plot.trail([]); }

@@ -7,7 +7,7 @@ import { oxygenFor } from './blood.js';
 import { deltaColor, dropColor, flowColor, heatColor, oxygenColor, pressureColor, velColorOf } from './colormap.js';
 import { follow2 } from './display-state.js';
 import { fluidTarget } from './fluid-step.js';
-import { sideEndScale } from './fork-joins.js';
+import { flareScale, sideEndScale } from './fork-joins.js';
 import { cancelFrame, inMotion, mayTask } from './frame.js';
 import { overMemory as gpuOverMemory } from './gpu-budget.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -15,12 +15,15 @@ import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { lesionEase } from './lesion-ease.js';
 import { lumOf } from './luma.js';
+import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
 import { store } from './store.js';
+import { stumpCentre, stumpPinch } from './suture-marks.js';
 import { clamp, lerp } from './util.js';
-import { varixBead } from './varix-bead.js';
+import { FRONT_CHAIN, chainS, frontP, frontS, frontScale, fronted } from './collateral-front.js';
+import { BEAD_LAMBDA_FUNDAL, BEAD_SITE, beadLambda, beadRadius, varixBead, varixWale } from './varix-bead.js';
 import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidthK } from './varix-look.js';
 import { TUBE_TEXELS } from './veins-gl.js';
 
@@ -29,7 +32,7 @@ import { stageScope } from './stage-scope.js';
 // 0.8 still read as a branch, 6 Nov). Its lumen is fainter too (stage-vessels.js colPass).
 const AP_FINE = 0.6;
 export function createTubes(st, live) {
-  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
+  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
   const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
@@ -155,7 +158,6 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   function homeLookRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     homeAsk = 0;
-    if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
     const d = defaultVT(false), at = live.homeAt;
     // (Moved there in the frame's own phase, after every read: and only if the view is still at the home it was looked from.)
     nextFrame(() => { if (live.homeAt === at && !homeHeld && (sameView(live.vt, live.homeAt) || (live.vtGliding && sameView(live.vtTarget, live.homeAt)))) homeGo(d); });
@@ -226,9 +228,16 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) for (let i = 0; i < x.strands.length; i++) {
       const sd = x.strands[i];
-      sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
-      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
+      sd.bead = BEAD_SITE[e.id] ? Math.round(varixBead(f.metrics?.[BEAD_SITE[e.id]]?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step; the esophageal and the fundal varices bead, on their own periods)
+      sd.beadL = beadLambda(e.id);
+      // The red wale on the esophageal strands (V3): a share of --red-wale in their lumen, by the wall-stress ratio and the varix's size; the pressure lens only
+      // (the other lenses' colours are data), and none in the circuit. colPass writes it into the strand's recolour texels.
+      const vx = f.metrics?.varix;
+      sd.wale = e.id === 'C1a' && layerMode() === 'pressure' ? Math.round(varixWale(!!vx?.redWale, vx?.ratioMean ?? vx?.ratio, varixSNow.VAR) * (1 - t) * 100) / 100 : 0;
+      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - (sd.tie ? 0 : i - 1), 0, 1) : 1;   // cavernoma: the fine channel's two halves (one strand) beside the main channel when acute, the rest grow in with the remodeling (a half never shows without the other)
     }
+    // (The gastrorenal shunt is one vein, not a plexus, so it is beaded itself: renderTube reads this into its radii.)
+    if (e.id === 'C5') x.bead = Math.round(varixBead(f.metrics?.gastricVarix?.d) * (1 - t) * 100) / 100;
     if (x.feeders) {
       const cfg = FEEDERS[e.id];
       let live = 1;
@@ -262,7 +271,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   // (The glow a selected vessel takes, one entry per vessel made here once: setGlowSrc reads them and copies what it changes.)
   const SEL_ENTRY = {}, selGlowList = [];
-  for (const x of EV) { const id = x.e.id; SEL_ENTRY[id] = SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 }; }
+  for (const x of EV) { const id = x.e.id; SEL_ENTRY[id] = SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: D_SURFACE } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 }; }
   const varixSNow = { VAR: 0, GV: 0 }, coilingBuf = [], NO_VESSELS = [], selIdsNow = [], selIdsKept = [];   // (kept, written in place)
   // A vessel's (or feeder's) two end colours, which the GPU's vessel rows take (syncVeins reads them at once and keeps none): the pair is made
   // the first time and written in place after.
@@ -273,6 +282,47 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   function renderTubes(p, t, J) { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); }
   const overlaysStep = (f, p, t) => live.updateOverlays(f, p, lerp(1, 0.8, t), t);   // (gain = lerp(1, 0.8, t), as updateInner has it)
+  // A vessel's width as the model gives it at the change's eased share t (0 the Anatomy, 1 the Circuit) under the layer `mode`, the lesions `p`, the
+  // varices' size `varixS` and the Circuit's boost: the frame's own (updateInner), and the target view's for the labels solved at a tap (endWidth).
+  // keepEnds: the frame's own, which keeps the two ends of the change on the vessel (the stretches' joins, widthRatio).
+  function widthAt(x, f, t, mode, p, varixS, circBoost, keepEnds = false) {
+    const e = x.e, k = EI[e.id], D = f.D[k];
+    // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
+    // as on a transit map, so the lines stay even and legible.
+    const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
+    let w = lerp(wA, wC, t);
+    // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
+    // (An arterioportal shunt is a small branch: finer than the artery branch it leaves, AP_FINE.)
+    const artK = e.shunt === 'ap' ? AP_FINE : 1;
+    if (keepEnds) { x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC; }
+    // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
+    if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
+    if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5 * artK), 3 * artK, t);
+    // Band ligation strangles the esophageal varices: each band thromboses a channel and the
+    // rest shrink (the model raises the route's resistance by the same count).
+    if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
+    // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
+    if (e.id === 'C8') w *= lerp(0.6, 1, t);
+    // The coronary vein is drawn a little finer than its flow alone would make it in the anatomy (0.85, 6 Nov); the flow lens and the circuit keep theirs.
+    if (e.id === 'LGV_CONF' && mode !== 'flow') w *= lerp(0.85, 1, t);
+    // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
+    if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
+    // The varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (varix-look.js), never under
+    // their resting caliber: in the anatomy only, as the bands' shrink above; the flow lens keeps its flow widths and a closed shunt its ghost.
+    if (LOOK_SITE[e.id] && mode !== 'flow' && !isOccluded(p, e.id)) w = Math.max(Math.min(w, vesselPx(dMinOf(e))), w * lerp(varixWidthK(varixS[LOOK_SITE[e.id]]), 1, t));
+    // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
+    if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
+    return w;
+  }
+  // (What the last model frame's widths were worked out from, kept for endWidth.)
+  let wLastF = null, wLastP = null, wLastMode = 'pressure';
+  /** The width vessel x is drawn at once the change between the views has landed on `view` (0 the Anatomy, 1 the Circuit), from the last model
+   *  frame, under the camera standing now (the Circuit's boost reads it: the target's, inside the labels' solve at a tap). A vessel leaving keeps its own. */
+  function endWidth(x, view) {
+    if (!wLastF || x.reveal?.out || x.width == null) return x.width;
+    return widthAt(x, wLastF, view, wLastMode, wLastP, varixSNow, clamp(10 / (15 * (live.CTM?.sc || 1)), 1, 1.75));
+  }
   function updateInner(f) {
     // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
     // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
@@ -308,6 +358,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const circBoost = clamp(10 / (15 * (live.CTM?.sc || 1)), 1, 1.75);
     const imaging = live.isImaging();
     const mode = layerMode();
+    wLastF = f; wLastP = p; wLastMode = mode;
     // (Three flags of the figure that no style sheet reads, kept as values rather than classes: nothing is written to the page for them.)
     flag.imaging = imaging;
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
@@ -364,32 +415,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const D = f.D[k];
       const PM = f.Pf || f.P;
       const P1 = PM[NI[e.from]], P2 = PM[NI[e.to]];
-      // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
-      // as on a transit map, so the lines stay even and legible.
-      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
-      const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
-      let w = lerp(wA, wC, t);
-      // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
-      // (An arterioportal shunt is a small branch: finer than the artery branch it leaves, AP_FINE.)
-      const artK = e.shunt === 'ap' ? AP_FINE : 1;
-      x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC;
-      // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
-      if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
-      if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5 * artK), 3 * artK, t);
-      // Band ligation strangles the esophageal varices: each band thromboses a channel and the
-      // rest shrink (the model raises the route's resistance by the same count).
-      if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
-      // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
-      if (e.id === 'C8') w *= lerp(0.6, 1, t);
-      // The coronary vein is drawn a little finer than its flow alone would make it in the anatomy (0.85, 6 Nov); the flow lens and the circuit keep theirs.
-      if (e.id === 'LGV_CONF' && mode !== 'flow') w *= lerp(0.85, 1, t);
-      // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
-      if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
-      // The varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (varix-look.js), never under
-      // their resting caliber: in the anatomy only, as the bands' shrink above; the flow lens keeps its flow widths and a closed shunt its ghost.
-      if (LOOK_SITE[e.id] && mode !== 'flow' && !isOccluded(p, e.id)) w = Math.max(Math.min(w, vesselPx(dMinOf(e))), w * lerp(varixWidthK(varixS[LOOK_SITE[e.id]]), 1, t));
-      // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
-      if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
+      let w = widthAt(x, f, t, mode, p, varixS, circBoost, true);
       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
       // Otherwise the model's width is the target on every model frame (no dead-band: the breath never stops and
       // starts), and the drawn width follows it on every display frame (followWidth).
@@ -488,6 +514,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     gpuProbe.time(null, 'update: tubes', renderTubes, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     flag.hasSel = st.selection?.type === 'edge' && !!E[st.selection.id]?.vis;
+    // (An organ's card steps the whole network back the same way; the organ itself keeps full ink and its outline.)
+    flag.orgSel = st.selection?.type === 'organ';
     syncLift();
     syncVeins(t);
     live.updateOrganSel(st.selection, t);
@@ -563,7 +591,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     return gpuProbe.time(null, 'radius sync (script)', syncRadiiOnlyInner, t);
   }
   function syncRadiiOnlyInner(t) {
-    if (live.glowSync || live.plateEasing() || !glowOnlyOk(t)) return false;
+    if (live.glowSync || live.plateEasing() || live.gestureOn?.() || !glowOnlyOk(t)) return false;   // (a hand on the camera: the whole sync, which waits for it to let go: stage-vessels.js syncVeins)
     const m = live.glowMemo, items = m.items;
     for (let i = 0; i < items.length; i++) if ((items[i].x.width >= 3.4) !== m.wide[i]) return false;
     sendRadii(items);
@@ -672,12 +700,17 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // shading of a lit cylinder (veins-gl.js). The circuit, closed collaterals and vessels being drawn on are plain strokes.
   // Recomputed only when a width, a lesion or the geometry changes.
   const smooth = (u) => u * u * (3 - 2 * u);
+  const BEAD_PHASE_V = 0.9;   // (the beaded shunt's phase along its course, C5: a vessel has no strand phase of its own)
   // (renderTube's three little helpers, as functions of their own that take what they read, in place of three closures made for each vessel
   // on each update.)
   const tubeEndW = (J, n, id, stroked, w, lo, lim) => (J[n] && !stroked && GPU_EASE[id] === n ? clamp(J[n], w * lo, w * lim) : w);
+  // (The portocaval shunt's end sinks into the side of the cava, as the Warren shunt's does into the renal vein: narrowed inside it and flared toward its wall. Not
+  // in SIDE_HOSTS, whose blood hand-off (stage-blood.js) is for veins the shunt's own node meets. 13 Nov 2026.)
+  const SINK = { S_PC: [null, ['IVC_IS', 'ILI_IVC']] };
+  const FLARED = new Set(['S_DSR', 'S_PC']);
   let tubeHosts = 0;   // (how many of a side end's host veins are shown: set by tubeHostMax)
   function tubeHostMax(id, i) {
-    const list = SIDE_HOSTS[id]?.[i];
+    const list = SIDE_HOSTS[id]?.[i] || SINK[id]?.[i];
     let m = -Infinity;
     tubeHosts = 0;
     if (list) for (let k = 0; k < list.length; k++) { const h = list[k]; if (E[h]?.vis) { m = Math.max(m, E[h].width); tubeHosts++; } }
@@ -685,35 +718,46 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   function tubeHostW(id, i, w) { const m = tubeHostMax(id, i); return tubeHosts ? clamp(m, w * 0.4, w) : null; }
   function tubeHostR(id, i, stroked) {
-    if (stroked || !SIDE_INSIDE[id]?.[i]) return 0;
+    if (stroked || !(SIDE_INSIDE[id]?.[i] || (SINK[id] && SINK[id][i]))) return 0;
     const m = tubeHostMax(id, i);
     return tubeHosts ? m / 2 : 0;
   }
   // The tube's radius at u along it, from the numbers renderTube kept on the vessel (no closure made when they change).
   function tubeRadius(x, u) {
-    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL;
+    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL, bd = x.rBd, pc = x.rPc;
     const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
-    const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
-    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
+    const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? (x.rSk ? sideEndScale((1 - u) * L, h1) : 1) * (x.rFl ? flareScale((1 - u) * L, h1) : 1) : 1);
+    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side * (pc ? stumpPinch(u * L, pc) : 1) * (bd ? beadRadius(1, bd, u, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
   }
   // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
   // share f of the samples along x, the rest along ra. Nothing is handed back from a call, so no number is boxed per sample.
   function tubeFill(x, ra, f, R) {
+    // (A collateral opening or closing: a front of width runs down it from its high-pressure end, collateral-front.js.)
+    const fr = !ra && fronted(x) ? x.reveal : null, fp = fr ? frontP(fr, performance.now()) : 0;
+    let order = -1, wFirst = 1;   // (a vessel that runs on into another that opens or closes with it: the front runs through both, FRONT_CHAIN)
+    if (fr) {
+      const ch = FRONT_CHAIN[x.e.id], o = ch && E[ch[0]];
+      if (o && fronted(o) && o.reveal.out === fr.out && o.reveal.dir === fr.dir) {
+        const la = geo[x.e.id]?.len || 1, lb = geo[ch[0]]?.len || 1;
+        order = (ch[1] === 0) === (fr.dir > 0) ? 0 : 1;   // (this one's place in the topology, so its place in the flow)
+        wFirst = order === 0 ? la / (la + lb) : lb / (la + lb);
+      }
+    }
     for (let i = 0; i < N_SAMPLES; i++) {
       const u = i / (N_SAMPLES - 1);
       let v = u, q = x;
       if (ra) { if (u < f) v = u / f; else { v = (u - f) / (1 - f); q = ra; } }
-      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL;
+      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd, pc = q.rPc;
       const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
-      const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) : 1);
-      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side);
+      const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? (q.rSk ? sideEndScale((1 - v) * L, h1) : 1) * (q.rFl ? flareScale((1 - v) * L, h1) : 1) : 1);
+      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (pc ? stumpPinch(v * L, pc) : 1) * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
     }
   }
   function renderTube(x, p, t, J) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0;
     const sten = v > 0.01;
-    const stroked = x.ghost || !!x.reveal || (t >= 0.5 && !sten);
+    const stroked = x.ghost || (!!x.reveal && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
     x.sten = sten; x.stroked = stroked;
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
@@ -731,19 +775,23 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     keep(x, 'kh0', tubeHostR(id, 0, stroked), qw); keep(x, 'kh1', tubeHostR(id, 1, stroked), qw);
     // (What the radii are made from, kept as numbers and compared one by one: a joined string per vessel per call was garbage on every
     // frame a width eased. A change takes a new version, shadeVer, which the radii keys follow.)
+    // (A divided vein's stump narrows a little at its tie, suture-marks.js stumpCentre: the arc length of the tie, or 0.)
+    let pcQ = 0;
+    for (let q = 0; q < LIGATED.length; q++) if (LIGATED[q][1] === id) { const dl = divideLen(id); if (dl > 0) pcQ = Math.round(stumpCentre(dl, g.len || 1) * 10) / 10; }
+    const bdQ = x.bead && !stroked ? x.bead : 0;   // (the beaded shunt, C5: none once drawn as a stroke)
     const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
-    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked;
+    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ && x.skPc === pcQ;
     if (same && x.shadeOk) return;
     x.shadeOk = true;
     if (!same) {
-      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked;
+      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ; x.skPc = pcQ;
       x.shadeVer = (x.shadeVer | 0) + 1;
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1;
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ; x.rFl = FLARED.has(id); x.rSk = !SINK[id];   // (the Warren shunt's renal end flares: fork-joins.js flareScale)
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
-  return { W_TAU, edgeQ, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
+  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
 }

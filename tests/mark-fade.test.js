@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // patches, the variceal bands) come and go with a fade, not a pop (src/ui/mark-fade.js; stage.js putMark, updateOverlays, olStep).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { markFade, markEase, MARK_IN_MS, MARK_OUT_MS } from '../src/ui/mark-fade.js';
 import { D_SMALL, D_SURFACE } from '../src/ui/ease.js';
 

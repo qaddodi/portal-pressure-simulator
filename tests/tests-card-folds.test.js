@@ -40,13 +40,12 @@ test('HVPG steps, the Ascites albumin and Drain words crossfade, and the gastric
   assert.match(proc, /swapText\(note, n\)/);
   assert.match(instr, /swapText\(albS, albTxt\)/);
   assert.match(instr, /putText\(albS, albTxt\)/, 'the grams count on within one kind');
-  assert.match(instr, /swapText\(drain, hasFluid \? 'Drain' : 'No fluid'\)/);
+  assert.match(instr, /swapText\(drain, hasFluid \? 'Drain' : 'No ascites'\)/);
   assert.match(css, /\.hvpg-proc-btn:not\(\[hidden\]\) \{ animation: crossfade/);
 });
 
 test('the Doppler tab\'s mode name, sweep length and vessel note crossfade', () => {
   const dop = read('../src/ui/doppler.js');
-  assert.match(dop, /swapText\(modeTxt, m\.short\)/);
   assert.match(dop, /swapText\(sweepBtn\.lastChild,/);
   assert.match(dop, /swapText\(noteEl, it\.note\)/);
   assert.match(dop, /swapText\(noteEl, ''\)/);

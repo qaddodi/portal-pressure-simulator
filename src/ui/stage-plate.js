@@ -246,7 +246,7 @@ export function createPlate(st, live) {
     return o;
   };
   const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
-  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', '', ''];
+  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
   let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
   // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
@@ -261,13 +261,16 @@ export function createPlate(st, live) {
     // (The embolized spleen's infarct shown or hidden: without it the live spleen kept the infarct after the treatment was taken off,
     // Mohammad 6 Nov 2026.)
     k[11] = (pseEl ??= organG.spleen.querySelector('.spleen-pse'))?.getAttribute('display') ?? '';
+    // (The spleen's own opacity, 0.14 once it is removed: it was not in this key, so the live spleen kept that faint, near-black look
+    // on the slide after the splenectomy, going on, back or jumping, Mohammad 8 Nov 2026. The key moves with it, so the painter reads it again.)
+    k[12] = organG.spleen.style.opacity;
     return k;
   }
   function liveKeySame() { for (let i = 0; i < liveKeyNow.length; i++) if (liveKeyNow[i] !== liveKeyOld[i]) return false; return true; }
   function syncLiveOrgans(force = false) {
     const v = live.veins;
     if (!v || v.lost || !v.organs) return;
-    if (!liveOn()) { if (live.liveSet) { v.organs.setLive(null, null); live.liveSet = false; live.liveKeyWas = ''; } return; }
+    if (!liveOn()) { if (live.liveSet) { v.organs.setLive(null, null); live.liveSet = false; live.bowelAt = NaN; live.liveKeyWas = ''; } return; }
     const key = liveKey();
     if (!force && live.liveKeyWas && liveKeySame()) return;
     // (fullWanted: the whole set, while no picture is in; its change asks for a new reading too, through the key.)
@@ -331,14 +334,14 @@ export function createPlate(st, live) {
       if (!ok || !fullWanted()) { if (!ok) live.fullFailed = true; const swap = live.fullSwap; live.fullSwap = false; live.liveKeyWas = ''; if (swap) hidePlate(); syncLiveOrgans(true); return; }
       live.fullSwap = false;
       if (v.organs.pictured(0)) v.dropPlate(0);   // (the old pictures, of the state before, go as the whole set comes in)
-      v.organs.setLiveAll(organs); live.liveSet = true;
+      v.organs.setLiveAll(organs); live.liveSet = true; live.bowelAt = NaN;
       v.organs.setOrder(ORGAN_LAYERS);
       live.veinsDirty = true; platePoke(); live.stageWake();
       return;
     }
-    if (!ok) { live.liveFailed = true; v.organs.setLive(null, null); live.liveSet = false; hidePlate(); platePoke(); return; }
+    if (!ok) { live.liveFailed = true; v.organs.setLive(null, null); live.liveSet = false; live.bowelAt = NaN; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
-    v.organs.setLive(organs, masks); live.liveSet = true;
+    v.organs.setLive(organs, masks); live.liveSet = true; live.bowelAt = NaN;   // (its cuts are new: the bowel's float is handed again at the next draw)
     live.veinsDirty = true; live.stageWake();   // (composited again with the new specs in the next frame, as it was in the frame they were read)
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn
@@ -533,7 +536,7 @@ export function createPlate(st, live) {
     const dataLayer = flag.dataLayer, own = flag.hasSel || wrap.classList.contains('shunting'), sel = own || spotOn();
     // (A slide's spotlight steps the rest of the network further back than a selection, SPOT_NET: its vessels are a set, and a pale
     // one, as the paraumbilical vein in Pressure colours, must still stand out of it.)
-    plateTgt[0] = (sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1); plateTgt[1] = dataLayer ? 0.12 : 1; plateTgt[2] = own ? 0.42 : sel ? SPOT_NET : 1;
+    plateTgt[0] = (sel ? SEL_DIM : 1) * (dataLayer ? 0.72 : 1); plateTgt[1] = dataLayer ? 0.12 : 1; plateTgt[2] = own || flag.orgSel ? 0.42 : sel ? SPOT_NET : 1;
     return plateTgt;
   };
   const plateLook = { alpha: 0, sat: 1, stack: false };   // (the plate's look handed to the vessels' painter: kept, written over, read at once)

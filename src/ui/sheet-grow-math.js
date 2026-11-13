@@ -4,8 +4,8 @@
 // between where Half lays it out (a) and where Full lays it out (b), by how far the card's drawn height has gone from Half's to Full's (p):
 // each chart is drawn by the GPU at its in-between size (never a stretched picture), and what is not a chart is moved there by translate. At
 // p = 0 the card is the Half card exactly, at p = 1 the Full card exactly, so neither end of the gesture changes anything on the screen.
+import { clamp01 } from './num.js';
 
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** How far the card is from Half (0) to Full (1): `h` the height it is drawn at, `hH` and `hF` Half's and Full's heights (px), in 1/1000 steps. */
 export const growProgress = (h, hH, hF) => {

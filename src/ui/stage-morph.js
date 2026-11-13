@@ -1,12 +1,11 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { inMotion } from './frame.js';
+import { cancelMay, inMotion, mayTask, mayWaiting } from './frame.js';
 import { sinceInput } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
 
-import { stageScope } from './stage-scope.js';
 export function createMorph(st, live) {
   const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
   // ── The change between the views on the GPU (2 Nov 2026, his iPhone: "going from anatomy to circuit is so laggy") ──
@@ -21,7 +20,8 @@ export function createMorph(st, live) {
   const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
   const MORPH_NEAR = 10;   // (and a pair's every contact, veinJoins)
   const MORPH_STEPS = 12, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
-  const mt = { key: '', pieces: null, using: null, gen: 0, checkT: 0, reach: [null, null], landAt: 0, stats: { gpu: 0, cpu: 0, builds: 0, miss: {} } };
+  const mt = { key: '', parts: null, firstAt: null, build: null, pieces: null, using: null, gen: 0, reach: [null, null], landAt: 0, restT: 0,
+    stats: { gpu: 0, cpu: 0, builds: 0, miss: {}, restart: null, last: null, units: {}, over: 0, coilKept: 0 }, coilCheck: null };
   const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
   function morphOff() {
     if (!mt.using) return;
@@ -32,7 +32,8 @@ export function createMorph(st, live) {
   function morphDrop() {
     morphOff();
     for (const pc of mt.pieces || []) if (pc.set) pc.set.owner.dropMorphSet(pc.set);
-    mt.pieces = null; mt.key = ''; mt.gen++;
+    mt.pieces = null; mt.key = ''; mt.parts = null; mt.build = null; mt.gen++;
+    cancelMay(TRACK_TAG);
   }
   // Whether a vessel shows on the anatomy's side of the change (anat) or the circuit's (edgeVisible, asked as if the change were there).
   function visAt(x, anat) {
@@ -131,80 +132,278 @@ export function createMorph(st, live) {
   // A join by what it joins: its members, the trunk they end on, a fork.
   const joinKey = (j) => j.key;   // (a join the joins pass made carries its key)
   const rowKey = (items) => items.map((it) => it.row).join(',');
-  // What the stretches are made from, so they are made again when it changes (the vessels shown, their reach, a collateral's coil and a
-  // varix's spread, the joins that run on): checked a moment after the figure last binned at rest.
-  function morphTrackKey() {
-    return [rowKey(itemsAt(0, true)), rowKey(itemsAt(1, false)), EV.map((x) => { const g = geo[x.e.id]; return `${(g.wig || 0).toFixed(1)}/${(g.spr ?? 1).toFixed(2)}`; }).join(','),
-      EV.map((x) => (x.strands || []).map((sd) => +((sd.live ?? 1) > 0.02)).join('')).join(''), `turn ${live.rotU}`].join('|');
+  // ── What the stretches are made from, and when they are made again (R1, 10 Nov 2026) ──
+  // The parts of the key, each judged on its own (morphTrackParts):
+  //   anat, circ  the vessels each end of the change shows (rowKey of itemsAt at t = 0 and t = 1, either side's vessels). They decide
+  //               which vessels a stretch lists at all, so a change restarts the build at once.
+  //   turn        the Circuit's quarter turn as it settles (rotTarget): the Circuit's end is laid out turned by it. Judged only once the
+  //               turn has landed (rotU = rotTarget); a turn on its way is not a geometry to build for, and `rotU` itself, the eased
+  //               value, is not in the key (it changed at every frame of a turn and restarted the build each time).
+  //   coil        each collateral's coil and fan as they settle (wig, spr). Judged only once no coil is easing: a coil easing for half a
+  //               minute after a slide change went 0, 0.42, 0.24, 0.33, 1 and restarted the build at every check; one that returns to
+  //               the shape the stretches were made for costs nothing. The first build does not wait for it (nothing is ready to lose).
+  // (The strand flags that were in the key are in `anat` already: itemsAt lists a strand only when it is live and has a course.)
+  // A frame that does not fit what is on the GPU is binned on the CPU as before (frameFrom's checks), so a stale stretch never draws wrong.
+  function morphTrackParts() {
+    return {
+      anat: rowKey(itemsAt(0, true)), circ: rowKey(itemsAt(1, false)), turn: String(live.rotTarget),
+      coil: EV.map((x) => { const g = geo[x.e.id]; return `${(g.wig || 0).toFixed(1)}/${(g.spr ?? 1).toFixed(2)}`; }).join(','),
+    };
   }
+  const partsDiff = (a, b) => {
+    const r = [];
+    if (a.anat !== b.anat) r.push('vessels shown at the Anatomy end');
+    if (a.circ !== b.circ) r.push('vessels shown at the Circuit end');
+    if (a.turn !== b.turn) r.push('Circuit turn');
+    if (a.coil !== b.coil) r.push('coil shape');
+    return r;
+  };
+  // The building is a may task (frame.js): a slice a frame at most, each under SLICE_MS, held for motion and input. The first check is
+  // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
+  // binnings is one check).
+  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
   function morphTrackSoon() {
-    if (!MORPH_GPU || mt.checkT) return;
-    mt.checkT = stageScope.timer(morphTrackCheck, 400);
+    if (!MORPH_GPU || mayWaiting(CHECK_TAG)) return;
+    mayTask(CHECK_TAG, morphTrackCheck, { notBefore: mt.parts || mt.firstAt ? performance.now() + SETTLE_MS : 0 });
   }
   function morphTrackCheck() {
-    mt.checkT = 0;
     if (!live.veins || live.veins.lost || live.morph !== live.morphTarget || !wrap.classList.contains('gl-on') || live.lobuleOn) return;
-    if (inMotion()) { morphTrackSoon(); return; }
-    const key = morphTrackKey();
-    if (key === mt.key && mt.pieces && mt.pieces.every((pc) => !pc.set || pc.set.owner === live.veins)) return;
-    mt.stats.builds++;
+    if (inMotion() || live.rotU !== live.rotTarget) { morphTrackSoon(); return; }
+    const owned = !mt.pieces || mt.pieces.every((pc) => !pc.set || pc.set.owner === live.veins);
+    // (The first build waits for a coil that is easing at load (a second or so), at most COIL_WAIT_MS: the stretches made on the way
+    // would be made again when it settles, and the worker, which is what the build waits on, is busy with them.)
+    const now = performance.now();
+    if (!mt.parts) {
+      mt.firstAt ??= now;
+      if (live.coilEasing && now - mt.firstAt < COIL_WAIT_MS) { morphTrackSoon(); return; }
+    }
+    const parts = morphTrackParts();
+    if (!mt.parts || !owned) { morphTrackStart(parts, !mt.parts ? 'first build' : 'figure replaced'); return; }
+    const d = partsDiff(mt.parts, parts);
+    if (!d.length) return;
+    // (Only the coil differs and it is still easing: wait for it to settle, the sets already made keep serving the frames that fit them.)
+    if (d.length === 1 && d[0] === 'coil shape' && live.coilEasing) { morphTrackSoon(); return; }
+    // (Only the coil differs, settled: the pieces are made again only if the new shape leaves the courses they were binned for (coilFits).)
+    if (d.length === 1 && d[0] === 'coil shape') { coilCheckStart(parts); return; }
+    morphTrackStart(parts, `${d.join(' + ')} changed`);
+  }
+  // ── A coil that settled at a shape close to the one the pieces were made for (10 Nov 2026) ──
+  // At rest on a slide the model's varix size steps now and then (varix-look.js varixHold), and a collateral's coil or a varix's fan settles
+  // a little away from where it was: the coil part of the key changed, and every such step made all six pieces again (Mohammad's Mac ?perf on
+  // a Doppler slide at rest: 6 builds, "coil shape changed", 1454 ms of main-thread work in 86 slices, the longest 237 ms, and each upload a
+  // whole vessel redraw). The pieces keep, for each moment of their stretch, the raw courses of the coiled vessels and their strands as they
+  // were binned (coilRaw, morphPrep); the new courses at the same moments (vesselAt, strandAt) are held against them, one piece a slice, and
+  // while every point is within half the slack the pieces stay: a frame of the change is still checked against its stretch's courses with
+  // the whole slack (stage-vessels.js frameFrom) and binned on the CPU if it does not fit, so a kept piece never draws wrong.
+  const COIL_NEAR = (MORPH_SLACK / 2) ** 2;
+  const coily = (x) => (x.e.kind === 'collateral' && !x.e.spontaneous) || !!x.strands?.length;
+  const flatPts = (P) => { const a = new Float64Array(P.length * 2); for (let i = 0; i < P.length; i++) { a[2 * i] = P[i][0]; a[2 * i + 1] = P[i][1]; } return a; };   // alloc-rare: a stretch's moment, made ahead between frames
+  function coursesNear(R, P) {
+    if (!R || !P || R.length !== P.length * 2) return false;
+    for (let i = 0; i < P.length; i++) { const dx = P[i][0] - R[2 * i], dy = P[i][1] - R[2 * i + 1]; if (dx * dx + dy * dy > COIL_NEAR) return false; }
+    return true;
+  }
+  // Whether piece pc's coiled courses at each of its moments are still near the ones it was binned from, for the vessels `changed`.
+  function coilFits(pc, changed) {
+    if (!pc?.set || pc.set.owner !== live.veins || !pc.coilRaw || !pc.ts) return false;
+    for (let q = 0; q < pc.ts.length; q++) {
+      const t = pc.ts[q];
+      for (const x of changed) {
+        const R = pc.coilRaw.get(x.row);
+        if (!R) continue;   // (not in this stretch: whether it shows is the key's anat and circ, judged on their own)
+        const v = vesselAt(x, t);
+        if (!coursesNear(R[q], v.pts)) return false;
+        if (!pc.anat) continue;
+        for (const sd of x.strands || []) { const S = pc.coilRaw.get(sd.row); if (S && !coursesNear(S[q], strandAt(x, sd, t, v))) return false; }
+      }
+    }
+    return true;
+  }
+  function coilCheckStart(parts) {
+    const A = mt.parts.coil.split(','), B = parts.coil.split(','), changed = [];
+    for (let i = 0; i < EV.length; i++) if (A[i] !== B[i]) changed.push(EV[i]);
+    mt.coilCheck = { parts, changed, i: 0, gen: mt.gen };
+    mayTask(COIL_TAG, coilCheckStep);
+  }
+  function coilCheckStep() {
+    const c = mt.coilCheck;
+    if (!c || c.gen !== mt.gen || mt.parts?.coil === c.parts.coil) { if (mt.coilCheck === c) mt.coilCheck = null; return false; }
+    if (inMotion() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
+    if (!coilFits(mt.pieces?.[c.i], c.changed)) { mt.coilCheck = null; morphTrackStart(c.parts, 'coil shape changed'); return false; }
+    if (++c.i < MORPH_PIECES.length) return true;
+    // (Every piece still fits: the key takes the new coil, the pieces stay.)
+    mt.coilCheck = null;
+    mt.parts = c.parts; mt.key = `${c.parts.anat}|${c.parts.circ}|${c.parts.turn}|${c.parts.coil}`;
+    mt.stats.coilKept++;
+    return false;
+  }
+  function morphTrackStart(parts, reason) {
     // (The stretches made before stay on until each new one is up: a frame of the change still checks its courses against the one it
     // draws from. Those of a figure since replaced are of no use.)
     if (mt.pieces?.some((pc) => pc.set && pc.set.owner !== live.veins)) morphDrop();
-    mt.gen++; mt.key = key;
-    morphTrackBuild(mt.gen);
+    mt.stats.builds++;
+    mt.coilCheck = null; cancelMay(COIL_TAG);
+    mt.gen++; mt.parts = parts; mt.key = `${parts.anat}|${parts.circ}|${parts.turn}|${parts.coil}`;
+    mt.pieces ||= MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null, tight: true, gen: 0 }));
+    const now = performance.now();
+    mt.stats.restart = { reason, at: now };
+    // (tight: the stretch's heads and runs also carry circles about one of their own points as it is in the frame, which the shader
+    // tests instead of the circles swept over the whole stretch: see veins-sweep.js. Only the change's stretches, whose frames lie
+    // between two neighbouring moments; a coil's ease is checked against any of its moments.)
+    mt.build = { gen: mt.gen, reason, t0: now, busy: 0, slices: 0, longest: 0, held: 0, stage: MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null, tight: true, gen: 0 })),
+      done: MORPH_PIECES.map(() => false), ndone: 0, ready: [], inflight: -1, results: [], prep: [] };
+    morphTrackAsk();
   }
-  // The stretches, one at a time, each in its own task: its moments (itemsAt, joinsOf) here, its binning in the worker, its upload here.
-  function morphTrackBuild(gen) {
-    const blank = () => MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null }));
-    const pieces = blank();
-    mt.pieces ||= blank();
-    let k = 0, held = 0;
-    // A stretch made takes the place of the one before it.
-    const put = (pc) => {
-      const old = mt.pieces[k];
-      mt.pieces[k] = pc;
-      if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
-      k++; held = 0;
-    };
-    const next = () => {
-      if (gen !== mt.gen || k >= pieces.length) return;
-      // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel.)
-      // (A move holds it for as long as the move lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's
-      // own input is capped, at twelve looks.)
-      { const moving = inMotion(); if ((moving || (sinceInput() < 700 && held < 12)) && live.morph === live.morphTarget) { held++; stageScope.timer(next, 120); return; } }
-      const pc = pieces[k];
-      const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
-      if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
-      // (One pass over the joins a task: each is a pass over every vessel and its joins. A moment's passes in one task were a long
-      // task each, start-up profile 2 Nov 2026.)
-      pc.snaps ||= [];
-      // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
-      if (pc.snaps.length < ts.length) {
-        const t = ts[pc.snaps.length], w = pc.work ||= { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] };
-        if (!w.o) { w.o = joinsAhead(w.own, t); stageScope.timer(next, 0); return; }
-        if (!w.all) { w.all = joinsAhead(w.items, t); stageScope.timer(next, 0); return; }
-        // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
-        if (pc.snaps.length && w.q < MORPH_JSUB) { const u = lerp(pc.snaps[pc.snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; stageScope.timer(next, 0); return; }
-        pc.work = null;
-        const { items, own, o } = w;
-        pc.snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
-        stageScope.timer(next, 0); return;
-      }
-      const snaps = pc.snaps;
+  const morphTrackAsk = () => mayTask(TRACK_TAG, morphTrackStep, { maxWait: 1 });
+  // A piece to work on or send next, out of `cand` (indices): while the change is under way, the stretch being crossed and then those
+  // ahead of it in the direction it travels (then those behind it); at rest, those with no binning first (none yet, or a failed one),
+  // then the oldest. In the order of the change, a figure that kept changing at rest remade the Anatomy's first stretch over and over and
+  // never reached the Circuit's half (8 Nov 2026, "anatomy to circuit like 10fps").
+  function morphPick(cand) {
+    let best = -1, bestK = Infinity;
+    const going = live.morph !== live.morphTarget;
+    let cur = 0, dir = 1;
+    if (going) {
+      const t = live.easeInOut(live.morph);
+      dir = live.morphTarget > live.morph ? 1 : -1;
+      for (let q = 0; q < MORPH_PIECES.length; q++) if (t >= MORPH_PIECES[q][0] && t <= MORPH_PIECES[q][1]) { cur = q; if (dir > 0) break; }
+    }
+    for (const i of cand) {
+      let k;
+      if (going) { k = (i - cur) * dir; if (k < 0) k += 100; } else k = mt.pieces[i]?.set ? mt.pieces[i].gen || 0 : -1;
+      if (k < bestK || (k === bestK && i < best)) { best = i; bestK = k; }
+    }
+    return best;
+  }
+  // What a unit of the building costs (a moving mean, per kind), to fit several of them in one slice when they are small.
+  const unitEst = {};
+  const noteUnit = (kind, ms) => {
+    unitEst[kind] = unitEst[kind] == null ? ms : Math.max(unitEst[kind] * 0.8, ms);
+    const u = mt.stats.units[kind] || (mt.stats.units[kind] = { n: 0, ms: 0, max: 0 });   // alloc-rare: once per kind of unit
+    u.n++; u.ms += ms; if (ms > u.max) u.max = ms;
+  };
+  // (What the next unit is expected to cost: an upload or a send as it has cost, else the most any of a stretch's own units has: which of
+  // those comes next is not known, and the units of a stretch are small, so several are taken in one slice.)
+  function unitNext(bd) {
+    if (bd.prep.length) return unitEst.prepare ?? SLICE_MS;
+    if (bd.results.length) return unitEst.upload ?? SLICE_MS;
+    if (bd.inflight < 0 && bd.ready.length) return unitEst.send ?? SLICE_MS;
+    let m = 0;
+    for (const k in unitEst) if (k !== 'upload' && k !== 'send' && k !== 'prepare' && unitEst[k] > m) m = unitEst[k];
+    return m || SLICE_MS;
+  }
+  // A stretch made takes the place of the one before it. (`made` false: uploaded, its preparing still to come, see the 'prepare' unit.)
+  function morphPut(bd, i, pc, made = true) {
+    const old = mt.pieces[i];
+    pc.gen = bd.gen;
+    mt.pieces[i] = pc;
+    if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
+    if (made) morphMade(bd, i);
+  }
+  function morphMade(bd, i) { bd.done[i] = true; bd.ndone++; bd.held = 0; }
+  // One slice of the building (a may task: a slice a frame at most). Units run one after another while the next one is expected to
+  // end inside SLICE_MS; the first always runs (a unit is one pass over the joins, which cannot be cut here).
+  function morphTrackStep() {
+    const bd = mt.build;
+    if (!bd || bd.gen !== mt.gen) return false;
+    if (!live.veins || live.veins.lost) { mt.build = null; return false; }
+    // (Not while the figure moves at rest, for a while: a moment is a pass over every vessel. A move holds it for as long as the move
+    // lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's own input is capped, at twelve looks. A
+    // change between the views under way is built for, not held.)
+    if (live.morph === live.morphTarget && (inMotion() || (sinceInput() < 700 && bd.held < 12))) {
+      bd.held++;
+      mayTask(TRACK_TAG, morphTrackStep, { notBefore: performance.now() + 120 });
+      return false;
+    }
+    const t0 = performance.now();
+    let st;
+    for (;;) {
+      st = morphTrackUnit(bd);
+      if (st !== 1 || bd.gen !== mt.gen) break;
+      if (performance.now() - t0 + unitNext(bd) > SLICE_MS) break;
+    }
+    const ms = performance.now() - t0;
+    bd.busy += ms; bd.slices++; if (ms > bd.longest) bd.longest = ms;
+    if (ms > SLICE_MS) mt.stats.over++;
+    if (st === 2) {
+      mt.stats.last = { reason: bd.reason, wallMs: performance.now() - bd.t0, busyMs: bd.busy, slices: bd.slices, longestMs: bd.longest, bad: bd.stage.filter((pc) => pc.bad).length };
+      if (mt.build === bd) mt.build = null;
+    }
+    return st === 1;
+  }
+  // One unit: 1 more to do now, 0 waiting for the worker (its answer asks for the next slice), 2 all six made.
+  function morphTrackUnit(bd) {
+    const u0 = performance.now();
+    let kind;
+    const n = MORPH_PIECES.length;
+    if (bd.prep.length) {
+      // (A piece's geometry data and the Tube's stage 2 record (veins-gl.js prepareMorphSet), a unit of its own after its upload: in one
+      // unit with it, an upload slice ran up to 237 ms on Mohammad's Mac, 10 Nov 2026. A frame that draws from a piece not yet prepared
+      // has it prepared on the spot (useMorphSet).)
+      kind = 'prepare';
+      const i = bd.prep.shift(), pc = mt.pieces[i];
+      if (pc?.set) live.veins.prepareMorphSet?.(pc.set);
+      morphMade(bd, i);
+    } else if (bd.results.length) {
+      kind = 'upload';
+      const [i, pc, b] = bd.results.shift();
+      try { if (!b) throw new Error('no binning'); setOf(pc, b); } catch (e) { pc.bad = String(e); }
+      morphPut(bd, i, pc, !pc.set);
+      if (pc.set) bd.prep.push(i);
+    } else if (bd.inflight < 0 && bd.ready.length) {
+      kind = 'send';
+      const i = morphPick(bd.ready);
+      bd.ready.splice(bd.ready.indexOf(i), 1);
+      const pc = bd.stage[i], snaps = pc.snaps, side = pc.anat ? 0 : 1;
       pc.snaps = null;
-      const rows = rowKey(snaps[0].items);
-      if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; put(pc); stageScope.timer(next, 0); return; }
-      const side = pc.anat ? 0 : 1;
-      pc.ts = ts; pc.rows = rows;
+      bd.inflight = i;
+      const gen = bd.gen;
       sweepPiece(pc, snaps, mt.reach[side]).then((b) => {
-        if (gen !== mt.gen || !b || !live.veins || live.veins.lost) return;
-        setOf(pc, b);
-        put(pc);
-        stageScope.timer(next, 0);
-      }, (e) => { if (gen !== mt.gen) return; pc.bad = String(e); put(pc); stageScope.timer(next, 0); });
-    };
-    stageScope.timer(next, 0);
+        if (gen !== mt.gen) return;
+        bd.inflight = -1; bd.results.push([i, pc, b]); morphTrackAsk();
+      }, (e) => {
+        if (gen !== mt.gen) return;
+        bd.inflight = -1; pc.bad = String(e); bd.results.push([i, pc, null]); morphTrackAsk();
+      });
+    } else {
+      const cand = [];
+      for (let i = 0; i < n; i++) if (!bd.done[i] && bd.inflight !== i && !bd.ready.includes(i)) cand.push(i);
+      if (!cand.length) return bd.ndone >= n ? 2 : 0;
+      const i = morphPick(cand);
+      kind = morphPrep(bd, i);
+    }
+    noteUnit(kind, performance.now() - u0);
+    return bd.ndone >= n ? 2 : 1;
+  }
+  // One unit of a stretch's moments: its items, the joins of the side's own vessels and of all, and the joins between two moments (a
+  // pass over the joins each: a moment's passes in one task were a long task each, start-up profile 2 Nov 2026). Its last unit hands
+  // the stretch over to the worker's queue (ready).
+  function morphPrep(bd, i) {
+    const pc = bd.stage[i];
+    // (The anatomy's side ends just short of the half, where the circuit's vessels take over.)
+    const ts = pc.ts ||= Array.from({ length: MORPH_STEPS + 1 }, (_, q) => (q === MORPH_STEPS && pc.t1 === 0.5 ? 0.5 - 1e-6 : pc.t0 + (pc.t1 - pc.t0) * q / MORPH_STEPS));
+    const snaps = pc.snaps ||= [];
+    const t = ts[snaps.length];
+    let w = pc.work, kind;
+    if (!w) { pc.work = { items: itemsAt(t, pc.anat), own: itemsAt(t, pc.anat, false), o: null, all: null, q: 1, J2: [] }; return 'items'; }
+    // (The joins of the side's own vessels too: a vessel binned for the other side changes the joins it takes part in.)
+    if (!w.o) { w.o = joinsAhead(w.own, t); return 'joins own'; }
+    if (!w.all) { w.all = joinsAhead(w.items, t); kind = 'joins all'; }
+    // (The joins at moments between too: one can be there for less than a step, as two ends pass each other.)
+    else if (snaps.length && w.q < MORPH_JSUB) { const u = lerp(snaps[snaps.length - 1].t, t, w.q / MORPH_JSUB); w.J2.push(...joinsAhead(itemsAt(u, pc.anat, false), u).J); w.q++; kind = 'joins between'; }
+    if (!(w.all && (!snaps.length || w.q >= MORPH_JSUB))) return kind;
+    pc.work = null;
+    const { items, own, o } = w;
+    snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
+    // (The coiled vessels' and their strands' raw courses at this moment, kept with the piece: a coil that settles near them keeps it, coilFits.)
+    const coilRaw = pc.coilRaw ||= new Map(), sq = snaps.length - 1;
+    for (const it of items) if ((it.kind === 'v' || it.kind === 's') && coily(it.x)) { let a = coilRaw.get(it.row); if (!a) coilRaw.set(it.row, a = []); a[sq] = flatPts(it.pts); }
+    if (snaps.length < ts.length) return kind;
+    const rows = rowKey(snaps[0].items);
+    if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; pc.snaps = null; morphPut(bd, i, pc); return kind; }
+    pc.ts = ts; pc.rows = rows;
+    bd.ready.push(i);
+    return kind;
   }
   // A stretch's courses, joins and reach from its moments (snaps), and its binning made in the worker: the change between the views
   // (morphTrackBuild) and a coil or a varix's spread easing at rest (envCheck). `more`: reach a vessel had elsewhere, kept.
@@ -231,7 +430,7 @@ export function createMorph(st, live) {
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
     const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
-    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK } });
+    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
   }
   function setOf(pc, b) {
     pc.set = live.veins.makeMorphSet(b);

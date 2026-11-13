@@ -114,5 +114,5 @@ test('a tile\'s number and unit always fit inside it, shrinking together, the un
   assert.match(fit, /p\.fin/, 'measured with the number it counts to as well');
   assert.match(body, /\(tileRO = new ResizeObserver\(fitSoon\)\)\.observe\(el\)/, 'again when the row changes size');
   // (Every set fits when a number's shape changed, its final text or the length shown; the same shape measured again gave the same answer, a forced layout a frame.)
-  assert.match(body, /p\.fin = tileVal\(p\.k, to\[p\.k\]\);\s*if \(!tileGlide\(to, ms\)\) draw\.go\(to, ms\);[^]*?const shape = parts\.map\(\(p\) => `\$\{p\.fin\}\|\$\{vText\(p\)\.length\}`\)\.join\(\);\s*if \(shape !== fitShape\) \{ fitShape = shape; fitSoon\(\); \}/, 'every set fits');
+  assert.match(body, /p\.fin = tileVal\(p\.k, to\[p\.k\], to\);\s*if \(!tileGlide\(to, ms\)\) draw\.go\(to, ms\);[^]*?const shape = parts\.map\(\(p\) => `\$\{p\.fin\}\|\$\{vText\(p\)\.length\}`\)\.join\(\);\s*if \(shape !== fitShape\) \{ fitShape = shape; fitSoon\(\); \}/, 'every set fits');
 });

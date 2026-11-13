@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 // without the vessels redrawing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { lookChanged, newLookSig } from '../src/ui/look-sig.js';
 
 const STAGE = stageSource();

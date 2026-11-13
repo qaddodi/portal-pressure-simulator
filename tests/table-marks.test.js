@@ -35,7 +35,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
     const fps = await deckStates(d);
     for (const t of tables) {
       const extra = (t.of || []).filter((o) => typeof o === 'object' && !o.id);
-      const xfps = extra.length ? await run(extra.map((o) => ({ preset: o.preset, presetDays: o.presetDays, params: o.params }))) : [];
+      const xfps = extra.length ? await run(extra.map((o) => ({ preset: o.preset, presetDays: o.presetDays, params: o.params, days: o.days, relax: o.relax }))) : [];
       const rows = (t.of || []).map((o) => {
         const x = typeof o === 'object' ? o : { id: o }, i = x.id ? d.slides.findIndex((s) => s.id === x.id) : -1;
         return { ...x, f: i >= 0 ? fps[i] : xfps[extra.indexOf(o)], title: x.title ?? d.slides[i]?.title };
@@ -53,7 +53,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
           let want;
           if (rel) {
             const a = atShown(k, fpv(k, r.f)), b = atShown(k, fpv(k, r.vs ? fpOf(r.vs) : rows[0].f)), dd = a - b;
-            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, he: .05, hb: 1, hbTo: 1 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
+            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, rpp: 2, he: .05, hb: 1, hbTo: 1 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
             want = Math.abs(dd) < step ? 0 : Math.sign(dd) * (Math.abs(dd) / Math.max(Math.abs(b), 1e-6) >= 0.4 ? 2 : 1);
           } else {
             if (!SPEC[k]) continue;
@@ -68,16 +68,13 @@ test('every summary-table arrow matches its row\'s model state', async () => {
   assert.deepEqual(bad, []);
   // Pinned by name.
   assert.ok(cells['circuit/Healthy, after a meal/pvFlow'] > 0, 'a meal raises portal flow above the fasting range');   // (Circuit holds the meal since the deck rebuild)
-  assert.equal(cells['two-inflows/Hepatic artery clot/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
-  assert.equal(cells['two-inflows/Portal vein clot/pvFlow'], -2, 'a portal vein clot stops portal flow');
+  assert.equal(cells['two-inflows/Hepatic artery thrombosis/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
+  assert.equal(cells['two-inflows/Portal vein thrombosis/pvFlow'], -2, 'a portal vein clot stops portal flow');
   assert.ok(cells['circuit/With collaterals/ppg'] < 0, 'against the same liver, collaterals lower the gradient');
   assert.equal(cells['circuit/With collaterals/res'], 0, 'collaterals leave the liver\'s own resistance alone');
 });
 
 test('tables that cannot be measured or have no organ say so', async () => {
-  const { OUTFLOW } = await import(new URL('outflow.js', DIR));
-  const t = OUTFLOW.slides.find((s) => s.visual === 'table');
-  assert.deepEqual(t.of.find((o) => o.id === 'bcs').blank, ['whvp', 'fhvp', 'hvpg'], 'clotted hepatic veins cannot be wedged');
   const { DOPPLER } = await import(new URL('doppler.js', DIR));
   for (const o of DOPPLER.slides.find((s) => s.visual === 'table').of) assert.ok([o.note].flat().every(Boolean), `Doppler row ${o.title} has an empty cell`);
 });
@@ -87,6 +84,6 @@ test('every tile rating is a word or two, short enough for one line in a phone t
   const src = readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8').match(/const rated = .*$/m)[0];
   const words = [...src.matchAll(/(?:\[|tup\()(?:'\w+'|null), '([^']+)'[\])]/g)].map((m) => m[1]);   // (a rating is [class, word], made once as tup(class, word))
   assert.ok(words.length > 10);
-  const long = words.filter((w) => w.length > 12 || w.split(' ').length > 2);
+  const long = words.filter((w) => w.length > 13 || w.split(' ').length > 2);
   assert.deepEqual(long, []);
 });

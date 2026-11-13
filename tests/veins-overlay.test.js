@@ -53,7 +53,7 @@ test('the overlays need the kept picture: none on a canvas that keeps its own (a
   assert.equal(renderer(mod, 'apart').g.overlay, null);
 });
 
-test('the plain upscale: the picture copied onto the whole canvas, filtered; at the canvas\'s size, copied as it is', () => {
+test('the plain upscale: the picture laid onto the whole canvas by the upscale pass, one filtered read; at the canvas\'s size, copied as it is', () => {
   // (A whole picture is drawn straight onto the canvas (veins-own-buffer.test.js); the blood's frame after it goes through the kept picture.)
   const { g, f, look } = renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
@@ -63,7 +63,8 @@ test('the plain upscale: the picture copied onto the whole canvas, filtered; at 
   g.setPicture([400, 300], true);
   n0 = f.calls.length;
   g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
-  assert.deepEqual(blits(f, n0).at(-1).slice(1), [0, 0, 400, 300, 0, 0, 800, 600, f.gl.COLOR_BUFFER_BIT, f.gl.LINEAR]);
+  // (Since 11 Nov 2026 the plain upscale is the upscale pass too, with one filtered read: the vessel edges steepened, a dither, the pan's rest.)
+  assert.equal(blits(f, n0).length, 0);
   // (Sharper upscaling keeps its own filter: a draw, no copy.)
   g.setPicture([400, 300], false);
   n0 = f.calls.length;

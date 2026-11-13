@@ -7,7 +7,7 @@ import { unsnap } from './unsnap.js';
 
 const read = (p) => unsnap(readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
 const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
-const card = read('src/ui/card.js'), dock = read('src/ui/dock.js'), stageSrc = stageSource();
+const dock = read('src/ui/dock.js'), stageSrc = stageSource();
 
 test('there is one exit curve, gentle at its start', () => {
   assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\);/);
@@ -104,7 +104,7 @@ test('a talk started while one is ending, or while the app returns to healthy, t
 });
 
 test('a theme chosen in the app crossfades the page; loading applies it at once', () => {
-  assert.match(main, /crossfade\(async \(\) => \{\n\s+setFramePump\(true\);\n\s+try \{\n\s+applyTheme\(t, clear\);[\s\S]*?await themeSettled\(\); await stage\?\.lookWhole\?\.\(700\); await settledSurfaces\(\);[\s\S]*?\} finally \{ setFramePump\(false\); \}/);   // (the frames pumped, the figure and the surfaces whole before the new page is taken)
+  assert.match(main, /crossfade\(async \(\) => \{\n\s+const pumpOff = pumpLease\.take\(\);[^\n]*\n\s+try \{\n\s+applyTheme\(t, clear\);[\s\S]*?await themeSettled\(\); await stage\?\.lookWhole\?\.\(700\); await settledSurfaces\(\);[\s\S]*?\} finally \{ pumpOff\(\); \}/);   // (the frames pumped, the figure and the surfaces whole before the new page is taken)
   assert.match(main, /const vt = pageFade = document\.startViewTransition\(fn\);/);
   assert.match(main, /switchTheme\(v === 'system' \? null : v, v === 'system'\)/);
   assert.match(main, /applyTheme\(knownLook\(savedTheme\)\)/);

@@ -152,7 +152,7 @@ try {
       await page.mouse.up();
       await settled(page);
       brought++;
-      const over = await page.evaluate(async () => { const bl = await Promise.resolve(window.__bl); return window.pps.stage.labelDrawnBy().filter((d) => d.a > 0.5).map((d) => [d.key, d.x, d.y, d.w, d.h, d.a]); });
+      const over = await page.evaluate(async () => { return window.pps.stage.labelDrawnBy().filter((d) => d.a > 0.5).map((d) => [d.key, d.x, d.y, d.w, d.h, d.a]); });
       const bl = await blockers();
       const hits = over.filter(([, x, y, w, h]) => bl.some((b) => Math.min(x + w, b.x1) - Math.max(x, b.x0) > 2 && Math.min(y + h, b.y1) - Math.max(y, b.y0) > 2));
       const at = await page.evaluate((id) => window.pps.stage.labelAnchorOf(id), id);

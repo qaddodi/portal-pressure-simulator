@@ -32,21 +32,26 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO',
-  // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
-  // tributaries and Budd–Chiari collaterals are kept below for later).
-  'CAUD']);
-// The caudate lobe and its short veins (anatomic view), drawn only on a slide about them (presenter target 'caudate')
-// and eased in and out: the lobe is a soft, slightly lighter dome of the liver's own tone with no outline (`lobe`:
+  'V_STO', 'V_STO_SG',
+  // (The caudate veins are drawn in the circuit, as a lane of their own, and in the anatomy as the three short veins of CAUDATE
+  // below, not as a vessel: ANAT_HIDDEN.)
+  ]);
+// The caudate lobe and its short veins (anatomic view), drawn only on a slide about them (11 Nov 2026: Mohammad does not want them in
+// the normal views; a slide about the DIPS shows the lobe alone), eased in and out with the view: the lobe is a soft, lighter dome of the liver's own tone with a faint rim (`lobe`:
 // ellipses [cx, cy, rx, ry, degrees], the body and its papillary process), between the hepatic vein confluence above,
 // the portal bifurcation below and the IVC, whose left wall (`wall`, x) the veins merge into below the hepatic veins.
-// `veins`: [course, caliber at the IVC]; each tapers from nothing inside the lobe. In the model they are the CAUD edge,
+// `veins`: [course, caliber at the IVC]; each grows from a point inside the lobe (no rounded cap). In the model they are the CAUD edge,
 // which is not drawn as a vessel. The lobe grows about `anchor` by up to `grow` ([x, y]) as its veins take over the
 // liver's outflow (Budd–Chiari), keeping clear of the azygos line beside it (x 564).
+// `outline`: the lobe at its normal size as one smooth closed curve (the convex hull of the two ellipses, so no notch where they meet): its own outline, drawn like the other organs', and the dashed line of its normal size; `arrows`: [x1, y1, x2, y2], from that edge out
+// to where the grown lobe's edge lies (top and bottom, where it gains most). Both show only while the lobe is enlarged, as it eases to
+// its grown size (stage.js caud.sync): the dashed line is where it was, the arrows say it grew (Mohammad's pick B, 11 Nov 2026: no label on the line).
 export const CAUDATE = {
   lobe: [[594, 358, 20, 60, -4], [587, 401, 14, 16, 0]],
   veins: [['M588 334 Q 601 332 613 327', 3], ['M582 368 Q 598 365 613 359', 3.6], ['M590 398 Q 602 395 613 389', 2.8]],
   wall: 613, anchor: [612, 362], grow: [0.12, 0.2],
+  outline: 'M573.0 401.0 C571.7 395.7 573.1 389.5 573.2 383.7 C573.3 377.9 573.3 372.2 573.4 366.4 C573.5 360.6 573.4 354.9 573.6 349.1 C573.7 343.3 573.7 337.5 574.4 331.8 C575.0 326.1 575.6 320.1 577.4 314.8 C579.3 309.5 581.9 301.5 585.6 299.9 C589.4 298.2 596.3 301.5 599.9 304.9 C603.6 308.3 605.4 315.1 607.3 320.5 C609.2 325.9 610.4 331.6 611.5 337.3 C612.6 342.9 613.3 348.7 613.8 354.4 C614.3 360.2 614.5 365.9 614.4 371.7 C614.2 377.5 614.0 383.3 613.1 388.9 C612.2 394.6 611.6 400.9 609.1 405.7 C606.5 410.6 602.7 416.2 598.0 417.9 C593.3 419.5 585.1 418.3 581.0 415.4 C576.8 412.6 574.3 406.3 573.0 401.0 Z',
+  arrows: [[594, 297, 594, 281], [590, 418, 590, 434]],
 };
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
@@ -57,14 +62,19 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // (they still drain into it in the model and the circuit).
 // The left-lobe central veins reach the middle hepatic vein in the model; drawn, they would need a second
 // vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
-export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
+// (The caudate vein CAUD is drawn in the circuit only: the plate shows the lobe and its short veins instead, CAUDATE.)
+export const ANAT_HIDDEN = new Set(['POST_L_MHV', 'CAUD']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
 export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC']);
+// (Not the left renal vein, LRV_IVC and V_KID_L: it is where the splenorenal shunts land, so it is drawn over the bowel loops,
+// never veiled by them. 13 Nov 2026, Mohammad's iPhone shot: the vein read as lying under the small bowel.)
+// (Nor the mesocaval shunt, S_MC: a surgical shunt is drawn in the network's tier like the portocaval and the Rex, so its SMV end sits with the SMV and
+// only the last stretch fades into the faint cava (IVC_JOIN). Behind the organs the whole shunt was veiled grey and cut hard where it met the SMV. 13 Nov 2026.)
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'C7', 'C9']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -124,8 +134,8 @@ export const EDGE_PATH = {
   // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
   // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
   // with a square elbow, 6 Nov.)
-  AP_R: 'M583.4 422.3 C 573.8 418.2 561.6 425 552 420.8',
-  AP_L: 'M642.4 424.7 C 649.9 419.1 649.2 405.9 656.8 400.4',
+  AP_R: 'M583.4 422.3 C 576 412 560 432 552 420.8',
+  AP_L: 'M642.4 424.7 C 654 426 640 400 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
   V_INT: 'M756 800 C 752 758 700 716 690 660',
@@ -138,7 +148,9 @@ export const EDGE_PATH = {
   SV_CONF: 'M880 505 C 830 525 765 545 700 556',
   // (It joins the portal trunk itself, about halfway up, merging at a shallow angle with the flow, instead of ending in the knot at the
   // confluence: Mohammad, 6 Nov. The model still drains it into CONF; only the drawing ends on the trunk, so no pressure moves.)
-  LGV_CONF: 'M821 318 C 829 348 835 384 833 412 C 831 436 812 470 770 492 C 736 508 696 516 660.1 505.7',
+  // (Its end lies 1.5 units short of the trunk's drawn, meandered centreline, on its own side: at 1.8 past it its round end showed through the far wall
+  // of a thin trunk as a lump, 13 Nov 2026.)
+  LGV_CONF: 'M821 318 C 829 348 835 384 833 412 C 831 436 812 470 770 492 C 736 508 696 516 662.5 503.5',
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',
@@ -163,8 +175,12 @@ export const EDGE_PATH = {
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
   MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
   // (It meets the cava higher than the right hepatic vein, 21 units from its end. At 11 apart the two were joined as one vein
-  // and their round ends met across the cava in a bar.)
-  LHV_IVC: 'M690 232 C 668 232 650 219 630 191',
+  // and their round ends met across the cava in a bar: a join takes every end of a node within 20 units of another, vein-joins.js.)
+  // The left vein's end lies 3 units off the cava's axis, inside its wall at every caliber: it ended at 630 (10.5 off), which a clotted
+  // Budd–Chiari figure (thin veins, a narrower cava, wall 6.2) left outside the join's reach and outside the wall, a bare round cap
+  // short of the cava (8 Nov 2026). Its end keeps 20.5+ units from the cava's node (620, 166) and from the right vein's end
+  // (616, 206): tests/hepatic-vein-joins.test.js.
+  LHV_IVC: 'M690 232 C 668 232 648 217 623 186.5',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
@@ -181,8 +197,8 @@ export const EDGE_PATH = {
   ILI_IVC: 'M620 880 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   // Up the chest wall and in across the azygos (in front of it, at a right angle) to the SVC's
-  // side, below the arch, so the two never run together.
-  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 612 72',
+  // side, below the arch, so the two never run together. It ends 3 units off the cava's axis, inside its wall at every caliber (it ended on the wall, at 612, and its round cap stood out of it: 10 Nov).
+  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 617 71',
 
   // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
   // esophageal wall as a braid of submucosal columns (see STRANDS) up to the varices node.
@@ -195,24 +211,34 @@ export const EDGE_PATH = {
   // Mohammad, 6 Nov, "too straight"), bowing right over the stomach, and arches over into the fundal varices heading left, the
   // way the gastrorenal shunt (C5) leaves them, so the two read as one rounded loop there, not a hairpin.
   // (It still leaves the splenic vein at the angle it did, so the IMV below runs on into the splenic vein, not into it.)
-  C2: 'M880 505 C 884 489.6 885.3 476 886 462 C 887 441 905.4 424.8 918 408 C 929.4 392.8 930.9 370.8 928.5 352 C 925 324 908 300 876 302',
-  C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
+  C2: 'M880 505 C 889 490 896 475 902 458 C 908 440 913 424 922 408 C 931 393 931 371 928.5 352 C 925 324 908 300 876 302',
+  // (It runs down the right of the cava, in the clear corridor between the cava and the mesenteric trunk, and crosses the cava low, below the
+  // renal and mesocaval levels, at about 45 degrees, in one sweep to the umbilicus: it ran into the cava at y 600 at under 20 degrees,
+  // along it for 80 units, among the ends of the portocaval and renal veins. 11 Nov 2026.)
+  C3: 'M688 378 C 676 440 666 500 660 560 C 654 620 650 660 640 684 C 628 712 600 724 570 748 C 540 772 515 785 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
-  C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
+  C4: 'M932 690 C 922 748 898 806 862 840 C 834 866 806 892 786 928',
   // Leaves the fundus heading left, as its feeder (C2) arrives, and bends down in a wide arc (radius about 30; it turned 72° at
   // the node and met C2 in a sharp hairpin: Mohammad, 6 Nov), then runs down clear of the coronary vein, easing into
   // the left renal vein.
-  C5: 'M876 302 C 850 303.6 853 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
+  C5: 'M876 302 C 856 303 868 336 868 380 C 868 450 864 540 860 596 C 860 606 861 612 862 618',
   // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
   // and drop to the renal vein just below, right of the IMV, so they never cross it. They bow left, clear of the
   // descending colon (which had run alongside, touching, and read as a huge outline round the shunt), and ease into
   // the renal vein heading the way it flows, toward the cava, instead of meeting it at a right angle. They end just short of its centreline (fork-joins.js sideEndScale).
-  C6: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
+  // (Spontaneous and Warren shunts can both be open: the spontaneous one bows to the right, the Warren one stays to its left, 17 apart in the
+  // corridor between the inferior mesenteric vein and the descending colon (50 clear of the colon, 25 of the vein), and they fan out from the
+  // shared stations instead of lying on one another. 11 Nov 2026.)
+  C6: 'M962 448 C 970 490 968 536 967 572 C 967 594 960 612 953 618',
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
-  C8: 'M700 556 C 706 506 668 462 602 442',
+  // (The periportal plexus of a cavernous transformation: the main channel leaves the open stump of the portal trunk below the clot, 22 units above the
+  // confluence, runs up beside the clotted trunk on the patient's right, 10.5 units off its drawn centreline, and rejoins the open stump above the clot,
+  // 22 units below the hilum. Both ends lie on the trunk's centreline (ends on another course, cut at its wall), so no channel or strand ends in the
+  // crowded hilum or confluence node. Built by following the trunk's meandered course with a plateau offset (rise and fall over 18 units). 13 Nov 2026.)
+  C8: 'M687.1 538.1 C 685.6 537.5 681.3 535.4 678.3 534.1 C 675.2 532.8 671.5 532.1 669.1 530.3 C 666.7 528.5 665.6 525.6 663.7 523.2 C 661.9 520.9 660.0 518.6 658.0 516.4 C 656.1 514.2 654.1 512.0 652.1 509.8 C 650.1 507.6 648.1 505.4 646.0 503.3 C 644.0 501.1 642.0 498.9 640.0 496.7 C 638.0 494.5 636.0 492.4 634.0 490.2 C 632.0 488.0 630.1 485.8 628.1 483.6 C 626.1 481.4 623.4 479.8 622.0 477.1 C 620.6 474.4 620.6 470.5 619.9 467.3 C 619.1 464.0 617.9 459.3 617.5 457.7',
   // Ascending lumbar veins → the ascending azygos. In the body it runs up the posterior abdominal wall beside the spine, behind
   // the liver, and through the diaphragm's crus into the azygos, so it is drawn that way (Mohammad, 31 Oct, Budd–Chiari: the
   // flank route over the dome read as a detour, and a route in front crossed the hepatic veins; "I like behind the liver fade"):
@@ -225,18 +251,26 @@ export const EDGE_PATH = {
   // way a tributary meets a vein, not a long sliver beside it). Only the azygos runs on from there to the arch, so the
   // esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on this collateral. It stays
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
-  C9: 'M620 566 C 574.7 544.9 528.1 470 526 410 C 523.6 342.4 517.3 272.5 522 205 C 524.5 169.1 528.2 135.1 562.9 108',
+  C9: 'M620 566 C 578 544.9 534 470 532 410 C 529.6 342.4 523 272.5 527 205 C 529 169.1 531 135.1 562.9 108',
 
-  TIPS: 'M505 398 C 498 356 536 298 540 240',   // one gentle curve through the parenchyma, portal → hepatic vein
+  // (A gentle curve, never a straight run (Mohammad, 11 Nov 2026), from the MIDDLE of the right portal vein to the MIDDLE of the right hepatic vein, side to side (his ask of 11 Nov, 21:19:
+  // "the TIPS has to be from the vein to the vein, not to the sinusoid, not end to end"). It starts on the centre line of PVH_R at 0.42 of its run (560.8 424.6; the vein's middle, a little
+  // clear of the arterioportal shunt AP_R, which lands at 0.5) and ends 1.4 off the centre line of RHV_IVC (inside its wall, on the side it comes from) at 0.65 of its run (the point 579.1 228.8, the wide stretch that carries the vein's name, not the thin
+  // POST_R_RHV tributary or the node where they meet). Each end lies on a vein's course, not at an end of one, so the join is the one a tributary makes on its trunk (vein-joins.js: an end on
+  // another course), with a fillet on both sides. It leaves the portal vein 34 degrees off its run, bows 0.104 of its length to the left, and comes into the hepatic vein 52 degrees off its run.
+  // It stays right of the collateral C9 (x 527-532 where they share the liver) and crosses the middle hepatic vein once, on MHV_IVC, 14 units from its node, over it
+  // (the hepatic veins' chain from the caudate to the cava lies between the two veins: no way from the portal vein to the right hepatic vein is clear of it).
+  // tests/tips-course.test.js holds these numbers.)
+  TIPS: 'M560.8 424.6 C 534.2 388.3 547.8 301.4 578.4 230.5',
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
-  DIPS: 'M602 442 C 582 392 595 318 620 302',
+  DIPS: 'M602 442 C 566 414 572 336 620 304',
   // (An end-to-side portocaval shunt meets the cava above the renal veins: it ended at the iliac confluence's node, below the left
   // renal vein, crossing it. It ends on the cava's wall, as the renal vein does, a side join on the IVC.)
-  S_PC: 'M700 556 C 682 568 652 582 625 590',
-  S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
-  S_MC: 'M690 660 C 672 650 645 648 620 650',
+  S_PC: 'M700 556 C 692 584 652 572 620 590',
+  S_DSR: 'M962 448 C 932 490 926 536 946 574 C 957 600 960 612 953 618',
+  S_MC: 'M690 660 C 676 678 646 634 620 650',
   // The Meso-Rex bypass: from the superior mesenteric vein below the confluence, up round the patient's left of the clotted
   // trunk (crossing the splenic vein and the coronary vein's loop on the way, as the graft lies in front of them), and on
   // to the left portal vein at its umbilical part (the Rex recess), arriving from below and the right, the way the vein
@@ -253,7 +287,12 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  C8: [[-38, 1.1, 0.7], [-26, 3.9, 0.75], [-12, 2.4, 0.8], [30, 5.2, 0.7], [44, 0.3, 0.6]],
+  // (The cavernoma's strands keep the main channel's plateau (STRAND_PLATEAU): [offset from the main channel, 1 to ride its serpentine or 0 to keep
+  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk. The first strand runs on the left of the
+  // trunk, 7.6 off its centreline: the hepatic artery hugs the trunk there, 12 off it, and leaves room only for a fine channel on the trunk's own
+  // course, between the vein's wall and the artery's. The second lies outside the main channel, 18.5 right, and rides its serpentine. First listed
+  // grows in first.)
+  C8: [[17.1, 0, 0.5], [17.1, 0, 0.5], [-9, 1, 0.7], [-18, 1, 0.6], [-27, 1, 0.5]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -268,6 +307,30 @@ export const STRANDS = {
 // The drawn sinusoids. Inside the liver they are drawn faded, clearing as they gather into the hepatic
 // veins; unlike the liver's other small vessels they take hover, focus and taps in the anatomy.
 export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
+// The strands that leave and join their vessel tangent to it (the offset eases in as the square of the sine, not the sine): the periportal plexus grows out of the
+// confluence and into the hilum as one vessel that parts into channels, not as a fan of round ends that start at one point at an angle (13 Nov 2026).
+export const STRAND_SOFT = new Set(['C8']);
+// The strands that keep their main channel's own plateau instead (the cavernoma): each lies at its offset times the plateau, which rises and falls over
+// this share of the course at each end, as the main channel's course does, and rides the main channel's serpentine, so no two channels ever cross
+// (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
+export const STRAND_PLATEAU = { C8: 0.169 };
+// The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
+// The two halves of the fine channel on the hepatic artery's side (the first two strands of C8): each runs from an open stump to a point 4.5 units back along the
+// coronary vein's last stretch (0.365 of the chord, 14.13 off the main channel's chord: 3.6 past the trunk's centreline) and ends there, under the vein, which is drawn
+// over it: the vein meets the fine channel as a T from each side and crosses nothing, and no end of either half is seen.
+// [from, to, offset at the end, share of the chord over which it eases onto that offset].
+export const STRAND_TIE = { C8: [[0, 0.365, 14.13, 0.05], [0.365, 1, 14.13, 0.05]] };
+export const WIG_CAP = { C8: 2.4 };
+// The cavernoma's strands wind about their course and part and meet again (a network that anastomoses, not parallel tubes): [amplitude, cycles along the
+// course, phase, and the share of the course over which it rises to its offset (the same for all, so a farther channel is never overtaken by a nearer one while they swing out)], one row per strand of STRANDS, added to the strand's offset inside its plateau (so each still leaves and rejoins the open stumps on the
+// main channel's ends). Neighbours take opposite phases, so a pair draws together and parts as the next pair does: a braid, and no two centre lines meet
+// (tests/cavernoma-plexus.test.js keeps their gap). 13 Nov 2026, Mohammad: more collaterals, smooth and winding, not straight tubes.
+export const STRAND_WAVE = { C8: [[0, 0, 0], [0, 0, 0], [3.2, 2.5, 0, 0.32], [3.2, 2.5, Math.PI, 0.32], [3.2, 2.5, 0, 0.32]] };
+// The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
+// lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
+// there, a torn gap beside the stump: 13 Nov 2026).
+export const END_HOSTS = { C8: ['PV_TRUNK'] };
+export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 
@@ -339,7 +402,14 @@ export function route(pts, r = 16) {
 
 export const CIRCUIT_PATH = {
   // hepatic arterial supply and the intrahepatic bypasses stay gentle curves
-  CAUD: route([[900, 303], [940, 252], [1086, 252], [1120, 290], [1120, 345]], 18),
+  // The caudate veins: out of the right lobe's central-vein station straight up to a lane of their own (y 269, between the TIPS lane
+  // above, 23 away as the lane rule needs (tests/shunt-routes.test.js), and the right hepatic vein below, 13), and into the IVC from the
+  // north, the one side nothing else reaches it from (the hepatic veins come from the left, the cava from below). It crosses the TIPS and
+  // DIPS lanes once each, which are drawn only while open. It leaves the station by a 3-unit step to the left, so its first stretch lies on
+  // the joint's own centre (x 897, where the sinusoid branches end): left at x 900 the web between it and those thin branches left a fin
+  // (tests/tube-web-real.test.js). Its last corner is square: a rounded one swings past the DIPS diagonal and the lane rule reads that as running
+  // along it. (Its old lane ran 6 units under the TIPS lane. 11 Nov 2026: mocks Circuit A, which had it at y 264.)
+  CAUD: route([[900, 303], [897, 300], [897, 269], [1120, 269], [1120, 345]], 0),
   // The hepatic artery enters the liver on its midline (y 345), in the gap between the two lobes' trees, and its two stubs join the
   // first channel of each tree where the portal venules reach the sinusoids: it crosses no lane.
   A_HEP: 'M636 345 L 774 345',
@@ -381,10 +451,13 @@ export const CIRCUIT_PATH = {
   S_PC: route([[480, 345], [480, 446], [1088, 446], [1120, 478]], 24),
   S_MC: route([[320, 394], [350, 424], [350, 478], [1120, 478]], 16),
   // The Meso-Rex bypass: a bypass round the clotted trunk, from the superior mesenteric station straight to the left portal vein.
-  REX: route([[320, 394], [336, 410], [656, 410], [680, 387]], 14),
+  // (Its lane is the middle of the gap between the portal vein's run below the spine (y 394) and the portocaval lane (y 446), 26 from each: at y 410
+  // it ran 16 below the portal vein's first stretch for 100 units. 11 Nov 2026.)
+  REX: route([[320, 394], [346, 420], [648, 420], [680, 388]], 14),
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
   C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
-  S_DSR: route([[200, 261], [184, 277], [184, 570], [970, 570], [1000, 540]], 16),
+  // (Its column is 30 left of the spontaneous shunt's: both ran 16 apart for 250 units. 11 Nov 2026.)
+  S_DSR: route([[200, 261], [170, 291], [170, 570], [970, 570], [1000, 540]], 16),
   C7: route([[320, 394], [320, 600], [1120, 600]], 24),
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
@@ -488,6 +561,8 @@ export const APPENDIX_TIP = pathLowest(APPENDIX_D) + APPENDIX_HALF_W;
 // duodenal C-loop, stomach, and the liver in front. The vessel geometry above is fixed; the
 // organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
 // only; `noCover` shapes never hide the flow marks of vessels behind them.
+// (The gut (appendix, small bowel, duodenum, colon) is `noCover`: no vessel is veiled behind its loops, every vessel draws in front of it. Mohammad, 13 Nov 2026.
+// The liver, heart, spleen and the rest still cover the back vessels as before.)
 export const ORGANS = [
   { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 47 C 607 71 606 111 611 141 C 616 167 632 177 658 177 C 695 177 731 171 753 155 C 762 148 762 133 755 123 C 738 93 716 63 691 47 C 669 34 637 33 618 47 Z' },
@@ -503,10 +578,10 @@ export const ORGANS = [
   // The three are drawn in one see-through group, cut away under the liver, stomach, spleen and kidney (stage.js). `art`:
   // drawn from that markup; `ring`: the visible outline a highlight draws; `cover`: the shape the vessels behind fade under
   // (the tubes' earlier centre lines and widths, so the vessel tiers keep their look).
-  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: APPENDIX_D },
-  { id: 'bowel', tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: gutPath('M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4'), w: 19 } },
-  { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', art: 'duodenum', band: true, ringW: 26, d: DUO_D, cover: { d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664', w: 19 } },
-  { id: 'colon', tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: gutPath('M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8'), w: 25 } },
+  { id: 'appendix', noCover: true, tone: 'gut', cls: 'org-appendix', band: true, d: APPENDIX_D },
+  { id: 'bowel', noCover: true, tone: 'gut', cls: 'org-bowel', art: 'bowel', d: BOWEL_RING, cover: { d: gutPath('M604 729.3 C 650 712.4 700 720.8 742 729.3 C 786 737.8 830 718.7 872 731.4 C 904 742 906 773.8 878 782.3 C 840 792.9 800 773.8 760 780.2 C 716 786.6 684 801.4 646 792.9 C 610 784.4 590 801.4 598 820.5 C 606 839.6 640 843.8 676 837.4 C 720 829 760 848 800 843.8 C 846 839.6 884 824.7 906 839.6 C 928 856.5 918 886.2 888 890.4 C 846 896.8 810 877.7 764 884.1 C 716 890.4 680 905.3 630 896.8 C 580 888.3 540 875.6 500 877.7 C 470 879.8 446 886.2 424 890.4'), w: 19 } },
+  { id: 'duodenum', noCover: true, tone: 'stomach', cls: 'org-duodenum', art: 'duodenum', band: true, ringW: 26, d: DUO_D, cover: { d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664', w: 19 } },
+  { id: 'colon', noCover: true, tone: 'gut', cls: 'org-colon', art: 'colon', band: true, d: COLON_D, ring: COLON_RING, cover: { d: gutPath('M460 920.4 C 457 899.2 451 882.2 448 863.2 C 440 822.9 437 776.2 439 712.6 C 440 651.2 449 598.2 473 568.5 C 503 555.8 534 589.7 568 632.1 C 611 685.1 664 708.4 727 708.4 C 799 708.4 862 666 903 602.4 C 930 560 952 507 964 462.5 C 971 560 968 708.4 953 803.8 C 944 865.3 910 899.2 860 911.9 C 833 918.3 809 922.5 788 926.8'), w: 25 } },
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
   { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M813 249 C 818 257 828 253 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 800 276 792 249 Z' },
@@ -675,8 +750,8 @@ export const LANE_CAPTIONS = {
 // The pressure-profile chart follows one path, gut → liver → heart, with plain station names;
 // `liver` marks the stations inside the liver (portal venule to central vein).
 export const PROFILE_PATHS = [
-  { id: 'main', label: 'Gut → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
-    names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central vein', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
+  { id: 'main', label: 'Intestine → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
+    names: { INT: 'Intestine', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central vein', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
@@ -687,7 +762,7 @@ export const PROFILE_PATHS = [
 // Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not
 // "Esoph. varices"; "Right sinusoids", not "Sinusoids R"). SMV, IMV, IVC and SVC stay as the clinical names they are.
 export const SHORT = {
-  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
+  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Bowel', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
   LGV: 'Left gastric vein', CONF: 'Portal vein', PVH: 'Hilar portal vein', RPV: 'Right portal vein', LPV: 'Left portal vein', VAR: 'Varices', GV: 'Fundal varices',
   SIN_R: 'Right sinusoids', SIN_L: 'Left sinusoids', CV_R: 'Right central vein', CV_L: 'Left central vein', W_R: 'Right wedge', W_M: 'Middle wedge', W_L: 'Left wedge',
   RHV: 'Right hepatic vein', MHV: 'Middle hepatic vein', LHV: 'Left hepatic vein', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'Right atrium', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',

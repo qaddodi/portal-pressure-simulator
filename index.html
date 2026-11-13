@@ -28,6 +28,8 @@
   <link rel="stylesheet" href="styles/icons.css" />
   <link rel="stylesheet" href="styles/app.css" />
   <link rel="stylesheet" href="styles/path.css" />
+  <link rel="stylesheet" href="styles/scope-card.css" />
+  <link rel="stylesheet" href="styles/tests-card.css" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #F1EBE0); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
     /* The last word, in CSS so it needs no script: if nothing has lifted the cover after 20 s (a script that never ran, a page whose
@@ -88,7 +90,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
 
   <div class="app" id="app">
-    <header class="topbar float-ui stage-blocker" id="topbar" data-safe="top">
+    <header class="topbar float-ui stage-blocker" id="topbar" data-safe="top" data-safe-parts=".tb-id, .sb-left, .sb-right, .top-right">
       <div class="float-pill tb-id">
         <span class="tb-face" aria-hidden="true"></span>
         <button class="menu-btn" id="btnMenu" aria-haspopup="dialog" aria-expanded="false" aria-label="Menu: presentations and patients" title="Presentations and patients">
@@ -102,8 +104,8 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
           <div class="seg" id="viewSeg" role="group" aria-label="View">
             <button data-view="circuit" aria-pressed="false" title="Circuit view (A)">Circuit</button>
             <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)">Anatomy</button>
-            <button data-view="lobule" aria-pressed="false" title="Lobule: the liver's microcirculation">Lobule</button>
-            <button data-view="sinusoid" aria-pressed="false" title="Sinusoid: one sinusoid's wall up close, and the lymph it makes" hidden>Sinusoid</button>
+            <button data-view="lobule" aria-pressed="false" title="Lobule: the hepatic microcirculation">Lobule</button>
+            <button data-view="sinusoid" aria-pressed="false" title="Sinusoid: the sinusoidal wall up close, and hepatic lymph formation" hidden>Sinusoid</button>
           </div>
         </div>
         <div class="sb-right">
@@ -112,7 +114,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><i class="ic ic-chev-down chev" aria-hidden="true"></i></div>
         </div>
       </div>
-      <div class="top-right float-pill">
+      <div class="top-right float-pill stage-blocker">
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><i class="ic ic-pill" aria-hidden="true"></i><span>Treat</span></button>
         <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Tests: pressures, HVPG, Doppler, endoscopy and more (I)"><i class="ic ic-gauge" aria-hidden="true"></i><span>Tests</span></button>
         <button class="tb-act" id="btnHistory" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyCard" title="History: every change and event, with a way back to each"><i class="ic ic-clock" aria-hidden="true"></i><span>History</span><b class="tb-hc" aria-hidden="true"></b></button>
@@ -166,7 +168,7 @@ var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=fal
   <div class="tooltip" id="tooltip" role="tooltip"></div>
   <div class="why-pop" id="whyPop" role="dialog" aria-label="Why?"></div>
   <div class="modal-back" id="modalBack"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
-  <div class="toast-wrap" id="toasts"></div>
+  <div class="toast-wrap foot" id="toastsFoot"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
   <link rel="modulepreload" href="src/ui/stage.js" />

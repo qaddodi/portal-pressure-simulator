@@ -20,7 +20,6 @@ const timing = (body, prop) => {
   assert.ok(m, `no ${prop} transition in ${body}`);
   return { dur: secs(m[1]), delay: m[2] ? secs(m[2]) : 0 };
 };
-const OPEN = '.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini)';
 const CARD_EXIT = 0.12;   // thumbOut, the phone card's slide down (one flip step)
 
 test('the play bar, views pill and glass come back after the card has mostly sunk, never over it', () => {

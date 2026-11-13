@@ -1,0 +1,137 @@
+/* The Scope card on a laptop or tablet (the Tests card at the side), redesigned 11 Nov 2026 (Mohammad, iPad photo: "the scope view
+   maximized and the tiles smaller but organized, and the button in a better place").
+   One column, top to bottom: the scope's picture takes every pixel the rest leaves; the five readings in one slim row (three and two
+   on a narrow card); one row of actions, "Band (EVL)" and the EUS-PPG player side by side. EUS-PPG's numbers, steps and words
+   (.eus-panel, eus-ppg.js) lie over the foot of the picture only while a run is on or done, so they cost the picture nothing at rest.
+   Only this card: a phone's sheet (the thumb dock) and Wall mechanics keep the rules in app.css. The id (#app) wins over those by
+   specificity, not by order, so the earlier rules stay as they were for the other cards. Nothing here animates but opacity. */
+
+/* (Where no card lays the panel out, it adds no box: its three parts sit in the pane as they did.) */
+.eus-panel { display: contents; }
+.eus-panel .pz-reading { margin-top: 0; }   /* (the one pressure monitor in the EUS-PPG panel, eus-ppg.js) */
+
+/* The card's layout (13 Nov 2026, Mohammad: "these views should look alike both on Mac and on phone"): the phone's, in one column. The picture centred as
+   large as the card allows, the five readings in one strip under it (no box and no line round them), and one row of actions under both, two equal
+   buttons. Fitted to its content (.nat), the rows are their own height. */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 12px 10px;
+  min-height: 0;
+}
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view).nat { grid-template-rows: auto auto auto; }
+
+/* The picture, centred over its caption (its square is the least of the stage's width and height, endo-stage in app.css). */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 140px; grid-column: 1 / -1; grid-row: 1; justify-content: center; }
+
+/* The readings: a name over its value, five across, the phone card's. */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1 / -1; grid-row: 2; align-self: stretch; width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: .75fr .9fr 1.2fr 1fr 1.15fr; grid-template-rows: none; gap: 4px; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: auto; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { min-height: 0; min-width: 0; gap: 0; padding: 5px 4px; border-radius: var(--r-control); background: none; border: 0; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: none; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { margin: 0; font: 500 12px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-3); white-space: nowrap; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 15px/1.2 var(--font-ui); letter-spacing: 0; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div > dd { min-height: 18px; max-width: 100%; }
+/* ("Red wale, cherry spots" is one sign: the tile says Red wale, its title the rest.) */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { display: none; }
+
+/* The actions: banding and the EUS-PPG player, one row, one height, a column each. ("Watch" is the player's play icon and its title.) */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 1; grid-row: 3; justify-self: stretch; width: 100%; margin: 0; min-width: 0; max-width: none; min-height: 40px; padding-inline: 10px; white-space: nowrap; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg { display: contents; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: minmax(0, 1fr); margin: 0; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs-k { display: none; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-proc-btn { width: 100%; min-width: 0; min-height: 40px; justify-content: center; padding-inline: 10px; white-space: nowrap; }
+
+/* EUS-PPG's readings, steps and words: over the foot of the picture, in view while a run is on or done, with the unit once. */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / -1; grid-row: 1; align-self: end; z-index: 2; display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-card); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg:is([data-state="run"], [data-state="done"]) .eus-panel { opacity: 1; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg[data-state="done"] .hvpg-steps { display: none; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 2px 16px; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv > div { display: flex; align-items: baseline; gap: 6px; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dt::after { content: none; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv::after { content: 'mmHg'; font-size: 12px; font-weight: 500; color: var(--text-3); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dd { min-width: 3.2ch; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-caption { min-height: 0; font-size: 12.5px; line-height: 1.4; }
+/* (The monitor in the panel, eus-ppg.js: the one pressure monitor, wide and short so the picture keeps most of its room.) */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .pz-reading .hvpg-box { --ar: 2.6; }
+@media (prefers-reduced-motion: reduce) { #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { transition: none; } }
+
+/* ── The Scope card on a phone and an upright tablet (the thumb dock), 12 Nov 2026 (Mohammad picked mock A: "the endoscopy test card
+   everywhere: the scope picture maximized, the tiles smaller, EUS-PPG always reachable, even on the abbreviated card").
+   Half and Full alike (13 Nov 2026): the picture centred, the five readings one strip under it, then the same row of Band and EUS-PPG;
+   the picture is whatever the strip and the buttons leave, so Half is the Full card with a smaller picture.
+   A phone held sideways (pane under 300 px high) keeps the picture on the left with the readings and both buttons on the right.
+   Only this card: Wall mechanics keeps the rules in app.css. The id wins over those by specificity, not by order. Nothing here animates
+   but opacity. */
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 8px 10px;
+  min-height: 0;   /* (the card may shrink to the room it has: a short phone's Half card gives the picture less, never cuts off the buttons) */
+}
+/* The readings: a name and its value; small, one size for every value so none can change a tile. */
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { gap: 5px; width: 100%; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { min-height: 0; gap: 0; padding: 5px 8px; border-radius: var(--r-control); }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: none; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { margin: 0; font: 500 12px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-3); white-space: nowrap; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 15px/1.2 var(--font-ui); letter-spacing: 0; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { display: none; }
+/* The actions: banding and the EUS-PPG player, one row, one height. ("Watch" is the player's play icon and its title.) */
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 1; grid-row: 3; justify-self: stretch; width: 100%; min-width: 0; max-width: none; min-height: 40px; padding-inline: 10px; white-space: nowrap; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .ctl-sub { display: none; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg { display: contents; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: minmax(0, 1fr); }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs-k { display: none; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-proc-btn { width: 100%; min-width: 0; min-height: 40px; justify-content: center; padding-inline: 10px; white-space: nowrap; }
+/* EUS-PPG's readings, steps and words: over the picture's foot while a run is on or done (the card keeps its shape). */
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / -1; grid-row: 1; align-self: end; z-index: 2; display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-card); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg:is([data-state="run"], [data-state="done"]) .eus-panel { opacity: 1; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg[data-state="done"] .hvpg-steps { display: none; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 2px 16px; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv > div { display: flex; align-items: baseline; gap: 6px; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dt::after { content: none; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv::after { content: 'mmHg'; font-size: 12px; font-weight: 500; color: var(--text-3); }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv dd { min-width: 3.2ch; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-caption { min-height: 0; font-size: 12.5px; line-height: 1.4; }
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .pz-reading .hvpg-box { --ar: 2.6; }
+@media (prefers-reduced-motion: reduce) { #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { transition: none; } }
+
+/* Half and Full are one layout (13 Nov 2026, Mohammad, iPhone: "the same expanded and abbreviated, the scope render smaller but centered, then it grows to
+   the full size, instead of moving tiles and labels around"): the picture centred over its caption, the one strip of readings under it, then the row of
+   Band and EUS-PPG. The picture takes every pixel the strip and the buttons leave (its square is the least of the stage's width and height), so Half is
+   the same card with a smaller picture and a pull to Full only grows it: no tile, label or button changes shape or order. */
+@container tpane (min-height: 301px) {
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 150px; grid-column: 1 / -1; grid-row: 1; justify-content: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh, var(--stage-min)) - 24px); }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1 / -1; grid-row: 2; align-self: stretch; display: grid; grid-template-columns: .75fr .9fr 1.2fr 1fr 1.15fr; gap: 4px; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: auto; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { padding: 5px 4px; }
+  /* (A value's line is reserved before its number arrives: an empty value collapsed the strip by 18 px and the picture jumped when it came.) */
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div > dd { min-height: 18px; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { max-width: 100%; text-align: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { display: block; text-align: center; }
+}
+
+/* A phone held sideways (a pane under 300 px high): the picture on the left; on its right the readings, then both buttons. */
+@container tpane (max-height: 300px) and (min-width: 300px) {
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-columns: minmax(0, 1fr) minmax(0, 28%) minmax(0, 28%); grid-template-rows: minmax(0, 1fr) auto; gap: 6px 10px; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 90px; grid-column: 1; grid-row: 1 / span 2; justify-content: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 2 / -1; grid-row: 1; align-self: center; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; gap: 4px; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: auto; flex-direction: column; justify-content: center; padding: 2px 6px; text-align: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > .endo-red { grid-column: 1 / -1; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { text-align: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { text-align: center; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 2; grid-row: 2; min-height: 40px; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 3; grid-row: 2; }
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / -1; grid-row: 1 / span 2; }
+}
+
+/* ── A slide's compact Scope card: EUS-PPG's play button is always in reach, one slim row under the readings. A slide that plays it
+   itself (t.eus, the HVPG deck's EUS-PPG slide) shows the readings panel and no button. ── */
+.pz-tool[data-kind="scope"] .eus-ppg { display: block; }
+.pz-tool[data-kind="scope"] .eus-ppg .hvpg-procs { display: grid; grid-template-columns: minmax(0, 1fr); }
+.pz-tool[data-kind="scope"] .eus-ppg .hvpg-procs-k { display: none; }
+.pz-tool[data-kind="scope"] .eus-ppg .hvpg-proc-btn { display: flex; width: 100%; min-width: 0; min-height: 34px; justify-content: center; padding-inline: 10px; white-space: nowrap; }
+.pz-tool[data-kind="scope"] .eus-panel { display: none; }
+.pz-tool[data-kind="scope"] .pz-inst[data-eus-slide] .eus-panel { display: contents; }
+.pz-tool[data-kind="scope"] .pz-inst[data-eus-slide] .eus-ppg .hvpg-procs { display: none; }

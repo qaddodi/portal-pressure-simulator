@@ -7,8 +7,8 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const src = readFileSync(new URL('../src/ui/callout.js', import.meta.url), 'utf8');
 
-test('the hairline rule: border colour with a fifth of the reading colour, 2 px stroke (1 px shows)', () => {
-  assert.match(css, /\.cl-glass\.cl-hair path \{ stroke: color-mix\(in srgb, var\(--c\) 20%, var\(--border-strong\)\); stroke-width: 2; \}/);
+test("the hairline rule: the one glass's edge (13 Nov 2026), 2 px stroke (1 px shows)", () => {
+  assert.match(css, /\.cl-glass\.cl-hair path \{ stroke: var\(--glass-edge\); stroke-width: 2; \}/);
 });
 
 test('the base ring rule the hairline overrides', () => {

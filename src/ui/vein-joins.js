@@ -6,7 +6,9 @@
 // path flips between two stores (stage.js), so the courses a frame handed to the renderer are not written over while it reads them.
 // (Written first with a fresh array, Map and Set for every node and every join; tests/vein-joins.test.js holds a copy of that code
 // and checks this against it on random figures, join for join and point for point.)
+import { clamp } from './num.js';
 import { nodeJoinsInto, newJoinAnswer } from './fork-joins.js';
+import { END_HOSTS, STRAND_SOFT } from './anatomy.js';
 
 /** The courses redrawn smooth where two vessels run on into each other. Read as `get(row)`: the course, or undefined for a vessel left as drawn. */
 class RowCourses {
@@ -39,7 +41,6 @@ function setKey(r) {
   r.key = joinKeyOf(r);
 }
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 // Whether q lies within `lim` of a drawn course: the distance to it below lim, in squared lengths and stopping at the
 // first segment near enough (start-up profile, 2 Nov 2026: Math.hypot on every segment of every vessel near every end was 1.4 s
@@ -110,6 +111,7 @@ function reachOfEnds(nu, skipStrands, cx, cy, N) {
 }
 const kOf = (rMin) => clamp(1.2 * rMin + 1.2, 1.5, 11);
 
+const ghostAt = (u) => UI[u] === 0 && UIT[u].ghost0 === true;   // (an end of the joined vessels by place among them: the start of a vein whose cut-away start still counts in choosing the groups)
 // One join (or several: the groups a node's ends fall into) at (cx, cy) of the nn ends in NIT/NI.
 function addJoin(st, nn, cx, cy, trunk, N) {
   // (A vessel once: its place the first time it is named, the end it is named by the last.)
@@ -132,15 +134,18 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   for (let u = 0; u < nu; u++) {
     const it = UIT[u], i = UI[u];
     let e = PEND[u];
-    if (!e) { e = { dir: null, d: [0, 0], strand: false }; PEND[u] = e; }   // alloc-rare: an end's record, made the first time a join has that many ends
+    if (!e) { e = { dir: null, d: [0, 0], strand: false, soft: false }; PEND[u] = e; }   // alloc-rare: an end's record, made the first time a join has that many ends
     e.strand = it.kind === 's';
+    e.soft = e.strand && STRAND_SOFT.has(it.x?.e?.id);
     if (i < 0) { e.dir = null; continue; }
     const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     e.d[0] = (b[0] - a[0]) / L; e.d[1] = (b[1] - a[1]) / L;
     e.dir = e.d;
   }
   nodeJoinsInto(PEND, nu, OUT);
-  if (OUT.ra >= 0) {
+  // (A cut-away start that still counts in choosing the groups, as the portal trunk's does at the portocaval confluence: the groups are the ones the whole
+  // junction gives, then the ghost leg is taken out of them, so no run-on bends a drawn vein toward a stretch that is not drawn and no web is owned by it. 13 Nov 2026.)
+  if (OUT.ra >= 0 && !ghostAt(OUT.ra) && !ghostAt(OUT.rb)) {
     let s = st.straightPool[st.straight.length];
     if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false }; st.straightPool.push(s); }   // alloc-rare: a run-on record, made the first time a figure has that many
     s.a = UIT[OUT.ra].row; s.ia = UI[OUT.ra]; s.b = UIT[OUT.rb].row; s.ib = UI[OUT.rb]; s.fork = nu - strands > 2;
@@ -149,16 +154,21 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   for (let a = 0; a < nu; a++) for (let b = a + 1; b < nu; b++) pairAdd(UIT[a].row, UIT[b].row);
   for (let gi = 0; gi < OUT.ng; gi++) {
     const g = OUT.groups[gi];
+    let live = 0;
+    for (let q = 0; q < g.members.length; q++) if (!ghostAt(g.members[q])) live++;
+    if (live < 2) continue;
     // (The vessels' own groups take the blend width their own radii give, the strands' pairs the one all the ends give, as before.)
     const k = kOf(g.strand ? allMin : ownMin), reach = allSpread + 2 * allMax + k + 6;
     let r = st.pool[st.nOut];
     if (!r) { r = { x: 0, y: 0, reach: 0, k: 0, fillet: 0, members: [], trunk: undefined, fork: false, key: '', km: [], kt: undefined, kf: false }; st.pool.push(r); }   // alloc-rare: a join's record, made the first time a figure has that many
     const ms = g.members, m = r.members;
-    for (let q = 0; q < ms.length; q++) m[q] = UIT[ms[q]].row;
-    if (m.length !== ms.length) m.length = ms.length;
+    let nm = 0;
+    for (let q = 0; q < ms.length; q++) if (!ghostAt(ms[q])) m[nm++] = UIT[ms[q]].row;
+    if (m.length !== nm) m.length = nm;
     r.x = cx; r.y = cy; r.reach = reach; r.k = k; r.fillet = g.fillet;
-    r.trunk = g.trunk >= 0 ? UIT[g.trunk].row : trunk;
-    r.fork = g.trunk >= 0;
+    const tk = g.trunk >= 0 && !ghostAt(g.trunk);
+    r.trunk = tk ? UIT[g.trunk].row : trunk;
+    r.fork = tk;
     setKey(r);
     st.out[st.nOut++] = r;
   }
@@ -170,6 +180,11 @@ function addJoin(st, nn, cx, cy, trunk, N) {
  * st.out (st.nOut of them; the array's length is set to that), the pairs that run on st.straight. A margin widens the box and the
  * reach of an end meeting a course by that much and keeps every contact of a pair (the stretches' wide pass, made ahead).
  */
+// A divided vein (the splenic vein in a Warren shunt, the portal trunk in a portocaval shunt) has its first stretch cut away: `it.cut` is that
+// stretch's length (stage-vessels.js, 0 for the rest). Its drawn start is the stump's round end, so the cut-away start joins nothing, and no other
+// vessel's end ends on the stretch that is not drawn. Without this the vein that turns down into the shunt counted the cut vein as its partner:
+// it ended flat against nothing, and the shunt's start inside it was dropped, leaving a dark hole at the turn (13 Nov 2026, Mohammad's shot of 15c335a).
+const cutAway = (y, x, yy) => y.cut > 0 && Math.hypot(x - y.pts[0][0], yy - y.pts[0][1]) < 20;
 export function veinJoins(items, N, st, margin = 0) {
   st.nOut = 0; st.straight.length = 0;
   HGEN++; HN = 0;
@@ -182,6 +197,7 @@ export function veinJoins(items, N, st, margin = 0) {
     if (it.kind === 'f') continue;
     const art = it.x.isArt ? 1 : 0;
     for (let i = 0; i < 2; i++) {
+      if (i === 0 && it.cut > 0) continue;   // (a divided vein's cut-away start meets nothing: see cutAway)
       const node = i ? it.endNode || it.x.e.to : it.x.e.from;
       let id = NODE_ID.get(node);
       if (id === undefined) { id = NODE_ID.size; NODE_ID.set(node, id); }
@@ -234,11 +250,14 @@ export function veinJoins(items, N, st, margin = 0) {
   for (let a = 0; a < n; a++) {
     const it = items[a], P = it.pts;
     for (let i = 0; i < 2; i++) {
+      if (i === 0 && it.cut > 0) continue;
       const q = i ? P[P.length - 1] : P[0], qx = q[0], qy = q[1], rq = it.obj.glR[i ? N - 1 : 0];
       for (let k = 0; k < n; k++) {
         if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
         const y = items[k];
-        if (y === it || (!margin && pairHas(it.row, y.row))) continue;   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
+        if (y === it || (!margin && pairHas(it.row, y.row)) || cutAway(y, qx, qy)) continue;
+        const hosts = END_HOSTS[it.x.e.id];
+        if (hosts && y.x.e.id !== it.x.e.id && !hosts.includes(y.x.e.id)) continue;   // (an end that may lie only on the courses it is drawn onto: END_HOSTS)   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
         if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2 + margin)) {
           NIT[0] = it; NI[0] = i; NIT[1] = y; NI[1] = -1;
           addJoin(st, 2, qx, qy, y.x.e.id === it.x.e.id ? undefined : y.row, N);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)

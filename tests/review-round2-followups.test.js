@@ -43,7 +43,7 @@ test('BM9: the divisor has no step as a vessel narrows or the zoom changes', () 
 });
 
 test('BM9: the shader and the lobule read the same table, with no lane loop left', () => {
-  const gl = read('src/ui/veins-gl.js'), lob = read('src/ui/lobule-zoom.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js'), lob = read('src/ui/lobule-zoom.js');
   assert.match(gl, /const float LANE_K\[7\] = float\[7\]\(\$\{LANE_K/);
   assert.match(gl, /float sumK = mix\(LANE_K\[lk\], LANE_K\[lk \+ 1\], lc - float\(lk\)\);/);
   assert.doesNotMatch(gl, /sumK \+=/);
@@ -58,7 +58,7 @@ test("a narrowing's clamp and label fade out from their own group, which the lab
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);
   // (The GPU draws the arrows: their fade rides on the draw's alpha, never on a baked SVG opacity.)
   assert.match(stage, /d\.fade \? olFaded\(d\) : d/);
-  assert.match(stage, /const fadeEase = \(key\) => \(markA\.has\(key\) \? markA\.amount\(key\) : clampEase\(key\)\);/);
+  assert.match(stage, /const fadeEase = \(key\) => \(markA\.has\(key\) \? markA\.amount\(key\) : stentAmt\.has\(key\) \? stentAmt\.get\(key\) : clampEase\(key\)\);/);   // (a stent the figure brings in on its own clock: its amount by its key, 13 Nov 2026)
   assert.match(stage, /if \(el\._c || !glLines\) el\.style\.opacity = op;/);
   assert.match(stage, /!clampFading\(\) && !markA\.moving\(\) && !widthEasing/);
   assert.match(css, /\.clamp, \.clamp-out \{/);

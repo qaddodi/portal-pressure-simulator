@@ -7,6 +7,7 @@
 // inside it every halo and fill that read the card's colour read the plot's own tone) is data-axes on the model's root; `cw` (a card's zone
 // words, 7365) is the .pze-cwords group they sit in.
 import { tok, mix, ease } from './dsl.js';
+import { CRIT } from './crit.js';
 
 // Colours that never change with the look, all tokens (theme-tokens.js): the pressure ramp's violet and wine stops, and pure black.
 const VIOLET = tok('ramp-violet'), WINE = tok('ramp-wine'), BLACK = tok('pze-black');
@@ -74,10 +75,16 @@ export const PLANE = {
   // 7333 .pze-box: a deck's own box, a dashed outline
   'plane.box': { base: { fill: 'none', stroke: tok('text-2'), width: 1.5, dash: [6, 5] } },
   'plane.zt': zt,
+  // A zone's words on a plane that shares the guideline card's look (pl.look 'guide', baveno-zones.js): the type of crit.word, the same outlined words, easing as the
+  // card's own zone words do (a group's pze-cwords).
+  'plane.gzt': { state: { cw: 'class:pze-cwords' }, base: CRIT['crit.word'].base, when: [[{ cw: true }, { ease: { opacity: ease('flip') } }]] },
   // 7338 .pze-cut: a cut-off line
   'plane.cut': { base: { stroke: tok('text-3'), width: 1, dash: [3, 4] } },
   // 7339, 7346 .pze-diag (.pze-axes .pze-diag a step stronger): where the two readings are equal
   'plane.diag': { state: { axes: 'data-axes' }, base: { stroke: tok('text-3'), width: 1.5, dash: [3, 4] }, when: [[{ axes: true }, { stroke: tok('text-2') }]] },
+  // lines of equal resistance (iso, visual-plane.js): a quiet ray from the origin, its name in the diagonal's ink
+  'plane.iso': { base: { stroke: tok('text-3'), width: 1.25, opacity: 0.6 } },
+  'plane.isot': { state: { axes: 'data-axes' }, base: { weight: 600, fill: tok('text-3') }, when: [[{ axes: true }, { halo: { stroke: tok('surface-2'), width: 4, join: 'round' } }]] },
   // 7344 .pze-grid, 7345 .pze-axis: a scatter's hairlines and its two axis lines
   'plane.grid': { base: { stroke: mix('srgb', tok('border-strong'), 70, 'transparent'), width: 1 } },
   'plane.axis': { base: { stroke: tok('text-3'), width: 1.5 } },

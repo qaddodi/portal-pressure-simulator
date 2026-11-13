@@ -57,21 +57,24 @@ export const PATH = {
   'path.bar': { state: { lit: 'class:lit' }, base: { fill: tok('border-strong'), opacity: 0.4 }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
   'path.zl': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { weight: 500, fill: param('tone'), opacity: 1 }]] },
   // the grid: the columns' and rows' names, a cell and its words (the cell's colour is its own)
-  'path.gh': { base: { weight: 500, fill: tok('text-3'), halo } },
-  'path.gr': { base: { weight: 600, fill: tok('text-2'), halo } },
-  'path.gs': { base: { weight: 400, fill: tok('text-3'), halo } },
-  'path.cell': {
+  'path.gh': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
+  'path.gr': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
+  'path.gs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), halo }, when: [[{ lit: true }, { fill: tok('text-2') }]] },
+  // (7 Nov 2026, mock C) the cells with the same answer are one shape in the answer's colour, faint at rest; the patient's cell a filled inset in it
+  'path.group': {
     state: { lit: 'class:lit' },
-    base: { fill: mix('srgb', param('tone'), 8, 'transparent'), stroke: tok('border-strong'), width: 1, opacity: 0.4 },
-    when: [[{ lit: true }, { fill: mix('srgb', param('tone'), 18, 'transparent'), stroke: param('tone'), width: 2, opacity: 1 }]],
+    base: { fill: mix('srgb', param('tone'), 8, 'transparent'), stroke: mix('srgb', param('tone'), 50, 'transparent'), width: 1.25 },
+    when: [[{ lit: true }, { fill: mix('srgb', param('tone'), 14, 'transparent'), stroke: param('tone'), width: 2 }]],
   },
-  'path.ct': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
-  'path.ctc': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
-  'path.cs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.cell': { base: { fill: mix('srgb', param('tone'), 24, 'transparent'), stroke: 'none' } },
+  // an answer's words in its own colour, quieter at rest; the column and row names lit in the ink on the patient's answers
+  'path.ct': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.ctc': { state: { lit: 'class:lit' }, base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), opacity: 0.75, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.cs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.75, halo }, when: [[{ lit: true }, { fill: tok('text-2'), opacity: 1 }]] },
   // the ladder: a step's line, "Stage n", "Patient is here", what the stage means, and the way back
   'path.step': { state: { lit: 'class:lit' }, base: { fill: 'none', stroke: tok('border-strong'), width: 3, cap: 'butt', opacity: 0.4 }, when: [[{ lit: true }, { stroke: param('tone'), opacity: 1 }]] },
   'path.sn': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
-  'path.yo': { base: { weight: 600, fill: param('tone'), halo } },
+  'path.yo': { base: { weight: 600, fill: mix('srgb', param('tone'), 100, 'transparent'), halo } },
   'path.sw': { base: { weight: 600, fill: tok('text'), halo } },
   'path.back': {
     state: { lit: 'class:lit' },

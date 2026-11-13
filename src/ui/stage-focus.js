@@ -1,6 +1,7 @@
 // The selection and focus marks: which organs the selection lights, the focus sets and their marks and colour.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
+import { D_SURFACE } from './ease.js';
 import { store } from './store.js';
 import { s } from './util.js';
 
@@ -88,7 +89,7 @@ export function createFocus(st, live) {
     focusPresenting = presenting;
     focusSig.length = 0;
     for (let i = 0; i < now.length; i++) focusSig.push(now[i]);
-    setGlowSrc('focus', focusIds.filter((id) => focusCol(focusKind.get(id), presenting)).map((id) => ({ id, col: focusCol(focusKind.get(id), presenting), amt: 1, wide: 0.75, dur: 600, span: focusHi.get(id) - focusLo.get(id) < 1 ? [focusLo.get(id), focusHi.get(id)] : null })));
+    setGlowSrc('focus', focusIds.filter((id) => focusCol(focusKind.get(id), presenting)).map((id) => ({ id, col: focusCol(focusKind.get(id), presenting), amt: 1, wide: 0.75, dur: D_SURFACE, span: focusHi.get(id) - focusLo.get(id) < 1 ? [focusLo.get(id), focusHi.get(id)] : null })));
   }
   return { syncSelFluid, syncSelLine, updateFocus, updateOrganSel };
 }

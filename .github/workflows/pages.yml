@@ -7,6 +7,8 @@ name: Pages (live site + preview)
 # On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
 # On main nothing is cancelled. Browser checks are not part of the deploy.
+# Every deploy also force-pushes the built site as ONE fresh commit (no history) to the gh-pages branch. While Settings > Pages > Source is "GitHub Actions" the
+# upload-pages-artifact + deploy-pages steps below publish it; once the owner sets Source to "Deploy from a branch" (gh-pages, / (root)) they are skipped and Pages serves the branch.
 # deploy-pages waits at most 10 min for Pages (a larger "timeout" is cut to 10 min). A slow Pages backend gets a second attempt (a new deployment) inside the 30 min job; a newer preview push still cancels it.
 
 on:
@@ -19,7 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 permissions:
-  contents: read
+  contents: write   # (the deploy keeps the built site on the gh-pages branch as one fresh commit)
   pages: write
   id-token: write
   actions: write   # (the deploy deletes its site artifact once Pages has it)
@@ -28,31 +30,13 @@ jobs:
   # Gates main's deploy only.
   validate:
     if: github.ref_name == 'main'
-    runs-on: ubuntu-24.04
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: false
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js); a miss only warns.
-      - name: Restore saved deck states
-        uses: actions/cache@v5
-        continue-on-error: true
-        timeout-minutes: 1
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
-        with:
-          path: node_modules/.cache/pps-deck-states
-          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
-          restore-keys: deck-states-
-      - name: Lint and unit tests
-        run: npm run lint && npm test
+    uses: ./.github/workflows/unit-tests.yml   # (lint, then the unit tests in parallel shards: one job never finished in its time limit)
+    with:
+      lint: true
+      static: false
 
   deploy:
     needs: validate
@@ -134,26 +118,51 @@ jobs:
           if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview; fi
           touch site/.nojekyll
 
-      - uses: actions/configure-pages@v6
-      - uses: actions/upload-pages-artifact@v5
+      # The same site, as one orphan commit on gh-pages, replaced every time (a force push), so nothing piles up. It never fails the deploy.
+      - name: Keep the site on the gh-pages branch
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          cd site
+          git init -q -b gh-pages
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -f
+          git commit -q -m "Site built from ${SHA:0:8}"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+
+      # Which way Pages is served: "workflow" (the artifact steps below) or "legacy" (the gh-pages branch). If the API cannot say, keep the artifact way.
+      - name: Pages source
+        id: src
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" -q .build_type 2>/dev/null || echo workflow)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.src.outputs.type != 'legacy'
+        uses: actions/configure-pages@v6
+      - if: steps.src.outputs.type != 'legacy'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
           include-hidden-files: true   # (v5 leaves dot files out by default; the site was published with them before)
           retention-days: 1
       # deploy-pages gives up after 10 min (its maximum) and cancels its deployment; a second attempt makes a new one, which often passes at once.
       - id: deployment
+        if: steps.src.outputs.type != 'legacy'
         continue-on-error: true
         uses: actions/deploy-pages@v5
         with:
           timeout: 600000
       - id: deployment-retry
-        if: steps.deployment.outcome == 'failure'
+        if: steps.src.outputs.type != 'legacy' && steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5
         with:
           timeout: 600000
       # The site artifact (~14 MB) is only needed until Pages has it.
       - name: Delete the site artifact
-        if: always()
+        if: always() && steps.src.outputs.type != 'legacy'
         uses: actions/github-script@v8
         with:
           script: |

@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { flankPath } from '../src/ui/anatomy.js';
 
 // The organs' copy for the GPU leaves the flank out (stage.js plateBuild): it sits in the backdrop, under the diaphragm's

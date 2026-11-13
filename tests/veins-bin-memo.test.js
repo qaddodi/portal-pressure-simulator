@@ -47,7 +47,6 @@ test('the geometry is not rebuilt while nothing about it changed', () => {
 });
 
 test('the figure uploads the vessel geometry only when binning gave a new result', async () => {
-  const { readFileSync } = await import('node:fs');
   const stage = stageSource();
   assert.match(stage, /binVeins\([^;]*, binMemo\);\s*\n(?:\s*\/\/.*\n)*\s*let patched = null, whole = false;\s*if \(bins !== (?:live\.)?(?:live\.)?binShown\) \{\s*if \(bins\.patch && (?:live\.)?(?:live\.)?binShown\?\.ent === bins\.ent\) \{ (?:live\.)?(?:live\.)?veins\.patchGeometry\(bins\); if \(bins\.patchRows\) patched = bins\.patchRows; else whole = true; \} else \{ (?:live\.)?(?:live\.)?veins\.setGeometry\(bins\); whole = true; \}\s*(?:live\.)?(?:live\.)?binShown = bins;\s*\}/);
 });

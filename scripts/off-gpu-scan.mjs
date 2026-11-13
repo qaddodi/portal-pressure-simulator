@@ -99,6 +99,10 @@ const LAYOUT_PROPS = new Set(['width', 'height', 'top', 'left', 'right', 'bottom
   'flex-basis', 'r', 'cx', 'cy', 'd', 'all']);
 // Animated, these repaint every frame on the CPU (only transform and opacity stay on the compositor).
 const isPaint = (p) => /^(-webkit-)?mask(-|$)/.test(p) || /^(-webkit-)?clip-path$/.test(p) || /^(background|border|outline|box-shadow|text-shadow|color|fill|stroke|filter|backdrop-filter|-webkit-backdrop-filter|caret-color|accent-color|text-decoration-color|column-rule|stop-color|flood-color|lighting-color|-webkit-text-stroke|-webkit-text-fill-color)/.test(p) || /^--/.test(p);
+// (Also repainting, exact names: SVG geometry and the text-decoration, clip and blend properties the prefix list above does not reach.
+// 8 Nov 2026: a transition of any of them repaints every frame it moves just as a shadow does.)
+const PAINT_EXACT = new Set(['clip', 'mix-blend-mode', 'paint-order', 'scrollbar-color', 'shape-outside', 'font-variation-settings', 'points', 'rx', 'ry', 'x', 'y', 'visibility-paint']);
+const isPaintProp = (p) => isPaint(p) || PAINT_EXACT.has(p) || /^(-webkit-)?text-(decoration|emphasis|underline)/.test(p);
 const PAINT_JS = /^(webkit)?[Mm]ask|^(webkit)?[Cc]lipPath$|^(background|border|outline|boxShadow|textShadow|color|fill|stroke|filter|backdropFilter|webkitBackdropFilter|stopColor)/;
 const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 const LAYOUT_JS = new Set([...LAYOUT_PROPS].filter((p) => p !== 'all').map(camel));
@@ -141,6 +145,53 @@ export function ownerOf(file, cat, fn = '') {
   return OWNERS.unassigned;
 }
 
+// ---- Transition lists (8 Nov 2026) ----
+// A transition's property names, wherever they stand in the list: `transition: 0.2s box-shadow` and `transition: opacity 1s, box-shadow 1s
+// cubic-bezier(.2, .8, .2, 1)` name box-shadow as much as `transition: box-shadow 1s` does (the list is split on the commas outside
+// brackets, and a property may come before or after its times). A name held in a custom property (`transition: var(--t-glow)` with
+// `--t-glow: box-shadow .4s ease`) is read from that property's declarations anywhere in the styles, every value it is given. A part that
+// names no property at all transitions everything ('all'), as in CSS.
+const customVals = new Map();   // (custom property name -> every value any rule gives it; filled from the styles at the start of a scan)
+export function noteCustomProps(text) {
+  const src = text.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const re = /(?:^|[;{}\s])(--[a-zA-Z0-9_-]+)\s*:\s*([^;{}]+)/g;
+  let m;
+  while ((m = re.exec(src))) { const v = m[2].trim().replace(/\s*!important$/, ''); const a = customVals.get(m[1]) || []; if (!a.includes(v)) a.push(v); customVals.set(m[1], a); }
+}
+const splitTop = (str, sep) => {
+  const out = []; let depth = 0, cur = '';
+  for (const ch of str) {
+    if (ch === '(') depth++; else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (depth === 0 && (sep === ',' ? ch === ',' : /\s/.test(ch))) { if (cur.trim()) out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+};
+const NOT_PROP = /^(?:[+-]?[\d.]+m?s|ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end|normal|allow-discrete|none|inherit|initial|unset|revert|revert-layer|!important)$|^(?:cubic-bezier|steps|linear)\(/i;
+/** The property names a transition value (or transition-property value) names: [{ prop, part }], one per name; 'all' for a part naming none. */
+export function transitionProps(val, { longhand = false, depth = 0 } = {}) {
+  const out = [];
+  for (const part of splitTop(String(val).replace(/^['"`]|['"`]$/g, ''), ',')) {
+    const found = []; let none = false;
+    for (const tok of splitTop(part, ' ')) {
+      const t = tok.replace(/^['"`]|['"`]$/g, '');
+      const v = /^var\(\s*(--[\w-]+)/.exec(t);
+      if (v) {
+        // (A custom property: what it holds, each value it is given; one nobody declares stands for a time or a curve, as it always did.)
+        if (depth < 4) for (const held of customVals.get(v[1]) || []) for (const r of transitionProps(held, { longhand, depth: depth + 1 })) if (r.explicit) found.push(r.prop);
+        continue;
+      }
+      if (t.toLowerCase() === 'none') none = true;
+      if (NOT_PROP.test(t)) continue;
+      if (/^-{0,2}[a-z][a-z0-9-]*$/i.test(t)) found.push(t.toLowerCase());
+    }
+    if (found.length) for (const prop of found) out.push({ prop, part, explicit: true });
+    else if (none) continue;   // (transition: none)
+    else if (!longhand || part) out.push({ prop: 'all', part, explicit: false });
+  }
+  return out;
+}
+
 // ---- CSS (styles/*.css, index.html <style>, and CSS inside script strings) ----
 // Every render or motion site looked at, on the GPU or not ("x/y on GPU"): the lines holding a drawing call, a context, an animation,
 // a frame request, a layout read or write, a blur or a shader status read. A line with no hit is on the GPU (x); y is x plus the hits.
@@ -171,18 +222,15 @@ function cssHits(text, file, lineBase, fn, push) {
       if (/^(-webkit-)?backdrop-filter$/.test(prop) && !/^none\b/.test(val)) push('backdrop', file, at, sel, `${prop}: ${val}`);
       if (prop === 'filter' && /blur\(/.test(val)) push('cpuBlur', file, at, sel, `filter: ${val}`);
       if (prop === 'transition' || prop === 'transition-property') {
-        for (const part of val.split(',')) {
-          const first = part.trim().split(/\s+/)[0];
-          const isTime = /^[\d.]+m?s$/.test(first) || /^var\(/.test(first) && prop === 'transition' && !/[a-z]-?[a-z]*\s*$/.test(first);
-          const p = prop === 'transition' && (isTime || /^(ease|linear|cubic|steps)/.test(first)) ? 'all' : first;
-          look('anim', file, at);
-          if (LAYOUT_PROPS.has(p)) push('layoutAnim', file, at, sel, `${prop}: ${part.trim()}`);
-          else if (isPaint(p)) push('paintAnim', file, at, sel, `${prop}: ${part.trim()}`);
+        look('anim', file, at);
+        for (const { prop: p, part } of transitionProps(val.replace(/\s*!important$/, ''), { longhand: prop === 'transition-property' })) {
+          if (LAYOUT_PROPS.has(p)) push('layoutAnim', file, at, sel, `${prop}: ${part}`);
+          else if (isPaintProp(p)) push('paintAnim', file, at, sel, `${prop}: ${part}`);
         }
       }
       if (kfDepth >= 0) look('anim', file, at);
       if (kfDepth >= 0 && LAYOUT_PROPS.has(prop)) push('layoutAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
-      else if (kfDepth >= 0 && isPaint(prop)) push('paintAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
+      else if (kfDepth >= 0 && isPaintProp(prop)) push('paintAnim', file, at, sel, `@keyframes sets ${prop}: ${val}`);
     }
   };
   for (i = 0; i < src.length; i++) {
@@ -265,6 +313,11 @@ export function scan({ root = ROOT } = {}) {
   sites = new Set();
   const push = (cat, file, line, fn, detail) => (look(cat, file, line), hits.push({ cat, file, line, fn, detail: String(detail).slice(0, 260), owner: ownerOf(file, cat, fn) }));
   const files = [...walk(join(root, 'src')), ...walk(join(root, 'styles')), join(root, 'index.html')].map((p) => relative(root, p).split('\\').join('/'));
+  customVals.clear();
+  for (const file of files) {
+    if (file.endsWith('.css')) noteCustomProps(readFileSync(join(root, file), 'utf8'));
+    else if (file.endsWith('.html')) for (const m of readFileSync(join(root, file), 'utf8').matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) noteCustomProps(m[1]);
+  }
 
   // Per JS file: functions, their calls, frame seeds, deferred hits (frame-only categories).
   const mods = new Map();
@@ -281,7 +334,7 @@ export function scan({ root = ROOT } = {}) {
     const ast = parseJs(file, text);
     const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map(), decls: new Map(), shapes: new Map() };
     mods.set(file, mod);
-    const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
+    const frameCallers = new Set(['requestAnimationFrame', 'frame', 'readFrame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
     visit(ast, null, (n) => {
       if (n.type === 'ImportDeclaration') {
@@ -292,10 +345,10 @@ export function scan({ root = ROOT } = {}) {
           mod.imports.set(s.local.name, [rel, s.imported.name]);
           const made = /^(create|make)([A-Z]\w*)$/.exec(s.local.name);
           if (made) mod.origins.set(made[2][0].toLowerCase() + made[2].slice(1), rel);
-          if (rel === SCHEDULER && ['frame', 'lateFrame', 'finalFrame'].includes(s.imported.name)) frameCallers.add(s.local.name);
+          if (rel === SCHEDULER && ['frame', 'readFrame', 'lateFrame', 'finalFrame'].includes(s.imported.name)) frameCallers.add(s.local.name);
         }
       }
-      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && /^(frameFor|lateFrameFor|finalFrameFor)$/.test(calleeName(n.init) || '')) frameCallers.add(n.id.name);
+      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && /^(frameFor|readFrameFor|lateFrameFor|finalFrameFor)$/.test(calleeName(n.init) || '')) frameCallers.add(n.id.name);
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && /raf|Frame$/i.test(n.id.name) && n.init && /frameFor|frame\(|Frame\(/.test(text.slice(n.init.start, n.init.end))) frameCallers.add(n.id.name);
     });
     let uid = 0;
@@ -472,8 +525,11 @@ export function scan({ root = ROOT } = {}) {
         if (prop === 'filter' && !onStyle && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), `canvas filter: ${text.slice(n.right.start, Math.min(n.right.end, n.right.start + 80))}`);
         if (onStyle && prop === 'filter' && /blur\(/.test(text.slice(n.right.start, n.right.end))) push('cpuBlur', file, n.loc.start.line, label(enclosing(n)), text.slice(n.start, Math.min(n.end, n.start + 100)));
         if (onStyle && prop === 'transition') {
-          const v = strOf(n.right) || text.slice(n.right.start, n.right.end);
-          for (const part of v.split(',')) { const first = part.trim().replace(/^['"`]/, '').split(/\s+/)[0]; if (isPaint(first)) push('paintAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); if (LAYOUT_PROPS.has(first)) push('layoutAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part.trim()}`); }
+          // (Every string in the value, also in a condition's two branches or a concatenation: a name held in a variable is not read.)
+          const strs = []; const collect = (x) => { if (!x || typeof x.type !== 'string') return; const str = strOf(x); if (str != null) { strs.push(str); return; } for (const k of ['test', 'consequent', 'alternate', 'left', 'right', 'expressions']) for (const c of [].concat(x[k] ?? [])) collect(c); };
+          collect(n.right);
+          const v = strs.join(', ');
+          for (const { prop: p, part } of transitionProps(v)) { if (isPaintProp(p)) push('paintAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part}`); if (LAYOUT_PROPS.has(p)) push('layoutAnim', file, n.loc.start.line, label(enclosing(n)), `style.transition = ${part}`); }
         }
       }
       // ---- Dynamic dispatch (2 Nov 2026): registries, what is stored in them, and calls through them ----
@@ -507,7 +563,7 @@ export function scan({ root = ROOT } = {}) {
           if (R && d) for (const id of d.type === 'ArrayPattern' ? d.elements : [d]) if (id?.type === 'Identifier') note(mod.alias, aliasKey(f0, id.name), R);
         }
         if (n.type === 'CallExpression') {
-          const c = n.callee, cn0 = calleeName(n);
+          const c = n.callee;
           // callbacks of forEach/map/... over a registry
           if (c.type === 'MemberExpression' && !c.computed && /^(forEach|map|some|every|find|filter)$/.test(c.property.name) && isFn(n.arguments[0])) {
             const R = baseName(c.object);

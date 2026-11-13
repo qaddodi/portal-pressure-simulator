@@ -32,7 +32,7 @@ export const COUNTED = {
   // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
   // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
   // the whole vessel sync because something else had changed or a vessel outgrew its binned reach.)
-  flowSame: 'blood: upload skipped (rows unchanged)', flowRetired: 'blood: rows cleared',
+  flowSame: 'blood: upload skipped (rows unchanged)', tubesSame: 'tubes: upload skipped (rows unchanged)', boxesKept: 'blood boxes: kept', boxesMade: 'blood boxes: walked', flowRetired: 'blood: rows cleared',
   widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
   // (The optional refinement work, refine.js: the steps it took, and the frames it was held back from for a gesture.)
   refineStep: 'refinement: steps', refineHeld: 'refinement: frames held for a gesture',
@@ -43,7 +43,7 @@ export const COUNTED = {
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
-export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
+export const WHY = ['no kept layer', 'radii changed', 'look changed', 'moved too far', 'zoom or turn', 'tubes changed'];
 /**
  * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
  * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
@@ -56,7 +56,7 @@ export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same plac
 export const BY = ['frame', 'resize', 'plate hidden', 'tab hidden', 'plate shown', 'plate landed', 'check', 'lobule', 'stage, outside a draw call'];
 /** Why the lobule's tissue bitmap was painted again (lobule-zoom.js paintTissue), as counted with its size: a fixed list. */
 export const TISSUE_WHY = ['first', 'state changed', 'zoomed in', 'zoomed out'];
-export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
+export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'mesh renderer', 'most cells', 'switch piece'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.

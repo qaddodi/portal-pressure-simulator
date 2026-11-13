@@ -26,6 +26,16 @@ const OWN = ['zoom', 'kMax', 'clear', 'labels', 'mark', 'marks', 'sites', 'glow'
 // The scale a cam shows (a slide with no cam, or a visual, shows the anatomy).
 export const scaleOfCam = (cam) => (cam === 'sinusoid' ? 'sinusoid' : typeof cam === 'string' && /^lobule/.test(cam) ? 'lobule' : 'anatomy');
 
+/** Where an upright screen's pill stands across (its centre, in the stage's own px): the middle of the teaching card where that card
+ *  rests (right edge and width in screen px, the stage's left edge, k the stage's zoom), kept so the whole pill is inside the stage
+ *  with `margin` to spare (the card can be wider than the room beside the pill, or still on its way in). */
+export function scaleCentre({ right, width, wrapLeft = 0, k = 1, pill = 0, wrapW = 0, margin = 8 }) {
+  const cx = (right - width / 2 - wrapLeft) / (k || 1);
+  if (!(pill > 0) || !(wrapW > 0)) return cx;
+  const lo = pill / 2 + margin, hi = wrapW - pill / 2 - margin;
+  return lo <= hi ? Math.min(hi, Math.max(lo, cx)) : wrapW / 2;
+}
+
 /** The slide's own scale: the one its cam opens on. */
 export const homeScale = (s) => scaleOfCam(s?.cam);
 

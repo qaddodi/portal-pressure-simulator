@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS, withOverview } from '../src/ui/decks.js';
-import { tileKeys, toolOnly, headKeys } from '../src/ui/card-tiles.js';
+import { tileKeys, toolOnly, headKeys, shownBy } from '../src/ui/card-tiles.js';
 import { tileOf } from '../src/ui/table-marks.js';
 import { scopeLensFor } from '../src/ui/scope-lens-rule.js';
 
@@ -52,7 +52,8 @@ test('the tiles build the header readings from the same values, numbers as GPU w
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
   assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true, keep: true \}\) : null;/, 'the number is GPU words with the label outline, kept (never handed to the page text)');
   assert.doesNotMatch(js, /class: 'pz-hi'[^\n]*h\('i', \{\}\)/, 'no rating dot in the reading');
-  assert.match(js, /else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);|if \(!p\.hw\) setT\(p\.hv, hs\); else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);/);
+  assert.match(js, /if \(!p\.hw\) setT\(p\.hv, hs\); else p\.hw\.set\(hs\);/, 'a header reading is always set, never .now: a kept GPU number is redrawn by set alone, so now left the start state up under a time-lapse\'s end');
+  assert.doesNotMatch(js, /p\.hw\.now\(/);
   assert.match(js, /else ui\.tiles\.paintTiles\(now\.fp, \[\], \[\], null, 0, false\);/, 'a card with no readings clears the last slide\'s');
   assert.doesNotMatch(js, /stackFold/, 'no key or wheel works a readings card');
   assert.doesNotMatch(js, /k === 'ArrowUp' \|\| k === 'ArrowDown'\) \{ if \(!e\.repeat\)/);
@@ -68,4 +69,24 @@ test('the header\'s readings are laid beside the name by styles alone: a number 
   assert.match(css, /\.pz\.stack \.pz-hr:is\(\[data-n="3"\], \[data-n="4"\]\) \.pz-hi > small \{ display: none; \}/);
   const block = css.slice(css.indexOf('.pz-hr { display: none; }'));
   assert.doesNotMatch(block, /backdrop-filter|filter:|animation|transition/, 'no new glass or painted motion: the card\'s own glass holds them');
+});
+
+test('an instrument that already shows a number large never repeats it in the header (FibroScan its stiffness, the monitor its vitals)', () => {
+  const liver = { tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'] };
+  const spleen = { tool: { kind: 'fibroscan', organ: 'spleen' }, data: 'tiles', tiles: ['ssm', 'lsm', 'hvpg'] };
+  for (const phone of [false, true]) {
+    assert.deepEqual(headKeys(liver, phone), ['plt', 'hvpg'], 'the liver scan shows its kPa large: no stiffness above it');
+    assert.deepEqual(headKeys(spleen, phone), ['lsm', 'hvpg'], 'the spleen probe shows the spleen\'s kPa; the liver\'s is a different number and stays');
+    assert.deepEqual(headKeys({ tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm'] }, phone), [], 'nothing left: no readings row');
+  }
+  assert.deepEqual(headKeys({ tool: { kind: 'vitals', show: ['hr', 'map'] }, data: 'tiles', tiles: ['hr', 'map', 'co'] }, false), ['co']);
+  const bad = [];
+  for (const { s, at } of cards) for (const k of shownBy(s)) for (const phone of [false, true]) if (headKeys(s, phone).includes(k)) bad.push(`${at}: ${k} repeated`);
+  assert.deepEqual(bad, []);
+  assert.ok(cards.some(({ s }) => shownBy(s).length && (s.tiles || []).some((k) => shownBy(s).includes(k))), 'some real slide had one');
+});
+
+test('the name keeps its own line when it and the readings do not fit one: the row wraps, the readings fall to the right beneath', () => {
+  assert.match(css, /\.pz \.pz-data\.has-tool > \.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) \{ flex-wrap: wrap;/);
+  assert.doesNotMatch(css, /\.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) > span:first-child \{[^}]*min-width: 0/);
 });

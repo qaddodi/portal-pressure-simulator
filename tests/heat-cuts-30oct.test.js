@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { refreshOf, intervalStats, intervalLine, surfaceLine } from '../src/ui/perf-readout.js';
 import { onlyClasses, classOnly, createLayoutWatch, GESTURE_LOOK, GESTURE_MOVE_FREE } from '../src/ui/idle-keys.js';
-import { COUNTED, TWICE } from '../src/ui/gpu-probe.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
@@ -104,7 +103,7 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'UC.i1(cathPass.u.stillOn, 0);', 'UC.i1(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'gpuProbe.time(gl, \'catheter\', cathT)', 'if (hard) gpuProbe.time(gl, \'outlines\', linesT);', 'gl.disable(gl.SCISSOR_TEST);'];
   let at = -1;
   for (const k of order) { const i = box.indexOf(k); assert.ok(i > at, k); at = i; }
-  assert.match(comp, /const cathPass = cathRect \? \(bare \? plain : comp\) : null;/, 'the whole picture\'s own build');
+  assert.match(comp, /const cathPass = cathRect \? \(bare \? cPlain : cFull\) : null;/, 'the whole picture\'s own build (cPlain, cFull: the Tube\'s builds in stage 3, the old ones otherwise)');
   assert.match(comp, /cathAt = cath \? cathBox\(m, BOX_AT\) : null;/, 'where it was drawn, for the next frame');
   // The box takes every vertex the draws use, base and frame alike, and a margin.
   const fn = v.slice(v.indexOf('  function cathBox(m, into) {'), v.indexOf('  function drawCath(m) {'));
@@ -113,10 +112,12 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   assert.match(fn, /Math\.ceil\(y1\) \+ 2/);
 });
 
-test('H7: the pressure strip and the vitals monitor scroll at the pace the figure\'s steady motion keeps (every frame by default)', () => {
+test('H7: the pressure strip and the vitals monitor scroll at the pace the figure\'s steady motion keeps (every frame by default), and at rest at the rest pace (13 Nov 2026)', () => {
   const pt = src('pressure-time.js'), vm = src('vitals-monitor.js');
-  assert.match(pt, /const pace = paceMs\(\);\n\s+if \(pace && now - tickAt < pace\) return;\n\s+tickAt = now;\n\s+draw\(\);/);
-  assert.match(vm, /if \(!pace \|\| now - loopAt >= pace\) \{ loopAt = now; draw\(now\); noteDraw\('vitals-monitor'\); \}\n\s+loopRaf = nextFrame\(loop\);/);
+  assert.match(pt, /const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - tickAt >= gap;/);
+  assert.match(pt, /if \(!due\) return;\n\s+tickAt = now;\n\s+draw\(\);/);
+  assert.match(vm, /const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - loopAt >= gap;/);
+  assert.match(vm, /if \(due\) \{ loopAt = now; draw\(now\); noteDraw\('vitals-monitor'\); \}\n\s+if \(!\(rest > pace && !parkT && \(parkT = restPark\(due \? rest : gap - \(now - loopAt\), unpark\)\)\)\) loopRaf = nextFrame\(loop\);/);
 });
 
 test('H10: the FibroScan probe\'s tap restarts with no style read and no layout (1 Nov 2026: two copies of its animation, turned between)', () => {

@@ -10,6 +10,7 @@
 //   s  velocity variance from 0 (laminar) to 1 (turbulent)
 // and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
+import { clamp01 } from './num.js';
 import { cssRGB } from './util.js';
 import { PROBE } from './dop-probe.js';
 
@@ -40,7 +41,6 @@ const map = () => {
 /** The maps' colours (0 to 255), for the GPU's spectrum shader (doppler-synth.js). */
 export const dopplerMap = map;
 
-const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
 /** Colour for one instant, written into out ([r, g, b, a]; a of 0: nothing to draw). invert swaps toward and away. */

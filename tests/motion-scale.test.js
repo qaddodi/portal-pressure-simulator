@@ -142,7 +142,7 @@ const OTHER_KEYFRAMES = {
   haloRing: 'an attention cue', haloText: 'an attention cue', 'sp-tap': 'a tap wiggle', 'sp-tap2': 'a tap wiggle (its twin, so the tap restarts with no style read)',
   'pzw-drift': 'a scene that teaches', 'pzw-pulse': 'a scene that teaches', 'pzw-rise': 'a scene that teaches',
   'sv-fade-in': 'a caption\'s own entrance, by its opacity, that sinusoid-view.js lets go of by name once played', 'lz-in': 'a label\'s entrance, by its own opacity, that presenter.js waits on by name',
-  'pill-in': 'a lit pill\'s entrance, by its ::before\'s opacity, that presenter.js waits on by name', thumbIn: 'a card without a plate rising a short way from behind the opaque tab row (translate, which the drag\'s --sink also sets, and opacity)',
+  thumbIn: 'a card without a plate rising a short way from behind the opaque tab row (translate, which the drag\'s --sink also sets, and opacity)',
   thumbOut: 'the same card sinking back behind the tab row as it fades',
   'sheet-rise': 'a phone sheet\'s content rising by translate under its still clip (sheet-move.js)', 'sheet-sink': 'a phone sheet\'s content sinking by translate under its still clip (sheet-move.js)',
   'dock-sheet-in': 'a menu or popover sheet rising from the dock\'s top edge by translate, one engine (menu-system-plan)', 'dock-sheet-out': 'the same sheet sinking back to the dock\'s top edge',
@@ -220,4 +220,184 @@ test('the sources: curves and durations of an animation come from ease.js (D_FLI
     });
   }
   assert.deepEqual(bad, []);
+});
+
+// ── The GPU's side of the scale (item 18 of docs/recommendations/animation-and-transitions.md, 8 Nov 2026) ─────────────────────────────────
+// The CSS is linted above. In the sources, a file that asks for frames (imports frameFor) is a file that moves something, so a duration constant
+// in it (`*_MS`, `*_DUR`) is either made from the scale (D_FLIP, D_SMALL, D_SURFACE, CAM_MS_MIN/MAX, LOBULE_MS_MAX, afterMs, or a named
+// exception, all imported from motion.js or ease.js), or carries a marker on its line:
+//   motion-scale: own pace      a move that teaches, or was decided (the view change, the card zoom, a halo): the list of exceptions
+//   motion-scale: not a move    a wait, a budget, a poll, a timeout: a time that is not the length of anything drawn
+// scripts/motion-allowance.json "gpuConstants" lists, by file, the unmarked constants still waiting (the labels' files, which another
+// thread owns): the numbers only go down. A hand-written smoothstep (t * t * (3 - 2 * t)) against a clock is smooth01 (motion.js), or easeMove
+// when the thing travels; one that blends shapes in space is not a time ease and stays as it is.
+const GPU_MARK = /motion-scale: (own pace|not a move)/;
+const importsFrameFor = (src) => /import\s*\{[^}]*\bframeFor\b[^}]*\}\s*from/.test(src);
+const scaleNames = (src) => {
+  const names = new Set();
+  for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]\.\/(?:motion|ease)\.js['"]/g)) for (const n of m[1].split(',')) { const w = n.trim().split(/\s+as\s+/).pop(); if (w) names.add(w); }
+  return names;
+};
+// The expression after `NAME =`, up to the comma or semicolon that ends it at the top level of brackets.
+const valueOf = (code, from) => {
+  let d = 0, i = from;
+  for (; i < code.length; i++) { const ch = code[i]; if ('([{'.includes(ch)) d++; else if (')]}'.includes(ch)) { if (!d) break; d--; } else if ((ch === ',' || ch === ';') && !d) break; }
+  return code.slice(from, i);
+};
+export const gpuConstantProblems = (src, rel) => {
+  if (!importsFrameFor(src)) return [];
+  const names = scaleNames(src), out = [];
+  src.split('\n').forEach((line, i) => {
+    const code = line.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of code.matchAll(/(?:^|[\s,({])([A-Z][A-Z0-9_]*_(?:MS|DUR))\s*=\s*(?!=)/g)) {
+      const v = valueOf(code, m.index + m[0].length).trim();
+      if (/^0$/.test(v) || GPU_MARK.test(line)) continue;
+      if ((v.match(/\b[A-Z][A-Z0-9_]+\b/g) || []).some((n) => names.has(n))) continue;
+      out.push(`${rel}:${i + 1}: ${m[1]} = ${v.slice(0, 40)} is not from motion.js or ease.js and has no motion-scale marker`);
+    }
+  });
+  return out;
+};
+const TIME_WORDS = /\b(now|dt|t0|since|elapsed|dur|fade|clock|age)\b|_MS\b|_FADE\b|ease|fade|alpha/i;
+export const smoothstepClockProblems = (src, rel) => {
+  const out = [];
+  src.split('\n').forEach((line, i) => {
+    const code = line.replace(/\/\/.*$/, '');
+    if (/\b([A-Za-z_]\w*)\s*\*\s*\1\s*\*\s*\(\s*3\s*-\s*2\s*\*\s*\1\s*\)/.test(code) && TIME_WORDS.test(code) && !GPU_MARK.test(line)) out.push(`${rel}:${i + 1}: a hand-written smoothstep against a clock: smooth01 (or easeMove when it travels), motion.js`);
+  });
+  return out;
+};
+
+test('the sources: a *_MS or *_DUR constant in a file that imports frameFor comes from motion.js or ease.js, or carries a motion-scale marker', () => {
+  const allow = JSON.parse(read('scripts/motion-allowance.json')).gpuConstants || {};
+  const bad = [];
+  for (const file of walk(join(ROOT, 'src'))) {
+    const rel = file.slice(ROOT.length);
+    if (rel === 'src/ui/motion.js' || rel === 'src/ui/ease.js') continue;
+    const found = gpuConstantProblems(read(rel), rel);
+    const n = allow[rel] || 0;
+    if (found.length > n) bad.push(...found);
+    else if (found.length < n) bad.push(`${rel}: ${found.length} unmarked, allowance ${n} in scripts/motion-allowance.json gpuConstants: lower it`);
+  }
+  for (const rel of Object.keys(allow)) if (!gpuConstantProblems(read(rel), rel).length) bad.push(`${rel}: listed in gpuConstants with none unmarked: remove it`);
+  assert.deepEqual(bad, []);
+});
+
+test('the sources: no hand-written smoothstep against a clock (smooth01 in motion.js, easeMove when it travels)', () => {
+  const bad = [];
+  for (const file of walk(join(ROOT, 'src'))) {
+    const rel = file.slice(ROOT.length);
+    if (rel === 'src/ui/motion.js' || rel === 'src/ui/ease.js') continue;
+    bad.push(...smoothstepClockProblems(read(rel), rel));
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('the GPU lint catches what it is for: a bare duration, a marked one, one made from the scale, a clock smoothstep, a smoothstep in space', () => {
+  const ff = "import { frameFor } from './frame.js';\nimport { D_SMALL } from './motion.js';\n";
+  assert.equal(gpuConstantProblems(`${ff}const FADE_MS = 300;`, 'x').length, 1);
+  assert.equal(gpuConstantProblems(`${ff}const A_MS = D_SMALL, B_MS = 300;`, 'x').length, 1);
+  assert.equal(gpuConstantProblems(`${ff}export const HOLD_DUR = 450;`, 'x').length, 1);
+  assert.deepEqual(gpuConstantProblems(`${ff}const FADE_MS = D_SMALL + 20;`, 'x'), []);
+  assert.deepEqual(gpuConstantProblems(`${ff}const HALO_MS = 1500;   // motion-scale: own pace (a cue)`, 'x'), []);
+  assert.deepEqual(gpuConstantProblems(`${ff}const POLL_MS = 100;   // motion-scale: not a move`, 'x'), []);
+  assert.deepEqual(gpuConstantProblems(`${ff}const CALM_MS = 0;`, 'x'), []);
+  assert.deepEqual(gpuConstantProblems("const FADE_MS = 300;", 'x'), [], 'a file that asks for no frames moves nothing');
+  assert.equal(smoothstepClockProblems('const e = (now - t0) / ms; const k = e * e * (3 - 2 * e);', 'x').length, 1);
+  assert.equal(smoothstepClockProblems('const fadeAlpha = (u) => u * u * (3 - 2 * u);', 'x').length, 1);
+  assert.deepEqual(smoothstepClockProblems('const w = reach * (0.5 + 0.5 * e) + 64 * Math.round(e * 63); const f = e * e * (3 - 2 * e);', 'x'), []);
+  assert.deepEqual(smoothstepClockProblems('const u = clamp(d / taper, 0, 1), s = u * u * (3 - 2 * u);', 'x'), []);
+});
+
+test('motion.js: the GPU tokens are the scale and the named exceptions, and smooth01 is the clamped smoothstep', async () => {
+  const m = await import('../src/ui/motion.js');
+  assert.deepEqual([m.D_FLIP, m.D_SMALL, m.D_SURFACE, m.CAM_MS_MIN, m.CAM_MS_MAX, m.LOBULE_MS_MAX], [120, 240, 420, 480, 900, 1500]);
+  assert.deepEqual([m.VIEW_CHANGE_MS, m.DIVE_MS, m.RISE_MS, m.HALO_MS, m.COUNT_MS, m.TURN_MS], [1300, 2200, 1300, 1500, 400, 480]);
+  assert.equal((await import('../src/ui/view-xf.js')).VIEW_CHANGE_MS, m.VIEW_CHANGE_MS);
+  assert.equal(m.afterMs(m.D_FLIP), 140);
+  assert.deepEqual([-1, 0, 0.5, 1, 2].map(m.smooth01), [0, 0, 0.5, 1, 1]);
+  const e = (await import('../src/ui/liver-morph.js')).smooth01; assert.equal(e, m.smooth01, 'one smooth01');
+  // A smoothstep's speed is zero at both ends and 1.5 at the middle; easeMove is the quintic (flatter at the ends, 1.875 at the middle).
+  assert.ok(m.smooth01(0.1) > m.easeMove(0.1) && m.smooth01(0.9) < m.easeMove(0.9));
+});
+
+// ── Exits and displaced items (item 20) ─────────────────────────────────────────────────────────────────────────────────────────────────────
+test('item 20: a leaving state takes --ease-in and the step below its entrance, written on the leaving state', () => {
+  const css = read('styles/app.css'), tokens = read('styles/tokens.css');
+  const rule = (sel) => { const i = css.indexOf(`\n${sel} {`); assert.ok(i >= 0, `${sel} is in app.css`); return css.slice(i, css.indexOf('}', i)); };
+  assert.match(rule('.pz-text > .pz-leave'), /transition: opacity var\(--d-small\) var\(--ease-in\), transform var\(--d-small\) var\(--ease-in\)/);
+  assert.match(rule('.pz-scales.pz-leave'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);
+  assert.match(rule('.pz-pscrim, .pz-gscrim'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);
+  assert.match(rule('.pz-pscrim.on, .pz-gscrim.on'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
+  assert.match(css, /\.app\.figure-focus \.topbar\.two-rows \.stage-bar\.top \{[^}]*transition: opacity var\(--d-flip\) var\(--ease-in\), transform var\(--d-flip\) var\(--ease-in\)/);
+  assert.match(css, /\.cath-label\.site\.cath-leave > \.cl-glass \{[^}]*transition: opacity var\(--d-small\) var\(--ease-in\), visibility 0s linear var\(--d-small\)/);
+  assert.match(css, /\.cath-label\.site\.off > \.cl-glass \{[^}]*transition: opacity var\(--d-small\) var\(--ease-in\), visibility 0s linear var\(--d-small\)/);
+  assert.match(css, /\.pz \.pz-data\.pz-hide \+ \.pz-lip:not\(\[hidden\]\) \{[^}]*transition: opacity var\(--d-flip\) var\(--ease-in\), transform var\(--d-small\) var\(--ease-in\)/);
+  assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{[^}]*transition: transform var\(--d-small\) var\(--ease-in\)/);
+  assert.match(css, /\.pz\.pz-wide\.pz-wide \.pz-data\.pz-sheet\.pz-hide \{[^}]*transition: transform var\(--d-small\) var\(--ease-in\)/);
+  assert.match(tokens, /Leaves are written on the leaving state[\s\S]*fade-only toggle[\s\S]*phone sheets[\s\S]*240 ms in and 240 ms out/, 'tokens.css writes down the two exceptions');
+});
+
+test('item 20: what was on screen and is displaced travels on the move curve, and a FLIP caught by another adds to it (composite add) instead of starting again', () => {
+  const src = (f) => read(`src/ui/${f}`);
+  assert.match(src('menu.js'), /el\._lift = el\.animate\(\[[^\]]*\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\);/);
+  assert.doesNotMatch(src('menu.js'), /el\._lift\?\.cancel\(\)/);
+  assert.match(src('dock.js'), /b\.animate\(\[\{ translate: `\$\{dx\}px 0` \}, \{ translate: '0 0' \}\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\)/);
+  assert.match(src('presenter.js'), /mon\.el\.animate\(\[\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: 'none' \}\], \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}\)/);
+  const util = src('util.js');
+  assert.match(util, /\{ duration: dur, easing: EASE_MOVE, composite: 'add' \}\)\.id = 'glide';/);
+  assert.doesNotMatch(util, /a\.id === 'glide'\) \{ const m = new DOMMatrixReadOnly/, 'a running glide is not cancelled and re-read');
+  assert.match(util, /\{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\);\n\s+\}\);/, 'the toasts that stay');
+  const tb = src('topbar-motion.js');
+  assert.match(tb, /const ROW_MOVE = \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}, BAR_MOVE = \{ duration: MOVE_MS, easing: EASE_MOVE, composite: 'add' \};/);
+  assert.match(tb, /inRow\(el\) \? ROW_MOVE : BAR_MOVE/);
+  assert.doesNotMatch(tb, /if \(a\.id === 'tbm'\) a\.cancel\(\);\n\n/, 'the bar does not cancel a glide that is running');
+  assert.match(tb, /dx = t\.x - o\.x - \(pt \? pt\.x : 0\)/, 'only the move since the running glide was aimed');
+  assert.match(src('cath-flip.js'), /const EASE = easeMove;/);
+});
+
+test('item 21: the timers that wait on a transition come from its token and a fixed slack (afterMs), not a number of their own', () => {
+  const src = (f) => read(`src/ui/${f}`);
+  assert.match(src('menu.js'), /setTimeout\(\(\) => removeSoon\(o\), afterMs\(D_FLIP\)\)/);
+  assert.match(src('menu.js'), /removeSoon\(p\); \}, afterMs\(D_FLIP\), p\)/);
+  assert.match(src('menu.js'), /const timer = setTimeout\(done, afterMs\(D_SMALL\)\)/);
+  assert.match(src('dock.js'), /const timer = setTimeout\(done, afterMs\(D_SMALL\)\)/);
+  assert.match(src('why.js'), /afterMs\(asSheet\(\) \? D_SMALL : D_FLIP\)\)/);
+  assert.match(src('stage-sites-paint.js'), /afterMs\(D_SMALL\), el\)/);
+  assert.doesNotMatch(src('menu.js'), /setTimeout\([^;]*, (130|140|250)\)/);
+  assert.doesNotMatch(src('why.js'), /: 200\)/);
+});
+
+test('item 18: the off-scale GPU durations were snapped to the scale', () => {
+  const src = (f) => read(`src/ui/${f}`);
+  assert.match(src('endo-motion.js'), /FADE_MS = D_SMALL;/); assert.match(src('endo-motion.js'), /BAND_DELAY_MS = D_FLIP;/);
+  assert.match(src('doppler-marks.js'), /CAL_FADE = D_SURFACE \/ 1000;/); assert.match(src('cath-flip.js'), /FLIP_MS = D_SURFACE;/); assert.match(src('trace-callouts.js'), /DROP_MS = D_SMALL;/);
+  assert.match(src('stage-outlines.js'), /OL_FADE = D_FLIP;[^\n]*\n[\s\S]*CLAMP_FADE = D_SMALL;/);
+  assert.match(src('stage-cath.js'), /const CATH_GLIDE = D_SURFACE;/);
+  assert.match(src('stage-sites-paint.js'), /ROOM_GLIDE_MS = D_SURFACE/); assert.match(src('stage-sites-paint.js'), /LABEL_GLIDE_MS = D_SURFACE;/);
+  assert.match(src('stage-glow.js'), /const SEL_FADE = D_SMALL \/ 1000;/);
+  assert.match(src('ink-gl.js'), /FADE_MS = D_FLIP;/); assert.match(src('tool-profile.js'), /const FADE_MS = D_SURFACE;/);
+  assert.doesNotMatch(src('stage-glow.js') + src('stage-hover.js') + src('stage-pick.js') + src('stage-focus.js'), /dur: (160|280|300|360|380|420|450|500|600)\b/, 'a glow takes a step of the scale');
+  // The curves: no cubic in-out left beside easeMove, and the data card's tweens, the probe's swing, the patient's change take the one curve.
+  for (const f of ['hvpg-clock.js', 'presenter.js', 'stage-doppler.js', 'endo-motion.js']) assert.doesNotMatch(src(f), /4 \* (t|u|p) \* \1 \* \1/, `${f} has no cubic in-out`);
+  assert.doesNotMatch(read('src/worker-core.js'), /4 \* x \* x \* x/);
+  assert.match(src('stage-glide.js'), /if \(reduceMotion\.matches\) ms = reducedMs\(ms, true\);/, 'the reduced camera glide is motion.js\'s exception, not a 300');
+});
+
+// One roll speed (the owner, 13 Nov 2026: "one speed", 400 ms): every timed number roll reads motion.js COUNT_MS. A second roll duration
+// (a COUNT_MS or ROLL_MS of a file's own, as util.js had at 240 ms beside motion.js's 950) fails here.
+test('one roll speed: COUNT_MS is motion.js\'s alone, and the rolls (util.js countTo, the figure readings, the data card) read it', () => {
+  const bad = [];
+  for (const file of walk(join(ROOT, 'src'))) {
+    const rel = file.slice(ROOT.length);
+    if (rel === 'src/ui/motion.js') continue;
+    read(rel).split('\n').forEach((line, i) => {
+      const code = line.replace(/\/\/.*$/, '');
+      if (/\b(?:COUNT|ROLL)_(?:MS|DUR)\s*=(?!=)/.test(code)) bad.push(`${rel}:${i + 1}: a roll duration of its own: import COUNT_MS from motion.js`);
+    });
+  }
+  assert.deepEqual(bad, []);
+  const importsCount = /import\s*\{[^}]*\bCOUNT_MS\b[^}]*\}\s*from\s*'\.\/motion\.js'/;
+  for (const f of ['src/ui/util.js', 'src/ui/stage-sites-paint.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
+  assert.doesNotMatch(read('src/ui/presenter.js'), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
 });

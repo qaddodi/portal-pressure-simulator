@@ -18,7 +18,7 @@ test('always one move: the share of the glide and the shared morph window', () =
 
 test('the stage says what is left of its glide, read from the glide itself', () => {
   assert.match(stage, /(?:live\.)?(?:live\.)?vtGliding = true; (?:live\.)?(?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?(?:live\.)?vtMs = ms;/);
-  assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
+  assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \|\| (?:live\.)?viewXf \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
 });
 
 test('what stays serial: the liver, a catheter, a case or question card, an instrument, a figure that cannot move smoothly', () => {
@@ -40,7 +40,7 @@ test('the change of patient starts with the glide, and is awaited only once the 
 test('a change after the landing never starts mid-glide, and the move ends only once the glide has landed', () => {
   assert.match(run, /if \(!plate \|\| \(later && !under\)\) await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\);/);
   assert.match(run, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return;/);
-  assert.match(run, /await wait\(60\); await until\(\(\) => cut\(\) \|\| !cardsEntering\(bareSeen \? CARDS_SEEN : 0\), 1200\);\s*if \(cut\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(plate\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\); if \(cut\(\)\) return; \}/);
+  assert.match(run, /await waitCut\(60, cut\); await until\(\(\) => cut\(\) \|\| !cardsEntering\(bareSeen \? CARDS_SEEN : 0\), 1200\);\s*if \(cut\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(plate\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\); if \(cut\(\)\) return; \}/);
 });
 
 // Cards in sight, marks next (the polish of 31 Oct): over the plate with the same patient the unseen cards' last fitting runs under the glide's
@@ -73,13 +73,13 @@ test('the slide\'s marks start once the cards are in sight (CARDS_SEEN), and the
 test('words out: cards already out or on their way out make the move wait only for what is still fading', () => {
   const out = src.slice(src.indexOf('function wordsOut(next) {'), src.indexOf('const fadeLeft ='));
   assert.match(out, /const leaving = !dataOut && !out\.some\(/);
-  assert.match(out, /const fading = leaving \? Math\.max\(fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\), \.\.\.\[\.\.\.out, data, ui\.shade\]\.map\(throwLeft\)\) : 0;/, 'what is still fading, by the browser or thrown by card-throw.js');
-  assert.match(out, /if \(leaving\) return fading \? fading \+ 20 : 0;\s*\n\s*return D_SMALL \+ 20;/);
+  assert.match(out, /const fading = leaving \? Math\.max\(fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\), \.\.\.\(byThrow \? \[\] : \[\.\.\.out, data, ui\.shade\]\.map\(throwLeft\)\)\) : 0;/, 'what is still fading, by the browser (a thrown card is timed by throwsOut(), push B)');
+  assert.match(out, /if \(leaving\) return fading \? fading \+ 20 : 0;\s*\n[^\n]*\n\s*if \(threw\) \{ thrownNow = true; return 0; \}\s*\n\s*return D_SMALL \+ 20;/);
   assert.match(src, /const fadeLeft = \(els\) => els\.reduce\(/);
 });
 
 test('an instrument that only reads the model rides the change under the glide; one that records or plays on arrival still waits', () => {
-  assert.match(src, /const RIDES_MODEL = new Set\(\['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace'\]\);/);
+  assert.match(src, /const RIDES_MODEL = new Set\(\['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace', 'trial', 'spans'\]\);/);
   assert.match(src, /const underTool = \(t\) => !t \|\| \(RIDES_MODEL\.has\(t\.kind\) && !\(t\.kind === 'trace' && t\.range === 'beats'\)\);/);
   // (none of the recording instruments, nor the catheter's, is on the list)
   const list = /const RIDES_MODEL = new Set\(\[([^\]]*)\]\)/.exec(src)[1];
@@ -97,9 +97,10 @@ test('a move cut by a newer slide leaves its cards unseen instead of bringing th
 // A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in
 // 480 to 900 ms (camMs, and an arc's stretch), and at all when the framing did not change: their call-outs came late. Now the wait is the glide's.
 test('a move that waits for no cards ends with its glide: polled, cut by a newer beat', () => {
-  const tail = cam.slice(cam.indexOf('if (gl) { await until('), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
+  const tail = cam.slice(cam.indexOf('if (gl) { await until('), cam.indexOf('else await waitCut(gl, cut);') + 'else await waitCut(gl, cut);'.length);
   assert.ok(tail.startsWith('if (gl) {'), 'a glide is waited for');
-  assert.match(tail, /^if \(gl\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return; \}\s*await wait\(gl\);$/);
+  // (a change of view still morphing is moving too, and the wait is cut by a newer press: push B)
+  assert.match(tail, /^if \(gl\) \{ await until\(\(\) => cut\(\) \|\| \(!stage\.gliding\(\) && !stage\.viewChanging\?\.\(\)\), gl \+ 1500\); return; \}\s*if \(switching\) await viewSettled\(cut, stage\);\s*else await waitCut\(gl, cut\);$/);
   // (polled, never one timer: a beat pressed again while this one moves is noticed within a frame or two, not after the glide)
   assert.doesNotMatch(tail, /glideLeft/);
   // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)
@@ -121,6 +122,6 @@ test('the case card\'s retreat ends with its glide', () => {
 // cards and labels, so the camera does not set off under an old halo still fading. ?onemove=0 keeps the old fade.
 test('a slide\'s halos leave in one small step, and only the slide\'s own', () => {
   assert.match(stage, /for \(const \[id, l\] of glow\.lit\) if \(!want\.has\(id\)\) \{ l\.to = 0; if \(src === 'slide'\) l\.dur = Math\.min\(l\.dur, D_SMALL \/ 1000\); \}/);
-  // (the way in is unchanged: a slide's glow still eases in over its own 500 ms)
-  assert.match(stage, /o\.at = g\.at; o\.dur = 500;\n\s+slideGlowOut\.push\(o\);[\s\S]*?setGlowSrc\('slide', slideGlowOut\);/);
+  // (the way in: a slide's glow eases in over a surface step, 420 ms)
+  assert.match(stage, /o\.at = g\.at; o\.dur = D_SURFACE;\n\s+slideGlowOut\.push\(o\);[\s\S]*?setGlowSrc\('slide', slideGlowOut\);/);
 });

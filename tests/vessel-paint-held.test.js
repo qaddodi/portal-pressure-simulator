@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // (2 Nov 2026, figure model to data). A colour that did not change is not written again, so nothing re-uploads.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 

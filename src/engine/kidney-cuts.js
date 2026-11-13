@@ -13,9 +13,11 @@
 //   guideline number.
 // - rpp: mapBeta less iapRest. Baveno VIII gives no cut-off for a kidney pressure: this is the MAP line carried over to the tile, so a
 //   tense abdomen (a higher IAP) takes a patient across it at a higher MAP than 65.
+// - sbpBeta: the other half of 4.6, the systolic pressure (engine.js bpNow).
 export const MAP_BETA_CUT = 65;
+export const SBP_BETA_CUT = 90;
 export const IAP_REST = 5;
-export const KIDNEY_CUTS = Object.freeze({ mapBeta: MAP_BETA_CUT, iapRest: IAP_REST, rpp: MAP_BETA_CUT - IAP_REST });
+export const KIDNEY_CUTS = Object.freeze({ mapBeta: MAP_BETA_CUT, sbpBeta: SBP_BETA_CUT, iapRest: IAP_REST, rpp: MAP_BETA_CUT - IAP_REST });
 
 /** The kidney pressure's status as the colour tokens name it: 'ok' (green) or 'danger' (red, below the line). */
 export const rppSev = (v) => (v < KIDNEY_CUTS.rpp ? 'danger' : 'ok');

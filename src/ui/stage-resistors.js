@@ -12,7 +12,7 @@ export function createResistors(st, live) {
   // A resistor's reading is a figure label (label-gl, the one style): "R liver ×2.3", at the middle of its own zigzag, world-anchored like
   // every figure label, so it moves with the figure through every pan, pinch and zoom. resMask: which readings have a value (the labels'
   // signature); RES_LABEL: its words; the key ("vs healthy liver") rides once, on the outermost reading.
-  const RES_BIT = { rGut: 1, rColl: 2, rLiver: 4 }, RES_LABEL = { rLiver: 'R liver', rColl: 'R collaterals', rGut: 'R gut' }, RES_FULL = { rLiver: 'Liver resistance', rColl: 'Collateral resistance', rGut: 'Gut arteriole resistance' };
+  const RES_BIT = { rGut: 1, rColl: 2, rLiver: 4 }, RES_LABEL = { rLiver: 'R liver', rColl: 'R collaterals', rGut: 'R splanchnic' }, RES_FULL = { rLiver: 'Intrahepatic resistance', rColl: 'Collateral resistance', rGut: 'Splanchnic arteriolar resistance' };
   const resKeyOn = () => (live.resMask & 1 ? 'rGut' : live.resMask & 2 ? 'rColl' : live.resMask & 4 ? 'rLiver' : null);
   function resItem(k) {
     const d = SITE_DEF[k], ratio = d?.res ? resRatio(d.res) : null;
@@ -23,6 +23,14 @@ export function createResistors(st, live) {
     return { key: 'r:' + k, res: k, ratio, src: ['res', k], cls: 'node res', lines, align: 'middle', padX: 3, padY: 2, w: Math.max(...lines.map(live.lineW)), h: lines.reduce((a, l) => a + live.LINE_H(l), 0), label: `${RES_FULL[k]}: ${v} the healthy liver's resistance` };
   }
   const resPt = [0, 0], resTan = [0, 0];
+  // (The distance from a box (x, y, w, h) to a segment: 0 when they cross.)
+  const ptSegD = (px, py, x0, y0, x1, y1) => { const dx = x1 - x0, dy = y1 - y0, L = dx * dx + dy * dy || 1, t = clamp(((px - x0) * dx + (py - y0) * dy) / L, 0, 1); return Math.hypot(px - x0 - t * dx, py - y0 - t * dy); };
+  const ptBoxD = (px, py, x, y, w, h) => Math.hypot(Math.max(x - px, 0, px - x - w), Math.max(y - py, 0, py - y - h));
+  function boxSegD(x, y, w, h, x0, y0, x1, y1) {
+    let d = Math.min(ptBoxD(x0, y0, x, y, w, h), ptBoxD(x1, y1, x, y, w, h), ptSegD(x, y, x0, y0, x1, y1), ptSegD(x + w, y, x0, y0, x1, y1), ptSegD(x, y + h, x0, y0, x1, y1), ptSegD(x + w, y + h, x0, y0, x1, y1));
+    for (let i = 0; i <= 8 && d > 0; i++) { const u = i / 8; d = Math.min(d, ptBoxD(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, x, y, w, h)); }   // (a segment crossing the box with both ends outside)
+    return d;
+  }
   // Where the reading's centre stands, stage-local, and the zigzag's anchor: the liver's between its two lobes' zigzags; the others beside theirs,
   // on the side away from the lane, clear of the zigzag's own amplitude and casing (as resPaint draws them).
   function resPlace(it) {
@@ -38,7 +46,12 @@ export function createResistors(st, live) {
       const tx = (b[0] - ax) / L, ty = (b[1] - ay) / L;
       let nx = -ty, ny = tx;
       if (Math.abs(ny) >= Math.abs(nx) ? ny > 0 : nx < 0) { nx = -nx; ny = -ny; }   // (up, else to the right)
-      const off = Math.max(RES_AMP * (live.CTM?.sc || 1), RES_MIN_AMP_PX) + resWidth(it.ratio ?? 1) / 2 + RES_OUTLINE + 6 + Math.abs(nx) * it.w / 2 + Math.abs(ny) * it.h / 2;   // (clear of the zigzag and its outline)
+      const band = Math.max(RES_AMP * (live.CTM?.sc || 1), RES_MIN_AMP_PX) + resWidth(it.ratio ?? 1) / 2 + RES_OUTLINE;
+      let off = band + 6 + Math.abs(nx) * it.w / 2 + Math.abs(ny) * it.h / 2;   // (clear of the zigzag and its outline)
+      // (A slanted lane: the box's corner can still reach the zigzag's end beside it, as "R collaterals ×6.5" did on an upright phone, 13 Nov
+      // 2026. It steps out along the normal until its box is the band and 4 px clear of the zigzag's whole run, 34 units each way.)
+      const h = 34 * (live.CTM?.sc || 1), x0 = ax - tx * h, y0 = ay - ty * h, x1 = ax + tx * h, y1 = ay + ty * h;
+      for (let i = 0; i < 40 && boxSegD(ax + nx * off - it.w / 2, ay + ny * off - it.h / 2, it.w, it.h, x0, y0, x1, y1) < band + 4; i++) off += 2;
       cx = ax + nx * off; cy = ay + ny * off;
     }
     it.ax = ax; it.ay = ay; it.x = cx - it.w / 2; it.y = cy - it.h / 2;
@@ -116,7 +129,7 @@ export function createResistors(st, live) {
     let st = resMade.get(k);
     const want = live.sites.list?.includes(k) && ratio != null;
     const now = performance.now();
-    if (!want) { if (st) { resMade.delete(k); recs.drop(RES_KEYS[k], now, reduceMotion.matches); live.recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
+    if (!want) { if (st) { resMade.delete(k); live.resSegRev++; live.labelKey = null; recs.drop(RES_KEYS[k], now, reduceMotion.matches); live.recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
     if (!st) { st = { _segs: null, cur: null, d, ratio, lens: [] }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
     // (Sizes kept in screen px are worked out at the scale now stepped a quarter octave, so a zoom rebuilds the record a few times, not each frame.)
     const sc = live.CTM?.sc > 0 ? live.CTM.sc : 1, scQ = 2 ** (Math.round(Math.log2(sc) * 4) / 4);
@@ -155,6 +168,7 @@ export function createResistors(st, live) {
     if (same) for (let i = 0; i < live.resKey.length; i++) if (st.cur.key[i] !== live.resKey[i]) { same = false; break; }
     if (same) for (let i = 0; i < n; i++) if (st.cur.pts[i] !== live.resNow[i]) { same = false; break; }
     st.d = d; st.ratio = ratio;
+    st._bandPx = amp * sc + RES_W1 / 2 + RES_OUTLINE;   // (half the drawn band in px, the teeth's reach, the widest line and outline: what the labels keep off, buildSegs; the widest, so a line that thickens as the resistance rises never comes onto a label laid before)
     if (!same) {
       // alloc-rare: a resistor's zigzag, colour or width changed (a slide's change, a theme, a resistance, a zoom's step), not a frame that kept them
       const polys = [], veils = [];
@@ -164,7 +178,10 @@ export function createResistors(st, live) {
         veils.push(Float32Array.of(p[0], p[1], p[p.length - 2], p[p.length - 1]));
       }
       st.cur = { n, key: Array.from(live.resKey), pts: live.resNow.slice(0, n) };
+      const was = st._segs ? JSON.stringify(st._segs) + st._amp : '';   // (its run and its teeth's reach: a zoom's step widens the teeth in world units)
       st._segs = polys.map((p) => [[p[0], p[1]], [p[p.length - 2], p[p.length - 1]]]);   // (what the figure's labels keep off, buildSegs)
+      // (A zigzag that comes or moves is laid out again around: the labels had been solved before it was drawn, and "Retroperitoneal" stood on it.)
+      st._amp = amp; if (JSON.stringify(st._segs) + amp !== was) { live.resSegRev++; live.labelKey = null; live.solveAsked = true; }
       const K = live.resKey, ink = [K[10], K[11], K[12]], parts = [];
       if (polys.length) {
         if (veil) parts.push({ polys: veils, kind: 'stroke', cap: 0, a: RES_VEIL, w: veil, rgb: [K[1], K[2], K[3]] });

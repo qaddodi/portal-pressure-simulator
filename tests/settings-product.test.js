@@ -13,13 +13,23 @@ const main = read('src/ui/main.js');
 const html = read('index.html');
 const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
 
+test('Settings has no Always show HVPG switch (the HVPG always shows)', () => {
+  assert.ok(!main.includes("'Always show HVPG'"));
+});
+
 test('R14 Settings keeps what a learner understands and none of the experiments', () => {
-  for (const t of ["'Appearance'", "'Text size on the figure'", "'Blur effect'", "'Always show HVPG'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
-  for (const t of ["'Figure resolution'", "'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'", "'Figure performance'",
+  for (const t of ["'Appearance'", "'Blur effect'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
+  for (const t of ["'Text size on the figure'", "'Figure resolution'", "'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'", "'Figure performance'",
     "'Motion at 60'", "'Callout glass kept'", "'Credit check in talks'", "'Sharper upscaling'", "'Lymph redrawn where it moves'", "'Lighter organ art'", "'Vessels lower while pinching'", "'Pinch frame reuse'"]) {
     assert.ok(!main.includes(t), `${t} is gone from the menu`);
   }
   assert.doesNotMatch(main, /function figLabRows\(|function figSeg\(/);
+});
+
+test('Tube is the only vessel renderer (owner, 11 Nov 2026): Settings has no Vessel renderer choice, no Classic or Mesh button, and frame.js keeps no renderer', () => {
+  assert.ok(!settings.includes("'Vessel renderer'") && !settings.includes('vesselRendererSeg') && !main.includes('setVesselRenderer'));
+  assert.doesNotMatch(main, /\['classic', 'Classic'\]|\['mesh', 'Mesh'\]|\['tube', 'Tube'\]/);
+  assert.ok(settings.indexOf("'Figure detail'") > 0 && settings.indexOf("'Sharp while moving'") > settings.indexOf('figureMpControl()'));
 });
 
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {
@@ -28,7 +38,7 @@ test('R14 every default is as it was: Full, and off (but the credit\'s lean look
   const f = await import(`../src/ui/frame.js?t=${Math.random()}`);
   assert.equal(f.renderSetting(), 1);
   assert.equal(f.renderScale(), 1);
-  assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 });
+  assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 });
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_LAB).map((k) => [k, f.figLab(k)])),
     { motion60: true, glassCache: false, creditLean: true, lymphBoxes: false, pinchReuse: 0, upscale: false, lightArt: false, pinchLow: false });
   assert.equal(f.paceMs(), f.MOTION60_MS, 'steady motion at most every 10 ms (4 Nov 2026)');

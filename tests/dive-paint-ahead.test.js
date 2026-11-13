@@ -9,7 +9,6 @@ import { readFileSync } from 'node:fs';
 const st = stageSource();
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const set = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {4}live\.lobuleOn = on;/)[0];
-const ahead = lz.match(/function paintAhead\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('a dive waits for the tissue painted ahead, and anything asked for meanwhile calls it off', () => {
   assert.match(set, /if \(live\.diveWait\) \{ live\.diveWait = 0; live\.diveGen\+\+; \}/);

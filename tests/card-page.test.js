@@ -7,20 +7,20 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { beatCount } from '../src/ui/slide-beats.js';
-import { PROCS as PROC_TABLE, MEASURES, GRAFTS } from '../src/ui/proc-anim.js';
+import { PROCS as PROC_TABLE, MEASURES, GRAFTS, ENDO, PLUGS, procKindOf } from '../src/ui/proc-anim.js';
 // (A measuring procedure, the EUS-PPG, steps like the others: its Next plays its steps before the slide moves on.)
-const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS };
+const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS, ...ENDO, ...PLUGS };
 import { pageOn, followOf, pageIn, FOLLOW } from '../src/ui/card-page.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const presenter = read('../src/ui/presenter.js');
 const css = read('../styles/app.css');
 const body = (name) => { const i = presenter.indexOf(`function ${name}(`); assert.ok(i >= 0, name); return presenter.slice(i, presenter.indexOf('\n  }\n', i)); };
-const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+const procKind = (s) => procKindOf(s.procedure);
 
 // presenter.js turnsSlide, as written there, run against each state of the walk.
 const turnsSrc = (() => { const i = presenter.indexOf('const turnsSlide = (dx) =>'); return presenter.slice(presenter.indexOf('=>', i) + 2, presenter.indexOf(';\n', i)); })();
-const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procRun', 'procWait', 'slides', 'want', 'beat', 'lastBeat', `return ${turnsSrc};`);
+const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procHeld', 'procWait', 'slides', 'want', 'beat', 'lastBeat', `return ${turnsSrc};`);
 
 // Next as presenter.js next() runs it on a landed slide (no case card, no time-lapse playing): a procedure's steps first (the first
 // Next sends the catheter in, each next plays a step, the one after the last moves on), then the slide's views, then the next slide.
@@ -35,7 +35,7 @@ function pressNext(deck, st) {
   if (st.at < deck.slides.length - 1) { st.at++; st.beat = 0; st.step = -1; st.done = false; return 'slide'; }
   return 'end';
 }
-const follows = (deck, st, dx) => turnsSlide(dx, null, false, st.step >= 0 && !st.done ? {} : null, false, deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1);
+const follows = (deck, st, dx) => turnsSlide(dx, null, false, () => st.step >= 0 && !st.done, false, deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1);
 
 test('every slide of every deck: a Next swipe moves the card only when that Next changes the slide, never on a step or a view', () => {
   let slides = 0, steps = 0, views = 0;

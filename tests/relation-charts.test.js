@@ -19,7 +19,7 @@ test('a reading on the x axis: named and scaled from its tile, round nice number
   assert.equal(xKeyOf({ x: 'lsm' }), 'lsm');
   assert.equal(xKeyOf({ x: 'nonsense' }), null);
   assert.deepEqual(axisMeta({ x: 'lsm', param: 'cirrhosis' }), { name: 'Liver stiffness', unit: 'kPa', d: 1, x: 1, k: 'lsm' });
-  assert.equal(axisMeta({ x: 'wall' }).unit, '% of tear', 'the wall stress has no tile but a chart can draw it');
+  assert.equal(axisMeta({ x: 'wall' }).unit, '% of rupture', 'the wall stress has no tile but a chart can draw it');
   assert.deepEqual(xDomain([5, 29.7]), [0, 30], 'from zero when zero is close');
   assert.deepEqual(xDomain([9, 18.2]), [8, 20]);
   assert.deepEqual(xDomain([9, 18.2], 8, 20), [8, 20]);
@@ -159,7 +159,7 @@ test('a curve over the scope\'s air: the varix seen and the pressure across its 
   assert.equal(scopeStates(t, { varix: 7 }), null, 'no pressure inside, no curve');
   const s = curveSeries(t, st);
   assert.deepEqual([s.xs[0], s.xs.at(-1)], [0, 20]);
-  assert.deepEqual(axisMeta(t), { name: 'Air in the esophagus', unit: 'mmHg', d: 0, x: 1 });
+  assert.deepEqual(axisMeta(t), { name: 'Esophageal insufflation', unit: 'mmHg', d: 0, x: 1 });
 });
 
 test('the HVPG and the platelets are two clearly different colours, and neither is a cut-off line\'s', () => {

@@ -1,6 +1,6 @@
 # Writing a deck: the short guide
 
-This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were checked against the app on 22 Oct 2026.
+This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were last checked against the app on 12 Nov 2026 (38 built-in decks).
 
 ## How a deck works
 
@@ -40,10 +40,10 @@ Full guide: sections 1 to 3, the template in section 10 and a complete example i
 
 ## Writing the words
 
-Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way a clinician teaches on rounds. Run every line through `docs/ai-humanizer.md`.
+Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way an attending teaches US residents and fellows on rounds: standard US clinical terms and abbreviations, subtraction as "minus" or − (HVPG = WHVP − FHVP), never "less", no lay words. Run every line through `docs/ai-humanizer.md`; `tests/clinical-wording.test.js` checks the mechanical rules.
 
 - **Live numbers.** Write `{hvpg}`, `{ppg}`, `{pv}` and the app fills in the patient's value in a coloured pill. Use these instead of typing a number, so the words always match the figure. `{ppg@before}` reads the value at the slide whose `id` is `before`.
-- **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Put the words around it: "above {>=10 mmHg}". A filled pill is the patient; an outlined pill is the rule.
+- **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Write no comparison word beside it (no "above"): the pill carries the symbol. A filled pill is the patient; an outlined pill is the rule.
 - **Words that point at the figure.** Write `[portal vein](pv)` and the words become a pill in the portal vein's colour, and the vein lights up on the figure.
 - **Step numbers.** On a `steps: true` slide, `{#1}`, `{#2}` after the words that name each numbered site draw the figure's circle in the text. Same number, same site; name every step once.
 - **Causes.** `causes: ['Cirrhosis', 'MASH']` adds up to four short items after the line.
@@ -54,14 +54,14 @@ Each slide has a `title` that stands on its own and a `line` of 30 words or fewe
 - **Puzzle first.** End the slide before a reveal on the paradox as a plain statement ("A meal is about to raise the portal flow by half."), and let the next slide resolve it.
 - **One coloring a line, and a title that names the finding.** Never write "Colored by …" in a line: the key already names each coloring, so say the finding the color shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
 - **Say when the patient changes.** "In another patient with CSPH, …" for a new one, and "Back in the first patient, …" for a return (that slide then carries its own `preset`, `days` and `ramp`).
-- **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against `/mnt/project-files/guidelines/` and leave out what no file supports.
+- **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against the files in `guidelines/` in the repo (Baveno VIII, AASLD 2024, EASL 2025, AASLD 2021 ascites, AASLD 2020 vascular) and leave out what no file supports.
 - **Taking a slide out.** Delete its handout figure and its `tests/deck-adopted.js` entries, fix `sections` and `objectives`, then run `UPDATE=1 node --test tests/deck-terms.test.js` once, after reading the diff.
 
 Full guide: section 6 (words), section 9 (house rules).
 
 ## Choosing the patient
 
-- `preset: 'cirr-decomp'` loads a patient fresh. There are 17, from healthy to Budd–Chiari.
+- `preset: 'cirr-decomp'` loads a patient fresh. There are 19, from healthy to Budd–Chiari.
 - `params: { drugs: { carvedilol: true } }` changes only what you name.
 - `action: { kind: 'band' }` is a one-off event, such as banding, paracentesis or a bleed.
 - `days: 90` lets the disease run on, and `ramp: { cirrhosis: [0.5, 0.6] }` moves a setting across those days.
@@ -84,7 +84,7 @@ Full guide: section 14.
 - **Camera.** `cam: 'portal'` frames a named region such as `liver`, `spleen`, `varices`, `heart` or `gut` (the portal system with the whole small bowel). `cam: 'lobule:central'` dives into the liver lobule.
 - **Camera by name.** `cam: { on: ['PV_TRUNK', 'SV', 'spleen'] }` frames what the names point at (vessel ids, organs, term targets, station ids or `@sets`, the ones `glow` takes) with a little room round it, no closer than `kMax`. `cam: { on: ['@collaterals'], near: 'portal' }` starts from that region and grows it to take them in; `cam: ['portal', 'spleen']` is the union of two regions. Use it instead of a raw `[x0, y0, x1, y1]` box. Guide 5.1.
 - **Camera beats.** `beats: [{ cam: 'rectum', marks: [...] }, { cam: 'fit' }]`: up to two more views of the figure on the same slide, one per Next (figure fields only; the words and card stay). A jump or Back opens the last view, so make it the whole point. Guide 5.1.
-- **Reveal the line clause by clause.** `reveal: true`: each Next adds the next clause of `line` and lights the terms it names (cut after commas, semicolons and full stops, or write `|` between clauses); Back removes the last. Figure only, the card never refits. A jump opens it whole. Guide 5.1.
+- **Reveal the line clause by clause.** `reveal: true`: each Next adds the next clause of `line` and lights the terms it names (cut after commas, semicolons and full stops, or write `|` between clauses); Back removes the last. Figure only, the card never refits. A jump opens it whole. No built-in slide uses it: a built-in card shows all its text at once. Guide 5.1.
 - **Push during a time-lapse.** `lapse: { seconds: 10, cam: 'varices' }`: the camera drifts there while the days run, labels riding along. Guide 4.
 - **Circuit view.** `view: 'circuit'` shows the electrical-circuit map instead of the body.
 - **Labels.** `labels: ['CONF', 'RHV', 'RA']` names those stations on the figure. Only the stations you list appear.
@@ -117,6 +117,7 @@ These are optional extras. Each shows only on the slides that ask for it.
 - **Scale switch (Anatomy / Lobule / Sinusoid pill).** `scales` lets the presenter flip the figure to other scales of the same patient and back. Short form: `scales: ['lobule', 'anatomy:fit']`. Full form: one view per scale, with its own camera and callouts:
   `scales: { anatomy: { cam: 'liver', labels: ['CONF'], glow: ['PV_TRUNK'], mark: {...} }, lobule: { cam: 'lobule:triad', zoom: 2.6, glow: ['lobule:triad'], callout: { at: 'triad', label: 'Resistance' } } }`.
   The slide's own scale shows the slide as written. Another scale shows only its own view (cam, zoom, kMax, clear, labels, mark/marks, sites, glow, callout, layers). Every slide opens on its own scale, again on Next, Back and jump, because a flip is never remembered. Sinusoid only on pressure-lens slides. Never on question, catheter, Doppler, calipers or Circuit slides. The pill sits left of the slide counter on Mac and iPad landscape, and centred above the teaching card on phone and upright iPad. Adopt runs of slides together and list built-in ones in `tests/deck-adopted.js`. Full details: guide 5.10.
+- **Three scales on one plate.** `cutouts: ['lobule', 'sinusoid']` lays the lobule and the sinusoid in round windows beside the anatomy, drawn live from the same patient, with a ring on the liver and a cone to each window. Use it where the cause and the effect sit at different scales (scarring and the varices). Mac and iPad on its side only; never on a question, `visual` or Circuit slide. `cutoutSubject` picks the one scale whose blood runs. Guide 5.11, `docs/cutouts.md`.
 - **Gut glow in a time-lapse.** `lapseGlow: ['bowel']` on a slide with `lapse` glows those organs from the days' start and keeps them lit while the slide is up, easing in and out. Use `cam: 'gut'` so the bowel is in frame.
 - **Pressure ripple.** `ripple: true` makes the vessels whose pressure moved glow warm or cool for a moment as the slide lands. Use it on the slide where a drug or a TIPS starts.
 - **Live numbers in a callout.** A mark's label can hold a live value: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`.
@@ -130,9 +131,10 @@ Full guide: section 5.9.
 ### Ladder and tiles
 
 - `tool: { kind: 'profile' }` shows the pressure ladder, the Gut to heart chart. It has three tinted zones (pre-hepatic, intrahepatic, post-hepatic), the HVPG and PPG brackets with the two readings as pills at the top right, and a red block wherever the pressure falls steeply, so the chart shows where the resistance is. (An old `data: 'ladder'` is read as this chart.)
-- `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. Each tile has a coloured scale with a dot for now and a ring for where it started.
+- `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. `'eus'` is the EUS-PPG (left portal vein minus left hepatic vein); the HVPG, EUS-PPG and PPG side by side are in the HVPG, PPG and EUS-PPG compared deck (`gradients`). Each tile has a coloured scale with a dot for now and a ring for where it started.
 - `key: ['hvpg']` highlights a tile and bolds its name in the words.
 - `delta: true` shows each tile's change from the slide before.
+- `tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }` adds the EUS-PPG (left portal vein − left hepatic vein) as a third bracket and pill, between the HVPG and the PPG. Leave `spans` out and the chart draws the HVPG and PPG, as every other slide does.
 - `tool: { kind: 'profile', from: 'norx', fromLabel: 'No Rx' }` draws an earlier state as a faint dotted line on the chart, to show what a treatment changed.
 
 - A data card that is the same on the next slide (same `tool` and options, same tiles) stays on screen while the words change, and its numbers ease to the new slide's. Different tiles or instrument options build it afresh.
@@ -148,14 +150,16 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | Spectral Doppler in one vessel | `tool: { kind: 'doppler', vessel: 'PV_TRUNK' }` | flow direction, speed or wave shape is the point |
 | The esophagus through a scope | `tool: { kind: 'scope' }` | varix size or banding |
 | The scope ring on the varices (tap: the live scope view beside the figure) | automatic on varix slides; `scopeLens: true` / `false` | any slide that shows the varices, leaving the data card free |
-| A FibroScan reading | `tool: { kind: 'fibroscan' }` | liver stiffness |
-| A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
-| The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
+| A FibroScan reading | `tool: { kind: 'fibroscan' }` (`organ: 'spleen'` for the spleen probe) | liver or spleen stiffness |
+| A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, blood pressure (BP 118/72 (88)), output or hemoglobin, with an EKG strip |
+| The carvedilol hold lines | `tool: { kind: 'vitals', show: ['hr', 'map', 'co'], hold: true }` | a drug that is held when the pressure is low: a rail under the numbers with both Baveno VIII 4.6 lines (systolic 90, mean 65 mmHg), the patient's pressure as a bar from diastolic to systolic and a dot at the mean |
+| The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured: one reading per Next, free pressure, then wedge, then the HVPG (Back takes them back) |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
-| The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
+| The abdomen and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |
 | Pressure and flow around a meal | `tool: { kind: 'flowtime' }` | a time-lapse with a meal |
+| Two readings over a time-lapse's days | `tool: { kind: 'flowtime', clock: 'days', lines: [..], keepTiles: true, title }` | any time-lapse slide: the chart is the instrument card, not a graph on the teaching card; to keep another instrument, show it on the next slide |
 
 Doppler has extra options. `mode: 'color'` shows a colour Doppler map. `calipers: true` marks peak and trough and gives the pulsatility index. `pair: true` adds a slim second trace (a hepatic vein under a portal vein). `scale: 60` fixes the velocity scale so a fast jet wraps round, which shows aliasing, and `baseline: 0.3` moves the baseline to make room. On a stent, `gate: 'distal'` picks the third that is sampled and `points: true` calls out the velocity at all three.
 
@@ -172,20 +176,26 @@ Full guide: section 7.2.
 | Liver inflow bar | `tool: { kind: 'flows', of: 'inflow' }` | one centred bar: the liver's inflow split into portal vein and hepatic artery, the healthy split a dashed line over it | the arterial buffer, or a TIPS stealing portal flow |
 | Setting curve | `tool: { kind: 'curve', param: 'cirrhosis', from: 0, to: 1, lines: ['ppg'] }` | one reading across a setting's range, with a ring at the slide's value | dose or severity against pressure |
 | Causes waterfall | `tool: { kind: 'causes' }` | steps from the healthy PPG to the patient's, one per cause | splitting a pressure into what raised it |
-| Course after an event | `tool: { kind: 'course', from, event, then }` | one reading day by day after a tap or a first treatment, a line for each treatment, on the reading's grade zones | what each treatment does to a reading over the weeks (the model's timing, not a patient's) |
+| Course after an event | `tool: { kind: 'course', from, event, then }` | one reading day by day after a paracentesis or a first treatment, a line for each treatment, on the reading's grade zones | what each treatment does to a reading over the weeks (the model's timing, not a patient's) |
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |
 | Cross-section | `tool: { kind: 'lumen' }` | the vessel cut across, with how much is open, clotted or stented | a clot, a web or a narrowed stent |
-| Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph made split into what the lymphatics carry, what the belly reabsorbs and what builds as ascites, on one strip | how ascites builds and what treatment changes |
+| Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph formation split into lymphatic drainage, peritoneal reabsorption and net ascites accumulation, on one strip | how ascites builds and what treatment changes |
+| Guideline path | `tool: { kind: 'path', of: 'first-visit', patient: { lsm: 18, plt: 120 } }` | a Baveno VIII flowchart with the patient's own path lit from the model's readings; `of` also takes `bleed`, `gastric`, `ascites`, `stopcarv`, `holdcarv`, `secprop`, `psvdscope`, `pvtocc`, `pvtdur`, `aasld`, `psvdscore`, `recomp`, `pvtgrid`, `ladder` | a guideline's decision tree is the lesson |
+| Pressure tracing | `tool: { kind: 'reading' }` on a measuring `procedure` slide | the app's one pressure monitor: a live number and trace, one reading per Next, then the gradient; the card stays put between measurement slides; titled "HVPG, catheter tracing" on the HVPG, "Pressure tracing" otherwise | how a gradient is read |
+| Procedure graph | `tool: { kind: 'evgraph' }` on a `procedure` slide | what a TIPS, BRTO or BATO changes, drawn live after the stent as it plays (the lines come from the slide's `graph`) | a procedure whose effect is the point; graphs go in the data card, not the teaching card |
+| Treatment menu | `tool: { kind: 'menu' }` | every treatment the patient could get, run on the slide's state, each a dot at the PPG it reaches against the liver flow it costs | choosing among treatments |
 | Criteria card | `tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', rows: [..] }` | a guideline's rules as up to four rows; a row read from the model (`['HVPG ≥20 mmHg', 'hvpg', '>=', 20]`) shows its reading with a tick or a dash; `note` gives the case's own value and `lit: true` sets the row that applies in full-white words; `ticks: false` for a classification; opt-in `lead`, `rule` (a pill, only when the notes cite it), `verdict`, `ordered: true` (1, 2, 3 for "In this order"), and per row `cut` and `met`; a list with no cut-offs gets a ring per row, filled on the row that applies, and `**key words**` in ink | the rules are the lesson (pre-emptive TIPS, recompensation, the Sarin classes): a phone never shows the causes line, but it shows the card |
+| Trial card | `tool: { kind: 'trial', id: 'predesci' }` | one landmark trial: who was enrolled, what was counted, how long they were followed, two bars with the share of each arm that had the outcome, the trial's own effect size and its source | the slide teaches a trial (PREDESCI, early TIPS, restrictive transfusion, rifaximin before TIPS, covered TIPS for ascites). The teaching card keeps its words and no graph |
 
 A few details worth knowing:
 
 - The portal blood bar is one bar across the card with a dashed Healthy bracket over it; a route too narrow to carry its name is named in a pill under the bar, so the card has no leaders and nothing off to one side.
 - A profile with `from: true` adds a dotted line for the slide before.
 - A curve with `against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } } }` draws a second line for a drug on the same scale. An `against` sweep with `of: 'varix'` draws another reading on that scale (the esophageal varix with the shunt closed beside the fundal varix), and `reading: 'Varix'` names the card, the key row and the cut-offs.
-- Every deck has a relation chart just before its summary, with kicker `'Summary'` and id `'relation'`. It is a curve with a reading on the x axis, e.g. `tool: { kind: 'curve', x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['hvpg', 'plt'], xCuts: [15, 25], dots: [{ slide: 'a1', name: 'Case 1' }] }`. `days` settles each point for that many model days, `patient` draws the line on a patient of its own, `dots` adds other slides as named points, and `oneScale: true` puts both lines on one scale. `against: [{ label, params, pair: true }, …]` with `zone: { fall: 10, under: 12, label: 'Response' }` draws a drug against the HVPG before it. A plane with `diag: { label }` draws its equal line, and a plane row's `from: { preset }` draws where that patient started as a ring joined to the point (before and after a treatment). `param: 'scope.air'` with `lines: ['seen', 'across']` runs a curve over the scope's air. The source goes in the notes, and the words quote the ring's own values as `{key}` pills. Full guide: 7.2.
+- Most decks (25 of 37) have a relation chart just before their summary, with kicker `'Summary'` and id `'relation'`. It is a curve with a reading on the x axis, e.g. `tool: { kind: 'curve', x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['hvpg', 'plt'], xCuts: [15, 25], dots: [{ slide: 'a1', name: 'Case 1' }] }`. `days` settles each point for that many model days, `patient` draws the line on a patient of its own, `dots` adds other slides as named points, and `oneScale: true` puts both lines on one scale. `against: [{ label, params, pair: true }, …]` with `zone: { fall: 10, under: 12, label: 'Response' }` draws a drug against the HVPG before it. A plane with `diag: { label }` draws its equal line, and a plane row's `from: { preset }` draws where that patient started as a ring joined to the point (before and after a treatment). `param: 'scope.air'` with `lines: ['seen', 'across']` runs a curve over the scope's air. The source goes in the notes, and the words quote the ring's own values as `{key}` pills. Full guide: 7.2.
 - A year chart with `style: 'milestones'` shows the HVPG line alone and names the slides that set `milestone: 'Dx'`. `since: 'dx'` starts the chart at that slide, and `bands: ['carvedilol']` shades the time a drug was on.
 - A cross-section of a stent takes `site: 'mid'` to say where it is cut.
+- The trial card reads nothing from the model. A trial's numbers are the paper's, so the card looks the same on every patient. The ids are `predesci`, `earlytips`, `lvtips`, `transfusion`, `rifaximin` and `covered`, and each trial's numbers sit in `src/ui/trials.js` and `guidelines/trials.md` with the abstract they were read from. Say in the line what the bars count ("fewer events on a beta-blocker"), name who the trial enrolled, and leave the trial's numbers out of the line: the card carries them. A trial marked unchecked shows "Not yet checked against the paper", and a test fails a slide that uses one. Try it in Testing › Demo: all the new visuals.
 - These charts use the model's own numbers. Do not quote their shares in the words without a checked source.
 
 Full guide: section 7.2, and 7.5 for the criteria card.
@@ -194,7 +204,7 @@ Full guide: section 7.2, and 7.5 for the criteria card.
 
 `visual` replaces the words and the figure with a panel, with the figure dimmed behind. Use it for a summary or a comparison.
 
-- `visual: 'table'` with `of: ['clot', 'cavernoma']` puts earlier slides in a table, one row each. `cols` picks the columns (`pv hvpg ppg varix gv asc plt lsm spleen map hr co bv` and more; the full guide lists them). A `wave` column adds a small Doppler trace to each row, and `focusRow: 'clot'` highlights one row.
+- `visual: 'table'` with `of: ['clot', 'cavernoma']` puts earlier slides in a table, one row each. `cols` picks the columns (`pv hvpg ppg varix gv asc plt lsm spleen map hr co bv` and more; the full guide lists them). A `wave` column adds a small Doppler trace to each row, and `focusRow: 'clot'` highlights one row. A row's `blank: ['hvpg']` shows a column as not measurable, `miss: ['hvpg']` tags it **Misses** (the gradient leaves the resistance out) and `missPart: ['hvpg']` tags it **Misses part**.
 - `visual: 'ladders'` puts several ladders (Gut to heart charts) side by side.
 - `visual: 'scale'` puts several patients on one banded scale.
 - `visual: 'plane'` puts several patients on a two-reading plane (`plane: 'hvpg-ppg'` or `'csph'`).
@@ -215,9 +225,14 @@ Full guide: section 7.3.
 - **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow. `whatIf: { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, unit: 'mmHg' }` drags a scope option instead (the air's pressure round a varix) and leaves the model alone.
 
-Put buttons and sliders on key slides only. 32 of the 40 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
+- **Beta-blocker response.** `response: true` puts three buttons on the card: Non-responder, Usual responder and Strong responder. Each changes how strongly this patient's portal pressure answers the beta-blocker, live, and the drug stays whatever the slide set. On carvedilol in a decompensated patient the HVPG falls about 7%, 19% and 27%. A fall under 10% is a non-response by Baveno VIII Table 3. Put the drug in the slide's `params`, add `hvpgResp` to show the fall, and add `hold: true` to a vitals tool to draw the hold line. Do not use it with `compare`. Full guide: 7.4.
+- **Hold to strain.** `strain: true` (or `strain: { label: 'Push' }`) puts a button on the card that works only while it is held. Holding it starts the model's Valsalva: intrathoracic and intra-abdominal pressure build over 1.5 seconds. Letting go brings it back over 1.5 seconds, and the data card follows. Use it where straining is the point (the second stage of labor). In the model, a held strain raises the portal vein pressure and lowers the MAP; the pressure across a varix wall falls, so do not write that it rises. Do not use it with a time-lapse, a procedure or a catheter. Full guide: 7.4.
+
+Put buttons and sliders on key slides only. 27 of the 38 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 
 ### A catheter treatment
+
+`procedure: 'eus'`, `'hvpgcath'`, `'irivc'` and `'irpv'` play a **measurement** the same way and change nothing in the model: `'eus'` is the EUS-PPG (a needle through the stomach into the left portal vein, then the left hepatic vein); the PPG by interventional radiology is two slides, `'irivc'` (a catheter from the neck reads the IVC) then `'irpv'` (a needle through the skin and the liver reads the portal vein directly, and the slide ends on the gradient). `'hvpgcath'` is the HVPG in four steps (the catheter in, the free pressure, the balloon up and the wedged pressure, the HVPG). The HVPG talk's `cath: 'free'`, `'wedge'` and `'result'` slides with the live tracing card also stand; never open one straight on `'result'` to show how a reading is taken. List the slide in `tests/deck-adopted.js`. `procedure: { kind: 'irivc', then: 'irpv' }` plays both PPG readings on one slide, the portal vein on the Next after the IVC. Add `tool: { kind: 'reading' }` and the data card is the app's one pressure monitor (the HVPG catheter tracing's screen, `monitor.js`): one big live number and a live trace with its beat and breath, waiting until the tip is in, the wedge rising only with the balloon, one reading per Next, then the gradient (HVPG, EUS-PPG, PPG by IR, or the PPG through a TIPS with its <12 mmHg target). Back runs it back exactly, and the card stays in place from one measurement slide to the next. The Gradients talk shows the HVPG, the EUS-PPG and the PPG by IR in a row.
 
 `procedure: 'tips'` (or `'brto'`, `'bato'`) plays the procedure on the real vessels, guided by Next: the first Next puts the catheter in, each Next plays the next step, and the Next after the last moves on; Back runs a step backwards. The teaching card shows the four steps as a line of words with the slides' numbered step circles, the one on show lit (progress, not buttons); each step's callout on the figure carries the same number. The camera comes in close on the tip and follows it in, then holds still for the work. The live model keeps the change, as a treatment button would. For a TIPS, choose: `params: { tips: { on: true } }` alone places it quickly (the stent is just there), and adding `procedure: 'tips'` places it step by step. Use the guided one only on the slide that teaches the placement, never with a time-lapse. `procedure: { kind: 'tips', auto: true }` plays the first step as the slide lands, going forward only. A slide whose `params` give the result opens without it going forward (no stent, the shunt open), and the result appears at its step. The patient needs the vessels it uses (a gastrorenal shunt for BRTO and BATO); otherwise the steps are dimmed, say why, and Next moves on. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
 
@@ -259,7 +274,7 @@ Full guide: sections 12 and 13.
 
 ## The rules that matter most
 
-- One idea a slide, and a line of 30 words or fewer. `tests/deck-shape.test.js` also keeps a talk to two lenses, the same tiles on neighbouring slides with one instrument, two tiles a slide, no `cite`, and a `caveat` only on the TIPS Doppler jet slide (put sources and small print in `notes`). A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails a browser check. Shorten the words, never the text size.
+- One idea a slide, and a line of 30 words or fewer. `tests/deck-shape.test.js` also keeps a talk to two lenses, the same tiles on neighbouring slides with one instrument, two tiles a slide, a `cite` only where `tests/deck-adopted.js` lists it, and a `caveat` only on the TIPS Doppler jet, kidney pressure and Meso-Rex child slides (put sources and small print in `notes`). A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails the local browser check (`tests/e2e/`). Shorten the words, never the text size.
 - HVPG is WHVP minus FHVP (amber 5, red 10). PPG is portal vein minus IVC (amber 6, red 12).
 - Say numbers through live values, never typed.
 - Say "resistance" for where pressure is lost, not "block" or "obstruction".

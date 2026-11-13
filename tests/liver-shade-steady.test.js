@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // flipped the SVG's visibility on every liver frame and read the liver for the GPU again each time (motion budget, 2 Nov 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 

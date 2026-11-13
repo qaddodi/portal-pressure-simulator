@@ -20,7 +20,7 @@ const MENUS = ['menu', 'umenu', 'um-scrim', 'why-pop'];
 const started = new WeakMap();   // element → { name, t } (when its entrance began, performance.now() time)
 const onStart = (e) => {
   const el = e.target, n = e.animationName;
-  if (n !== 'scale-settle' && n !== 'slide-from-edge' && n !== 'crossfade') return;
+  if (n !== 'scale-settle' && n !== 'slide-from-edge' && n !== 'crossfade' && n !== 'dock-sheet-in') return;   // (dock-sheet-in: a menu sheet over the thumb dock, 13 Nov 2026)
   if (!el.classList || !MENUS.some((c) => el.classList.contains(c))) return;
   started.set(el, { name: n, t: e.timeStamp });
 };
@@ -31,7 +31,7 @@ if (typeof addEventListener === 'function') addEventListener('animationstart', o
 // crossfade-out as the menu's, slide-to-edge --d-flip, the main menu's sheet and scrim --d-small), in ms.
 const timeIn = (el, name) => (name === 'scale-settle' ? (el.classList.contains('from-dock') ? D_SMALL : D_FLIP) : D_SMALL);
 const sheetish = (el) => el.classList.contains('as-sheet') || (el.classList.contains('from-dock') && document.documentElement.classList.contains('thumb-ui'));
-const timeOut = (el, name) => (name === 'scale-settle' ? (sheetish(el) ? D_SMALL : D_FLIP) : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : el.classList.contains('umenu') || sheetish(el) ? D_SMALL : D_FLIP);
+const timeOut = (el, name) => (name === 'scale-settle' ? (sheetish(el) ? D_SMALL : D_FLIP) : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : (el.classList.contains('umenu') && el.classList.contains('sheet')) || sheetish(el) ? D_SMALL : D_FLIP);   // (a floating menu, the main menu on a Mac included, leaves in --d-flip: menu recs C11)
 const f4 = (v) => +v.toFixed(4);   // alloc-rare: a menu put away while its entrance still runs (a tap away), never per frame
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).
@@ -44,7 +44,11 @@ const ANIM = { duration: 0, easing: EASE_IN, fill: 'forwards' };
 let lastExit = null;   // (the exit last played from where a menu had got to: a plate laid under the menu, plate-gl.js, plays the same)
 /** Plays the exit just played on a menu (leaveFromHere answered true) on `other` too, from the same look over the same time and curve. */
 export function replayExit(other) { if (lastExit && other.animate) other.animate(lastExit, ANIM); }
+// dock-sheet-in (app.css): a menu sheet over the thumb dock rises by its height and 8 px from behind the dock. Put away while it still rises (a
+// second tap on its tab, or another tab), its exit sank from its resting place: it jumped up to rest for a frame first (13 Nov 2026, iPhone).
+const KF_DOCK = [{ transform: '' }, { transform: 'translateY(calc(100% + 8px))' }];
 function looks(name, k) {
+  if (name === 'dock-sheet-in') { KF_DOCK[0].transform = `translateY(calc((100% + 8px) * ${f4(1 - k)}))`; return KF_DOCK; }   // alloc-rare: a menu put away while its entrance still runs, never per frame
   if (name === 'scale-settle') { KF_SCALE[0].opacity = f4(k); return KF_SCALE; }
   if (name === 'crossfade') { KF_FADE[0].opacity = f4(k); return KF_FADE; }
   // slide-from-edge: from (--edge-o, translate(--edge-x, --edge-y)) to rest; the custom properties are the element's own.

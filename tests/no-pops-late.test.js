@@ -20,7 +20,7 @@ test('Reduce Motion takes the movement out but keeps the fades (P3)', () => {
 });
 
 test('a tapped Tests tab crossfades; a swiped one does not replay (P13)', () => {
-  assert.match(dock, /!now\.classList\.contains\('landed'\) && was\.animate\) paneOut\(was, top\)/);
+  assert.match(dock, /!swiped && was\.animate\) paneOut\(was, top\)/);
   assert.match(css, /\.instrument-workspace \.dock-pane\.pane-out:not\(\.active\) \{ display: flex;[^}]*position: absolute; inset: 0;/);
 });
 
@@ -55,7 +55,7 @@ test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)',
 test('the patient pill glides to a new name\'s width and the name crossfades (P8)', () => {
   assert.match(read('index.html'), /<div class="float-pill tb-id">\s*<span class="tb-face" aria-hidden="true"><\/span>/);
   assert.match(css, /\.topbar \.tb-id \{ position: relative; isolation: isolate; background: transparent; box-shadow: none; \}/);
-  assert.match(read('src/ui/topbar-motion.js'), /if \(face\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE \}\);/);
+  assert.match(read('src/ui/topbar-motion.js'), /if \(face\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE_MOVE \}\);/);
   assert.match(read('src/ui/main.js'), /const scFill = \(\) => \{\s*const el = \$\('#scenarioName'\);\s*el\.replaceChildren\(h\('span', SN_L, scName\)/);
   assert.match(read('src/ui/main.js'), /swapFade\(el, scFill\);/);
 });

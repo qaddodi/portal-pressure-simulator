@@ -1,9 +1,8 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
 import { zoomRide } from '../src/ui/scene-cam.js';
 
@@ -11,7 +10,7 @@ import { zoomRide } from '../src/ui/scene-cam.js';
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = stageSource();
+const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css');
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -280,7 +279,6 @@ test('the card zooms while a time-lapse plays or its answer eases in: the slide 
 
 // (The zoom's transform as written: translate(x, y) scale(s), in the card's own px.)
 const parseT = (t) => { const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(t); return { dx: +m[1], dy: +m[2], s: +m[3] }; };
-const last = (el) => el.anims.at(-1);
 const settle = async (w) => { fl.run(); await new Promise((r) => setTimeout(r, 0)); };
 
 test('zoom: the readings come out above the zoomed card and the zoom is fitted again to the whole stack, in the middle and inside the margin', async () => {
@@ -330,12 +328,14 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
     z.follow(-126, -150);   // (tucked: the top of the whole 126 px lower, the readings' rise 150 px less)
     const t = parseT(card.style.transform);
     assert.ok(t.s > out.s, 'larger as it shortens');
-    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]]);
+    assert.deepEqual(log, [], 'not drawn again on each step of the follow (8 Nov 2026)');
+    await new Promise((r) => setTimeout(r, 260));
+    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]], 'drawn for it once the steps stop');
   } finally { back(); }
 });
 
 test('zoom: the readings move only once the glide in has ended, and not on its way back', async () => {
-  const w = world(), { z, card } = w; const back = stands();
+  const w = world(), { z } = w; const back = stands();
   try {
     z.open(); assert.equal(z.follow(10, 10), false);
     await settle(w); assert.equal(z.follow(10, 10), true);
@@ -577,7 +577,7 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
   assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
   // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
-  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);   // (off is the leave: the step below, on the leaving curve; .on keeps the surface step)
   assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
   assert.match(rule('.pz-gscrim {'), /z-index: 1/);
   assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: none; \}$/m, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
@@ -645,6 +645,23 @@ test('zoom: a tap on the teaching card frames and centres it, the data card ridi
     z.reset();
     assert.ok(!words.classList.contains('pz-zmain'), 'and are given back');
   } finally { back(); }
+});
+
+test('zoom: a slide with no data card zooms its teaching card alone (Sites and causes 2: the words and the site bar)', () => {
+  const card = new El({ left: 0, top: 0, width: 0, height: 0 }, { hidden: true }), lip = new El({ left: 0, top: 0, width: 0, height: 0 }, { hidden: true });
+  const words = new El({ left: 40, top: 280, width: 360, height: 330 }), shade = new El({ left: 40, top: 280, width: 360, height: 330 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    assert.equal(z.open({ main: [words, shade] }), true, 'the words alone are framed');
+    const want = zoomPlan({ left: 40, top: 280, width: 360, height: 330 }, { left: 0, top: 0, width: 1440, height: 900 });
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card');
+    assert.ok(words.classList.contains('pz-zmain'));
+    z.reset();
+  } finally { back(); }
+  assert.match(js, /const wordsAlone = \(\) => ui\.data\.hidden && !ui\.text\.hidden/);
+  assert.match(js, /\(\(zoomCard\(\) && dataStands\(\)\) \|\| wordsAlone\(\)\)/);
 });
 
 test('zoom: a tap on the data card fits and centres the data card alone; the teaching card rides but never changes the framing', () => {

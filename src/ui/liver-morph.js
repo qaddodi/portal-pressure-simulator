@@ -1,9 +1,10 @@
 // The liver's outline as cirrhosis and congestion reshape it (pure: no DOM, so the tests can check the vessels stay inside it).
+import { clamp } from './num.js';
 import { seeded } from './liver-geo.js';
+import { smooth01 } from './motion.js';
 import { EDGE_PATH, LIVER_EDGES, HIDDEN_EDGES, ANAT_HIDDEN, STRANDS } from './anatomy.js';
 
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-export const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
+export { smooth01 };   // (the one smoothstep, motion.js)
 
 // Cirrhosis as picked in the organ mock-ups (20 Oct): the liver shrinks and reshapes (field: the pull toward the hilum and the
 // left lobe's growth; scale: the whole organ's shrink), its edge has longer, deeper bumps (lam, nod), and the nodules are larger

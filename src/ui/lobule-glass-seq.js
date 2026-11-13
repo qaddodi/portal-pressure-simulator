@@ -20,7 +20,7 @@ export const LZ_V = 1e12, LZ_E = 1e9;
 /** lz, veins: the current lobule and figure renderer ({ drawSeq(), plain?(), pictureRects?(), sinSeq?() } and { drawSeq, bloodSeq?, pictureDirtyRects?() });
  *  every: how many of the sinusoid's pictures, or the figure's blood frames under a lobule not laid plain, make one new number (1: each). */
 export function createLzGlassSeq({ lz, veins, every = 1 }) {
-  let last = -1, epoch = 0, veinsAt = -1, plainWas = true, picture = 0, sinAt = -1, bloodAt = -1;
+  let last = -1, epoch = 0, veinsAt = -1, plainWas = true, picture = 0, sinAt = -1, bloodAt = -1, layAt = -1;
   const base = () => LZ_V + epoch * LZ_E;
   // (A count that moved on by `every` or more, went back, or came or went (-1): a new picture for the glass.)
   const stepped = (now, at) => now !== at && (now < 0 || at < 0 || now < at || now - at >= every);
@@ -37,6 +37,10 @@ export function createLzGlassSeq({ lz, veins, every = 1 }) {
       const bs = v.bloodSeq ?? -1;
       if (plain) bloodAt = bs;
       else if (stepped(bs, bloodAt)) { bloodAt = bs; epoch++; }
+      // (The lobule laid differently, with no new picture: a dive's zoom, its field's strength, a fade, the plate's window. 11 Nov 2026, the frost kept the
+      // pale field it blurred as the dive set off until the landing, then stepped darker.)
+      const ly = l.laySeq?.() ?? -1;
+      if (ly !== layAt) { layAt = ly; epoch++; }
       const sq = l.drawSeq();
       if (sq !== last) {
         if (sq < last) epoch++;   // (the lobule's renderer was made again: its count began at 0)

@@ -1,12 +1,13 @@
 // What a label says and where it attaches: change references, pressure runs, node, velocity and scan items, blockers and the label anchor.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, dopplerK, stentSegments, stentSite } from '../engine/topology.js';
+import { EDGES, NODES, dopplerK, stentSegments, stentSite, tiedOff } from '../engine/topology.js';
 import { ABBR, ATLAS_LABELS, LABEL_VESSEL, SHORT } from './anatomy.js';
 import { oxygenFor } from './blood.js';
 import { flowColor, heatColor, oxygenColor, pressureColor, velColorOf, velocityColor } from './colormap.js';
 import { rippleList } from './highlight-math.js';
 import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
+import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
@@ -14,6 +15,15 @@ import { shownVel, store, varicesPresent } from './store.js';
 import { clamp, fmt, fmtFlow, fp } from './util.js';
 import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js';
 
+// The vessels whose reversed flow a station's label tells with ⟲: the one the velocity layer reads there, the one its label is anchored on, and, for the
+// Circuit's stations that stand at a vein's end, that vein (the splenic vein and its middle, the jejunal and ileal vein, the gastric vein).
+const REV_EXTRA = { SV: ['V_SPL', 'SV_MID'], SPL: ['V_SPL'], INT: ['V_INT'], STO: ['V_STO'] };
+const REV_OF = new Map();
+function revVessels(id) {
+  let a = REV_OF.get(id);
+  if (!a) REV_OF.set(id, a = [...new Set([STATION_VESSEL[id], LABEL_VESSEL[id], ...(REV_EXTRA[id] || [])].filter(Boolean))]);
+  return a;
+}
 export function createLabelItems(st, live) {
   const { E, EI, EV, LINE_H, NI, REF, STENT_FACTORS, arcMid, breath, cath, cssNum, dopGateOf, dpr, explain, fontPx, geo, lensNow, lineW, mix3, nextFrame, noGlows, nodePos, pinned, quietFx, revShown, scan, setGlowSrc, sites, stageBox, svg, termTone, textW, toRGB, update, updateLabels, worldToLocalInto, wrap } = st;
   function changeRef(P) {
@@ -37,9 +47,11 @@ export function createLabelItems(st, live) {
     const cs = sceneStyle(svg) || getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
     const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
     const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
-    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));
+    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: D_SURFACE })));
     if (list.length) rippleT = setTimeout(setGlowSrc, RIPPLE_HOLD, 'delta', noGlows);
   }
+  // Whether a station's own vessel runs against its healthy direction, as shown (the figure's chevrons turn orange on it).
+  const stationRev = (id) => { const a = revVessels(id); for (let i = 0; i < a.length; i++) if (revShown.has(a[i])) return true; return false; };   // (no closure: the labels' signature asks on every frame)
   const isImaging = () => !!store.get().imaging;
   // Captions of findings (varices, collaterals) can stay hidden until a test shows them.
   const labelHidden = (id) => !!store.get().hiddenLabels?.has(id);
@@ -104,7 +116,7 @@ export function createLabelItems(st, live) {
     const withUnit = (t) => (selStation(id) ? [{ ...unit, t }] : []);
     if (lm === 'oxygen') {
       const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
-      return { runs: [{ ...big, t: fmt(sat * 100, 0) }, ...withUnit('% O₂')], color: oxygenColor(sat) };
+      return { runs: [{ ...big, t: fmt(sat * 100, 0), pad: 3 }, ...withUnit('% O₂')], color: oxygenColor(sat) };
     }
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
@@ -133,7 +145,7 @@ export function createLabelItems(st, live) {
     // A microvascular bed has no single velocity; a station whose only vessels are closed
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
-    const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
+    const runs = [{ ...big, t: fmt(best, 0), pad: 3 }, { ...unit, t: 'cm/s' }];   // (pad: laid out as wide as three digits, stage-label-size.js lineW)
     // (Named as the Doppler names it: velNormal.js judgeFlow, under 1 cm/s no flow, under 9 stasis.)
     const jf = judgeFlow(best, null, null);
     if (jf.none || jf.stasis) runs.push({ t: jf.none ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
@@ -153,12 +165,14 @@ export function createLabelItems(st, live) {
   function shortenItem(it, abbr = true) {
     if (abbr && abbrevName(it)) return true;
     if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
-    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val') : [];
+    // (The reversal icon stays through every step: a label may lose its unit, change and number, never the news that the flow turned.)
+    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val' || r.cls === 'lb-rev') : [];
     if (val.length && val.length < it.lines[1].length) {
       it.lines = [it.lines[0], val]; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = 1;
       return true;
     }
-    it.lines = [[it.lines[0][0]]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
+    const rev = it.lines.flat().find((r) => r.cls === 'lb-rev');
+    it.lines = [[it.lines[0][0], ...(rev ? [{ ...rev, gap: 4 }] : [])]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
     return true;
   }
   const shortenTo = (it, lvl, abbr = false) => { if (abbr) abbrevName(it); while ((it.short || 0) < lvl && shortenItem(it, false)); };
@@ -183,27 +197,35 @@ export function createLabelItems(st, live) {
     }
     let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
-    if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
+    // (The WHVP and FHVP tags name the HVPG, so they stand only where the slide's ladder draws that bracket: a slide that has students read the
+    // raw pressures first (tool spans: []) shows the plain names, nothing that gives the gradient away.)
+    if (st.presenting && st.presentNames && LADDER_TAG[id] && (st.presentGrads == null || st.presentGrads.split(',').includes('hvpg'))) name += ` · ${LADDER_TAG[id]}`;
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
     // two-line card: it covers as little of the anatomy as it can.
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
     const lines = [[{ t: name, size: 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     // (The hepatic artery's label is its name only: its pressure sits off the venous scale and says little; its flow is in the selection card.)
-    const lr = isImaging() || id === 'HA' ? null : layerRuns(f, id, compact);
-    const pr = id === 'HA' ? null : lr ? lr.runs : pressureRuns(P, id, compact);
+    // (The coronary vein a Warren shunt has tied off reads "—": the stomach side's own pressure is not the vein's.)
+    const tied = tiedOff(f.viewParams || st.params, id);
+    const lr = isImaging() || id === 'HA' || tied ? null : layerRuns(f, id, compact);
+    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact);
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
-    const rev = !!pr && revShown.has(STATION_VESSEL[id]);
-    if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
+    // (Any vessel the station stands on or names (revVessels), and with or without a number: the figure's chevrons turn orange on every
+    // such vessel, so every label on one says so, even where the readings are off. 13 Nov 2026, "PV doesn't have the reversal icon".)
+    const rev = stationRev(id);
+    if (rev && pr) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
+    else if (rev && one) lines[0].push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 4 });
+    else if (rev) lines.push([{ t: '⟲', size: 12, weight: 650, cls: 'lb-rev' }]);
     // The explained label (tap, label-explain.js) carries its structure's name and live readings as one more line of its own picture.
     const exp = explain.key === 'n:' + id && mode !== 'atlas';
     if (exp) lines.push([{ t: explainText({ name: (meta?.name || NODES[NI[id]].label) !== name ? meta?.name || NODES[NI[id]].label : '', what: 'mean', value: Number.isFinite(P) ? P : NaN, flow: throughput(f.Qf || f.Q, id) }), size: 12, weight: 600, cls: 'lb-explain' }]);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: (!!pr || id === 'HA') && mode !== 'atlas' && !exp,   // (the hepatic artery has no number to drop, but takes its abbreviation, "HA", where it is crowded)
- label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
+    return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, rev, canShort: (!!pr || id === 'HA') && mode !== 'atlas' && !exp,   // (the hepatic artery has no number to drop, but takes its abbreviation, "HA", where it is crowded)
+ label: `${NODES[NI[id]].label}${tied ? ': tied off, no pressure' : lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
   // A number that pulses with each beat, read as its mean over the last few seconds (as a tile or the Doppler shows it).
@@ -248,7 +270,7 @@ export function createLabelItems(st, live) {
     // (c8e89a6), drawn toward the text colour (--vel-ink) so it reads on the label's halo, 4.5:1 at least on the light stage; the point sampled is named in bold: Review 15 Oct.)
     const nv = point ? velNormal(EI[sid], f) : null, tint = nv && !none ? `color-mix(in srgb, ${velocityColor(vel, nv)} var(--vel-ink), var(--text))` : '';
     it.lines = [[{ ...it.lines[0][0], t: name, ...(sampled ? { weight: 750, cls: 'lb-name lb-gate' } : {}) }, ...(none ? [{ t: 'No flow', size: 14, weight: 650, cls: 'lb-val', gap: 4 }]
-      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4, ...(tint ? { fill: tint } : {}) }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
+      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4, pad: 3, ...(tint ? { fill: tint } : {}) }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
     it.key = point ? `n:${sid}:${point}` : `n:${sid}`; it.src = ['vel', sid, point]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
     it.label = (none ? `${sid}${seg}: no flow` : `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`) + (sampled ? ', sampled by the Doppler' : '');
@@ -279,6 +301,7 @@ export function createLabelItems(st, live) {
   // that begins ends any other first. The probe's boxes are copies, from a pool made once, as many as the probe's own lists hold.)
   const calloutBuf = [], PROBE_BOXES = [];
   for (let i = 0; i < 1600; i++) PROBE_BOXES.push({ x0: 0, y0: 0, x1: 0, y1: 0, probe: true });
+  const PLATE_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };
   function calloutBoxes() {
     const out = calloutBuf;
     let n = 0;
@@ -292,6 +315,7 @@ export function createLabelItems(st, live) {
         out[n++] = c;
       }
     }
+    if (live.plateBox?.(PLATE_BOX)) out[n++] = PLATE_BOX;   // (the cutouts plate's ring on the liver, a button: no label covers it)
     out.length = n;
     return out;
   }
@@ -312,6 +336,7 @@ export function createLabelItems(st, live) {
     let h = 2166136261;
     for (const el of sites.made.values()) h = sigFoldEl(h, el);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) h = sigFoldEl(h, el);
+    if (live.plateBox) h = sigFold(h, 77);   // (the plate stands: its ring is a box the labels keep clear of; where it is, a solve reads afresh)
     if (dpr.on && dpr.box) h = sigFold(sigFold(sigFold(h, 100), Math.round((dpr.box.x1 - dpr.box.x0) / 8)), Math.round((dpr.box.y1 - dpr.box.y0) / 8));
     return h;
   };
@@ -449,6 +474,7 @@ export function createLabelItems(st, live) {
       const rowFrom = n;
       for (let i = 0; i < line.length; i++) {
         const r = line[i];
+        if (r.sfx) continue;   // (the heart's reading after a label is not what its leader aims at: heart-label.js)
         const f = fontPx(r.size), tr = r.track || 0, w = textW(r.t, f, r.weight, tr);
         if (i) x += (r.gap ?? 3) * live.labelK;
         let from = 0;
@@ -482,5 +508,5 @@ export function createLabelItems(st, live) {
     for (let k = 0; k < rs.length; k++) { const r = rs[k]; outer.x0 = Math.min(outer.x0, r.x0); outer.y0 = Math.min(outer.y0, r.y0); outer.x1 = Math.max(outer.x1, r.x1); outer.y1 = Math.max(outer.y1, r.y1); }
     return edgeOfRects(rs, outer, it.ax, it.ay) || (SEEN_XY.x = it.ax, SEEN_XY.y = it.ay, SEEN_XY);
   };
-  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, velItem };
+  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem };
 }

@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { easeTo, fluidSpring, fluidSpringFor } from '../src/ui/organ-ease.js';
 
 // A patient changed while the lobule or the sinusoid covers the anatomy: the anatomy is not drawn, but its eases (the liver's

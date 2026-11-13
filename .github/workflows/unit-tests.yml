@@ -1,0 +1,109 @@
+name: Unit tests (parallel shards)
+
+# The lint, the unit tests and the static checks as one called workflow, used by quick.yml (every preview push), pages.yml (main's validate) and
+# ci.yml (pull requests and main). The unit tests are ~900 files and took longer than any one job may run (the 15-minute limit cut them, every
+# run "cancelled": recs A1), so they run in SHARDS parallel jobs, a fixed share of the files each (scripts/test-shard.mjs, balanced by the
+# seconds in scripts/test-weights.json; a new file with no entry weighs a default and still lands in exactly one shard).
+# The deck states the tests walk are computed once beforehand (job `states`, saved with `if: always()` so a run that failed or ran out of time still
+# leaves the next one warm). To change the number of shards: the matrix below and the `/4` in the names and the command.
+
+on:
+  workflow_call:
+    inputs:
+      lint:
+        description: Run npm run lint
+        type: boolean
+        default: true
+      static:
+        description: Run npm run check:static
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    if: inputs.lint || inputs.static
+    name: Lint and static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        if: inputs.lint
+        run: npm run lint
+      - name: Static checks (conflict markers; the app and the worker bundle)
+        if: inputs.static && (success() || failure())
+        run: npm run check:static
+
+  # The slides' model states (tests/deck-states.js): ~35 test files walk every deck, and walking them all takes several CPU-minutes when the engine
+  # or a deck changed. Done once here, on all the runner's cores, saved under the hash of the files they come from, and read by every shard.
+  # A hit on the exact key means nothing changed and this job is only the download. If it fails or runs out of time the shards compute what they need.
+  states:
+    name: Deck states
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Restore saved deck states
+        id: states
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+      - name: Compute the deck states
+        if: steps.states.outputs.cache-hit != 'true'
+        run: node scripts/warm-deck-states.mjs
+      - name: Save deck states
+        if: always() && steps.states.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        continue-on-error: true
+        timeout-minutes: 2
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+
+  unit:
+    name: Unit tests ${{ matrix.shard }}/4
+    needs: states
+    if: ${{ !cancelled() }}   # (also when the states job failed: the shards then compute what they need)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false   # (every shard reports, whatever the others did)
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Only read here (the states job saves them); a miss only warns and the tests compute what they need.
+      - name: Restore saved deck states
+        uses: actions/cache/restore@v5
+        continue-on-error: true
+        timeout-minutes: 1
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+        with:
+          path: node_modules/.cache/pps-deck-states
+          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
+      - name: Unit tests (share ${{ matrix.shard }} of 4)
+        run: node scripts/test-shard.mjs --run ${{ matrix.shard }}/4

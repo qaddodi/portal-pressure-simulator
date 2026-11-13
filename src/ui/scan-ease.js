@@ -7,6 +7,7 @@
 // Nothing here makes an object, an array or a string after the record is made.
 
 import { D_SURFACE, EASE_MOVE, cssCurve, easeArrive, reduced } from './motion.js';
+import { NOT_SHOWN } from '../engine/pressure-cuts.js';
 
 const tapCurve = cssCurve(EASE_MOVE);   // (the tap's keyframes each run on --ease-move, as a CSS animation's timing function does)
 const TAP_O = [0, 0.2, 0.45, 0.7, 1], TAP_V = [0, 2, -1.2, 0.6, 0];   // (app.css @keyframes sp-tap: translateX along the probe, px)
@@ -81,3 +82,9 @@ export function scanStep(rec, now) {
   }
   return on;
 }
+
+/** The stiffness the probe reads: the slide's own settled reading when it has pinned one, else the live value (null when neither is a number). */
+export const scanKpaOf = (pinned, live) => (Number.isFinite(pinned) ? pinned : Number.isFinite(live) ? live : null);
+/** The words on the probe's screen: the card's own number when the card is on screen (cardTxt, as it prints it), else the probe's eased
+ *  stiffness k to one decimal, else the missing-number dash (pressure-cuts.js NOT_SHOWN). Never empty, so the screen always shows something. */
+export const scanReadingText = (given, onCard, k) => (given != null && given !== '' ? given : onCard != null && onCard !== '' ? onCard : Number.isFinite(k) ? k.toFixed(1) : NOT_SHOWN);

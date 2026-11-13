@@ -3,11 +3,12 @@ import { saver, frame, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
-import { classSoon, dataSoon } from './class-soon.js';
+import { classSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
+import { fmt, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -15,7 +16,7 @@ import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
-import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
+import { readMetric, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
@@ -23,6 +24,7 @@ import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
+import { NOT_SHOWN, INK_SHARE } from '../engine/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -111,27 +113,14 @@ export const icon = (id) => {
   return el;
 };
 
-// (A value's text is made once and kept for the repeats: a readout that holds its value, or comes back to one, asks for the same text on
-// every frame. Keyed by the number itself, so the text is exactly what toFixed gave; cut when it grows.)
-const fmtTexts = [new Map(), new Map(), new Map(), new Map()];
-export function fmt(v, d = 1) {
-  if (v == null || !Number.isFinite(v)) return '—';
-  const m = fmtTexts[d] || (fmtTexts[d] = new Map());   // alloc-rare: a precision met for the first time
-  let r = m.get(v);
-  if (r !== undefined) return r;
-  const t = v.toFixed(d);
-  // A value that rounds to zero has no sign ("−0" reads as an error).
-  r = /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');   // alloc-rare: the same new value, signed text made once
-  if (m.size > 4096) m.clear();
-  m.set(v, r);
-  return r;
-}
+// (fmt: a value to d decimals with a true minus and never "−0", its text kept for the repeats: num.js, the pure module the Node-loaded files share.)
+export { fmt };
 /** A value as fmt prints it, as a number, for the word beside it: a tile never reads "5.0 L · Grade 2". (−0 reads as 0.) */
 export const shownOf = (v, d = 1) => (Number.isFinite(v) ? +v.toFixed(d) + 0 : v);
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
  *  a trickle through a collateral never looks like none. */
 export function fmtFlow(v) {
-  if (v == null || !Number.isFinite(v)) return '—';
+  if (v == null || !Number.isFinite(v)) return NOT_SHOWN;
   const a = Math.abs(v);
   if (a > 0.0005 && a < 0.05) return v < 0 ? '−< 0.1' : '< 0.1';
   return fmt(v, 1);
@@ -168,53 +157,37 @@ function dropToast(t) {
   const others = [...wrap.children].filter((c) => c !== t), tops = others.map((c) => c.getBoundingClientRect().top);
   t._wgl?.dispose(); t._wgl = null;
   t.remove();
-  if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
+  if (reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
     const dy = tops[i] - c.getBoundingClientRect().top;
-    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
-// Where the toasts sit: slid down from behind the top bars, or (no bars to sit under: the sinusoid view's) at the foot of the screen
-// by the stylesheet. A card kept on screen (a sticky one) is placed again when the screen turns or resizes, and the geometry the
-// docked placement wrote is cleared when a toast is not docked, so it never leaks into the foot placement.
-function placeToasts(wrap) {
-  const bars = document.getElementById('topbar');
-  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
-  const docked = !!(r && r.height);
-  wrap.classList.toggle('docked', docked);
-  if (docked) {
-    const W = innerWidth, w = Math.min(W - 24, 560);
-    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
-  } else if (wrap.getAttribute('style')) wrap.removeAttribute('style');
-}
-addEventListener('resize', () => { const wrap = document.getElementById('toasts'); if (wrap?.children.length) { placeToasts(wrap); for (const c of wrap.children) c._refit?.(); } });
-// A card slides down from behind the top bars and settles just below them (below every row on a phone); docked, it is filled: the
-// largest size that fits, stepping down for longer text, never clipped.
+// (The toasts rest at the foot by the stylesheet, --toast-foot: nothing to place. A card kept on screen, a sticky one, is fitted again when the screen turns or resizes.)
+addEventListener('resize', () => { const wrap = document.getElementById('toastsFoot'); if (wrap?.children.length) for (const c of wrap.children) c._refit?.(); });
 // (3 Nov 2026: laid out in script from Inter's own advances (toast-gl.js layoutToast), no page measure, and drawn on the GPU (widget-gl.js);
 // the page's own words, set at the size found, stay under it for the screen reader and until the GPU has drawn the card.)
-function toastFit(wrap, t, msg, actions) {
+function toastFit(wrap, t, msg, actions, sub = null) {
   if (!t.isConnected) return;
-  placeToasts(wrap);
-  const docked = wrap.classList.contains('docked'), bad = t.classList.contains('bad');
-  const L = layoutToast({ msg, bad, acts: actions?.map((a) => a[0]), docked, W: innerWidth });
+  const bad = t.classList.contains('bad');
+  const L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: innerWidth });
   t._L = L;
-  t.classList.toggle('toast-tall', docked && L.h > 52);   // (84 px: app.css, a class, so no height is written)
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
-  if (docked) { t.style.width = ''; t.style.height = ''; } else { t.style.width = `${L.w}px`; t.style.height = `${L.h}px`; }
+  { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
+  t.style.width = `${L.w}px`; t.style.height = `${L.h}px`;
   if (L.btns.length) { const bs = t.querySelectorAll('.toast-acts .btn'); for (let i = 0; i < bs.length; i++) bs[i].style.width = `${L.btns[i].w}px`; }
   if (!t._wgl) {
     // (The glass marks the card it has drawn (data-gl) or is about to (data-gl-wait): the picture then leaves the card's tint, edge and shadow
     // to it, and draws them itself only where no glass comes. A mark coming or going is drawn again in a rest pass, never in a frame.)
     const glassed = () => t.hasAttribute('data-gl') || t.hasAttribute('data-gl-wait');
-    t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, docked: t._docked, bad, state: t._st, ink: inkOf(cssVar, t._docked), glass: glassed() }), { pad: 18 });
+    t._wgl = widgetGL(t, (ctx, w, h, pad) => paintToast(ctx, t._L, { pad, bad, state: t._st, ink: inkOf(cssVar), glass: glassed() }), { pad: 18 });
     if (t._wgl) {
       let was = glassed();
       t._glassMo = new MutationObserver(() => { const now = glassed(); if (now !== was) { was = now; restPass(() => t._wgl?.paint()); } });   // alloc-rare: one observer for each toast raised
       t._glassMo.observe(t, { attributes: true, attributeFilter: ['data-gl', 'data-gl-wait'] });
     }
   }
-  t._docked = docked;
-  t._refit = () => restPass(() => toastFit(wrap, t, msg, actions));
+  t._refit = () => restPass(() => toastFit(wrap, t, msg, actions, sub));
   t._wgl?.paint();
   t.style.visibility = '';
 }
@@ -223,18 +196,20 @@ function toastFit(wrap, t, msg, actions) {
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false } = NO_TOAST) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null } = NO_TOAST) {
   if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
-  const opts = { actions, sticky, onClose };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const opts = { actions, sticky, onClose, sub };   // alloc-rare: one record for each message raised (a message, not a frame)
   const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
   restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
-function toastBuild(msg, kind, { actions, sticky, onClose }) {
-  const wrap = document.getElementById('toasts');
+function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
+  // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
+  // index.html has the one wrap, #toastsFoot; the wrap at the top was taken out.)
+  const wrap = document.getElementById('toastsFoot');
   // One message at a time reads calmer than a growing stack. (The oldest leaves through its own close, so it fades out
   // and the one left glides into its place, rather than vanishing mid-exit: P19.)
   const stay = [...wrap.children].filter((c) => !c.classList.contains('leaving'));
@@ -242,7 +217,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   // (An error leads with a small warning mark in the danger ink, so it reads as an error by its shape, not by red words alone.)
   const mark = kind === 'bad' ? icon('alert') : null;
   if (mark) mark.setAttribute('class', 'toast-ic');
-  const t = h('div', { class: 'toast ' + kind, role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg));
+  const t = h('div', { class: kind === 'bad' ? 'toast note bad' : 'toast note', role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
   const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
@@ -255,9 +230,7 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
       return b;
     })));
   }
-  const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
-  x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-  t.append(x);
+  // (A toast has no ×: a tap on it, or a swipe, closes it.)
   // (What the pointer is on, for the GPU's picture: lit under it, pressed while down. An event, not a frame.)
   const st = t._st = { hot: 0, down: 0 };
   const lit = (el, id) => {
@@ -266,7 +239,6 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
     el.addEventListener('pointerdown', () => { st.down = id; t._wgl?.paint(); });
     for (const ev of ['pointerup', 'pointercancel']) el.addEventListener(ev, () => { st.down = 0; t._wgl?.paint(); });
   };
-  lit(x, 1);
   t.querySelectorAll('.toast-acts .btn').forEach((b, i) => lit(b, 2 + i));
   t.addEventListener('click', () => close());
   // Swipe down (or sideways) to dismiss.
@@ -280,9 +252,9 @@ function toastBuild(msg, kind, { actions, sticky, onClose }) {
   t.style.visibility = 'hidden';
   wrap.append(t);
   TOASTS.push(t);
-  restPass(() => toastFit(wrap, t, msg, actions));
+  restPass(() => toastFit(wrap, t, msg, actions, sub));
   // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
-  const life = actions?.length ? 9000 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  const life = actions?.length ? 9000 : sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();
@@ -386,9 +358,15 @@ let openMenu = null;
 // A surface is { close(), has(target), onEsc?(e) } (onEsc answers true when it used the key itself, as the search field's clear does).
 let surface = null;
 const dialogUp = () => !!document.querySelector('#modalBack.show, .pal-back:not([hidden]):not(.leaving)');   // (a dialog on top has the keys and the taps)
+// A menu's frost is drawn in the figure's canvas, under every page element, so a card's own words and pictures lying under a menu show straight
+// through it (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). main.js gives its hook (cards under the surface step away);
+// a surface says which box it is with s.box() (null: the whole screen) and what opened it with s.anchor.
+let surfaceOpened = null;
+export function onSurfaceOpened(fn) { surfaceOpened = fn; }
 export function claimSurface(s) {
   if (surface && surface !== s) { const old = surface; surface = null; old.close(); }
   surface = s; s.armed = false;
+  surfaceOpened?.(s);
   setTimeout(() => { s.armed = true; }, 0);   // (armed after this task, so the tap that opened it does not close it)
 }
 export function releaseSurface(s) { if (surface === s) surface = null; }
@@ -408,12 +386,12 @@ export { reduceMotionMQ };   // (the one list lives in motion.js)
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time above the thumb dock. A sheet that opens while another is still going out does not wait for it (Menu system
-// plan W4, 4 Nov 2026): the two are one switch, the new one comes in and the old one goes out by a crossfade over the same spot
-// (.sw-in and .sw-out, styles/app.css), so nothing stands empty between them and the dock never blinks.
+// plan W4, 4 Nov 2026): the two are one switch. Since 13 Nov (menu recs C4) the new one rises over the old one while that one sinks, each on
+// its own slide (.sw-in lays the new one above, styles/app.css): no crossfade of two sheets of different heights, and nothing stands empty.
 let goneAt = 0, goneEl = null;
 /** Notes that a card or menu is playing its way out for the next ms. */
 export function markGone(ms, el = null) { goneAt = Math.max(goneAt, performance.now() + ms); if (el) goneEl = el; }
-/** A card or menu is coming in: if another is still going out, the two cross-fade (a switch) instead of one sliding down while the other slides up. */
+/** A card or menu is coming in: if another is still going out, the new one is laid above it (a switch), so it rises over the one sinking. */
 export function switchIn(el) {
   const g = goneEl;
   if (!g || g === el || performance.now() >= goneAt) return;
@@ -448,15 +426,20 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
   return y;
 }
 
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && matchMedia(STACK_MQ).matches;   // (the one breakpoint, shared with the main menu: a phone held sideways is a popover, as on a Mac)
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
+  // (A sheet's head, menu recs P2: its title and a close button, as the cards have. A heading of the menu's own that says the same goes.)
+  if (asSheet) {
+    if (title) { const t = el.querySelector(':scope > .menu-title'); if (t && t.textContent.trim() === title) t.remove(); }
+    el.prepend(h('div', { class: 'sheet-head' }, h('span', { class: 'sheet-t' }, title || ''), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close'))));
+  }
   switchIn(el);
-  // A sheet has a light scrim that takes the tap away, as the main menu's does.
+  // A sheet has a scrim that takes the tap away, as the main menu's does (it dims nothing: menu recs C5).
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
   // (In the one sheet layer, cut on the dock's top line: sheet-layer.js. The scrim too, so the dock is never dimmed or covered.)
   if (scrim) sheetLayer().append(scrim);
@@ -495,6 +478,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     // (One placer, placeAt: a menu from the tab row sits on its top edge, 8 px clear of it; the rest open below or above their button.
     // Nothing rides a --sink any more: a menu sheet's pull is the compositor's (swipeSheet) and its cut the sheet layer's.)
     placedTop = placeAt(el, anchor, { side: at === 'above' || bar ? 'above' : 'below', align, edge: bar ? tabTop : null });
+    // (It comes in with a 4 px rise from its button's side, menu recs C11: down from a button above it, up from one below it.)
+    el.style.setProperty('--pop-y', placedTop < r.top ? '4px' : '-4px');
     barAt = barTop;
     clipBar();
   };
@@ -518,7 +503,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n) };
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : el.getBoundingClientRect()) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
   openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };
@@ -610,11 +595,11 @@ function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
     for (const [el, [x, y]] of now) {
       const p = prev.get(el);
       if (!p) continue;
-      let cx = 0, cy = 0;
-      for (const a of readAnims(el)) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(readStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
-      const dx = p[0] + cx - x, dy = p[1] + cy - y;
+      // (A glide still running is left to run and the new move added to it, composite 'add': the places are the layout's (offsetLeft, offsetTop),
+      // so the move is just what the layout did, and a second change carries on at the speed the first had. What was on screen travels on the move curve.)
+      const dx = p[0] - x, dy = p[1] - y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_ARRIVE }).id = 'glide';
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_MOVE, composite: 'add' }).id = 'glide';
     }
     prev = now;
   });
@@ -700,7 +685,7 @@ export function reconcile(list, rows) {
   }
   if (was) for (const [e, y0] of was) {
     const dy = y0 - e.offsetTop;
-    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE, composite: 'add' });
   }
   if (shown) {
     for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
@@ -768,11 +753,10 @@ export function swapText(el, txt, then) {
 }
 /** A number that rolls to its new value instead of jumping (MOTION_HEAT_REVIEW P17): el shows fmt(v, d). eased: the caller
  *  already moves this value gently (a running model's mean), so it follows at once, or carries a roll under way on to the
- *  new value. Otherwise a change of at least the last digit counts from the number shown to v over about a third of a
- *  second (ease out) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
+ *  new value. Otherwise a change of at least the last digit counts from the number shown to v over COUNT_MS (motion.js, the one roll
+ *  speed, on easeArrive) and always ends on fmt(v, d). null shows "?" at once. Reduce Motion lands at once. */
 const counts = new WeakMap(), rolling = new Set();
 let rollRaf = 0;
-const COUNT_MS = D_SMALL;   // (a roll takes a small step of the motion scale, ease.js)
 // Text that changes rewrites its text node in place: setting textContent replaces the node, which re-checks styles for the
 // element and, through :has() in the phone and iPad layouts, ~85 others a model frame (round 2 review, P7).
 // (Since 2 Nov 2026 (Mohammad: "Move everything to GPU") a number's or word's new text is drawn on the GPU (gl-words.js) and taken into the
@@ -855,7 +839,7 @@ function rollStep(now) {
     const c = counts.get(el);
     // (A frame's time is when it began, which can be before the roll was asked for: below 0 the curve ran backwards, far past the
     // number it started from, and a patient load showed an HVPG of -50 for a moment.)
-    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = 1 - (1 - u) ** 3;
+    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeArrive(u);
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
@@ -923,7 +907,7 @@ function odoBuildRest(el, o, a, b, up, ms, easing) {
     sp.className = up ? 'odo' : 'odo down';
     sp.dataset.s = (up ? seq : seq.slice().reverse()).join('\n');
     sp.style.setProperty('--odo-n', String(n));
-    if (ms !== COUNT_MS) sp.style.setProperty('--odo-ms', `${ms}ms`);
+    sp.style.setProperty('--odo-ms', `${ms}ms`);   // (always: app.css's own default is --d-small, and the one roll speed is COUNT_MS)
     if (easing) sp.style.setProperty('--odo-ease', easing);
     sp.textContent = b[i];
     frag.append(sp);
@@ -943,6 +927,10 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   let c = counts.get(el);
   if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });   // alloc-rare: a number's first count on this element, kept in counts
   c.d = d;
+  // A number being worked out again (NaN or Infinity while the model recomputes after a change; not null, which is a reading that is not taken)
+  // keeps the last number on show, dimmed (.recompute), and is never swapped for a mark. It lands, undimmed, on the next number that is whole.
+  if (v != null && !Number.isFinite(v) && c.shown != null) { if (!c.stale) { c.stale = true; classSoon(el, 'recompute', true); } return; }
+  if (c.stale) { c.stale = false; classSoon(el, 'recompute', false); }
   const odo = odos.has(el);
   if (odo && (eased || v == null || !Number.isFinite(v) || reduceMotionMQ.matches)) odoEnd(el);
   if (!eased && v != null && Number.isFinite(v) && c.t0 == null) {
@@ -991,16 +979,55 @@ export function closePopover() {
   // (Over the thumb dock it sinks behind the dock, as the cards do, in the same step: a leave is one flip, app.css dock-sheet-out.)
   // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
   if (el.isConnected) {
-    const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => el.classList.add('leaving');
+    // (A sheet pulled once and let go keeps .pulling, whose animation: none would also hold off its exit: it hung where it was and blinked out
+    // when its timer ended, 13 Nov, menu recs C1. The close takes it off with the leaving class, so the exit plays from where the sheet rests.)
+    const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => { if (!el.dataset.swiped) el.classList.remove('pulling'); el.classList.add('leaving'); };
     if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
-    el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
+    el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL + 20 : ms + 10);   // (a swiped sheet: once its let-go has landed behind the dock, never in its last frames)
   } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
   openMenu = null;
 }
 const NO_SCROLL = Object.freeze({ preventScroll: true });   // (the options of a focus that must not scroll: kept, not made at each call)
+/** A page inside the open menu (menu recs P4, 13 Nov 2026): History and Help from the Settings sheet slide in from the right over Settings' own
+ *  rows, at the sheet's height, with a back row naming the menu they came from; the back row, or a swipe right, slides them away again. The
+ *  sheet never closes and opens again, so nothing crossfades and its tab stays the one lit. Moved by transform and opacity alone. */
+export function menuPush(back, title, kids) {
+  const m = openMenu; if (!m) return;
+  const el = m.el;
+  if (el.querySelector(':scope > .menu-page')) return;
+  // (Its height and where its list is scrolled are read once, in the tap: the page takes that box and keeps it.)
+  const hh = readMetric(el, 'offsetHeight'), top = readMetric(el, 'scrollTop'), ch = readMetric(el, 'clientHeight');
+  let root = el.querySelector(':scope > .menu-root');
+  if (!root) { root = h('div', { class: 'menu-root' }); root.append(...el.childNodes); el.append(root); }
+  el.style.height = `${hh}px`;
+  const backBtn = h('button', { class: 'menu-item menu-back', type: 'button' }, icon('chev-left'), back);
+  const head = h('div', { class: 'sheet-head' }, backBtn, h('span', { class: 'sheet-t' }, title), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close')));
+  const page = h('div', { class: 'menu-page', role: 'group', 'aria-label': title, style: { top: `${top}px`, height: `${ch}px` } }, head, kids);
+  el.append(page); el.classList.add('pushed'); root.inert = true;
+  const still = reduceMotionMQ.matches, opt = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
+  page.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(100%)' }, { transform: 'none' }], opt);
+  const away = root.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: 'translateX(-30%)', opacity: 0 }], opt);
+  const pop = () => {
+    if (!page.isConnected) return;
+    away.cancel();
+    const o = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
+    root.inert = false; el.classList.remove('pushed');
+    const home = root.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(-30%)', opacity: 0 }, { transform: 'none', opacity: 1 }], o);
+    home.finished.then(() => home.cancel()).catch(() => {});
+    page.inert = true;
+    page.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateX(100%)' }], o).finished.then(() => page.remove()).catch(() => page.remove());
+    backBtn.blur();
+  };
+  backBtn.addEventListener('click', pop);
+  // (A swipe right from the page's left part goes back, as a pushed page does on iOS.)
+  let sx = null;
+  page.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = e.touches.length === 1 ? [t.clientX, t.clientY] : null; }, { passive: true });
+  page.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (sx && t.clientX - sx[0] > 70 && Math.abs(t.clientY - sx[1]) < 40) pop(); sx = null; }, { passive: true });
+  if (m.anchor.matches?.(':focus-visible')) backBtn.focus(NO_SCROLL);
+}
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
  *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
@@ -1059,7 +1086,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       const here = easing && !easing.over ? pullAt(easing) : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
-      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
+      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', true);   // (glass: the sheet's GPU glass reads the finger's number, num-move driven(); without it the glass held the pull's paused animation at its first clock and drew the frost where the sheet no longer was: 13 Nov 2026)   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
       panel.setPointerCapture?.(e.pointerId);
@@ -1083,7 +1110,9 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
     // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the dock, its cut a still
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
     const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = D_SMALL;   // (240 ms, the one sheet time, over the dock or away)
-    if (gone) dataSoon(panel, 'swiped', '1');
+    // (Written now, not between frames: the close below reads it in this same task to know the sheet is already on its way out.
+    // On 13 Nov a later write let the close take a swipe for a tap, and the next tab faded in instead of rising: menu recs C2.)
+    if (gone) panel.dataset.swiped = '1';
     easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
     if (gone) onClose();
   };
@@ -1244,11 +1273,11 @@ export function askText({ title, label, value = '', yes = 'Save', hint = null })
 }
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 
-export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+export { clamp };   // (num.js)
 /** A touch that starts on the phone's own edge (the home indicator's swipe up, a back swipe): the
  *  system's gesture, not the figure's. */
 export const systemEdge = (ev) => ev.pointerType === 'touch' && (ev.clientY > innerHeight - 34 || ev.clientX < 12 || ev.clientX > innerWidth - 12);
-export const lerp = (a, b, t) => a + (b - a) * t;
+export { lerp };   // (num.js)
 
 // Theme tokens are read many times per frame by the canvas instruments, and never from the page inside a frame: every token the
 // stylesheets declare (and those set on the root's own style) is read outside the frames, at load and whenever the theme can change
@@ -1256,7 +1285,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 const varCache = new Map();
 const alphaCache = new Map();   // (cleared with the tokens: the instruments ask for the same few colours on every frame)
 const varNames = new Set();
-let varsAsk = 0;
+let varsAsk = 0, varsRead = 0;   // (varsRead counts the passes that read every token again: bloodColors follows it)
 const NO_RULES = Object.freeze([]);
 function collectVarNames(rules) {
   for (const r of rules || NO_RULES) {
@@ -1268,6 +1297,7 @@ function collectVarNames(rules) {
 }
 function readVars() {
   varsAsk = 0;
+  varsRead++;
   if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
   const root = document.documentElement;
   for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
@@ -1329,6 +1359,20 @@ export const cssAlpha = (name, a) => {
   }
   return v;
 };
+/** A status's colour as text on a canvas ('ok', 'caution', 'danger' or 'critical'): its token mixed toward the text colour by the share the ink token
+ *  takes in the stylesheet (--danger-ink and its kin, INK_SHARE), so a label drawn here is the red of the same reading written in a tile. Made once
+ *  for each token and text colour, and again after a theme change. */
+const inkMade = new Map();
+export const cssInk = (sev) => {
+  const base = cssVar('--' + sev), text = cssVar('--text'), key = sev + base + text;
+  let v = inkMade.get(key);
+  if (v === undefined) {
+    const a = parseRGB(base), b = parseRGB(text), k = INK_SHARE[sev] ?? 1;
+    if (inkMade.size > 64) inkMade.clear();
+    inkMade.set(key, v = `rgb(${a.map((x, i) => Math.round(x * k + b[i] * (1 - k))).join(',')})`);   // alloc-rare: a status met for the first time under this look
+  }
+  return v;
+};
 /** A colour ramp token ('#hex position, #hex position, …') as [[position, '#hex'], …] (shared: read it, never write into it). */
 const rampOf = new Map();
 export const cssRamp = (name) => {
@@ -1337,13 +1381,17 @@ export const cssRamp = (name) => {
   if (r === undefined) { r = [...t.matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]); if (rampOf.size > 64) rampOf.clear(); rampOf.set(t, r); }   // alloc-rare: a ramp text met for the first time (kept in rampOf)
   return r;
 };
-// The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
-// originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
-let bloodCols = null;
-// alloc-rare: made once, on the first ask, and kept in bloodCols
-export const bloodColors = () => bloodCols || (bloodCols = {
+// The blood's colours on the GPU, in 0–1. They sit on the lumen, not on the page, so most do not change with the look; --blood-reversed
+// is --flow-reversed, which does (Linen's darker orange, the others' lighter one), so the set is read again after every pass that
+// reads the tokens again (a look change), and kept between them. The record is made anew then, never written in place: the surfaces copy
+// its fields each frame. originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
+let bloodCols = null, bloodColsAt = -1;
+// alloc-rare: made on the first ask and again after a look change, and kept in bloodCols
+export const bloodColors = () => bloodCols && bloodColsAt === varsRead ? bloodCols : (bloodColsAt = varsRead, bloodCols = {
   // alloc-rare: made once with the record above
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
+  // (The First pass lens: the same five slots, as blood.js FIRSTPASS has them: raw gut, cleared gut, (unused), artery, systemic.)
+  firstCol: ['--fp-raw', '--fp-clear', '--fp-clear', '--origin-artery', '--origin-systemic'].map((v) => cssRGB01(v)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
   revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
 });
@@ -1354,9 +1402,17 @@ export const bloodColors = () => bloodCols || (bloodCols = {
 const boxes = new WeakMap();
 // The instruments drawn at this many times the screen's density: a zoomed data card (card-zoom.js) shows them larger than they were
 // laid out, so they are drawn for the size they are seen at. 1 otherwise.
-let canvasBoost = 1;
-export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
-const BOOST_PIXELS = 3.2e6;
+let canvasBoost = 1, boostAsk = 0;
+// (A new boost redraws the pictures already on the page at the density it gives, between frames: a picture drawn once (a kept readout, a path
+// card) was left at the density it was made at and the zoom only stretched it, soft and jagged. 7 Nov 2026: "zoom in, the readouts are jagged".)
+export const setCanvasBoost = (k) => {
+  const was = canvasBoost;
+  canvasBoost = Math.max(1, +k || 1);
+  if (canvasBoost !== was && !boostAsk) boostAsk = restPass(() => { boostAsk = 0; redrawBoosted(); });
+};
+const BOOST_PIXELS = 4.5e6;   // (a zoomed card's pictures: the whole card at its seen density, 3.4x on a Mac at a 1.7 zoom, is about 5 million pixels)
+/** The densest a picture is drawn: the screen's own, up to 3x; a zoomed card's (canvasBoost) up to 4x, so what is seen at its zoom is not stretched. */
+const DENSITY_MAX = 3, BOOSTED_MAX = 4;
 const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
 // (2 Nov 2026, timers and observers during motion: the observer only records the boxes. The redraws that waited for a box (a chart's
 // first GPU draw, seconds of work on a phone) run in a rest pass, between frames and within its shared budget, never inside the
@@ -1424,7 +1480,25 @@ export function releaseCanvasSize(canvas, w, h) {
 // frame was drawn at another size than the one held for it.)
 const drawers = new WeakMap();
 /** trace-gl.js: `api` draws `canvas`'s chart (api.drawnW/H: the CSS size its last frame began at), `redraw` draws it again. */
-export function noteDrawer(canvas, api, redraw) { drawers.set(canvas, { api, redraw }); }   // alloc-rare: once for each chart, as its drawer is made
+export function noteDrawer(canvas, api, redraw) {
+  if (!drawers.has(canvas)) drawerRefs.add(new WeakRef(canvas));   // alloc-rare: once for each chart canvas
+  drawers.set(canvas, { api, redraw });
+}
+const drawerRefs = new Set();   // (WeakRefs of every canvas with a drawer: a new boost looks at each, redrawBoosted)
+/** Draws again, now, each chart on the page whose last frame was at another density than canvasSize gives it now (a zoomed card's boost came or went). Returns how many. */
+export function redrawBoosted() {
+  let n = 0;
+  for (const ref of drawerRefs) {
+    const cv = ref.deref();
+    if (!cv) { drawerRefs.delete(ref); continue; }
+    const d = drawers.get(cv);
+    if (!d || !cv.isConnected) continue;
+    const z = canvasSize(cv);
+    if (!(z.w >= 1 && z.h >= 1) || !(d.api.drawnWd > 0) || d.api.drawnWd === z.W) continue;
+    try { d.redraw(); n++; } catch (e) { setTimeout(() => { throw e; }); }
+  }
+  return n;
+}   // alloc-rare: once for each chart, as its drawer is made
 /** Draws `canvas`'s chart again now if its last frame was at another size than canvasSize gives it; true when it asked for one. */
 export function redrawSized(canvas) {
   const d = drawers.get(canvas);
@@ -1442,7 +1516,7 @@ export function canvasSize(canvas) {
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   // (A card zoomed up draws its charts denser, but not past about 3 million pixels: the shared GPU canvas is made again at the new size, and a
   // 6 MP one stalled the frame in Safari when the zoom landed and left. The screen's own density is never given up.)
-  const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
+  const dpr = Math.min(saver() ? 2 : canvasBoost > 1 ? BOOSTED_MAX : DENSITY_MAX, (window.devicePixelRatio || 1) * canvasBoost);
   const dev = window.devicePixelRatio || 1, fit = canvasBoost > 1 && r.width > 0 && r.height > 0 ? Math.max(dev, Math.sqrt(BOOST_PIXELS / (r.width * r.height))) : dpr, d = Math.min(dpr, fit);
   let z = sizeOf.get(canvas);
   if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size
@@ -1548,7 +1622,7 @@ export function enhanceRanges(root = document) {
     fire(input, INPUT_EV);
     if (commit) fire(input, CHANGE_EV);
   };
-  // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
+  // (th: the thumb's box, the slider's --tw, 28 px or 32 px on a phone, the dot and its ring: its centre runs from th / 2 to the far end less th / 2.)
   // (r: the slider's box, read once at the press, never in the drag's moves.)
   const fromX = (input, cx, th, r) => {
     const min = +input.min || 0, max = +(input.max || 100);

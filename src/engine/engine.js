@@ -4,7 +4,7 @@
 import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
-  heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
+  heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
 } from './physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
@@ -15,7 +15,14 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 // The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60 };   // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices)
+const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45 };
+// (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget.)
+// (tauFall: the time constant, in days of the disease clock, of the FALL of a varix's resting size. The size the pressure sets still
+// rises at once (a bleed's surge, a meal, a Valsalva strain, a worse scar), but a fall in the pressure, from a drug, a TIPS or a cured
+// cause, lets the wall remodel back over weeks: a first-order lag, slow.vRest, applied in varixTarget and stepped in slowStep with
+// exp(-days / tauFall), so it does not depend on the size of the time step. Banding, BRTO and coils do not wait for it: they close the
+// varix rather than relieve its pressure.)
 /** Seconds the tube's gastric balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the tube to go
  *  in and the balloon to fill and be drawn up on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
 export const BALLOON_SEAL_S = 3;
@@ -67,6 +74,17 @@ const HR_REST = 60;   // resting heart rate (/min); the contractility reference 
 // - the volume afferent (cardiopulmonary receptors and the narrowing pulse pressure): drives the sympathetic tone
 //   per fraction of the patient's own volume lost, before the mean pressure falls.
 export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5, chrono: 0.4 };
+// How fast the spleen and the splanchnic vasodilation RELAX when the portal pressure falls (a TIPS, a shunt, a drug), in days of the
+// disease clock (doc 4.3, 8 Nov 2026). Both build up quickly (spleen 45 days, vasodilation 30) and let go at that pace without
+// advanced cirrhosis (a Rex bypass, an anticoagulated portal vein clot, a presinusoidal block, a compensated liver). With advanced
+// cirrhosis (`advanced` below: 0 at a scar of 0.6, 1 from 0.85) the spleen is fibrocongestive, with hyperplastic red pulp that does not
+// shrink back as the pressure falls, and the vasodilation is kept up by the portosystemic shunting and the liver disease, not by the
+// portal pressure alone. So after a TIPS the platelets rise only modestly over months, and the heart rate and cardiac output do not drop
+// to a healthy patient's within weeks (they did: 70 to 56 beats/min and 6.7 to 5.1 L/min in 60 days in ten-years). The fall's time
+// constant is `base + advanced * extra`. These are model choices with no source figure, tuned to relax plausibly. Only the tone is
+// held: the plasma volume (slow.volExtra) still follows the pressure at the base pace, because holding it too would keep the flow
+// through a TIPS stent above the 190 cm/s that the TIPS Doppler talk calls a working stent (tests/tips-doppler.test.js).
+export const RELAX = { spleenBase: 45, spleenExtra: 165, toneBase: 30, toneExtra: 60, advLow: 0.6, advHigh: 0.85 };
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
 // From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
@@ -170,13 +188,15 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
     this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
+      vRest: { VAR: null, GV: null },   // (the resting size the pressure gave a varix, lagged on its fall: VARIX.tauFall, varixTarget)
       vHold: { VAR: null, GV: null },   // (the size a varix is graded at while a drug's fall in pressure has not yet remodelled it: varixGraded)
+      vCut: null,   // (the radius, mm, the esophageal varices keep while they shrink after a Warren shunt has cut their feeder: varixTarget)
       spleen: 11,
       splTone: 1,
       volExtra: 0,
@@ -204,6 +224,8 @@ export class Engine {
     // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
     // without touching the patient's parameters (links and undo stay unchanged).
     this.beat = false;
+    // The lungs and the ventricle between the pump and the aorta while the beat runs (physiology.js ARTERY; lvStep): null until it first runs.
+    this.lv = null;
     this.bands = 0;
     for (let i = 0; i < this.N; i++) {
       const [Pk, Ps] = this.nodeK[i];
@@ -352,6 +374,8 @@ export class Engine {
   bloodVolume() {
     let s = 0;
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
+    // (The lungs' and the ventricle's share of the beat, lvStep: blood out of the nodes, a few mL either way.)
+    if (this.lv) s += this.lv.vp + this.lv.vv;
     return BLOOD_BASE + s - (this.blood.shift || 0);
   }
   viscosity() { return clamp(1 + 1.6 * (this.hctEq() - HCT_BASE), 0.5, 1.6); }
@@ -413,10 +437,7 @@ export class Engine {
       iapResp = 1 * p.respDepth * s;
     }
     let vals = 0;
-    if (t < this.valsalva.until && !this.quiet) {
-      const u = Math.min(1, (t - this.valsalva.start) / 1.5);
-      vals = 30 * u;
-    }
+    if (t < this.valsalva.until && !this.quiet) vals = 30 * this.strainLevel(t);
     this.iap = iapFromAscites(this.slow.ascites) + PREGNANCY.iap * uterusLevel(p.gestation) + iapResp + vals;
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
@@ -548,9 +569,14 @@ export class Engine {
       if (sf === Infinity) { this.G[k] = 0; continue; }
       R *= sf;
       // Surgical ligations implied by shunt procedures
-      if (p.portocaval && e.id === 'PV_TRUNK') { this.G[k] = 0; continue; }
+      // (End-to-side only: a side-to-side portocaval shunt keeps the portal trunk, so the liver can drain back out through it.)
+      if (p.portocaval && e.id === 'PV_TRUNK' && !p.portocavalSide) { this.G[k] = 0; continue; }
       // Warren: the splenic vein is divided between the shunt and the IMV, so the IMV still drains to the portal vein.
       if (p.dsrs && e.id === 'SV_MID') { this.G[k] = 0; continue; }
+      // Warren: the coronary (left gastric) vein is tied off where it meets the portal vein, so the high portal pressure no longer feeds the esophageal varices through it.
+      if (p.dsrs && e.id === 'LGV_CONF') { this.G[k] = 0; continue; }
+      // ... and the stomach then drains through the short gastric veins into the splenic vein (the Warren shunt's selective decompression); otherwise they are shut.
+      if (!p.dsrs && e.id === 'V_STO_SG') { this.G[k] = 0; continue; }
       this.G[k] = 1 / R;
     }
   }
@@ -582,6 +608,8 @@ export class Engine {
     }
     const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap, P[RA] - this.ext[this.ni.SVC]);
     const Qh = Qh0 * m, dQh = dQh0 * m;
+    // With the beat on, the aorta takes the ventricle's ejection (a flow source, lvEject) rather than the pump's flow at the same instant.
+    const ej = this.pulsing() ? this.lvEject(Qh0, hs.hr) : -1;
     const a0 = Qh - dQh * P[RA];
     // Bleeding sink
     let gb = 0, bi = -1;
@@ -631,7 +659,8 @@ export class Engine {
         A[f * N + t] -= g; A[t * N + f] -= g;
       }
       A[RA * N + RA] += dQh; b[RA] -= a0;
-      A[AO * N + RA] -= dQh; b[AO] += a0;
+      if (ej >= 0) b[AO] += ej;
+      else { A[AO * N + RA] -= dQh; b[AO] += a0; }
       if (gb > 0) { A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
       b[UP] += inf;
 
@@ -679,7 +708,8 @@ export class Engine {
     }
     const qh = a0 + dQh * Pn[RA];
     this.Qheart = qh;
-    net[RA] -= qh; net[AO] += qh;
+    net[RA] -= qh;
+    if (ej >= 0) { net[AO] += ej; this.lvStep(qh, ej, dt); } else net[AO] += qh;
     let qb = 0;
     if (gb > 0) { qb = Math.max(0, gb * (Pn[bi] - this.ext[bi])); net[bi] -= qb; }
     this.Qbleed = qb;
@@ -708,6 +738,7 @@ export class Engine {
     this.controllers(dt);
     if (!this.quiet) this.fastProcesses(dt);
     if (this.pulsing()) this.trackPulsatility();
+    else if (this.lv) this.lv.gap += dt;
   }
 
   pulsing() { return (this.params.pulsatile || this.beat) && !this.quiet; }
@@ -727,6 +758,50 @@ export class Engine {
   liverStiff(i) {
     const k = NODES[i].kind;
     return (k === 'liver') ? 1 - 0.6 * this.params.cirrhosis : 1;
+  }
+
+  /** The flow (mL/s) the ventricle ejects into the aorta at this moment of the beat: the stroke volume it filled over the last beat, by
+   *  systoleShape. The first beat (or the first after quiet steps, a slider's relax or the disease clock) starts the lungs at the pump's
+   *  flow and the ventricle at the stroke volume that flow gives, and keeps what the two hold, so the blood is conserved. */
+  lvEject(Qmean, hr) {
+    let lv = this.lv;
+    const ph = this.phase();
+    if (!lv || lv.gap > 0.5) {
+      const sv = Qmean * 60 / hr;
+      lv = this.lv = { vp: lv?.vp || 0, vv: lv?.vv || 0, y: Qmean, sv, fill: ph * sv, lastPh: ph, hi: -Infinity, lo: Infinity, sbp: NaN, dbp: NaN, beats: 0, gap: 0 };
+    }
+    lv.gap = 0;
+    lv.ej = lv.sv * hr / 60 * systoleShape(ph);
+    return lv.ej;
+  }
+  /** One step of the lungs and the ventricle: the pump's flow `qh` in, the lungs' outflow (a first-order store, ARTERY.lungTau) fills the
+   *  ventricle, `ej` leaves it. At each new beat the filling becomes the next stroke volume, and the beat's peak (at the root, with Zc)
+   *  and trough of the aortic pressure become its systolic and diastolic. */
+  lvStep(qh, ej, dt) {
+    const lv = this.lv, y = lv.y, P = this.P[this.ni.AO];
+    lv.vp += (qh - y) * dt; lv.vv += (y - ej) * dt; lv.fill += y * dt;
+    lv.y += (qh - y) * (1 - Math.exp(-dt / ARTERY.lungTau));
+    const root = P + ARTERY.Zc * ej;
+    if (root > lv.hi) lv.hi = root;
+    if (P < lv.lo) lv.lo = P;
+    const ph = this.phase();
+    if (ph < lv.lastPh) {
+      lv.sv = lv.fill; lv.fill = 0;
+      if (lv.beats++ > 0) { lv.sbp = lv.hi; lv.dbp = lv.lo; }
+      lv.hi = -Infinity; lv.lo = Infinity;
+    }
+    lv.lastPh = ph;
+  }
+  /** Systolic and diastolic (mmHg) now: the last whole beat's while the beat runs, else the periodic Windkessel about the MAP (pulseOf),
+   *  the stroke volume the pump's mean flow gives at this heart rate. */
+  bpNow(out = { sbp: NaN, dbp: NaN }) {
+    const lv = this.lv;
+    if (this.pulsing() && lv && lv.gap === 0 && Number.isFinite(lv.sbp)) { out.sbp = lv.sbp; out.dbp = lv.dbp; return out; }
+    const AO = this.ni.AO;
+    let G = 0;
+    for (let k = 0; k < this.E; k++) if (this.edgeF[k] === AO) G += this.G[k];
+    const q = this.COf ?? this.Qheart ?? 83.3, C = this.nodeC[AO] * this.liverStiff(AO);
+    return pulseOf(this.MAPf, q * 60 / this.hr, this.hr, C, G, ARTERY.Zc, out);
   }
 
   controllers(dt) {
@@ -752,14 +827,20 @@ export class Engine {
     // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
     // (The fifth is the esophageal varix's wall index: the breath swings the pressure around it by a third in schistosomiasis,
     // so the red-wale flag (events.js) reads this mean, as the vitals' flags do, and fires once.)
-    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN], av4 = Math.min(1, dt / 4);
+    // (The sixth and seventh are the systolic and diastolic, bpNow: the last whole beat's, or the Windkessel's about the MAP.)
+    const bp = this.bpNow(this._bp || (this._bp = { sbp: NaN, dbp: NaN }));
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN, bp.sbp, bp.dbp], av4 = Math.min(1, dt / 4);
     if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
     else for (let i = 0; i < vNow.length; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
     const def = this.volumeDeficit();
     const mapSet = this.mapSetOf();
     const bt = clamp(1 + 4 * (mapSet - this.MAPf) / mapSet, 0.5, 2.5);
     this.baro += (bt - this.baro) * Math.min(0.25, dt / (15 + dt));
-    const Qp = this.portalInflow();
+    // The buffer response answers the portal inflow averaged over several breaths (two 5 s stages, qpm), not each instant's: the liver's
+    // inlet flow swings by about half its mean with every beat and breath, and a deficit read beat by beat (and floored at zero, as a
+    // surplus does not constrict) dilated the artery on the ripple alone, with the mean portal flow normal (healthy with the heartbeat
+    // on: HA flow 402 to about 495 mL/min, habr 1.29; Mohammad, 13 Nov 2026, the hepatic artery's Doppler).
+    const Qp = this.portalInflowMean(dt);
     const kh = 2.0 * (1 - 0.5 * p.cirrhosis) * p.habrStrength;
     const ht = 1 + kh * clamp((this.Qpref - Qp) / this.Qpref, 0, 1);
     this.habr += (ht - this.habr) * Math.min(0.3, dt / (10 + dt));
@@ -789,6 +870,13 @@ export class Engine {
 
   portalInflow() {
     return Math.max(0, this.Q[this.ei.PRE_R]) + Math.max(0, this.Q[this.ei.PRE_L]);
+  }
+  /** The portal inflow averaged over several breaths (two first-order stages of 5 s each), advanced by dt: what the buffer response reads. */
+  portalInflowMean(dt) {
+    const q = this.portalInflow(), a = Math.min(1, dt / 5);
+    if (!this.qpm || !Number.isFinite(this.qpm[1])) this.qpm = [q, q];
+    else { this.qpm[0] += (q - this.qpm[0]) * a; this.qpm[1] += (this.qpm[0] - this.qpm[1]) * a; }
+    return this.qpm[1];
   }
 
   /** Processes on the hemodynamic clock: bleeding, clotting, rupture hazard, ascites trickle. */
@@ -866,7 +954,7 @@ export class Engine {
       h.restore(this.snapshot());
       // (Restoring starts the copy's averages over from this instant of the beat: it takes this model's own instead.)
       h.Pf = Float64Array.from(this.Pf || this.P); h.Qf = Float64Array.from(this.Qf || this.Q);
-      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
+      Object.assign(h, { COf: this.COf, pvQm: this.pvQm, pvVm: this.pvVm, qpm: this.qpm && [...this.qpm], vitM: this.vitM && [...this.vitM], vitM1: this.vitM1 && [...this.vitM1] });
       h._paramsOf = null;
       this._hiddenOn = true;
     }
@@ -889,6 +977,7 @@ export class Engine {
     // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
     for (const k of ['shift', 'preg', 'ref', 'rbc', 'own']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
     for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
+    this.qpm = h.qpm && [...h.qpm];
     if (this.Pf) this.Pf.set(h.Pf);
     if (this.Qf) this.Qf.set(h.Qf);
     if (h.vitM) { this.vitM = [...h.vitM]; this.vitM1 = [...h.vitM1]; }
@@ -970,6 +1059,9 @@ export class Engine {
 
   slowStep(days) {
     const p = this.params, P = this.P, s = this.slow;
+    // A meal lasts hours: the slow organs (the spleen, the collaterals, the ascites, the blood volume) do not follow its pressures. A meal slide plays
+    // its ramp over "8 days" (circuit, doppler), and without this the cirrhotic patient's spleen, varix and belly moved with it (doc 4.6, 8 Nov 2026).
+    if (p.meal > 0) return;
     // Collateral remodeling (§7.4): diameter relaxes toward a pressure-driven target.
     for (const k of this.collaterals) {
       const e = EDGES[k];
@@ -982,25 +1074,35 @@ export class Engine {
       const tau = target > d ? COLLATERAL.tauGrow : COLLATERAL.tauRegress;
       s.d[e.id] = clamp(d + (target - d) * Math.min(1, days / tau), dMin, e.dMax);
     }
-    // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
+    // Varix size rises with the portosystemic gradient at once and falls from it over weeks (VARIX.tauFall; see varixTarget).
+    for (const site of ['VAR', 'GV']) {
+      const raw = this.varixGrown(site), h = s.vRest[site];
+      s.vRest[site] = h == null || raw >= h || this.varixCut(site) ? raw : raw + (h - raw) * Math.exp(-days / VARIX.tauFall);
+    }
     // (Its grade's held size, holdVarices, remodels toward it over about two months of the disease clock, then is let go.)
     if (s.vHold) for (const site of ['VAR', 'GV']) {
       const h = s.vHold[site]; if (h == null) continue;
       const now = 2 * this.varix(site).r, next = h + (now - h) * Math.min(1, days / VARIX.tauRegress);
       s.vHold[site] = next - now < 0.05 ? null : next;
     }
+    if (s.vCut != null) {   // the esophageal varices a Warren shunt cut off shrink toward the size the pressure now sets (VARIX.tauCut)
+      const to = this.varixTarget('VAR', this.Pf || this.P, true), next = s.vCut + (to - s.vCut) * Math.min(1, days / VARIX.tauCut);
+      s.vCut = next - to < 0.03 ? null : next;
+    }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
     // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
     // congestive hepatopathy rarely causes splenomegaly or more than mild thrombocytopenia.
+    const advanced = clamp((p.cirrhosis - RELAX.advLow) / (RELAX.advHigh - RELAX.advLow), 0, 1);
     const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12 - 0.6 * Math.max(0, P[this.ni.IVCS] - 5)), 9, 22);
-    s.spleen += (spTarget - s.spleen) * Math.min(1, days / 45);
+    s.spleen += (spTarget - s.spleen) * (spTarget < s.spleen ? 1 - Math.exp(-days / (RELAX.spleenBase + RELAX.spleenExtra * advanced)) : Math.min(1, days / RELAX.spleenBase));   // (the slow fall by the exact exponential, so a long step and many short ones agree)
     // Chronic splanchnic vasodilation & plasma expansion (hyperdynamic circulation)
     const ppg = P[this.ni.CONF] - P[this.ni.IVCS];
     const x = clamp((ppg - 6) / 14, 0, 1);
-    s.splTone += (1 - 0.45 * x - s.splTone) * Math.min(1, days / 30);
+    const toneT = 1 - 0.45 * x;
+    s.splTone += (toneT - s.splTone) * (toneT > s.splTone ? 1 - Math.exp(-days / (RELAX.toneBase + RELAX.toneExtra * advanced)) : Math.min(1, days / RELAX.toneBase));
     const volT = 700 * x;
-    const dv = (volT - s.volExtra) * Math.min(1, days / 30);
+    const dv = (volT - s.volExtra) * Math.min(1, days / RELAX.toneBase);
     if (Math.abs(dv) > 0.01) { s.volExtra += dv; this.addVolume(dv, HCT_BASE * 0.7, true); }
     // Red cells (RED): the anemia of liver disease follows the disease, and the red cell mass follows the marrow's set point
     // (a loss made up over weeks, transfused cells cleared as they age); the plasma refills over the day.
@@ -1193,6 +1295,25 @@ export class Engine {
 
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
 
+  /** How far the strain has built, 0 to 1 (1 is the Valsalva's 30 mmHg of chest and belly pressure): it rises over STRAIN_RISE s while held and, once
+   *  let go (a hold's `rel`) or timed out (`max`), falls back over STRAIN_FALL s. The timed 10 s strain (startValsalva) has neither and stops at its end. */
+  strainLevel(t = this.t) {
+    const v = this.valsalva;
+    if (!(t < v.until)) return 0;
+    const rel = v.rel >= 0 ? v.rel : v.max > 0 && t >= v.max ? v.max : -1;
+    const held = rel >= 0 ? rel : t;
+    return Math.min(1, Math.max(0, held - v.start) / STRAIN_RISE) * (rel >= 0 ? Math.max(0, 1 - (t - rel) / STRAIN_FALL) : 1);
+  }
+  /** A momentary strain (a deck slide's hold-to-strain button): on starts it and holds it, off lets go and it falls back over STRAIN_FALL s. A hold
+   *  lets go by itself after STRAIN_MAX s, as nobody holds a strain for long. Pressed again on the way down, it rises from where it is. */
+  holdStrain(on) {
+    const v = this.valsalva, t = this.t, held = v.max > 0 && t < v.max && !(v.rel >= 0);
+    if (on) {
+      if (held) return;
+      this.valsalva = { start: t - this.strainLevel(t) * STRAIN_RISE, until: t + STRAIN_MAX + STRAIN_FALL, max: t + STRAIN_MAX, rel: -1 };
+    } else if (held) this.valsalva = { start: v.start, until: t + STRAIN_FALL, max: v.max, rel: t };
+  }
+
   pushEvent(ev) {
     const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventCount++}` };
     this.newEvents.push(e);
@@ -1225,12 +1346,28 @@ export class Engine {
 
   /** Mean velocity (cm/s), signed. */
   velocity(id) {
-    const q = this.Q[this.ei[id]];
-    const e = EDGES[this.ei[id]];
+    const k = this.ei[id], e = EDGES[k];
+    const q = e.lobar ? this.lobarFlow(k) : this.Q[k];
     // A lumped bundle (e.g. the jejunal and ileal veins) is drawn at one vein's width but its flow
     // reaches the probe through a wider trunk: vd is the diameter the probe sees.
     const d = Math.max(0.5, this.diameter(id) * (e.vd ? e.vd / e.d : 1)) / 10; // cm
     return q / (Math.PI * d * d / 4);
+  }
+
+  /** The flow (mL/s) in a lobar hepatic artery (topology lobar: A_HR, A_HL): its lobe's arteriolar flow plus its share of the flow filling
+   *  the hepatic arterial tree's compliance (the HA node's: what the common hepatic artery brings in less what leaves the node). The two
+   *  lobes' shares, by their arteriolar flow, add up to the common hepatic artery's flow at every instant; over a beat the filling averages out. */
+  lobarFlow(k) {
+    // (The two lobes, with their shunts, add up to the common hepatic artery's flow at every instant.)
+    const HA = this.ni.HA;
+    let qin = 0, qart = 0, qout = 0;
+    for (let j = 0; j < this.E; j++) {
+      if (this.edgeT[j] === HA) qin += this.Q[j];
+      else if (this.edgeF[j] === HA) { qout += this.Q[j]; if (EDGES[j].lobar) qart += Math.abs(this.Q[j]); }
+    }
+    const share = qart > 1e-9 ? Math.abs(this.Q[k]) / qart : 0;
+    const ap = this.ei[EDGES[k].lobar];   // (the lobe's arterioportal shunt, intrahepatic: it leaves the tree past the lobar artery)
+    return this.Q[k] + (ap != null ? this.Q[ap] : 0) + share * (qin - qout);
   }
 
   /** Doppler velocity (cm/s), signed: the time-averaged peak of the spectrum (see dopplerK). */
@@ -1239,9 +1376,9 @@ export class Engine {
   }
 
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
-   *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough. */
-  varixTarget(site, P = this.Pf || this.P) {
-    const p = this.params;
+   *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough.
+   *  A rise is at once; a fall waits for the wall to remodel (VARIX.tauFall, slow.vRest). */
+  varixTarget(site, P = this.Pf || this.P, noKeep = false) {
     // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
     // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
     // pressure above the right atrium it drains to; no varices below an HVPG-like gradient of ~10, large ones
@@ -1249,18 +1386,45 @@ export class Engine {
     // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
     // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
     // open and the size must not fall away as they do.
-    const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
+    // (A Warren shunt ties the coronary vein off the portal vein: nothing of the portal pressure reaches the esophageal varices then, so they follow
+    // the pressure of their own feeding vein, the stomach's, which drains through the short gastric veins to the renal vein.)
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
     // BRTO plugs that shunt and its short gastric feeder and obliterates the varices with it: they shrink back to a
-    // resting vein even though the splenic-to-caval gradient that sized them climbs once the shunt is closed.
-    const ex0 = (site === 'GV' && (p.spontaneous.C5 === false || p.occluded.C5)) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
-    // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
-    // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
-    // on a gastrorenal shunt that is present from birth, so they are not capped.
-    const mature = this.varixMature(site);
-    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
-    return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+    // resting vein even though the splenic-to-caval gradient that sized them climbs once the shunt is closed. EUS-guided coils and
+    // glue cast the varix itself (the feeder, C2, closed with the shunt left open): it too is obliterated, whatever the gradient.
+    // (Coils in the coronary vein, C1a, take the esophageal varices' feeder: the portal pressure no longer reaches them, so they too shrink back, whatever the gradient.)
+    // (Esophageal varices are collaterals too, so they take weeks to form: varixGrown caps their size by how far the coronary
+    // vein feeding them has remodeled on the disease clock, none at the onset of an acute block. Fundal varices ride
+    // on a gastrorenal shunt that is present from birth, so they are not capped.)
+    const grown = this.varixGrown(site, P);
+    // A fall in the pressure waits for the wall (VARIX.tauFall); a varix that has been closed off does not.
+    const held = this.varixCut(site) ? null : this.slow.vRest?.[site];
+    const rest = held != null && held > grown ? held : grown;
+    const r = site === 'VAR' ? VARIX.r0Healthy + (rest - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : rest;
+    // A Warren shunt drops the pressure in them at once, but the wall took weeks to build and takes months to go: they stay as they were,
+    // slack under the low pressure (varix: the radius follows the pressure across the wall), and shrink over about three months (vCutStep).
+    // Most are small or gone by a year; shunt failure or a stenosis puts the pressure back and they swell again at once.
+    const kept = site === 'VAR' && !noKeep ? this.slow.vCut : null;
+    return kept != null && kept > r ? kept : r;
+  }
+
+  /** Whether the varix is closed off rather than relieved (the cases listed in varixTarget): it is then held at a resting vein whatever the gradient. */
+  varixObliterated(site) {
+    const p = this.params;
+    return (site === 'GV' && (p.spontaneous.C5 === false || p.occluded.C5 || p.occluded.C2)) || (site === 'VAR' && ((p.isolatedGV && !p.occluded.C5) || !!p.occluded.C1a));
+  }
+
+  /** Whether the varix has been cut off from the pressure that sized it rather than relieved of some of it: closed off (varixObliterated), or the
+   *  esophageal varices after a Warren shunt, whose coronary vein is tied off the portal vein. These do not wait for the wall (VARIX.tauFall). */
+  varixCut(site) { return this.varixObliterated(site) || (site === 'VAR' && !!this.params.dsrs); }
+
+  /** The radius (mm) the pressure alone gives a varix, before banding and before the lag on its fall (varixTarget). */
+  varixGrown(site, P = this.Pf || this.P) {
+    const p = this.params;
+    const ex = site === 'VAR' ? this.routeExcess([p.dsrs ? 'LGV' : 'CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
+    const ex0 = this.varixObliterated(site) ? -1e9 : ex;
+    return clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + this.varixMature(site) * (VARIX.rMax - VARIX.r0Healthy));
   }
 
   /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
@@ -1268,6 +1432,9 @@ export class Engine {
    *  2.5 s). When one is started, the size the varix had is held for its grade (varixGraded), and slowStep lets that go on the disease clock.
    *  The drawn and measured diameter (varix, metrics varix.d) still follows the pressure at once, as the drawing of it is asked to. */
   holdVarices(prev, p) {
+    // A Warren shunt cuts the esophageal varices' feeder (the coronary vein): the varices keep the size they had while the pressure in them falls (varixTarget).
+    if (!prev.dsrs && p.dsrs) this.slow.vCut = this.varixTarget('VAR', this.Pf || this.P);
+    else if (prev.dsrs && !p.dsrs) this.slow.vCut = null;   // (the feeder is open again: the pressure sizes them)
     const on = (q) => VASO_DRUGS.some((k) => !!q?.drugs?.[k]);
     const h = this.slow.vHold || (this.slow.vHold = { VAR: null, GV: null });
     if (!on(p)) { h.VAR = h.GV = null; return; }
@@ -1357,7 +1524,8 @@ export class Engine {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
-      cyc: this.cyc || 0, COf: this.COf,   // (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
+      cyc: this.cyc || 0, COf: this.COf, qpm: this.qpm,   // (qpm: the buffer response's averaged portal inflow, portalInflowMean) (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
+      lv: this.lv,   // (the lungs' and ventricle's share of the beat, lvStep)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
     });
@@ -1371,15 +1539,18 @@ export class Engine {
     // EXT-ENG-1: the moment's own beat phase and cardiac-output filter. A snapshot made before they were kept has neither: the beat then starts
     // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
     this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
+    this.lv = c.lv || null;
     this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
     // (One from before the red cells' clocks (RED): its patient's own red cell mass, worked out as it was then.)
     if (this.blood.own == null) this.blood.own = this.ownRbc();
+    this.slow.vRest ||= { VAR: null, GV: null };   // (one from before the varix's lag on its fall (VARIX.tauFall) starts it at the size the pressure gives)
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
+    this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)
     this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)
     this._drug = this.drugEffects();
     this.computeExt(this.t);

@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 // does it follow unseen (followHidden), and at rest nothing under the zoom is redrawn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 const fn = (head) => { const i = st.indexOf(head); assert.ok(i >= 0, head); return st.slice(i, st.indexOf('\n  }\n', i) + 4); };

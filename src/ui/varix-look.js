@@ -32,8 +32,10 @@ export const VARIX_JUMP_MM = 1.5;
 export function varixMean(held, d, now) {
   const dt = now - (held.at ?? now);
   held.at = now;
-  if (held.snap || held.m == null || dt > 3000 || dt < 0 || Math.abs(d - held.m) > VARIX_JUMP_MM) held.m = d;
-  else if (dt > 0) held.m += (d - held.m) * (1 - Math.exp(-dt / VARIX_MEAN_MS));
+  // (`held.k` keeps the share of the way to d this call took, 1 for a jump: the scope's field (instruments.js) follows its other
+  // readings, the wall's ratio and the air's table, the same share, so everything it draws moves with the figure's varices.)
+  held.k = held.snap || held.m == null || dt > 3000 || dt < 0 || Math.abs(d - held.m) > VARIX_JUMP_MM ? 1 : dt > 0 ? 1 - Math.exp(-dt / VARIX_MEAN_MS) : 0;
+  held.m = held.k >= 1 ? d : held.m + (d - held.m) * held.k;
   return held.m;
 }
 

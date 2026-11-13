@@ -14,17 +14,20 @@ test('still solving: the ghosts at full, the new labels at nothing, at every pro
 test('solved ahead (at the tap): the crossfade is the change\'s own second half, as before', () => {
   assert.deepEqual(viewXfMix(0.2, 0), { o: 1, n: 0 });
   assert.deepEqual(viewXfMix(0.5, 0), { o: 1, n: 0 });
-  assert.deepEqual(viewXfMix(0.75, 0), { o: 0.5, n: 0.5 });
+  const mid = viewXfMix(0.75, 0);
+  assert.ok(mid.o < 0.03 && mid.n < 0.03, 'handed over at the middle: neither set strong on top of the other');
   assert.deepEqual(viewXfMix(1, 0), { o: 0, n: 1 });
   assert.deepEqual(viewXfMix(0.75, 0.3), viewXfMix(0.75, 0), 'landed before the half: the same law');
 });
 
 test('solved late in the change: the two cross over what is left of it, whole as the figure lands', () => {
   assert.deepEqual(viewXfMix(0.7, 0.7), { o: 1, n: 0 });
-  assert.deepEqual(viewXfMix(0.85, 0.7), { o: 0.5, n: 0.5 });
+  const mid = viewXfMix(0.85, 0.7);
+  assert.ok(mid.o < 0.03 && mid.n < 0.03, 'handed over at the middle of what is left');
   assert.deepEqual(viewXfMix(1, 0.7), { o: 0, n: 1 });
   const a = viewXfMix(0.8, 0.7), b = viewXfMix(0.9, 0.7);
-  assert.ok(b.n > a.n && a.o + a.n === 1 && b.o + b.n === 1, 'monotonic, the two always summing to one');
+  assert.ok(b.n >= a.n && b.o <= a.o, 'monotonic');
+  for (let p = 0.7; p <= 1; p += 0.01) { const m = viewXfMix(p, 0.7); assert.ok(Math.min(m.o, m.n) < 0.03, `never both sets showing (p ${p.toFixed(2)}: ${m.o}, ${m.n})`); }
 });
 
 test('solved after the figure landed: the swap is that frame', () => {

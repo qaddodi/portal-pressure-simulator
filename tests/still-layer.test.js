@@ -1,48 +1,22 @@
-// Laptop-heat recs H3: the Pressure chart's still parts (panel, grid, thresholds, and a slide card's column of readings) are drawn once into a
-// picture of their own while their key holds, and laid down whole each frame (still-layer.js). The picture must change no pixel: the same
-// drawing calls, with the same arguments and the same state (colours, line ends, clip), reach the screen with it as without it.
+// Laptop-heat recs H3, and performance recs B1: the Pressure chart's still parts (panel, grid, thresholds, and a slide card's column of
+// readings) are kept on the GPU (trace-gl.js keepLayer) while their version holds, and laid down whole each frame (still-layer.js). The kept
+// layer must change no pixel: the same drawing calls, with the same arguments and the same state (colours, line ends, clip), reach the screen
+// with it as without it, and a frame that changes nothing the parts print draws nothing new.
 // No browser: a recording context writes every drawing call down with the state it was made in, and the two ways are compared frame by frame.
+// Its keep() stands for the drawer's: it records the parts' calls the first time a version is seen, and replays them while the version holds.
 import { test } from 'node:test';
 import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
-import { createStill } from '../src/ui/still-layer.js';
 import { createCore } from '../src/worker-core.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
-// ── the picture itself ──
-function fakeCanvas() {
-  const log = [];
-  const ctx = new Proxy({}, { get: (_, k) => (...a) => { log.push([String(k), ...a]); }, set: () => true });
-  return { width: 0, height: 0, log, getContext: () => ctx };
-}
 function hostCtx(m = { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }) {
   const log = [];
   return { log, getTransform: () => m, save: () => log.push(['save']), restore: () => log.push(['restore']), setTransform: (...a) => log.push(['setTransform', ...a]), drawImage: (...a) => log.push(['drawImage', ...a]) };
 }
-
-test('the still parts are drawn straight onto the chart\'s own context, kept apart by a save and a restore: no 2D picture (1 Nov)', () => {
-  let drawn = 0;
-  const still = createStill({ width: 800, height: 400 });
-  const ctx = hostCtx();
-  for (let i = 0; i < 3; i++) still.lay(ctx, 'k', (c) => { assert.equal(c, ctx); drawn++; });
-  assert.equal(drawn, 3, 'drawn every frame, by the GPU\'s pen');
-  assert.deepEqual(ctx.log, [['save'], ['restore'], ['save'], ['restore'], ['save'], ['restore']]);
-  const src = read('../src/ui/still-layer.js');
-  assert.doesNotMatch(src, /getContext|drawImage|createElement/, 'no canvas of its own');
-});
-
-test('switched off, the parts are drawn straight onto the chart every time and no picture is made', () => {
-  let made = 0, drawn = 0;
-  const still = createStill({ width: 10, height: 10 }, { on: false, make: () => { made++; return fakeCanvas(); } });
-  const ctx = hostCtx();
-  for (let i = 0; i < 3; i++) still.lay(ctx, 'k', (c) => { assert.equal(c, ctx); drawn++; });
-  assert.equal(drawn, 3);
-  assert.equal(made, 0);
-  assert.deepEqual(ctx.log, [['save'], ['restore'], ['save'], ['restore'], ['save'], ['restore']], 'each drawing is kept apart from the chart\'s own state, as a picture\'s context is');
-});
 
 // ── the Pressure chart, with and without the picture ──
 let frameQueue = [];
@@ -58,7 +32,7 @@ const realClock = () => { performance.now = realNow; };
 const hash = (s) => { let h = 7; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 globalThis.getComputedStyle = () => ({
   fontSize: '14px',
-  getPropertyValue: (n) => (n === '--ramp-pressure' ? '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' : `#${(0x1000000 | (hash(n) & 0xffffff)).toString(16).slice(1)}`),
+  getPropertyValue: (n) => (n === '--ramp-pressure' ? '#B8D5ED 0, #85B6E9 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' : `#${(0x1000000 | (hash(n) & 0xffffff)).toString(16).slice(1)}`),
 });
 
 // (What each kind of call reads from the context: a stroke does not read the fill colour, so two states that differ only there draw the same pixels.)
@@ -73,8 +47,9 @@ class Grad { constructor(a) { this.a = a; this.s = []; } addColorStop(o, c) { th
 // A context that writes down every call that puts something on the canvas, with the state it was made in: the properties, the dash, the clips
 // (each the path it was made from) and the transform. A picture's context keeps what its last drawing wrote; laying it down on the chart writes
 // that among the chart's own.
-let picBuilds = 0;   // (how many times a picture was cleared to be made again)
+let keepOn = false, layerBuilds = 0;   // (keepOn: the chart's pen keeps layers, as the GPU drawer does; layerBuilds: how many times a layer's calls were made)
 function recorder(sink, isPic) {
+  const layers = new Map();
   const st = { font: '10px sans-serif', fillStyle: '#000000', strokeStyle: '#000000', lineWidth: 1, lineCap: 'butt', lineJoin: 'miter', globalAlpha: 1, textAlign: 'start', textBaseline: 'alphabetic' };
   let dash = [], clips = [], path = [], tf = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   const stack = [];
@@ -95,8 +70,19 @@ function recorder(sink, isPic) {
     strokeRect: (...a) => { sink.push(`strokeRect ${a} ${snap('strokeRect')}`); },
     fillText: (...a) => { sink.push(`fillText ${a} ${snap('fillText')}`); },
     strokeText: (...a) => { sink.push(`strokeText ${a} ${snap('strokeText')}`); },
-    clearRect: (...a) => { if (isPic) { sink.length = 0; picBuilds++; } else sink.push(`clearRect ${a} ${snap('clearRect')}`); },
+    clearRect: (...a) => { if (isPic) { sink.length = 0; } else sink.push(`clearRect ${a} ${snap('clearRect')}`); },
     drawImage: (img) => { if (img?.recOps) sink.push(...img.recOps); },
+    // A layer: its calls are made (and written down with the state they were made in) the first time a version is seen, then written again as they were.
+    keep: (name, sig, draw) => {
+      if (!keepOn) { draw(); return false; }
+      const e = layers.get(name);
+      if (e && e.sig === sig) { sink.push(...e.ops); return true; }
+      const at = sink.length;
+      fns.save(); draw(); fns.restore();
+      layers.set(name, { sig, ops: sink.slice(at) });
+      layerBuilds++;
+      return true;
+    },
     measureText: (s) => ({ width: String(s).length * (parseFloat(/(\d+(\.\d+)?)px/.exec(st.font)?.[1]) || 10) * 0.55 }),
     createLinearGradient: (...a) => new Grad(a),
     createRadialGradient: (...a) => new Grad(a),
@@ -157,13 +143,73 @@ async function modelFrames(preset, secs = 3) {
 }
 const healthy = await modelFrames('healthy');
 const csph = await modelFrames('csph');
+// (Loaded after the globals above are set: still-layer.js brings the drawer in, which meets the page's observers when it loads.)
+const { createStill } = await import('../src/ui/still-layer.js');
 const { createPressureTime } = await import('../src/ui/pressure-time.js');
+
+// ── the layer on its own ──
+test('a pen with no layer cache gets the still parts drawn straight onto the chart\'s own context, kept apart by a save and a restore', () => {
+  let drawn = 0;
+  const still = createStill({ width: 800, height: 400 });
+  const ctx = hostCtx();
+  for (let i = 0; i < 3; i++) still.lay(ctx, 'k', 1, (c) => { assert.equal(c, ctx); drawn++; });
+  assert.equal(drawn, 3, 'drawn every frame');
+  assert.equal(still.builds, 3);
+  assert.deepEqual(ctx.log, [['save'], ['restore'], ['save'], ['restore'], ['save'], ['restore']]);
+  const src = read('../src/ui/still-layer.js');
+  assert.doesNotMatch(src, /getContext|drawImage|createElement/, 'no canvas of its own');
+  assert.match(src, /keepLayer\(ctx, name, ver, run\)/, 'the layer is the GPU\'s own (trace-gl.js)');
+});
+
+// (The drawer's keep, as a stand-in: the layer is drawn when its version is not the one it holds.)
+function keepingCtx() {
+  const held = new Map(), log = [];
+  const ctx = {
+    ...hostCtx(),
+    keep(name, sig, draw) {
+      log.push(['keep', name, sig]);
+      const e = held.get(name);
+      if (!e || e.sig !== sig) { held.set(name, { sig }); draw(); log.push(['drew', name]); }
+      return true;
+    },
+  };
+  return { ctx, log };
+}
+
+test('a second identical frame draws nothing new, and a changed version draws again', () => {
+  let drawn = 0;
+  const still = createStill({ width: 800, height: 400 });
+  const { ctx, log } = keepingCtx();
+  const build = (c) => { assert.equal(c, ctx); drawn++; };
+  still.lay(ctx, 'k', 1, build);
+  assert.equal(drawn, 1);
+  still.lay(ctx, 'k', 1, build);
+  still.lay(ctx, 'k', 1, build);
+  assert.equal(drawn, 1, 'the same version: laid, not drawn');
+  assert.equal(still.builds, 1);
+  still.lay(ctx, 'k', 2, build);
+  assert.equal(drawn, 2, 'a changed version draws again');
+  still.lay(ctx, 'k', 2, build);
+  assert.equal(drawn, 2);
+  assert.equal(log.filter((e) => e[0] === 'drew').length, 2);
+});
+
+test('switched off, the parts are drawn straight onto the chart every time and the layer cache is never asked', () => {
+  let drawn = 0;
+  const still = createStill({ width: 10, height: 10 }, { on: false });
+  const { ctx, log } = keepingCtx();
+  for (let i = 0; i < 3; i++) still.lay(ctx, 'k', 1, (c) => { assert.equal(c, ctx); drawn++; });
+  assert.equal(drawn, 3);
+  assert.equal(log.filter((e) => e[0] === 'keep').length, 0);
+  assert.deepEqual(ctx.log, [['save'], ['restore'], ['save'], ['restore'], ['save'], ['restore']], 'each drawing is kept apart from the chart\'s own state');
+});
+
 
 /** Draws `frames` one by one on a chart set up by `sc`; the list of what each frame put on the canvas, and how many times the picture was made. */
 function drive(stillLayer, sc, frames) {
   const ops = [], perFrame = [];
   current = { ops };
-  T = 1000; picBuilds = 0;
+  T = 1000; layerBuilds = 0; keepOn = !!stillLayer;
   stillClock();
   const pt = createPressureTime({ stillLayer });
   const cv = canvasOf(pt.el);
@@ -179,12 +225,13 @@ function drive(stillLayer, sc, frames) {
     pt.update({ ...f, running: true, speed: 1, clock: 'hemo' });
     runFrames();
     perFrame.push(ops.splice(0));
-    (perFrame.buildsAt ??= []).push(picBuilds);
+    (perFrame.buildsAt ??= []).push(layerBuilds);
     if (sc.after && i === sc.after.at) sc.after.do(pt, cv);
   });
   pt.dispose();
   realClock();
-  perFrame.builds = picBuilds;
+  perFrame.builds = layerBuilds;
+  keepOn = false;
   return perFrame;
 }
 
@@ -211,7 +258,7 @@ for (const sc of SCENARIOS) {
     test(`${sc.name} (${label}): the same drawing reaches the canvas with the picture as without it, every frame`, () => {
       const off = drive(false, sc, frames), on = drive(true, sc, frames);
       assert.equal(on.length, off.length);
-      assert.ok(off.every((f) => f.length > (sc.min ?? 10)), 'every frame draws');
+assert.ok(off.every((f) => f.length > (sc.min ?? 10)), 'every frame draws');
       const all = off[off.length - 1].join('\n');
       if (sc.has) assert.match(all, sc.has, 'the still words are on the canvas');
       if (sc.hasToo) assert.match(all, sc.hasToo);
@@ -234,4 +281,34 @@ test('the chart lets the picture go with itself, and a chart can be made without
   assert.match(src, /const still = createStill\(cv, \{ on: stillLayer \}\);/);
   // The panel is drawn once: in the picture, or by the card that draws none.
   assert.equal(src.split('plotFill(').length - 1, 3, 'the general picture, the beat picture and the helper of the two cards with no picture');
+});
+
+// ── a frame that changes nothing the parts print draws nothing new; one that does draws again ──
+const SAME = [csph[csph.length - 1]];
+const hold = (n) => Array.from({ length: n }, () => SAME[0]);
+for (const sc of SCENARIOS.filter((x) => !x.min)) {
+  test(`${sc.name}: the kept parts are drawn when their version moves and laid otherwise`, () => {
+    const on = drive(true, sc, hold(30)), at = on.buildsAt;
+    assert.ok(at[0] >= 1, 'the first frame draws the parts');
+    assert.ok(at[at.length - 1] < at.length, 'fewer draws than frames');
+    assert.equal(at[at.length - 1], at[at.length - 6], 'the last frames, nothing changed: nothing drawn');
+  });
+}
+
+test('the beat card: a printed number that changes draws the parts again, and the same number does not', () => {
+  const sc = { bw: 640, bh: 300, slide: true, pin: { hr: 131, whvp: 30, fhvp: 9 }, after: { at: 14, do: (pt) => pt.pin({ hr: 132, whvp: 30, fhvp: 9 }) } };
+  const at = drive(true, sc, hold(24)).buildsAt;
+  assert.equal(at[14], at[13], 'before the change: nothing new');
+  assert.ok(at[15] > at[14], 'the heart rate printed is another: the parts are drawn again');
+  assert.equal(at[23], at[15], 'and then laid again');
+  const same = drive(true, { ...sc, after: { at: 14, do: (pt) => pt.pin({ hr: 131, whvp: 30, fhvp: 9 }) } }, hold(24)).buildsAt;
+  assert.equal(same[23], same[13], 'the same numbers pinned again: nothing new');
+});
+
+test('the chart: a size that changes draws the parts again', () => {
+  const sc = { bw: 420, bh: 320, after: { at: 19, do: (pt, cv) => { cv.bw = 380; } } };
+  const at = drive(true, sc, hold(30)).buildsAt;
+  assert.equal(at[19], at[18], 'before the change: nothing new');
+  assert.ok(at[29] > at[19], 'the chart is narrower: the parts are drawn again');
+  assert.equal(at[29], at[27], 'and then laid again');
 });

@@ -3,22 +3,29 @@
 import { glassCallout, withGlass } from './callout.js';
 import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
-import { outlineBox, placeSummary } from './cath-place.js';
+import { outlineBox, placeBeside } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
-import { D_SMALL, EASE_IN } from './ease.js';
+import { D_SMALL, D_SURFACE, easeOut3 } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
+import { cathFadeAlpha } from './hvpg-clock.js';
 import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { procSpecs } from './proc-routes.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
-import { EUS_ROUTE, eusDraw } from './eus-scope.js';
+import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } from './eus-scope.js';
 
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
+  // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in: 0.3, of the feeder's 247 units about 74 each way, up to its fundal end.)
+  const GLUE_SPREAD = 0.3;
+  // (World units per device pixel now, for the pixel floors of the finest parts and the edge: the stage's pixels per world unit and the canvas's per CSS pixel. 0 before the view is known.)
+  const COIL_NOW = { dir: 1, rho: 0, span: 0 };
+  const pxNow = () => { const c = live.CTM, k = c ? (live.vdpr || 1) * Math.hypot(c.a, c.b) : 0; return k > 0 ? 1 / k : 0; };
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
   function cutLen(pts, cum, a, b) {
@@ -69,6 +76,14 @@ export function createCath(st, live) {
     }
     return { P, raw, Rr, map, idx };
   }
+  /** A place on one treatment route as the same place on another (u, as setCatheter takes it: 0..1 of the way from the route's start to where its tip stops). The routes share
+   *  their way in, so the same distance along them is the same place: the reading that goes on from where the coils left the catheter. u when either route cannot be laid yet. */
+  function cathCarry(u, from, to) {
+    if (from === to) return u;
+    const a = procRoute(from), b = procRoute(to);
+    if (!a || !b) return u;
+    return Math.max(0, Math.min(0.999, (a.start + u * (a.free - a.start) - b.start) / (b.free - b.start || 1)));
+  }
   function cathRoute() {
     const kind = cath.st?.route || cath.kind || 'hvpg';
     if (kind !== 'hvpg') return procRoute(kind);
@@ -107,37 +122,18 @@ export function createCath(st, live) {
   // gastric feeder of the fundal varices. build lays the legs in the order the catheter travels (see procRoute); tip: where
   // the tip stops (a leg's name and how far along it); focus: the legs the close-up frames; start: how far along the lead-in
   // the tip sits before it moves.
+  // (TIPS, BRTO and BATO: proc-routes.js, which the timing tests read too.)
+  const PROC_BASE = procSpecs(geo, cathRadOf);
   const PROC_ROUTES = {
-    tips: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
-      build(B) {
-        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
-        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
-        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
-        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
-        // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
-        // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
-        B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
-        B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
-        B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
-      } },
-    // (BRTO's balloon sits near the renal end of the shunt, 0.2 of the way up it: at 0.3 the tip and balloon lay on the splenic vein,
-    // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)
-    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
-      build(B) {
-        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
-        B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
-        B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
-        B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
-      } },
-    bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
-      build(B) {
-        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
-        B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
-        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
-        B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
-      } },
+    ...PROC_BASE,
     eus: EUS_ROUTE,   // (EUS-PPG's echoendoscope: down the esophagus to the lesser curve, eus-scope.js)
+    eusglue: EUS_GLUE_ROUTE,   // (EUS-guided coils and glue: the same scope, on under the fundus to a station over the varix)
+    // (The TIPS that coils the coronary vein: the TIPS's route on up the vein; coilAt, the vein's centreline round the tip where the coil is pushed out,
+    // running on up the vein the way the catheter came, against the vein's drawn course.)
+    tipscoilin: { ...PROC_BASE.tipscoil, after: (r) => PROC_ROUTES.tipscoil.after(r) },   // (the same route and vein, through a stent that is already in)
+    tipscoil: { ...PROC_BASE.tipscoil, after(r) { const q = r.parts.find((x) => x.name === 'coronary'); r.coilAt = { id: q.id, f: q.fb, rad: 0, path: lumenPath(geo[q.id].cur, q.fb, COIL_PATH_HALF), dir: -1 }; } },
   };
+  const COIL_PATH_HALF = 16;   // (the vein's centreline each side of the coil's start, world units: the coil runs on inside it, eus-scope.js)
   // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
   const PROC_FIXED = new Map();   // ('=r' → r, each fixed radius a route was built with, set when the leg is laid)
   const procRadOf = (id, f) => (id[0] === '=' ? PROC_FIXED.get(id) ?? +id.slice(1) : cathRadOf(id, f));
@@ -151,14 +147,15 @@ export function createCath(st, live) {
       // Loose points (a lead-in from outside the plate), with the lumen radius of vessel id at f; the last one is where the next leg starts.
       pts(list, id, f, name = 'lead') { marks.push(pts.length); parts.push({ id: null, name }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
       // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
-      // way, or until a point meets until(q), or to the point nearest `near`. r: a fixed lumen radius instead of its caliber.
-      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id, r = 0 } = {}) {
+      // way, or until a point meets until(q), or to the point nearest `near`, or from the point nearest `from`. r: a fixed lumen radius instead of its caliber.
+      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, from = null, name = id, r = 0 } = {}) {
         const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
         if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
+        if (from) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - from[0], q[1] - from[1]); if (dd < best) { best = dd; a = c[i] / n; } }); }   // (from: start at the point nearest it: a tract that leaves a vein mid-run)
         if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
         const seg = cutLen(P0, c, a * n, b * n), own = (f) => (rev ? 1 - f : f);
         marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
-        for (let i = a === 0 && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
+        for (let i = (a === 0 || from) && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
           if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
           if (r) { const rs = r.toFixed(3), fid = '=' + rs; PROC_FIXED.set(fid, +rs); pts.push(seg[i]); rad.push(at(fid, 0)); } else { pts.push(seg[i]); rad.push(at(id, own(run / n))); }
         }
@@ -208,7 +205,8 @@ export function createCath(st, live) {
     cath.g.style.display = r && !gpu ? '' : 'none';
     cath.labels.hidden = !r;
     if (!gpu) cathLast = null;   // (its fade-out only redraws what the GPU last drew)
-    if (!r) { if (live.veins?.canCath) live.veins.setCath(null); return; }
+    // (Nothing is painted while the route is off (the Circuit): the tip is not known to be at rest, so no reading is pinned until a paint says so.)
+    if (!r) { cath.still = false; cath.lastTipD = null; if (live.veins?.canCath) live.veins.setCath(null); return; }
     cathLive(r);
     if (!live.CTM) refreshCTM();
     // A blocked hepatic vein: the tip only reaches the ostium and probes it (st.probe 0..1 nudges it in).
@@ -223,11 +221,38 @@ export function createCath(st, live) {
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
+    // Whether the tip has stopped (it moved less than a hundredth of a world unit since the last paint, which is far under a pixel, or it is parked at
+    // the end of its route, where a slow frame jumps it): a reading is taken, and its anchor pinned (cathLabels), only once the catheter is at rest.
+    // EUS-PPG's points are the veins' own targets, at rest throughout.
+    cath.still = (!!r.tg && gpu) || st.u >= 1 || (cath.lastTipD != null && Math.abs(tipD - cath.lastTipD) < 0.01); cath.lastTipD = tipD;
     // The wedged reading: the vein beyond the balloon, out toward the sinusoids, takes the wedged
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
-    if (gpu && col > 0.001 && r.parts) {
+    if (r.glue) r.glue.castOn = 0;
+    if (gpu && col > 0.001 && r.glue) {
+      // EUS-guided glue: an opaque cast (--dev-glue, cast: the blood stops inside it, veins-gl.js castAt) that fills the varix from the needle's
+      // point as far as the coils lie (eus-scope.js coilReach: along the coil's side, with a little behind the point), the cast's ends soft.
+      // (BRTO's sclerosant, a liquid, keeps its translucent wash below.) Before the coil is laid it spreads GLUE_SPREAD each way as it did.
+      const g = r.glue;
+      g.rad = cathRadOf(g.id, g.f);   // (the varix's lumen as drawn now, as eusGL has it)
+      // (His ask, 8 Nov 2026: "we only see a little bit of the glue, just a little bit of fade of white ... it should fill a little bit more of the
+      // varix". The cast now spreads GLUE_SPREAD of the course each way from the needle's point (the coil's reach if that is more), and its ends
+      // are soft over a fraction of the lumen only: the old soft ends, 1.6 of the scope's radius each side, left a short cast never fully opaque.)
+      const cr = g.path ? coilReach(g, COIL_NOW) : null, L = g.path?.len || 0;
+      const reach = cr && L > 0 && cr.span > 0 ? (cr.span + cr.rho * 0.6 + 1) / L : 0, W = Math.max(GLUE_SPREAD, reach);
+      // (His ask, 10 Nov 2026, recs item 8: "the glue sets on the coil first, then fills the lumen". The first half of the fill takes the cast out from the
+      // needle's point along the coil's own span (a little behind the point, as far as the coil's loops reach along its side); the second widens it, to the
+      // spread each way it had before, closing the lumen around the coil. The coil is drawn over the cast either way. A coil not laid has no span: the second
+      // half alone then spreads the cast from the point.)
+      const cd = cr ? cr.dir : 1, behind = cr && L > 0 ? (cr.rho * 0.6 + 1) / L : 0;
+      const cLo = g.f + Math.min(0, cd) * reach - Math.max(0, cd) * behind, cHi = g.f + Math.max(0, cd) * reach + Math.max(0, -cd) * behind;
+      const u1 = easeInOut(clamp(col / 0.55, 0, 1)), u2 = easeInOut(clamp((col - 0.5) / 0.5, 0, 1));
+      const lo1 = g.f + (cLo - g.f) * u1, hi1 = g.f + (cHi - g.f) * u1;
+      const lo = lo1 + (g.f - W - lo1) * u2, hi = hi1 + (g.f + W - hi1) * u2;
+      g.castLo = (lo - g.f) * L; g.castHi = (hi - g.f) * L; g.castOn = 1;   // (the fan's color Doppler shows the cast bright where it lies, eus-scope.js)
+      tint = { col: st.columnColor || 'var(--dev-glue)', soft: Math.max(2, g.rad * 0.7), cast: true, [g.id]: [lo, hi] };
+    } else if (gpu && col > 0.001 && r.parts) {
       // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
       // (an end where it runs on into the next vessel left open, so the joins show no edge).
       const a = tipD, reach = a + (r.total - a) * col;
@@ -247,8 +272,10 @@ export function createCath(st, live) {
     }
     const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
       : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
-    if (tk !== cath.tintKey) { cath.tintKey = tk; live.cathTint = tint; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
-    if (gpu) (r.hvD ? eusGL : cathGL)(st, r, tipD, rc);
+    // The esophageal varices fade while the EUS-PPG scope is in the esophagus (his ask, 11 Nov 2026), in 50ths: the rows are written again, and sent, only as it steps.
+    const vf = Math.round(clamp(st.fade || 0, 0, 1) * 50) / 50;
+    if (tk !== cath.tintKey || vf !== live.varixFade) { cath.tintKey = tk; live.cathTint = tint; live.varixFade = vf; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
+    if (gpu) (r.scope ? eusGL : cathGL)(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     live.cathVer++; live.stageWake();
     // In order, once a frame: the catheter (above), the camera following it, its readings for both, then the one render pass
@@ -276,6 +303,7 @@ export function createCath(st, live) {
   function cathGL(st, r, tipD, rc) {
     const V = [], draws = [], op = st.opacity ?? 1, cs = wrapCS();
     const sh = cathShaft(r, rc), begin = () => sh.count + V.length / 6;
+    const px = pxNow(), ew = edgeR(rc, px), [sox, soy] = shadowOff(rc, px);   // (the edge's radius, never under a device pixel past the shaft; the contact shadow's offset, along the light)
     const tube = (a, b, rOf, mode, col, alpha, fade, ox = 0, oy = 0) => {
       const first = begin(), step = Math.max(rc * 0.6, 0.35);
       const n = Math.max(2, Math.ceil((b - a) / step) + 1);
@@ -292,9 +320,10 @@ export function createCath(st, live) {
     };
     // One catheter for every procedure (HVPG, TIPS, BRTO, BATO): a satin polymer shaft with a hairline edge and a soft contact
     // shadow, a tip that tapers to a rounded end, and a slim platinum marker band behind it.
-    const shaft = CATH_POLY, edge = CATH_EDGE_INK, metal = CATH_METAL;
+    // (The materials are the look's, theme-tokens.js --dev-*: the same table the marks and the scope read.)
+    const shaft = toRGB('var(--dev-poly)', cs), edge = toRGB('var(--dev-poly-edge)', cs), metal = toRGB('var(--dev-platinum)', cs), steel = toRGB('var(--dev-steel)', cs), shade = toRGB('var(--cath-shadow)', cs);
     const b = tipD - rc * 1.6, k = Math.min(sh.n, Math.ceil(b / sh.step));
-    const shaftPart = (first, w, mode, col, alpha) => {
+    const shaftPart = (first, w, mode, col, alpha, ox = 0, oy = 0) => {
       if (k < 1) return;
       draws.push({ mode, first, count: k * 2, col, alpha: alpha * op, fade: [60, 0], len: b });
       const a = (k - 1) * sh.step;
@@ -302,7 +331,7 @@ export function createCath(st, live) {
         const f = begin();
         for (const d of [a, b]) {
           const q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
-          for (const side of [-1, 1]) V.push(q.p[0] + nx * w * side, q.p[1] + ny * w * side, nx, ny, side, d);
+          for (const side of [-1, 1]) V.push(q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d);
         }
         draws.push({ mode, first: f, count: 4, col, alpha: alpha * op, fade: [60, 0], len: b });
       }
@@ -310,11 +339,11 @@ export function createCath(st, live) {
     // The taper: the last stretch narrows to two thirds, then a rounded end (its edge drawn first, round it).
     const taper = (q, d) => rc * lerp(1, 0.66, smoothstep01((d - b) / (rc * 1.6)));
     const tp = cathAt(r, tipD), tipR = rc * 0.66;
-    shaftPart(0, rc * 2.2, 0, [0.04, 0.05, 0.08], 0.2);
-    tube(b, tipD - rc * 0.3, (q, d) => taper(q, d) * 2.2, 0, [0.04, 0.05, 0.08], 0.12, [0, 0]);
-    shaftPart(sh.n * 2, rc * CATH_EDGE, 7, edge, 0.62);
-    tube(Math.max(0, b - rc * 0.2), tipD, (q, d) => taper(q, d) + (CATH_EDGE - 1) * rc, 7, edge, 0.62, [0, 0]);
-    disc(tp.p, tp.t, tipR + (CATH_EDGE - 1) * rc, tipR + (CATH_EDGE - 1) * rc, 8, edge, 0.62);
+    shaftPart(0, rc * 2.2, 0, shade, 0.2, sox, soy);
+    tube(b, tipD - rc * 0.3, (q, d) => taper(q, d) * 2.2, 0, shade, 0.12, [0, 0], sox, soy);
+    shaftPart(sh.n * 2, ew, 7, edge, 0.62);
+    tube(Math.max(0, b - rc * 0.2), tipD, (q, d) => taper(q, d) + (ew - rc), 7, edge, 0.62, [0, 0]);
+    disc(tp.p, tp.t, tipR + (ew - rc), tipR + (ew - rc), 8, edge, 0.62);
     shaftPart(sh.n * 4, rc, 2, shaft, 1);
     tube(Math.max(0, b - rc * 0.2), tipD, taper, 2, shaft, 1, [0, 0]);
     disc(tp.p, tp.t, tipR, tipR, 4, shaft, 1);
@@ -322,13 +351,14 @@ export function createCath(st, live) {
     // catheter covers them as it slides over: the needle brushed steel with a hairline edge, narrowing to a bevelled point; the
     // wire a fine dark line on into the portal trunk. The portal hit: two rings at the needle's tip, the portal vein's colour.
     const toD = (u) => r.start + (r.free - r.start) * clamp(u, 0, 1);
-    if (st.wire > 0) { const wD = toD(st.wire); if (wD > tipD + rc * 0.6) { tube(tipD + rc * 0.3, wD, () => rc * 0.3, 7, edge, 0.9, [0, 0]); tube(tipD + rc * 0.3, wD, () => rc * 0.14, 3, metal, 0.8, [0, 0]); } }
+    // (Pixel floors, visual-style D3: the wire is never under 1 px across, the needle never under 2.)
+    if (st.wire > 0) { const wD = toD(st.wire); if (wD > tipD + rc * 0.6) { const ww = Math.max(rc * 0.14, px * 0.5); tube(tipD + rc * 0.3, wD, () => Math.max(rc * 0.3, ww + px * 0.5), 7, edge, 0.9, [0, 0]); tube(tipD + rc * 0.3, wD, () => ww, 3, steel, 0.8, [0, 0]); } }
     if (st.needle > 0) {
       const nD = toD(st.needle), bev = rc * 1.4;
       if (nD > tipD + rc * 0.6) {
-        const nr = (q, d) => rc * 0.42 * lerp(1, 0.18, smoothstep01((d - (nD - bev)) / bev));
-        tube(tipD + rc * 0.3, nD, (q, d) => nr(q, d) + rc * 0.12, 7, edge, 0.75, [0, 0]);
-        tube(tipD + rc * 0.3, nD, nr, 3, metal, 1, [0, 0]);
+        const nw0 = Math.max(rc * 0.42, px), nr = (q, d) => nw0 * lerp(1, 0.18, smoothstep01((d - (nD - bev)) / bev)), ne = Math.max(rc * 0.12, px * 0.5);
+        tube(tipD + rc * 0.3, nD, (q, d) => nr(q, d) + ne, 7, edge, 0.75, [0, 0]);
+        tube(tipD + rc * 0.3, nD, nr, 3, steel, 1, [0, 0]);
       }
       if (st.flash > 0) {
         const np = cathAt(r, nD), rgb = toRGB('var(--tr-pv)', cs);
@@ -357,8 +387,11 @@ export function createCath(st, live) {
         const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
         for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
       }
-      draws.push({ mode: 5, first, count: begin() - first, col: CATH_LATEX, alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast
+      draws.push({ mode: 5, first, count: begin() - first, col: toRGB(sp ? 'var(--dev-nylon)' : 'var(--dev-latex)', cs), alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast (a TIPS's dilation balloon, on its span, is clear nylon)
     }
+    // The coil of a TIPS that coils the coronary vein (eus-scope.js layCoil, the scope's coil): pushed out of the catheter's tip, it curls on up the vein inside its
+    // walls and stays there once the catheter is back. (The vein's lumen as drawn now, so it fits whatever the zoom or the vein's width.)
+    if (r.coilAt && st.coil > 0) { r.coilAt.rad = cathRadOf(r.coilAt.id, r.coilAt.f); layCoil(st, r.coilAt, (c) => toRGB(c, cs), px, op, V, draws, sh.count); }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
       const rgb = toRGB(st.ring, cs), ph = ((st.clock || 0) / 1300) % 1;
@@ -371,19 +404,30 @@ export function createCath(st, live) {
   let cathV = new Float32Array(0), cathLast = null;
   // EUS-PPG's echoendoscope, its sector and its needle (eus-scope.js), sent as the catheter is.
   function eusGL(st, r, tipD) {
-    const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()));
+    if (r.glue) {
+      r.glue.rad = cathRadOf(r.glue.id, r.glue.f);   // (the varix's lumen as drawn now: the coil stays inside it, eus-scope.js)
+      // (The fan's color Doppler reads the varix's flow each frame the GPU draws, not as the procedure paints: it stops with the model's flow, held at a step or not.)
+      r.glue.flowFn ||= () => live.flowVd?.(r.glue.id) || 0;   // alloc-rare: once per route
+    }
+    const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()), pxNow());
     if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
     cathV.set(o.V); cath.balBox = null; cath.at.tip = r.tg.hv; cath.at.ahead = r.tg.pv;   // (its readings' points: the hepatic vein's target and the portal vein's, cathLabels)
     live.veins.setCath(cathLast = { base: null, verts: cathV.subarray(0, o.V.length), draws: o.draws, light: LIGHT, whole: true });   // (whole: veins-gl.js, every frame repainted whole, never the scope's box alone)
   }
-  // The catheter's materials: an ivory polymer, a deep neutral hairline at 1.16 of its radius, platinum markers, clear latex.
-  const CATH_POLY = [0.94, 0.94, 0.93], CATH_EDGE = 1.16, CATH_EDGE_INK = [0.11, 0.13, 0.17], CATH_METAL = [0.66, 0.68, 0.72], CATH_LATEX = [0.9, 0.93, 0.97];
+  // The catheter's materials are the look's (--dev-*, theme-tokens.js): a polymer shaft, a dark hairline, platinum markers, steel needle and wire, latex
+  // or nylon balloons. Its edge is 1.16 of the shaft's radius, and never under one device pixel past it (D2); its contact shadow falls the way the
+  // vessels' do, away from the one light (LIGHT), a little over half the shaft's radius, a pixel at least.
+  const EDGE_K = 1.16;
+  const edgeR = (rc, px) => Math.max(rc * EDGE_K, rc + px);
+  const SHADOW = [0, 0];
+  const shadowOff = (rc, px) => { const d = Math.max(rc * 0.6, px); SHADOW[0] = -LIGHT[0] * d; SHADOW[1] = -LIGHT[1] * d; return SHADOW; };
   const smoothstep01 = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
   // The shaft's tube and its shadow's along the whole route, at the shaft's one width (cath.rc), sampled every `step` from the
   // start: made once per route and width and sent to the GPU once (veins-gl.js setCath's base); a frame draws them in to the tip.
   // (It was every sample of both rebuilt and sent again each frame, the ripples alone changing as a reading showed.)
   function cathShaft(r, rc) {
-    const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}`;
+    const px = pxNow(), ew = edgeR(rc, px), so = shadowOff(rc, px), sox = so[0], soy = so[1];
+    const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}|${ew.toFixed(2)}|${sox.toFixed(2)},${soy.toFixed(2)}`;
     if (cath.shaft?.key === key) return cath.shaft;
     const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 36);
     const tube = (o, w, ox, oy) => {
@@ -394,8 +438,8 @@ export function createCath(st, live) {
       }
     };
     // the shadow; a treatment's is its dark rim, round the shaft, so the catheter stands out on any vein
-    tube(0, rc * 2.2, 0, 0);                  // a soft contact shadow, straight under it
-    tube(n * 12, rc * CATH_EDGE, 0, 0);       // its hairline edge
+    tube(0, rc * 2.2, sox, soy);              // a soft contact shadow, cast along the light
+    tube(n * 12, ew, 0, 0);                   // its hairline edge
     tube(n * 24, rc, 0, 0);                   // the shaft
     return (cath.shaft = { key, step, n, count: n * 6, verts: V });
   }
@@ -404,17 +448,17 @@ export function createCath(st, live) {
   // The catheter fades over a small step (240 ms). The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
   // fade, so its glass, drawn on the GPU from the glass element's own opacity (glass-gl.js), fades with its words. A fade of the whole
   // layer was one that glass could not follow: the pills stayed solid after their words had gone.
+  // (One value drives both pictures: how much of the catheter is left, hvpg-clock.js cathFadeAlpha(k), written to the GPU draws' alpha and to the SVG group's opacity
+  // in the same frame, so the two cannot run on different curves. The SVG group is shown only without WebGL: the other is the fallback's.)
   const CATH_OUT_MS = D_SMALL, READING_OUT_MS = D_SMALL + 100;
   function cathFadeOut() {
-    const gs = live.veins?.canCath ? cathLast : null, anims = [];
+    const gs = live.veins?.canCath ? cathLast : null, svgOn = cath.g.style.display !== 'none';
     if (cath.made) for (const el of cath.made.values()) el.classList.add('cath-pre', 'cath-out');
-    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: EASE_IN, fill: 'forwards' }));
     const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
     // The catheter itself: gone once its fade has run.
     const catheterGone = () => {
       if (me.cleared) return;
       me.cleared = true;
-      for (const a of anims) a.cancel();
       if (live.veins?.canCath) live.veins.setCath(null);
       live.cathVer++; live.stageWake();
       cath.g.style.display = 'none';
@@ -432,7 +476,11 @@ export function createCath(st, live) {
       const el = Math.max(0, now - t0), k = Math.min(1, el / CATH_OUT_MS);   // (the frame's clock can be a few ms before t0: 0, not a negative k that would draw the catheter brighter than it was)
       if (el >= READING_OUT_MS) { me.done(); return; }
       if (k >= 1) catheterGone();
-      else if (gs && live.veins?.canCath) { const a = (1 - k) * (1 - k); live.veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); live.cathVer++; live.stageWake(); }
+      else {
+        const a = cathFadeAlpha(k);
+        if (svgOn) cath.g.style.opacity = a;
+        if (gs && live.veins?.canCath) { live.veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); live.cathVer++; live.stageWake(); }
+      }
       me.raf = easeFrame(step);
     };
     live.cathFade = me;
@@ -444,7 +492,7 @@ export function createCath(st, live) {
   function cathSVG(st, r, tipD, cw, wHV) {
     const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1];
     for (const el of [cath.shadow, cath.body]) el.setAttribute('d', d);
-    cath.shadow.setAttribute('stroke-width', (cw * CATH_EDGE).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
+    cath.shadow.setAttribute('stroke-width', (cw * EDGE_K).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
     cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.5).toFixed(2));
     cath.ring.setAttribute('cx', tp[0].toFixed(2)); cath.ring.setAttribute('cy', tp[1].toFixed(2));
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
@@ -467,14 +515,14 @@ export function createCath(st, live) {
   // A reading that has to move to a new spot (the cards or the slide changed the room it has) glides there, eased, never
   // jumps: its jump is kept as an offset that eases to nothing, while it still follows its point on the figure as the camera moves.
   // (x, y: where it should be now; ax, ay: its point. Returns where it shows. A glide still running asks for the next frame.)
-  const CATH_GLIDE = 600;
+  const CATH_GLIDE = D_SURFACE;
   // (The glide's answer goes in one kept pair, which its two callers read at once; the glide's record is the label's own, written in place.)
   const GLIDE_XY = [0, 0], cathGlideTick = () => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); };
   function cathGlide(el, x, y, ax, ay) {
     const now = performance.now();
     let g = el._gl, ox = 0, oy = 0;
     if (g) {
-      const u = Math.min(1, (now - g.t0) / CATH_GLIDE), e = 1 - (1 - u) ** 3;
+      const u = Math.min(1, (now - g.t0) / CATH_GLIDE), e = easeOut3(u);
       ox = g.ox * (1 - e); oy = g.oy * (1 - e);
       const jx = x - g.x - (ax - g.ax), jy = y - g.y - (ay - g.ay);
       if (Math.hypot(jx, jy) > 4 && !reduceMotion.matches) { ox -= jx; oy -= jy; g.ox = ox; g.oy = oy; g.t0 = now; }
@@ -493,7 +541,7 @@ export function createCath(st, live) {
   const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
-  const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, gap: 0, blockers: NO_LIST, keep: cathKeep };
+  const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, off: 0, blockers: NO_LIST, keep: cathKeep };
   const CATH_MID = { x: 0, y: 0 };
   function cathSumMid(ps) {
     const A = ps.A, yMax = Math.max(ps.top, ps.lim - ps.bh - 12);
@@ -524,7 +572,11 @@ export function createCath(st, live) {
     return el;
   }
   // (A reading's point on the stage, for the side it names, written into `out`.)
-  const cathPtOf = (at, el, out) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocalInto(out, p[0], p[1]); };
+  // A reading, once taken, stands at the point it was taken at (el._pin, in the world, set by cathLabels), never on the catheter's live tip.
+  const cathPtOf = (at, el, out) => { const p = el._pin || (el.dataset.at === 'ahead' ? at.ahead : at.tip); return worldToLocalInto(out, p[0], p[1]); };
+  // The summary's two points: where the readings it takes in were taken (their pins), else the live points (a result reached without them).
+  const cathPinAt = (at, name) => cath.pinAt?.[name] || at[name];
+  const cathPinNow = { tip: null, ahead: null };   // (the summary's two points, written in place)
   // (The readings that fade out are taken away after their fade; those that come in start from their hidden look and are shown from the next frame.)
   const cathLeadRun = () => { for (let i = 0; i < cathLeadQ.length; i++) cathLeadKids(cathLeadQ[i]); cathLeadQ.length = 0; };
   const cathGone = (el) => { dropLabel(el); el.remove(); cath.leaving.delete(el); };
@@ -532,7 +584,7 @@ export function createCath(st, live) {
   const cathTravelRun = () => { for (let i = 0; i < cathTravelQ.length; i++) cathTravelQ[i].classList.remove('cath-travel'); cathTravelQ.length = 0; };
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { if (cath.made) for (const el of cath.made.values()) dropLabel(el); if (cath.leaving) for (const el of cath.leaving.keys()) dropLabel(el); late('kids', cath.labels, NO_LIST); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
+    if (!st || !at) { cath.pinAt = null; cathPinNow.tip = cathPinNow.ahead = null; if (cath.made) for (const el of cath.made.values()) dropLabel(el); if (cath.leaving) for (const el of cath.leaving.keys()) dropLabel(el); late('kids', cath.labels, NO_LIST); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
     // Laid out once per change of the camera or the catheter (a glide and the procedure's step both ask in one frame).
     if (cath.lblKey !== '' && live.viewVersion === cath.lblVV && live.cathVer === cath.lblCV) return;
     cath.lblKey = 'laid'; cath.lblVV = live.viewVersion; cath.lblCV = live.cathVer;
@@ -576,6 +628,19 @@ export function createCath(st, live) {
     for (let i = 0; i < cathLiveEl.length; i++) {   // (the pills: the live labels that are not the summary)
       const l = cathLiveL[i];
       if (l && l.at !== 'sum') { cathPillEl.push(cathLiveEl[i]); cathPillL.push(l); cathFill(cathLiveEl[i], l); }
+    }
+    // A reading is taken where the tip stands once it has stopped: that point is pinned to the reading (in the world, so the camera still carries it),
+    // and stays there for as long as the reading shows, whatever the catheter, the vein's calibre or the animation does after. The summary that takes
+    // the readings in leads to the same points (cathPinAt). A reading that comes while the tip is still moving follows it until it stops.
+    // (Mohammad, 13 Nov 2026: "the FHVP anchor should be where the catheter was, not move continuously with it; after the measurement those anchors for FHVP and WHVP stay where they are".)
+    const pinAt = cath.pinAt || (cath.pinAt = cathPinNow);
+    if (!want.size) pinAt.tip = pinAt.ahead = null;   // (nothing shown: the next measurement is a new one)
+    for (let i = 0; i < cathPillEl.length; i++) {
+      const el = cathPillEl[i], l = cathPillL[i];
+      if (el._pin || !cath.still || el.classList.contains('cath-out')) continue;
+      const src = l.at === 'ahead' ? at.ahead : at.tip;
+      el._pin = [src[0], src[1]];   // alloc-rare: once per reading, as it is taken
+      pinAt[l.at === 'ahead' ? 'ahead' : 'tip'] = el._pin;
     }
     // (The stage's size, the cards' room and the readings' own sizes are kept until they change: cathRoomNow, cathSize.)
     const room = cathRoomNow(), W = room.W, H = room.H;
@@ -643,15 +708,30 @@ export function createCath(st, live) {
       for (let j = 0; j < rows.length; j++) cathFill(rows[j], l.rows[j]);
       cathFill(el._calc, l.calc);
       const A = cathA;
-      worldToLocalInto(A.tip, at.tip[0], at.tip[1]); worldToLocalInto(A.ahead, at.ahead[0], at.ahead[1]);
+      { const pt = cathPinAt(at, 'tip'), pa = cathPinAt(at, 'ahead'); worldToLocalInto(A.tip, pt[0], pt[1]); worldToLocalInto(A.ahead, pa[0], pa[1]); }
+      // The stack follows its points (Mohammad, 13 Nov 2026: "the call out that's closer to whatever it's calling out goes below"): the reading whose
+      // point stands lower on the stage is the lower row, whatever the order the readings were made in (the wedged is below the free where the vein
+      // runs on down past the tip), so the leaders never cross each other. A near tie keeps the last order, so a reading never swaps back and forth.
+      // (Written as a class on the box, which the size key below reads: the rows' places are measured again after it changes.)
+      const top = Math.max(70, sp.t + 6), off = 16;
+      if (rows.length === 2) {
+        const dy = A[l.rows[0].at][1] - A[l.rows[1].at][1];
+        const swap = dy > 4 ? true : dy < -4 ? false : box._swap === true;
+        if (box._swap !== swap) { box._swap = swap; box.classList.toggle('swap', swap); }
+      }
+      // A short free band (a phone's, between the ladder card and the teaching card) takes the readings on one line each, so the stack fits beside the vein.
+      const tight = !l.mid && lim - top < 300;
+      if (box._tight !== tight) { box._tight = tight; box.classList.toggle('tight', tight); }
       // (read before any write below; kept while the readings' texts and classes stay as they are)
       const sz = cathSize(box, cathSumKey(l), rows), bw = sz[0], bh = sz[1], R = sz[2];
-      const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above. Either way it sits in the
       // free figure, clear of the cards, the slide's panel and its controls, and never over what it names: the tip,
       // the wedged balloon and the point ahead (cath-place.js). Its leaders stay on the vein.
       cathKeep.length = 0;
-      { const k0 = cathKeepRecs[0], k1 = cathKeepRecs[1]; k0.x0 = A.tip[0] - 8; k0.y0 = A.tip[1] - 8; k0.x1 = A.tip[0] + 8; k0.y1 = A.tip[1] + 8; k1.x0 = A.ahead[0] - 8; k1.y0 = A.ahead[1] - 8; k1.x1 = A.ahead[0] + 8; k1.y1 = A.ahead[1] + 8; cathKeep.push(k0, k1); }
+      // (The two points and, unless the readings are far apart by design (l.mid), the stretch of vein between them: the stack never stands on it.)
+      { const k0 = cathKeepRecs[0], k1 = cathKeepRecs[1], seg = !l.mid;
+        k0.x0 = (seg ? Math.min(A.tip[0], A.ahead[0]) : A.tip[0]) - 8; k0.y0 = (seg ? Math.min(A.tip[1], A.ahead[1]) : A.tip[1]) - 8; k0.x1 = (seg ? Math.max(A.tip[0], A.ahead[0]) : A.tip[0]) + 8; k0.y1 = (seg ? Math.max(A.tip[1], A.ahead[1]) : A.tip[1]) + 8;
+        k1.x0 = A.ahead[0] - 8; k1.y0 = A.ahead[1] - 8; k1.x1 = A.ahead[0] + 8; k1.y1 = A.ahead[1] + 8; cathKeep.push(k0, k1); }
       if (cath.balBox) {
         const b = cath.balBox, k2 = cathKeepRecs[2];
         let mx0 = Infinity, my0 = Infinity, mx1 = -Infinity, my1 = -Infinity;
@@ -662,10 +742,10 @@ export function createCath(st, live) {
         k2.x0 = mx0; k2.y0 = my0; k2.x1 = mx1; k2.y1 = my1; cathKeep.push(k2);
       }
       const ps = cathPS;
-      ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.gap = gap; ps.blockers = room.blk;
+      ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.off = off; ps.blockers = room.blk;
       // (EUS-PPG's, l.mid: midway between the two points it names, on the liver between the needle's two readings, kept inside the stage:
       // his ask, 6 Nov 2026, "should be in the middle between the HV and PV they're measured".)
-      let { x, y } = l.mid ? cathSumMid(ps) : placeSummary(ps);
+      let { x, y } = l.mid ? cathSumMid(ps) : placeBeside(ps);
       { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
       // (Written only when the place moved; the same text is no change.)
       if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }
@@ -673,7 +753,7 @@ export function createCath(st, live) {
       sb.x0 = x; sb.y0 = y; sb.x1 = x + bw; sb.y1 = y + bh; el._box = sb;
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
-      const ys0 = R[0][1] + R[0][3] / 2, ys1 = R[1][1] + R[1][3] / 2;
+      const m0 = R[0][1] + R[0][3] / 2, m1 = R[1][1] + R[1][3] / 2, ys0 = Math.min(m0, m1), ys1 = Math.max(m0, m1);   // (the rows may be swapped: top to bottom)
       if (brace._h !== bh) { brace._h = bh; brace.setAttribute('height', bh); }   // (written only when its numbers moved)
       if (path._y0 !== ys0 || path._y1 !== ys1) { path._y0 = ys0; path._y1 = ys1; path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`); }
       // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
@@ -681,8 +761,13 @@ export function createCath(st, live) {
       const svg = el.querySelector('.cath-leads');
       if (svg._w !== W) { svg._w = W; svg.setAttribute('width', W); }
       if (svg._hh !== H) { svg._hh = H; svg.setAttribute('height', H); }
-      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
-      const c0 = R[0], c1 = R[R.length - 1], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
+      // (The rows' places, top to bottom: the first and the last row on the stack, whichever readings they are.)
+      let rTop = 0, rBot = 0;
+      for (let j = 1; j < rows.length; j++) { if (R[j][1] < R[rTop][1]) rTop = j; if (R[j][1] > R[rBot][1]) rBot = j; }
+      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rBot : rTop;
+      const c0 = R[rTop], c1 = R[rBot], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
+      // The stack stands right of its points (the placer's short side): each row's own leader runs straight out of its left edge, short, crossing nothing.
+      const beside = !l.mid && x >= Math.max(A.tip[0], A.ahead[0]) + 4;
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
       // (Made between frames, never in the frame that finds the readings changed (2 Nov 2026, "Move everything to GPU"): the leaders are
       // drawn from the next frame, which the build asks for.)
@@ -697,6 +782,7 @@ export function createCath(st, live) {
         // (Midway between its points, l.mid: the top reading's leader leaves its top edge, the bottom one's its bottom edge, each straight
         // to its own point, so they never cross: EUS-PPG's HV above, PV below.)
         if (l.mid) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(j === 0 ? ry0 : ry1).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
+        else if (beside) d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
@@ -816,51 +902,65 @@ export function createCath(st, live) {
   // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
   const FOLLOW_ZOOM = 1.25;
   const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
-  const PROC_K_TIP = 12;   // (BRTO and BATO's balloon close-up; 8 before his ask, 6 Nov: "zoomed in more into the BRTO and BATO catheters")
-  // (BRTO and BATO's way in, his ask, 6 Nov 2026: their whole route (the IVC, the renal vein and the shunt) was framed at once, about 1x on a
-  // phone, the catheter a thread. Now the stretch of route the last WAY_BEHIND lumen radii before the tip's stop, up to PROC_K_WAY: the view
-  // follows the tip in at that one scale (cathFollow, panning only), so the whole route need not fit.)
+  // (EUS-PPG's way in: the stretch of route the last WAY_BEHIND lumen radii before the scope's stop, up to PROC_K_WAY, the view following
+  // it in at that one scale (cathFollow, panning only); its result shot ('work') as close as its box fits, up to PROC_K_WORK.)
   const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;
-  // (Their sclerosant shot, the tip on to the varices: as close as that stretch fits, up to PROC_K_WORK (PROC_K_MAX, 5, before).)
   const PROC_K_WORK = 8;
+  // BRTO and BATO's camera, "ride along" (mock B, his pick, 7 Nov 2026: the old one swooped four times, 6x, 12x, back out to 8x, then home
+  // while the catheter was still backing out). One scale for the way in, the view riding with the tip and the vessel ahead of it in view
+  // (OBLIT_LEAD of the free height ahead of the tip); a short push in as the tip stops, the shunt (BATO: the feeder) above the balloon; the
+  // view pans up with the sclerosant's front at that scale; then one pull back to the shunt and the varices, held with the closed shunt's X.
+  // Straight glides, no arcs (proc-anim.js shotMs). Mock: claude.ai/artifact/FandbFmXiuwy169Z1pXmCq.
+  const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0.18;
+  // (The result frame: from a little before the shunt (BATO: the feeder) leaves its vein, OBLIT_BACK, to the varices, with room above them.)
+  const OBLIT_BACK = 40, OBLIT_VARIX_PAD = 26;
+  const isOblit = (r) => r.kind === 'brto' || r.kind === 'brtoC6' || r.kind === 'bato';
+  // EUS-guided coils and glue rides the same way (his ask, 7 Nov 2026: camera B, as BRTO and BATO): the way in at OBLIT_K_WAY, the view riding
+  // with the scope's tip and the way ahead of it; a short push in to the needle and the varix, up to OBLIT_K_TIP, held still while the
+  // needle, the coils and the glue go in; then one pull back to the whole varix with its X and the scope over it, up to OBLIT_K_WORK.
+  // (Where the view is held for a point d on the route: lead ahead of it, never past the varices (fill: never so far that they reach the edge).)
+  const oblitAim = (r, d, lead, fill) => (fill ? Math.max(d, Math.min(r.total - lead * 1.1, d + lead)) : Math.min(r.total, d + lead));
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
   // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
   const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
+  const isTips = (r) => r.kind === 'tips' || r.kind === 'tipscoil' || r.kind === 'tipscoilin';
+  // (The TIPS that coils: its 'coil' shot frames the coronary vein from a little before it leaves the portal trunk to the end of the coil, held still while the
+  // catheter goes in, the coil is pushed out and the catheter comes back; up to TIPS_K_MAX, as the tract's close-up.)
+  const COIL_BEFORE = 30, COIL_PAD = 14;
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false } = {}) {
+  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
     const r = cathRoute();
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc }); cath.saved = null; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
+    if (isOblit(r) && (mode === 'tip' || mode === 'fill' || mode === 'work' || (mode === 'way' && !reduceMotion.matches))) return oblitFocus(r, mode, wr, ins, ms, steady);
+    if (r.glue && (mode === 'tip' || mode === 'work' || mode === 'way')) return glueFocus(r, mode, wr, ins, ms, steady);
+    if (r.coilAt && mode === 'coil') return coilFocus(r, wr, ins, ms, steady);
     if ((mode === 'tip' || mode === 'way' || mode === 'work') && r.focus) {
       // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
       // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
       // see the catheter and its balloon (his ask, 29 Oct: zoomed too far out to follow it). 'tip' frames that stretch, held
       // still while the work's steps play; 'way' starts on the tip where it enters, and the view then follows the tip in
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
-      // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
-      // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
+      // (BRTO and BATO have their own camera, oblitFocus, but for a reduced-motion way in, framed whole below.)
       // (EUS-PPG's scope, r.box: its work shots frame its two stations and both targets, and its way in the esophagus and stomach, r.focus.)
-      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && !r.box && mode === 'tip', wayIn = r.kind !== 'tips' && mode === 'way';
-      // (The balloon close-up: the tip and its balloon with a short stretch of catheter behind, Rf × 11 back and 3 ahead (14 and 4 before).)
-      const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 11), Math.min(r.total, r.free + Rf * 3)]
-        : wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
-        : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
-          : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
-      const tips = r.kind === 'tips';
+      const Rf = cathAt(r, r.free).r, wayIn = !isTips(r) && mode === 'way';
+      const [d0, d1] = wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
+        : mode === 'work' && !isTips(r) ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
+          : isTips(r) && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
+      const tips = isTips(r);
       // (EUS-PPG: its 'tip' shot frames the station the scope is at, at the one scale both stations' work needs, and the view follows the
       // scope from one to the other (cathFollow); its 'work' shot, the result, frames both stations and both targets.)
-      const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : close ? 8 : tips ? 14 : wayIn ? 12 : 16;
+      const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : tips ? 14 : wayIn ? 12 : 16;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      // (How much of the free space the stretch fills: BRTO and BATO's close-up and the sclerosant's shot fill more of it than before (0.72),
-      // the step's callout still beside it, kept inside the stage by its own placing.)
-      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : close ? 0.84 : 0.9), 1, close ? PROC_K_TIP : tips ? TIPS_K_MAX : wayIn ? PROC_K_WAY : mode === 'work' ? PROC_K_WORK : PROC_K_MAX);
+      // (How much of the free space the stretch fills, the step's callout still beside it, kept inside the stage by its own placing.)
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : 0.9), 1, tips ? TIPS_K_MAX : wayIn ? PROC_K_WAY : mode === 'work' ? PROC_K_WORK : PROC_K_MAX);
       cath.followPx = fr.px;
       if (mode === 'way' && reduceMotion.matches) {
         // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)
@@ -870,7 +970,7 @@ export function createCath(st, live) {
         cx = (Math.min(...ax) + Math.max(...ax)) / 2; cy = (Math.min(...ay) + Math.max(...ay)) / 2;
       } else if (mode === 'way') [cx, cy] = cathAt(r, Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r))).p;
       else { cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
-      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady });
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady, scale });
       return true;
     } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
@@ -898,6 +998,62 @@ export function createCath(st, live) {
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms, { steady });
     return true;
   }
+  // BRTO and BATO's shots (mock B): 'way', at OBLIT_K_WAY on a point OBLIT_LEAD of the free height ahead of the tip, which the view then
+  // follows (cathFollow); 'tip', OBLIT_K_TIP on the balloon with the vessel ahead; 'fill', the same, on the sclerosant's front, which the view
+  // follows up the shunt; 'work', the result, the shunt and the varices as close as they fit, up to OBLIT_K_WORK. (Reduced motion: no
+  // following, so 'fill' frames the result at once.) The free middle (cath.followPx) is where the aimed point is held.
+  function oblitFocus(r, mode, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0, st = cath.st;
+    if (mode === 'fill' && reduceMotion.matches) mode = 'work';
+    cath.followPx = fr.px;
+    let k, c;
+    if (mode === 'work') {
+      const leg = r.spans?.[r.kind === 'bato' ? 'splenic' : 'lrv'], d0 = Math.max(procIn(r), (leg ? leg[1] : r.free) - OBLIT_BACK);
+      // (with the feeder's whole course, C2, so both of the closed shunt's X marks are in the frame: the shunt's and the feeder's)
+      const seg = [...cutLen(r.pts, r.cum, d0, r.total), ...(r.kind === 'brtoC6' ? [] : geo.C2?.cur || [])], xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]);
+      const x0 = Math.min(...xs) - 18, x1 = Math.max(...xs) + 18, y0 = Math.min(...ys) - OBLIT_VARIX_PAD, y1 = Math.max(...ys) + 18;
+      k = clamp(Math.min(fw / (x1 - x0), fh / (y1 - y0)) * 0.86, 1, OBLIT_K_WORK);
+      c = [(x0 + x1) / 2, (y0 + y1) / 2];
+    } else {
+      k = mode === 'way' ? OBLIT_K_WAY : OBLIT_K_TIP;
+      const lead = cath.followLead = OBLIT_LEAD * fh / k;
+      const d = mode === 'way' ? Math.max(r.start + (r.free - r.start) * clamp(st?.u || 0, 0, 1), procIn(r))
+        : mode === 'fill' ? r.free + (r.total - r.free) * clamp(st?.column || 0, 0, 1) : r.free;
+      c = cathAt(r, oblitAim(r, d, lead, mode !== 'way')).p;
+    }
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
+    return true;
+  }
+  // EUS-guided coils and glue's shots: 'way', OBLIT_K_WAY on a point OBLIT_LEAD of the free height ahead of the scope's tip, which the view
+  // follows (cathFollow); 'tip', the scope's end and the varix under it, as close as they fit up to OBLIT_K_TIP; 'work', the result, the
+  // whole varix, its X and the scope over it, up to OBLIT_K_WORK. (Reduced motion: no following, so the way in is framed whole, still.)
+  function glueFocus(r, mode, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0;
+    cath.followPx = fr.px;
+    let k, c;
+    if (mode === 'way' && !reduceMotion.matches) {
+      k = OBLIT_K_WAY;
+      const lead = cath.followLead = OBLIT_LEAD * fh / k, d = Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r));
+      c = cathAt(r, oblitAim(r, d, lead, false)).p;
+    } else {
+      const b = mode === 'tip' ? r.work.glue : mode === 'work' ? r.result : boxOf(cutLen(r.pts, r.cum, procIn(r), r.total), 30);
+      k = clamp(Math.min(fw / (b[2] - b[0]), fh / (b[3] - b[1])) * 0.88, 1, mode === 'tip' ? OBLIT_K_TIP : mode === 'work' ? OBLIT_K_WORK : OBLIT_K_WAY);
+      c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+    }
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
+    return true;
+  }
+  function coilFocus(r, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), g = r.coilAt, P = cutLen(r.pts, r.cum, Math.max(procIn(r), (r.spans.coronary?.[0] ?? r.free) - COIL_BEFORE), r.total);
+    for (let i = 0; i < g.path.n; i += 8) P.push([g.path.x[i], g.path.y[i]]);   // (the vein round the coil's start, so the coil lies inside the frame)
+    const b = boxOf(P, COIL_PAD);
+    cath.followPx = fr.px;
+    const k = clamp(Math.min((fr.x1 - fr.x0) / (b[2] - b[0]), (fr.y1 - fr.y0) / (b[3] - b[1])) * 0.86, 1, TIPS_K_MAX), c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
+    return true;
+  }
+  // (A polyline's box, with room m round it: [x0, y0, x1, y1].)
+  const boxOf = (P, m) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of P) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); } return [x0 - m, y0 - m, x1 + m, y1 + m]; };
   // The free space for a treatment's close-up, in the figure's viewBox units: the stage less its insets and the cards over it
   // (the Tests card at the side, a slide's words, a phone's sheet), whichever side leaves the most room.
   function cathFree(wr, ins) {
@@ -940,7 +1096,9 @@ export function createCath(st, live) {
     // A treatment: the tip held where its shot put it, in the middle of the space the cards leave, the view panning after it both
     // ways at the shot's one scale, eased (never a snap), from where the route enters the figure. (EUS-PPG at work: the station's work.)
     if (r.parts) {
-      const tq = cathAt(r, Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
+      // (BRTO and BATO aim ahead of the tip on the way in, and at the sclerosant's front while it fills: oblitFocus.)
+      const ob = isOblit(r) || !!r.glue, lead = ob ? cath.followLead || 0 : 0, fill = ob && st.follow === 'fill';
+      const tq = cathAt(r, ob ? oblitAim(r, fill ? r.free + (r.total - r.free) * clamp(st.column || 0, 0, 1) : Math.max(tipD, procIn(r)), lead, fill) : Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
       if (r.box && st.follow === 'tip') eusWorkAt(r, clamp(st.tgt || 0, 0, 1), tq);   // (cathAt hands a fresh point: written over in place)
       const [mx, my] = clientToVBFast(wr.left + px[0], wr.top + px[1]), e = 1 - Math.exp(-dt / 320), kk = live.vt.k;
       const nx = live.vt.x + (mx - tq[0] * kk - live.vt.x) * e, ny2 = live.vt.y + (my - tq[1] * kk - live.vt.y) * e;
@@ -961,5 +1119,5 @@ export function createCath(st, live) {
     if (!cath.ins || now - cath.insT > 250) { cath.ins = safeInsets(); cath.insT = now; }
     return cath.ins;
   }
-  return { NO_BLK, cathAt, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn };
+  return { NO_BLK, cathAt, cathCarry, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn };
 }

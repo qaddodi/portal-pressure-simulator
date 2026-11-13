@@ -15,7 +15,9 @@ test('drug rows: an empty box off, the accent edge and a tick drawn in when on',
 });
 
 test('procedures in place: TIPS, DIPS, surgical shunt, BRTO and the balloons say so, the tick in the icon\'s own place', () => {
-  for (const name of ['Balloon tamponade', 'TIPS', 'DIPS', 'Surgical shunt', 'BRTO']) assert.match(chart, new RegExp(`placed\\(proc\\('[a-z]+', '${name}'`), name);
+  for (const name of ['Balloon tamponade', 'TIPS', 'DIPS', 'BRTO']) assert.match(chart, new RegExp(`placed\\(proc\\('[a-z]+', '${name}'`), name);
+  // (The surgical shunts are one order each, from surgical-shunts.js, with the same tick: Warren, both portocaval shunts, mesocaval, Meso-Rex.)
+  assert.match(chart, /\.\.\.SURGICAL\.map\(\(x\) => placed\(proc\('stent', x\.label, x\.sub, /);
   assert.match(chart, /\(p\) => p\.tips\.on\)/);
   assert.match(chart, /\(p\) => !!p\.occluded\?\.C5\)/);
   assert.match(css, /\.order-btn \.ob-on \{ position: absolute; left: 8px;/, 'absolute: no reflow, no wrap');
@@ -24,7 +26,7 @@ test('procedures in place: TIPS, DIPS, surgical shunt, BRTO and the balloons say
 });
 
 test('fluids say what they do and answer a press; a narrow card puts one per row', () => {
-  assert.match(chart, /fluid\('1 L crystalloid', 'crystalloid', 'about 25% stays in the vessels'\)/);
+  assert.match(chart, /fluid\('1 L crystalloid', 'crystalloid', 'about 25% stays intravascular'\)/);
   assert.match(chart, /b\.dataset\.given = ''/);
   assert.match(css, /@container treatpane \(max-width: 440px\) \{\s*\.treat-pane > \.order-grid\.three \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });

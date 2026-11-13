@@ -13,7 +13,8 @@
 // has always been.
 //
 // camMs: a camera glide's time from how far it goes on screen: 480 ms up to half a screen, then in proportion, at most 900 ms, so
-// a short pan is not slow and a move across the figure is not rushed.
+// a short pan is not slow and a move across the figure is not rushed. lobuleMs: the same reach on the lobule's own view, 480 ms up to
+// half a screen and then in proportion, at most LOBULE_MS_MAX (its long dives are the longest camera moves that are not a view change).
 
 export const D_FLIP = 120, D_SMALL = 240, D_SURFACE = 420;   // (a state change; a word, chip, row or popover; a card, sheet, menu or lens crossfade)
 export const EASE_ARRIVE = 'cubic-bezier(.2, .8, .2, 1)', EASE_MOVE = 'cubic-bezier(.5, 0, .5, 1)', EASE_IN = 'cubic-bezier(.4, 0, 1, 1)';
@@ -47,34 +48,42 @@ export function cubicBezier(x1, y1, x2, y2) {
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
 export const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN as a function)
-// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values, else linear. 2 Nov 2026: an
-// ease the page runs, worked out in script where the drawing follows it on the GPU.)
+// (The ease-out cubic 1 − (1 − u)³, as four moves have always run it (13 Nov 2026, unification audit 9: one name for it, no curve changed): the
+// catheter's glide, the timeline's day count, the readings slide, a trace marker's drop. Not clamped: callers give 0..1. No CSS twin.)
+export const easeOut3 = (u) => 1 - (1 - u) ** 3;
+// (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values. 2 Nov 2026: an ease the page
+// runs, worked out in script where the drawing follows it on the GPU. 13 Nov 2026, unification audit 9: the one CSS-curve reader;
+// cssCurveOf gives null for a curve it does not follow exactly (steps, linear() with stops), cssCurve linear for it.)
 const NAMED = { ease: [0.25, 0.1, 0.25, 1], 'ease-in': [0.42, 0, 1, 1], 'ease-out': [0, 0, 0.58, 1], 'ease-in-out': [0.42, 0, 0.58, 1] };
+const LINEAR = (t) => t;
 const curves = new Map();
-export function cssCurve(easing) {
+export function cssCurveOf(easing) {
   let f = curves.get(easing);
-  if (!f) {
+  if (f === undefined) {
     // alloc-rare: only the first time an easing text is met (the curve is then kept by its text)
-    const m = /^cubic-bezier\(([^)]*)\)$/.exec(String(easing).trim()), v = m ? m[1].split(',').map(Number) : NAMED[easing];
+    const s = String(easing ?? 'linear').trim() || 'linear', m = /^cubic-bezier\(([^)]*)\)$/.exec(s), v = m ? m[1].split(',').map(Number) : NAMED[s];
     // alloc-rare: only the first time an easing text is met
-    f = v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : (t) => t;
-    if (curves.size > 32) curves.clear();
+    f = s === 'linear' ? LINEAR : v?.length === 4 && v.every(Number.isFinite) ? cubicBezier(...v) : null;
+    if (curves.size >= 400) curves.clear();   // (bounded: easing texts are read from page styles, so a long session cannot grow it without end)
     curves.set(easing, f);
   }
   return f;
 }
+export const cssCurve = (easing) => cssCurveOf(easing) || LINEAR;
 
-export const CAM_MS_MIN = 480, CAM_MS_MAX = 900;
+export const CAM_MS_MIN = 480, CAM_MS_MAX = 900, LOBULE_MS_MAX = 1500;
 /**
  * A camera glide's time, from `a` to `b` (views { k, x, y }: the screen at k times, offset by x, y in units of a screen `w` wide).
- * Its reach on screen is the pan in screen widths and the zoom (a doubling counts as half a screen), together.
+ * Its reach on screen is the pan in screen widths and the zoom (a doubling counts as half a screen), together. `max`: the longest it takes.
  */
-export function camMs(a, b, w) {
+export function camMs(a, b, w, max = CAM_MS_MAX) {
   const pan = Math.hypot(b.x - a.x, b.y - a.y) / Math.max(1e-6, w);
   const zoom = Math.abs(Math.log(Math.max(1e-6, b.k) / Math.max(1e-6, a.k))) / (2 * Math.LN2);
   const d = Math.hypot(pan, zoom);
-  return Math.round(Math.min(CAM_MS_MAX, CAM_MS_MIN * Math.max(1, d / 0.5)));
+  return Math.round(Math.min(max, CAM_MS_MIN * Math.max(1, d / 0.5)));
 }
+/** The lobule view's glide time (camMs on its own ceiling): `a` and `b` are its views, in the host's px, `w` its width. */
+export const lobuleMs = (a, b, w) => camMs(a, b, w, LOBULE_MS_MAX);
 
 // A glide begun while another is still moving (the zoom pill pressed twice, a Fit or a refit mid-glide) starts from where the view is and
 // at the speed it has, instead of from rest (R13: nothing snaps, and nothing stops dead and starts over). The new glide's progress p(t)
@@ -99,7 +108,8 @@ export function carryRate(v, from, to, w) {
 }
 /**
  * The one carry-over tracker every camera glide uses (stage view, lobule view): sample() each frame with the camera ({ k, x, y }) it just
- * wrote, and take() at the start of the next glide for the speed to carry on (carryRate), null if the last frames are older than 80 ms.
+ * wrote, and take() at the start of the next glide for the speed to carry on (carryRate), null if the last frames are older than 80 ms
+ * (or than `maxAge`: a trackpad pinch's spring-back waits a quarter second for the pinch to be over).
  * Written in place, nothing allocated per frame. begin() forgets the last sample (a new glide's first frame has no speed yet).
  */
 export function createGlideTracker() {
@@ -111,8 +121,22 @@ export function createGlideTracker() {
       if (haveLast && now > last.t && now - last.t < 100) { const dt = now - last.t; vel.t = now; vel.dlogk = Math.log(cam.k / last.k) / dt; vel.x = (cam.x - last.x) / dt; vel.y = (cam.y - last.y) / dt; haveVel = true; }
       last.t = now; last.k = cam.k; last.x = cam.x; last.y = cam.y; haveLast = true;
     },
-    take(now) { return haveVel && now - vel.t < 80 ? vel : null; },
+    take(now, maxAge = 80) { return haveVel && now - vel.t < maxAge ? vel : null; },
   };
+}
+/**
+ * The slope (in the new glide's own progress per glide) at which a view moving at `v` ({ dlogk, x, y } per ms) starts its glide `from` to
+ * `to` over `ms`: carryRate along the even glide, and for a pure pan (no zoom between the two) the hand's speed along the way home as a
+ * sheet's settle takes the finger's (settleSlope), so a pan let go while still coming back keeps going at its speed. 0 when it is still
+ * or going away.
+ */
+export function springSlope(v, from, to, w, ms) {
+  if (!v || !(ms > 0)) return 0;
+  if (Math.abs(Math.log(to.k / from.k)) < 1e-6) {
+    const dx = to.x - from.x, dy = to.y - from.y, dist = Math.hypot(dx, dy);
+    return dist > 1e-9 ? settleSlope((v.x * dx + v.y * dy) / dist, dist, ms, CARRY_MAX) : 0;
+  }
+  return carryRate(v, from, to, w) * ms;
 }
 /** The glide's progress at its clock `raw` (0..1), its eased value `eased`, with the old speed (carryRate × ms) as `c`. */
 export const carried = (eased, raw, c) => (c > 0 ? Math.min(1, eased + Math.min(c, CARRY_MAX) * raw * (1 - raw) * (1 - raw)) : eased);

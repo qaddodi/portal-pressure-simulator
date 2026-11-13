@@ -2,11 +2,9 @@
 // finger's speed (releaseSpeed, settleSlope, settleAt). All pure; the surfaces that use them are pinned by source below.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { easeMove, carryRate, carried, CARRY_MAX, releaseSpeed, settleSlope, settleAt, carryCurve, isFlick, flickAim, FLICK_REACH } from '../src/ui/ease.js';
 import { lerpVT } from '../src/ui/cam-arc.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const A = { k: 1, x: 0, y: 0 }, B = { k: 2, x: -300, y: -100 };
 
 test('a glide with no speed to carry is the plain one, exactly', () => {

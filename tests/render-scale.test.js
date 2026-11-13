@@ -113,20 +113,24 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 
-test('the further options: all off by default but the 8-megapixel budget, stored, and each one heard', async () => {
+test('the further options: all off by default but the per-device megapixel budget (1.5, or 0.5 on a phone), stored, and each one heard', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
-  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default`);
+  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (a Mac or an iPad: 1.5 MP)`);
+  assert.equal(f.figDefault('cap'), 1.5); assert.equal(f.figDefault('move'), 1);
   let heard = 0;
   f.onRenderScale(() => heard++);
   f.setFigOpt('move', 0.5); f.setFigOpt('glow', 0.25); f.setFigOpt('cap', 4); f.setFigOpt('adapt', true);
   f.setFigOpt('move', 0.3); f.setFigOpt('nope', 1); f.setFigOpt('cap', 4);   // (not choices, or no change: not heard)
   assert.equal(heard, 4);
   assert.deepEqual(['move', 'glow', 'cap', 'adapt'].map((k) => store.get(`pps.fig.${k}`)), ['0.5', '0.25', '4', 'true']);
-  f.setFigOpt('adapt', false); f.setFigOpt('cap', 8);
+  f.setFigOpt('adapt', false); f.setFigOpt('cap', 1.5);
   assert.ok(!store.has('pps.fig.adapt') && !store.has('pps.fig.cap'), 'the default stores nothing');
+  f.setFigOpt('cap', 8);
+  assert.equal(store.get('pps.fig.cap'), '8', 'the old default, 8, is now a choice, stored');
+  f.setFigOpt('cap', 2);
   f.setFigOpt('cap', 0);
   assert.equal(store.get('pps.fig.cap'), '0', 'no budget at all is a choice, stored');
   delete globalThis.localStorage;
@@ -229,17 +233,25 @@ test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the
   assert.ok(n <= 4);
 });
 
-test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set', () => {
+test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set; under a larger canvas the upscale pass takes the rest', () => {
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function subPixel('), stage.indexOf('function easeRes('));
-  const veins = { overlay: { snap: null } };
-  const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[4]);'))(vdpr, vBase, vCanvas, veins, T); return vCanvas.style.translate; };
+  const veins = { overlay: { snap: null }, rest: null, setRest(x, y) { this.rest = [x, y]; } };
+  const run = (vdpr, vBase, T, picNow = null, v = veins) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', 'picNow', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[5]);'))(vdpr, vBase, vCanvas, v, picNow, T); return vCanvas.style.translate; };
   assert.equal(run(2, 2, [1, 0, 0, 1, 10.4, 3.25]), '', 'Full: as on the live site');
   assert.equal(veins.overlay.snap, false, 'Full: the overlays at the figure\'s own transform');
   run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]);
   assert.equal(veins.overlay.snap, true, 'below Full: the overlays at whole pixels, moved with the vessels');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]), '0.800px 0.500px', 'the rest of a canvas pixel, in CSS px');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10, 3]), '');
+  assert.deepEqual(veins.rest, [0, 0], 'the picture is the canvas: no rest for the upscale pass');
+  // (A picture under the canvas's size (rec 1, 11 Nov 2026): the canvas is not moved, so the labels and glass drawn in it stay where the layout puts them; the picture is moved by the rest in the upscale pass.)
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.25, 3.5], [100, 80]), '', 'the canvas stays');
+  assert.deepEqual(veins.rest, [0.25, -0.5], 'the rest, in picture px');
+  assert.equal(veins.overlay.snap, true);
+  assert.equal(run(2, 2, [1, 0, 0, 1, 10.25, 3], [100, 80]), '', 'also at the picture\'s Full: the canvas is larger than it');
+  assert.ok(Math.abs(veins.rest[0] - 0.25) < 1e-9);
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25], [100, 80], { overlay: { snap: null } }), '0.800px 0.500px', 'a renderer with no setRest keeps the canvas move');
   assert.match(stage, /subPixel\(T\);\n/);
 });
 
@@ -269,12 +281,13 @@ test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoo
 });
 
 // (Mohammad, 30 Oct: "no resolution drop unless I choose to".)
-test('Full with every option off: the canvas at the screen’s own density (up to 2×) up to the 8-megapixel budget', async () => {
+test('Full with every option off and the 8-megapixel budget chosen: the canvas at the screen’s own density (up to 2×) up to the budget', async () => {
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function figShare('), stage.indexOf('function resizeCanvas('));
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=full${Date.now()}`);
+  f.setFigOpt('cap', 8);   // (the device default is 2 MP since 11 Nov 2026; this test is about the 8 MP step)
   const share = new Function('renderSetting', 'renderScale', 'autoK', 'moveLow', 'figOpt', 'adaptK', `${body}; return figShare;`)(f.renderSetting, f.renderScale, 1, false, f.figOpt, 1);
   for (const [w, h, dpr] of [[1728, 1117, 2], [1512, 982, 2], [1194, 802, 2], [390, 844, 3], [1920, 1080, 1]]) {
     const base = Math.min(2, dpr);
@@ -287,4 +300,40 @@ test('Full with every option off: the canvas at the screen’s own density (up t
   // (Every stage path that lowers the canvas is gated on a choice: While moving, Auto, Adapt, the cap.)
   assert.match(stage, /if \((?:live\.)?resizeReady && !(?:live\.)?moveLow && figOpt\('move'\) < 1 && !\((?:live\.)?diveT > 0\)\)/);
   assert.match(stage, /if \(renderSetting\(\) !== 'auto' && (?:live\.)?autoK === 1 && !(?:live\.)?moveLow && !figOpt\('adapt'\) && (?:live\.)?adaptK === 1\) return;/);
+});
+
+test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac and an iPad (12 Nov 2026)', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const was = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const as = async (ua, touch, tag) => {
+    Object.defineProperty(globalThis, 'navigator', { value: { userAgent: ua, maxTouchPoints: touch }, configurable: true });
+    return import(`../src/ui/frame.js?t=dev${tag}${Date.now()}`);
+  };
+  try {
+    const phone = await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 5, 'p');
+    assert.equal(phone.figOpt('cap'), 0.5); assert.equal(phone.figDefault('cap'), 0.5); assert.equal(phone.isPhone(), true);
+    const pad = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 5, 'i');
+    assert.equal(pad.figOpt('cap'), 1.5);
+    const mac = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 0, 'm');
+    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.isPhone(), false);
+    // a stored choice wins on any device, and the phone's own default stores nothing
+    store.set('pps.fig.cap', '4');
+    assert.equal((await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148', 5, 'c')).figOpt('cap'), 4);
+    store.clear();
+    phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the phone default is stored');
+    phone.setFigOpt('cap', 0.5); assert.ok(!store.has('pps.fig.cap'), 'the phone default stores nothing');
+  } finally {
+    if (was) Object.defineProperty(globalThis, 'navigator', was); else delete globalThis.navigator;
+    delete globalThis.localStorage;
+  }
+});
+
+test('Blur effect at load: off when stored off, on everywhere else, phones too (12 Nov 2026: "default to on")', async () => {
+  const { glassAtLoad, storedGlassMode } = await import('../src/ui/glass-mode.js');
+  const root = () => { const a = new Set(); return { a, setAttribute: (k) => a.add(k), removeAttribute: (k) => a.delete(k), hasAttribute: (k) => a.has(k), has: () => a.has('data-noglass') }; };
+  for (const [noGlass, off] of [[null, false], ['1', true], ['0', false]]) {
+    const r = root(), stored = storedGlassMode((k) => (k === 'pps.noGlass' ? noGlass : null));
+    assert.equal(glassAtLoad(r, { stored }) === 'off', off, `${noGlass}`); assert.equal(r.has(), off);
+  }
 });

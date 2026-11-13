@@ -20,6 +20,7 @@
 // the longest reading, so the card never changes size with the case.
 
 import { h, PHONE_MQ } from './util.js';
+import { viewSize } from './layout-snap.js';
 import { TILE } from './table-marks.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
@@ -28,7 +29,7 @@ import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingF
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
-const PILL_H = 22, PILL_PAD = 10;
+const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.5, FIT_MIN = 0.72;   // (the data card keeps about half the window's height for the picture; never drawn below 72%)
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
@@ -165,8 +166,9 @@ export function createPath() {
   function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
 
   /** Everything that does not change with the patient: the columns, the nodes' words and their heights, the rooms reserved, the total height. */
-  function layout() {
+  function layout(sc = 1) {
     if (!spec || !(W > 0) || !ready) return;
+    const Wv = W / sc;   // (the width the picture is laid out in: wider than the card when it is drawn smaller to fit the card's height)
     const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches;
     const compact = card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone);
     ctxFor();
@@ -174,24 +176,24 @@ export function createPath() {
     let y = 0;
     L.y.kick = y; y += PILL_H + 6;
     // (the patient's numbers: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
-    const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], W).h : 0);
+    const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], Wv).h : 0);
     L.chipsH = card && !chipsH(base) && !chipsH(worst) ? 0 : Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
     L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
     L.y.pic = y;
     if (card) {
       // (a score card, a grid or a ladder: path-cards.js lays out the tallest body any patient can have)
-      L.card = cardLayout(spec.algo, W, compact, base, CARD_HELPERS);
+      L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS);
       y += L.card.H + GAP;
     } else if (compact) {
       L.k = mapType(W) / 12;
-      L.map = mapPlace(spec.tree, W, L.k, y, (id) => mapWordsOf(of, id));
+      L.map = mapPlace(spec.tree, Wv, L.k, y, (id) => mapWordsOf(of, id));
       y += L.map.H + GAP;
       L.y.rule1 = y; y += 12;
       L.y.read = y;
-      L.readH = Math.max(...OUTCOMES[of].flatMap((k) => [base, worst].map((p) => flow(readParas(readingFor(of, k, p)), W, { gap: 4 }).h)));
+      L.readH = Math.max(...OUTCOMES[of].flatMap((k) => [base, worst].map((p) => flow(readParas(readingFor(of, k, p)), Wv, { gap: 4 }).h)));
       y += L.readH + GAP;
     } else {
-      const boxes = treeBoxes(spec.tree, W), heights = new Map(), fl = new Map();
+      const boxes = treeBoxes(spec.tree, Wv), heights = new Map(), fl = new Map();
       for (const [id, b] of boxes) {
         const paras = nodeParas(sl.byId.get(id), id === spec.tree.id), f = flow(paras, b.w, { align: 'center', gap: nodeGap(paras) });
         fl.set(id, f); heights.set(id, f.h);
@@ -201,11 +203,16 @@ export function createPath() {
     }
     L.y.rule2 = y; y += 7;
     L.y.foot = y;
-    L.foot = flow([[{ text: spec.foot, face: 'foot' }]], W);
+    L.foot = flow([[{ text: spec.foot, face: 'foot' }]], Wv);
     y += L.foot.h;
-    L.H = Math.ceil(y);
+    L.H = Math.ceil(y); L.Wv = Wv; L.sc = sc;
+    // (a chart or card taller than the data card can hold is drawn smaller, all of it together, rather than cut off at the bottom: the card keeps
+    // about half the window's height for it; the phone's small map has its own room)
+    const room = Math.max(300, viewSize().h * FIT_SHARE);
+    if (sc === 1 && !compact && L.H > room) return layout(Math.max(FIT_MIN, room / L.H));
+    L.Hr = Math.ceil(L.H * sc);
     lay = L;
-    pic.style.height = `${L.H}px`;
+    pic.style.height = `${L.Hr}px`;
     shownKey = '';
     paint();
   }
@@ -215,18 +222,18 @@ export function createPath() {
   function modelOf(Lit, out, said) {
     const kids = [], lit = [], dim = [], oy = lay.y.pic;
     const place = (items, ox, ot, on, tone) => { for (const i of items) kids.push(piece(i.face, ox + i.x, ot + i.y, i.text, on, tone)); };
-    const rule = (y) => kids.push(svg('path', { d: `M0,${y + 0.5}H${W}`, 'data-look': 'path.rule' }));
+    const rule = (y) => kids.push(svg('path', { d: `M0,${y + 0.5}H${lay.Wv}`, 'data-look': 'path.rule' }));
     // the head: the algorithm's source and the patient's numbers
     // the source in a pill (as the pills of the app: a quiet fill, the words in the second ink)
     const pw = Math.ceil(textWidth(spec.kick, { weight: ROLE.kick.weight, size: ROLE.kick.size })) + 2 * PILL_PAD;
     kids.push(svg('rect', { x: 0, y: lay.y.kick, width: pw, height: PILL_H, rx: PILL_H / 2, 'data-look': 'path.pill' }));
     kids.push(piece('kick', PILL_PAD, lay.y.kick + (PILL_H - ROLE.kick.lh) / 2 + 12.5, spec.kick, false, 'text'));
-    if (lay.chipsH) place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
+    if (lay.chipsH) place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], lay.Wv).items, 0, lay.y.chips, false, 'text');
     if (card) {
       kids.push(...cardModel(spec.algo, lay.card, patient, CARD_HELPERS, oy));
       rule(lay.y.rule2);
       place(lay.foot.items, 0, lay.y.foot, false, 'text');
-      return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}. ${said}` }, ...kids);
+      return svg('svg', { width: W, height: lay.Hr, viewBox: `0 0 ${lay.Wv} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}. ${said}` }, ...kids);
     }
     // the chart or the map: connectors first (grey under, the path over), then the nodes
     const paths = lay.compact ? lay.map.paths : lay.tree.paths;
@@ -244,7 +251,7 @@ export function createPath() {
       rule(lay.y.rule1);
       if (out) {
         const r = readingFor(of, out, patient);
-        for (const i of flow(readParas(r), W, { gap: 4 }).items) kids.push(piece(i.face, i.x, lay.y.read + i.y, i.text, true, TOKEN[r.tone]));
+        for (const i of flow(readParas(r), lay.Wv, { gap: 4 }).items) kids.push(piece(i.face, i.x, lay.y.read + i.y, i.text, true, TOKEN[r.tone]));
       }
     } else {
       for (const { n } of sl.flat) {
@@ -254,7 +261,7 @@ export function createPath() {
     }
     rule(lay.y.rule2);
     place(lay.foot.items, 0, lay.y.foot, false, 'text');
-    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
+    return svg('svg', { width: W, height: lay.Hr, viewBox: `0 0 ${lay.Wv} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
   }
 
   /** The path lit for the patient as it stands: the picture is drawn again only when what shows has changed. */

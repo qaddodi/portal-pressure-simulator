@@ -115,7 +115,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
 });
 
 // The zones' fills read as the tiles' green, amber and red, and their words keep 4.5:1 on them in every theme
-// (Mohammad, 19 Oct: "where is the amber area?" on the stiffness plane, whose gray zone read olive).
+// (Mohammad, 19 Oct: "where is the amber area?" on the stiffness plane, whose indeterminate zone read olive).
 test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light, soft and dark', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   const pick = (block, k) => block.match(new RegExp(`--${k}: (#[0-9A-Fa-f]{6})`))?.[1];

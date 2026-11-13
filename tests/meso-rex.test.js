@@ -68,9 +68,9 @@ test('it is a play (procedure: rex): four steps, the model takes the change as t
   const p = chronic().params;
   assert.equal(rexSuitable(p), true); assert.equal(procOffered('rex', p), true); assert.equal(procBlocked('rex', p), '');
   const open = defaultParams();
-  assert.equal(rexSuitable(open), false); assert.equal(procOffered('rex', open), false); assert.match(procBlocked('rex', open), /trunk is open/);
+  assert.equal(rexSuitable(open), false); assert.equal(procOffered('rex', open), false); assert.match(procBlocked('rex', open), /trunk is patent/);
   const leftClot = deepMerge(p, { thrombus: { PVH_L: 1 } });
-  assert.equal(rexSuitable(leftClot), false); assert.match(procBlocked('rex', leftClot), /left portal vein is clotted/);
+  assert.equal(rexSuitable(leftClot), false); assert.match(procBlocked('rex', leftClot), /left portal vein is thrombosed/);
   const done = P.apply(structuredClone(p));
   assert.ok(P.had(done) && !P.had(p) && procOffered('rex', done) && procBlocked('rex', done) !== '');
   assert.ok(!P.had(P.undo(structuredClone(done))));

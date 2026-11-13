@@ -57,11 +57,13 @@ export const classOnly = (r, set) => r.type === 'attributes' && r.attributeName 
 // (The map of what each target has been seen to change, and the sets in it, are kept and emptied: a batch makes none. The map is
 // emptied before this returns, so it holds no node between calls; nothing in here calls back into it.)
 const seenTargets = new Map(), seenSets = [];
+/** The record netChanged last found changed (its element and the attribute, '#text' or 'children'), for the ?perf organ line: who wrote. */
+export const netWho = { target: null, key: '' };
 export function netChanged(records) {
   seenTargets.clear();
   let used = 0, changed = false;
   for (const r of records) {
-    if (r.type === 'childList') { if (r.addedNodes?.length || r.removedNodes?.length) { changed = true; break; } continue; }
+    if (r.type === 'childList') { if (r.addedNodes?.length || r.removedNodes?.length) { changed = true; netWho.target = r.target; netWho.key = 'children'; break; } continue; }
     const key = r.type === 'characterData' ? '#text' : r.attributeName;
     let s = seenTargets.get(r.target);
     if (!s) {
@@ -71,11 +73,18 @@ export function netChanged(records) {
     if (s.has(key)) continue;
     s.add(key);
     const now = r.type === 'characterData' ? r.target.data : r.target.getAttribute(r.attributeName);
-    if (r.oldValue !== now) { changed = true; break; }
+    if (r.oldValue !== now) { changed = true; netWho.target = r.target; netWho.key = key; break; }
   }
   seenTargets.clear();
   return changed;
 }
+
+// A pressure colour's bin (0.5 mmHg) with hysteresis, for a colour the organ layer reads from the page (the caudate's lumen, the varices'
+// and gastric varices' --vx): the bin moves only once the value is 0.4 mmHg from the one shown. The beat-filtered pressure breathes
+// across a bin's edge, and the colour then flipped between the same two shades a few times a second, each flip a write the organ layer
+// painted again for. (The vessel ends already hold their bins this way: stage.js qHold.) `prev` NaN: no bin yet.
+export const BIN_HOLD = 0.4;
+export const heldBin = (prev, v) => (Math.abs(v - prev) < BIN_HOLD ? prev : Math.round(v * 2) / 2);
 
 // The attributes that can move or hide a card, sheet or bar the framing and labels keep clear of (on it, or on a parent).
 export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-pad', 'data-safe-rest', 'data-full-h', 'data-folding', 'open'];

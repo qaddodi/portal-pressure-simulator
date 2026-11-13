@@ -26,7 +26,7 @@ test('a scale bar prints every cut-off with the decimals it has', () => {
 test('a percent tile sits its unit against the number, and the High word is mixed with the text as the amber word is', () => {
   assert.match(presenter, /class: 'pzt-vu' \+ \(T\.u === '%' \? ' pct' : ''\)/);
   assert.match(css, /\.pz \.pz-data \.pz-tiles \.pz-tile \.pzt-vu\.pct\.pct\.pct \{ column-gap: \.06em; \}/);
-  assert.match(css, /\.pz-tile\[data-rate="hi"\] \.pzt-r \{ color: color-mix\(in srgb, var\(--danger\) 85%, var\(--text\)\); \}/);
+  assert.match(css, /\.pz-tile\[data-rate="hi"\] \.pzt-r \{ color: var\(--danger-ink\); \}/);   // (U2: the status ink, the one red, as the amber word beside it takes --caution-ink)
 });
 
 test('the patient preview prints its gradients to one decimal and rates the number it prints', () => {
@@ -144,14 +144,14 @@ test('a percentage is "75%" everywhere a person reads it: the cards, the Why bar
   }
   assert.match(src('src/ui/actions.js'), /const pct = \(v\) => `\$\{Math\.round\(v \* 100\)\}%`;/);
   assert.match(src('src/ui/inspector.js'), /sub: '40% compensated · 60% CSPH · 85% decompensated'/);
-  // (a unit phrase keeps its space: "liver blood flow in % of normal")
-  assert.match(src('src/ui/presenter.js'), /liver blood flow in % of normal/);
+  // (a unit phrase keeps its space: "hepatic blood flow in % of normal")
+  assert.match(src('src/ui/presenter.js'), /hepatic blood flow in % of normal/);
 });
 
 test('the drug class is "beta-blocker" on the Treat card, the Why card and the slides alike', () => {
-  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-selective )?[βΒ]-blocker/, f);
-  assert.match(src('src/ui/actions.js'), /propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
-  assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Non-selective beta-blocker'/);
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-?selective )?[βΒ]-blocker/, f);
+  assert.match(src('src/ui/actions.js'), /propranolol: 'Nonselective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
+  assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Nonselective beta-blocker'/);
 });
 
 test('US spelling in what a reader sees: liters, center, favors, color', () => {
@@ -178,9 +178,9 @@ test('where pressure is lost is "resistance", never a "block" (cards, About and 
 
 test('the bleed-risk event is named for what it means, not as a threshold (12 is not a cut-off; the number sits in its line)', () => {
   const ev = src('src/engine/events.js');
-  assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥ 12 mmHg\. The risk rises with the gradient, but 12 is not a threshold/);
+  assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥12 mmHg\. Bleeding risk climbs with the gradient from about 12 mmHg, but varices can bleed below it/);
   assert.doesNotMatch(ev, /title: 'HVPG ≥ 12 mmHg'/);
-  assert.match(ev, /15–30% blood volume lost/);
+  assert.match(ev, /15–30% of blood volume lost/);
   // event sentences read aloud: 'below', not a '<' sign, and a percent hugs its number
   assert.match(ev, /Doppler velocity below 9 cm\/s:/);
   assert.match(ev, /Total sinusoidal flow is below 60% of normal\./);
@@ -208,7 +208,9 @@ test('a percent hugs its number in the Why headline and on the readout tiles ("6
   // an ordinary unit keeps its space
   assert.match(explain(e, 'hvpg').sentence, /^HVPG is [\d.]+ mmHg/);
   // the tile's unit span carries the class that closes the gap, in the bar and in the Readouts tab, and the CSS beats the phone's rule
-  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) assert.match(src(f), /class: t\.u === '%' \? 'unit pct' : 'unit'/, f);
+  // (One tile builder for the bar and the Readouts tab, tile-el.js: unification audit, finding 6.)
+  assert.match(src('src/ui/tile-el.js'), /class: t\.u === '%' \? 'unit pct' : 'unit'/, 'src/ui/tile-el.js');
+  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) assert.match(src(f), /= tileEl\(t, \{/, f);
   assert.match(css, /\.metric \.v \.unit\.pct\.pct\.pct \{ margin-left: 1px; \}/);
 });
 
@@ -230,7 +232,7 @@ test('the Colored by cards are two lines at most in the 142 px column of a two-c
   const m = src('src/ui/main.js');
   const block = m.slice(m.indexOf('const LENSES = {'), m.indexOf('const COLOR_MODES'));
   const descs = [...block.matchAll(/^\s+\w+: \['[^']+', '((?:[^'\\]|\\.)*)'/gm)].map((q) => q[1].replace(/\\u2019/g, '’'));
-  assert.equal(descs.length, 9);
+  assert.equal(descs.length, 10);
   // 142 px at 12 px Inter is about 22 characters a line: two lines hold 44 with the slack of a word
   for (const d of descs) assert.ok(d.length <= 40, `${d.length}: ${d}`);
   assert.match(css, /\.lens-d \{[^}]*text-wrap: balance/);
@@ -289,7 +291,7 @@ test('the Patients and Present previews opened by the (i) on touch scroll their 
 });
 
 test('the Patients preview names what its curve plots and its scale', () => {
-  assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, gut to right atrium \(0 to 30 mmHg\)'/);
+  assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, splanchnic bed to right atrium \(0 to 30 mmHg\)'/);
   assert.match(css, /\.um-pv-in \.hp-cap \{ display: block;[^}]*font-size: var\(--fs-12\)/);
 });
 
@@ -325,8 +327,11 @@ test('History says a put-away change as what is off: acronyms keep their case, v
 });
 
 test('the PPG tile names the gradient as the rest of the app does (portal pressure gradient)', () => {
-  assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: portal confluence/);
+  // (The bar's tile takes its tooltip from the reading's one definition, table-marks.js TILE: unification audit, finding 6.)
+  assert.match(dock, /id: 'ppg', \.\.\.fromTile\('ppg'\)/);
+  assert.match(src('src/ui/table-marks.js'), /\n {2}ppg: \{[^\n]*long: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure/);
   assert.doesNotMatch(dock, /Portosystemic pressure gradient/);
+  assert.doesNotMatch(src('src/ui/table-marks.js'), /Portosystemic pressure gradient/);
 });
 
 test('visible words in the talks, the Testing deck and the toasts are US spelling (gray, color, canceled)', () => {

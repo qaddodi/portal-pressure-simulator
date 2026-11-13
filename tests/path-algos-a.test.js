@@ -16,7 +16,6 @@ const ALGOS = [gastric, ascites, stopcarv, holdcarv, secprop];
 const TONES = ['n', 'ok', 'warn', 'bad'];
 const nodes = (a) => flat(a.tree).map((x) => x.n);
 const lit = (a, p) => a.lit(a.patientFor({ of: a.id, patient: p }, null));
-const out = (a, p) => a.outcomeOf(lit(a, p));
 const sorted = (L) => [...L].sort();
 
 test('every module has the contract\'s shape, unique ids and node ids', () => {
@@ -119,14 +118,14 @@ test('gastric: the acute phase always, TIPS when Child–Pugh ≤13 and fit, els
     const key = gastric.outcomeOf(gastric.lit(p));
     const r = gastric.reading(key, p);
     assert.equal(r.head, 'Two phases, in parallel');
-    assert.match(r.next, key === 'tipsg' ? /Then TIPS ± embolisation as soon as possible/ : /TIPS is not an option/);
+    assert.match(r.next, key === 'tipsg' ? /Then TIPS ± embolization as soon as possible/ : /TIPS is not an option/);
   }
   assert.deepEqual(gastric.outcomes, ['tipsg', 'mdt']);
   assert.deepEqual(gastric.patientFor({ of: 'gastric' }, { lsm: 20, hvpg: 12 }), { src: 'gv', cp: 9, fit: true }, 'default: Child–Pugh 9, fit; the live readings are not used');
   assert.deepEqual(gastric.patientFor({ of: 'gastric', patient: { cp: 14, fit: false } }), { src: 'gv', cp: 14, fit: false });
   assert.match(gastric.reading('mdt', { src: 'gv', cp: 14, fit: true }).next, /Child–Pugh C14/);
-  assert.match(gastric.reading('mdt', { src: 'gv', cp: 10, fit: false }).next, /\(not fit\)/);
-  assert.deepEqual(gastric.chips({ src: 'gv', cp: 14, fit: false }), ['GOV2 or IGV1', 'Child–Pugh C14', 'Not fit for TIPS']);
+  assert.match(gastric.reading('mdt', { src: 'gv', cp: 10, fit: false }).next, /\(not a candidate\)/);
+  assert.deepEqual(gastric.chips({ src: 'gv', cp: 14, fit: false }), ['GOV2 or IGV1', 'Child–Pugh C14', 'Not a TIPS candidate']);
   assert.deepEqual(gastric.chips({ src: 'gv', cp: 9, fit: true }), ['GOV2 or IGV1', 'Child–Pugh B9']);
 });
 
@@ -168,15 +167,15 @@ test('every outcome has a reading with a tone and no stray words, from the patie
   assert.match(stopcarv.reading('keep', { hv: 'none', lsm: 28, ssm: 50 }).why, /LSM 28 kPa is >25/);
   assert.match(stopcarv.reading('keep', { hv: 'none', lsm: 12, ssm: 30 }).why, /No test has shown/);
   assert.match(stopcarv.reading('keep', { hv: 'high', lsm: 8, ssm: 20 }).why, /HVPG is ≥10 mmHg/);
-  assert.match(holdcarv.reading('low', { held: false, sbp: 84, hrs: true }).why, /^Systolic pressure 84 mmHg is <90 and there is HRS-AKI\.$/);
+  assert.match(holdcarv.reading('low', { held: false, sbp: 84, hrs: true }).why, /^SBP 84 mmHg is <90 and there is HRS-AKI\.$/);
   assert.match(holdcarv.reading('low', { held: false, sbp: 120, hrs: true }).why, /^There is HRS-AKI\.$/);
-  assert.match(holdcarv.reading('low', { held: false, sbp: 100, hrs: false, map: 60 }).why, /^Mean pressure 60 mmHg is <65\.$/);
+  assert.match(holdcarv.reading('low', { held: false, sbp: 100, hrs: false, map: 60 }).why, /^MAP 60 mmHg is <65\.$/);
   assert.equal(holdcarv.reading('low', { held: true, sbp: 84, hrs: true }).head, 'Stay off carvedilol');
   assert.equal(holdcarv.reading('low', { held: false, sbp: 84, hrs: true }).head, 'Reduce or stop carvedilol');
   assert.match(holdcarv.reading('okk', { held: false, sbp: 112, hrs: false }).why, /112 mmHg is ≥90/);
   assert.equal(secprop.reading('mono', { more: false, can: 'evl' }).head, 'Banding alone');
   assert.equal(secprop.reading('mono', { more: false, can: 'nsbb' }).head, 'Carvedilol alone');
-  assert.deepEqual(secprop.chips({ more: false, can: 'evl' }), ['Oesophageal bleed', 'Bleed only', 'Banding only']);
+  assert.deepEqual(secprop.chips({ more: false, can: 'evl' }), ['Esophageal bleed', 'Bleed only', 'Banding only']);
   assert.deepEqual(ascites.chips({ tips: false, lt: false }), ['Refractory ascites', 'No TIPS', 'Not a transplant candidate']);
   assert.deepEqual(ascites.chips({ tips: true, lt: true }), ['Refractory ascites', 'TIPS possible']);
   assert.deepEqual(holdcarv.chips({ held: false, sbp: 84, hrs: true }), ['On carvedilol', 'SBP 84', 'HRS-AKI']);
@@ -223,7 +222,7 @@ test('the words rules: symbols for comparisons, no arrows, no statement numbers 
       assert.doesNotMatch(s, /→|->/, `${a.id}: an arrow in "${s}"`);
       assert.doesNotMatch(s, /Baveno 8/, `${a.id}: "${s}"`);
       assert.doesNotMatch(s, /Child-Pugh|Child Pugh/, `${a.id}: Child–Pugh needs an en dash in "${s}"`);
-      assert.doesNotMatch(s, /\besophag/i, `${a.id}: the app's spelling is oesophageal in "${s}"`);
+      assert.doesNotMatch(s, /\boesophag/i, `${a.id}: the app's spelling is American (esophageal) in "${s}"`);
       assert.ok(textCovers(s), `${a.id}: the outlines have every character of "${s}"`);
     }
     for (const n of nodes(a)) for (const k of ['t', 'r', 's']) if (n[k]) assert.doesNotMatch(n[k], /\b\d+\.\d+\b/, `${a.id}/${n.id}.${k}: no statement number`);

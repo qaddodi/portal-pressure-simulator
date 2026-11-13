@@ -12,6 +12,19 @@ Tags on each rule:
 
 Rule ids (`V-SLIDE-3`) are stable, so commits, gates and the ledger can cite them.
 
+**Status, 11 Nov 2026.** This file stays the target for a glitch-free talk; most rules still stand. What has changed since 3 Nov:
+
+- Tucking and untucking were removed on 7 Nov (section 5). An instrument card is one fixed size; its readings are in its header row.
+- The browser gates, the pixel comparison and the frame-time gates were retired from CI on 4 Nov. Their scripts stay as local tools, so the
+  "Check" lines below say how a rule could be proved by hand or in a local run, not what CI blocks. `scripts/gate-interrupt.mjs` (V-GEST-1)
+  was never written. A real device is the judge.
+- The Tube is the only vessel renderer; figure labels are one style (outlined text, no boxes); every card, menu and callout takes the one
+  card glass. Nothing here depends on the vessel renderer.
+- Built from section 13: N1 (the presenter view, key P), N2 (the laser spotlight on L, and the pen) and N3 (`reveal: true`). N7 and N10
+  are not being built; the others have not been checked against the code in this pass.
+- Owner rules since: everything GPU-rendered; teaching cards carry words (graphs go in the instrument or data card); a card's text is
+  shown whole, at once.
+
 ## 1. Principles
 
 1. **The figure is the stage, and nothing on it ever lies.** What is drawn in a frame belongs to one slide, one view and one camera.
@@ -279,7 +292,7 @@ Anatomy to Circuit morphs each vessel into its circuit line, and each station's 
 into the lobule zooms from the liver straight into the lobule with no cut, and the lobule's labels are waiting when it lands. Going back
 up is the same film run backwards.
 
-- **V-VIEW-1 (Fix)** Anatomy ↔ Circuit is one morph (MORPH_ONE_MS 1200). Station labels, leaders and dots follow their station's move
+- **V-VIEW-1 (Fix)** Anatomy ↔ Circuit is one morph (VIEW_CHANGE_S 1.3 s, `view-xf.js`; the patient's change under a glide, MORPH_ONE_MS 1200 in `presenter.js`, is another thing). Station labels, leaders and dots follow their station's move
   through it; labels that do not exist on both sides fade out before and in after. *Check*: gate `views` switch: per-frame label vs
   station within 1 px; no label `gen` mismatch.
 - **V-VIEW-2 (Fix)** The scale pill (Anatomy / Lobule / Sinusoid) and a slide's `cam: 'lobule:…'` both dive by the same film: camera
@@ -323,7 +336,7 @@ up is the same film run backwards.
 
 ## 11. Timing and easing
 
-One table. Anything not listed uses the closest row. Reduced motion replaces every travel with a 120 ms crossfade in place.
+One table. Anything not listed uses the closest row. Reduced motion replaces every travel with a 120 ms crossfade in place, except the camera's glide and the change between the views, which keep a 300 ms move (`REDUCED_MOVE_MS`, `motion.js`).
 
 | Motion | Duration | Curve | Source |
 |---|---|---|---|
@@ -331,7 +344,7 @@ One table. Anything not listed uses the closest row. Reduced motion replaces eve
 | Second card behind the first | +40 ms stagger | same | `THROW_STAGGER` |
 | Cards readable during camera glide | at 75 % of the glide | | `CARDS_AT` |
 | Camera glide | 480 to 900 ms by distance | EASE_MOVE `(.5,0,.5,1)` | `CAM_MS_MIN/MAX` |
-| Anatomy ↔ Circuit morph | 1200 ms | EASE_MOVE | `MORPH_ONE_MS` |
+| Anatomy ↔ Circuit morph | 1300 ms (300 ms under Reduce Motion) | EASE_MOVE | `VIEW_CHANGE_MS` (`motion.js`; `VIEW_CHANGE_S` 1.3 in `view-xf.js`). `MORPH_ONE_MS` (1200) is the patient's change under a glide, not the view change |
 | Card zoom in / out | 520 / 440 ms | EASE_ARRIVE `(.2,.8,.2,1)` | `card-zoom.js` |
 | Surface (card size, hide/show, reframe, lens) | 420 ms | EASE_MOVE for moves, EASE_ARRIVE for arrivals | `D_SURFACE` |
 | Small (word, chip, pill, label tone, label fade) | 240 ms | EASE_ARRIVE | `D_SMALL` |
@@ -341,8 +354,9 @@ One table. Anything not listed uses the closest row. Reduced motion replaces eve
 Rules:
 
 - **V-TIME-1 (Now)** No overshoot anywhere (curve y never past 1).
-- **V-TIME-2 (Fix)** All motion runs on the scheduler's clock (`easeNow`); a long frame holds everything where it was together rather
-  than letting one part run ahead.
+- **V-TIME-2 (Fix)** All motion runs on the scheduler's honest wall clock (`easeNow`), so every part of one change agrees where it is,
+  with one cap: the first two frames of any move advance it by at most 40 ms each (the long frames the layout and label passes that set
+  it off make), after which a long frame shows the move where the wall clock puts it. The rule is written in `src/ui/motion.js`.
 - **V-TIME-3 (Fix)** A motion taken over mid-way keeps its velocity (no stop then start). A retarget blends from the current velocity.
 - **V-TIME-4 (Now)** 120 Hz on iPhone ProMotion and Mac: durations are in ms, never in frames.
 
@@ -426,4 +440,5 @@ Each is asked as a clickable card in the project thread. Answers are written bac
 | Charts | `frame-gate.mjs` | trace scroll evenness (V-CHART-3) |
 
 A rule is done when its check exists, passes on the Mac and iPhone profiles headless (software GL named as a GPU), and fails on a
-fixture that breaks it. Headless is not a device test; say so when reporting.
+fixture that breaks it. Headless is not a device test; say so when reporting. Since 4 Nov 2026 these checks are local tools, not CI gates
+(`AGENTS.md`); the unit tests that pin the numbers in this file still run on every push.

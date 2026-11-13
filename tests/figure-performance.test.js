@@ -75,8 +75,28 @@ test('Lobule rec 6 (6 Nov 2026): a calm lobule draws its blood-only frames at 30
   delete globalThis.localStorage;
   // The lobule's loop takes it only once calm: anything moving, a hand included, resets calmAt and the gap is the glide's.
   const lz = src('lobule-zoom.js');
-  assert.match(lz, /const pace = now - calmAt > CALM_AFTER \? Math\.max\(paceMs\(\), calmFlowGapFor\(\)\) : paceMs\(\)/);
+  assert.match(lz, /const pace = calmNow \? Math\.max\(paceMs\(\), calmFlowGapFor\(cheap\), restGapFor\(now, calmAt\)\) : paceMs\(\)/);
+  assert.match(lz, /cheap = calmNow && gl\?\.tubeStage\?\.\(\) === 3/);
   assert.match(lz, /handOn\(\) \|\| fade < 0\.98[^\n]*\) calmAt = now;/);
+});
+
+test('Tube speed plan P1 (10 Nov 2026): a calm lobule drawn by Tube stage 3 takes the blood at the screen\'s rate; saver and the other renderers keep their caps', async () => {
+  const { f } = await freshFrame();
+  assert.equal(f.calmFlowGapFor(), f.CALM_FLOW_MS, 'default: 30 Hz');
+  assert.equal(f.calmFlowGapFor(false), f.CALM_FLOW_MS, 'Classic, Mesh, Tube 1 and 2: 30 Hz');
+  assert.equal(f.calmFlowGapFor(true), 0, 'Tube stage 3: every frame');
+  assert.equal(f.frameGapFor('flow'), f.MOTION60_MS, 'the anatomy and the sinusoid are unchanged');
+  assert.equal(f.calmFlowRule(false), 'calm 30 Hz');
+  assert.equal(f.calmFlowRule(true), 'calm every frame (tube 3)');
+  f.setSaver(true);
+  assert.equal(f.calmFlowGapFor(true), f.SAVER_MS, 'Battery saver: 15 Hz either way');
+  assert.equal(f.calmFlowGapFor(false), f.SAVER_MS);
+  assert.match(f.calmFlowRule(true), /15 Hz/);
+  f.setSaver(false); f.setFigLab('motion60', false);
+  assert.equal(f.calmFlowGapFor(false), 0);
+  assert.equal(f.calmFlowRule(false), 'calm every frame (Motion at 60 off)');
+  f.noteCalmRule('calm 30 Hz'); assert.equal(f.calmRuleText(), 'calm 30 Hz'); f.noteCalmRule(''); assert.equal(f.calmRuleText(), '');
+  delete globalThis.localStorage;
 });
 
 test('Motion at 60 in the figure loop: off, the interval and the gate are as before; on, no phase is carried; view moves never wait', () => {
@@ -86,8 +106,16 @@ test('Motion at 60 in the figure loop: off, the interval and the gate are as bef
   // (Since the frame governor, 4 Nov 2026: the base gap is the governor's 'glide' gap (MOTION60_MS) on, paceOf(quality) off; a calm frame
   // (only the blood moving) is held to CALM_MS at least.)
   assert.match(fn, /const base = m60 \? frameGapFor\('glide'\) : paceOf\(quality\);/);
-  assert.match(fn, /const interval = calm \? Math\.max\(base, CALM_MS\) : base;/);
-  assert.match(fn, /if \(interval && !viewMoved && !forceDraw && now - flowGate < interval\) \{ askAnimate\(\); return; \}/);
+  // (Rest pacing counts from restAt, which the model's own vessel updates do not stamp, and holds frames whether or not the figure is calm, 12 Nov 2026.)
+  assert.match(fn, /const restGap = restGapFor\(now, restAt\);/);
+  assert.match(fn, /const interval = calm \? Math\.max\(base, CALM_MS, restGap\) : Math\.max\(base, restGap\);/);
+  assert.match(fn, /if \(viewMoved \|\| forceDraw \|\| drawOnce \|\| restOn \|\| restU !== 1\) busyAt = restAt = now;/);
+  // (A held frame at rest waits on a timer (parkFor) instead of asking every screen frame, 12 Nov 2026; any other held frame asks the next one.)
+  assert.match(fn, /if \(interval && !viewMoved && !forceDraw && now - flowGate < interval\) \{ if \(restGap && parkFor\(interval - \(now - flowGate\)\)\) return; askAnimate\(\); return; \}/);
+  assert.match(stage, /const parkFor = \(left\) => \{ if \(left < 18\) return false; if \(!parkT\) parkT = stageScope\.timer\(parkWake, left - 8\); return true; \};/);
+  assert.match(stage, /if \(!\(restGap && restAt !== now && parkFor\(interval\)\)\) askAnimate\(\);/);
+  const restLine = stage.split('\n').find((l) => l.includes('restAt = now;   // (motion of the figure itself'));
+  assert.ok(restLine && !/veinsRows|widthEasing|colEasing|veinsDirty|glowSync/.test(restLine), 'the model\'s own vessel updates never stamp restAt');
   assert.match(fn, /flowGate = interval && \(!m60 \|\| calm\) \? now - \(\(now - flowGate\) % interval\) : now;/);
   // (Off: m60 false, so the gate is `interval ? … : now`, the old line exactly. On and not calm: no phase is carried.)
   const gate = (m60, interval, now, flowGate, calm = false) => (interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now);
@@ -146,3 +174,101 @@ test('the lymph rows are written in place once a frame, and the overlay buffers 
   assert.match(fx, /const dropsOn = !!lymph && lymph\.drops\.length > 0;/, 'no coverage target without drops');
 });
 
+
+// ── Brief H1 (10 Nov 2026): rest pacing on touch devices ──
+async function freshRest(touch) {
+  const { f } = await freshFrame();
+  f.setRestTouch(touch);
+  return f;
+}
+// (A loop's draw rule, as the three loops have it: a frame is drawn when now − last drawn ≥ the gap; no phase is carried.)
+const drawnPerSecond = (hz, gap) => { let last = -1e9, n = 0; for (let t = 0; t < 1000; t += 1000 / hz) if (t - last >= gap) { last = t; n++; } return n; };
+
+test('H1: on a touch device the gap is 0 for 4 s after an input, 28 ms after that, 46 ms after 30 s, and 0 on the frame after any input', async () => {
+  const f = await freshRest(true);
+  const t0 = 100000;
+  f.noteInput(t0);
+  assert.equal(f.restGapFor(t0 + 1), 0, 'just touched');
+  assert.equal(f.restGapFor(t0 + f.REST_AFTER_MS - 1), 0, 'under 4 s');
+  assert.equal(f.restGapFor(t0 + f.REST_AFTER_MS), f.REST_MS, '4 s: 28 ms');
+  assert.equal(f.restGapFor(t0 + f.IDLE_AFTER_MS - 1), f.REST_MS, 'under 30 s still 28');
+  assert.equal(f.restGapFor(t0 + f.IDLE_AFTER_MS), f.IDLE_MS, '30 s: 46 ms');
+  assert.equal(f.REST_MS, 28); assert.equal(f.IDLE_MS, 46); assert.equal(f.REST_AFTER_MS, 4000); assert.equal(f.IDLE_AFTER_MS, 30000);
+  f.noteInput(t0 + 31000);
+  assert.equal(f.restGapFor(t0 + 31001), 0, 'the frame after an input is drawn at once, at the full rate');
+  assert.equal(f.restGapFor(t0 + 31000 + f.REST_AFTER_MS), f.REST_MS, 'and the clock runs again');
+  for (const hz of [60, 120]) {
+    assert.ok(Math.abs(drawnPerSecond(hz, f.REST_MS) - 30) <= 1, `${hz} Hz screen: 30 a second at rest`);
+    assert.ok(Math.abs(drawnPerSecond(hz, f.IDLE_MS) - 20) <= 1, `${hz} Hz screen: 20 a second idle`);
+  }
+});
+
+test('H1: a loop\'s own busy stamp (a camera move, glide, view switch, slide change, time-lapse step, model change) restarts the rest clock; the heartbeat is not a stamp', async () => {
+  const f = await freshRest(true);
+  f.noteInput(1000);
+  assert.equal(f.restGapFor(1000 + 20000, 1000 + 19000), 0, 'something moved 1 s ago');
+  assert.equal(f.restGapFor(1000 + 20000, 1000 + 15000), f.REST_MS, '5 s ago: rest');
+  assert.equal(f.restGapFor(1000 + 40000, 1000 + 8000), f.IDLE_MS, '39 s since the input, 32 s since the stamp: idle');
+  assert.equal(f.restGapFor(1000 + 40000, 1000 + 15000), f.REST_MS, '25 s since the stamp: rest');
+  // (inMotion: a transition in flight counts as motion; read with the module's own clock.)
+  const g = await freshRest(true);
+  g.noteInput(0);
+  const end = g.beginMotion('test', 60000);
+  const now = performance.now();
+  assert.equal(g.restGapFor(now + 50000), 0, 'a transition still running is motion');
+  end();
+  assert.equal(g.restGapFor(now + 50000 + 1000), 0, 'the clock restarts from the last frame it moved');
+  assert.equal(g.restGapFor(now + 60000), g.REST_MS, 'and once it ends the clock goes on');
+  assert.equal(g.restGapFor(now + 90000), g.IDLE_MS);
+});
+
+test('H1: rest pacing is on for every device by default (the Mac too, 12 Nov 2026); turned off it is 0; ?rest=off turns it off', async () => {
+  const { f: d } = await freshFrame();
+  d.noteInput(0);
+  assert.equal(d.restGapFor(5000), d.REST_MS, 'on by default, whatever the pointer');
+  const f = await freshRest(false);
+  f.noteInput(0);
+  for (const t of [1, 4000, 29999, 30000, 1e6]) assert.equal(f.restGapFor(t), 0, `pacing off at ${t}`);
+  const g = await freshRest(true);
+  g.noteInput(0);
+  assert.equal(g.restGapFor(5000), g.REST_MS);
+  g.setRestOff(true);
+  assert.equal(g.restGapFor(5000), 0, '?rest=off');
+  assert.equal(g.restGapFor(40000), 0);
+});
+
+test('H1: Battery saver wins when larger; a talk at rest holds 30 a second, then 20 after 30 s, never 15; Explore the same 20 (13 Nov 2026)', async () => {
+  const f = await freshRest(true);
+  f.noteInput(0);
+  f.setSaver(true);
+  assert.equal(f.restGapFor(5000), f.SAVER_MS, 'saver\'s gap is larger than 28');
+  assert.equal(f.restGapFor(40000), f.SAVER_MS, 'and than 46');
+  assert.equal(f.restGapFor(100), 0, 'before rest nothing is added (the loop\'s own saver gap stands)');
+  f.setSaver(false);
+  let talk = true;
+  f.setRestTalk(() => talk);
+  assert.equal(f.restGapFor(5000), f.REST_MS, 'a talk after 4 s: 30 a second');
+  assert.equal(f.restRuleText(), 'rest 30 Hz');
+  assert.equal(f.restGapFor(29999), f.REST_MS, 'a talk under 30 s: still 30');
+  assert.equal(f.restGapFor(40000), f.TALK_IDLE_MS, 'a talk after 30 s: 20, never 15');
+  assert.equal(f.restGapFor(1e6), f.TALK_IDLE_MS);
+  assert.equal(f.restRuleText(), 'talk idle 20 Hz');
+  talk = false;
+  assert.equal(f.restGapFor(40000), f.IDLE_MS, 'Explore: 20 a second, as a talk');
+  assert.equal(f.IDLE_MS, f.TALK_IDLE_MS);
+  assert.equal(f.restRuleText(), 'idle 20 Hz');
+});
+
+test('H1: the Mac\'s other gaps are untouched; every kind of input reaches the rest clock through idle-rest', async () => {
+  const f = await freshRest(false);
+  // The Mac: the lobule's rule 6, P1 and the flow gap are as before.
+  assert.equal(f.calmFlowGapFor(), f.CALM_FLOW_MS); assert.equal(f.calmFlowGapFor(true), 0); assert.equal(f.frameGapFor('flow'), f.MOTION60_MS);
+  const { createIdleRest } = await import('../src/ui/idle-rest.js');
+  const seen = [];
+  const listeners = new Map();
+  const target = { addEventListener: (t, fn) => listeners.set(t, fn), removeEventListener() {} };
+  const ir = createIdleRest({ target, onInput: (t) => seen.push(t), now: () => 77, setTimer: () => 1, clearTimer() {}, doc: null });
+  for (const t of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll', 'focusin']) listeners.get(t)();
+  assert.deepEqual(seen, [77, 77, 77, 77, 77, 77, 77], 'every kind of input reaches the rest clock');
+  ir.dispose();
+});

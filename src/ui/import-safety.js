@@ -72,7 +72,7 @@ export const cleanEq = (eq) => {
 // (tips.d, stenosis.TIPS, thrombus.PV_TRUNK, fibrosis.R.post, scope.air …). Every segment is a plain identifier.
 const SEG = /^[A-Za-z][A-Za-z0-9_]*$/;
 const GROUPS = new Set(['tips', 'dips', 'stenosis', 'thrombus', 'fibrosis', 'scope']);
-const NAMES = new Set(['cirrhosis', 'gestation', 'albumin', 'habrStrength', 'splanchnicTone', 'systemicTone', 'contractility', 'tr', 'pericardial', 'apShunt']);
+const NAMES = new Set(['cirrhosis', 'gestation', 'albumin', 'habrStrength', 'splanchnicTone', 'systemicTone', 'contractility', 'tr', 'pericardial', 'apShunt', 'respDepth', 'nsbbGain']);
 
 export function safeParamPath(p) {
   if (typeof p !== 'string' || !p || p.length > 60) return false;

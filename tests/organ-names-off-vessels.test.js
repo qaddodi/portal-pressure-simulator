@@ -60,8 +60,9 @@ test('a name anchored inside its organ stays inside it; one beside its organ sta
 });
 
 test('the label solver tries the anchor first, then those spots, then the anchor over any vessel', () => {
-  assert.match(stage, /import \{ (?:nameSpots, NAME_BREAK|NAME_BREAK, nameSpots) \} from '\.\/organ-names\.js';/);
-  assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true \};\s*placeMulti\(it, \['C'\], \[spot, \.\.\.nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \{ \.\.\.spot, at: \[bx - ax, by - ay\] \}; \}\), \{ gap: 0, leader: false \}\]\);/);
+  assert.match(stage, /import \{ NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan \} from '\.\/organ-names\.js';/);
+  // (Every one of them off the cards and shown leaders too, unblocked: phone-label-room.test.js; and each tried first off the other organs, offOrgans.)
+  assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true, unblocked: true \}, off = \{ \.\.\.spot, offOrgans: txt \};\s*const at = nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \[bx - ax, by - ay, Math\.hypot\(sx - x, sy - y\) <= OFF_NEAR\]; \}\);\s*placeMulti\(it, \['C'\], \[off, \.\.\.at\.filter\(\(a\) => a\[2\]\)\.map\(\(a\) => \(\{ \.\.\.off, at: a \}\)\), spot, \.\.\.at\.map\(\(a\) => \(\{ \.\.\.spot, at: a \}\)\), \{ gap: 0, leader: false, unblocked: true \}\]\);/);
   assert.doesNotMatch(stage, /it\.h = (?:live\.)?LINE_H\(it\.lines\[0\]\);\s*place\(it, \['C'\], 0, false\);/, 'no organ name is placed by the old single pass');
 });
 
@@ -96,5 +97,5 @@ test('RIGHT ATRIUM can stand clear of the IVC that runs up the heart\'s left sid
 test('RIGHT ATRIUM stands on two lines, one word each, the other captions on one', () => {
   assert.deepEqual([...NAME_BREAK], ['Right atrium']);
   assert.match(stage, /lines: up\.split\(NAME_BREAK\.has\(txt\) \? ' ' : '\\u0000'\)\.map\(\(t\) => \[\{ t, size: 9\.5, weight: 600, cls: 'lb-organ', track: 0\.06 \}\]\)/);
-  assert.match(stage, /it\.w = Math\.max\(\.\.\.it\.lines\.map\(lineW\)\); it\.h = it\.lines\.reduce\(\(a, l\) => a \+ LINE_H\(l\), 0\);\s*const spot/);
+  assert.match(stage, /it\.w = Math\.max\(\.\.\.it\.lines\.map\(lineW\)\); it\.h = it\.lines\.reduce\(\(a, l\) => a \+ LINE_H\(l\), 0\);\s*(?:\/\/.*\n\s*)*const spot/);
 });

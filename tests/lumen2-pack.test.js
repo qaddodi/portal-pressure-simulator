@@ -4,14 +4,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the packing: veins-mesh-glsl.js packFlow, packFlow2)
 const ROW2_BITS = 11, MASK = (1 << ROW2_BITS) - 1, S_OFF = 96;
 
 test('the shaders write and read the packed second lumen, and the share beside the visibility', () => {
   assert.match(src, /export const ROW2_BITS = 11, ROW2_MASK = \(1 << ROW2_BITS\) - 1;/);
   assert.match(src, /\(uint\(round\(clamp\(gW, 0\.0, 1\.0\) \* 255\.0\)\) << 8u\) \| \(gId2 > 0u \? uint\(round\(clamp\(gB, 0\.0, 1\.0\) \* 255\.0\)\) : 0u\)\)/);
   assert.match(src, /uint gQ2 = uint\(clamp\(\(gY2 \+ 1\.0\) \* 64\.0, 0\.0, 127\.0\)\);/);
-  assert.match(src, /\? uvec4\(gId2 \| \(\(gQ2 >> 2u\) << \$\{ROW2_BITS\}u\), \(uint\(clamp\(\(gS2 \+ S_OFF\) \* 4\.0, 0\.0, 16383\.0\)\) << 2u\) \| \(gQ2 & 3u\), 0u, 0u\)/);
+  assert.match(src, /return uvec4\(gId2 \| \(\(gQ2 >> 2u\) << \$\{ROW2_BITS\}u\), \(uint\(clamp\(\(gS2 \+ S_OFF\) \* 4\.0, 0\.0, 16383\.0\)\) << 2u\) \| \(gQ2 & 3u\), 0u, 0u\)/);
   assert.match(src, /uint r2 = g2\.x & \$\{ROW2_MASK\}u;\n\s+float b = r2 > 0u \? float\(g\.w & 255u\) \/ 255\.0 : 0\.0;/);
   assert.match(src, /float s2 = float\(g2\.y >> 2u\) \/ 4\.0 - S_OFF, y2 = \(float\(\(\(g2\.x >> \$\{ROW2_BITS\}u\) << 2u\) \| \(g2\.y & 3u\)\) \+ 0\.5\) \/ 64\.0 - 1\.0;/);
   assert.match(src, /float vis = g\.x > 0u \? clamp\(float\(g\.w >> 8u\) \/ 255\.0 \/ max\(v\.a, 1e-3\), 0\.0, 1\.0\) : 0\.0;/);

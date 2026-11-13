@@ -16,6 +16,8 @@ import { createTraceGL, fitPen } from './trace-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { measure } from './glyph-measure.js';
 import { glWords } from './gl-words.js';
+import { textSoon, dataSoon } from './class-soon.js';
+import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/pressure-cuts.js';
 const nextFrame = frameFor('charts');
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -174,11 +176,30 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the resistance is highest. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. The steepest drop marks the site of highest resistance. The spans along the bottom show the HVPG (WHVP − FHVP) and the PPG (portal vein − IVC pressure).');
   // (The note under the profile changes with the drawing: drawn on the GPU while it changes, gl-words.js, never written in a frame.)
   const offscale = h('div', { class: 'ctl-sub', id: 'profileOffscale' }), offscaleW = glWords(offscale);
   const side = h('div', { class: 'chart-side' }, legend, note, offscale);
-  el.append(box, side);
+  // The three readings under the chart, as figures (13 Nov 2026): HVPG, PPG and the portal pressure, each with its word only when it is not normal.
+  // (Written between frames, and only when the text or the rating changed.)
+  // (The words are pressure-cuts.js's short ones; a normal reading's is left out here.)
+  const READ = [['hvpg', 'HVPG', hvpgSev, HVPG_WORDS, 'trueHVPG'], ['ppg', 'PPG', ppgSev, PPG_WORDS, 'pv'], ['pv', 'Portal vein', null, null, 'pv']]
+    .map(([id, name, sev, words, hideKey]) => {
+      const val = h('span', { class: 'num' }, NOT_SHOWN), st = h('span', { class: 'note' });
+      return { id, sev, words, hideKey, val, st, txt: NOT_SHOWN, stTxt: '', rate: '', el: h('div', { 'data-id': id }, h('span', { class: 'lab' }, name), h('span', { class: 'v' }, val, h('small', {}, 'mmHg')), st) };
+    });
+  const strip = h('div', { class: 'pp-strip strip', 'aria-label': 'HVPG, PPG and portal vein pressure' }, READ.map((x) => x.el));
+  function readStrip(f) {
+    const m = f?.metrics, hid = hiddenNow();
+    for (let i = 0; i < READ.length; i++) {
+      const x = READ[i], v = m?.[x.id], on = Number.isFinite(v) && !hid?.has(x.hideKey);
+      const t = on ? v.toFixed(1) : NOT_SHOWN, rate = on && x.sev ? x.sev(v) : '', w = rate && rate !== 'ok' ? x.words[rate][0] : '';
+      if (t !== x.txt) { x.txt = t; textSoon(x.val, t); }
+      if (w !== x.stTxt) { x.stTxt = w; textSoon(x.st, w); }
+      if (rate !== x.rate) { x.rate = rate; dataSoon(x.el, 'sev', rate || null); }
+    }
+  }
+  el.append(box, side, strip);
   let pathId = 'main';
   const curPath = () => { for (let i = 0; i < PROFILE_PATHS.length; i++) if (PROFILE_PATHS[i].id === pathId) return PROFILE_PATHS[i]; return PROFILE_PATHS[0]; };
   const nm = (n) => curPath().names?.[n] || SHORT[n] || n;
@@ -785,7 +806,7 @@ export function createProfile() {
 
   return {
     id: 'profile', label: 'Pressure profile', el,
-    update(f) { Fraw = f; ease(); },
+    update(f) { Fraw = f; ease(); readStrip(f); },
     redraw: draw,
     setPath(id) { pathId = id; draw(); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },

@@ -36,7 +36,7 @@ test('the glass fades in place on the words’ own curve on a turn', () => {
 
 test('the words follow the finger only on a swipe that changes the slide (never a procedure step, beat, time-lapse or case lift)', () => {
   const i = src.indexOf('const turnsSlide = (dx) =>'), t = src.slice(i, src.indexOf(';', i));
-  for (const k of ['!caseLift', '!lapseOn', '!procRun', '!procWait', '!slides[want]?.procedure', 'beat >= lastBeat(want)', 'beat === 0']) assert.ok(t.includes(k), k);
+  for (const k of ['!caseLift', '!lapseOn', '!procHeld()', '!procWait', '!slides[want]?.procedure', 'beat >= lastBeat(want)', 'beat === 0']) assert.ok(t.includes(k), k);
   assert.match(src, /const pullCan = \(dx\) => turnsSlide\(dx\) && !!ui && !changing\(\)/);
   assert.match(src, /!pullCan\(dx\)\) return;/);
 });

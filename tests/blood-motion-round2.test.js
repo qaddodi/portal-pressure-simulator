@@ -28,7 +28,7 @@ test('B9: while the anatomy still shows during the lobule dive, its blood keeps 
 });
 
 test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer streaks; vessels stay flat, organs keep their art', () => {
-  const gl = read('src/ui/veins-gl.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js') + read('src/ui/veins-mesh-glsl.js');   // (the vessel shader's shading: veins-mesh-glsl.js)
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
@@ -48,12 +48,12 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
 });
 
 test('A4: hover and selection glows are slim bands', () => {
-  assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}/);
+  assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: D_SMALL \}/);
   assert.match(stage, /\{ id, col: null, amt: 1\.5, wide: 0\.6, dur: SEL_FADE \* 1000 \}/);
 });
 
 test('B4: the streaks, chevrons and origin colours fade when switched, and a vessel drawing on carries its blood with it', () => {
-  const gl = read('src/ui/veins-gl.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js');
   assert.match(gl, /uniform vec3 blendA;/);
   assert.match(gl, /col = mix\(col, oc, vis \* blendA\.z\);/);
   assert.match(gl, /clamp\(a \* vis \* flowA \* blendA\.x, 0\.0, 1\.0\)/);
@@ -61,7 +61,7 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   assert.match(gl, /UC\.f3\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
   const blood = fn(stage, '  function stepBlood(dt) {');
   // Eased from their switches (the catheter hides the chevrons), kept awake while on the way (bloodEasing); Reduce Motion fades too.
-  assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
+  assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st && live\.morph === live\.morphTarget \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
   assert.match(blood, /blendA\.c = blendA\.c == null \? tC : eased\(blendA\.c, tC, kF\);/);
   assert.match(blood, /const on = blendA\.s > 0 \|\| blendA\.c > 0 \|\| blendA\.o > 0;/);
   // Reveals and strands: blood strength follows the stroke and the strand's share; nothing waits for 0.5 or the reveal's end.

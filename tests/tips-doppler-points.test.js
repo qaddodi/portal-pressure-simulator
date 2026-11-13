@@ -10,7 +10,7 @@ import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
 import { rolePx, roleOf } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = stageSource(), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js'), css = read('styles/app.css');
+const stage = stageSource(), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js'), css = read('styles/app.css');
 
 test('the stent slides, and only they, call out all three points', () => {
   const on = TIPS_DOPPLER.slides.filter((s) => s.tool?.points).map((s) => s.id);

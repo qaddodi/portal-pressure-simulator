@@ -57,8 +57,8 @@ test('the scope takes its options from the slide, eases them in and keeps the gr
   assert.match(instruments, /set\(diam, shownNum\(cDiam, rest \* airRatio\(mv\?\.air \?\? vx\.air, opt\.air\), 1, ' mm'\)\)/);
   // The pressures: in the varix, in the lumen, and across the wall, the difference of the two as printed.
   assert.match(instruments, /set\(pIn, shownNum\(cIn, inV, 1, ' mmHg'\)\); set\(pLum, shownNum\(cLum, opt\.air, 1, ' mmHg'\)\); set\(pAcross, shownNum\(cAcross, inV - opt\.air, 1, ' mmHg'\)\)/);
-  const names = [...instruments.matchAll(/h\('dt', \{\}, '(In the varix|Lumen|Across the wall)'\)/g)].map((m) => m[1]);
-  assert.deepEqual(names, ['In the varix', 'Lumen', 'Across the wall']);
+  const names = [...instruments.matchAll(/h\('dt', \{\}, '(Intravariceal|Intraluminal|Transmural)'\)/g)].map((m) => m[1]);
+  assert.deepEqual(names, ['Intravariceal', 'Intraluminal', 'Transmural']);
   // Without the option the Tests card's scope is what it was: the rows are not in its list.
   assert.match(instruments, /if \(readings\) \{ if \(pRows\[0\]\.parentNode !== stats\) stats\.lastElementChild\.before\(\.\.\.pRows\); \} else for \(const r of pRows\) r\.remove\(\);/);
   assert.match(css, /\.pz-tool\[data-kind="scope"\] \.pz-inst\[data-readings\] \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/, 'the presenter\'s card lays the pressures out in three columns');

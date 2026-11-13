@@ -48,7 +48,10 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
   assert.match(stage, /opacity: parseFloat\((?:getComputedStyle|csNow)\((?:live\.)?(?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: (?:live\.)?bowelDy\(\) \}\]/);
-  assert.match(stage, /if \((?:live\.)?(?:live\.)?(?:live\.)?liveSet\) (?:live\.)?(?:live\.)?(?:live\.)?veins\.organs\.shift\('bowel', (?:live\.)?(?:live\.)?bowelDy\(\)\);/);
+  // (Handed to the stack when the float moved, or when a setLive made new cuts: handed on every draw it marked the textures new, so no rest frame
+  // was the blood's alone; 13 Nov 2026, tests/heat-rest-picture.test.js.)
+  assert.match(stage, /if \(live\.liveSet\) \{ const dy = live\.bowelDy\(\); if \(dy !== live\.bowelAt\) \{ live\.bowelAt = dy; live\.veins\.organs\.shift\('bowel', dy\); \} \}/);
+  assert.equal((stage.match(/organs\.setLive(?:All)?\([^)]*\); live\.liveSet = (?:true|false); live\.bowelAt = NaN;/g) || []).length, 4, 'every setLive hands the float again');
   // The picture: the bowel alone, painted where the bowel is (at), its float held in the pictures' state while the fluid eases and
   // taken once it settles.
   assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? (?:live\.)?bowelDy\(\) : 0, key \} : null\);/);
@@ -136,7 +139,8 @@ test('the live organs are read once per state; the painter reads the eased value
 test('the live organs are described again only after a write to what the painter reads', () => {
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const stage = stageSource();
-  assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length && netChanged\(rs\)\) pageVer\+\+; \};/);
+  assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length\) changedNow\(rs\); \};/);
+  assert.match(gl, /const changedNow = \(rs\) => \{ if \(!netChanged\(rs\)\) return; pageVer\+\+;/, 'a net change, and only one, moves pageVer');
   const els = gl.slice(gl.indexOf('const elsOf = '), gl.indexOf('function watchLive()'));
   for (const k of ['out.add(spec.root)', 'out.add(op.el)', 'out.add(op.geom?.el)', 'for (const e of op.chain || []) out.add(e)', 'out.add(op.clip.geom?.el)', 'for (const e of op.clip.chain || []) out.add(e)', 'elsOf(spec.mask, out)']) assert.ok(els.includes(k), k);
   assert.match(gl, /for \(const list of liveOrgans\.values\(\)\) for \(const o of list\) \{ elsOf\(o\.spec, els\); els\.add\(o\.el\); \}/);
@@ -254,26 +258,19 @@ test('a camera-only frame moves the last exact picture on the GPU instead of pai
   assert.ok(Math.abs(p[0] * ((400 - m[4]) / 2) + p[4] - 400) < 1e-9 && Math.abs(p[3] * ((300 - m[5]) / 2) + p[5] - 300) < 1e-9);
 });
 
-// Next-view pre-render (view switch): a camera move that lands back on the view it set off from, its content unchanged, puts back the
-// exact picture copied as the move began (mvS) instead of painting the organs from shapes again. Anatomy -> Circuit -> Anatomy at its
-// home framing then lands with no organ repaint (perf-labels-zoom-review.md P4).
+// A camera move that lands back on the view it set off from is painted exactly, like any landing (13 Nov 2026): putting back the copy taken as
+// the move began left pieces of the bowel and the stomach in the wrong places after Anatomy -> Circuit -> Anatomy on Mohammad's iPhone.
 const ogl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
 const lobRender = ogl.slice(ogl.indexOf('    render(m, cw, ch) {'), ogl.indexOf('// (Only the camera moved: the last pictures moved on the GPU'));
-const lands = ogl.match(/const landsOnBase = \(m, ck, cw, ch\) => \{[\s\S]*?\n {2}\};\n/)[0];
 
-test('a move landing on its base view puts the base copy back, on the GPU, before any paint', () => {
-  assert.match(lobRender, /if \(\(settle \|\| !unchanged\) && landsOnBase\(m, ck, cw, ch\)\) \{/);
-  assert.match(lobRender, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, mvS\.fb\); gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, fbo\);/);
-  assert.match(lobRender, /gl\.blitFramebuffer\(0, 0, cw, ch, 0, 0, cw, ch, gl\.COLOR_BUFFER_BIT, gl\.NEAREST\);/, 'a 1:1 copy: the exact pixels');
-  assert.match(lobRender, /setExact\(m, ck\); moveStats\.restored\+\+;\n\s+return true;/);
-  assert.doesNotMatch(lobRender, /paintStack|paintGroup/, 'nothing painted from shapes on the way');
+test('a move landing on its base view is painted again, never the base copy put back', () => {
+  assert.doesNotMatch(ogl, /landsOnBase/);
+  assert.doesNotMatch(lobRender, /blitFramebuffer/, 'no copy laid in place of the stack at a landing');
 });
 
-test('only for the same content and size, the same view to a hundredth of a pixel, and no view picture fading in', () => {
-  assert.match(lands, /base\.ck !== ck/);
-  assert.match(lands, /w !== cw \|\| h !== ch \|\| mvS\.w !== cw \|\| mvS\.h !== ch/);
-  assert.match(lands, /Math\.abs\(b\[4\] - m\[4\]\) > 0\.01 \|\| Math\.abs\(b\[5\] - m\[5\]\) > 0\.01/);
-  assert.match(lands, /for \(const L of live\[1\]\.values\(\)\) if \(L\.from != null\) return false;/);
+test('a moved frame gives up the groups\' kept pictures (made under the view it left)', () => {
+  const mf = ogl.slice(ogl.indexOf('  function moveFrame(m, ck, cw, ch) {'), ogl.indexOf('  // alloc-rare: built once when the stack is made', ogl.indexOf('  function moveFrame(m, ck, cw, ch) {')));
+  assert.match(mf, /moveStats\.moved\+\+;\n\s+freeCache\(\);/);
 });
 
 test('next-view pre-render: the circuit\'s idle paints the margin the change back would paint in its tap frame', () => {

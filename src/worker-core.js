@@ -2,6 +2,7 @@
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
 import { Engine } from './engine/engine.js';
+import { easeMove } from './ui/ease.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
@@ -40,7 +41,7 @@ function mix(a, b, k) {
   return k < 0.5 ? a : b;
 }
 const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
-const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
 // explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;
@@ -72,6 +73,27 @@ function* stepExtras(e, st) {
     }
   }
   return out;
+}
+
+// A preset a chain loads again and again (a deck loads the same patient on many slides): the snapshot its load left, kept per
+// (preset, days, seed) and restored. The healthy reference a load measures against (refP, refQ, Qpref, Vbase: reset() settles it
+// again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
+// over are cleared as a load clears them.
+const KEPT_MAX = 24;
+const REFS = ['refP', 'refQ', 'Vbase'];
+function* loadPresetKept(e, kept, id, opts) {
+  const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
+  if (k) {
+    e.restore(k.snap);
+    for (const r of REFS) e[r] = Float64Array.from(k[r]);
+    e.Qpref = k.Qpref;
+    e.eventLog = []; e.newEvents = []; e.eventCount = 0;
+    return e.params;
+  }
+  const params = yield* e.loadPresetSteps(id, opts);
+  if (kept.size >= KEPT_MAX) kept.delete(kept.keys().next().value);
+  kept.set(key, { snap: e.snapshot(), Qpref: e.Qpref, ...Object.fromEntries(REFS.map((r) => [r, Float64Array.from(e[r])])) });
+  return params;
 }
 
 // The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
@@ -136,10 +158,16 @@ export function createCore(post) {
   // between the live ticks and never stops the clock. Only a steady state is lent a past: not while the model is easing, on a time-lapse
   // or on the disease clock, and a change of state cancels it.
   let hist = null, histEng = null, histTimer = 0;
+  // (Perf C3: the last history made, kept for the same request on the same state. stateVer counts everything that can move the model: a message
+  // that is not a query, and every tick of a running clock or a morph. The kept history is used only at the version it was begun at, and
+  // for the same generation, clock, beat count, window, vessel and params; so it is exactly what a new run would make.)
+  let histCache = null, stateVer = 0;
+  const copySamples = (s) => Object.fromEntries(Object.entries(s).map(([k, a]) => [k, a.slice()]));   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for a history made or reused
   function endHistory(done) {
     clearTimeout(histTimer); histTimer = 0;
     if (!hist) return;
     const { reqId } = hist, h = hist; hist = null;
+    if (done && h.ver === stateVer) histCache = { ver: h.ver, key: h.key, s: copySamples(h.s), probe: h.probe, T: h.T };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
     post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
   }
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
@@ -182,7 +210,13 @@ export function createCore(post) {
     endHistory(false);   // (one still running is answered empty: the newer request is the instrument's)
     if (crashed || clock !== 'hemo' || lapse || morph || !(eng.t >= 0)) { post({ type: 'history', reqId, samples: null }); return; }
     const W = Math.min(HIST_MAX_S, Math.max(2, +secs || 10)), D = 4 * Math.ceil((W + HIST_RUNIN_S) / 4);
-    const fresh = postedT <= eng.t, T = fresh ? postedT : eng.t, cycT = fresh ? postedCyc : eng.cyc || 0, c = (histEng ||= new Engine());
+    const fresh = postedT <= eng.t, T = fresh ? postedT : eng.t, cycT = fresh ? postedCyc : eng.cyc || 0;
+    const key = [gen, eng.t, T, cycT, eng.cyc || 0, W, probe, JSON.stringify(eng.params)].join('|');   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for each history request
+    if (histCache && histCache.ver === stateVer && histCache.key === key) {
+      post({ type: 'history', reqId, samples: copySamples(histCache.s), probe: histCache.probe, t: histCache.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for a history reused
+      return;
+    }
+    const c = (histEng ||= new Engine());
     c.restore(eng.snapshot());
     // (What restore() starts over and the copy must have as the live model has it: relaxHidden.)
     Object.assign(c, { COf: eng.COf, pvQm: eng.pvQm, pvVm: eng.pvVm, vitM: eng.vitM && [...eng.vitM], vitM1: eng.vitM1 && [...eng.vitM1] });
@@ -191,7 +225,7 @@ export function createCore(post) {
     c.bleed = { ...c.bleed, active: false }; c.infusions = []; c.valsalva = { until: -1, start: -1 };
     c.t = T % 4;
     c.cyc = cycT - D * (eng.hr || 70) / 60;
-    hist = { reqId, c, secs: W, T, cycT, i: 0, n: Math.round(D / HIST_DT), probe, s: newSamples() };
+    hist = { reqId, c, ver: stateVer, key, secs: W, T, cycT, i: 0, n: Math.round(D / HIST_DT), probe, s: newSamples() };
     histTimer = setTimeout(histSlice, 0);
   }
 
@@ -203,12 +237,13 @@ export function createCore(post) {
     return clock === 'disease' && lapse && !lapse.bedside ? Math.max(0, lapse.left - diseaseAcc) / Math.max(speed, 1e-6) : undefined;
   }
   function frame() {
+    wstat.frames++; if (paramsDirty) wstat.params++;
     const m = detectEvents(eng);
     const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
     const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
-      changed: frameDirty, gen,
+      changed: frameDirty || held, gen,
       jump: jumpDirty || clock !== postedClock,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       parkSecs: parkSecs(),
@@ -235,7 +270,7 @@ export function createCore(post) {
       params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
-    frameDirty = false;
+    frameDirty = false; held = false;
     jumpDirty = false; postedClock = clock;
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
@@ -270,6 +305,8 @@ export function createCore(post) {
 
   let stepAcc = 0;   // W1: model seconds owed to the bedside clock, less than one step
   let lastFrame = 0, ackOn = false, unpainted = false, owed = false;
+  // (Perf C5: a slider's change that waits for the page's paint: the frame it owes is built by painted(), once, however many inputs came meanwhile.)
+  let held = false;
   const ACK_MAX_MS = 400;
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
   // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
@@ -291,11 +328,20 @@ export function createCore(post) {
     for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
     return false;
   }
+  // (The ?perf frame panel's physics row (frame-hud.js, 8 Nov 2026): what the clock really did since it last asked, 'perfStats'. A few
+  // increments a tick and one more clock read; nothing is made.)
+  const wstat = { ticks: 0, steps: 0, busy: 0, maxBusy: 0, maxGap: 0, late: 0, dropped: 0, frames: 0, params: 0, held: 0, samples: 0, days: 0, jobs: {}, jobMs: 0, since: performance.now() };
   function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
+    if (last != null) { const g = now - last; if (g > wstat.maxGap) wstat.maxGap = g; if (g > 50) wstat.late++; if (g > 100) wstat.dropped += g - 100; }
+    wstat.ticks++;
     last = now;
+    try { tickBody(now, realDt); } finally { const b = performance.now() - now; wstat.busy += b; if (b > wstat.maxBusy) wstat.maxBusy = b; }
+  }
+  function tickBody(now, realDt) {
     eng.beat = beat;
+    if (morph || running) stateVer++;
     if (morph) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
       // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
@@ -309,7 +355,9 @@ export function createCore(post) {
       // store.on('params') listener, 10 to 30 times a second for 1.2 to 2 s). It goes at the start, about 4 times a second, and at the landing.
       if (k >= 1 || now - morphParamsAt >= MORPH_PARAMS_MS) { paramsDirty = true; morphParamsAt = now; }
       if (k >= 1) morph = null;
-      frameDirty = true;
+      // (Perf C4: the blend is a function of time, so a frame the page has not painted the last one of yet is not built: the next one carries the
+      // state it has by then. The landing, a page that does not acknowledge, and a page silent past ACK_MAX_MS still post.)
+      if (k >= 1 || !(ackOn && unpainted && now - lastFrame <= ACK_MAX_MS)) frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
         if (lapse?.bedside) bedsideStep(now);
@@ -323,9 +371,10 @@ export function createCore(post) {
         let n = Math.min(Math.floor(stepAcc / h + 1e-9), cap);
         stepAcc = n >= cap ? 0 : Math.max(0, stepAcc - n * h);
         const every = Math.max(1, Math.floor(n / 24));
+        wstat.steps += n;
         for (let i = 0; i < n; i++) {
           eng.step(h);
-          if (i % every === 0) sample();
+          if (i % every === 0) { sample(); wstat.samples++; }
         }
       } else {
         diseaseAcc += realDt * speed; // speed = sim days per real second
@@ -340,7 +389,7 @@ export function createCore(post) {
             sample();
           }
         } else if (days > 0) {
-          diseaseAcc -= days;
+          diseaseAcc -= days; wstat.days += days;
           if (lapse) lapseDays(days);
           else {
             const r = eng.advanceDays(days);
@@ -352,9 +401,11 @@ export function createCore(post) {
       }
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
+    if (held && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS)) { held = false; frameDirty = true; }
     const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
-    owed = running && !due && ackOn && unpainted && now - lastFrame > 95;
+    owed = held || (running && !due && ackOn && unpainted && now - lastFrame > 95);
+    if (owed) wstat.held++;
     if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       keepStill();
@@ -409,11 +460,13 @@ export function createCore(post) {
       case 'band': e.band(); break;
       case 'paracentesis': e.paracentesis(a.mL, a.albumin); break;
       case 'valsalva': e.startValsalva(a.sec || 10); break;
+      case 'strain': e.holdStrain(!!a.on); break;
       case 'rupture': e.rupture(a.site || 'VAR', a.tear || 0.6); break;
       case 'stopBleed': e.stopBleed('clot'); break;
     }
   }
 
+  const keptPresets = new Map();   // (loadPresetKept: the states 'sequence' and 'presetMetrics' got from loading a preset)
   const handlers = {
     init({ params }) {
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
@@ -522,7 +575,7 @@ export function createCore(post) {
     presetMetrics({ ids, reqId }) {
       const result = {};
       for (const id of ids || []) {
-        const e = new Engine(), g = e.loadPresetSteps(id, {});
+        const e = new Engine(), g = loadPresetKept(e, keptPresets, id, {});
         for (let n = g.next(); !n.done; n = g.next());
         e.settle();
         result[id] = fingerprint(computeMetrics(e), e);
@@ -542,9 +595,16 @@ export function createCore(post) {
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
         if (st.restart && i) { e = new Engine(); if (base) e.restore(base); }
-        if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
+        // (A preset starts the patient over, so it starts on a fresh engine: a load on an engine that has run other patients left a hair of their solver
+        // state in the numbers, enough to change a rounded reading between a chain and the same slides alone, 8 Nov: the ascites chart's dot and the slide.)
+        if (st.preset && i) e = new Engine();
+        if (st.preset) yield* loadPresetKept(e, keptPresets, st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
+        // relax: days the patient lives at the state just set, before any ramp, so the slow organs (the spleen, and so the platelets) have settled to it.
+        // A preset's years of disease settle it at the preset's own cirrhosis; params set after that (a worse or better scar) leave the spleen and the
+        // platelets at the old one, and the first months of a ramp then ran them to the new one, a dip that is no part of the story.
+        if (st.relax > 0) yield* e.advanceDaySteps(st.relax, { noRupture: true, silent: true });
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
         // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
         // keys st.trail names, or (true) the portal pressure and flow.
@@ -575,13 +635,23 @@ export function createCore(post) {
       }
       post({ type: 'sequence', reqId });
     },
-    presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
+    // The frame panel's physics row (frame-hud.js, ?perf only): the clock's counts since the last ask, and what it is doing now.
+    perfStats({ reqId }) {
+      const now = performance.now(), w = wstat;
+      post({ type: 'perfStats', reqId, secs: (now - w.since) / 1000, ticks: w.ticks, steps: w.steps, busy: w.busy, maxBusy: w.maxBusy, maxGap: w.maxGap, late: w.late, dropped: w.dropped,   // alloc-rare: runs in the simulation worker, once a second while the ?perf panel shows
+        frames: w.frames, params: w.params, held: w.held, samples: w.samples, days: w.days, jobs: w.jobs, jobMs: w.jobMs,
+        running, visible, ticking: !!timer, clock, speed, crashed, morph: !!morph, lapse: lapse ? (lapse.bedside ? 'bedside' : 'days') : '', relaxing: now < relaxUntil, easing: !!eng.easing?.(), ackOn, unpainted, edges: eng.E });
+      w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
+    },
+    presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, note, days }) => ({ id, label, group, summary, note, days })) }); },
   };
 
   // Serialize commands while a long job yields. Timer ticks must not advance
   // partially constructed scenarios or interleave with a disease-clock jump.
   const queue = [];
   let busy = false;
+  // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
+  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -589,6 +659,8 @@ export function createCore(post) {
       const { msg, resolve } = queue.shift();
       try {
         const handler = handlers[msg.type];
+        if (!NO_STATE.includes(msg.type)) stateVer++;
+        const jt0 = msg.type === 'perfStats' ? 0 : performance.now();
         const job = handler?.(msg);
         if (job?.next) {
           stop();
@@ -600,12 +672,17 @@ export function createCore(post) {
             }
           }
         }
+        if (jt0) { const ms = performance.now() - jt0; if (ms >= 2) { wstat.jobMs += ms; wstat.jobs[msg.type] = (wstat.jobs[msg.type] || 0) + ms; } }   // (a message's own time, for the ?perf physics row: a long one holds the clock)
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint'].includes(msg.type)) {
-          frameDirty = true;
-          if (visible) { lastFrame = performance.now(); frame(); }
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats'].includes(msg.type)) {
+          // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
+          if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
+          else {
+            frameDirty = true;
+            if (visible) { lastFrame = performance.now(); frame(); }
+          }
         }
       }
       catch (err) { post({ type: 'error', reqId: msg.reqId, message: String(err && err.stack || err) }); }   // reqId: the waiting request settles

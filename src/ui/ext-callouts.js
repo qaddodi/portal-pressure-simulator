@@ -3,7 +3,7 @@
 // of its fields is unchanged:
 //   mark: { edges: ['C1a'], label: 'Varix {varix}' }   a mark's words carry live readings, in their rating colour, as the model moves (V8)
 //   mark: { organ: 'spleen', label: 'Spleen {spleen}' } a mark on an organ (liver, spleen, heart, stomach, esophagus, bowel, colon,
-//                                                       duodenum, kidney, or the ascites) (V8)
+//                                                       duodenum, kidney, the ascites or the caudate lobe) (V8)
 //   calipers: ['spleen'], ['varix'], ['TIPS']          a dimension line across the spleen, a varix or a vessel, with its reading (V9)
 //   steps: true (beside glowSeq)                       each step of the glow's order keeps its number (V10)
 //   glow: [['V_INT', 'V_SPL', 'V_IMV'], 'PV_TRUNK']    with steps: a list in the glow is one step, its number on a leader to each
@@ -11,6 +11,8 @@
 //   zone: 'liver'                                      on the circuit view, one of its five zone bands lit softly (V25)
 import { EDGES } from '../engine/topology.js';
 import { SETS } from './highlight-math.js';
+import { REGIONS } from './decks.js';
+import { heartReadingOn } from './heart-reading.js';
 import { parseLive, liveRuns, widestRuns, runsText, ORGAN_MARKS, ORGAN_ANCHOR, caliperOf, caliperText, stepPlan, zoneIndex, spanOf } from './callout-math.js';
 
 const EI = new Map(EDGES.map((e, i) => [e.id, i]));
@@ -33,7 +35,9 @@ function plan(s) {
   // (The glow as the presenter lights it: each '@set' stands for its vessels, each lit one step after the one before.)
   const steps = s.steps && s.glowSeq > 0 ? stepPlan(list(s.glow).flatMap((g) => (Array.isArray(g) ? [expand(g.map((x) => (typeof x === 'string' ? x : x?.id)))] : expand([typeof g === 'string' ? g : g?.id]))), s.glowSeq, (id) => EI.has(id), (id) => !!ORGAN_ANCHOR[id]) : null;
   const zone = s.zone != null ? zoneIndex(s.zone) : -1;
-  return live.length || organs.length || spans.length || calipers.length || steps?.length || zone >= 0 ? { live, organs, spans, calipers, steps: steps?.length ? steps : null, zone } : null;
+  // (The heart's rate and output on the heart's own label, on a slide that shows the heart: heart-reading.js, drawn by heart-label.js.)
+  const heart = heartReadingOn(s, REGIONS);
+  return live.length || organs.length || spans.length || calipers.length || steps?.length || zone >= 0 || heart ? { live, organs, spans, calipers, steps: steps?.length ? steps : null, zone, heart } : null;
 }
 // The figure's callouts for fp: each piece's words as runs, and the same words at their widest (the room the pill keeps).
 const words = (runs, fp, tips) => { const r = liveRuns(runs, fp, tips); return { runs: r, wide: widestRuns(r), label: runsText(r) }; };
@@ -46,6 +50,7 @@ function spec(p, fp, params) {
     steps: p.steps,
     spans: p.spans.map((sp) => ({ from: sp.from, to: sp.to, ...words(sp.runs, fp, tips) })),
     zone: p.zone,
+    heart: p.heart,
   };
 }
 

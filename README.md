@@ -10,7 +10,7 @@ scripted: every number and every pixel comes from one lumped-parameter hemodynam
 > **Educational simulation.** The model is simplified and its values are illustrative. Don't use
 > it for diagnosis or treatment decisions.
 
-Updated October 2026, model content dated October 2026. See [CHANGELOG.md](CHANGELOG.md).
+Updated November 2026, model content dated October 2026. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Run it
 
@@ -39,28 +39,29 @@ port 8081.
 ## Test it
 
 ```bash
-npm ci               # dev tools only: esbuild, ESLint, Playwright (lint needs them)
-npm test             # unit and physiological acceptance tests, plus the no-committed-stamps check (Node ≥ 20)
-npm run lint         # ESLint
-npm run smoke        # the app in a real browser (desktop and phone): loads, runs, every surface opens
-npm run smoke:quick  # a fast browser check (DECKS=<id> limits it to one deck)
-npm run visual       # compare the look against the tests/visual/ references (--update redraws them)
-npm run perf         # frame rate and main-thread stalls on a desktop, a laptop and a phone profile
-npm run check        # lint, unit tests, the build, and the smoke test on the root site and on the build
+npm ci                 # dev tools only: esbuild, ESLint, Playwright (lint needs them)
+npm run lint           # ESLint, the off-GPU scan, the rules lint, the theme CSS check
+npm test               # unit and physiological acceptance tests (Node ≥ 20)
+npm run check:static   # conflict markers; the app and the worker bundle
+npm run check          # lint, tests, the build and the static checks, in that order
+npm run smoke:lite -- dist   # the one browser check, on the production build (boot, three views, slide 1 of every deck)
 ```
 
-The browser checks need a Chromium for Playwright (`npx playwright install chromium`).
+Those first four are the fast checks (node only, seconds to a minute); Quick runs them on every push to the preview branch. The
+browser checks need a Chromium for Playwright (`npx playwright install chromium`). The older browser scripts (`npm run smoke`,
+`visual`, `perf`, `gate` and the `smoke:*` family under `tests/e2e/` and `scripts/`) are local tools, not part of any workflow: software
+WebGL on a shared runner judges neither the look nor the speed of a real GPU. Screenshots of the real app go through `scripts/shoot.mjs`
+(see [AGENTS.md](AGENTS.md)). In the app, `?perf` lists every slow frame with its cost, and `?offgpu=1` shows work that is off the GPU.
 
-GitHub workflows run them:
+GitHub workflows:
 
 | Workflow | When | What |
 |----------|------|------|
-| `pages.yml` | pushes to `main` and the preview branch | publishes the live site at `/` and the preview at `/preview/` (with an orange PREVIEW badge); on `main` lint and unit tests gate it first |
-| `quick.yml` | pushes to the preview branch | lint and unit tests beside the deploy, as a warning |
-| `checks.yml` | on request: a tag in the commit message, or the Actions tab | `[checks]` the browser checks of the production build (visual comparison and iPhone WebKit included; a drift only warns), `[gate]` / `[gate-full]` the pre-push gate (`scripts/gate.mjs`), `[deck-sweep]` every deck at several screen sizes, `[glitch-sweep]` every deck and gesture walked for glitches |
-| `ci.yml` | pull requests and `main` | everything: lint, tests, a strict build, browser checks of the source and the build, gesture, idle and text-floor checks; a visual drift or a slow frame blocks the merge |
-| `browser.yml` | called by `checks.yml` and `ci.yml` | the browser, GPU-organ, WebKit and visual jobs, defined once |
-| `visual-refs.yml` | run by hand on a branch | redraws only the drifted visual references on CI's machines and commits them |
+| `pages.yml` | pushes to `main` and the preview branch | publishes the live site at `/` and the preview at `/preview/` (with an orange PREVIEW badge); the deploy does not wait for the checks |
+| `quick.yml` | pushes to the preview branch | lint, unit tests and the static checks beside the deploy, as a warning |
+| `ci.yml` | pull requests and `main` | lint, tests, the static checks, a strict build and the smoke on the build |
+| `checks.yml` | on request (Actions tab, dispatch only) | the smoke on the production build: `scripts/smoke-lite.mjs` |
+| `tag-release.yml` | pushes to `main` | tags the merge as `v<year>.<month>.<n>` so a bad merge has a rollback target |
 
 The preview workflow and the merge rules are in [AGENTS.md](AGENTS.md).
 
@@ -71,8 +72,8 @@ conservation, determinism, stability). They are listed in the app under *Menu �
 
 ## Using it
 
-The **menu** (top left, named after the current patient) has two tabs: *Present* (the$
-presentation decks, by topic, and your own scripts and imported decks) and *Patients* (17 patients
+The **menu** (top left, named after the current patient) has two tabs: *Present* (the
+presentation decks, by topic, and your own scripts and imported decks) and *Patients* (19 patients
 from healthy to constrictive pericarditis, grouped by where the resistance sits: prehepatic,
 presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
 
@@ -101,12 +102,15 @@ presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
   number and a causal **Why?** for each. Swipe or tap between them.
 - **Phones and upright tablets.** The view switch and the actions move to the bottom bar. Cards rise from
   behind it; pull down once to halve a card and again to close it.
-- **Settings.** Appearance (light, dark, soft or the device's), text size on the figure, *Blur effect* (frosted
-  glass; off gives solid cards and label pills, lighter on a hot device), *Advanced physiology*, and *Reset everything*.
+- **Settings.** Send feedback, Search and Help; *Appearance* (Light, Soft, Dark, Navy, Black or System); *Display* (*Blur effect*:
+  frosted glass, off gives solid cards and label pills and runs cooler; *Figure size* in megapixels, set per device; *Sharp while
+  moving*); *Advanced physiology*; frame-rate and frame-breakdown counters; and *Reset everything*.
 - **Search (Ctrl/⌘ K).** Everything, by name. **?** lists every keyboard shortcut.
 
-The figure always draws at full resolution and moves at the display's own rate (60, 120 Hz or
-more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+The figure moves at the display's own rate (60, 120 Hz or more) and everything in it is drawn by the GPU: the vessels with the
+Tube renderer (cel-shaded tubes with smoothed joints), the organs, the blood, the labels
+and the glass behind the cards. Its resolution is the Figure size setting (2 MP on a Mac or iPad, 1 MP on an iPhone by default); touch
+devices slow down at rest to stay cool. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) and [docs/tube-renderer.md](docs/tube-renderer.md).
 
 ### Teaching
 
@@ -139,10 +143,10 @@ more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 |------|----------|
 | `src/engine/` | The model, with no DOM: topology, physiology (tube law, compliance, Frank–Starling), implicit solver, reflexes, hepatic arterial buffer, collaterals, varices, ascites, bleeding, two clocks, metrics, events, "Why?" attribution, presets and drugs |
 | `src/worker-core.js`, `src/worker.js` | Simulation host (Web Worker, main-thread fallback): runs the model off the main thread, snapshots, pre-roll and counterfactual replays |
-| `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, lobule and sinusoid views), action card, timeline and history, Treat, Tests and its instruments (Doppler, FibroScan, HVPG, endoscopy, ascites), presenter, LMS bridge, accessibility |
-| `styles/` | Design tokens (light and dark) and layout |
+| `src/ui/` | Stage (the GPU figure: Tube vessels, organs, moving blood, labels and glass; anatomy⇄circuit morph, lobule and sinusoid views), action card, timeline and history, Treat, Tests and its instruments (Doppler, FibroScan, HVPG, endoscopy, ascites), presenter, LMS bridge, accessibility |
+| `styles/` | Design tokens (the five looks) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
-| `scripts/` | Stamp removal, the production build, SCORM packaging, the preview badge, performance measurements |
+| `scripts/` | The production build, the off-GPU scan and the lint rules, the shader compile check, screenshots (`shoot.mjs`), SCORM packaging, the preview badge, generated tables, local performance tools |
 | `tests/` | Unit and physiological acceptance tests; `tests/e2e/` browser checks; `tests/visual/` visual references |
 | `src/ui/decks/` | The presentation decks, one file each |
 | `docs/` | All documentation (see below) |
@@ -154,17 +158,27 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 
 | File | What it covers |
 |------|----------------|
-| [AGENTS.md](AGENTS.md) | Working rules for coding agents: preview branch, Pages deploys, the test loop |
+| [AGENTS.md](AGENTS.md) | Working rules for coding agents: preview branch, Pages deploys, the test loop, the off-GPU rule, screenshots, tester guides |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
 | [docs/deck-authoring-quick-guide.md](docs/deck-authoring-quick-guide.md) | The short guide to writing a deck: every feature in plain words, one example each |
-| [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) | How to write a presentation deck |
+| [docs/deck-authoring-guide.md](docs/deck-authoring-guide.md) | How to write a presentation deck (the full field reference and rules) |
+| [docs/deck-behavior-vision.md](docs/deck-behavior-vision.md) | How a talk should behave: slide changes, cards, the clock |
 | [docs/ai-humanizer.md](docs/ai-humanizer.md) | Style rules for slide wording |
 | [docs/design-humanizer.md](docs/design-humanizer.md) | Visual rules that keep the interface from looking machine-made |
-| [docs/DESIGN_BLUEPRINT.md](docs/DESIGN_BLUEPRINT.md) | The original design spec; its model sections (§7, §12) are what the code comments cite |
+| [docs/DESIGN_BLUEPRINT.md](docs/DESIGN_BLUEPRINT.md) | The original design spec, cut to what is still true (the model, §7, §10, §12); the code comments cite its section numbers |
+| [docs/tube-renderer.md](docs/tube-renderer.md) | The Tube vessel renderer as built (the only renderer) |
+| [docs/gpu-practices.md](docs/gpu-practices.md) | GPU rendering practices for every thread that touches the figure |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Rendering and simulation scheduling |
+| [docs/off-gpu-inventory.md](docs/off-gpu-inventory.md) | Generated list of everything still off the GPU (`npm run offgpu`) |
+| [docs/stage-map.md](docs/stage-map.md), [docs/test-classes.md](docs/test-classes.md) | Generated maps of `stage.js` and of the tests |
+| [docs/scheduling.md](docs/scheduling.md) | Who owns a timer |
+| [docs/cutouts.md](docs/cutouts.md) | The lobule and sinusoid windows beside the anatomy |
+| [docs/recommendations/](docs/recommendations/) | Dated recommendation lists and build plans, each with a status line at its top |
 | [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | WCAG 2.2 AA self-assessment |
 | [docs/PRIVACY.md](docs/PRIVACY.md) | What the app stores and sends (nothing off the device) |
+| [guides/](guides/) | The two beta tester start guides (PDF), served at `/guides/` |
+| [guidelines/](guidelines/) | The Baveno VIII and AASLD 2024 PDFs the decks cite |
 
 ## License
 

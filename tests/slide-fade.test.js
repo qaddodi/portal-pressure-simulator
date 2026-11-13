@@ -8,12 +8,12 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('const reFit = '));
 
 test('the cards start fading out, and are painted fading, before the figure changes', () => {
-  const out = run.indexOf('outMs = wordsOut(s)'), frames = run.indexOf('if (outMs) { await painted(); await painted(); }');
+  const out = run.indexOf('outMs = wordsOut(s)'), frames = run.indexOf('if (outMs || thrown) { await painted(); await painted(); }');
   assert.ok(out > 0 && frames > out);
   // (The marks, the lens and the slide's state all come after the fade is on screen.)
   for (const k of ['store.set({ focus: null', 'store.set({ colorMode: lens })', 'slideLayers(s)']) assert.ok(run.indexOf(k) > frames, k);
   // (It still runs its full length before the new words are built.)
-  assert.ok(run.indexOf('await wait(Math.max(0, outMs - (performance.now() - outAt)))') > frames);
+  assert.ok(run.indexOf('if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);') > frames);
   assert.match(src, /function wordsOut\(next\) \{[\s\S]*?return D_SMALL \+ 20;/);
 });
 

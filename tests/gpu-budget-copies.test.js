@@ -2,7 +2,6 @@
 // replaces it when the same level is made again, and forgets it on delete.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 class W2 {}
 globalThis.WebGL2RenderingContext = W2;

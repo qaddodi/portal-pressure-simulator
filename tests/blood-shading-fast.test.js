@@ -87,7 +87,7 @@ test('the composite tests the arrowheads\' cut-outs only where a head is', () =>
 });
 
 // ── Item 5: the zoom's numbers once per vertex, and the vessel's own values read once for the streaks and the arrowheads ──
-const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the vessel shader's shading and packing: veins-mesh-glsl.js)
 const zoomVS = glSrc.slice(glSrc.indexOf('const ZOOM_VS = `'), glSrc.indexOf('}`;', glSrc.indexOf('const ZOOM_VS = `')));
 
 test('the vertex shaders work out the zoom\'s numbers (once per vertex, none per pixel)', () => {
@@ -132,8 +132,9 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
   const { LUMEN2 } = await import('../src/ui/veins-gl.js');
   assert.equal(LUMEN2, 0x8000);
   // The vessel shader sets the bit exactly where it writes the second target (fl && gId2 > 0).
-  assert.match(glSrc, /outFlow = fl\n\s*\? uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
-  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u\n/);
+  assert.match(glSrc, /outFlow = fl \? packFlow\(gId, gId2, gS, gY, gW, gB\) : uvec4\(0u\);/);
+  assert.match(glSrc, /uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
+  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/);
   // Rows stay far below the bit (the anatomy's ~250, the lobule's 320).
   assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /const MAXT = 320;/);
   for (const k of Object.keys(R)) {
@@ -157,11 +158,12 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.match(comp, /for \(let i = 0; same && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) same = false;/);
   assert.match(comp, /const still = !full && !movedAll && !bl\.length && same;/);
   // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
+  // (The blood's clock is out of it again, performance A1.2: the rows that carry blood are marked moved when it moves, tests/perf-a1-switches.test.js.)
   const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
   for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
-    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'quads', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
+    'blood.streakLen', 'btNow !== btLast', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'quads', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
     'blood', 'chev', 'chevQuad', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',

@@ -17,6 +17,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The unit tests, in parallel shards (one job could not finish them in its time limit).
+  tests:
+    uses: ./.github/workflows/unit-tests.yml
+    with:
+      lint: false
+      static: false
+
   quick:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -27,16 +34,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Restore saved deck states
-        uses: actions/cache@v5
-        continue-on-error: true
-        timeout-minutes: 1
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
-        with:
-          path: node_modules/.cache/pps-deck-states
-          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
-          restore-keys: deck-states-
       - name: Lint
         env:
           BUILD_STRICT: '1'   # (the size budget fails here; on the preview it only warns)
@@ -44,8 +41,6 @@ jobs:
       - name: 'Types (advisory: the allow-list in jsconfig.json, PR-11)'
         run: npm run typecheck
         continue-on-error: true
-      - name: Physiology acceptance tests and cache stamps
-        run: npm test
       - name: Static checks (conflict markers; the app and the worker bundle)
         run: npm run check:static
       - name: Production build
@@ -62,7 +57,7 @@ jobs:
           retention-days: 1
 
   smoke:
-    needs: quick
+    needs: [quick, tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -74,3 +69,20 @@ jobs:
           path: dist
       - name: Smoke (boot, views, every deck opens)
         run: npm run smoke:lite -- dist
+
+  # Every slide's card fits (recs D4): no card scrolls, no line is cut, at the Mac and the iPhone width. GL draws are stubbed (layout and words only),
+  # so no graphics card is needed. Split over three jobs by deck (scripts/card-fit.mjs). Known cases: scripts/card-fit-allowance.json.
+  card-fit:
+    name: Cards fit ${{ matrix.shard }}/3
+    needs: quick
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Every card fits (share ${{ matrix.shard }} of 3)
+        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/3 --jobs 3

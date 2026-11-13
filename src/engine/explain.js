@@ -25,7 +25,7 @@ export const METRICS = {
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },
-  rpp: { label: 'Kidney pressure (MAP − abdomen)', unit: 'mmHg', get: (m) => m.rpp, digits: 0 },
+  rpp: { label: 'Renal perfusion pressure (MAP − IAP)', unit: 'mmHg', get: (m) => m.rpp, digits: 0 },
   co: { label: 'Cardiac output', unit: 'L/min', get: (m) => m.co, digits: 2 },
   spleen: { label: 'Spleen length', unit: 'cm', get: (m) => m.spleen.length, digits: 1 },
 };
@@ -47,7 +47,7 @@ function factors(eng, metricId) {
     }
   }
   for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the narrowed ${lc(edgeLabel(id))}`, (e) => { delete e.params.stenosis[id]; });
-  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
+  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the thrombus in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
   if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', p.splenicRx === 2 ? 'the splenectomy' : 'the partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation, set' : 'Splanchnic vasoconstriction, set', p.splanchnicTone < 1 ? 'the splanchnic vasodilation you set' : 'the splanchnic vasoconstriction you set', (e) => { e.params.splanchnicTone = 1; });
   if (p.meal > 0) add('Splanchnic vasodilation after a meal', 'the meal', (e) => { e.params.meal = 0; });
@@ -72,7 +72,7 @@ function factors(eng, metricId) {
   if (collOpen) add('Collaterals', 'the collaterals', (e) => {
     for (const x of EDGES) if (x.kind === 'collateral') e.slow.d[x.id] = dMinOf(x);
   }, 'slow');
-  if (s.ascites > 200) add(`Ascites ${(s.ascites / 1000).toFixed(1)} L`, 'the pressure of the ascites', (e) => { e.slow.ascites = 0; }, 'slow');
+  if (s.ascites > 200) add(`Ascites ${(s.ascites / 1000).toFixed(1)} L`, 'the intra-abdominal pressure from the ascites', (e) => { e.slow.ascites = 0; }, 'slow');
   const dv = eng.bloodVolume() - 5000 - (eng.blood.preg || 0);   // (the pregnancy's own volume goes with the pregnancy)
   // Hemoglobin is red cells over blood volume, so for it the red cells lost or given and the plasma that followed are one
   // change: reverted together, the bars add up to the whole difference instead of two large halves that cancel.
@@ -149,7 +149,7 @@ function buildSentence(def, cur, base, cs) {
   // (Where healthy is zero, "69%, 69 above healthy" says the same thing twice: the clause is left out.)
   if (Math.abs(diff) >= Math.pow(10, -d) && Math.abs(base) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
   const sig = cs.filter((c) => Math.abs(c.delta) >= Math.max(Math.pow(10, -d), Math.abs(diff) * 0.05));
-  if (!sig.length) return s + '. Nothing meaningful is pushing it away from normal.';
+  if (!sig.length) return s + '. No factor moves it meaningfully from normal.';
   const dir = Math.sign(diff || 1);
   const up = sig.filter((c) => Math.sign(c.delta) === dir).slice(0, 3);
   const off = sig.filter((c) => Math.sign(c.delta) !== dir).slice(0, 2);
@@ -183,7 +183,7 @@ export function formula(eng, id, m = null) {
   }
   if (id === 'ascites') {
     const f = eng.flows;
-    return `Ascites = filtration (liver ${f.hep.toFixed(1)} + gut ${f.spl.toFixed(1)} mL/min) − lymph capacity ${eng.slow.lymphCap.toFixed(1)} − reabsorption ${f.reabs.toFixed(2)} mL/min`;
+    return `Ascites = lymph formation (hepatic ${f.hep.toFixed(1)} + splanchnic ${f.spl.toFixed(1)} mL/min) − lymphatic capacity ${eng.slow.lymphCap.toFixed(1)} − peritoneal reabsorption ${f.reabs.toFixed(2)} mL/min`;
   }
   if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)} mmHg = ${eng.MAPf.toFixed(0)} mmHg`;
   if (id === 'shunt' || id === 'pvFlow' || id === 'liverPerf' || id === 'sinFlow' || id === 'portalIn') return 'Parallel paths: flow divides in inverse proportion to resistance (liver vs. collaterals/shunts).';

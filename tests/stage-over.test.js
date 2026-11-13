@@ -144,6 +144,16 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
     const r = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 L 5 5 L 10 0' }, { stroke: 'rgb(0, 0, 0)', fill: 'none', strokeLinejoin: 'round' })]));
     globalThis.getComputedStyle = r.cs;
     assert.equal(readGroup(r.root, { strict: true }).ops.length, 1, 'round joins: as the painter draws them');
+    // (A lone straight piece has no join: the TIPS stent's ring across its mesh, which kept the stents and every overlay above them in the SVG,
+    // drawn over the cards' glass. Mohammad, 11 Nov 2026: "Tips stent (or maybe others too) appears on top of cards and glass".)
+    const one = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M12.0 3.5 L14.2 9.8' }, { stroke: 'rgb(0, 0, 0)', fill: 'none', strokeLinecap: 'round' }), mk('path', { d: 'M0-5L0 5 M3 0 L4 4' }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
+    globalThis.getComputedStyle = one.cs;
+    assert.equal(readGroup(one.root, { strict: true })?.ops.length, 2, 'single straight pieces: no corner to mitre');
+    for (const d of ['M0 0 L1 1 Z', 'M0 0 L1 1 2 0', 'M0 0 H4 V4', 'M0 0 L1 1 C1 2 3 4 5 6']) {
+      const m = tree((mk) => mk('g', {}, {}, [mk('path', { d }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
+      globalThis.getComputedStyle = m.cs;
+      assert.equal(readGroup(m.root, { strict: true }), null, `${d}: a corner, stays in the SVG`);
+    }
     const c = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 C 1 1 2 2 3 3' }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
     globalThis.getComputedStyle = c.cs;
     assert.equal(readGroup(c.root, { strict: true }).ops.length, 1, 'a curve with no corner: its joins never show');
@@ -188,7 +198,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;[\s\S]*?for \(let i = 0; i < 6; i\+\+\) OV_M\[i\] = om\[i\];/);
   assert.match(vg, /stack\.painter\.cssPx = overCss \* PW\(\) \/ canvas\.width;\n\s+if \(over\.stale\(m, PW\(\), PH\(\)\)\) over\.render/);
   // (Below Full the canvas is moved by the vessels' sub-pixel rest: the overlays go at whole pixels with the vessels, in the check and the paint.)
-  assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
+  assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = !!(?:live\.)?(?:live\.)?picNow \|\| (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
   assert.equal((vg.match(/overSnap \? whole\(overM, WO\) : overM/g) || []).length, 1, 'one view for the check and the paint');
   assert.equal((vg.match(/overView\(\)/g) || []).length, 3);
   assert.match(vg, /set snap\(v\) \{ overSnap = !!v; \}/);
@@ -209,6 +219,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (Each painted group's frame as it is at each paint, under the overlays' own group where it is one of its children.)
   assert.match(st, /groups\.set\(n, \[\{ spec, get m\(\) \{ const own = elMat\(u\); return up \? mulTo\(sc, elMat\(up\), own\) : own; \} \}\]\);/);
   assert.match(st, /for \(const u of overPainted\) if \(!now2\.has\(u\)\) u\.classList\.remove\(OVER_CLASS\);\n\s+for \(const u of now2\) u\.classList\.add\(OVER_CLASS\);/);
-  // (Read each frame before the figure decides to sleep, and laid again alone when only they changed.)
-  assert.match(st, /syncOver\(\);\n\s+\/\/ [^\n]*\n\s+if \(OVER_ON && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost\) (?:live\.)?veins\.present\(\);\n\s+const rowsWait/);
+  // (Read each frame before the figure decides to sleep, and laid again alone, after the frame's draw, when only they changed: perf A3.)
+  assert.match(st, /syncOver\(\);\n(?:\s+\/\/ [^\n]*\n)+\s+const overAt = OVER_ON && (?:live\.)?veins\?\.top \? (?:live\.)?veins\.top\.presents : -1;\n\s+const rowsWait/);
+  assert.match(st, /function overAlone\(at\) \{ if \(at >= 0 && (?:live\.)?veins\?\.overlay\?\.stale && !(?:live\.)?veins\.lost && (?:live\.)?veins\.top\.presents === at\) (?:live\.)?veins\.present\(\); \}/);
 });

@@ -8,7 +8,7 @@
 import { scoreKit } from './helpers.js';
 
 const rows = [
-  { k: 'sg', n: 'Clinical signs of portal hypertension', d: 'Specific: medium or large oesophageal varices, gastric varices, portosystemic collaterals, SSM >40 kPa without a myeloproliferative neoplasm. Non-specific: ascites, small varices, platelets <150, splenomegaly.', o: [['Specific', 3], ['Non-specific', 2], ['None', 0]] },
+  { k: 'sg', n: 'Clinical signs of portal hypertension', d: 'Specific: medium or large esophageal varices, gastric varices, portosystemic collaterals, SSM >40 kPa without a myeloproliferative neoplasm. Non-specific: ascites, small varices, platelets <150, splenomegaly.', o: [['Specific', 3], ['Non-specific', 2], ['None', 0]] },
   { k: 'hi', n: 'Liver histology', d: 'Obliterative portal venopathy or other vascular lesions.', o: [['Major lesion', 5], ['Minor lesion', 2], ['Normal', 0]] },
   { k: 'ac', n: 'Associated conditions', d: 'Conditions linked to PSVD.', o: [['Present', 1], ['Absent', 0]] },
   { k: 'cc', n: 'Concomitant cause of cirrhosis', o: [['Present', -1], ['Absent', 0]] },
@@ -17,7 +17,7 @@ const zones = [[0, 2, 'No PSVD or NCPF', 'n'], [3, 4, 'Possible', 'warn'], [5, 9
 const verdict = (t) => (t >= 5
   ? { head: 'Definite PSVD or NCPF', tone: 'bad', z: 2, next: '' }
   : t >= 3
-    ? { head: 'Possible PSVD or NCPF', tone: 'warn', z: 1, next: 'More investigations (biopsy, stiffness), refer to an expert vascular liver centre, and follow for new signs.' }
+    ? { head: 'Possible PSVD or NCPF', tone: 'warn', z: 1, next: 'Further investigation (biopsy, elastography), referral to an expert vascular liver center, and follow-up for new signs.' }
     : { head: 'Not PSVD or NCPF', tone: 'n', z: 0, next: '' });
 
 const defaults = { sg: 1, hi: 1, ac: 1, cc: 1 };
@@ -31,5 +31,5 @@ export default {
   ...scoreKit({ rows, verdict, zones, defaults, stmt: '8.44' }),
   presets: [['Ascites and a minor lesion', { sg: 1, hi: 1, ac: 1, cc: 1 }], ['Varices and a major lesion', { sg: 0, hi: 0, ac: 1, cc: 1 }], ['Splenomegaly only', { sg: 1, hi: 2, ac: 1, cc: 1 }]],
   worst: { sg: 1, hi: 1, ac: 1, cc: 1 },   // (the Possible band: it has the one reading that is more than a heading)
-  notes: 'The PSVD or NCPF diagnostic score adds four rows (8.44, Fig. 4): clinical signs of portal hypertension (specific +3, non-specific +2, none 0), liver histology (a major lesion of obliterative portal venopathy or another vascular lesion +5, a minor lesion +2, normal 0), associated conditions (+1 or 0) and a concomitant cause of cirrhosis (-1 or 0). A total of 0 to 2 is not PSVD or NCPF, 3 to 4 is possible (further investigations such as biopsy or stiffness, referral to an expert vascular liver centre, and follow-up for new signs) and 5 or more is definite. The score applies only when cirrhosis has been excluded on an adequate biopsy.',
+  notes: 'The PSVD or NCPF diagnostic score adds four rows (8.44, Fig. 4): clinical signs of portal hypertension (specific +3, non-specific +2, none 0), liver histology (a major lesion of obliterative portal venopathy or another vascular lesion +5, a minor lesion +2, normal 0), associated conditions (+1 or 0) and a concomitant cause of cirrhosis (-1 or 0). A total of 0 to 2 is not PSVD or NCPF, 3 to 4 is possible (further investigations such as biopsy or stiffness, referral to an expert vascular liver center, and follow-up for new signs) and 5 or more is definite. The score applies only when cirrhosis has been excluded on an adequate biopsy.',
 };

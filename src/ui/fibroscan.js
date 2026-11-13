@@ -14,7 +14,7 @@ import { elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
-import { fix1 } from './fix-text.js';
+import { fix1 } from './num.js';
 import { dataSoon } from './class-soon.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { onTheme } from './theme-epoch.js';
@@ -30,7 +30,7 @@ let theme = null, themeWatch = false, themeSoon = 0;
 function readTheme() {
   themeSoon = 0;
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
+  theme = { edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
 }
 function watchTheme() {
   if (themeWatch) return;
@@ -128,9 +128,9 @@ function rrect(ctx, x, y, w, h2, r) {
 const C = SSM_CUTS;
 const ORGAN = {
   liver: { key: 'lsm', aria: 'Simulated FibroScan elastography panel, liver, live', name: 'LIVER · 50 Hz', widest: '88.8', lo: [20, 10, 8], hi: [220, 126, 64],
-    rows: [['Normal', '~5 kPa'], ['cACLD unlikely', '<10'], ['cACLD suggested · likely', '10–15 · >15'], ['No CSPH, with platelets ≥150', '≤15'], ['CSPH (BMI <30)', '≥25']] },
+    rows: [['Normal', '~5 kPa'], ['cACLD unlikely', '<10'], ['cACLD suggested · likely', '10–15 · >15'], ['No CSPH, with platelets ≥150,000', '≤15'], ['CSPH (BMI <30)', '≥25']] },
   spleen: { key: 'ssm', aria: 'Simulated FibroScan elastography panel, spleen, live', name: 'SPLEEN · 100 Hz', widest: '100.0', lo: [16, 8, 26], hi: [168, 104, 220],
-    rows: [['Normal (the model)', `~${C.normal} kPa`], ['Skip the screening scope (no NSBB)', `<${C.spareScope}`], ['Gray zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
+    rows: [['Normal (model value)', `~${C.normal} kPa`], ['EGD can be avoided', `<${C.spareScope}`], ['Indeterminate zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
       [`No CSPH, recompensated, with LSM <${C.resolvedLsm}`, `<${C.resolved}`]] },
 };
 const ORGAN_WORDS = [['liver', 'Liver'], ['spleen', 'Spleen']];
@@ -336,5 +336,5 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
   if (switcher) fibroReading.organ = organ;
   return { id: 'fibroscan', label: 'FibroScan', el, head: seg, update, configure, organ: () => organ,
-    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } }, dispose() { dispose(); offSurface(); } };
+    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } fibroReading.pinned = pinned; fibroReading.pinnedOrgan = organ; }, dispose() { dispose(); offSurface(); } };
 }

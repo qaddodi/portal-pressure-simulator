@@ -1,12 +1,12 @@
-// The fluid balance's day strip (tool { kind: 'fluid', window: true }, tool-fluid.js; Mohammad's pick "One strip", 21 Oct 2026):
-// per-day numbers whose printed sums are exact, the strip's parts on one scale (never overlapping, never past the track, a mark
-// for any part with anything in it, no step as a value eases), the forces strip, the words, and the Testing deck's four fluid
-// slides opting in.
+// The fluid balance's day card (tool { kind: 'fluid', window: true }, tool-fluid.js; Mohammad's pick "C, Two tiles", 13 Nov 2026, which
+// replaced the day strip of 21 Oct): per-day numbers whose printed sums are exact, the lymph gauge's parts on one scale (never overlapping,
+// never past the track, a mark for any part with anything in it, no step as a value eases), the forces gauge, the words, and the Testing
+// deck's four fluid slides opting in.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fluidDay, stripWords, stripParts, tugParts, STRIP_GAP, STRIP_MARK } from '../src/ui/tool-fluid.js';
+import { fluidDay, dayWords, gaugeParts, tugParts, GAUGE_GAP, GAUGE_MARK } from '../src/ui/tool-fluid.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
@@ -37,66 +37,63 @@ test('per day, every printed sum is exact', () => {
 });
 
 const dayOf = (st) => { const d = fluidDay(perMin(st)); return { carried: d.carried, over: d.over, back: d.back, room: Math.max(0, d.room) }; };
-const W = 300, ORDER = ['car', 'blue', 'shrink', 'build', 'room'];
+const W = 300, ORDER = ['car', 'over'];
 
-test('the strip\'s words name the room left or that the lymphatics are full', () => {
-  const w = (st) => stripWords(fluidDay(perMin(st)));
-  assert.deepEqual(w(STATES.healthy), { carried: ['Carried 790', 'Carried 790'], spare: '2,810 to spare', day: 'no ascites', net: 'Builds' });
-  assert.equal(w(STATES.schisto).spare, '10 to spare');
-  assert.deepEqual(w(STATES.day60).carried, ['Carried 4,340 · full', 'Carried 4,340']);
-  assert.equal(w(STATES.day60).day, 'ascites builds'); assert.equal(w(STATES.day60).spare, '');
-  assert.deepEqual([w(STATES.diuretics).day, w(STATES.diuretics).net], ['ascites shrinks', 'Shrinks']);
+test('the card\'s words: the answer, one line on what leaked, the limit with "full" once it is reached', () => {
+  const w = (st) => dayWords(fluidDay(perMin(st)));
+  assert.deepEqual(w(STATES.healthy), { title: 'No ascites', detail: 'Lymphatic drainage matches lymph formation.', limit: 'Capacity 3,600', net: '0', dir: '' });
+  assert.equal(w(STATES.schisto).limit, 'Capacity 3,600');
+  assert.deepEqual(w(STATES.day60), { title: 'Ascites accumulating', detail: 'Transudation 1,020; peritoneal reabsorption 860.', limit: 'Capacity 4,340 · full', net: '▲ 160', dir: 'up' });
+  assert.deepEqual(w(STATES.diuretics), { title: 'Ascites decreasing', detail: 'Transudation 1,020; peritoneal reabsorption 2,160.', limit: 'Capacity 4,340 · full', net: '▼ 1,140', dir: 'down' });
+  // (a day with nothing leaking while the belly gives fluid back, and one that leaks with nothing taken back)
+  assert.equal(dayWords({ over: 0, back: 300, net: -300, room: 850, limit: 3000 }).detail, 'No transudation; peritoneal reabsorption 300.');
+  assert.equal(dayWords({ over: 580, back: 0, net: 580, room: -580, limit: 3000 }).detail, 'Transudation 580; no peritoneal reabsorption.');
+  assert.equal(dayWords({ over: 500, back: 500, net: 0, room: -500, limit: 3000 }).title, 'Ascites stable');
+  for (const st of Object.values(STATES)) for (const t of Object.values(w(st))) assert.doesNotMatch(String(t), /—|\?/, 'no em-dash and no question in a learner line');
 });
 
-test('the strip is the day on one scale: parts end to end in order, inside the track', () => {
+test('the lymph gauge is the day on one scale: carried, then what leaked, inside the track', () => {
   for (const st of Object.values(STATES)) {
-    const P = stripParts(dayOf(st), W);
+    const P = gaugeParts(dayOf(st), W);
     let end = 0;
     for (const id of ORDER) {
-      assert.ok(P[id].x >= end - 1e-9, `${id} starts after the part before it`);
+      assert.ok(P[id].x >= end - GAUGE_GAP - 1e-9, `${id} starts after the part before it`);
       assert.ok(P[id].w >= 0 && P[id].x + P[id].w <= W + 1e-9, `${id} stays inside the track`);
       end = P[id].x + P[id].w;
     }
   }
-  // (health: carried and the room fill the strip, nothing leaked or reabsorbed; cirrhosis: no room, the overflow is what follows)
-  const h = stripParts(dayOf(STATES.healthy), W), c = stripParts(dayOf(STATES.day60), W);
-  assert.equal(h.blue.w + h.shrink.w + h.build.w, 0); assert.ok(Math.abs(h.car.w / 300 - 790 / 3600) < 0.02 && h.room.op === 1);
-  assert.equal(c.room.w, 0); assert.equal(c.room.op, 0);
-  const k = W / 5360;   // (carried 4,340 + the larger of leaked 1,020 and reabsorbed 860)
-  assert.ok(Math.abs(c.blue.w - (860 * k + STRIP_MARK - STRIP_GAP)) < 1e-6 && Math.abs(c.build.w - (160 * k + STRIP_MARK)) < 1e-6, 'the blue and the amber are as long as reabsorbed and what builds, on one scale');
-  assert.ok(Math.abs(c.brk.x - (c.car.w + STRIP_GAP)) < 1e-9, 'the bracket starts where the carried part ends');
-  assert.ok(Math.abs(c.brk.w - (c.blue.w + STRIP_GAP + c.build.w)) < 1e-6, 'and spans what leaked: the blue and the amber, the part of the strip that is not carried');
-  // (a day the belly reabsorbs more than leaked: the extra is the ascites going down, the green part, and the bracket stays at what leaked)
-  const d = stripParts(dayOf(STATES.diuretics), W);
-  assert.ok(d.shrink.w > 0 && d.build.w === 0 && d.brk.w < d.blue.w + d.shrink.w, 'shrinks: green part, no amber, bracket shorter than the reabsorbed');
+  // (health: 790 of the 3,600 the lymphatics can carry, nothing leaked; cirrhosis: no room, the overflow follows the carried part and the limit's tick stands between)
+  const h = gaugeParts(dayOf(STATES.healthy), W), c = gaugeParts(dayOf(STATES.day60), W);
+  assert.ok(Math.abs(h.car.w / W - 790 / 3600) < 0.02 && h.over.w === 0 && h.tick.op === 0, 'the carried part is its share of the scale, no tick while nothing leaks');
+  const k = W / (4340 + 1020);   // (carried 4,340 + leaked 1,020 + no room)
+  assert.ok(Math.abs(c.over.w - (1020 * k + GAUGE_MARK)) < 1e-6 && c.tick.op === 1, 'the amber part is as long as what leaked, on the same scale, and the tick shows');
+  assert.ok(Math.abs(c.tick.x - c.over.x) < 1e-9 && Math.abs(c.car.w + GAUGE_GAP - c.over.x) < 1e-6, 'the tick stands where the carried part ends');
 });
 
 test('ten mL a day over still leaves a mark (the Ascites 4/13 slide), and an empty part shows none', () => {
-  const t = stripParts({ carried: 3600, over: 10, back: 0, room: 0 }, W);
-  assert.ok(t.build.w >= STRIP_MARK - 1e-9, 'the amber part is a mark you can see');
-  assert.equal(t.blue.w, 0, 'nothing reabsorbed: no blue part');
-  assert.ok(t.brk.op === 1 && t.brk.w >= STRIP_MARK - 1e-9, 'and its bracket');
-  const none = stripParts({ carried: 3600, over: 0, back: 0, room: 0 }, W);
-  assert.equal(none.build.w + none.blue.w + none.shrink.w, 0); assert.equal(none.brk.op, 0);
+  const t = gaugeParts({ carried: 3600, over: 10, back: 0, room: 0 }, W);
+  assert.ok(t.over.w >= GAUGE_MARK - 1e-9, 'the amber part is a mark you can see');
+  assert.ok(t.tick.op > 0, 'and its tick');
+  const none = gaugeParts({ carried: 3600, over: 0, back: 0, room: 0 }, W);
+  assert.equal(none.over.w, 0); assert.equal(none.tick.op, 0);
 });
 
 test('eased values make no step (nothing pops in or out), and nothing leaves the track', () => {
   let prev = null;
   for (let over = 0; over <= 2200; over++) {
-    const P = stripParts({ carried: 3600, over, back: over / 3, room: 0 }, W);
+    const P = gaugeParts({ carried: 3600, over, back: over / 3, room: 0 }, W);
     for (const id of ORDER) assert.ok(P[id].x + P[id].w <= W + 1e-9);
-    if (prev) for (const id of ORDER) for (const k of ['x', 'w']) assert.ok(Math.abs(P[id][k] - prev[id][k]) < 1, `${id}.${k} steps by ${Math.abs(P[id][k] - prev[id][k])} at ${over} mL over`);
+    if (prev) { for (const id of ORDER) for (const k of ['x', 'w']) assert.ok(Math.abs(P[id][k] - prev[id][k]) < 1, `${id}.${k} steps by ${Math.abs(P[id][k] - prev[id][k])} at ${over} mL over`); assert.ok(Math.abs(P.tick.op - prev.tick.op) < 0.1); }
     prev = P;
   }
   prev = null;
   for (let made = 0; made <= 3600; made += 5) {
-    const P = stripParts({ carried: made, over: 0, back: 0, room: 3600 - made }, W);
-    assert.ok(P.room.op >= 0 && P.room.op <= 1);
-    if (prev) assert.ok(Math.abs(P.room.op - prev.room.op) < 0.1 && Math.abs(P.room.w - prev.room.w) < 0.6, 'the dashed room fades out and shrinks as the lymphatics fill');
+    const P = gaugeParts({ carried: made, over: 0, back: 0, room: 3600 - made }, W);
+    if (prev) assert.ok(Math.abs(P.car.w - prev.car.w) < 0.6, 'the carried part grows smoothly as the lymphatics fill');
     prev = P;
   }
   for (const g of [{ carried: 0, over: 0, back: 0, room: 0 }, { carried: 5000, over: 9000, back: 9000, room: 0 }, { carried: 1, over: 1, back: 0, room: 0 }]) {
-    const P = stripParts(g, 120);
+    const P = gaugeParts(g, 120);
     for (const id of ORDER) assert.ok(P[id].x + P[id].w <= 120 + 1e-9 && P[id].w >= 0, `${JSON.stringify(g)}: ${id}`);
   }
 });
@@ -110,7 +107,7 @@ test('the forces strip: two arrows meeting at the wall, each as long as its pres
   assert.equal(tugParts(-2, 4, 300).push.w, 0, 'a push below zero draws nothing');
 });
 
-test('only the Testing deck\'s four fluid slides draw the strip, with their readings in the card\'s header row', () => {
+test('only the Testing deck\'s four fluid slides draw the day card, with their readings in the card\'s header row', () => {
   const deck = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
@@ -121,23 +118,25 @@ test('only the Testing deck\'s four fluid slides draw the strip, with their read
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
   assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /'Leaked '/); assert.match(src, /'Reabsorbed '/); assert.match(src, /'Lymph made '/); assert.match(src, /'Each day'/);
-  assert.match(src, /set\(sLeak, mlInt\(d\.over\)\)/); assert.match(src, /set\(sBack, mlInt\(d\.back\)\)/);
-  assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back" words and no model sentence on the strip');
+  assert.match(src, /'Lymph formation'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
+  assert.doesNotMatch(src, /'Leaked '|'Reabsorbed '|'Each day'/, 'the legend rows of the old strip are gone: one sentence says what leaked and what was taken back');
+  assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back:" words and no model sentence on the card');
 });
 
-test('the strip draws each part, keys its swatches, and never sets text under 12 px', () => {
+test('the card draws each part, and never sets text under 12 px', () => {
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  for (const cls of ['gs-car', 'gs-blue', 'gs-shrink', 'gs-build', 'gs-ghost', 'gs-brk', 'gs-wall', 'gs-push', 'gs-pull', 'gs-sw-car', 'gs-sw-back', 'gs-sw-build']) assert.ok(src.includes(cls), `${cls} is built`);
-  assert.match(src, /swBack\.classList\.toggle\('none'/); assert.match(src, /swBuild\.classList\.toggle\('down'/);
+  for (const cls of ['gs-car', 'gs-over', 'gs-tick', 'gs-wall', 'gs-push', 'gs-pull', 'gc-tiles', 'gc-tile', 'gc-ans', 'gc-detail']) assert.ok(src.includes(cls), `${cls} is built`);
+  assert.doesNotMatch(src, /swBack|swBuild|segBlue|segShrink|segRoom|gs-lab/, 'no legend, no strip parts of the old card');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  // (the room's dashed outline is the table's: chart-looks/fluid.js 'fluid.seg.ghost')
-  assert.deepEqual(resolveProps(LOOKS['fluid.seg.ghost'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {}).dash, [3, 2.5]);
-  assert.match(css, /\.gs-sw\.none \{[^}]*dashed/);
-  assert.match(css, /--gs-fs: var\(--fs-12\)/, 'the text size is the card\'s 12 px (the strip is not zoomed)');
-  const px = [...css.matchAll(/\.gs[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
+  // (the limit's tick is the table's: chart-looks/fluid.js 'fluid.tick')
+  const tick = resolveProps(LOOKS['fluid.tick'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {});
+  assert.equal(tick.width, 2); assert.equal(tick.paintStroke ?? true, true);
+  assert.match(css, /--gs-fs: var\(--fs-12\)/, 'the text size is the card\'s 12 px (the card is not zoomed)');
+  const px = [...css.matchAll(/\.(?:gs|gc)[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
   assert.ok(px.every((n) => n >= 12), 'no text under 12 px in the card');
-  assert.match(css, /\[data-kind="fluid"\] \{ width: 100%; \}/, 'the strip fills the card\'s width, as a monitor does');
+  // (every row is one line: a size that moves with the numbers would give the card a height that moves)
+  for (const cls of ['gc-cap', 'gc-foot', 'gc-detail', 'gc-ans']) assert.match(css, new RegExp(`\\.${cls}[^{]*\\{[^}]*white-space: nowrap`), `${cls} stays one line`);
+  assert.match(css, /\[data-kind="fluid"\] \{ width: 100%; \}/, 'the card fills the width, as a monitor does');
 });
 
 // The card's title is set in capitals by its style; "mL/day" keeps its own case (Mohammad's pick on 20 Oct: "mL/day", not "ML/DAY").

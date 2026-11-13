@@ -16,14 +16,14 @@ import { ownsSideways, pageGo } from './swipe.js';
 import { frameFor } from './frame.js';
 import { sheetLayer } from './sheet-layer.js';
 import { restPass } from './rest-pass.js';
-import { classSoon, removeSoon } from './class-soon.js';
+import { classSoon, classNow, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
-import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
+import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, afterMs } from './motion.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
@@ -97,13 +97,13 @@ function patientPreview(p) {
   return h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
     h('h3', {}, p.label),
-    s ? h('span', { class: 'hp-cap' }, 'Pressure, gut to right atrium (0 to 30 mmHg)') : null,   // (the curve had no words: what it plots, and its scale)
+    s ? h('span', { class: 'hp-cap' }, 'Pressure, splanchnic bed to right atrium (0 to 30 mmHg)') : null,   // (the curve had no words: what it plots, and its scale)
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
       h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, shownOf(s.hvpg)), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
       fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, shownOf(fp.ppg)), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
       h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, fmt(s.pv, 1))),
-      s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow runs away from the liver' }, 'Hepatofugal') : null) : null,
+      s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow is reversed, away from the liver' }, 'Hepatofugal') : null) : null,
     h('p', {}, p.summary || ''));
 }
 
@@ -141,10 +141,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
-    } else if (leaveFromHere(panel, () => panel.classList.add('out'))) gone?.leaveAlong();   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
+    } else if (leaveFromHere(panel, () => { panel.classList.remove('pulling'); panel.classList.add('out'); })) gone?.leaveAlong();   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
-    setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
+    setTimeout(done, afterMs(sheet || o.dragged ? D_SMALL : D_FLIP));   // (after the exit or the let-go has landed, never in its last frames: 13 Nov 2026)
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
   const typed = (e) => {
@@ -152,7 +152,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el.querySelector('.um-q').focus();
   };
   // (The one surface on top, util.js claimSurface: Esc clears a typed search first and then closes; a tap outside closes. A question opened from a row is answered with the menu still open behind it.)
-  const surf = { close: () => close(), has: (n) => !el || el.contains(n) || !!pv?.contains(n) || anchor.contains(n) || !!n.closest?.('#modalBack'), onEsc: () => { const q = el?.querySelector('.um-q'); if (q && q.value) { q.value = ''; query = ''; filter(); q.focus({ preventScroll: true }); return true; } return false; } };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
+  const surf = { anchor, get el() { return el; }, box: () => (el && !el.classList.contains('sheet') ? el.getBoundingClientRect() : null), close: () => close(), has: (n) => !el || el.contains(n) || !!pv?.contains(n) || anchor.contains(n) || !!n.closest?.('#modalBack'), onEsc: () => { const q = el?.querySelector('.um-q'); if (q && q.value) { q.value = ''; query = ''; filter(); q.focus({ preventScroll: true }); return true; } return false; } };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
 
   // ── Rows ──
   // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.
@@ -191,7 +191,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: r ? 'btn sm' : 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), r ? 'From the start' : 'Present'),
       lib.startView ? h('button', { class: 'btn ghost sm', title: 'Present with notes, the next slide and clocks in a second window (P while presenting)', onclick: () => { lib.startView(d.id, r?.at); close(); } }, svgIcon('projector', 'mi-ic'), 'Presenter view') : null,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
-      h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
+      h('button', { class: 'btn ghost sm', title: 'Speaker notes and discussion questions, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
     h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
@@ -216,11 +216,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     restPass(pvPlace);
   }
   // (The step is made once and reads the ask made last: an older ask, or a hide, has moved the token on and drops it.)
-  let pvAsk = 0, pvRow = null, pvMake = null, pvCol = null;
+  let pvGone = null, pvAsk = 0, pvRow = null, pvMake = null, pvCol = null;
   const pvPlace = () => { if (pvAsk !== pvTok) return; pvAsk = 0; placePreview(pvRow, pvMake, pvCol); };
   function placePreview(row, make, col) {
     if (!el || !row.isConnected) return;
     if (!pv) {
+      pvGone?.remove(); pvGone = null;   // (one card at a time: one still going out from the last hide is taken off now, not left to fade beside the new one)
       // (The words sit in a cut of their own, kept for the card's life: a change of height reveals or hides them by two opposite
       // translates, the cut's and its contents', never by a clip-path, so it is the compositor's.)
       pv = h('div', { class: 'um-pv', role: 'region', 'aria-label': 'Preview' }, h('div', { class: 'um-pv-cut' }, h('div', { class: 'um-pv-cutin' })));
@@ -233,9 +234,18 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (pvKey !== key) {
       // Crossfade: the old content fades out over the new, and the card eases to the new height.
       pvKey = key;
-      const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
+      // (Every card still in it goes: a second hover before the first one's fade had finished left two in the flow, one under the other. Each goes
+      // out of the flow at once, classNow, not a frame later, so the new one never stands under it.)
+      const olds = pv._in.children, old = olds[olds.length - 1], h0 = pv._h1 || pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => removeSoon(old), 130); } else old?.remove();
+      const fade = pv.classList.contains('on');
+      for (let i = olds.length - 1; i >= 0; i--) {
+        const o = olds[i];
+        if (!fade) { o.remove(); continue; }
+        if (o.classList.contains('um-pv-old')) continue;   // (already fading, its removal is set)
+        classNow(o, 'um-pv-old', true); setTimeout(() => removeSoon(o), afterMs(D_FLIP));   // (.um-pv-old fades out over D_FLIP, afterMs)
+      }
+      if (!fade) next.style.animation = 'none';   // (the card's own fade in carries the first words, so they do not fade in a second time under it)
       pv._in.append(next);
       if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
       $$rows().forEach((r) => classSoon(r, 'pv-on', r === row));
@@ -315,7 +325,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const marked = el?.getElementsByClassName('pv-on');
     if (marked) for (let i = 0; i < marked.length; i++) classSoon(marked[i], 'pv-on', false);
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    classSoon(p, 'on', false); setTimeout(removeSoon, 140, p);
+    pvGone = p;
+    classSoon(p, 'on', false); setTimeout(() => { if (pvGone === p) pvGone = null; removeSoon(p); }, afterMs(D_FLIP), p);   // (the page's exit is D_FLIP)
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {
@@ -525,8 +536,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const t = el.offsetTop, was = el._top;
     el._top = t;
     if (was == null || Math.abs(was - t) < 1 || reduce.matches || !el.animate) return;
-    el._lift?.cancel();
-    el._lift = el.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, composite: 'add' });
+    // (A lift still running is left to run: this one is added to it, composite 'add', for the layout moved since; the sheet was on screen, so it travels on the move curve.)
+    el._lift = el.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
@@ -540,14 +551,22 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   let openAt = -1e9;
   function groupsIn(panel) {
     const since = performance.now() - openAt;
-    if (reduce.matches || !panel.animate || since > 40 + 5 * 30 + D_SMALL) return;
+    // (Not on a sheet: it rises whole from behind the dock, and rows rising inside a rising sheet were a second motion on top of the
+    // first (13 Nov 2026, iPhone: "opening and closing menus is glitchy"). The floating menu on a Mac keeps the top-down reveal.)
+    if (reduce.matches || !panel.animate || panel.classList.contains('sheet') || since > 40 + 5 * 30 + D_SMALL) return;
     const col = panel.querySelector(`.um-col[data-col="${tab}"]`) || panel.querySelector('.um-col');
     const gs = [...(col?.children || [])].filter((g) => g.classList.contains('um-g') && g.getClientRects().length).slice(0, 6);
     gs.forEach((g, i) => g.animate([{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }],
       { duration: D_SMALL, easing: EASE_ARRIVE, delay: 40 + i * 30 - since, fill: 'backwards' }));
   }
+  let renderT = 0;
   function render() {
+    clearTimeout(renderT); renderT = 0;
     if (!el) return;
+    // (The panel is made again whole, at rest (.still). Made again while it is still coming in, the first open after a load when the talks
+    // arrive 100 ms in, it jumped to its resting place mid-slide: 13 Nov 2026, iPhone. It waits for the entrance to end.)
+    const left = openAt + D_SMALL + 16 - performance.now();
+    if (left > 0 && !reduce.matches) { renderT = setTimeout(render, left); return; }
     const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
     const next = build(lib);
     if (sheet) next.classList.add('sheet');
@@ -700,18 +719,30 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!s?.on) return;
       const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the lists carry it on)
       const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w, v);
-      const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL), ease = `transform ${D_SMALL}ms ${curve}`;   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
-      s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
-      s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
-      if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;   // alloc-rare: once as a swipe is let go, never per frame
-      // (The held numbers go in this same task: the transition starts from where the lists were drawn, as it did from their inline transform.)
+      const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL);   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
+      // (13 Nov 2026, iPhone: "swiping between patients and decks is glitchy". The let-go was a CSS transition started in the same task as the
+      // finger's held animation was cancelled, so its start was whatever the browser took as the style before: Safari could take the list's
+      // resting place and the list snapped back for a frame before it slid. Now each list's let-go is one animation from the number it was
+      // drawn at to where it lands, written in this task, and its end (not a timer) hands the lists over, so nothing jumps at either end.)
+      const toC = go ? -d * s.w : 0, fromN = s.dx + d * s.w, toN = go ? 0 : d * s.w;
+      s.cur.style.transition = ''; if (s.nb) s.nb.style.transition = '';
+      s.cur.style.transform = toC ? `translateX(${toC}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
+      if (s.nb) s.nb.style.transform = `translateX(${toN}px)`;   // alloc-rare: once as a swipe is let go, never per frame
+      const opt = { duration: D_SMALL, easing: curve };   // alloc-rare: once as a swipe is let go, never per frame
+      const ac = s.cur.animate ? s.cur.animate([{ transform: `translateX(${s.dx}px)` }, { transform: `translateX(${toC}px)` }], opt) : null;   // alloc-rare: once as a swipe is let go, never per frame
+      const an = s.nb?.animate ? s.nb.animate([{ transform: `translateX(${fromN}px)` }, { transform: `translateX(${toN}px)` }], opt) : null;   // alloc-rare: once as a swipe is let go, never per frame
+      // (The held numbers go in this same task, after the let-go's animations are made: no frame is drawn between the two.)
       s.mc.cancel(); s.mn?.cancel();
       const done = () => {   // alloc-rare: one per swipe, made as it is let go
         clearTimeout(timer); settle = null;
-        clear(s.cur); clear(s.nb);
-        if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
+        if (ac) { ac.onfinish = null; ac.cancel(); }
+        if (an) { an.onfinish = null; an.cancel(); }
+        // (The list that lands and the one that leaves change places in one task: the tab, the peer class and the scroll together.)
+        if (go) { s.cur.style.transform = ''; s.nb.style.transform = ''; s.nb.style.top = ''; s.nb.style.height = ''; s.cur.style.top = ''; s.cur.style.height = ''; classNow(s.nb, 'um-peer', false); classNow(s.cur, 'um-peer', false); setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
+        else { clear(s.cur); clear(s.nb); if (s.nb) classNow(s.nb, 'um-peer', false); }
       };
-      const timer = setTimeout(done, 250);
+      if (ac) ac.onfinish = done;
+      const timer = setTimeout(done, afterMs(D_SMALL));   // (a fallback only: the let-go's own end runs it, first)
       settle = done; resting = go ? s.nb : s.cur;
       easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), f: cssCurve(curve) };
     };

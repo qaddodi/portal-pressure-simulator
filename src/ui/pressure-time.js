@@ -6,11 +6,11 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
+import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
+import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
-import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
 import { wrapLabel } from './wrap-label.js';
@@ -30,7 +30,7 @@ const nextFrame = frameFor('pressure-time');
 
 // hide: the readout that can stay unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
-const TRACES = [
+export const TRACES = [
   { id: 'CONF', label: 'Portal vein', abbr: 'PV', short: 'Portal', c: '--tr-pv', hide: 'pv', on: true, day: (m) => m.pv },
   { id: 'whvp', label: 'Wedged hepatic (WHVP)', abbr: 'WHVP', short: 'Wedged', c: '--tr-wedge', hide: 'trueHVPG', on: true, day: (m) => m.whvp },
   { id: 'RHV', label: 'Free hepatic (FHVP)', abbr: 'FHVP', short: 'Free', c: '--tr-hv', hide: 'trueHVPG', on: true, day: (m) => m.fhvp },
@@ -52,19 +52,21 @@ const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so 
 const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 const JUMP_S = 0.5;   // (a first sample this far ahead of the last one recorded, or any way behind it, is a clock that was set, not the next frame)
 // HVPG cut-offs: above normal, clinically significant (Baveno), and 12, below which varices rarely bleed.
-const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `CSPH ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `Bleed risk ${HVPG_CUTS.bleed}`]];
+// (Each named by its band's short word, pressure-cuts.js HVPG_WORDS; from the bleed line the CSPH band adds the risk, made once here.)
+const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `${HVPG_WORDS.danger[0]} ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `${BLEED_WORD} ${HVPG_CUTS.bleed}`]];
 const sevOf = hvpgSev;
-const wordOf = (v) => (v < HVPG_CUTS.amber ? 'Normal' : v < HVPG_CUTS.red ? 'Mild' : v < HVPG_CUTS.bleed ? 'CSPH' : 'CSPH · bleed risk');
+const BLEED_BAND = `${HVPG_WORDS.danger[0]} · ${BLEED_WORD.toLowerCase()}`;
+const wordOf = (v) => (v < HVPG_CUTS.amber ? HVPG_WORDS.ok[0] : v < HVPG_CUTS.red ? HVPG_WORDS.caution[0] : v < HVPG_CUTS.bleed ? HVPG_WORDS.danger[0] : BLEED_BAND);
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 // Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,
 // which copies them; the words are tables made here, at load, so a frame reads a string instead of building one.
-const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3];
+const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3], DASH_WEDGE = [7, 5];
 const TICK_CHOICES = [5, 10, 20, 25, 50];
 const HVPG_KEYS = ['hvpg'];
 const RANGE_SPAN = Object.fromEntries(RANGES.map((r) => [r[0], r[2]]));   // (seconds on screen; null: the days)
 const BEAT_TOP_KEYS = ['whvp', 'CONF'];
-const SEV_VAR = { ok: '--ok', caution: '--caution', danger: '--danger' };   // (hvpgSev's three words, as colour tokens)
+const SEV_VAR = TOKEN_OF_SEV;   // (hvpgSev's three words, as colour tokens)
 const AX_BEATS = [], AX_MIN = [], STR5 = [];   // (the time axis' names by seconds back, "−4 s", "−2 min"; the scale's numbers by fives)
 for (let s = 0; s <= 240; s++) { AX_BEATS[s] = `−${s} s`; AX_MIN[s] = s % 60 === 0 ? `−${s / 60} min` : `−${s} s`; }
 for (let i = 0; i <= 600; i++) STR5[i] = String(i * 5);
@@ -96,7 +98,7 @@ const byY = (a, b) => a.y - b.y;
 
 export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
   // ── DOM ───────────────────────────────────────────
-  const heroVal = h('b', { class: 'pt-num' }, '—');
+  const heroVal = h('b', { class: 'pt-num' }, NOT_SHOWN);
   const heroSev = h('span', { class: 'pt-sev' });
   const heroDelta = h('span', { class: 'pt-delta' });
   // The header is one row on every screen: HVPG, the number, and the status over its trend.
@@ -106,7 +108,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     h('button', { 'data-range': id, 'aria-pressed': String(id === range), onclick: () => { userRange = id; setRange(id); } }, label)));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure over time' });
   // The chart's still parts (laptop-heat recs H3): its panel, grid, thresholds and, on a slide's card, the column of readings, drawn
-  // first each frame between a save and a restore (still-layer.js: it takes no key now, the GPU's pen draws them again at no copy); the traces, ends, markers, axis and crosshair are drawn over it.
+  // first each frame, kept on the GPU as a layer while their version holds (still-layer.js, trace-gl.js keepLayer); the traces, ends, markers, axis and crosshair are drawn over it.
   const still = createStill(cv, { on: stillLayer });
   const box = h('div', { class: 'chart-box pt-box' }, cv);
   // The chart drawn by the GPU (trace-gl.js; Mohammad, 1 Nov: "Move everything to GPU"): every part of it, the panel, grid and words as
@@ -140,7 +142,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   chips.append(ekgChip, laneChipBtn);
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
   let smooth = false;
-  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
+  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and respiratory variation', onclick: () => {
     smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
   // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.
@@ -437,14 +439,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const live = () => frame?.running && (range !== 'days' || stripDays) && (io ? seen : true) && !document.hidden && !pageRest();
   // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
   // otherwise on every frame, as before. tickAt: when the loop last drew.)
-  let tickAt = -Infinity;
+  // (At rest (frame.js restGapFor: 4 s with no input and nothing moving) it scrolls 30 steps a second, 20 in a talk left 30 s, and waits
+  // on a timer between them, not on every screen frame (restPark). The scroll is drawn from the clock (headX), so it is as fast as before.)
+  let tickAt = -Infinity, parkT = 0;
+  const unpark = () => { parkT = 0; if (ticking && !tickRaf) tickRaf = nextFrame(tickLoop); };
   function tickLoop(now = performance.now()) {
     tickRaf = 0;
     if (!live()) { ticking = false; anim(false); return; }
     anim(true);
-    tickRaf = nextFrame(tickLoop);
-    const pace = paceMs();
-    if (pace && now - tickAt < pace) return;
+    const pace = paceMs(), rest = restGapFor(now), gap = Math.max(pace, rest), due = !gap || now - tickAt >= gap;
+    if (!(rest > pace && !parkT && (parkT = restPark(due ? rest : gap - (now - tickAt), unpark)))) tickRaf = nextFrame(tickLoop);
+    if (!due) return;
     tickAt = now;
     draw();
     noteDraw('pressure-time');
@@ -486,6 +491,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const SB = { w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: 'butt', join: 'miter', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, ylTxt, ylY, col: null };
   const SBcol = { x: 0, plan: null, hrSince: '', hvSince: '', rows: keyRowList };
   const sevColor = (hv) => cssVar(SEV_VAR[sevOf(hv)]);
+  const sevInk = (hv) => cssInk(sevOf(hv));   // (the status as text: the label, the word and the number beside the trace, the ink the tiles use)
   // Canvas text has no tabular figures, and these readings follow the trace's ends as they settle after an event: each digit is set in
   // a 0's width, as the tiles' HTML numbers are (tabular-nums), so a digit that changes never moves the others, the unit or the line.
   const zw = (g, t) => g.measureText(zeroed(t)).width;
@@ -549,6 +555,29 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     }
   }
   const beatStillFn = (c) => drawBeatStill(c, SB);
+  // The beat card's still parts are kept on the GPU while nothing they print moves: KB is a copy of what SB (and its column) held when the layer
+  // was last drawn, compared field by field (nothing is built to compare), and its ver moves when any of it differs. The printed words are in it.
+  const KB = { ver: 0, w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: '', join: '', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, col: false, x: 0, k: 0, deltas: false, rows: false, hrSince: '', hvSince: '', rn: 0 };
+  const kbYT = [], kbYY = [], kbR = [{ c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }];
+  function beatVer() {
+    const S = SB, C = S.col, rl = keyRowList;
+    let ch = KB.w !== S.w || KB.hh !== S.hh || KB.panel !== S.panel || KB.faint !== S.faint || KB.muted !== S.muted || KB.text !== S.text || KB.hair !== S.hair || KB.danger !== S.danger || KB.ok !== S.ok
+      || KB.cap !== S.cap || KB.join !== S.join || KB.L !== S.L || KB.hrT !== S.hrT || KB.hvT !== S.hvT || KB.word !== S.word || KB.sevC !== S.sevC || KB.hrC !== S.hrC || KB.ylN !== S.ylN || KB.col !== !!C;
+    for (let i = 0; !ch && i < S.ylN; i++) if (kbYT[i] !== S.ylTxt[i] || kbYY[i] !== S.ylY[i]) ch = true;
+    if (!ch && C) {
+      ch = KB.x !== C.x || KB.k !== C.plan.k || KB.deltas !== C.plan.deltas || KB.rows !== C.plan.rows || KB.hrSince !== C.hrSince || KB.hvSince !== C.hvSince || KB.rn !== rl.length;
+      for (let i = 0; !ch && i < rl.length; i++) { const r = rl[i], q = kbR[i]; if (q.c !== r.c || q.name !== r.name || q.dashed !== r.dashed || q.txt !== r.txt) ch = true; }
+    }
+    if (!ch) return KB.ver;
+    KB.w = S.w; KB.hh = S.hh; KB.panel = S.panel; KB.faint = S.faint; KB.muted = S.muted; KB.text = S.text; KB.hair = S.hair; KB.danger = S.danger; KB.ok = S.ok;
+    KB.cap = S.cap; KB.join = S.join; KB.L = S.L; KB.hrT = S.hrT; KB.hvT = S.hvT; KB.word = S.word; KB.sevC = S.sevC; KB.hrC = S.hrC; KB.ylN = S.ylN; KB.col = !!C;
+    for (let i = 0; i < S.ylN; i++) { kbYT[i] = S.ylTxt[i]; kbYY[i] = S.ylY[i]; }
+    if (C) {
+      KB.x = C.x; KB.k = C.plan.k; KB.deltas = C.plan.deltas; KB.rows = C.plan.rows; KB.hrSince = C.hrSince; KB.hvSince = C.hvSince; KB.rn = rl.length;
+      for (let i = 0; i < rl.length; i++) { const r = rl[i], q = kbR[i]; q.c = r.c; q.name = r.name; q.dashed = r.dashed; q.txt = r.txt; }
+    }
+    return ++KB.ver;
+  }
   // The "before" plate's room: a line's extent over the label's width, kept as a span if it has any sample there.
   function addSpan(s, lx, rx) {
     let a = Infinity, b = -Infinity;
@@ -576,12 +605,12 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // The still parts of the card (laptop-heat recs H3): the panel, the scale's numbers, and the readings (the column beside the plot, or
     // the line on top of a narrow card), drawn first. They stand clear of everything that moves (the plot's box, the strip, the caliper at R + 12 and the time axis all end
     // at R; the column starts at R + 30; the narrow card's line is above its strip), so drawn first they set the pixels they set before.
-    const sevC = sevColor(hv), hrC = hr >= HR_CUT ? cssVar('--danger') : text;
+    const sevC = sevInk(hv), hrC = hr >= HR_CUT ? cssInk('danger') : text;
     const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
     keyRows[0].c = pc; keyRows[0].v = pvNow; keyRows[1].c = wc; keyRows[1].v = wNow; keyRows[2].c = fc; keyRows[2].v = fNow;
     keyRowList.length = 0;
     for (let i = noPv ? 1 : 0; i < 3; i++) keyRowList.push(keyRows[i]);
-    const hrT = Number.isFinite(hr) ? fmt(hr, 0) : '—', hvT = Number.isFinite(hv) ? fmt(hv, 1) : '—';
+    const hrT = Number.isFinite(hr) ? fmt(hr, 0) : NOT_SHOWN, hvT = Number.isFinite(hv) ? fmt(hv, 1) : NOT_SHOWN;
     // (the top number gives way to the unit written over it, which it touched)
     const gate = top - 10 > (lay.ekg ? lay.ekg.bot : 0);
     const nyl = Math.floor(hi / 5) + 1;
@@ -593,11 +622,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     SB.L = L; SB.hrT = hrT; SB.hvT = hvT; SB.word = wordOf(hv); SB.sevC = sevC; SB.hrC = hrC; SB.ylN = ylN;
     if (lay.wide) {
       const hrSince = sinceText(hr, was?.hr, 0), hvSince = sinceText(hv, hvWas, 1);
-      for (const r of keyRowList) r.txt = Number.isFinite(r.v) ? fmt(r.v, 1) : '—';
+      for (const r of keyRowList) r.txt = Number.isFinite(r.v) ? fmt(r.v, 1) : NOT_SHOWN;
       SBcol.x = lay.colX; SBcol.plan = colPlan(hh, !!(hrSince || hvSince)); SBcol.hrSince = hrSince; SBcol.hvSince = hvSince;
       SB.col = SBcol;
     } else SB.col = null;
-    still.lay(ctx, null, beatStillFn);
+    still.lay(ctx, 'pt-beat', beatVer(), beatStillFn);
 
     // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
     const paperTop = lay.ekg ? lay.ekg.top : top;
@@ -680,7 +709,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const lx = R - 8 - lw, clear = !hasWasBox || wasBox[2] + 6 < lx || wasBox[3] + 4 < ym - 10 || wasBox[1] - 4 > ym + 10;
       if (YB(fNow) - YB(wNow) >= 26 && R - L >= lw + 40 && clear) {
         ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ym - 10, lw, 20, 6) : ctx.rect(lx, ym - 10, lw, 20); ctx.fill();
-        ctx.fillStyle = sevColor(hv); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = sevInk(hv); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
       }
     }
 
@@ -779,6 +808,22 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     }
   }
   const chartStillFn = (c) => drawChartStill(c, SC);
+  // The chart's still parts are kept on the GPU while nothing they draw moves (see beatVer): KC copies SC and each lane's box and range, which
+  // settle once the lanes' ease does; the cut-offs' and the grid's words are made from those and from constants, so they are in it too.
+  const KC = { ver: 0, w: 0, hh: 0, panel: '', faint: '', gridOn: '', danger: '', caution: '', slide: false, narrow: false, L: 0, plotW: 0, cap: '', join: '', n: 0 };
+  const kcL = [];
+  for (let i = 0; i < 3; i++) kcL.push({ key: '', top: 0, bot: 0, lo: 0, hi: 0, tick: 0 });
+  function chartVer() {
+    const S = SC, ls = S.lanes;
+    let ch = KC.w !== S.w || KC.hh !== S.hh || KC.panel !== S.panel || KC.faint !== S.faint || KC.gridOn !== S.gridOn || KC.danger !== S.danger || KC.caution !== S.caution || KC.slide !== S.slide
+      || KC.narrow !== S.narrow || KC.L !== S.L || KC.plotW !== S.plotW || KC.cap !== S.cap || KC.join !== S.join || KC.n !== ls.length;
+    for (let i = 0; !ch && i < ls.length; i++) { const l = ls[i], q = kcL[i]; if (q.key !== l.key || q.top !== l.top || q.bot !== l.bot || q.lo !== l.lo || q.hi !== l.hi || q.tick !== l.tick) ch = true; }
+    if (!ch) return KC.ver;
+    KC.w = S.w; KC.hh = S.hh; KC.panel = S.panel; KC.faint = S.faint; KC.gridOn = S.gridOn; KC.danger = S.danger; KC.caution = S.caution; KC.slide = S.slide;
+    KC.narrow = S.narrow; KC.L = S.L; KC.plotW = S.plotW; KC.cap = S.cap; KC.join = S.join; KC.n = ls.length;
+    for (let i = 0; i < ls.length; i++) { const l = ls[i], q = kcL[i]; q.key = l.key; q.top = l.top; q.bot = l.bot; q.lo = l.lo; q.hi = l.hi; q.tick = l.tick; }
+    return ++KC.ver;
+  }
 
   function drawNow() {
     const p = fitPen(cv, gpu);
@@ -960,7 +1005,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     SC.w = w; SC.hh = hh; SC.panel = panel; SC.faint = faint; SC.gridOn = gridOn; SC.danger = cssVar('--danger'); SC.caution = cssVar('--caution');
     SC.slide = slide; SC.narrow = narrow; SC.L = L; SC.plotW = plotW;
     SC.cap = typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt'; SC.join = typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter';
-    still.lay(ctx, null, chartStillFn);
+    still.lay(ctx, 'pt-chart', chartVer(), chartStillFn);
     // (What the grid used to leave on the context, which the parts drawn after it read without setting: the baseline, the weight, the colours.)
     if (lanes.length) { ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.strokeStyle = gridOn; ctx.fillStyle = faint; }
 
@@ -997,7 +1042,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           if (s.x.length < 1) continue;
           const c = cssVar(t.c);
           if (s.lo) band(ctx, s, c, 0.16);
-          line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
+          // (The wedged trace is dashed, its hue kept: it is ~35° from the portal's at similar lightness, C4.)
+          if (t.id === 'whvp') { ctx.setLineDash(DASH_WEDGE); line(ctx, s, c, 1.75, plotW); ctx.setLineDash(DASH_NONE); }
+          else line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, c, panel);
           const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); pushEnd(Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), e, undefined, t.abbr, c, lane);   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }
@@ -1225,7 +1272,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     const hidden = hiddenSet();
     if (hidden.has('trueHVPG')) {
       const meas = store.get().lastHVPG;
-      heroVal.textContent = meas ? fmt(meas.hvpg, 1) : '—';
+      heroVal.textContent = meas ? fmt(meas.hvpg, 1) : NOT_SHOWN;
       heroSev.textContent = meas ? 'Measured' : 'Not measured';
       heroSev.dataset.sev = meas ? sevOf(meas.hvpg) : 'none';
       heroDelta.textContent = '';
@@ -1289,7 +1336,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
     if (frame) redraw();
   }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); offRest(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; anim(false); still.drop(); } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); offRest(); cancelFrame(tickRaf); tickRaf = 0; clearTimeout(parkT); parkT = 0; ticking = false; frame = null; anim(false); still.drop(); } };
 }
 
 // The charts' X and Y are straight lines (v ↦ a + b·v): their two numbers, the time's then the value's of the lane being drawn, are kept here and

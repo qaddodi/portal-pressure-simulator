@@ -3,6 +3,7 @@
 
 import { cssRamp, cssRGB } from './util.js';
 import { velPos, velNormal, dopplerVel } from './velNormal.js';
+import { onTheme } from './theme-epoch.js';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];
@@ -80,7 +81,7 @@ export function pressureColor(p) {
   return LUT[Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1))];
 }
 
-// A gradient is built once for each direction (and top) it is asked for and kept: the table it reads never changes.
+// A gradient is built once for each direction (and top) it is asked for and kept, until the look changes (the ramps differ per look).
 const GRADS = new Map();   // direction -> (top -> css)
 export function gradientCss(dir = 'to top', max = LUT_MAX) {
   let byMax = GRADS.get(dir);
@@ -98,6 +99,7 @@ export function gradientCss(dir = 'to top', max = LUT_MAX) {
 // handed back as its kept string (the rounded channels pack into one number).
 const DELTA = [0, 0, 0, 0, 0, 0, 0, 0, 0], DELTA_STR = new Map();
 let deltaReady = false;
+const SCALES = [];   // (every makeScale's reset, called when the look changes)
 function loadDelta() {
   const lo = cssRGB('--delta-low'), mid = cssRGB('--delta-mid'), hi = cssRGB('--delta-high');
   for (let i = 0; i < 3; i++) { DELTA[i] = lo[i]; DELTA[3 + i] = mid[i]; DELTA[6 + i] = hi[i]; }
@@ -122,6 +124,7 @@ function makeScale(token) {
   const lut = [];
   let built = false;
   const cssKept = new Map();   // direction -> css
+  SCALES.push(() => { built = false; cssKept.clear(); });
   const at = (u) => {
     if (!built) { fillLut(lut, loadRamp(token), 128, 1); built = true; }
     return lut[Math.round(Math.min(1, Math.max(0, u)) * 127)];
@@ -178,3 +181,10 @@ const oxyScale = makeScale('--ramp-oxygen');
 export const oxygenPos = (s) => Math.min(1, Math.max(0, (s - OXY_MIN) / (1 - OXY_MIN)));
 export const oxygenColor = (s) => oxyScale(oxygenPos(s));
 export const oxygenCss = (dir) => oxyScale.css(dir);
+
+// A new look has its own ramps (dark ends lifted on the dark looks, Linen's paler blue end): every table is built again from the tokens on its
+// next use. (The theme epoch runs this in the same frame as every other surface, after util.js has read the tokens, before the stage draws.)
+onTheme(() => {
+  lutBuilt = false; GRADS.clear(); deltaReady = false;
+  for (const reset of SCALES) reset();
+});

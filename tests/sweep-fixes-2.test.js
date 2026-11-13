@@ -74,7 +74,7 @@ test('a disabled button keeps its words at full strength on a quiet tile', () =>
 
 test('the navel ring follows the caput medusae and is part of the organ picture\'s key', () => {
   assert.match(stage, /opacity: o\.id === 'umbilicus' \? 0 : null/);
-  assert.match(stage, /findingHidden\('coll'\) \? 0 : clamp\(\(c3 - 0\.15\) \/ 0\.3, 0, 1\)/);
+  assert.match(stage, /findingHidden\('coll'\) \? 0 : clamp\(\(recruitFrac\('C3', f\) - 0\.15\) \/ 0\.3, 0, 1\)/);
   assert.match(stage, /organEls\.umbilicus\?\.getAttribute\('opacity'\)/);
 });
 

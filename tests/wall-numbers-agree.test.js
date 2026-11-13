@@ -64,7 +64,7 @@ test('every percentage of the tear point is the shown index over 150, so it neve
 test('the headline, the "above the tear point" switch, the Tests row, Compare, the explainer and the inspector read ratioShown', () => {
   const ui = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
   const wall = ui('instruments.js').slice(ui('instruments.js').indexOf('export function createVarixWall'));
-  assert.match(wall, /v\.ratioShown > 1 \? 'above the tear point'/);
+  assert.match(wall, /v\.ratioShown > 1 \? 'above the rupture point'/);
   assert.match(wall, /wMean = v\.ratioShown/);
   assert.ok(!/ratio \* 100\)\} % of the tear point/.test(wall.replace(/ratioShown/g, 'S')));
   assert.match(ui('dock.js'), /m\.varix\.ratioShown \* 100/);

@@ -12,7 +12,7 @@ test('every scrolling trace marks itself animating while it runs, and lets go wh
     assert.match(s, new RegExp(`frameAnimating\\('${tag}', on\\)`), `${file} registers`);
   }
   const pt = read('../src/ui/pressure-time.js');
-  assert.match(pt, /anim\(true\);\s*tickRaf = nextFrame\(tickLoop\)/, 'on while the loop is asked for');
+  assert.match(pt, /anim\(true\);\s*const pace = [^\n]*\n\s*if \([^\n]*restPark\([^\n]*\) tickRaf = nextFrame\(tickLoop\);/, 'on while the loop is asked for, or waits on its rest timer (13 Nov 2026)');
   assert.match(pt, /if \(!live\(\)\) \{ ticking = false; anim\(false\); return; \}/, 'off when it stops');
   assert.match(pt, /ticking = false; frame = null; anim\(false\);/, 'off on dispose');
 });

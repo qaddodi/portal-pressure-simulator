@@ -1,15 +1,29 @@
-// The Doppler spectrum's lines worked out on the GPU. The CPU gives each new spectral line only its few numbers (its top, its low edge,
-// its soft ends, its gain, its variance: doppler.js lineParams, a handful of operations a column), and this shader writes the line's
-// pixels into the ring texture: the same formula as doppler.js writeLine (power(), the wall filter, the log compression, the colour
-// modes), one fragment per pixel of the new columns. On the CPU the per-pixel log and pow of every column took most of the main
-// thread's time (a retina phone: a line is about 900 pixels, 200 lines a second, and a whole redraw after a scale change a million).
+// The Doppler spectrum's lines worked out on the GPU, the one place the spectrum is made (there is no CPU copy of this formula). The CPU
+// gives each new spectral line only its few numbers (its top, its low edge, its soft ends, its gain, its variance: doppler.js lineParams,
+// a handful of operations a column), and this shader writes the line's pixels into the ring texture (the band's power, the wall filter,
+// the log compression, the colour modes), one fragment per pixel of the new columns. On the CPU the per-pixel log and pow of every column
+// took most of the main thread's time (a retina phone: a line is about 900 pixels, 200 lines a second, and a whole redraw after a scale
+// change a million).
 //
-// One thing differs in how it is made, not in how it looks: the speckle. The CPU's grain was a first-order recursion along the lines
-// (each line's draw per frequency bin mixed with the last line's), which cannot be run in parallel. The same process is a weighted sum
-// of the independent draws of the lines before it, with weights (1 - m) m^j, so each pixel takes the last SPK_J of them from a hash of
-// (line number, bin) and normalises: the same grain, the same width of a bright spot across lines and bins, nothing kept between frames.
+// Every vessel's band is the main portal vein's (the owner's standing rule): filled from the baseline, brightest just under the outline and
+// dimmer toward the baseline. The arteries, the TIPS and the DIPS differ only in their velocities and waveform (lineParams), not in the shape.
+//
+// The speckle is a weighted sum of the independent draws of the lines before it, with weights (1 - m) m^j (the first-order recursion along
+// the lines it once was, which cannot be run in parallel), so each pixel takes the last SPK_J of them from a hash of (line number, bin) and
+// normalises: the same grain, the same width of a bright spot across lines and bins, nothing kept between frames.
 
 export const SPK_J = 6;
+
+// A spectral line's band, the numbers the shader's power() takes (cm/s along the flow), the same for every vessel: its top P is the peak
+// (dopplerK × the mean, nudged by the line's own jitter, so the outline is jagged), its low edge L is 5 % of the mean (filled from the baseline,
+// as the main portal vein is), and the soft ends' widths above P and below L. It takes no vessel kind: an artery, a TIPS and a vein at the same
+// mean and peak-to-mean factor get the same band. Written into `out` (doppler.js lineParams keeps one), nothing made.
+export const BAND_LOW = 0.05;
+export function lineBand(av, k, jit, out) {
+  const P = av * k * (1 + 0.035 * jit);
+  out.P = P; out.L = av * BAND_LOW; out.sigHi = 0.02 * P + 0.4; out.sigLo = 0.08 * P + 1.2;
+  return out;
+}
 
 export const SYNTH_VS = `#version 300 es
 in vec2 p;
@@ -20,7 +34,7 @@ precision highp float;
 precision highp int;
 uniform sampler2D colA, colB;   // a line's numbers by ring column: A (P, L, sigHi, sigLo), B (gain, variance, flags, line number)
 uniform float rBase, rPxPerV, fade, wfV, spkPx, spkMix, span, uK;
-uniform int venous, mode;       // mode: 0 grey spectrum, 1 colour velocity, 2 colour variance
+uniform int mode;               // 0 grey spectrum, 1 colour velocity, 2 colour variance
 uniform uint seed;
 uniform vec3 cToward, cAway, cVarT0, cVarT1, cVarA0, cVarA1, cWhite;   // the colour maps' colours, 0 to 255
 out vec4 o;
@@ -41,9 +55,8 @@ float speckle(uint c, uint bin) {
 float power(float u, float P, float L, float sigHi, float sigLo) {
   if (u > P) { float z = (u - P) / sigHi; return 0.03 * exp(-z * z); }
   if (u >= L) {
-    float f = (u - L) / max(1e-6, P - L), S;
-    if (venous == 1) { float q = (0.88 - f) / 0.16; S = min(1.0, 0.05 + 0.1 * f + 0.9 * exp(-(q * q))); }
-    else S = 0.16 + 0.84 * pow(f, 1.3);
+    float f = (u - L) / max(1e-6, P - L), q = (0.88 - f) / 0.16;
+    float S = min(1.0, 0.05 + 0.1 * f + 0.9 * exp(-(q * q)));   // brightest just under the outline, a dimmer fill down to the baseline
     if (u > P - fade) { float z = (u - P + fade) / fade; return S * (1.0 - 0.985 * sqrt(z)); }
     return S;
   }
@@ -89,5 +102,5 @@ void main() {
   o = vec4(clamp(rgb / 255.0, 0.0, 1.0), 1.0);
 }`;
 
-export const SYNTH_UNIS = ['colA', 'colB', 'rBase', 'rPxPerV', 'fade', 'wfV', 'spkPx', 'spkMix', 'span', 'uK', 'venous', 'mode', 'seed',
+export const SYNTH_UNIS = ['colA', 'colB', 'rBase', 'rPxPerV', 'fade', 'wfV', 'spkPx', 'spkMix', 'span', 'uK', 'mode', 'seed',
   'cToward', 'cAway', 'cVarT0', 'cVarT1', 'cVarA0', 'cVarA1', 'cWhite'];

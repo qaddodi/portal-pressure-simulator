@@ -1,7 +1,12 @@
-name: Quick checks (lint, unit tests, static)
+name: Quick checks (lint, unit tests, static, storage tidy)
 
-# Lint and the unit tests on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
-# a red run here is fixed in a follow-up push. A newer push cancels the run before it.
+# Lint, the unit tests and the static checks on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
+# a red run here is fixed in a follow-up push.
+#
+# The unit tests were one job that never finished (about 900 files; the 15-minute limit cut it, every run "cancelled": recs A1). They now run in
+# parallel jobs, a fixed share of the test files each (scripts/test-shard.mjs, balanced by scripts/test-weights.json), and every push is checked
+# by its own run (no run cancels another: the group is the commit), so a push several threads race to makes a result for each commit.
+# Each shard saves its deck-state cache even when its tests failed or ran out of time (`if: always()`), so the next run starts warm.
 # (Main runs the same checks before its deploy, in pages.yml's validate job, and in ci.yml.)
 
 on:
@@ -13,36 +18,28 @@ permissions:
   contents: read
 
 concurrency:
-  group: quick-${{ github.ref }}
-  cancel-in-progress: true   # (only the newest push is checked)
+  group: quick-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
-  quick:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/unit-tests.yml
+    with:
+      lint: true
+      static: true
+
+  # Actions storage (caches and artifacts share one 0.5 GB allowance): keeps the newest cache of each kind per branch and drops
+  # old artifacts, and lists what is held in the job summary. See scripts/tidy-actions-storage.sh.
+  tidy-storage:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js); a miss only warns.
-      - name: Restore saved deck states
-        uses: actions/cache@v5
-        continue-on-error: true
-        timeout-minutes: 1
+      - name: Tidy caches and artifacts
         env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
-        with:
-          path: node_modules/.cache/pps-deck-states
-          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
-          restore-keys: deck-states-
-      - name: Lint
-        run: npm run lint
-      - name: Unit tests
-        if: success() || failure()   # (the tests run even when lint failed)
-        run: npm test
-      - name: Static checks (conflict markers; the app and the worker bundle)
-        if: success() || failure()
-        run: npm run check:static
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/tidy-actions-storage.sh

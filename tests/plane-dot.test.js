@@ -40,10 +40,11 @@ const settle = () => { for (const cb of observers) cb([]); while (frames.length)
 const { createPlaneTool, toolPlane, planeOf, planeReading, shownReading, zoneOf, frame, scaler } = await import('../src/ui/visual-plane.js');
 const { tileShown } = await import('../src/ui/table-marks.js');
 const { fmt } = await import('../src/ui/util.js');
+const { plotHeight } = await import('../src/ui/baveno-zones.js');
 
 const csph = planeOf('csph');
 // The plot's dot, in data units' pixels: where the card's ring group stands, and the words under the plot.
-const SIZE = [420, 200];
+const SIZE = [420, plotHeight(420)];   // (the plane is drawn at the guideline card's graph's proportions, baveno-zones.js)
 const place = (f) => { const fr = frame(SIZE[0], SIZE[1]), { X, Y } = scaler(csph, fr); return `translate(${X(f.lsm).toFixed(1)}px, ${Y(f.plt).toFixed(1)}px)`; };
 function card() {
   const tool = createPlaneTool();
@@ -78,8 +79,8 @@ test('a card that comes back at another size draws the pinned reading at that si
   tool.pin({ lsm: 12.4, plt: 160 }); settle();
   size(0, 0); settle();
   tool.pin(a2); settle();
-  size(360, 168); settle();
-  const fr = frame(360, 168), { X, Y } = scaler(csph, fr);
+  size(360, plotHeight(360)); settle();
+  const fr = frame(360, plotHeight(360)), { X, Y } = scaler(csph, fr);
   assert.equal(ring.style.transform, `translate(${X(29.8).toFixed(1)}px, ${Y(90).toFixed(1)}px)`);
 });
 

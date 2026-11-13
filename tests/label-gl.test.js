@@ -90,8 +90,8 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.doesNotMatch(CSS, /#labelGl/, 'no canvas of its own, so no selector for one');
   assert.match(CSS, /\.stage-view\.in-lobule #labels/);
   assert.match(CSS, /\.cath-on #labels/);
-  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
-  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
+  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ glSet\(g, st, false\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+glSet\(g, st, true\);/);
+  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) glDrop\(s\.g\);/);
 });
 
 test('leaders and dots: straight leaders and circles are drawn on the GPU, anything else stays SVG', async () => {
@@ -116,7 +116,7 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
   // (A step group's fan: drawn by the GPU from its number's record at the number's opacity, step-fan-rigid.test.js; only the SVG fades its own copy.)
   assert.match(STAGE, /if \(!live\.labelGL\) for \(const w of leaders\) \{/);
-  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, a, rec\.fan\) : 0;/);
+  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, al, rec\.fan\) : 0;/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
 });
 
@@ -131,7 +131,7 @@ test('the Doppler probe is drawn on the GPU under the leaders, from a model of p
 });
 
 test('the FibroScan probe is drawn on the GPU over the labels, from a model of plain elements the page never paints', () => {
-  assert.match(STAGE, /scan\.el = el; scan\.deg = 45; scan\.turn = null; scanRecReset\(scanRec, el\);\n\s+(?:live\.)?labelGL\?\.setScan\(scanRec\);/);
+  assert.match(STAGE, /scan\.el = el; scan\.deg = 45; scan\.turn = null; scan\.shown = null; scan\.svEl = null; scanRecReset\(scanRec, el\);\n\s+(?:live\.)?labelGL\?\.setScan\(scanRec\);/);
   assert.match(STAGE, /(?:live\.)?labelGL\?\.redraw\(\); {3}\/\/ \(the waves moved/, 'each frame of its waves drawn in that frame');
   assert.match(STAGE, /el\.remove\(\); if \(!scan\.el\) (?:live\.)?labelGL\?\.setScan\(null\);/, 'gone from the GPU layer when its element goes');
   // (Its model has no SVG since 1 Nov: plain elements carrying the shapes' numbers, never painted by the page.)

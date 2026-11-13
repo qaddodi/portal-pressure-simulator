@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
+import { D_FLIP } from './ease.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { fmt } from './util.js';
@@ -37,7 +38,7 @@ export function createPick(st, live) {
       const org = item.slice(6), sel = store.get().selection;
       setGlowSrc('key', []);
       setOrganHover(sel?.type === 'organ' && sel.id === org ? null : org);
-    } else setGlowSrc('key', item ? [{ id: item, col: 'var(--accent)', amt: 1.8, wide: 1.25, top: true, dur: 160 }] : []);
+    } else setGlowSrc('key', item ? [{ id: item, col: 'var(--accent)', amt: 1.8, wide: 1.25, top: true, dur: D_FLIP }] : []);
     if (item && say) figSay(figWords(item));
   }
   // (Which way Tab came in: a Tab pressed anywhere just before the figure took focus.)

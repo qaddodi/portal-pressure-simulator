@@ -14,8 +14,13 @@
 
 export const NODES = [
   // id, label, P, C, ext, kind
-  ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],
-  ['HA', 'Hepatic artery', 88, 0.05, 'none', 'artery'],
+  ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],   // (arterial compliance, physiology.js ARTERY)
+  // (The hepatic arterial tree's compliance, all of it past the Doppler's gate on the common hepatic artery: each systolic upstroke fills it
+  // through the gate, so it alone sets the artery's resistive index and how sharp its systolic peak is. 0.05 was set before the heart beat
+  // and read RI 0.70 to 0.80 with a 140 cm/s spike once it did; 0.03 reads RI about 0.62 healthy to 0.70 in CSPH, inside the native
+  // artery's reported range (RI 0.76 ± 0.07, PSV 68 ± 33 cm/s in healthy volunteers, Iran J Radiol; RI varies by 0.08 between sonographers,
+  // Paulson et al., Radiology 1996). No direct measurement of it exists: it is calibrated to the waveform. Mohammad, 13 Nov 2026.)
+  ['HA', 'Hepatic artery', 88, 0.03, 'none', 'artery'],
 
   ['INT', 'Intestinal capillary bed', 12, 8, 'abd', 'bed'],
   ['COL', 'Colon / rectal bed', 12, 2, 'abd', 'bed'],
@@ -79,8 +84,13 @@ export const EDGES = [
   { id: 'A_SPL', from: 'AO', to: 'SPL', Q: 5.0, kind: 'arteriole', tone: 'splanchnic', d: 5, label: 'Splenic artery' },
   { id: 'A_LGA', from: 'AO', to: 'STO', Q: 1.6, kind: 'arteriole', tone: 'splanchnic', d: 3, label: 'Left gastric artery' },
   { id: 'A_HEP', from: 'AO', to: 'HA', Q: 6.7, kind: 'artery', d: 5, label: 'Common hepatic artery' },
-  { id: 'A_HR', from: 'HA', to: 'SIN_R', Q: 4.0, kind: 'arteriole', tone: 'habr', d: 3, label: 'Right hepatic artery' },
-  { id: 'A_HL', from: 'HA', to: 'SIN_L', Q: 2.7, kind: 'arteriole', tone: 'habr', d: 2.5, label: 'Left hepatic artery' },
+  // (A_HR and A_HL are the lobes' arterioles, where the arterial resistance and the buffer response's tone sit, and also the lobar arteries
+  // the Doppler samples (lobar: the lobe's arterioportal shunt). Sampled, each is the conduit before its lobe's tree: its arterioles' flow, its
+  // lobe's arterioportal shunt (intrahepatic, past the lobar artery) and its share of the tree's filling
+  // (engine.js velocity), at the lobar artery's width vd, from Murray's law (d³ shared as the flow: 5 mm × 0.6^⅓ = 4.2, × 0.4^⅓ = 3.7 mm).
+  // Read through the arterioles' own drawn width they ran at 120 cm/s with an RI of 0.32, 13 Nov 2026.)
+  { id: 'A_HR', from: 'HA', to: 'SIN_R', Q: 4.0, kind: 'arteriole', tone: 'habr', d: 3, vd: 4.2, lobar: 'AP_R', label: 'Right hepatic artery' },
+  { id: 'A_HL', from: 'HA', to: 'SIN_L', Q: 2.7, kind: 'arteriole', tone: 'habr', d: 2.5, vd: 3.7, lobar: 'AP_L', label: 'Left hepatic artery' },
   { id: 'A_REN_L', from: 'AO', to: 'KID_L', Q: 8.3, kind: 'arteriole', tone: 'systemic', d: 5, label: 'Left renal artery' },
   { id: 'A_REN_R', from: 'AO', to: 'KID_R', Q: 8.3, kind: 'arteriole', tone: 'systemic', d: 5, label: 'Right renal artery' },
   { id: 'A_LOW', from: 'AO', to: 'LOWV', Q: 17.0, kind: 'arteriole', tone: 'systemic', d: 9, label: 'Lower-body arteries' },
@@ -95,6 +105,9 @@ export const EDGES = [
   { id: 'V_SPL', from: 'SPL', to: 'SVD', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (distal)' },
   { id: 'SV_MID', from: 'SVD', to: 'SV', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (mid)' },
   { id: 'V_STO', from: 'STO', to: 'LGV', Q: 1.6, kind: 'vein', d: 3, label: 'Gastric veins' },
+  // The stomach's other drainage, the short gastric veins into the splenic vein: shut (engine.js) until a Warren shunt ties off the coronary vein and
+  // the stomach drains through the spleen to the renal vein instead. Modeled, not drawn (anatomy.js HIDDEN_EDGES).
+  { id: 'V_STO_SG', from: 'STO', to: 'SVD', R: 2, kind: 'vein', d: 3, label: 'Short gastric veins' },
   { id: 'SMV_CONF', from: 'SMV', to: 'CONF', Q: 10.0, kind: 'vein', d: 10, label: 'Superior mesenteric vein' },
   { id: 'SV_CONF', from: 'SV', to: 'CONF', Q: 6.7, kind: 'vein', d: 8, label: 'Splenic vein (proximal)' },
   { id: 'LGV_CONF', from: 'LGV', to: 'CONF', Q: 1.6, kind: 'vein', d: 4, label: 'Left gastric (coronary) vein' },
@@ -177,7 +190,7 @@ export const EDGES = [
   { id: 'REX', from: 'SMV', to: 'LPV', kind: 'shunt', shunt: 'rex', d: 8, label: 'Meso-Rex bypass' },
 ];
 
-// Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent
+// Custom portosystemic shunts: any portal vessel to any systemic vein (and, below, any two portal veins), created with the stent
 // tool. Each exists in the topology from the start, closed (zero conductance) until the learner
 // opens it; params.customShunts[id] holds its diameter in mm.
 export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
@@ -186,11 +199,16 @@ const NAMED_SHUNTS = new Set(['RPV>RHV', 'PVH>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'S
 const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0] : x.id) === id); return Array.isArray(n) ? n[1] : n?.label || id; };
 // A node's short name for a stent's course: its id (RPV, RHV), with the hilum portal vein as PV and both IVC levels as IVC.
 const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
+// The stents drawn as the covered Viatorr device (partly covered, with its bare stretch at the portal end): the TIPS, the DIPS and every stent-tool shunt from the portal vein or a branch
+// of it (the hilum, the right or the left branch) into a hepatic vein (13 Nov 2026, Mohammad: "any portal vein branch -> hepatic vein branch should be the Viatorr looking stent").
+export const LIVER_STENT_FROM = ['PVH', 'RPV', 'LPV'], LIVER_STENT_TO = ['RHV', 'MHV', 'LHV'];
+export const isLiverStent = (e) => e?.shunt === 'custom' && LIVER_STENT_FROM.includes(e.from) && LIVER_STENT_TO.includes(e.to);
+export const isCoveredStent = (e) => e?.shunt === 'tips' || e?.shunt === 'dips' || isLiverStent(e);
 // A stent's course from its portal end to its systemic end, read from the model's own connection: "RPV → RHV" for the TIPS.
 const COURSES = new WeakMap();   // alloc-rare: made once; one kept entry per edge
 export const stentCourse = (e) => {
   let c = COURSES.get(e);
-  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
+  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} ${e.portal ? '↔' : '→'} ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
   return c.text;
 };
 export const customShuntId = (p, q) => `X_${p}_${q}`;
@@ -198,6 +216,21 @@ for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
   if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
   EDGES.push({ id: customShuntId(p, q), from: p, to: q, kind: 'shunt', shunt: 'custom', label: `${nodeLabel(p)} → ${nodeLabel(q)} shunt` });
 }
+// Portal-to-portal shunts (13 Nov 2026, Mohammad: "who cares if it's not real", e.g. splenic vein to the right or left portal vein): a stent between
+// any two portal-system veins that no vessel already joins. They are custom shunts like the rest (one diameter in params.customShunts, the same stent look
+// and conductance), flagged `portal`: their blood stays in the portal system, so it is never counted as shunted. The pair is stored upstream end first (a
+// vein nearer the gut before one nearer the liver); the flow takes whichever way the pressure gives, so a link between equals can run either way.
+export const SHUNT_PORTAL_VEINS = SHUNT_PORTAL.filter((n) => n !== 'VAR' && n !== 'GV');   // (the varices are what a shunt relieves, not a vein to sew one to)
+const PORTAL_RANK = { SMV: 0, IMV: 0, SVD: 0, SV: 1, LGV: 1, CONF: 2, PVH: 3, RPV: 4, LPV: 4 };
+const JOINED = new Set(EDGES.filter((e) => e.kind !== 'wedge').flatMap((e) => [`${e.from}>${e.to}`, `${e.to}>${e.from}`]));
+const PORTAL_ORDER = [...SHUNT_PORTAL_VEINS].sort((a, b) => PORTAL_RANK[a] - PORTAL_RANK[b] || SHUNT_PORTAL.indexOf(a) - SHUNT_PORTAL.indexOf(b));
+for (let i = 0; i < PORTAL_ORDER.length; i++) for (let j = i + 1; j < PORTAL_ORDER.length; j++) {
+  const p = PORTAL_ORDER[i], q = PORTAL_ORDER[j];
+  if (JOINED.has(`${p}>${q}`)) continue;
+  EDGES.push({ id: customShuntId(p, q), from: p, to: q, kind: 'shunt', shunt: 'custom', portal: true, label: `${nodeLabel(p)} ↔ ${nodeLabel(q)} shunt` });
+}
+/** A custom shunt between two portal-system veins (its blood never leaves the portal system). */
+export const isPortalLink = (e) => e?.shunt === 'custom' && !!e.portal;
 
 // Collaterals: diameter floor. R(d) = Ropen·(dMax/d)^4, closed ≈ 256·Ropen.
 export const COLLATERAL_DMIN_RATIO = 1 / 4;
@@ -213,6 +246,9 @@ export const TARGETS = {
   MAP: 93, CO_Lmin: 5.0, RA: 3, IVC: 3.5, FHVP: 4, HVPG: 3, PV: 7.5,
   hepaticFlow_Lmin: 1.5, pvFlow_Lmin: 1.1, haFlow_Lmin: 0.4,
 };
+
+/** The coronary vein a Warren shunt ties off, and its station: they read "—", not a pressure (7 Nov: nothing flows in it, and the stomach drains by the short gastric veins). */
+export const tiedOff = (p, id) => !!p?.dsrs && (id === 'LGV_CONF' || id === 'LGV');
 
 export const PORTAL_TERRITORY = new Set(['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV']);
 // Edges that carry portal blood into systemic veins (for shunt fraction). Positive sign = toward systemic.

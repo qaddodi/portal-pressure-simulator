@@ -40,7 +40,7 @@ export function createIdle(st, live) {
     const ms = sleepLook();
     if (ms) live.sleepTimer = stageScope.timer(wake, ms);
   }
-  function wake() { if (!live.sleeping) return; live.sleeping = false; stageScope.clear(live.sleepTimer); askAnimate(); }
+  function wake() { if (!live.sleeping) { live.unpark?.(); return; } live.sleeping = false; stageScope.clear(live.sleepTimer); askAnimate(); }   // (not asleep: a rest frame waiting on its timer is asked now, stage.js parkFor)
   live.stageWake = wake;
   // (Not woken by a model frame alone: the frame's own update wakes the figure (update: stageWake), and nothing storeVer keys on is in it.
   // Rev 2 step 3.)

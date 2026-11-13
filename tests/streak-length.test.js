@@ -18,7 +18,7 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const { COMP_FS } = await import('../src/ui/veins-gl.js');
 const { displaySpeed } = await import('../src/ui/blood.js');
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 const stage = stageSource();
 const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 
@@ -62,7 +62,8 @@ test('the figure alone asks for it (the lobule draws as before)', () => {
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)
-  assert.match(gl, /\n\s+sigNow\[sn\+\+\] = \+\(blood\.streakLen\) \|\| 0; sigNow\[sn\+\+\] = \+\(blood\.bt \|\| 0\) \|\| 0;/);
+  // (The blood's clock is not in it, performance A1.2: the rows that carry blood are marked moved when it moves.)
+  assert.match(gl, /\n\s+sigNow\[sn\+\+\] = \+\(blood\.streakLen\) \|\| 0;/);
   // The lobule's own composite never sets it, so it stays at 0 there: the lobule's streaks are as they were.
   assert.doesNotMatch(lobule, /streakLen/);
 });

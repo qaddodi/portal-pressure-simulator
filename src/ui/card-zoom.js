@@ -7,13 +7,31 @@
 // the camera keep to them) and puts the card back before a slide changes. Nor does it measure the card: what the card answers while it is up
 // is where it rests, so a measure of how far the readings travel would read none.
 
-import { EASE_ARRIVE, easeArrive } from './ease.js';
+import { CARRY_MAX, EASE_ARRIVE, easeArrive, settleAt, settleSlope } from './ease.js';
 import { frameFor } from './frame.js';
 import { sceneCam, zoomRide, zoomFrameRun } from './scene-cam.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
-export const ZOOM_MS = 520;     // in
-export const SHUT_MS = 440;     // and back
+export const ZOOM_MS = 520;     // motion-scale: own pace (kept as decided: 520 in); in
+export const SHUT_MS = 440;     // motion-scale: own pace (kept as decided: 440 back); and back
+
+/** The time a zoom turned back takes: SHUT_MS (or ZOOM_MS) scaled by the share of the way it is from rest (cur.s − 1 over plan.s − 1), never under 0.35 of it, so a zoom shut a little way in is back in a little time (V-ZOOM-5). */
+export const reverseMs = (full, curS, planS) => Math.round(full * Math.max(0.35, Math.min(1, (curS - 1) / ((planS - 1) || 1))));
+
+/**
+ * The slope a glide turned back mid-way starts with (settleAt's m0): the speed the move in hand (`old`: { from, to, ms, t0 }) has at `now`,
+ * toward the new target `to` from where the card stands (`cur`), as a share of the way to go per `ms` (settleSlope), 0 up to CARRY_MAX. A
+ * zoom shut in the middle of its way in is going away from rest, so it has none to carry and starts gently, from rest, instead of on the
+ * arrive curve's own fast start (about four times its mean speed), which jumped the card from its outward speed to a faster inward one.
+ */
+export function reverseSlope(old, now, cur, to, ms) {
+  if (!old || old.t0 == null || !(old.ms > 0)) return 0;
+  const p = Math.min(1, Math.max(0, (now - old.t0) / old.ms)), h = 1e-3;
+  const dv = old.to.s - old.from.s, dist = to.s - cur.s;
+  if (!dv || !dist) return 0;
+  const along = (dv * (easeArrive(Math.min(1, p + h)) - easeArrive(Math.max(0, p - h)))) / ((Math.min(1, p + h) - Math.max(0, p - h)) * old.ms);   // (the scale's speed per ms)
+  return settleSlope(along, dist, ms, CARRY_MAX);
+}
 
 // The box round some rects: { left, top, width, height }.
 export function unionBox(rects) {
@@ -104,7 +122,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     m.t0 ??= now;
     st.tickAt = performance.now();
     const t = Math.max(0, now - m.t0), p = Math.min(1, t / m.ms);
-    st.cur = lerpTo(m, easeArrive(p));
+    st.cur = lerpTo(m, m.m0 >= 0 ? settleAt(p, m.m0) : easeArrive(p));   // (a glide turned back mid-way: the Hermite settle that starts at the speed it carries, ease.js settleAt)
     step();
     if (p < 1) { tickId = raf(tick); return; }
     st.mo = null;
@@ -113,9 +131,10 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   /** Runs the glide to `to` over ms in the frame loop. Resolves when it is there. */
   function drive(to, ms) {
     return new Promise((done) => {
+      const old = st.mo;   // (a glide still moving is turned back: it starts on the speed it has, below)
       st.mo?.done();
       if (!(ms > 0)) { st.cur = { ...to }; step(); st.mo = null; done(); return; }
-      st.mo = { from: { ...st.cur }, to, ms, t0: null, done };
+      st.mo = { from: { ...st.cur }, to, ms, t0: null, done, m0: old ? reverseSlope(old, performance.now(), st.cur, to, ms) : -1 };
       if (!tickId) tickId = raf(tick);
     });
   }
@@ -246,7 +265,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (st.cam) { clearTimeout(st.sharpT); const me = st; me.sharpT = setTimeout(() => { if (st === me && !me.closing && me.steady) camera.sharp?.(true); }, 200); }   // (the readings still moving: sharp again 200 ms after the last step)
       zoomFrameRun();
       st.s = sc;
-      if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
+      // (The boost redraws every chart at the new density (util.js redrawBoosted): asked on each step of the readings' rise it redrew them all
+      // again and again through the follow. It is given once the steps stop, 200 ms after the last, like the camera's sharp (8 Nov 2026, lag hunt).)
+      if (sc > st.boosted + 0.01) { st.boosted = sc; clearTimeout(st.boostT); const me = st; me.boostT = setTimeout(() => { if (st === me && !me.closing) boost(me.boosted); }, 200); }
       return true;
     },
     /** Glides back (or at once: instant, Reduce Motion). Resolves when the card is where it was. */
@@ -261,7 +282,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
       // (A zoom shut part of the way in goes back in the part of SHUT_MS it got, from where it is: V-ZOOM-5.)
-      const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
+      const ms = reverseMs(SHUT_MS, s.cur.s, s.plan.s);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       let res = null;
       const guard = new Promise((r) => { res = r; });

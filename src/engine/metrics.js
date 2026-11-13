@@ -84,8 +84,8 @@ export function computeMetrics(eng, out = null) {
   // A stent (TIPS or DIPS) also drains arterial blood that recirculates through the sinusoids and back out by the
   // portal branches, so only the portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
   shunted += clamp(Math.max(0, qf(eng, 'PV_TRUNK')) - portalIn - Math.max(0, qf(eng, 'C3')), 0, stentQ);
-  // Custom shunts the learner has made carry portal blood to systemic veins as well.
-  for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(eng, e.id));
+  // Custom shunts the learner has made carry portal blood to systemic veins as well (one between two portal veins keeps its blood in the portal system).
+  for (const e of EDGES) if (e.shunt === 'custom' && !e.portal && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(eng, e.id));
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(eng, e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 
@@ -106,7 +106,11 @@ export function computeMetrics(eng, out = null) {
   const lossPct = clamp((ref + b.infused - (b.inf0 || 0) - bv) / ref * 100, -50, 100);
   const shock = eng.blood.lost > 0 ? (lossPct >= 40 ? 4 : lossPct >= 30 ? 3 : lossPct >= 15 ? 2 : 1) : 0;
   const hct = eng.hct();
-  const heIdx = shuntFraction * (0.6 + 0.8 * p.cirrhosis);
+  // The encephalopathy index (0 to 1, a model index and not a clinical score): how much of the gut's blood misses the liver's work, from the two
+  // things that say so: the share of the portal blood that skips the liver (shunt) and how little the liver itself is perfused (the sinusoidal flow
+  // against its own normal). The share saturates near 94% after any TIPS from 6 to 12 mm, the perfusion does not, so the stent widths read apart.
+  // Cirrhosis weighs both (a scarred liver clears less of what still reaches it); a normal liver keeps 0.8 of it (acute PVT, 0.34).
+  const heIdx = (0.5 * shuntFraction + 0.5 * clamp(1 - hepFlow / eng.baseHepFlow, 0, 1)) * (0.8 + 0.2 * clamp(p.cirrhosis, 0, 1));
 
   const cath = p.catheter;
   let measured = null;
@@ -134,6 +138,9 @@ export function computeMetrics(eng, out = null) {
   if (eng.bleed.active) { bleeding = spareOf(r).bleed; bleeding.site = eng.bleed.site; bleeding.rate = eng.Qbleed * 60; bleeding.total = eng.bleed.total; }
   const vt = part(r, 'vitals');
   vt.co = eng.vitM?.[0] ?? co; vt.map = eng.vitM?.[1] ?? map; vt.hr = eng.vitM?.[2] ?? eng.hr; vt.ra = eng.vitM?.[3] ?? ra;
+  // (Systolic and diastolic, engine bpNow: the arm cuff's reading, beside the MAP, which stays the true mean.)
+  const bp = eng.bpNow ? eng.bpNow(spareOf(r).bp || (spareOf(r).bp = { sbp: NaN, dbp: NaN })) : { sbp: NaN, dbp: NaN };
+  vt.sbp = eng.vitM?.[5] ?? bp.sbp; vt.dbp = eng.vitM?.[6] ?? bp.dbp;
 
   r.t = eng.t; r.day = eng.day;
   // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
@@ -163,7 +170,7 @@ export function computeMetrics(eng, out = null) {
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
   // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.)
   r.rpp = map - ax.iap;
-  r.map = map; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
+  r.map = map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;
   return r;

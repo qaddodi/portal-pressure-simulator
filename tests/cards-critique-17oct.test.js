@@ -59,7 +59,7 @@ test('the old ladder\'s A6 and A7 fixes left nothing behind', () => {
 
 test('what-if: a label naming the unit shows the bare number, on the label\'s row on a phone (C1, C2)', () => {
   const deck = readFileSync(new URL('../src/ui/decks/pregnancy.js', import.meta.url), 'utf8');
-  assert.match(deck, /label: 'Weeks pregnant'/);
+  assert.match(deck, /label: 'Weeks of gestation'/);
   assert.match(js, /const bare = !!w\.unit && w\.label\.toLowerCase\(\)\.startsWith\(w\.unit\.toLowerCase\(\)\)/);
   assert.match(css, /\.pz\.stack \.pz-wi > \.pzi-t \{ order: 1; \}/);
 });

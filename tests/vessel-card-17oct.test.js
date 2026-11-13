@@ -11,10 +11,11 @@ test('V1: no card title in the page carries an icon (an unsized one draws as a h
   assert.match(html, /<h2 class="card-title" id="panelTitle"><span>Details<\/span><\/h2>/);
 });
 
-test('V2: the phone card header has one word link, Details (or Why? when there is no Details)', () => {
-  assert.match(card, /where === 'in-head' && !m\.noDetails \? null : h\('button', \{ class: 'link', 'aria-label': 'Why\?'/);
-  assert.ok(!/\.ac-foot\.in-head \.ac-link-text \{ display: none; \}/.test(css), 'the word shows');
-  assert.match(css, /\.action-card\.docked \.ac-foot\.in-head \.link > \.mi-ic:first-child \{ display: none; \}/);
+// (13 Nov 2026, card 5: the Details link is the name itself, with a chevron; the Why? link went with the card's words.)
+test('V2: the card\'s name opens Details, its chevron says so; a part with no Details has a plain name', () => {
+  assert.match(card, /const name = m\.noDetails \? h\('span', P_NAME_PLAIN, m\.title\) : h\('button', P_NAME, h\('span', P_NONE, m\.title\), svgIcon\('chev-right', 'ac-chev'\)\);/);
+  assert.match(card, /if \(!m\.noDetails\) name\.addEventListener\('click', onNameClick\);/);
+  assert.ok(!/'Why\?'/.test(card), 'no Why? link on the card');
 });
 
 test('V3: nothing on the vessel card is cut with an ellipsis', () => {
@@ -36,7 +37,7 @@ test('V4: a clotted or narrowed vessel reads in → out on its card; open vessel
 });
 
 test('V5: the status is a coloured word after the reading (card) and under the name (Details), never a pill', () => {
-  assert.match(card, /const valEl = h\('div', \{ class: 'ac-value' \}, numEl, pillEl\);/);
+  assert.match(card, /const nr = h\('div', P_NR, name, pillEl\);/, 'the direction word at the right of the name');
   assert.ok(!/class: 'pill '/.test(card), 'card');
   assert.match(inspector, /h\('span', \{ class: 'st-word ' \+ cls\[0\] \}, cls\[1\]\)/);
   for (const c of ['ok', 'warn', 'rev', 'bad']) assert.match(css, new RegExp(`\\n\\.st-word\\.${c} \\{ color:`), c);

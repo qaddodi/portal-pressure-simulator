@@ -4,6 +4,7 @@ name: On request (smoke)
 # Ask from the Actions tab only (Run workflow). It never deploys or blocks, and a push starts no run of it.
 #   scripts/smoke-lite.mjs on the production build: static, boot (desktop and phone), the three views, slide 1 of every deck,
 #   on the GPU path (software WebGL: CI has no graphics card). It judges errors and that each change ends; no pixels, no timings.
+#   scripts/card-fit.mjs: every slide of every deck at the Mac and iPhone width, GL draws stubbed: no card scrolls, no line is cut (also in ci.yml).
 
 on:
   workflow_dispatch:
@@ -26,3 +27,17 @@ jobs:
         run: npm run build
       - name: Smoke (boot, views, every deck opens)
         run: npm run smoke:lite -- dist
+
+  card-fit:
+    name: Cards fit ${{ matrix.shard }}/3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-browser
+      - name: Every card fits (share ${{ matrix.shard }} of 3)
+        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/3 --jobs 3

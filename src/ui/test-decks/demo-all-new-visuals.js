@@ -106,6 +106,19 @@ export const DEMO_ALL = {
       [
         "scales"
       ]
+    ],
+    [
+      "Hands-on",
+      [
+        "r-resp",
+        "r-strain"
+      ]
+    ],
+    [
+      "Trial card",
+      [
+        "g-trial"
+      ]
     ]
   ],
   "slides": [
@@ -124,7 +137,7 @@ export const DEMO_ALL = {
         "spleen"
       ],
       "kicker": "Organs",
-      "title": "Portal blood comes from the gut and spleen",
+      "title": "Portal blood comes from the intestines and spleen",
       "line": "The small bowel, the colon and the spleen drain into the portal vein, so their blood passes through the liver before it reaches the heart. The portal pressure is {pv}."
     },
     {
@@ -148,7 +161,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Organs",
       "title": "Fundal varices drain to the left renal vein",
-      "line": "Fundal varices sit in the upper stomach. A gastrorenal shunt carries their blood down behind the stomach to the vein of the left kidney."
+      "line": "Fundal varices lie in the gastric fundus. A gastrorenal shunt drains them inferiorly, behind the stomach, into the left renal vein."
     },
     {
       "id": "eso",
@@ -198,7 +211,7 @@ export const DEMO_ALL = {
         }
       ],
       "kicker": "Systems",
-      "title": "Collaterals carry gut blood around a scarred liver",
+      "title": "Collaterals divert splanchnic blood around a cirrhotic liver",
       "line": "The rest of the figure steps back so the collaterals and the spleen stand out. The buttons switch the colors and the spotlight stays. {shunt} of the portal blood bypasses the liver."
     },
     {
@@ -213,7 +226,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Systems",
       "title": "Collaterals join the portal and systemic veins",
-      "line": "Colored by vein system, portal veins take the portal vein's color, systemic veins the IVC's, and the shunts between them the varices' color."
+      "line": "In this view, portal veins share the portal vein's color, systemic veins the IVC's, and the portosystemic shunts the varices' color."
     },
     {
       "id": "normal",
@@ -271,7 +284,7 @@ export const DEMO_ALL = {
       "delta": "normal",
       "kicker": "Spleen",
       "title": "The spleen grows past its normal outline",
-      "line": "As the portal pressure rises to {pv}, the spleen grows to {spleen}. The dashed line keeps the normal spleen's size. When the days end, the vessels whose pressure rose glow warm."
+      "line": "As the portal pressure rises to {pv}, the spleen grows to {spleen}. The dashed line keeps the normal spleen size. When the days end, the vessels whose pressure rose glow warm."
     },
     {
       "id": "pre",
@@ -323,7 +336,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Treatment",
       "title": "TIPS lowers the portal pressure",
-      "line": "As the slide lands, the veins whose pressure fell glow cool. Colored by change vs pre-TIPS, the portal veins turn blue. The PPG falls to {ppg}."
+      "line": "As the slide lands, the veins whose pressure fell glow cool: compared with before TIPS, the portal veins turn blue. The PPG falls to {ppg}."
     },
     {
       "id": "carv",
@@ -464,7 +477,7 @@ export const DEMO_ALL = {
     },
     {
       "id": "clot",
-      "tick": "Clot, anticoagulation",
+      "tick": "PVT, anticoagulation",
       "milestone": "Clot",
       "when": "Day 367",
       "days": 7,
@@ -482,8 +495,8 @@ export const DEMO_ALL = {
       ],
       "kicker": "Treatment bands",
       "site": "pre",
-      "title": "A partial portal vein clot, anticoagulated",
-      "line": "A partial clot raises the portal pressure to {pv} while the HVPG stays {hvpg}."
+      "title": "Partial portal vein thrombosis, anticoagulated",
+      "line": "A partial thrombus raises the portal pressure to {pv} while the HVPG stays {hvpg}."
     },
     {
       "id": "course",
@@ -503,7 +516,7 @@ export const DEMO_ALL = {
       "site": "sin",
       "title": "Each treatment is shaded while it was on",
       "line": "Only the HVPG is drawn, in its cut-off color. The milestones are named above it and the bands mark carvedilol and anticoagulation, so each change lines up with what caused it.",
-      "notes": "since: 'start' on a trace tool starts the chart at that slide (Dx), so only this patient's year is drawn. style: 'milestones' on a trace tool: the HVPG line alone, the slides marked milestone (Dx, Carvedilol, Clot) named over it, the bands beneath."
+      "notes": "since: 'start' on a trace tool starts the chart at that slide (Dx), so only this case's year is drawn. style: 'milestones' on a trace tool: the HVPG line alone, the slides marked milestone (Dx, Carvedilol, PVT) named over it, the bands beneath."
     },
     {
       "id": "lapse",
@@ -540,8 +553,8 @@ export const DEMO_ALL = {
       "kicker": "Treatment bands",
       "site": "sin",
       "title": "The time-lapse runs on carvedilol and anticoagulation",
-      "line": "Anticoagulation dissolves the clot over the first months, so the varix shrinks. Carvedilol stays on, but the cirrhosis keeps advancing: the HVPG climbs to {hvpg} and the varix grows back. The HVPG never dips, because the clot sits before the liver.",
-      "notes": "bands on a flowtime tool: each treatment on in the slide's state gets a named bar under the clock, over the whole time-lapse. The clot slide before runs a week, so the varix has caught up with the clot by day 0 and the chart starts settled."
+      "line": "Anticoagulation recanalizes the portal vein over the first months, so the varix shrinks. Carvedilol continues, but the cirrhosis progresses: the HVPG climbs to {hvpg} and the varix enlarges again. The HVPG never falls, because the thrombus is prehepatic.",
+      "notes": "bands on a flowtime tool: each treatment on in the slide's state gets a named bar under the clock, over the whole time-lapse. The PVT slide before runs a week, so the varix has caught up with the thrombus by day 0 and the chart starts settled."
     },
     {
       "id": "well",
@@ -557,8 +570,8 @@ export const DEMO_ALL = {
       ],
       "kicker": "Pressure profile",
       "site": "sin",
-      "title": "In health the pressure falls gently from gut to heart",
-      "line": "The line runs through eight stations, from the gut to the right atrium. With no added resistance it falls only a little between the portal vein and the heart, and the HVPG is {hvpg}.",
+      "title": "In health the pressure falls gradually from the mesenteric veins to the heart",
+      "line": "The line runs through eight stations, from the mesenteric veins to the right atrium. Without added resistance the gradient from the portal vein to the heart is small, and the HVPG is {hvpg}.",
       "notes": "tool kind profile. The chart reads the slide's own numbers, the same as its tiles. The dashed line is the healthy state; here the two lie on top of each other."
     },
     {
@@ -576,8 +589,8 @@ export const DEMO_ALL = {
       ],
       "kicker": "Pressure profile",
       "site": "presin",
-      "title": "Presinusoidal resistance: the drop sits before the sinusoids",
-      "line": "The steep fall is between the portal venule and the sinusoids. The sinusoids sit low on the line, so the wedged pressure and the HVPG of {hvpg} stay near normal.",
+      "title": "Presinusoidal resistance: the pressure drop lies before the sinusoids",
+      "line": "The steep fall is between the portal venule and the sinusoids. Sinusoidal pressure stays low, so the WHVP and the HVPG of {hvpg} stay near normal.",
       "notes": "Where the line drops steeply is where the resistance is. The HVPG bracket under the names runs from the sinusoids, which the wedged pressure reads, to the free hepatic vein pressure."
     },
     {
@@ -616,8 +629,8 @@ export const DEMO_ALL = {
       ],
       "kicker": "Pressure profile",
       "site": "postsin",
-      "title": "Postsinusoidal resistance: the drop sits after the sinusoids",
-      "line": "In sinusoidal obstruction syndrome the steep fall is between the central vein and the hepatic vein. The sinusoids sit high on the line, and the HVPG is {hvpg}.",
+      "title": "Postsinusoidal resistance: the pressure drop lies after the sinusoids",
+      "line": "In sinusoidal obstruction syndrome the steep fall is between the central vein and the hepatic vein. Sinusoidal pressure is high, and the HVPG is {hvpg}.",
       "notes": "from: 'cirr' compares with a named slide instead of the one before."
     },
     {
@@ -625,7 +638,7 @@ export const DEMO_ALL = {
       "preset": "cirr-comp",
       "cam": "liver",
       "whatIf": {
-        "label": "Scarring",
+        "label": "Fibrosis",
         "param": "cirrhosis",
         "min": 0,
         "max": 1,
@@ -645,7 +658,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Pressure profile",
       "site": "sin",
-      "title": "Drag the scarring and watch the drop grow",
+      "title": "Increase the fibrosis and watch the pressure drop grow",
       "line": "Moving the slider changes the live model. The line, its brackets and the tiles ease together to the new pressures.",
       "notes": "whatIf with a profile tool: the chart follows the slider, as the tiles do."
     },
@@ -666,7 +679,7 @@ export const DEMO_ALL = {
       "site": "sin",
       "title": "In decompensated cirrhosis part of the portal blood bypasses the liver",
       "line": "The bar splits the portal blood by where it leaves: through the liver or around it. {shunt} of it reaches the systemic veins without passing the sinusoids.",
-      "notes": "tool kind flows. The liver part is always 100 less the Shunted tile on the same slide."
+      "notes": "tool kind flows. The liver share is always 100 minus the Shunted tile on the same slide."
     },
     {
       "id": "inflow",
@@ -683,7 +696,7 @@ export const DEMO_ALL = {
       "kicker": "Blood into the liver",
       "site": "sin",
       "title": "Here the hepatic artery brings more of the liver's inflow",
-      "line": "This bar shows the same patient's blood reaching the sinusoids, split into portal and hepatic artery blood. With most of the portal blood going around the liver, the artery brings the larger part.",
+      "line": "This bar shows the same patient's sinusoidal inflow, split into portal venous and hepatic arterial flow. With most portal flow shunted around the liver, the hepatic artery supplies the larger share.",
       "notes": "of: 'inflow' splits the liver's inflow instead of the portal blood."
     },
     {
@@ -772,7 +785,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Parameter curve",
       "title": "A wider stent lowers the PPG and takes blood from the liver",
-      "line": "Each point is this patient with only the stent diameter changed. At 8 mm the PPG is {ppg} and the liver gets {liver} of its normal flow. Drag the slider and the rings follow the lines."
+      "line": "Each point is this case with only the stent diameter changed. At 8 mm the PPG is {ppg} and hepatic perfusion is {liver} of normal. Drag the slider and the rings follow the lines."
     },
     {
       "id": "scar",
@@ -795,7 +808,7 @@ export const DEMO_ALL = {
         ]
       },
       "whatIf": {
-        "label": "Scarring",
+        "label": "Fibrosis",
         "param": "cirrhosis",
         "min": 0,
         "max": 0.9,
@@ -806,8 +819,8 @@ export const DEMO_ALL = {
         ]
       },
       "kicker": "Parameter curve",
-      "title": "The same scarring step adds more pressure late than early",
-      "line": "This curve shows the HVPG as the scarring rises, with its cut-offs behind it. This case sits at an HVPG of {hvpg}."
+      "title": "The same increase in fibrosis adds more pressure late than early",
+      "line": "This curve shows the HVPG as fibrosis advances, with its cut-offs behind it. This case has an HVPG of {hvpg}."
     },
     {
       "id": "csph",
@@ -844,7 +857,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Drug curve",
       "title": "Carvedilol lowers the whole PPG curve",
-      "line": "Each line shows the PPG in the model as the scarring rises, without a drug and with carvedilol. The rings mark this case at 60 % scarring, with a PPG of {ppg}."
+      "line": "Each line shows the PPG in the model as fibrosis advances, without a drug and with carvedilol. The rings mark this case at 60 % fibrosis, with a PPG of {ppg}."
     },
     {
       "id": "drug",
@@ -880,7 +893,7 @@ export const DEMO_ALL = {
         "ppg"
       ],
       "whatIf": {
-        "label": "Scarring",
+        "label": "Fibrosis",
         "param": "cirrhosis",
         "min": 0.4,
         "max": 0.95,
@@ -892,7 +905,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Drug curve",
       "title": "With carvedilol the PPG crosses 12 later",
-      "line": "This case has decompensated cirrhosis. Drag the scarring and follow both rings: with carvedilol, the PPG reaches 12 only at more scarring. The PPG is {ppg}."
+      "line": "This case has decompensated cirrhosis. Drag Fibrosis and follow both rings: with carvedilol, the PPG reaches 12 only with more fibrosis. The PPG is {ppg}."
     },
     {
       "id": "hvpg",
@@ -927,7 +940,7 @@ export const DEMO_ALL = {
         "hvpg"
       ],
       "whatIf": {
-        "label": "Scarring",
+        "label": "Fibrosis",
         "param": "cirrhosis",
         "min": 0.4,
         "max": 0.95,
@@ -939,7 +952,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Drug curve",
       "title": "The same curves for the HVPG",
-      "line": "The HVPG follows the same pattern in this patient. Drag the scarring and watch where each line crosses 10. The HVPG is {hvpg}."
+      "line": "The HVPG follows the same pattern in this case. Drag Fibrosis and watch where each line crosses 10. The HVPG is {hvpg}."
     },
     {
       "id": "preg",
@@ -1001,7 +1014,7 @@ export const DEMO_ALL = {
       "eq": [
         "<mi>HVPG</mi><mo>=</mo><mi class=\"eq-wedge\">WHVP</mi><mo>−</mo><mi class=\"eq-hv\">FHVP</mi>"
       ],
-      "line": "The wedged pressure less the free pressure gives an HVPG of {hvpg}: clinically significant portal hypertension.",
+      "line": "WHVP minus FHVP gives an HVPG of {hvpg}: clinically significant portal hypertension.",
       "notes": "The slide the next two compare with."
     },
     {
@@ -1092,9 +1105,9 @@ export const DEMO_ALL = {
       "kicker": "V23 · A source line",
       "site": "sin",
       "title": "TIPS lowers the gradient by bypassing the liver",
-      "line": "With the stent the PPG falls to {ppg}. After a variceal bleed, high-risk patients (Child–Pugh C 10 to 13, or B >7 with active bleeding) get a pre-emptive TIPS within 72 hours.",
+      "line": "With the stent the PPG falls to {ppg}. After a variceal bleed, high-risk patients (Child–Pugh C 10 to 13, or B >7 with active bleeding) get a preemptive TIPS within 72 hours.",
       "cite": "Baveno VIII 5.31",
-      "notes": "cite prints one line under the words and any caveat, and in the handout. Baveno VIII 5.31: pre-emptive TIPS criteria, confirmed in guidelines/baveno8-aasld.md."
+      "notes": "cite prints one line under the words and any caveat, and in the handout. Baveno VIII 5.31: preemptive TIPS criteria, confirmed in guidelines/baveno8-aasld.md."
     },
     {
       "id": "rule",
@@ -1215,7 +1228,7 @@ export const DEMO_ALL = {
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "Stiffness and platelets place the patient",
-      "line": "The dot marks this patient on stiffness and platelets, and the line under the plane gives both readings. Tap With CSPH and the dot moves into the CSPH zone."
+      "line": "The dot marks this case by liver stiffness and platelet count, and the line under the plane gives both readings. Tap With CSPH and the dot moves into the CSPH zone."
     },
     {
       "id": "e-csph",
@@ -1230,8 +1243,8 @@ export const DEMO_ALL = {
       },
       "kicker": "Two readings on one plane",
       "site": "sin",
-      "title": "The Indeterminate zone needs a scope",
-      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. The scope is spared at <20 kPa with platelets ≥150,000, or a spleen stiffness <40 kPa; otherwise this patient needs one unless on a beta-blocker."
+      "title": "The indeterminate zone needs an EGD",
+      "line": "At a liver stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. Screening EGD is avoided at <20 kPa with platelets ≥150,000/µL, or spleen stiffness <40 kPa; otherwise it is indicated unless on an NSBB."
     },
     {
       "id": "worse",
@@ -1268,7 +1281,7 @@ export const DEMO_ALL = {
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "The dot crosses into CSPH",
-      "line": "As the scarring advances, stiffness passes 25 kPa. Baveno VIII then rules CSPH in, outside obese MASLD."
+      "line": "As fibrosis advances, liver stiffness exceeds 25 kPa. Baveno VIII then rules CSPH in, except in obese patients with MASLD."
     },
     {
       "id": "plane",
@@ -1394,7 +1407,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Small Doppler traces",
       "title": "Portal vein patterns at a glance",
-      "line": "Steady toward the liver when healthy, slow in cirrhosis, reversed when advanced, absent with a clot and pulsatile in heart failure. The stent carries a fast jet."
+      "line": "Continuous hepatopetal flow in health, slow in cirrhosis, hepatofugal in advanced disease, absent with occlusive thrombus and pulsatile in heart failure. The stent carries a high-velocity jet."
     },
     {
       "id": "hv-waves",
@@ -1434,7 +1447,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Small Doppler traces",
       "title": "Hepatic vein patterns at a glance",
-      "line": "Forward flow to the heart sits below the line. A clot leaves no signal, and a failing right heart drives flow back with each beat."
+      "line": "Antegrade flow toward the heart lies below the baseline. Thrombosis leaves no signal, and right heart failure drives retrograde flow with each beat."
     },
     {
       "id": "live",
@@ -1459,7 +1472,7 @@ export const DEMO_ALL = {
         }
       ],
       "whatIf": {
-        "label": "Scarring",
+        "label": "Fibrosis",
         "param": "cirrhosis",
         "min": 0.3,
         "max": 1,
@@ -1471,7 +1484,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Marks",
       "title": "The marks read the model as it changes",
-      "line": "Each mark names its reading in its rating color. Move the slider and the varix mark follows the scarring as the model changes."
+      "line": "Each mark names its reading in its rating color. Move the slider and the varix mark follows the fibrosis as the model changes."
     },
     {
       "id": "belly",
@@ -1488,7 +1501,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Marks",
       "title": "A mark can point at an organ or the ascites",
-      "line": "Decompensated cirrhosis: {asc} of ascites has collected in the abdomen, with a SAAG of {saag}."
+      "line": "Decompensated cirrhosis: {asc} of ascites in the peritoneal cavity, with a SAAG of {saag}."
     },
     {
       "id": "spleen",
@@ -1626,8 +1639,8 @@ export const DEMO_ALL = {
       "glowSeq": 550,
       "steps": true,
       "kicker": "Route",
-      "title": "Gut blood crosses two capillary beds in series",
-      "line": "Blood that has crossed the gut capillaries gathers in the bowel veins {#1} and the portal vein {#2}, crosses the sinusoids {#3} and leaves through the hepatic veins {#4} to the IVC {#5}. The numbers keep the order once every vessel is lit."
+      "title": "Splanchnic blood crosses two capillary beds in series",
+      "line": "Blood leaving the intestinal capillaries collects in the mesenteric veins {#1} and the portal vein {#2}, crosses the sinusoids {#3} and leaves through the hepatic veins {#4} to the IVC {#5}. The numbers keep the order once every vessel is lit."
     },
     {
       "id": "zone",
@@ -1689,10 +1702,10 @@ export const DEMO_ALL = {
         "edges": [
           "PV_TRUNK"
         ],
-        "label": "Partial clot"
+        "label": "Portal vein thrombus"
       },
       "whatIf": {
-        "label": "Clot size",
+        "label": "Thrombus size",
         "param": "thrombus.PV_TRUNK",
         "min": 0,
         "max": 1,
@@ -1714,8 +1727,8 @@ export const DEMO_ALL = {
         "pv"
       ],
       "kicker": "Cross-section",
-      "title": "A partial clot in the portal vein",
-      "line": "A small clot lines the lower wall; a larger one fills the lumen from below. The number is the share of the lumen it fills. Move the slider: a complete clot fills it all, and the portal pressure is {pv}."
+      "title": "Partial portal vein thrombosis",
+      "line": "A small thrombus lines the lower wall; a larger one fills the lumen from below. The number is the percentage of the lumen occluded. Move the slider: an occlusive thrombus fills it all, and the portal pressure is {pv}."
     },
     {
       "id": "anticoag",
@@ -1747,7 +1760,7 @@ export const DEMO_ALL = {
       "delta": "g-clot",
       "kicker": "Cross-section",
       "title": "Months of anticoagulation reopen the vein",
-      "line": "Over six months on anticoagulation the clot shrinks until the lumen is open again. The share the clot fills falls day by day, and the portal pressure falls to {pv}."
+      "line": "Over six months of anticoagulation the thrombus regresses until the vein is recanalized. The occluded percentage falls day by day, and the portal pressure falls to {pv}."
     },
     {
       "id": "g-stent",
@@ -1771,7 +1784,7 @@ export const DEMO_ALL = {
       },
       "compare": [
         {
-          "label": "Open stent",
+          "label": "Patent stent",
           "params": {
             "stenosis": {
               "TIPS": 0
@@ -1800,8 +1813,8 @@ export const DEMO_ALL = {
         "ppg"
       ],
       "kicker": "Cross-section",
-      "title": "Tissue narrows the stent from inside",
-      "line": "The dashed ring is the stent. Tissue growing inside it thickens the wall and narrows the lumen, and the portal pressure gradient rises to {ppg}. Switch between the open and the narrowed stent."
+      "title": "Pseudointimal hyperplasia narrows the stent",
+      "line": "The dashed ring is the stent. Pseudointimal hyperplasia thickens the wall and narrows the lumen, and the PPG rises to {ppg}. Switch between the patent and the stenotic stent."
     },
     {
       "id": "jet",
@@ -1837,7 +1850,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Doppler display",
       "title": "Color names the direction of flow",
-      "line": "In color mode, flow toward the probe is orange-red and flow away is blue. The portal flow here runs away from the liver, so the spectrum sits below the baseline in blue. Hepatofugal is in red as a warning, not a direction."
+      "line": "In color mode, flow toward the probe is orange-red and flow away is blue. The portal flow here is hepatofugal, so the spectrum lies below the baseline in blue. Hepatofugal is in red as a warning, not a direction."
     },
     {
       "id": "pulse",
@@ -1855,7 +1868,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Doppler calipers",
       "title": "Calipers measure how much the portal vein pulses",
-      "line": "The two marks sit on the highest and lowest velocity of the last three seconds. The pulsatility index is their difference over the larger one, the number the reading uses to call the flow pulsatile."
+      "line": "The two marks lie on the peak and minimum velocity of the last three seconds. The pulsatility index is their difference divided by the peak, the value that defines the flow as pulsatile."
     },
     {
       "id": "pair",
@@ -1866,7 +1879,7 @@ export const DEMO_ALL = {
         "RA"
       ],
       "whatIf": {
-        "label": "Tricuspid leak",
+        "label": "Tricuspid regurgitation",
         "param": "tr",
         "min": 0,
         "max": 1,
@@ -1884,7 +1897,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Paired traces",
       "title": "The portal vein pulses with the hepatic vein",
-      "line": "The slim trace under the portal vein is the right hepatic vein over the same seconds. Its waves line up with the portal vein’s pulses. Move the slider to change the tricuspid leak."
+      "line": "The slim trace under the portal vein is the right hepatic vein over the same seconds. Its waves align with the portal venous pulsations. Move the slider to change the tricuspid regurgitation."
     },
     {
       "id": "plain",
@@ -1922,7 +1935,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Fluid balance",
       "title": "In health the lymphatics carry all the lymph",
-      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The dashed part of the strip is the room they still have to spare, so no ascites builds."
+      "line": "Hepatic and splanchnic lymph formation stays well below lymphatic drainage capacity, so all of it drains and no ascites forms."
     },
     {
       "id": "fill",
@@ -1952,8 +1965,8 @@ export const DEMO_ALL = {
         "caveat": true
       },
       "kicker": "Fluid balance",
-      "title": "Ascites builds when the lymph made outruns the lymph drained",
-      "line": "Over two months the sinusoidal pressure rises and the albumin falls. The liver and gut make more lymph than the lymphatics carry, and the leak the belly does not take back, in amber, builds up as {asc} of ascites."
+      "title": "Ascites accumulates when lymph formation exceeds lymphatic drainage",
+      "line": "Over two months the sinusoidal pressure rises and the serum albumin falls. Lymph formation exceeds lymphatic drainage, and the transudate not reabsorbed by the peritoneum, in amber, accumulates as {asc} of ascites."
     },
     {
       "id": "diuretics",
@@ -1991,9 +2004,9 @@ export const DEMO_ALL = {
         "asc"
       ],
       "kicker": "Fluid balance",
-      "title": "Diuretics raise what the belly takes back",
-      "notes": "The model has no kidneys: diuretics act here only on the fluid the belly takes back.",
-      "line": "In the model, diuretics add to the fluid the belly reabsorbs, so it outgrows what leaks and the ascites shrinks. The model has no kidneys, so this is its stand-in for what diuretics do through them."
+      "title": "Diuretics increase peritoneal reabsorption",
+      "notes": "The model has no renal compartment: diuretics act here only on peritoneal reabsorption.",
+      "line": "In the model, diuretics increase peritoneal reabsorption until it exceeds transudation, and the ascites decreases. The model has no renal compartment, so this stands in for natriuresis."
     },
     {
       "id": "g-schisto",
@@ -2016,7 +2029,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Fluid balance",
       "title": "Resistance before the sinusoids spares the lymph balance",
-      "line": "The resistance sits in the portal venules, before the sinusoids, so the sinusoidal pressure rises less than in cirrhosis, to {sin}. At that pressure the lymphatics still carry all the lymph the liver and gut make, and no ascites builds."
+      "line": "The resistance lies in the portal venules, before the sinusoids, so the sinusoidal pressure rises less than in cirrhosis, to {sin}. Lymphatic drainage still matches hepatic and splanchnic lymph formation, and no ascites forms."
     },
     {
       "id": "alias",
@@ -2038,9 +2051,9 @@ export const DEMO_ALL = {
         "scale": 80
       },
       "kicker": "Doppler aliasing",
-      "title": "Flow faster than the scale wraps round",
+      "title": "Flow faster than the scale wraps around",
       "notes": "Velocities above the Nyquist limit, half the pulse repetition frequency, show in the opposite direction. Raising the scale, moving the baseline or using a lower-frequency probe removes it (Ferraioli, EFSUMB).",
-      "line": "The scale here reaches 80 cm/s each way. The stent's flow is faster, so the top of its spectrum wraps round and shows below the baseline. This is aliasing, not flow running backwards."
+      "line": "The scale here reaches 80 cm/s each way. The stent's flow is faster, so the top of its spectrum wraps around and shows below the baseline. This is aliasing, not reversed flow."
     },
     {
       "id": "alias-fix",
@@ -2066,7 +2079,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Scale switch",
       "title": "One patient at three scales",
-      "line": "Tap Lobule to dive into the liver with the sinusoid reading lit, or Sinusoid to see the scarred wall. Next opens the next slide on its own scale."
+      "line": "Tap Lobule to dive into the liver with the sinusoid reading lit, or Sinusoid to see the fibrotic sinusoidal wall. Next opens the next slide on its own scale."
     },
     {
       "id": "proc-tips",
@@ -2075,7 +2088,7 @@ export const DEMO_ALL = {
       "procedure": "tips",
       "kicker": "Catheter animation",
       "title": "A TIPS, placed on the anatomy",
-      "line": "Tap Play TIPS. The catheter comes in from the neck to the right hepatic vein, a needle crosses the liver into the portal vein, and a stent holds the tract open. The model then has the TIPS."
+      "line": "Tap Play TIPS. Through right internal jugular access, the catheter enters the right hepatic vein, a needle traverses the parenchyma into the portal vein, and a stent keeps the tract patent. The model then has the TIPS."
     },
     {
       "id": "proc-brto",
@@ -2084,7 +2097,7 @@ export const DEMO_ALL = {
       "procedure": { "kind": "brto", "auto": true },
       "kicker": "Catheter animation",
       "title": "BRTO closes the shunt from below",
-      "line": "This one plays as the slide lands. The catheter comes up from the femoral vein into the left renal vein and the gastrorenal shunt, a balloon blocks it, and sclerosant fills it back to the varices."
+      "line": "This one plays as the slide lands. Through femoral venous access, the catheter enters the left renal vein and the gastrorenal shunt, a balloon occludes it, and sclerosant fills it retrograde to the varices."
     },
     {
       "id": "proc-bato",
@@ -2093,7 +2106,46 @@ export const DEMO_ALL = {
       "procedure": "bato",
       "kicker": "Catheter animation",
       "title": "BATO closes the varices from the portal side",
-      "line": "Tap Play BATO. The catheter crosses the liver into the portal vein and runs along the splenic vein into the short gastric veins, where a balloon stops the inflow and sclerosant fills the varices."
+      "line": "Tap Play BATO. The catheter traverses the liver into the portal vein and advances along the splenic vein into the short gastric veins, where a balloon occludes the inflow and sclerosant fills the varices."
+    },
+    {
+      "id": "r-resp",
+      "preset": "cirr-decomp",
+      "params": { "drugs": { "carvedilol": true } },
+      "cam": "fit",
+      "response": true,
+      "tool": { "kind": "vitals", "show": ["hr", "map", "co"], "hold": true },
+      "data": "tiles",
+      "tiles": ["hvpg", "map"],
+      "key": ["hvpg"],
+      "kicker": "Beta-blocker response",
+      "site": "sin",
+      "title": "Hemodynamic response to carvedilol varies",
+      "line": "Choose his hemodynamic response. The HVPG is {hvpg} on the usual response. The MAP stays clear of the {<65 mmHg} line.",
+      "notes": "response: true puts the three buttons on the card (nsbbGain 0, 1 and 1.6). The vitals tool's hold: true draws both hold lines of Baveno VIII 4.6, systolic <90 and mean <65 mmHg, and the pressure as a bar from diastolic to systolic with a dot at the mean."
+    },
+    {
+      "id": "r-strain",
+      "preset": "cirr-decomp",
+      "cam": "portal",
+      "strain": true,
+      "data": "tiles",
+      "tiles": ["pv", "map"],
+      "key": ["pv"],
+      "kicker": "Straining",
+      "site": "sin",
+      "title": "Valsalva raises the portal pressure",
+      "line": "Hold the button to strain against a closed glottis. The portal pressure rises to {pv} during the Valsalva maneuver and returns to baseline on release.",
+      "notes": "strain: true puts a button on the card that works only while it is held. Pressed, the engine's Valsalva builds over 1.5 s to 30 mmHg; let go, it falls back over 1.5 s."
+    },
+    {
+      "id": "g-trial",
+      "preset": "cirr-comp",
+      "cam": "fit",
+      "tool": { "kind": "trial", "id": "predesci" },
+      "kicker": "Trial",
+      "title": "A beta-blocker before the first decompensation",
+      "line": "In PREDESCI, patients with clinically significant portal hypertension had fewer events on a beta-blocker than on placebo. The bars show the share of each arm with an event."
     }
   ]
 };

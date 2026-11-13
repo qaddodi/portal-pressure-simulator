@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // The view pill folds rather than snapping to a new width (17 Oct, Mohammad): into the lobule the Sinusoid button "should slide
 // out not just appear snap", and into the sinusoid view Anatomy and Circuit "fold inside the pill" (and come back out of it). The
 // face grows or shrinks about the pill's centre, the buttons that stay slide to their places, and a button that comes or goes
@@ -10,7 +9,6 @@ import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../s
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
-const stage = stageSource();
 const motion = read('../src/ui/pill-motion.js');
 const css = read('../styles/app.css');
 
@@ -95,7 +93,7 @@ test('the row is cut to the face, which at rest is the pill itself', () => {
 test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s clock', () => {
   // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
   assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
-  assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
+  assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +read('../src/ui/motion.js').match(/RISE_MS = (\d+)/)[1] / 2);
   assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-arrive: (cubic-bezier\([^)]*\))/)[1]);
   assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);

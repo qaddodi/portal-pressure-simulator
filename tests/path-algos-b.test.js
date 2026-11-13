@@ -104,7 +104,7 @@ test('pvtocc: Baveno VIII 9.3, minimal from RL 50%, partial below it, complete o
   assert.equal(o(0), 'com');
   assert.deepEqual([...pvtocc.lit({ rl: 30 })].sort(), ['par', 'root']);
   assert.deepEqual(pvtocc.chips({ rl: 30 }), ['Remnant lumen 30%']);
-  assert.match(pvtocc.reading('par', { rl: 30 }).why, /30% of the lumen is left/);
+  assert.match(pvtocc.reading('par', { rl: 30 }).why, /Remnant lumen 30% is <50%/);
   assert.equal(pvtocc.patientFor({ patient: { rl: 80 } }, { lsm: 30 }, shown).rl, 80);
   assert.equal(pvtocc.patientFor({}, null, shown).rl, 30, 'a default, never NaN');
   assert.equal(pvtocc.patientFor({ patient: { rl: 140 } }).rl, 100, 'kept between 0 and 100');
@@ -127,9 +127,9 @@ test('pvtdur: Baveno VIII 9.8 stops early only with all three conditions, 9.9 ex
   assert.deepEqual([...pvtdur.lit({ ...base, at: '6', ext: true })].sort(), ['cont', 'ext', 'root']);
   assert.deepEqual([...pvtdur.lit({ ...base })].sort(), ['cont', 'root']);
   assert.match(pvtdur.reading('cont', base).why, /conditions to stop early are not all met/);
-  assert.match(pvtdur.reading('lt', { ...base, at: '6' }).why, /still blocked, but the clot did not extend/);
-  assert.match(pvtdur.reading('lt', { ...base, at: '6', rec: true }).why, /vein is open/);
-  assert.deepEqual(pvtdur.chips({ at: '6', rec: false, rev: true, perm: true, ext: true }), ['At 6 months', 'Not recanalised', 'Reversible factor gone', 'Permanent factor', 'SMV or splenic extension']);
+  assert.match(pvtdur.reading('lt', { ...base, at: '6' }).why, /not recanalized, but the thrombus did not extend/);
+  assert.match(pvtdur.reading('lt', { ...base, at: '6', rec: true }).why, /vein is recanalized/);
+  assert.deepEqual(pvtdur.chips({ at: '6', rec: false, rev: true, perm: true, ext: true }), ['At 6 months', 'Not recanalized', 'Reversible factor resolved', 'Permanent factor', 'SMV or splenic extension']);
   assert.deepEqual(pvtdur.patientFor({ patient: { at: 6, rec: 1 } }, { lsm: 30 }, shown), { at: '6', rec: true, rev: false, perm: false, ext: false });
   assert.deepEqual(pvtdur.patientFor({}, null, shown), base);
 });
@@ -164,14 +164,14 @@ test('aasld: the live LSM and platelets, as the tiles print them, over the slide
   assert.deepEqual(aasld.patientFor({ of: 'aasld', patient: { lsm: 18, plt: 140 } }, { lsm: 20.76, plt: 160.4, ssm: 35 }, shown), { lsm: 20.8, plt: 160.4 });
   assert.deepEqual(aasld.patientFor({ of: 'aasld', patient: { lsm: 18, plt: 140 } }, { ssm: 35 }, shown), { lsm: 18, plt: 140 });
   assert.deepEqual(aasld.patientFor({ of: 'aasld' }, null, shown), { lsm: 22, plt: 130 }, 'defaults, never NaN');
-  assert.equal(aasld.compare({ lsm: 22, plt: 130 }), 'Baveno VIII, same patient: gray zone');
+  assert.equal(aasld.compare({ lsm: 22, plt: 130 }), 'Baveno VIII, same patient: indeterminate zone');
   assert.equal(aasld.compare({ lsm: 28, plt: 200 }), 'Baveno VIII, same patient: rules CSPH in');
   assert.equal(aasld.compare({ lsm: 25, plt: 90 }), 'Baveno VIII, same patient: rules CSPH in');
   assert.equal(aasld.compare({ lsm: 12, plt: 190 }), 'Baveno VIII, same patient: rules CSPH out');
   assert.equal(aasld.compare({ lsm: 8, plt: 190 }), 'Baveno VIII, same patient: rules cACLD out');
   assert.equal(aasld.compare({ lsm: 15, plt: 150 }), 'Baveno VIII, same patient: rules CSPH out', 'Baveno VIII: ≤15 and ≥150');
   assert.equal(out(aasld, { lsm: 15, plt: 150 }), 'gray', 'while AASLD needs <15: the two differ at exactly 15');
-  assert.equal(aasld.compare({ lsm: 14.9, plt: 149 }), 'Baveno VIII, same patient: gray zone');
+  assert.equal(aasld.compare({ lsm: 14.9, plt: 149 }), 'Baveno VIII, same patient: indeterminate zone');
 });
 
 test('the widest patient prints the longest chips and readings, so the card never changes size', () => {
@@ -203,7 +203,7 @@ test('words rules: symbols for comparisons, no arrows, no statement numbers in t
       assert.doesNotMatch(s, /→|->|=>/, `${A.id}: "${s}"`);
       assert.doesNotMatch(s, /Baveno\s*\d|Baveno (?!VIII)/, `${A.id}: "${s}"`);
       assert.doesNotMatch(s, /Child-Pugh|Childs? Pugh/, `${A.id}: "${s}"`);
-      assert.doesNotMatch(s, /\b[Ee]sophag/, `${A.id}: "${s}" (the app writes "Oesophageal")`);
+      assert.doesNotMatch(s, /\b[Oo]esophag/, `${A.id}: "${s}" (the app writes "esophageal", American spelling)`);
     }
     for (const s of [...words, ...read]) assert.doesNotMatch(units(s), STMT, `${A.id}: a statement number in "${s}"`);
     for (const s of [...words, ...read]) assert.doesNotMatch(s, /\bstatement\b/i, `${A.id}: "${s}"`);

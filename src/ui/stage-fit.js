@@ -3,6 +3,8 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { lerpVT } from './cam-arc.js';
 import { caught } from './caught.js';
+import { figureShift, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
+import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -10,6 +12,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
+import { viewXfDetach } from './view-xf.js';
 
 import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
@@ -51,18 +54,25 @@ export function createFit(st, live) {
     insMemo.set(key, v);
     return v;
   }
-  const flag = { imaging: false, dataLayer: false, hasSel: false };   // (what update last found: read by the paints after it)
+  const flag = { imaging: false, dataLayer: false, hasSel: false, orgSel: false };   // (what update last found: read by the paints after it)
   let cardsSnap = [], pillsSnap = { zoom: null, nav: null }, snapDirty = true, snapAsk = 0, snapSettle = 0;
+  // A phone held sideways: the top bar's pieces (the patient chip, the key, the toolbar) stand apart with the figure between them, so each is
+  // counted by itself and only those over the figure's column cover its top (A11: the figure had a quarter of the screen, the whole bar's two
+  // rows over it). Everywhere else the bar is one box. (data-safe-parts on the bar names the pieces.)
+  const landPhoneMQ = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
   function cardsRead() {
     const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
-      const q = slideRest(el, el.getBoundingClientRect());
-      if (!q.width || !q.height) continue;
-      // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
-      out.push({ el, q, rest: 'safeRest' in el.dataset ? translateRest(el, restBox(el, q)) : q });
+      const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
+      for (const pc of parts || [el]) {
+        const q = slideRest(pc, pc.getBoundingClientRect());
+        if (!q.width || !q.height) continue;
+        // (data-safe-rest: a card whose own transform only eases it in or out counts where it rests, so the camera frames once.)
+        out.push({ el: pc, q, rest: 'safeRest' in el.dataset ? translateRest(pc, restBox(pc, q)) : q, edge: el.dataset.safe, part: !!parts });
+      }
     }
     return out;
   }
@@ -94,10 +104,11 @@ export function createFit(st, live) {
   function cardSpaceFrom(list) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
-    for (const { el, q } of list) {
+    for (const { el, q, edge: pedge, part } of list) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
-      const edge = el.dataset.safe;
+      const edge = pedge || el.dataset.safe;
+      if (part && (q.left - wr.left > W * 0.62 || q.right - wr.left < W * 0.38)) continue;   // (a sideways phone's top-bar piece at an outer edge: the rail, the chip: not over the room's middle)
       if (edge === 'top') sp.t = Math.max(sp.t, y1);
       else if (y0 > H * 0.3 && (W < 768 || q.width > W * 0.75 || (edge === 'bottom' && !el.classList.contains('side')))) sp.b = Math.max(sp.b, H - y0);
     }
@@ -116,7 +127,8 @@ export function createFit(st, live) {
     if (!W || !H) return ins;
     // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
     const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
-    for (const { el, rest: q } of list) {
+    const tops = [];   // (a sideways phone's top-bar pieces: [x0, x1, y1] each, judged against the figure's column below)
+    for (const { el, rest: q, edge: pedge, part } of list) {
       if (skip && skip.includes(el)) continue;
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
       // framing does not jump each time it folds and opens.
@@ -124,7 +136,8 @@ export function createFit(st, live) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0);
       const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
-      let edge = el.dataset.safe;
+      let edge = pedge || el.dataset.safe;
+      if (part && edge === 'top') { tops.push(x0, x1, y1); continue; }
       // A card is a side card when it is docked there (the Tests card's class `side`) and a sheet when it spans the screen (a phone's,
       // sideways too, and an upright iPad's), whatever the window's size says: dock.js and the phone block of app.css decide that.
       const side = el.classList.contains('side'), sheet = !side && !store.get().presenting && q.width > W * 0.65;
@@ -135,6 +148,8 @@ export function createFit(st, live) {
       else if (edge === 'right' && (wide || side)) { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
       else if (wide && edge === 'left') ins.l = Math.max(ins.l, x1);
     }
+    // (The top-bar pieces over the figure's column cover its top; the ones beside it do not: card-clear.js. A slide's framing keeps the whole bar clear.)
+    if (tops.length) ins.t = topOverColumn(tops, ins, exact);
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
     // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
     // (Not while presenting: a slide's text and data columns are laid out to leave the figure its own column.)
@@ -146,7 +161,9 @@ export function createFit(st, live) {
     // (While presenting, the slide's words and data card both stay clear even on a tablet: the figure frames into the
     // column between them rather than going under them; only a strip too thin to frame anything gives way.)
     if (W - ins.l - ins.r < (store.get().presenting ? 200 : W < 768 ? 260 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
-    if (!exact && H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
+    // (A sheet that leaves the figure under 35% of the height gives up part of its cover, never the top bars': the figure's top stays below the pills.
+    // It scaled both before, and with Tests or Treat open on an iPhone the figure's top slid under the pills: A10.)
+    if (!exact) ins.b = squeezeBottom(ins);
     return ins;
   }
   // A framing computed for the whole stage, moved and scaled into the free space.
@@ -166,6 +183,18 @@ export function createFit(st, live) {
   // (The whole map's drawn extent in world units, as #net's box with every collateral open: the same in every case, so the
   // framing never moves as collaterals open.)
   const ART_CIRC = [70, 30, 1330, 730];
+  // (The map's drawn box, as it stands now: turned upright, it turns a quarter turn counter-clockwise about the circuit's centre.)
+  function artBox() {
+    const [x0, y0, x1, y1] = ART_CIRC;
+    if (!live.rotTarget) return [x0, y0, x1, y1];
+    return [CIRC_C[0] + (y0 - CIRC_C[1]), CIRC_C[1] - (x1 - CIRC_C[0]), CIRC_C[0] + (y1 - CIRC_C[1]), CIRC_C[1] - (x0 - CIRC_C[0])];
+  }
+  // The map turned upright fills the room the bars leave: its own box (not the view box, which is 8% taller and left the map small, high under the
+  // top bar and 100 px short of the view pill on an iPhone: A4) is fitted into the free height with 12 px clear above and below, and centred there.
+  function uprightFit() {
+    const wr = stageBox();
+    return uprightFitOf(safeInsets(), wr.width, wr.height, VB_CIRC_R, artBox()) || insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC_R);
+  }
   function clearPill(v, vbArr) {
     const zp = pillsSnap.zoom, pill = zp?.el;
     if (!pill) return v;
@@ -173,12 +202,7 @@ export function createFit(st, live) {
     if (!p.width || !p.height || !wr.width || !wr.height || pill.classList.contains('no-room') || !zp.shown) return v;
     const [vx, vy, vw, vh] = vbArr, s0 = Math.min(wr.width / vw, wr.height / vh);
     const ox = (wr.width - vw * s0) / 2 - vx * s0, oy = (wr.height - vh * s0) / 2 - vy * s0;
-    let [x0, y0, x1, y1] = ART_CIRC;
-    // (Turned upright, the map's box turns a quarter turn counter-clockwise about the circuit's centre.)
-    if (live.rotTarget) {
-      const n0 = CIRC_C[0] + (y0 - CIRC_C[1]), n1 = CIRC_C[1] - (x1 - CIRC_C[0]), n2 = CIRC_C[0] + (y1 - CIRC_C[1]), n3 = CIRC_C[1] - (x0 - CIRC_C[0]);
-      x0 = n0; y0 = n1; x1 = n2; y1 = n3;
-    }
+    const [x0, y0, x1, y1] = artBox();
     const ax0 = ox + s0 * (v.x + v.k * x0), ax1 = ox + s0 * (v.x + v.k * x1), ay0 = oy + s0 * (v.y + v.k * y0), ay1 = oy + s0 * (v.y + v.k * y1);
     const g = 8, pl = p.left - wr.left - g, pt = p.top - wr.top - g, pr = p.right - wr.left + g, pb = p.bottom - wr.top + g;
     if (ax1 <= pl || ax0 >= pr || ay1 <= pt || ay0 >= pb) return v;
@@ -213,7 +237,7 @@ export function createFit(st, live) {
     return hi > 0 && dy > 0 ? { k: v.k, x: v.x, y: v.y + dy / s0 } : v;
   }
   // The whole map, in the space the cards leave and clear of the zoom pill.
-  const circWhole = () => clearPill(insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
+  const circWhole = () => clearPill(live.rotTarget ? uprightFit() : insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
   // The boxes the home framing fits: whole groups as drawn, and each gut organ (in its own transform) with every clipped
   // part cut to its clip path's box.
   // (The boxes are folded into acc [x0, y0, x1, y1] as they are worked out, none kept: the one caller wants only their union. A group's parts
@@ -269,11 +293,13 @@ export function createFit(st, live) {
       y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
       // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
       // visible too: fit the box into that whole visible area, less what the floating pieces cover.
-      const ins = safeInsets();
+      const ins = safeInsets(), tg = ins.W < 768 ? 10 : 0;   // (tg: on a phone the figure's top keeps 10 px clear of the pills, A10)
       const s0 = Math.min(rw / VB_ANAT[2], rh / VB_ANAT[3]);
-      const fw = Math.max(40, rw - ins.l - ins.r), fh = Math.max(40, rh - ins.t - ins.b);
+      const fw = Math.max(40, rw - ins.l - ins.r), fh = Math.max(40, rh - ins.t - tg - ins.b);
       const k = Math.min(1.15, fw / s0 / (x1 - x0), fh / s0 / (y1 - y0));
-      const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
+      // The one rule for every card (U3, card-clear.js): the figure keeps its place and moves only as far as an open card makes it.
+      const sw = k * s0 * (x1 - x0) + 24, ox = figureShift(ins, sw, store.get().presenting);
+      const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ox / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t + tg - ins.b) / 2 / s0;
       live.fitKept = k;   // (kept for an arc's widest pull back, arcRoom)
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
@@ -295,18 +321,6 @@ export function createFit(st, live) {
   // reveal a vessel, a pinch or a tool's camera moved it: it stays where it was put).
   const circAt = { k: 1, x: 0, y: 0 };   // (a copy of the framing, written in place: only read while circFit is set)
   const markCirc = (kind, v) => { live.circFit = kind; circAt.k = v.k; circAt.x = v.x; circAt.y = v.y; };
-  const spaceSig = () => {
-    // (The vitals dock changes shape beside a side-docked Tests card, so it is not counted either.)
-    const i = safeInsets(false, [document.getElementById('dock'), document.getElementById('vdock')]);
-    return `${Math.round(i.W)},${Math.round(i.H)},${Math.round(i.t)},${Math.round(i.b)},${Math.round(i.l)},${Math.round(i.r)}`;
-  };
-  // (Once the space has changed for another reason the view is no longer kept: the framing follows from then on.)
-  const keptNow = () => {
-    if (live.keptSpace === null) return false;
-    if (!store.get().presenting && live.keptSpace === spaceSig()) return true;
-    live.keptSpace = null;
-    return false;
-  };
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (live.lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } live.lz.fitView(); return; }
@@ -319,8 +333,8 @@ export function createFit(st, live) {
     if (!circuit) live.homeAt = to;
     else markCirc(to === whole ? 'whole' : 'focus', to);
     live.fitted = true;
-    // It glides there, as the zoom buttons do (reduced motion: a short glide).
-    animateVT(to, 420);
+    // It glides there, as the zoom buttons do, in the time its reach needs (camMs; reduced motion: a short glide).
+    animateVT(to, CAM_MS_MAX, { scale: true });
   };
   // (Measured first in the next frame, while the layout is still the last frame's (readFrame), and glided after: a refit asked for in a
   // frame (main.js, a card's fold) no longer lays the page out among that frame's writes.)
@@ -329,7 +343,7 @@ export function createFit(st, live) {
   function refitRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     refitAsk = 0;
-    if (live.lobuleOn || keptNow()) return;
+    if (live.lobuleOn) return;
     const to = live.circAgain && live.morphTarget === 1 && live.circFit === 'whole' ? circWhole() : defaultVT(live.morphTarget === 1);
     if (live.morphTarget !== 1) live.homeAt = to; else markCirc(live.circAgain ? live.circFit : 'focus', to);
     live.fitted = true;
@@ -360,9 +374,13 @@ export function createFit(st, live) {
     on = on ? 1 : 0;
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === live.rotTarget) return;
-    // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
-    if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; live.vt = { ...live.vtTarget }; applyVT(); live.CTM = null; }
-    const whole = live.morphTarget !== 1 || live.vt.k <= 1.001 || sameView(live.vt, circWhole());
+    // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
+    // the glide's end, then turned): the glide is let go where it stands. Whether the turn lands on the whole map is judged by where the
+    // glide was going, as Fit judges a second tap.
+    viewXfDetach(live.viewXf);   // (a change between the views running: the turn starts from where the camera is, view-xf.js)
+    const goal = live.vtGliding ? live.vtTarget : live.vt;
+    if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; }
+    const whole = live.morphTarget !== 1 || goal.k <= 1.001 || sameView(goal, circWhole());
     live.rotHold = null;
     if (!whole) {
       const ins = safeInsets(), b = stageBox();
@@ -422,11 +440,11 @@ export function createFit(st, live) {
     if (revealTo && !sameView(live.vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
     if (!revealFrom) revealFrom = { ...live.vt };
     revealTo = { k: live.vt.k, x: live.vt.x + dx / s, y: live.vt.y + dy / s };
-    animateVT(revealTo, 320);
+    animateVT(revealTo, CAM_MS_MAX, { scale: true });
   }
   function unreveal() {
-    if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, 320);
+    if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, CAM_MS_MAX, { scale: true });
     revealFrom = revealTo = null;
   }
-  return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard };
+  return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
 }

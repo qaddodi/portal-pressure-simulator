@@ -160,3 +160,20 @@ test('the figure\'s blood under a lobule not laid plain counts; under a plain on
   veins.bloodSeq = 6;
   assert.notEqual(s.seq(), b, 'not plain: the figure\'s blood shows through, a new number');
 });
+
+test('the lobule laid differently with no new picture (a dive\'s zoom, its field, a fade) gives the glass a new number', async () => {
+  // (11 Nov 2026, Mohammad, the iPad: "Watch how the tint of the card glass changes after the lobule zoom". Through the dive the frost kept the pale
+  // field it had blurred as the dive set off, and stepped darker at the landing.)
+  const { createLzGlassSeq } = await import('../src/ui/lobule-glass-seq.js');
+  let lay = 0;
+  const lz = { drawSeq: () => 4, plain: () => false, laySeq: () => lay, pictureRects: () => 0 };
+  const veins = { drawSeq: 1, bloodSeq: 0 };
+  const s = createLzGlassSeq({ lz: () => lz, veins: () => veins, every: 3 });
+  const a = s.seq();
+  assert.equal(s.seq(), a, 'laid as before: the kept blur stands');
+  lay = 1;
+  const b = s.seq();
+  assert.notEqual(b, a, 'laid at a new scale or strength: a new number');
+  assert.equal(s.rects(a, b, [], []), -1, 'and where it changed is not known: the glass blurs all it reads');
+  assert.equal(s.seq(), b);
+});

@@ -22,9 +22,9 @@ import { frameFor } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { numWords, signedWords } from './num-words.js';
 import { reduceMotionMQ } from './motion.js';
+import { minusFixed as fmt, lerp as mix } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { chartCtx } from './chart-ctx.js';
 const nextFrame = frameFor('tool-causes');
-const mix = (a, b, k) => a + (b - a) * k;   // (one step toward b)
 
 const CS_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 export const METRICS = ['ppg', 'hvpg', 'pv'];
@@ -55,7 +55,7 @@ export function groupOf(label) {
 }
 // (A step's words: the cause without the size it already shows as a length.)
 export const shortLabel = (label) => label.replace(/^(Extra blood volume|Blood loss) [+\d].*$/, '$1').replace(/^Chronic splanchnic vasodilation$/, 'Splanchnic vasodilation')
-  .replace(/^Serum albumin .*$/, 'Low serum albumin').replace(/^Right-heart contractility$/, 'Weak right heart');
+  .replace(/^Serum albumin .*$/, 'Low serum albumin').replace(/^Right-heart contractility$/, 'Low RV contractility');
 // (What the causes add only together: pressure is flow times resistance, so two causes raise it more than each alone; the
 // smaller causes left out fold in too.)
 export const OTHER = 'Causes together';
@@ -109,7 +109,6 @@ export function domainOf(rows, metric = 'ppg') {
   return { lo, hi: hi - lo < 1 ? lo + 1 : hi };
 }
 
-const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 const signed = (v, d) => (Math.abs(v) < 0.5 * Math.pow(10, -d) ? fmt(0, d) : (v > 0 ? '+' : '−') + Math.abs(v).toFixed(d));
 export const shownText = (r, d) => (r.kind === 'step' ? signed(r.shown, d) : fmt(r.shown, d));
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
@@ -199,7 +198,7 @@ export function createCauses({ host } = {}) {
   };
   function makeRow(r) {
     const { f } = G, lines = G.rows.find((p) => p.key === r.key)?.lines || wrapLabel(r.label, G.Lw, f);
-    const label = sv('text', { class: 'pcs-l', 'data-look': 'causes.l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { 'data-look': 'causes.l.span', x: 0, dy: j ? `${LH}em` : null }, l)));
+    const label = sv('text', { class: 'pcs-l', 'data-look': 'causes.l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { 'data-look': 'causes.l.span', x: 0, dy: j ? +(LH * f).toFixed(2) : null }, l)));   // (px, not em: the GPU text reads a dy as a number of pixels, so "1.15em" stacked the two lines)
     const bar = sv('rect', r.kind === 'total' ? { class: 'pcs-b', 'data-look': 'causes.bar.total', rx: 2 } : { class: 'pcs-b', 'data-look': 'causes.bar.step', 'data-p-c': colourOf(r.group), rx: 2 });
     const val = sv('text', { class: 'pcs-v', 'data-look': 'causes.val' });
     const g = sv('g', { 'data-look': 'causes.row', class: 'pcs-row' + (r.key === OTHER ? ' other' : '') + (r.kind === 'total' ? ' total' : '') + (r.key === NOW ? ' now' : '') }, label, bar, val);
@@ -314,7 +313,7 @@ export function createCauses({ host } = {}) {
     { const d0 = list.length ? domainOf(list, metricOf(t)) : null; domGoal.lo = d0 ? d0.lo : 0; domGoal.hi = d0 ? d0.hi : 1; }
     const m = TILE[metricOf(t)]?.t || 'The reading';
     parts.svg.setAttribute('aria-label', data ? `${m}: healthy ${fmt(data.baseShown, data.digits)}, now ${fmt(data.currentShown, data.digits)} ${data.unit}. `
-      + list.filter((s) => s.kind === 'step').map((s) => `${s.label} ${signed(s.shown, data.digits)}`).join(', ') : `${m}: what raises it, being worked out`);
+      + list.filter((s) => s.kind === 'step').map((s) => `${s.label} ${signed(s.shown, data.digits)}`).join(', ') : `${m}: calculating what raises it`);
     parts.svg.dataset.bars = String(data ? data.bars.length : 0);   // (the browser checks read it)
     if (!raf) raf = nextFrame(tick);
   }

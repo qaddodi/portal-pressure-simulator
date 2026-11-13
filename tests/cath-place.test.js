@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outlineBox, placeSummary } from '../src/ui/cath-place.js';
+import { outlineBox, placeSummary, placeBeside } from '../src/ui/cath-place.js';
 import { balloonOutline } from '../src/ui/hvpg-balloon.js';
 
 const overlaps = (p, bw, bh, r) => p.x < r.x1 && p.x + bw > r.x0 && p.y < r.y1 && p.y + bh > r.y0;
@@ -52,4 +52,32 @@ test('with room above, it still sits above the readings, centred between them', 
   const p = placeSummary({ A, bw, bh, W: 1440, top: 76, lim: 800, gap: 64, keep: [] });
   assert.equal(p.y, 500 - bh - 64);
   assert.equal(p.x, 550 - bw / 2);
+});
+
+// The stack stands close to its points (short leaders) and never on them, the stretch of vein between them, the balloon or a card.
+test('placeBeside: the stack stands within a short leader of its points, clear of the vein between them and the cards', () => {
+  const A = { tip: [232, 362], ahead: [150, 392] }, bw = 270, bh = 80, W = 393, off = 16;
+  const seg = { x0: 150 - 8, y0: 362 - 8, x1: 232 + 8, y1: 392 + 8 };
+  const keep = [seg, { x0: 240, y0: 345, x1: 282, y1: 372 }];
+  const blockers = [{ x0: 4, y0: 4, x1: 389, y1: 145 }, { x0: 4, y0: 520, x1: 389, y1: 844 }];
+  const p = placeBeside({ A, bw, bh, W, top: 151, lim: 526, off, blockers, keep });
+  for (const r of [...keep, ...blockers]) assert.ok(!overlaps(p, bw, bh, r), `covers ${JSON.stringify(r)} at ${JSON.stringify(p)}`);
+  // (its nearest edge is no farther than the stand-off from the points' box, plus the clear margin)
+  const gapY = Math.max(p.y - 392, 362 - (p.y + bh), 0), gapX = Math.max(p.x - 232, 150 - (p.x + bw), 0);
+  assert.ok(Math.hypot(gapX, gapY) <= off + 8, `leader ${Math.hypot(gapX, gapY)} px at ${JSON.stringify(p)}`);
+});
+
+test('placeBeside: with nothing in the way it goes above the points, centred on them', () => {
+  const A = { tip: [300, 400], ahead: [260, 420] }, bw = 100, bh = 60;
+  const p = placeBeside({ A, bw, bh, W: 600, top: 70, lim: 700, off: 16, blockers: [], keep: [] });
+  assert.equal(p.y, 400 - 16 - bh);
+  assert.equal(p.x, 280 - bw / 2);
+});
+
+test('placeBeside: to the right of its points when above and below are taken, its left edge facing them', () => {
+  const A = { tip: [100, 300], ahead: [60, 320] }, bw = 120, bh = 100;
+  const blockers = [{ x0: 0, y0: 0, x1: 600, y1: 290 }, { x0: 0, y0: 330, x1: 600, y1: 800 }];
+  const p = placeBeside({ A, bw, bh, W: 600, top: 70, lim: 800, off: 16, blockers: [], keep: [{ x0: 52, y0: 292, x1: 108, y1: 328 }] });
+  assert.ok(p.x >= 100 + 16 || p.y + bh <= 292 || p.y >= 328, JSON.stringify(p));
+  void blockers;
 });

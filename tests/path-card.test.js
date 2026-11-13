@@ -27,12 +27,12 @@ test('first visit: the lit path follows Baveno VIII 1.3, 1.15, 1.16 and 1.17', (
   assert.equal(lit({ lsm: 8 }), 'a1', 'LSM <10 rules cACLD out');
   assert.equal(lit({ lsm: 12, plt: 160 }), 'a2', 'LSM ≤15 and PLT ≥150 rules CSPH out');
   assert.equal(lit({ lsm: 15, plt: 150 }), 'a2', 'both limits are inclusive');
-  assert.equal(lit({ lsm: 12, plt: 149 }), 'a4', 'PLT <150 is the gray zone');
-  assert.equal(lit({ lsm: 20 }), 'a4', '15–25 is the gray zone');
+  assert.equal(lit({ lsm: 12, plt: 149 }), 'a4', 'PLT <150 is the indeterminate zone');
+  assert.equal(lit({ lsm: 20 }), 'a4', '15–25 is the indeterminate zone');
   assert.equal(lit({ lsm: 20, ant: true }), 'a3', 'ANTICIPATE ≥75% rules CSPH in');
   assert.equal(lit({ lsm: 20, ssm: true }), 'a3', 'SSM >55 rules CSPH in');
   assert.equal(lit({ lsm: 25 }), 'a6', 'LSM ≥25 rules CSPH in');
-  assert.equal(lit({ lsm: 30, bmi: true }), 'a4', 'at a BMI ≥30 the 25 kPa rule does not hold: the gray zone');
+  assert.equal(lit({ lsm: 30, bmi: true }), 'a4', 'at a BMI ≥30 the 25 kPa rule does not hold: the indeterminate zone');
   assert.equal(lit({ lsm: 30, bmi: true, ant: true }), 'a3');
   assert.deepEqual([...litFirst({ lsm: 20, plt: 200, ant: true })].sort(), ['a3', 'b3', 'g1', 'root']);
   assert.deepEqual([...litFirst({})], ['root'], 'no reading: only the start is lit');
@@ -66,7 +66,7 @@ test('every outcome has a reading in words, and the Child–Pugh class is the po
   assert.deepEqual(['A5', 'A6', 'B7', 'B9', 'C10', 'C15'].map((s) => cpClass(+s.slice(1)) + s.slice(1)), ['A5', 'A6', 'B7', 'B9', 'C10', 'C15']);
   assert.match(readingFor('bleed', 'ptips', p2).why, /Child–Pugh C10 is C 10–13/);
   assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 8, active: true }).why, /B8 with active bleeding/);
-  assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 6, hvpg: 22 }).why, /HVPG 22 is ≥20/);
+  assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 6, hvpg: 22 }).why, /HVPG 22 mmHg is ≥20/);
   assert.match(readingFor('first-visit', 'a3', { ...p1, bmi: true }).why, /ANTICIPATE-NASH/);
   assert.deepEqual(chipsOf('first-visit', p1), ['LSM 31 kPa', 'Platelets 120', 'ANTICIPATE ≥75%']);
   assert.ok(!chipsOf('bleed', p2).some((c) => /HVPG/.test(c)), 'a slide that gives no HVPG shows none');
@@ -121,7 +121,7 @@ test('the small map: every node is on it, words and dots stay inside the card, a
     assert.equal(m.paths.size, edgesOf(T).length);
     for (const [id, p] of m.nodes) { assert.ok(p.x >= 20 && p.x <= W - 20, `${id} at ${W}`); assert.ok(p.y + (p.words ? 19 + p.words.length * 12.5 : 0) <= m.H, `${id} words inside the height`); }
     const row = new Map();
-    for (const [id, p] of m.nodes) if (p.words) (row.get(p.y) || row.set(p.y, []).get(p.y)).push([p.x, Math.max(...p.words.map((w) => w.length)) * 6.3]);
+    for (const p of m.nodes.values()) if (p.words) (row.get(p.y) || row.set(p.y, []).get(p.y)).push([p.x, Math.max(...p.words.map((w) => w.length)) * 6.3]);
     for (const r of row.values()) { r.sort((a, b) => a[0] - b[0]); if (W >= 346) for (let i = 1; i < r.length; i++) assert.ok(r[i][0] - r[i - 1][0] >= (r[i][1] + r[i - 1][1]) / 2 - 2, `words of a row clear each other at ${W}`); }
   }
 });

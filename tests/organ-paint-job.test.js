@@ -150,7 +150,6 @@ test("the painter's targets stay within the room the canvas gives them, however 
 });
 
 test("the view's sharp picture keeps its sides within the painter's room beside the canvas", async () => {
-  const { readFileSync } = await import('node:fs');
   const src = stageSource();
   // (The picture's size: the canvas's, or under Sharper upscaling the smaller picture drawn under it.)
   assert.match(src, /const roomW = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[0\] : vCanvas\.width, roomH = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[1\] : vCanvas\.height;[^\n]*\n\s+const room = targetRoom\(roomW, roomH\);/);
@@ -172,4 +171,49 @@ test('a non-scaling stroke is painted at its width in the page\'s px, whatever i
   assert.equal(p.cssPx, 1);
   p.paintGroup(spec, [2, 0, 0, 2, 0, 0], 200, 200, null);
   assert.deepEqual(log, [0.8, 1.6]);
+});
+
+test('the mask and nested layers are given back at rest by a timer, never while a job holds them or soon after a clear (Perf D2)', async () => {
+  const { holdersNow } = await import('../src/ui/gpu-budget.js');   // (they must never be counted as a budget holder: counting them could make the budget drop other things mid gesture)
+  const timers = [], was = { set: globalThis.setTimeout, clear: globalThis.clearTimeout };
+  globalThis.setTimeout = (f, ms) => { timers.push({ f, ms, live: true }); return timers.length; };
+  globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].live = false; };
+  const mine = () => holdersNow().list.filter((h) => h.owner === 'organ-paint').length;
+  const fire = () => { const t = timers.filter((x) => x.live).at(-1); t.live = false; t.f(); };
+  const pnow = performance.now;
+  let clock = 1e6;
+  performance.now = () => clock;
+  try {
+    const { gl, calls } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
+    const before = mine();
+    assert.equal(p.deepBytes(), 0, 'nothing deep before a nested group');
+    const spec = () => ({ ops: [group([square(0, 0), square(10, 0)])], opacity: 1, mask: null, root: null });
+    const a = p.bakeJob(spec(), ID, 100, 100, {});
+    assert.equal(a.step(performance.now() + 0), 'more');   // (the layers cleared, one op in; the job holds them)
+    assert.ok(p.deepBytes() > 0);
+    assert.equal(mine(), before, 'not a budget holder');
+    assert.equal(timers.filter((t) => t.live).length, 1);
+    assert.equal(timers.at(-1).ms, 12000);
+    // The timer fires while the job is half done, and a long time on: nothing is given back, it asks again.
+    clock += 20000; fire();
+    assert.ok(p.deepBytes() > 0, 'kept while a picture\'s job holds the layers');
+    assert.equal(mine(), before);
+    assert.equal(p.trimDeep(), false);
+    while (a.step() !== 'done');
+    a.drop();
+    // Cleared a moment ago: not yet.
+    const a2 = p.bakeJob(spec(), ID, 100, 100, {});
+    assert.equal(a2.step(), 'done');
+    clock += 100; fire();
+    assert.ok(p.deepBytes() > 0, 'cleared a moment ago: kept');
+    clock += 20000; fire();   // (idle for the warm period: given back)
+    assert.equal(p.deepBytes(), 0, 'given back at rest');
+    // Made again at the next first clear.
+    const n = calls.length;
+    const b = p.bakeJob(spec(), ID, 100, 100, {});
+    assert.equal(b.step(), 'done');
+    assert.ok(p.deepBytes() > 0 && mine() === before);
+    assert.ok(calls.slice(n).some((c) => c[0] === 'texImage2D' && c[4] === 100), 'its room made again');
+    p.dispose();
+  } finally { globalThis.setTimeout = was.set; globalThis.clearTimeout = was.clear; performance.now = pnow; }
 });

@@ -29,13 +29,15 @@
 //   node scripts/rules-lint.mjs --prune    take the switches the source no longer reads out of scripts/switches-left.json
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse } from 'espree';
 import { sourceRegexTests } from './test-classes.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
+// (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
+// (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'lap', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -142,6 +144,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
   };
   const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
+  need('src/ui/presenter.js', [
+    [/c\.classList\.contains\('pz-tiles'\) \? 0 :/, "the tiles' own scroll height is no overflow: their numbers' GPU pictures reach past a tile, and counted it zoomed the readings card down in a what-if drag (7 Nov 2026)"],
+    [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
+  ]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
@@ -157,20 +163,156 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/, 'still lumens kept only when that is exact'],
   ];
   for (const [re, why] of compRules) if (!re.test(comp)) errors.push(`src/ui/veins-gl.js composite(): ${why} (${re})`);
-  if (!(comp.indexOf('if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
+  if (!(comp.indexOf('drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
   if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
+  // The Tube vessel renderer (10 Nov 2026, docs/tube-renderer.md): no hybrid, and the draw buffers set once.
+  need('src/ui/veins-gl.js', [
+    ['if ((pMode === 0 || pMode >= 3) && meshUse() && tubePass(pM, pLook)) return;', 'the Tube pass is the only geometry pass (no Mesh: when it is not ready, meshUse() is false and the classic pass draws)'],
+  ]);
+  {
+    const tp = text('src/ui/tube-pass.js');
+    const body = (from, to) => tp.slice(tp.indexOf(from), tp.indexOf(to, tp.indexOf(from)));
+    const tubeDrawBody = body('function tubeDraw(', 'function tubePair(');
+    if (!tubeDrawBody || /drawBuffers/.test(tubeDrawBody)) errors.push('src/ui/tube-pass.js tubeDraw: holds no gl.drawBuffers (the strip and the patch write the same four targets, so the draw buffers never change between them)');
+    const tubePassBody = body('function tubePass(', 'return tubePass;');
+    if (!tubePassBody || /MESH_NONE/.test(tubePassBody)) errors.push('src/ui/tube-pass.js tubePass: holds no MESH_NONE (the prepass masks the colour; it never turns the draw buffers off)');
+  }
+  // The Tube's stage 2 (brief S2-D, 10 Nov 2026): a failed stage 2 program leaves the Tube at stage 1, never the classic; patches are not drawn when the joins are webs.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tube2|tubeLean|stage2/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 2 program (a Tube frame that stage 1 can draw is never drawn by the Mesh or the classic because a stage 2 program failed)');
+    const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
+    if (!finishTubeBody || /tube2/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 2 to finishTube2 (a failed stage 2 program must not take stage 1 down with it)');
+    const draw2Body = slice(tp, 'function draw2(', '// A pass and its prepass for tier t');
+    if (!/webCall\(/.test(draw2Body) || /patchCall\(/.test(draw2Body)) errors.push('src/ui/tube-pass.js draw2: stage 2 draws the webs, never the patches (no ?tubejoin=patch since 11 Nov 2026)');
+    if ((tp.match(/patchCall\(/g) || []).length !== 2) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) only, and defined once');
+    if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
+  }
+  // The Tube's glow program (brief PD part 4, 10 Nov 2026): optional on its own (a failure leaves the glow pairs on the strip program and takes no stage down); only the glow passes use it.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tubeGlow/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no glow program (a Tube frame is never drawn by the Mesh or the classic because the glow program failed)');
+    if (/tubeStrip|tubePatch|tubeLean|tube2|tube3/.test(slice(vg, 'const finishGlow = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishGlow: finishes the glow program only');
+    if (!/const P = pass === MP\.GLOW \|\| pass === MP\.UP \? glowP : E\.tubeS;/.test(tp) || !/glowP = E\.tubeGlow \|\| E\.tubeS;/.test(tp)) errors.push('src/ui/tube-pass.js tubeDraw: the glow passes (MP.GLOW, MP.UP) draw with E.tubeGlow, else E.tubeS; no other pass uses the glow program');
+    if ((tp.match(/glowP/g) || []).length !== 6) errors.push('src/ui/tube-pass.js: glowP is set once per frame and read by tubeDraw and the program set-up only');
+  }
+  // The liver's congestion at rest (12 Nov 2026, his Mac: the organ layer painted twice a second, "page changed: liver g.organ transform"): its target is
+  // held on the venous pressure with the breath low-passed out, so a breath never tips it a step and the liver is not rewritten at rest.
+  {
+    const dg = text('src/ui/stage-diaphragm.js');
+    if (!/live\.lvGT = stepHeld\(live\.lvGT, gLow, 0\.03\);/.test(dg) || !/gLow \+= \(gRaw - gLow\) \* -Math\.expm1\(-\(gNow - gLowAt\) \/ BREATH_TAU\);/.test(dg)) errors.push('src/ui/stage-diaphragm.js easeLiver: the congestion target is held on the breath-free venous pressure (gLow, BREATH_TAU)');
+  }
+  // The Tube's cull (brief PD part 3, 10 Nov 2026): rows wholly outside the vessel layer are left out of the stage 2 buckets (the buckets are built from the cull's mask in place of the rows with points),
+  // never while a stretch of the change between the views moves the points (joinBase >= 0), and the pad it grows the layer by is the widest pass's reach (glow and shadow), not a guess of one pass.
+  {
+    const vg = text('src/ui/veins-gl.js'), s2 = text('src/ui/tube-stage2.js'), tp = text('src/ui/tube-pass.js');
+    if (!/tubeBuckets\(tubeNow, C \? C\.mask : B\.pts\.on, nTubes, st\.R\.rows, D\.tb\);/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the rows by tier are bucketed from the cull\'s mask (C ? C.mask : B.pts.on)');
+    if (!/const C = view && view\.ok && joinBase < 0 \? cullUpdate\(B, nTubes, view\) : null/.test(s2)) errors.push('src/ui/tube-stage2.js frame: no row is culled during the change between the views (joinBase >= 0), nor without a usable view');
+    if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on, !B\.noEnds[,)]/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
+    // (12 Nov 2026: a frame between the views draws only the webs of the joins it has, the morph set's joins.on, not every join of the stretch.)
+    if (!/websByTier\([^\n]*jv >= 0 && st\.ji \? websLive\(st, joins\) : null\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: between the views the webs are those of the frame\'s own joins (websLive)');
+    if (!/Math\.max\(meshPad\(MP\.UP, look, px\), meshPad\(MP\.SHADOW, look, px\)\)/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s pad is the larger of the glow pass\'s and the shadow pass\'s reach (meshPad)');
+    if ((tp.match(/D\.frame\(/g) || []).length !== 1) errors.push('src/ui/tube-pass.js: the stage 2 data is binned in frameD alone, with the layer\'s view, so the layer pass and the lumen pass cull the same rows');
+  }
+  // The lumen layer at a share of the vessel layer's size (brief PL item 1, 10 Nov 2026): while the lumen pass draws, its view, shifts, scissors and size are the target's (lumK), and the cull's rectangle is the layer pass's.
+  {
+    const vg = text('src/ui/veins-gl.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const lf = slice(vg, 'function lumenFrame(', '\n  }\n');
+    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\);\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
+    if (!/pM = scaled \? lumenView\(m, LK\.sx, LK\.sy, LK\.ms\) : m;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is given the view in the target\'s pixels (lumenView) when the target is smaller than the layer');
+    if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0, bx\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0, bx\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
+    if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
+    if (!/if \(lumK\) m = lumK\.m;/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s rectangle comes from the full view while the lumen pass draws at a share (the layer pass\'s rectangle)');
+    if (!/tubePass\.webColour = !!\(blood\.origin \|\| \(dyeAny && blood\.dye !== false\)\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen colour draw includes the webs only when the origin colours or the dye are on (tubePass.webColour; a web\'s lumen pixel is the plain fill otherwise)');
+    if (!/if \(w && tubePass\.webColour\) \{ webCall\(P3\.webLumen,/.test(text('src/ui/tube-pass.js'))) errors.push('src/ui/tube-pass.js tubeLumenPass: the webs\' colour draw follows tubePass.webColour; their depth prepass does not');
+    if (!/const bx = !LUM_OFF && tubePass\.lumenBox\(m, look, LB\) \? LB : null;/.test(lf) || !/LUMC\.n = 0; LUMC\.all = !bx;/.test(lf) || !/LUMD\.all = LUMC\.all; LUMD\.n = LUMC\.n; LUMD\.r\.set\(LUMC\.r\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is cut to the box of the rows inside and their webs (PL item 3), clears what the last frame may have drawn in, and keeps the rects it drew in for the next clear');
+    const ep = slice(vg, 'function eachPiece(', '\n  }\n');
+    if (!/lumenPiece\(x0, x1 - x0, kx, PCX\)/.test(ep) || !/AXX\[i \* 3 \+ 2\] \* kx/.test(ep)) errors.push('src/ui/veins-gl.js eachPiece: a lumen pass at a share scissors and shifts its pieces in the target\'s pixels (lumenPiece, times the share)');
+  }
+  // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
+  // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const pieceBody = slice(vg, '  const pieceFn = () => {', '  function eachPiece(');
+    const iLumen = pieceBody.indexOf('if (pMode === 5)'), iStale = pieceBody.indexOf('lumenDepth.stale();'), iClear = pieceBody.indexOf('if (pMode >= 3) clearLayer();');
+    if (iLumen < 0 || iStale < iLumen || iClear < iStale) errors.push('src/ui/veins-gl.js pieceFn: every draw of the vessel layer (every mode but the lumen layer\'s own) marks the lumen depth stale first (lumenDepth.stale() before the draw)');
+    const lf = slice(vg, '  function lumenFrame(', '  // The composite\'s textures, each on its unit');
+    const iNeeds = lf.indexOf('pRedo = lumenDepth.needs('), iEach = lf.indexOf('eachPiece('), iDrawn = lf.indexOf('if (pRedo) { lumenDepth.drawn(');
+    if (iNeeds < 0 || iEach < iNeeds || iDrawn < iEach || !/if \(T\.made !== made\) \{ lumenDepth\.stale\(\); LUMD\.all = true; \}/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth is asked for (lumenDepth.needs) before the pieces, recorded as drawn after them, and a new or resized lumen target makes it stale');
+    if (!/lost = true; lumenDepth\.stale\(\);/.test(vg)) errors.push('src/ui/veins-gl.js: a context loss marks the lumen depth stale');
+    const lp = slice(tp, '  function tubeLumenPass(', '  tubePass.drew = 0;');
+    const iRedo = lp.indexOf('if (redo) {'), iDepth = lp.indexOf('gl.clearBufferfv(gl.DEPTH'), iLum = lp.indexOf('stripCall(P3.lumen');
+    if (iRedo < 0 || iDepth < iRedo || iLum < iDepth || (lp.match(/gl\.clearBufferfv\(gl\.DEPTH/g) || []).length !== 1 || /invalidateFramebuffer/.test(lp) || !/if \(redo\) \{\n\s+gl\.depthMask\(true\);\n\s+gl\.clearBufferfv\(gl\.DEPTH/.test(lp)) errors.push('src/ui/tube-pass.js tubeLumenPass: the depth is cleared and drawn only in if (redo), before the lumens, and is never invalidated (a fresh depth is kept)');
+  }
+  // The organ stack's shift (13 Nov 2026, heat D-2): the picture's version changes only when a layer moved (a bowel float handed over again unchanged must not make a new picture).
+  if (!/shift: \(name, dy\) => \{ const did = stack\.shift\(name, dy\); if \(did\) texVer\+\+; return did; \}/.test(text('src/ui/veins-gl.js'))) errors.push('src/ui/veins-gl.js organs.shift: bumps texVer only when the stack moved a layer (heat D-2)');
+  // Heat D-4 and D-6 (13 Nov 2026): setTubes sends only the changed rows (changedRows, as setFlow) and nothing while they match; the blood cells' boxes are walked once while the cells (bloodVer), matrix and canvas stand (bloodBoxes), and bloodMark and picMark take the kept tile mask (addFrom).
+  { const v = text('src/ui/veins-gl.js'), st = v.slice(v.indexOf('    setTubes(data) {'), v.indexOf('    paintOrgans(shapes, rect, k) {'));
+    if (!/changedRows\(data, tubeNow, ROW_W, nTubes, SPAN\)/.test(st) || /texSubImage2D\(gl\.TEXTURE_2D, 0, 0, 0, TUBE_TEXELS, nTubes, gl\.RGBA, gl\.FLOAT, data\);\s*\n\s*\},/.test(st)) errors.push('src/ui/veins-gl.js setTubes: only the rows that differ from what the texture holds go up (changedRows), and nothing while they match (heat D-4)');
+    if (!/bloodVer\+\+/.test(v) || !/bb\.ver === bloodVer/.test(v) || !/bloodBoxT, 0\)/.test(v) || /markCells\(T, bloodCPU/.test(v)) errors.push('src/ui/veins-gl.js: the blood cells\' boxes are kept while the cells (bloodVer), their number and size, the matrix and the canvas stand (bloodBoxes + addFrom), not walked in each blood frame and picture (heat D-6)'); }
+  // The ascites ripple's frames (13 Nov 2026, heat D-3): a frame where only the ripple's phase moved besides the blood is counted as the blood's (bloodSeq, the band added to its dirty rects), not as a new picture.
+  if (!/const bloodAlone = !full && !part && !dirt && !pool && !cath && bare && !figNew && \(rippling \? sameRipple && fluidW\[2\] > fluidW\[0\] : same\);/.test(text('src/ui/veins-gl.js')) || !/bloodMark\(bloodSeq, [^;]*, rippling \? fluidW : null\)/.test(text('src/ui/veins-gl.js'))) errors.push('src/ui/veins-gl.js composite: a frame where only the ripple\'s phase moved besides the blood is the blood\'s (bloodAlone with sameRipple, the fluid band in bloodMark), not a new picture (heat D-3)');
+  // The geometry bundle per binning (10 Nov 2026, the Anatomy to Circuit switch): a morph set's derived data (points, join list, patches, the Tube's stage 2 record) is made when the set is
+  // (prepareSet, called through api.prepareMorphSet by the caller, a free moment of its own after makeMorphSet), never inside meshGeo for a set that has it, and the patches only where a renderer draws them (not for the Tube's web joins).
+  {
+    const vg = text('src/ui/veins-gl.js'), ts = text('src/ui/tube-stage2.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const mk = slice(vg, '    makeMorphSet(bins) {', '    prepareMorphSet(S) {');
+    if (!/const keptVer = figVer, keptOK = fboOK, keptAll = movedAll;\n\s+useMorphSet\(null\);/.test(mk) || !/useMorphSet\(was\);\n\s+figVer = keptVer; fboOK = keptOK; movedAll = keptAll;\n\s+return S;/.test(mk) || /prepareSet\(/.test(mk)) errors.push('src/ui/veins-gl.js makeMorphSet: puts figVer, fboOK and movedAll back after the swap back (making a set never causes a whole redraw) and does not prepare the set (api.prepareMorphSet, a slice of its own)');
+    if (!/prepareMorphSet\(S\) \{ if \(S && S\.owner === api && morphSets\.has\(S\)\) prepareSet\(S\); \},/.test(vg) || !/if \(S && S\.prepKey === undefined\) prepareSet\(S\);\n\s+useMorphSet\(S\);/.test(vg)) errors.push('src/ui/veins-gl.js: api.prepareMorphSet(S) prepares a set of this renderer, and api.useMorphSet prepares a set never prepared at once, before the swap');
+    const meshGeoBody = slice(vg, '  function meshGeo() {', '  // A morph set\'s bundle, made');
+    if (/pointsFromEntries\(|joinEntryList\(|patchGroups\(|stage2Prepare\(/.test(meshGeoBody) || !/deriveBundle\(B, entCPU/.test(meshGeoBody)) errors.push('src/ui/veins-gl.js meshGeo: derives through deriveBundle / deriveJoinPatches only, for the bundle in use');
+    if ((vg.match(/patchGroups\(/g) || []).length !== 1 || (vg.match(/deriveJoinPatches\(B\)/g) || []).length !== 2) errors.push('src/ui/veins-gl.js: patchGroups is called once, in deriveJoinPatches (plus its import), and deriveJoinPatches is defined once and called from meshGeo and prepareSet only');
+    if (!/if \(!B\.patchOk && patchesWanted\(\)\) deriveJoinPatches\(B\);/.test(meshGeoBody) || !/if \(patchesWanted\(\) && !B\.patchOk\) deriveJoinPatches\(B\);/.test(slice(vg, '  function prepareSet(S) {', '  // The sets made under another mode'))) errors.push('src/ui/veins-gl.js: the joins\' patches are built only where patchesWanted() (not for the Tube\'s web joins)');
+    if (!/if \(webJoins\(\)\) stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase\);/.test(vg) || (vg.match(/stage2Prepare\(/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
+    if (!/if \(!st \|\| st\.gen !== B\.gen \|\| !st\.R\.rows\) \{ st = stage2Prepare\(/.test(ts)) errors.push('src/ui/tube-stage2.js frame: bins only through stage2Prepare, and only for a bundle with no current record');
+  }
+  // The Tube's stage 3 (brief S3-D, 10 Nov 2026): the lumen layer. In stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame;
+  // in stages 1 and 2 nothing of stage 3 runs (the old builds, the second flow target and the half-size streaks are as they were); a failed stage 3 program leaves stage 2.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tube3|tubeLumen|stage3/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 3 program (a Tube frame that stage 2 can draw is never drawn by the Mesh or the classic because a stage 3 program failed)');
+    const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
+    if (!finishTubeBody || /tube3/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 3 to finishTube3');
+    if (/tubeStrip|tubePatch|tubeLean|tube2/.test(slice(vg, 'const finishTube3 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube3: finishes the six stage 3 programs only');
+    if (!/const stage3 = !!tube3 && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
+    if (!/const halfOn = !stage3 && /.test(vg)) errors.push('src/ui/veins-gl.js composite: the half-size streak pass is not run in stage 3 (const halfOn = !stage3 && ...)');
+    const prgLine = (vg.match(/\n[^\n]*const prg = [^\n]*/) || [''])[0];
+    if (!/stage3 \? tube3\.compCell : compCell/.test(prgLine) || !/stage3 \? tube3\.plainCell : plainCell/.test(prgLine) || !/const cPlain = stage3 \? tube3\.plain : plain, cFull = stage3 \? tube3\.comp : comp;/.test(vg)) errors.push('src/ui/veins-gl.js composite: in stage 3 the compositor program is a Tube build (tube3.comp, compCell, plain, plainCell), and the old builds in stages 1 and 2');
+    const nUse = (vg.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vg.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
+    if (nUse !== nGuard) errors.push('src/ui/veins-gl.js: a Tube compositor build (tube3.comp, compCell, plain, plainCell) is named only after stage3 ?, so stages 1 and 2 never use one');
+    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)\n        gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);");
+    const firstBind = vg.indexOf('compBind(U, layer, glow, warm, useStack);', lumIf);
+    const halfBlock = vg.indexOf('      if (halfOn) {\n        // (The streaks', lumIf);
+    if (lumIf < 0 || firstBind < 0 || halfBlock < 0 || lumIf > halfBlock || lumIf > firstBind) errors.push('src/ui/veins-gl.js composite: in stage 3 the lumen pass runs on every blood frame (blood, dye or origin), before the compositor binds its textures and draws (if (stage3 && (blood.on || ...)) { gpuProbe.time(gl, \'lumen layer\', lumenFrame, ...))');
+    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/lumenFrame, m, look/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
+    if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook, pRedo\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
+    if (!/if \(stageNow\(\)\.stage !== 3\) return false;/.test(slice(tp, 'function tubeLumenPass(', 'const D = FR.D'))) errors.push('src/ui/tube-pass.js tubeLumenPass: draws nothing outside stage 3');
+    if (!/AT = choice\.stage === 3 \? A3 : ATTACH;/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: the layer pass writes no second flow target in stage 3 only (AT = choice.stage === 3 ? A3 : ATTACH)');
+    if (/P3\.|E\.tube3\b(?!Failed)/.test(slice(tp, 'function tubePass(', '// ---- Stage 3'))) errors.push('src/ui/tube-pass.js tubePass: the layer pass names no lumen program (the lumen pass is tubeLumenPass)');
+  }
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
-    [/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function'],
     [/bool isLy = f1\.x < -0\.5;/, 'a lymph row is marked in the shader'],
     [/if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row'],
-    [/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row'],
     [/if \(blood == 1 && isLy && f1\.z > 0\.0\) \{\n\s*float lc, lk;\n\s*lymphAt\(s1, y1, f0, len1, R1, lc, lk\);/, 'a lymph row draws its dashes'],
   ]);
-  const lymphFn = gl.slice(gl.indexOf('void lymphAt('), gl.indexOf('// Moving blood in one lumen at arc length s'));
-  if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
-  if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: across the channel in world units');
-  if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
+  // (lymphAt moved to comp-glsl.js with the rest of the lumen text, 10 Nov 2026: the rule moved with it, as written.)
+  need('src/ui/comp-glsl.js', [[/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row (the chevrons the compositor draws itself: moved to comp-glsl.js with the Tube build, 10 Nov 2026)']]);
+  need('src/ui/comp-glsl.js', [[/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function']]);
+  const cg = text('src/ui/comp-glsl.js');
+  const lymphFn = cg.slice(cg.indexOf('void lymphAt('), cg.indexOf('// Moving blood in one lumen at arc length s'));
+  if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
+  if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: across the channel in world units');
+  if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
   need('src/ui/lobule-zoom.js', [
     [/const lyOn = lymphOn && !m\.hide;/, 'lymph rows only with the Lymph layer on'],
     [/blood\.on = \(bloodOn \|\| lyOn\) && flowA > 0\.002;/, 'the composite is on for lymph'],
@@ -192,6 +334,140 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const pres = text('src/ui/presenter.js');
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
+
+  // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/presenter.js', [
+    [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],
+    [/const viewSettled = \(cut, stage\) => waitCut\(VIEW_CHANGE_MS \+ 400, \(\) => cut\(\) \|\| !stage\.viewChanging\?\.\(\)\);/, "a step after a switch of view waits for the change to land (stage.viewChanging), with VIEW_CHANGE_S's margin as the longest"],
+    [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
+    [/store\.set\(\{ sinusoid: true \}\); if \(ms\) await waitCut\(1250 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'into the sinusoid: until its zoom has landed'],
+    [/store\.set\(\{ sinusoid: false \}\); if \(ms\) await waitCut\(1000 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'out of the sinusoid: until its zoom has landed'],
+    [/const switching = store\.get\(\)\.view !== v;\s*if \(switching\) store\.set\(\{ view: v \}\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
+    [/\{ store\.set\(\{ view: 'anatomic' \}\); await viewSettled\(cut, stage\); if \(cut\(\)\) return; \}/, 'the dive after a switch to Anatomy waits for the change to land, not 700 ms'],
+    [/if \(threw\) \{ thrownNow = true; return 0; \}/, 'every card that leaves is thrown: wordsOut asks for no fixed floor, throwsOut() ends when they are out of sight (about 170 ms, not 260)'],
+    [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
+    [/if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, "the cards that show are thrown on the press, before the wait for the slide's preparation"],
+  ]);
+  forbid('src/ui/presenter.js', /\bwait\(700\)|async function until\(/, 'no 700 ms wait left from the 0.6 s change, and no 40 ms timer poll');
+  {
+    const pz = text('src/ui/presenter.js'), cam = pz.slice(pz.indexOf('  async function camera('), pz.indexOf('  // (left: only the entrances with more than this many ms still to run count'));
+    if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
+    const at = cam.indexOf('const switching = store.get().view !== v;');
+    if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
+  }
+  {
+    // M10 step 2 (8 Nov 2026): a bare `await wait(` is a wait Next cannot cut. The ones left, per file; the number only goes down.
+    const bare = { 'src/ui/presenter.js': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */ };
+    for (const [f, n] of Object.entries(bare)) {
+      const c = (text(f).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n').match(/await wait\(/g) || []).length;
+      if (c !== n) errors.push(`${f}: ${c} bare await wait( (allowance ${n}): use waitCut(ms, cut), or lower the allowance in scripts/rules-lint.mjs when one goes`);
+    }
+    const pz = text('src/ui/presenter.js'), cth = pz.slice(pz.indexOf('  async function cathTo('), pz.indexOf('  // ── A time-lapse on the live model'));
+    if (/\bwait\(/.test(cth.replace(/waitCut\(/g, ''))) errors.push('src/ui/presenter.js cathTo(): every wait is waitCut(ms, cut), so Next cuts the catheter descent');
+  }
+  need('src/ui/stage-view.js', [
+    [/const ms = reducedMs\(VIEW_CHANGE_MS\); live\.vtUntil = performance\.now\(\) \+ viewXfLeftMs\(live\.morph, live\.morphTarget, ms\); live\.vtMs = ms;/, "the change's length for whoever waits on it comes from VIEW_CHANGE_S"],
+    [/if \(xfSolveSlice\(x\.lab, XF_SLICE_MS\)\)/, 'a pending label solve goes on for the camera it began for, whatever the camera is retargeted to'],
+  ]);
+  forbid('src/ui/stage-view.js', /vtUntil = performance\.now\(\) \+ 700|vtMs = 700/, 'the change is not 700 ms');
+  need('src/ui/stage-glide.js', [[/if \(live\.viewXf && viewXfRetargetTo\(to\)\) \{ live\.following = false; return; \}/, "a framing asked for during a change between the views is the change's new end, not a second glide"]]);
+  need('src/ui/stage-gestures.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+if \(live\.vtGliding\) \{ cancelFrame/, 'a wheel or pinch takes the camera from a running change'], [/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+cancelFrame\(live\.vtAnim\);/, 'a press takes the camera from a running change']]);
+  need('src/ui/stage-fit.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+const goal = /, 'a turn of the circuit ends a running change cleanly']]);
+  need('src/ui/stage.js', [
+    [/const u = viewXfCamU\(viewXf, viewXfP\(\)\);/, "the change's camera is its share since the last retarget"],
+    [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
+    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
+    [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
+  ]);
+}
+
+// Rest pacing, Mac heat recs 2 and 7 (13 Nov 2026): tests/talk-rest-20hz.test.js and tests/instruments-rest-pace.test.js run the pacing and
+// the strips' loops; these pin the wiring a unit test cannot reach without the page. A pattern that no longer matches means the code it guarded
+// changed: look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  need('src/ui/stage.js', [[/const dt = Math\.min\(0\.1, \(now - lastT\) \/ 1000\);/, "the figure's blood steps by the time that passed, capped at 0.1 s: a talk's 20 Hz frame (50 ms) loses no time, so nothing slows"]]);
+  need('src/ui/lobule-zoom.js', [[/const dt = Math\.min\(0\.1, \(now - \(last \|\| now\)\) \/ 1000\);/, "the lobule's blood steps by the time that passed: its 20 Hz talk frame loses no time"]]);
+  need('src/ui/main.js', [[/setRestTalk\(\(\) => presenter\.active\(\)\)/, "a talk's rest steps (30, then 20 after 30 s, never 15) follow the presenter"]]);
+  need('src/ui/frame-hud.js', [['blood pacing (untouched): ${restRule}', '?perf names the rest rule in force']]);
+  need('src/ui/doppler.js', [
+    [/const paced = live\(\) && !labBusy, pace = paced \? paceMs\(\) : 0, rest = paced \? restGapFor\(now\) : 0, gap = Math\.max\(pace, rest\);/, 'the running Doppler is rest-paced; a change while paused, or the lab drawing, is drawn at once'],
+    [/if \(gap && now - paintAt < gap\) \{ if \(!\(rest > pace && park\(gap - \(now - paintAt\)\)\)\) raf = nextFrame\(loop\); return; \}/, 'at rest the Doppler waits on a timer between its frames, not on every screen frame'],
+    [/clearTimeout\(parkT\); parkT = 0;/, 'the Doppler lets its rest timer go with it'],
+    [/const tNow = buf\.length >= 2 \? clockNow\(now\) : null;/, "the Doppler's sweep is drawn from the clock, so rest pacing steps it less often but never slower"],
+    [/const cNow = Math\.floor\(tNow \* g\.cps\);/, "the Doppler's newest column is the clock's"],
+  ]);
+  need('src/ui/pressure-time.js', [
+    [/const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - tickAt >= gap;/, 'the pressure strip is rest-paced'],
+    [/clearTimeout\(parkT\); parkT = 0;/, 'the pressure strip lets its rest timer go with it'],
+  ]);
+}
+
+// Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit
+// test cannot reach without the page). A pattern that no longer matches means the code it guarded changed: look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  need('src/ui/stage-fit.js', [
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true \}\);\n/, 'Fit glides in the time its reach needs (camMs), not a fixed 420 ms'],
+    [/animateVT\(revealTo, CAM_MS_MAX, \{ scale: true \}\)/, 'a reveal glides by its reach'],
+    [/animateVT\(revealFrom, CAM_MS_MAX, \{ scale: true \}\)/, 'the unreveal glides by its reach'],
+    [/const goal = live\.vtGliding \? live\.vtTarget : live\.vt;\n\s+if \(live\.vtGliding\) \{ cancelFrame\(live\.vtAnim\); driftEnd\(\); live\.vtGliding = false; \}/, "a circuit turn during a glide starts from where the view is, not from the glide's end (item 14)"],
+  ]);
+  need('src/ui/stage-camera.js', [[/animateVT\(\{ k, x: vx - wx \* k, y: vy - wy \* k \}, CAM_MS_MAX, \{ scale: true \}\)/, 'the zoom pill and a double click glide by their reach']]);
+  need('src/ui/stage.js', [[/animateVT\(lo, CAM_MS_MAX, \{ scale: true \}\)/, "the zoom pill's last step out glides by its reach"], [/animateVT\(d, VIEW_CHANGE_S \* 1000\)/, 'the view change stays 1.3 s (kept as decided)']]);
+  need('src/ui/stage-gestures.js', [
+    [/animateVT\(d, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back to the fit glides by its reach, with the hand\'s speed'],
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back inside the limits glides by its reach, with the hand\'s speed'],
+    [/const v0 = hand\.take\(performance\.now\(\), handAge\);/, 'the spring-back takes the hand\'s speed as it let go'],
+    [/if \(wheelGlide\.active\) \{ settleSoon\(60\); return; \}/, 'the spring-back waits for a wheel notch that is still gliding'],
+    [/applyVT\(\); live\.CTM = null; handSample\(80\);/, 'a pinch and a drag give the hand tracker a sample at each step'],
+    [/zoomAt\(ev\.clientX, ev\.clientY, Math\.exp\(-clamp\(dy, -50, 50\) \* 0\.01\), true\); handSample\(300\);/, 'a trackpad pinch stays direct (zoomAt at once), and is sampled'],
+    [/wheelKind = isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'a notch is told from a trackpad by isPadWheel (wheel-glide.js)'],
+    [/stopGlide\(\); wheelGlide\.cancel\(\); stageScope\.clear\(settleT\); panFit = null;/, 'a button takes the notch glide over'],
+    [/wheelGlide\.cancel\(\); hand\.begin\(\);/, 'a press takes the notch glide over'],
+  ]);
+  const gest = text('src/ui/stage-gestures.js');
+  if (!(gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') >= 0 && gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') < gest.indexOf('wheelGlide.push('))) errors.push('src/ui/stage-gestures.js: the trackpad pinch (ctrlKey) is handled before the notch glide, direct');
+  need('src/ui/lobule-zoom.js', [
+    [/focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{/, 'focusOn: the ms it is given is a ceiling (the presenter gives 1500)'],
+    [/glideTo\(to, ms, true, atFit \? null : \{ part, zoom, to \}, ease, false, true\);/, 'focusOn times itself by reach'],
+    [/if \(reach && ease !== 'in'\) ms = Math\.min\(ms, lobuleMs\(from, to, Math\.max\(1, snap\.w\)\)\);/, "the lobule's glide takes the least of the ms given and its reach's (lobuleMs), the way out to the rise keeping its own"],
+    [/glideTo\(target, LOBULE_MS_MAX, false, null, 'inOut', false, true\);/, 'the lobule buttons glide by their reach'],
+    [/glideTo\(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true\); \}/, 'the lobule Fit glides by its reach'],
+    [/const kS = kMax \* Math\.pow\(rawHi \/ kMax, 0\.3\), rS = kS \/ V\.k;/, "the lobule's zoom-in limit stretches at the stage's 0.3 power on a pinch"],
+    [/zoomAround\(mx, my, \(pinch\.k \* d \/ pinch\.d\) \/ \(rawHi \|\| V\.k\), true\);/, 'a touch pinch stretches past the zoom-in limit'],
+    [/zoomAround\(px, py, f, pinchy\);/, 'a wheel pinch stretches past the zoom-in limit'],
+    [/if \(rawHi\) springHi\(\);/, 'the last finger up lets the stretch go'],
+    [/function endStretch\(\) \{ if \(!rawK && !rawHi\) return;/, "a wheel pinch's stretch past the zoom-in limit springs back when the wheel is quiet"],
+    [/zoomAround\(localX\(ev\), localY\(ev\), V\.k < kFit \* KMAX \* 0\.98 \? 2 : 1 \/ KMAX\)/, 'a double click stops hard at the limit, as the stage\'s does'],
+    [/if \(wheelKind === 'wheel' && !reduce\.matches && !ev\.ctrlKey && !ev\.metaKey\) \{ wheelGlide\.push\(/, "a mouse wheel's notch glides in the lobule, a trackpad pinch stays direct"],
+    [/wheelKind = ev\.ctrlKey \|\| ev\.metaKey \? 'pinch' : isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'the lobule tells a notch from a trackpad by the same isPadWheel'],
+  ]);
+  {
+    const lz = text('src/ui/lobule-zoom.js');
+    if (/glideTo\([^\n]*, 380\)/.test(lz)) errors.push('src/ui/lobule-zoom.js: a fixed 380 ms glide is back: time it by its reach (lobuleMs, item 12)');
+    if (/animateVT\([^\n]*, (?:260|320|380|420)\)/.test(text('src/ui/stage-gestures.js') + text('src/ui/stage-fit.js') + text('src/ui/stage-camera.js'))) errors.push('src/ui/stage-*.js: a fixed 260/320/380/420 ms glide is back: time it by its reach (camMs, item 12)');
+  }
+  need('src/ui/stage-glide.js', [
+    [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
+    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
+    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+  ]);
+  need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
+  need('src/ui/card-zoom.js', [
+    [/const ms = reverseMs\(SHUT_MS, s\.cur\.s, s\.plan\.s\);/, 'a zoom shut part-way takes the share of the time that is left'],
+    [/st\.cur = lerpTo\(m, m\.m0 >= 0 \? settleAt\(p, m\.m0\) : easeArrive\(p\)\);/, 'a glide turned back mid-way starts on the speed it carries'],
+    [/export const ZOOM_MS = 520;/, 'the card zoom in stays 520 ms (kept as decided)'],
+    [/export const SHUT_MS = 440;/, 'the card zoom back stays 440 ms (kept as decided)'],
+  ]);
 }
 
 // Code never rides after a line comment in stepBlood (6 Nov 2026): 0eec029 left so.speed, so.still, so.dt and so.bt after the // on so.phasic's
@@ -204,6 +480,20 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!lines.length) errors.push(`src/ui/stage-blood.js no longer sets so.${f} in stepBlood: the streams would step without it`);
     for (const l of lines) { const cm = l.indexOf('//'); if (cm >= 0 && cm < l.search(re)) errors.push(`src/ui/stage-blood.js sets so.${f} after a // on its line, so it is a comment, not code: ${l.trim().slice(0, 100)}`); }
   }
+}
+
+// Chart heads and the catheter labels' shadow (8 Nov 2026, motion recs 16 and 17). The flow-time and event-graph heads glide by time, through
+// headStep (display-state.js: 1 - exp(-dt / tau)), never a fixed fraction per frame (twice as fast at 120 Hz as at 60). A catheter label's drop
+// shadow is the opacity of its ::before; a box-shadow in its transition list repainted every frame it moved.
+{
+  for (const f of ['flow-time', 'event-graph']) {
+    const src = readFileSync(join(ROOT, `src/ui/${f}.js`), 'utf8');
+    if (!/headStep\(shown, goal, dt\)/.test(src)) errors.push(`src/ui/${f}.js: the head steps by headStep(shown, goal, dt), the time between frames, not a fraction per frame`);
+    if (/shown \+= \(goal - shown\)/.test(src)) errors.push(`src/ui/${f}.js: shown += (goal - shown) * k per frame is faster at 120 Hz than at 60: use headStep`);
+  }
+  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8');
+  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--(?:shadow-cath-label|glass-shadow)\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
+  for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
 }
 
 // Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list
@@ -281,6 +571,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
       if (n.type !== 'VariableDeclarator' || n.id.type !== 'ObjectPattern' || n.init?.type !== 'CallExpression' || !/^create/.test(n.init.callee?.name || '')) return;
       for (const k of bound(n.id)) if (imp.has(k)) errors.push(`${relative(ROOT, f)}:${n.loc.start.line} binds ${k} from ${n.init.callee.name}(), shadowing its own import of ${k}: rename one`);
     });
+  }
+}
+
+// Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
+//   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
+//   { file, forbid: [pattern, why] } it must not.
+// A rule is a test's old source assertion, kept with its one-line reason; a pattern that no longer matches means the code it guarded changed.
+for (const name of readdirSync(join(ROOT, 'scripts/source-shapes')).filter((n) => n.endsWith('.mjs')).sort()) {
+  const rules = (await import(pathToFileURL(join(ROOT, 'scripts/source-shapes', name)).href)).default;
+  for (const r of rules) {
+    const src = [].concat(r.file).flatMap((f) => (f.endsWith('*') ? stageFamily() : [f])).map((f) => readFileSync(join(ROOT, f), 'utf8')).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
+    if (r.need && !has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
+    if (r.forbid && has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
   }
 }
 

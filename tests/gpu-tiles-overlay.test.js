@@ -23,6 +23,7 @@ test('every uniform the shaders declare is located by the JavaScript', () => {
   located(fxShaders.capVS + fxShaders.capFS, fgl);
   located(fxShaders.boxVS + fxShaders.compFS, fgl);
   located(fxShaders.ductVS + fxShaders.ductFS, fgl);
+  located(fxShaders.plugVS + fxShaders.plugFS, fgl);
   assert.equal(MAX_DUCTS >= 6, true, 'the six portal tracts\' ductules');
 });
 

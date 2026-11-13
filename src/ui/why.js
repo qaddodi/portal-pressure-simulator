@@ -1,5 +1,6 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
+import { cancelMoves } from './num-move.js';
 import { classSoon } from './class-soon.js';
 import { host } from './host.js';
 import { h, fmt, svgIcon, announce, claimSurface, releaseSurface, placeAt, swipeSheet, STACK_MQ } from './util.js';
@@ -8,12 +9,12 @@ import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { restRemove } from './rest-pass.js';
 import { glidePlate } from './plate-glide.js';
 import { sheetLayer } from './sheet-layer.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, afterMs } from './motion.js';
 
 export function createWhy(pop) {
   if (pop?.isConnected) sheetLayer().append(pop);   // (laid in the one sheet layer, cut on the dock's top line: sheet-layer.js)
   // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
-  const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
+  const me = { get anchor() { return anchorEl; }, el: pop, box: () => (pop.classList.contains('as-sheet') ? null : pop.getBoundingClientRect()), close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
   // (Placed by util.js placeAt, the one placer: under the button, centred on it, or above it where there is no room. On a phone, upright
   // or an upright iPad, it is a short bottom sheet instead, as every other menu is there: CSS places it, with a scrim that takes the tap,
@@ -39,10 +40,11 @@ export function createWhy(pop) {
     const sheet = sheetMQ.matches;
     // (A card put away by a swipe was left drawn off the screen: that, and its swiped mark, are cleared before it comes in again.)
     for (const a of pop.getAnimations()) a.cancel();
+    cancelMoves(pop);   // (and the swipe's held number, so its glass is not drawn off by the last let-go: num-move.js)
     delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
     pop.classList.toggle('as-sheet', sheet); placedTop = 0;
     if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); sheetLayer().append(scrim); }
-    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
+    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Calculating the contributions…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     claimSurface(me);
     place(anchor);
@@ -50,7 +52,7 @@ export function createWhy(pop) {
     if (anchor.matches?.(':focus-visible')) pop.querySelector('button')?.focus({ preventScroll: true });
     let r = null;
     try { ({ result: r } = await host.request('explain', { metric })); }
-    catch { if (openFor === metric) swap(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
+    catch { if (openFor === metric) swap(head('Why?'), h('div', { class: 'sub' }, 'The model could not calculate this right now.')); return; }
     if (openFor !== metric || !r) return;
     announce(`${r.label}. ${r.sentence}`);
     const maxAbs = Math.max(1e-6, ...r.contributions.map((c) => Math.abs(c.delta)), Math.abs(r.total));
@@ -72,7 +74,7 @@ export function createWhy(pop) {
       head(r.label),
       h('div', { class: 'sentence' }, r.sentence),
       rows.length ? h('div', { class: 'waterfall' }, h('div', { class: 'overline', style: { marginBottom: '2px' } }, `Contribution of each change · ${r.unit}`), ...rows,
-        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, gray is what they add together.')) : null,
+        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, gray is the interaction between changes and other effects.')) : null,
       r.formula ? h('div', { class: 'formula' }, r.formula) : null,
     );
     place(anchor);
@@ -95,10 +97,10 @@ export function createWhy(pop) {
     if (pop.classList.contains('show')) {
       // (A card swiped away is already sliding down: it leaves as it is.)
       if (pop.dataset.swiped) { pop.classList.remove('show'); pop.classList.add('leaving'); }
-      else leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
-      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), asSheet() ? D_SMALL + 20 : 200);
+      else leaveFromHere(pop, () => { pop.classList.remove('show', 'pulling'); pop.classList.add('leaving'); });   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)
+      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), afterMs(asSheet() ? D_SMALL : D_FLIP));
     }
-    if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), D_SMALL + 20); }
+    if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), afterMs(D_SMALL)); }
     releaseSurface(me);
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }

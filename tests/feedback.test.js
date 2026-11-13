@@ -13,9 +13,9 @@ test('Send feedback heads Settings in every mode, not Help, and mails the one ad
   assert.match(FEEDBACK_EMAIL, /^[^@\s]+@[^@\s]+\.[a-z]+$/);
   const settings = between('function openSettings(', 'function presenterSettings(');
   assert.ok(settings.indexOf("menuItem('Send feedback'") < settings.indexOf("'Appearance'"), 'above Appearance');
-  assert.ok(settings.indexOf("menuItem('Send feedback'") < settings.indexOf("menuItem('Search'"), 'above the dock\'s Search and Help');
+  assert.ok(settings.indexOf("menuItem('Send feedback'") < settings.indexOf("menuItem('History'"), 'above the dock\'s History and Help');
   assert.ok(settings.indexOf("menuItem('Send feedback'") < settings.indexOf('...(talk ? [] : ['), 'outside the not-in-a-talk block');
-  assert.doesNotMatch(between('function openHelpMenu(', '], at);'), /Send feedback/);
+  assert.doesNotMatch(between('function helpRows(', 'function sendFeedback('), /menuItem\('Send feedback'/);
   const send = between('function sendFeedback(', 'function doUndo(');
   assert.match(send, /mailto:\$\{FEEDBACK_EMAIL\}\?subject=/);
   assert.match(send, /preview-badge/);

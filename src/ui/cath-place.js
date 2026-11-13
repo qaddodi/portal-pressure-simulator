@@ -60,3 +60,36 @@ export function placeSummary({ A, bw, bh, W, top, lim, gap, blockers = NONE, kee
   sBlockers = NONE; sKeep = NONE;   // (nothing of the caller's is held between calls)
   return PLACE;
 }
+
+// The stack's candidate places, tried one at a time (kept state, no closures per call): the box's top-left, clamped into the free band, costs
+// the cards and the keep-clear rects it would cover (heavily), what the clamp moved it (so a box pushed onto the points is dear), and the side's
+// own preference and slide.
+const tryBox = (x0, y0, pen, xMin, xMax, top, yMax) => {
+  const x = Math.min(Math.max(x0, xMin), xMax), y = Math.min(Math.max(y0, top), yMax);
+  const h = area(x, y, sBw, sBh, sBlockers, 4) + area(x, y, sBw, sBh, sKeep, 6), c = h * 1e3 + pen + (Math.abs(x - x0) + Math.abs(y - y0)) * 0.5;
+  if (!bestFound || c < bestC) { bestFound = true; bestC = c; bestX = x; bestY = y; bestH = h; }
+};
+
+/**
+ * The HVPG stack's top-left, close to the points it names (the leaders are short: `off` px from the points' box to the stack's edge).
+ * A: the readings' points ({ tip, ahead }, stage pixels); bw, bh: the box; W: the stage width; top, lim: the free band; off: the stand-off;
+ * blockers: the cards' rects; keep: what it must never cover (the stretch of vein between the points, the balloon, the points).
+ * Above the points, below them, or to their right (its readings' left edge faces them, so each leader runs out of its own row with nothing
+ * in the way), each slid sideways to the nearest clear spot; the side with nothing under it wins, else the one covering least.
+ * The answer ({ x, y }) is one kept object, rewritten by each call.
+ */
+export function placeBeside({ A, bw, bh, W, top, lim, off = 16, blockers = NONE, keep = NONE }) {
+  const minX = Math.min(A.tip[0], A.ahead[0]), maxX = Math.max(A.tip[0], A.ahead[0]), minY = Math.min(A.tip[1], A.ahead[1]), maxY = Math.max(A.tip[1], A.ahead[1]);
+  const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2, xMin = 28, xMax = Math.max(28, W - bw - 12), yMax = Math.max(top, lim - bh - 12);
+  sBw = bw; sBh = bh; sBlockers = blockers; sKeep = keep;
+  bestFound = false;
+  for (let d = 0; d <= W; d += 8) for (let si = d ? 0 : 1; si < 2; si++) {
+    const dx = (si ? 1 : -1) * d, x0 = midX - bw / 2 + dx;
+    tryBox(x0, minY - off - bh, d * 0.3, xMin, xMax, top, yMax);
+    tryBox(x0, maxY + off, 30 + d * 0.3, xMin, xMax, top, yMax);
+  }
+  for (let d = 0; d <= lim - top; d += 8) for (let si = d ? 0 : 1; si < 2; si++) tryBox(maxX + off, midY - bh / 2 + (si ? 1 : -1) * d, 60 + d * 0.3, xMin, xMax, top, yMax);
+  PLACE.x = bestX; PLACE.y = bestY;
+  sBlockers = NONE; sKeep = NONE;   // (nothing of the caller's is held between calls)
+  return PLACE;
+}

@@ -469,3 +469,10 @@ export function mixColor(space, a, pctA, b, pctB) {
   const part = (c, p) => `${typeof c === 'string' ? c : `color(srgb ${c[0]} ${c[1]} ${c[2]} / ${c[3]})`}${p == null ? '' : ` ${p}%`}`;
   return parseCssColor(`color-mix(in ${space}, ${part(a, pctA)}, ${part(b, pctB)})`);
 }
+
+/** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */
+export function rgbaOf(c) {
+  if (!c || c === 'none' || c === 'transparent') return '';
+  const [r, g, b, a] = cssColor(c);
+  return a > 0 ? `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${+a.toFixed(4)})` : '';
+}

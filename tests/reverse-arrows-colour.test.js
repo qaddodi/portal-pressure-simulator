@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // vein never shows hepatofugal colour while its arrows still point to the liver.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { advanceStream, REVERSE_HOLD, REVERSE_RAMP, REVERSE_SETTLE } from '../src/ui/blood.js';
 
 const STAGE = stageSource();

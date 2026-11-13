@@ -16,11 +16,11 @@ const state = {
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
   shunting: null,             // { src, only } while a shunt waits for its drop target
-  layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
+  layers: { flow: false, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
   lobuleLayers: { zones: false, lymph: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
   blood: { look: 'shimmer', phasic: false, chevrons: false, keyChevrons: false },   // look: parcels | shimmer
-  colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin
+  colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin | firstpass
   params: defaultParams(),
   frame: null,
   running: true,
@@ -41,7 +41,7 @@ const state = {
   hiddenReadouts: null,       // Set of hidden metrics
   hiddenEvents: null,         // Set of event ids kept out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
-  showHvpg: (() => { try { return localStorage.getItem('pps.showHvpg') !== '0'; } catch { return true; } })(),   // Settings: show the HVPG without measuring it (on unless turned off)
+  showHvpg: (() => { try { localStorage.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
   presenting: false,          // a Presenter script or the tour is running
   dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)
 };
@@ -79,6 +79,31 @@ function wakeSoon() {
   const keys = [...soonKeys];   // alloc-rare: in the task after a frame, not inside it
   soonKeys.clear();
   wake(keys);
+}
+// The view, said once (implicit-state-machines M6/M7). Four legal states over three store fields: anatomy, circuit, lobule (over the anatomy)
+// and sinusoid (inside the lobule). The fields stay readable for every listener; only the writers go through setViewKey, which writes
+// them in one store.set that is always legal (and only the fields that change, so no listener hears a value it already had).
+export const VIEW_KEYS = Object.freeze(['anatomy', 'circuit', 'lobule', 'sinusoid']);
+export function viewKey(st = state) { return st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view === 'circuit' ? 'circuit' : 'anatomy'; }
+/** The illegal combinations of the three fields (null when legal): the lobule is over the anatomy, the sinusoid is inside the lobule. */
+export function viewIllegal(st = state) {
+  if (st.sinusoid && !st.lobule) return 'sinusoid without the lobule';
+  if (st.lobule && st.view === 'circuit') return 'lobule over the circuit';
+  return null;
+}
+const VIEW_PATCH = {};   // (kept: set() reads the patch's keys at once and does not keep it)
+/** Go to one of the four views with a single, legal store.set. Writes only the fields that change; returns the key. */
+export function setViewKey(k) {
+  if (!VIEW_KEYS.includes(k)) throw new Error(`setViewKey: ${k}`);
+  const lob = k === 'lobule' || k === 'sinusoid', sin = k === 'sinusoid', view = k === 'circuit' ? 'circuit' : 'anatomic';
+  const p = VIEW_PATCH; for (const key in p) delete p[key];
+  // (The order is the old writers': the lobule, then the sinusoid, then the view, so a listener of one hears the others already in place.)
+  let n = 0;
+  if (state.lobule !== lob) { p.lobule = lob; n++; }
+  if (state.sinusoid !== sin) { p.sinusoid = sin; n++; }
+  if (state.view !== view) { p.view = view; n++; }
+  if (n) store.set(p);
+  return k;
 }
 export const store = {
   get: () => state,

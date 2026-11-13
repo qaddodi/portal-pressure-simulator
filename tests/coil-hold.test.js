@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // straight and coiled 25 times in one Varices slide change (3 Nov 2026), each a new ease of its coil and a binning of every vessel.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 

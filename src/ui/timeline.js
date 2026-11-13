@@ -16,7 +16,7 @@ import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, c
 import { activeInterventions } from './inspector.js';
 import { removedLabel } from './removed-label.js';
 import { frameFor } from './frame.js';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeOut3 } from './ease.js';
 import { createSvgGL, svgModel, setPolys } from './svg-gl.js';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js';
 import { textSoon, attrSoon } from './class-soon.js';
@@ -44,7 +44,7 @@ export const fmtClock = (t, day) => {
   return day > 0 ? `Day ${day} · ${tt}` : tt;
 };
 
-export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel }) {
+export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel, onHistory = null }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {}, jumping = false, jumpSeq = 0;
   // EXT-HIS-1: a timer belongs to the edit (or the history) that made it. `editSeq` names the edit being typed in, `tlGen` the history since the
   // last reset: a timer that fires for an older one does nothing, and a flush or a reset cancels the timer it owns.
@@ -123,7 +123,9 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   }
   const histCount = h('span', { class: 'tl-hc' });
   const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', 'aria-label': 'History', title: 'History: every change and event, with a way back to each' }, svgIcon('clock', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
-  histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
+  // (onHistory: the app's own History, the card beside the figure on a Mac, so the play bar's clock and the top bar's History open the one
+  // same thing, menu recs C8. It answers false where History is this menu: a phone, held sideways.)
+  histBtn.addEventListener('click', (e) => { if (!onHistory?.(e.currentTarget)) openHistory(e.currentTarget); });
   const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Fast forward' }, icon('ffwd'));
   ffBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     // Undo on touch (no Ctrl Z there): the last change, one tap from the play bar.
@@ -236,7 +238,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     jumping = true;
     const mine = ++jumpSeq;   // (a newer jump takes the count over: this one's frames stop, so two counts never draw over each other)
     const t0 = performance.now();
-    const dayNum = (u) => Math.round(d0 + days * (1 - (1 - u) ** 3));
+    const dayNum = (u) => Math.round(d0 + days * easeOut3(u));
     const dayOf = (u) => `Day ${dayNum(u)}`;   // alloc-rare: at a jump's start and end and when the counted day changes, not each frame
     let shownN = dayNum(0);
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
@@ -333,7 +335,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
   }
   function historyBody() { return h('div', { class: 'tl-pop tl-history' }, historyRows()); }
   function openHistory(anchor) {
-    popover(anchor, h('div', { class: 'tl-pop tl-history' }, historyRows()), { place: 'above', align: 'end' });
+    popover(anchor, h('div', { class: 'tl-pop tl-history' }, historyRows()), { place: 'above', align: 'end', title: 'History' });
   }
   function markerRows(items) {
     return items.slice().reverse().map((i) => {

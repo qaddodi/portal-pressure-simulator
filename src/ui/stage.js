@@ -4,14 +4,16 @@
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
-import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
-import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
+import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
+import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_TIE, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
-import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
+import { VIEW_CHANGE_S, viewXfCamU } from './view-xf.js';
+import { easeArrive, easeMove, createGlideTracker, CAM_MS_MAX, D_SURFACE } from './ease.js';
+import { createSoftFade } from './soft-fade.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
@@ -24,9 +26,9 @@ import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } fro
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
-import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
+import { createGlassGL, glassRegions, CARD } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -51,7 +53,7 @@ const readFrame = readFrameFor('stage-read');
 // (recs.md 2.1: a solve of the figure's labels runs in slices of LABEL_SLICE_MS, yielding between labels, the rest in the next frames'
 // spare time (frame.js mayTask), the labels standing as they were meanwhile; a solve that fits its first slice lands in the same frame, as
 // before. A camera that moves under it drops it, and the labels carry as they always did.)
-const LABEL_SLICE_MS = 2, LABEL_REST_SLICE_MS = 8, LABEL_FIRST_REST_MS = 24;
+const LABEL_SLICE_MS = 2, LABEL_REST_SLICE_MS = 8, LABEL_FIRST_REST_MS = 24;   // motion-scale: not a move (budgets of the label solve)
 function sameDeps(a, b) { for (let i = 0; i < b.length; i++) if (a[i] !== b[i]) return false; return true; }
 let themeKeyTheme, themeKeyPalette, themeKeyVal = '';   // (the last theme and palette read, and the key made of them: built again only when one changed)
 const themeKey = () => {
@@ -67,7 +69,7 @@ const drawFrame = lateFrameFor('stage');
 
 const N_SAMPLES = 64;
 // Shorter circuit zone titles, tried in turn when the full one is wider than its zone.
-const ZONE_SHORT = { 'Splanchnic beds': ['Gut & spleen'], 'Liver · sinusoids': ['Liver'], 'Portal veins': ['Portal'], 'Hepatic veins · IVC': ['Hep. veins · IVC', 'Outflow'] };   // never a second "IVC" beside the IVC's own label
+const ZONE_SHORT = { 'Splanchnic beds': ['Splanchnic'], 'Liver · sinusoids': ['Liver'], 'Portal veins': ['Portal'], 'Hepatic veins · IVC': ['Hep. veins · IVC', 'Outflow'] };   // never a second "IVC" beside the IVC's own label
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
 // while distension of small veins and collaterals stays visible.
 // Drawn caliber (px) for a vessel diameter. The 1.3 lifts the baseline so the veins read at a
@@ -80,7 +82,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
-import { reduceMotionMQ as reduceMotion } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
+import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
@@ -137,11 +139,15 @@ import { createGlide } from './stage-glide.js';
 import { stageScope } from './stage-scope.js';
 import { ringOnScreen as scopeRingOn, ringInto as scopeRingInto } from './scope-lens-rule.js';
 import { createLzGlassSeq } from './lobule-glass-seq.js';
+import { viewMovingOf } from './view-moving.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
+    caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
+    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null, plateTap: null, plateAt: null, plateBox: null,
+    // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
+    flowVd(id) { const sm = streams[EI[id]]; return sm && sm.vd != null ? sm.vd : 0; },
     get abdomenEl() { return abdomenEl; },
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get aimed() { return aimed; }, set aimed(v) { aimed = v; },
@@ -197,6 +203,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get cathLabelsSoon() { return cathLabelsSoon; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
+    get varixFade() { return varixFade; }, set varixFade(v) { varixFade = v; },
     get cathVer() { return cathVer; }, set cathVer(v) { cathVer = v; },
     get caudK() { return caudK; }, set caudK(v) { caudK = v; },
     get chevHoles() { return chevHoles; }, set chevHoles(v) { chevHoles = v; },
@@ -289,6 +296,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get gestureOn() { return gestureOn; },
     get gGut() { return gGut; }, set gGut(v) { gGut = v; },
     get gLabels() { return gLabels; },
+    get gLeaders() { return gLeaders; },
     get glassGL() { return glassGL; }, set glassGL(v) { glassGL = v; },
     get glide() { return glide; }, set glide(v) { glide = v; },
     get glideCam() { return glideCam; }, set glideCam(v) { glideCam = v; },
@@ -323,7 +331,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get islOn() { return islOn; }, set islOn(v) { islOn = v; },
     get islSrc() { return islSrc; }, set islSrc(v) { islSrc = v; },
     get JOB_NOW() { return JOB_NOW; },
-    get keptSpace() { return keptSpace; }, set keptSpace(v) { keptSpace = v; },
     get keyInto() { return keyInto; },
     get keyStops() { return keyStops; }, set keyStops(v) { keyStops = v; },
     get labelBase() { return labelBase; },
@@ -338,7 +345,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labelPainted() { return labelPainted; }, set labelPainted(v) { labelPainted = v; },
     get labelPassOff() { return labelPassOff; }, set labelPassOff(v) { labelPassOff = v; },
     get labelRider() { return labelRider; }, set labelRider(v) { labelRider = v; },
-    get labelScale() { return labelScale; }, set labelScale(v) { labelScale = v; },
+    get labelScale() { return labelScale; },
     get labelSettleT() { return labelSettleT; }, set labelSettleT(v) { labelSettleT = v; },
     get labelShown() { return labelShown; }, set labelShown(v) { labelShown = v; },
     get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
@@ -383,17 +390,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get liverFluidCut() { return liverFluidCut; }, set liverFluidCut(v) { liverFluidCut = v; },
     get liverKey() { return liverKey; }, set liverKey(v) { liverKey = v; },
     get liverScale() { return liverScale; }, set liverScale(v) { liverScale = v; },
-    get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; },
+    get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; }, get bowelAt() { return bowelAt; }, set bowelAt(v) { bowelAt = v; },
     get lobAnim() { return lobAnim; }, set lobAnim(v) { lobAnim = v; },
     get lobEnd() { return lobEnd; }, set lobEnd(v) { lobEnd = v; },
-    get lobFrom() { return lobFrom; }, set lobFrom(v) { lobFrom = v; },
+    get diveClock() { return diveClock; },
     get lobIn() { return lobIn; }, set lobIn(v) { lobIn = v; },
     get lobMs() { return lobMs; }, set lobMs(v) { lobMs = v; },
     get lobOn() { return lobOn; }, set lobOn(v) { lobOn = v; },
     get lobSeen() { return lobSeen; }, set lobSeen(v) { lobSeen = v; },
-    get lobT0() { return lobT0; }, set lobT0(v) { lobT0 = v; },
     get lobTo() { return lobTo; }, set lobTo(v) { lobTo = v; },
-    get lobTurn() { return lobTurn; }, set lobTurn(v) { lobTurn = v; },
     get lobU() { return lobU; }, set lobU(v) { lobU = v; },
     get lobuleOn() { return lobuleOn; }, set lobuleOn(v) { lobuleOn = v; },
     get logMove() { return logMove; },
@@ -480,6 +485,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get resKey() { return resKey; },
     get resLit() { return resLit; }, set resLit(v) { resLit = v; },
     get resLitRev() { return resLitRev; }, set resLitRev(v) { resLitRev = v; },
+    get resSegRev() { return resSegRev; }, set resSegRev(v) { resSegRev = v; },
     get reslotted() { return reslotted; }, set reslotted(v) { reslotted = v; },
     get resMask() { return resMask; }, set resMask(v) { resMask = v; },
     get resNow() { return resNow; },
@@ -536,6 +542,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get sprayA() { return sprayA; }, set sprayA(v) { sprayA = v; },
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
+    unpark: () => unpark(),
     get stats() { return stats; },
     get STENT_CALM_MS() { return STENT_CALM_MS; },
     get stentCalm() { return stentCalm; },
@@ -567,7 +574,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get veinsDrawKey() { return veinsDrawKey; }, set veinsDrawKey(v) { veinsDrawKey = v; },
     get veinsHold() { return veinsHold; }, set veinsHold(v) { veinsHold = v; },
     get veinsRows() { return veinsRows; },
-    get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { veinsTrimmed = v; },
+    get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { if (veinsTrimmed && !v) lowWarm(); veinsTrimmed = v; },
     get vhStep() { return vhStep; },
     get viewKeyN() { return viewKeyN; }, set viewKeyN(v) { viewKeyN = v; },
     get viewRaf() { return viewRaf; }, set viewRaf(v) { viewRaf = v; },
@@ -840,9 +847,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer), over a grid of dots that runs on past the figure in
   // every direction and fades out in steps, and a slide's lit zone (deck visuals V25, ext-callouts.js: zone), lit softly. All drawn by the
   // GPU from these numbers (veins-gl.js mapAt, under the organs; 2 Nov 2026, the figure's SVG model as data): no element, pattern or
-  // layer. a: the morph's t (the grid fades with it); the colours from the theme (syncMapInk: --map-dot, --text at .028 for the two
+  // layer. a: the morph's t (the grid fades with it); the colours from the theme (syncMapInk: --map-dot, the chart's three zone bands for the
   // tinted zones, --accent at .09 for the lit one); rot: its turn from the vessels' (mapTurn); fx: the lit zone's fade (stepMap).
-  const MAP = { a: 0, dot: [0, 0, 0, 0], zone: [0, 0, 0, 0], fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
+  const MAP = { a: 0, dot: [0, 0, 0, 0], zone: new Float32Array(12), fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
   CIRCUIT_ZONES.filter((z, i) => i % 2).forEach(([, x0, x1], j) => { MAP.alt[2 * j] = x0; MAP.alt[2 * j + 1] = x1; });
 
   // Each organ is drawn as a medical plate draws it, lit from the upper left:
@@ -932,20 +939,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gOver.before(abdWall);
   // The abdominal wall's fade, eased here a frame at a time (its opacity attribute, which the overlays' GPU painter reads at each paint),
   // not by a CSS transition: one the browser eases is invisible to the painter, so while it ran the wall and every overlay above it
-  // went back to the SVG (stage-over.js).
-  const abdE = { from: 0, to: 0, t0: 0, raf: 0 };
-  const abdStep = (now) => {
-    abdE.raf = 0;
-    const k = Math.min(1, (now - abdE.t0) / D_SURFACE), v = abdE.from + (abdE.to - abdE.from) * easeArrive(k);
-    putA(abdWall, 'opacity', k >= 1 ? abdE.to.toFixed(2) : v.toFixed(3));
-    if (k < 1) abdE.raf = drawFrame(abdStep);
-  };
-  function abdTo(v) {
-    if (reduceMotion.matches) { if (abdE.raf) cancelFrame(abdE.raf); abdE.raf = 0; abdE.to = +v; putA(abdWall, 'opacity', v); return; }
-    if (+v === abdE.to) return;
-    abdE.from = parseFloat(abdWall.getAttribute('opacity')) || 0; abdE.to = +v; abdE.t0 = performance.now();
-    if (!abdE.raf) abdE.raf = drawFrame(abdStep);
-  }
+  // went back to the SVG (stage-over.js). Soft and slow, and it bends when its target moves again (soft-fade.js).
+  const abdFade = createSoftFade({ write: (v) => putA(abdWall, 'opacity', v), frame: drawFrame, cancel: cancelFrame, reduced: () => reduceMotion.matches, now: () => performance.now() });
+  const abdTo = abdFade.to;
   const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
@@ -972,7 +968,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const e of ALL_EDGES) {
     const isArt = e.kind === 'arteriole' || e.kind === 'artery' || (e.kind === 'shunt' && e.shunt === 'ap');
     // Extra channels of a braided collateral (cavernoma): drawn under the main tube, each picked as part of its vessel.
-    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub]) => ({ off, ph, k, span: ua != null ? [ua, ub] : null })) : null;
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub], i) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wave: STRAND_WAVE[e.id]?.[i] || null, tie: STRAND_TIE[e.id]?.[i] || null })) : null;
     // (fadeMask: a tributary that sinks into a retroperitoneal vein fades into it, FEEDER_FADE_Y, unless its trunk is carried on.)
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, fadeMask: !!FEEDER_FADE_Y[e.id] })) : null;
     // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE, drawn by the GPU from `line`): none in the circuit.
@@ -996,6 +992,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
   for (const x of EV) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) x.front = true;
   for (const id of BACK_EDGES) if (E[id]) E[id].back = true;
+  // The stents through the liver (TIPS, DIPS) are drawn with the portal tree, in front of the network: they cross the hepatic veins (the middle one went through the TIPS
+  // when both were one tier: a crossing in one tier is a union, the wider lumen wins), and they end on the portal vein, whose tier a lower-tier stent's end cannot match (the
+  // portal vein's outline crossed its mouth; tube-renderer.md, 'Not handled'). Its end on a hepatic vein is a branch in a higher tier, which the Tube fades into the vein.
+  // (11 Nov 2026, Mohammad's TIPS shots. Not x.front: that also widens the casing, PORTAL_CASING.)
+  // The splenorenal shunts (the spontaneous C6 and the Warren shunt S_DSR) and the portocaval shunt (S_PC), and the periportal plexus (C8, whose strands part from the confluence and join the hilum), leave a portal vein, which is in the portal tree's tier: a lower-tier end runs under the vein's wall, and the
+  // wall's dark outline crosses the shunt's mouth, a line between the two (12 Nov 2026, Mohammad: "should be connected at its ends, not separated by lines"). In the vein's own tier
+  // the join cuts the shunt at the wall and the wall is not drawn over its mouth.
+  // The mesocaval shunt (S_MC) and the Meso-Rex bypass (REX) leave the SMV where its two rows meet (the network's V_INT below, SMV_CONF in the portal tree's tier above), and
+  // the Rex ends on the left portal vein: in the network's tier, SMV_CONF's wall outline crossed the mouth as a black sliver (13 Nov 2026, the shunt checks).
+  for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX']) if (E[id]) E[id].over = true;
+  // (The stent tool's portal vein to hepatic vein stents are the TIPS's twins and leave the same vessels: in the portal tree's tier too, or the portal vein's outline crossed their mouths as a dark line, 13 Nov 2026.)
+  for (const e of EDGES) if (isLiverStent(e) && E[e.id]) E[e.id].over = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.
@@ -1125,12 +1133,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The map's and the dots' colours from the theme (with the vessels' look: syncVeins), each read once per sync.
   let mapWake = false;
+  const ZONE_BAND = ['--chart-pre-band', '--chart-liver-band', '--chart-post-band'];
   function syncMapInk(cs) {
     const d = cssColor8(cs.getPropertyValue('--map-dot').trim() || 'transparent');
     for (let i = 0; i < 4; i++) MAP.dot[i] = d[i];
     const tx = toRGB('var(--text)', cs), ac = toRGB('var(--accent)', cs), bg = toRGB('var(--stage-bg)', cs);
-    for (let i = 0; i < 3; i++) { MAP.zone[i] = tx[i]; MAP.fx[i] = ac[i]; }
-    MAP.zone[3] = 0.028; MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
+    for (let i = 0; i < 3; i++) MAP.fx[i] = ac[i];
+    // (The tinted zones are the pressure profile's own bands, so the map and the ladder speak one zone language: before the liver, the liver, after it. V5.)
+    for (let j = 0; j < 3; j++) { const z = cssColor8(cs.getPropertyValue(ZONE_BAND[j]).trim() || 'transparent'); for (let i = 0; i < 4; i++) MAP.zone[4 * j + i] = z[i]; }
+    MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
     for (let i = 0; i < 3; i++) if (nd.fill[i] !== bg[i] || nd.ring[i] !== tx[i]) { nd.fill[i] = bg[i]; nd.ring[i] = tx[i]; nd.dirty = true; }
   }
   // The lit zone's fade (in on the arrive ease, out the same way) and each dot's (the move ease), a surface step each, on the frame's time.
@@ -1168,58 +1179,82 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // painter's, and as the lowest group they kept every overlay above them (stents, balloons, plugs) on SVG. 2 Nov 2026.)
   const clampW = s('g'), clampWOut = s('g');
   gOver.append(gFx, gFxC, clampWOut, clampW);
-  // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
-  // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
+  // The caudate lobe and its veins (CAUDATE): only on a slide about it (11 Nov 2026), the lobe alone while a stent runs through it
+  // (the DIPS) or a slide pins only the lobe (pinOrgans 'caudate-lobe'), eased in and out with the view (.caud.on, off in the circuit),
+  // under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
   const caud = (() => {
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
     const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
-      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 3}" y1="0" x2="${W + 9}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
-    const lobe = s('g', { class: 'caud-lobe' });
-    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) {
-      const at = { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})` };
-      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }));
-    }
+    // The lobe is drawn as the organs are (stage-organs.js): a soft dome, the tissue's own gradient and volume, a lit inner edge and the
+    // one thin outline in the tissue's darker tone, all on one smooth curve (CAUDATE.outline). It carries the liver's three tones.
+    const lobe = s('g', { class: 'caud-lobe tone-liver' });
+    defsHtml += `<clipPath id="caudClip"><path d="${CAUDATE.outline}"/></clipPath>`;
+    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) lobe.append(s('ellipse', { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})`, fill: 'url(#caudDome)' }));
+    lobe.append(s('path', { d: CAUDATE.outline, class: 'caud-fill', fill: 'url(#og-liver)' }), s('path', { d: CAUDATE.outline, class: 'caud-form', fill: 'url(#ogVol)' }),
+      s('path', { d: CAUDATE.outline, class: 'org-rimlight', 'clip-path': 'url(#caudClip)', transform: 'translate(2 3)' }), s('path', { d: CAUDATE.outline, class: 'caud-line' }));
     const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
     CAUDATE.veins.forEach(([d, w], i) => {
-      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
+      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 8, n[5] - 2];   // (on into the cava, where it fades out)
       const bez = (t, j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j];   // (the curve's x (j 0) or y (j 1) at t)
-      // The outline of a tube that widens from a rounded start inside the lobe and flares a little into the cava.
-      const h0 = (pad) => (w / 2) * 0.45 + pad;
+      // Each vein comes up out of the lobe's own tissue (a mask that fades it in over its first 18 units, so it has no end to see) and takes
+      // its caliber in a short run, then flares a little into the cava's wall.
+      defsHtml += `<linearGradient id="caudmaskg${i}" gradientUnits="userSpaceOnUse" x1="${P0[0]}" y1="0" x2="${P0[0] + 18}" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>`
+        + `<mask id="caudIn${i}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudmaskg${i})"/></mask>`;
       const tube = (pad) => {
         const L = [], R = [];
         for (let k = 0; k <= 20; k++) {
           const t = k / 20, tq = Math.min(1, t + 0.01), tr = Math.max(0, t - 0.01);
           const px = bez(t, 0), py = bez(t, 1), qy = bez(tq, 1), qx = bez(tq, 0), ry = bez(tr, 1), rx = bez(tr, 0);
           let nx = -(qy - ry), ny = qx - rx; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-          const h = (w / 2) * (0.45 + 0.55 * Math.min(1, t / 0.75)) * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad;
+          const h = (w / 2) * (0.4 + 0.6 * Math.min(1, t / 0.6)) * (1 + 0.35 * Math.max(0, (t - 0.7) / 0.3) ** 2) + pad;
           L.push([px + nx * h, py + ny * h]); R.push([px - nx * h, py - ny * h]);
         }
         return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
       };
-      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0.45), class: 'caud-wall' }),
-        s('path', { d: tube(0), class: 'caud-lumen' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0), class: 'caud-lumen' }),
+      const vg = s('g', { mask: `url(#caudIn${i})` });
+      vg.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('path', { d: tube(0), class: 'caud-lumen' }),
         s('path', { d: `M${bez(0.35, 0)} ${bez(0.35, 1)} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
+      veinsG.append(vg);
     });
     g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
     g.append(lobe, veinsG);
+    // Where the lobe was, and which way it grew (Mohammad's pick B, 11 Nov 2026): its normal outline dashed, and an arrow out of it at the top
+    // and bottom. Not in the grown group (it stays at the normal size) and shown by the enlargement only: its opacity follows how far the
+    // lobe has grown (sync), under the same on / gone / circuit rules as the lobe. No label on the dashed line.
+    const gm = s('g', { class: 'caud caud-m gone' });   // (off until a slide pins the caudate: pinOrgans calls show only on a slide's arrival or exit, so a figure that opens with none must start off)
+    const mk = s('g', { class: 'caud-mk', style: 'opacity:0' });
+    mk.append(s('path', { d: CAUDATE.outline, class: 'caud-norm' }));
+    for (const [x1, y1, x2, y2] of CAUDATE.arrows) {
+      const a = Math.atan2(y2 - y1, x2 - x1), H = 5.5, q = (d) => `${(x2 - H * Math.cos(a + d)).toFixed(2)} ${(y2 - H * Math.sin(a + d)).toFixed(2)}`;
+      mk.append(s('path', { d: `M${x1} ${y1} L ${x2} ${y2}`, class: 'caud-arw' }), s('path', { d: `M${x2} ${y2} L ${q(0.45)} L ${q(-0.45)} Z`, class: 'caud-arwh' }));
+    }
+    gm.append(mk);
+    gOver.prepend(gm);
     gOver.prepend(g);
-    let cols = '', grow = '', goneT = 0, growKq = NaN;
+    let cols = '', grow = '', goneT = 0, growKq = NaN, markK = -1, pinVeins = true, stented = false;
+    const lobeOnly = () => g.classList.toggle('lobe-only', !pinVeins || stented);
     return {
       // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
       show(on, veins) {
-        g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins);
+        g.classList.toggle('on', !!on); gm.classList.toggle('on', !!on);
+        if (on) { pinVeins = !!veins; lobeOnly(); }
         stageScope.clear(goneT);
         if (on) g.classList.remove('gone'); else goneT = stageScope.timer(() => g.classList.add('gone'), 760);
       },
+      // A stent through the lobe (the DIPS) takes its short veins' place: the lobe is shown alone, as on the DIPS slides.
+      stented(on) { if (on === stented) return; stented = on; lobeOnly(); },
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
         if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
         if (kq === growKq) return;   // (the same size gives the same text)
         growKq = kq;
+        const mo = kq > 0.04 ? Math.round(kq * 100) / 100 : 0;   // (the marks come in as the lobe grows and are gone once it is back to size)
+        if (mo !== markK) { markK = mo; mk.style.opacity = String(mo); }
         const v = `scale(${(1 + CAUDATE.grow[0] * kq).toFixed(3)}, ${(1 + CAUDATE.grow[1] * kq).toFixed(3)})`;
         if (v !== grow) { grow = v; g.style.transform = v; }
       },
@@ -1236,10 +1271,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
   // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
   function writeVT(v) { vt = v; CTM = null; }
-  // How long the change between Anatomy and Circuit takes, seconds (0.6 until 6 Nov 2026; Mohammad: "Make the morph slower its way too fast").
-  // The camera rides the same clock (viewXfP); the fallback camera glide in setView takes the same time.
-  const VIEW_CHANGE_S = 1.3;
+  // (How long the change between Anatomy and Circuit takes, VIEW_CHANGE_S: view-xf.js, which the presenter's waits read too.)
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
+  // The change's clock is a reversible one (motion.js createReversible): tapped back mid-change, the figure and its camera slow over D_FLIP
+  // and come back, they do not flip from full speed forward to full speed backward in one frame. With Reduce Motion the change takes
+  // REDUCED_MOVE_MS (the camera's short form, docs/ACCESSIBILITY.md), still a crossfade-and-move.
+  const viewClock = createReversible({ ms: VIEW_CHANGE_S * 1000, x: morph });
+  const viewMs = () => (reduceMotion.matches ? REDUCED_MOVE_MS : VIEW_CHANGE_S * 1000);
   // The circuit can be turned a quarter turn counter-clockwise, so its flow runs bottom to top and
   // the map is tall instead of wide: it fills a phone held upright. rotU is the (animated) turn,
   // 0 to 1; the anatomy is never turned. The turn is part of the world transform and of the view
@@ -1249,7 +1287,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const portraitPhone = () => matchMedia(UPRIGHT_MQ).matches;   // (the style sheet's upright clause, util.js)
   let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
-  const rotEase = (u) => u * u * (3 - 2 * u);
+  const turnClock = createReversible({ ms: TURN_MS, x: rotU });   // (the quarter turn's clock: reversible like the change's)
+  const rotEase = easeMove;   // (the turn travels: the one move curve)
   const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
   // Degrees the world is turned by: only once the circuit has landed; mid-change the circuit's side lies turned instead (circ-turn.js: no spin).
@@ -1285,6 +1324,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   let organMorphA = 1, organDimA = 1;   // the organs' fade with the morph and their dim (syncOrganDim), as the groups' opacity
+  let parkT = 0;   // (a rest frame waiting on its timer, parkFor below: declared up here, as a wake may come while the stage is being made)
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
@@ -1347,13 +1387,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const { ANCHOR_W, NO_ANCHOR, animZoomAt, applyClampFs, applyVT, clientToVB, clientToWorld, flushVT, freeCentre, localToWorldInto, refreshCTM, saSides, stageBox, syncView, worldToLocal, worldToLocalInto, zoomAt } = createCamera({ CIRC_C, DOT_MIN_PX, animateVT, clampGs, clientToVBFast, flushGeo, geoHeld, haloEls, mapTurn, nd, nextFrame, nodeVerts, onViewChange, placeClampLabels, readFrame, rotDeg, safeInsets, sitesPaint, svg, syncSemantic, updateLabels, vbBox, world, wrap }, live);
     let fitKept = 0;
     let circFit = null;
-    // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
-  // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
-  // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
-  // look then leave the view alone for as long as only the Tests card has changed that space. Another card coming or going,
-  // a turn of the device or a resize changes it, and the framing follows as ever; so do the Fit button and a slide's own
-  // framing (not kept while presenting).
-  let keptSpace = null;
     // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
   let circAgain = false;
@@ -1362,7 +1395,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // free space, which stays where it is on screen.
   let rotHold = null;
     let rotWhole = null, rotGlide = null;
-  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
+  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
   function safeInsets(...a) { return safeInsets$(...a); }   // <stage-split stub>
 
 
@@ -1375,7 +1408,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   const liverBBox = { x: 0, y: 0, w: 0, h: 0 };   // (liverBB's box, written in place once)
-  const { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
+  const { anatCovered, camShowTo_, diveFrame, figDip, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   // The elements' offsets are read once per dive, before any write: read between writes, each would
@@ -1400,18 +1433,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveWait = 0, diveGen = 0;
   // (The glide in and out of the lobule, one at a time: a new one cancels the frame and the backstop of the last, so its state is kept
   // here, in the variables below, and one function steps it, instead of a closure made for each.)
-  let lobOn = false, lobFrom = 0, lobTo = 0, lobTurn = false, lobMs = 0, lobT0 = 0, lobSeen = -1;
+  // (The dive's progress, diveT, runs on a reversible clock: a reversal mid-way slows over D_FLIP and returns, it does not stop dead and start
+  // again from rest; the dive's own curves (stage-dive.js diveFrame) are functions of the position, so they follow without a kink.)
+  let lobOn = false, lobTo = 0, lobMs = 0, lobSeen = -1;
+  const diveClock = createReversible({ ms: DIVE_FULL_MS });
   const lobulePoke = () => { if (lobuleOn && lz.isOpen()) platePoke(); };
   const lobuleRasterSoon = () => afterMotion(lobulePoke);
   function lobuleStep(now, end = false) {
-    const on = lobOn, from = lobFrom, to = lobTo, turn = lobTurn, ms = lobMs, t0 = lobT0;
-    const e0 = ms && !end ? clamp(((PACED ? easeNow() : now) - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1, e = turn ? e0 * e0 * (3 - 2 * e0) : e0;
+    const on = lobOn, to = lobTo, ms = lobMs;
+    diveClock.sync(diveT);   // (diveT is also written outside this clock: the lobule closed by the circuit, a reset)
+    if (ms > 0 && !end) { diveClock.aim(to, ms); } else diveClock.set(to);
+    const e = ms > 0 && !end ? diveClock.tick(easeNow()) : to;
     const wasDiving = diveT > 0;
-    diveT = from + (to - from) * e;
+    diveT = e;
     if (wasDiving !== diveT > 0) for (const g of cardGLs) g.redraw();   // (the cards' glass: drawn in the figure's canvas, or only leaving its place out of the labels, the dive's turn)
     // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
     try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
-    if (e < 1) lobAnim = nextFrame(lobuleStep);
+    if (e !== to) lobAnim = nextFrame(lobuleStep);
     // the anatomy's raster, held back during the dive, catches up under the lobule (once the slide's cards have come in: frame.js holdMotion)
     else if (on) stageScope.timer(lobuleRasterSoon, 600);
     else if (!on) {
@@ -1426,7 +1464,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function lobuleBackstop() {
     if (lobuleOn !== lobOn || diveT === lobTo) return;
-    if (PACED && diveT !== lobSeen) { lobSeen = diveT; lobEnd = stageScope.timer(lobuleBackstop, 1000); return; }
+    if (diveT !== lobSeen) { lobSeen = diveT; lobEnd = stageScope.timer(lobuleBackstop, 1000); return; }
     cancelFrame(lobAnim); lobuleStep(0, true);
   }
   let lobEnd = 0;
@@ -1439,6 +1477,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
     if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; labelGL?.check(); } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon(LOBULE_OFF); }
+    else if (diveWait && morphTarget !== 0) { diveWait = 0; diveGen++; if (store.get().lobule) store.setSoon(LOBULE_OFF); }   // (a dive still waiting for its paint is called off, and the store stops saying lobule on the circuit: implicit-state-machines M5)
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1457,7 +1496,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
   // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
   let viewXf = null, glSuppress = false, xfOp = '';
-  const { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
+  const { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfRetargetTo, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, endWidth, geo, morphPtInto, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
@@ -1465,8 +1504,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let xfHold = false;
   // (A layout owed to the page's leaders and dots: one asked for found no blank to take, and the next layout makes them, whenever it comes (stage-label-layer.js leadTop).)
   let leadOwed = false;
-  // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
-  const viewMoving = () => vtGliding || camMove || wrap.classList.contains('panning');
+  // (Whether the view is moving now: a glide, a pan, a pinch, a wheel zoom or a fling. Boxes kept for the frame's reads are not read again while it is.)
+  const MOVING_SRC = { glide: () => vtGliding, cam: () => camMove, view: () => !!viewXf, hand: () => live.gestureOn(), panning: () => wrap.classList.contains('panning') };
+  const viewMoving = () => viewMovingOf(MOVING_SRC);   // (view-moving.js: every motion source feeds the one answer)
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
@@ -1513,7 +1553,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack }, live);
+  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -1526,7 +1566,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
-    if (morphTarget !== 0) store.set1('view', 'anatomic');
+    if (morphTarget !== 0 && store.get().view !== 'anatomic') store.set1('view', 'anatomic');   // (setViewKey has put it there already)
     // The lobule's code loads after the first paint (lobuleReady): a dive asked for before it is there goes on once it is.
     if (!lz) {
       if (!lzWaiting) {
@@ -1547,13 +1587,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLobule(true);
   }
   let lobuleRetryT = 0;
+  let plateWant = null;   // (the plate's lobule window asked for, kept for the lobule's code that has not arrived: plateLobule)
   function lobuleRetry(tries) { if (store.get().lobule) openLobule(tries); }   // (the count rides on the timer: no closure carries it)
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
   function closeLobule() { stageScope.clear(lobuleRetryT); setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
-  const zoomLobule = () => store.set1('lobule', true);
+  const zoomLobule = () => { if (!store.get().lobule) setViewKey('lobule'); };
   // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
   // figure is on screen and the page has a moment (prepLobule), or at once when a dive is asked for. It takes the place in the page it
   // always had (the anchor), so the layers stack as they did, and reads the frame and the store as they stand. What a presenter slide
@@ -1659,7 +1700,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
   let autoK = 1, autoT = 0;
-  const { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins: (...a) => drawVeins(...a), schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
+  const { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins: (...a) => drawVeins(...a), schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
@@ -1681,10 +1722,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The hover link (below): the reading label under the pointer or with keyboard focus, what it lit, and the labels lifted.
   let linkPtr = null, linkKbd = null, linkEdge = null, linkOrgan = null, linkLit = new Set();
 
-  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle }, live);
+  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, morphPtInto: morphPtInto$, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle }, live);
   function edgeVisible(...a) { return edgeVisible$(...a); }   // <stage-split stub>
   function setViewBox(...a) { return setViewBox$(...a); }   // <stage-split stub>
   function vesselAt(...a) { return vesselAt$(...a); }   // <stage-split stub>
+  function morphPtInto(...a) { return morphPtInto$(...a); }   // <stage-split stub>
 
 
 
@@ -1724,7 +1766,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let fx = null, fxSig = '';
     let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
     let blockersAsk = 0;
-  const { W_TAU, edgeQ, holdHome, keep, riseFitRead: riseFitRead$, stepOrgans, stepWidths, tubeFill, update: update$, widthMoving } = createTubes({ E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap }, live);
+  const { W_TAU, edgeQ, endWidth: endWidth$, holdHome, keep, riseFitRead: riseFitRead$, stepOrgans, stepWidths, tubeFill, update: update$, widthMoving } = createTubes({ E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap }, live);
+  function endWidth(...a) { return endWidth$(...a); }   // (a vessel's width once the view change has landed: the labels' solve at a tap, stage-view.js)
   function update(...a) { return update$(...a); }   // <stage-split stub>
   function riseFitRead(...a) { return riseFitRead$(...a); }   // <stage-split stub>
   
@@ -1745,7 +1788,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const TIER_ALPHA = Array.from({ length: MAX_TIERS }, (_, i) => (i < TIER_BACK ? LEVELS[i] : i >= TIER_MID0 && i < TIER_NET ? LEVELS[i - TIER_MID0] : 1));
   const levelTier = (x) => {
     const l = x.level ?? 1;
-    if (l >= 1) return x.back ? TIER_BACK : x.front ? TIER_FRONT : TIER_NET;
+    if (l >= 1) return x.back ? TIER_BACK : x.front || x.over ? TIER_FRONT : TIER_NET;
     return (x.back ? TIER_BACK0 : TIER_MID0) + Math.max(0, LEVELS.indexOf(l));
   };
   // Rows of the per-vessel textures: the model's vessels, then every strand, tributary and liver branch.
@@ -1761,6 +1804,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const tubeData = veins ? new Float32Array(GL_ROWS * TUBE_TEXELS * 4) : null;
   let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
+  let varixFade = 0;   // the esophageal varices' fade (0..1) while the EUS-PPG scope is in the esophagus (cathPaint, colPass)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   const binMemo = new Map();
   // (Its cells' lists keep room, so a vessel that leaves or enters a cell is written there alone.)
@@ -1845,7 +1889,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
     let plateDim = null, plateSat = 1, netA = 1;
     let colAt = 0, colEasing = false;
-    let liveKeyWas = '', liveSet = false;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts)
+    let liveKeyWas = '', liveSet = false, bowelAt = NaN;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts; bowelAt: the bowel's float last handed to the live stack, NaN after a setLive)
     let revF = null, revH = null, revT = 0, revP = null, revFlip = false;
     let balloonSqueeze = 1;
   const { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne: cavaAsOne$, cssNum, drawVeins: drawVeins$, et, glItems, glWanted, glowOnlyOk: glowOnlyOk$, itemRadii: itemRadii$, lenOfArc, lensNow, mix3, sendRadii: sendRadii$, smoothRunOn, sweepBin, syncGlowOnly, syncVeins: syncVeins$, toRGB: toRGB$, veinJoins: veinJoins$, veinsRows } = createVessels({ E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls }, live);
@@ -1969,7 +2013,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const { RES_BIT, RES_LIVER, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, cath, recKick, recLive, resItem, resKey, resMade, resNow, resPaint, resPlace, resRatio, resTheme: resTheme$, sites, tokenRGB, toneToken } = createSites({ EI, NI, gOver, geo, nextFrame, overSend, pointAt, recOut, recs, toneCol, worldToLocalInto, wrap }, live);
   function resTheme(...a) { return resTheme$(...a); }   // <stage-split stub>
-  let resMask = 0, resLitRev = 0;
+  let resMask = 0, resLitRev = 0, resSegRev = 0;   // (resSegRev: a resistor's zigzag came, went or moved; the labels' signature, so no cached solve from before it is reused)
   let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
   // The wide screen's nav pill, read with the cards (readBlockers): its gap from the stage's right edge is the slides' one margin
   // (--pz-cm), and its top bounds the row the figure's readings keep clear of. Null when no pill shows (a phone, or no slide).
@@ -2003,6 +2047,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // frost held, then a few squares of it were blurred again, a patchwork of old and new. In the liver it is the lobule's blood now, its own squares.)
   const FROST_EVERY = 3, thirdSeq = (count = () => veins.bloodSeq) => { let held = -Infinity; return () => { const q = count(); if (q < held || q - held >= FROST_EVERY) held = q; return held; }; };
   const frostFresh = (() => { const t = thirdSeq(), tl = thirdSeq(() => lz?.bloodSeq?.() ?? 0); return () => (frostLiver ? 0 : lzInFigure() ? tl() : t()); })();
+  // (8 Nov 2026, Mohammad's Mac ?perf in a talk with a time-lapse: the cards' glass blurred again on every frame, 33 a second, because every frame
+  // was a new picture (the vessels change with the model, and the blood's clock is in the picture's signature, so no frame counts as the blood's
+  // alone), and the GPU took 26 ms a frame in the figure's late phase. While nothing moves on screen (no camera, no transition), the anatomy's
+  // glasses take the picture's count at most every FROST_EVERY pictures, as the frost takes the blood's: a 16 or 22 px blur of vessels that
+  // change by a hair a frame cannot show a picture two frames old. A camera move or a transition reads every picture, as before; a card that moves
+  // changes the parts the glass reads, which blurs at once whatever the count. The liver's own frost is untouched.)
+  const heldPictures = () => { const t = thirdSeq(() => veins.drawSeq); return () => (cameraMoving() || inMotion() ? veins.drawSeq : t()); };
+  const frostVersion = (() => { const h = heldPictures(); return () => (frostLiver || lzInFigure() ? frostSeq() : h()); })();
   const frostBloodRects = (a, b, o, p) => (lzInFigure() ? (lz.bloodRects?.(a, b, o, p) ?? -1) : (veins.bloodDirtyRects?.(a, b, o, p) ?? -1));
   const frostBloodBox = (a, b, o) => (lzInFigure() ? false : veins.bloodDirty(a, b, o));
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
@@ -2020,13 +2072,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
   // before the lobule covered it, still crossed it there. The labels the GPU draws are under every card's glass; the
   // card's own words lie over whatever else does.)
+  // (Heat recs H2b: the glass's blur moved with the figure while a hand pans it (glass-gl.js pan): the matrix the vessels were drawn in (glM, world to stage
+  // CSS px), while the figure is what the canvas shows: not the lobule or the sinusoid in it, nor the liver's own canvas, nor a dive or a card's zoom.)
+  const framePan = () => (frostLiver || lzInFigure() || diveT > 0 || live.drawCam ? null : glM);
+  const handPan = () => { try { return gestureOn() || wrap.classList.contains('panning'); } catch { return false; } };   // (gestureOn is made below, with the gestures)
   const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
     // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
     // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
     if (cards.callouts) {
-      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
+      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: heldPictures(), fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), pan: framePan, panning: handPan, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
       if (!g) { wrap.dataset.glass = 'css'; return null; }
       hostFrost(g, { order: 2, over: () => frostOver('callouts') });
       glassGL = g;
@@ -2037,7 +2093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostVersion, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), pan: framePan, panning: handPan, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
@@ -2053,7 +2109,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('presentFp', () => { slideFp = null; });
   const pinned = () => (store.get().presenting ? slideFp || store.get().presentFp : null);
   const breath = (v) => Math.max(0.8, Math.abs(v) * 0.08);   // (how far the live model may breathe from a pinned number and still read it)
-  const { LABEL_GLIDE_MS, siteLeave, sitesPaint: sitesPaint$ } = createSitesPaint({ NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, easeFrame, easeInOut, late, nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto }, live);
+  const { LABEL_GLIDE_MS, siteLeave, sitesPaint: sitesPaint$ } = createSitesPaint({ NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, buildSegs, easeFrame, easeInOut, late, lineHits: (r, m, skip) => lineHits(r, m, skip), nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto }, live);
   function sitesPaint(...a) { return sitesPaint$(...a); }   // <stage-split stub>
   const { scan, scanCardsRead, scanPaint, scanTick, scanTipLocal, setScanProbe } = createScan({ NO_LIST, SCAN_BOX, gMatrix, late, nextFrame, organEls, organG, readFrame, refreshCTM, sites, stageBox, viewMoving, watch }, live);
   // ── The Doppler probe (dop-probe.js) ──
@@ -2063,7 +2119,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
   let dprCardsList = [], dprCardsAt = -1e9, lbRects = [], colShown = false, colWaitAt = 0;   // colShown: a stent's three point callouts stand (the probe keeps off them, so it waits for them)
   const { dprDots, dprHold, dprLet, dprMake, dprobePaint } = createDoppler({ E, EV, arcMid, cath, clampW, dop, dpr, geo, nextFrame, olKey, olRings, organEls, pointAt, readFrame, scanCardsRead, sites, stageBox, unseenCard, viewMoving, watch, worldToLocalInto }, live);
-  const { NO_BLK, cathAt, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn } = createCath({ E, NO_LIST, animateVT, appEl, applyVT, blockersRead: (...a) => blockersRead(...a), cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead: (...a) => readBlockersRead(...a), readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS }, live);
+  const { NO_BLK, cathAt, cathCarry, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn } = createCath({ E, NO_LIST, animateVT, appEl, applyVT, blockersRead: (...a) => blockersRead(...a), cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead: (...a) => readBlockersRead(...a), readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS }, live);
   let cathVer = 0;
   let cathFade = null;
 
@@ -2146,9 +2202,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // shows it blurred, as glass would: no hole is cut. (Until 4 Nov 2026 they had a canvas of their own.)
   const frostWake = () => { glassGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const LABELS_ORDER = -6;   // (over the lobule's and sinusoid's pictures and their captions, under the glasses at 0 … 3: veins-gl top.add)
+  // (ask and now are the host's asks that veins-gl folds into the end of the frame they are made in: top.ask; the figure's own present stays immediate.)
   const labelHost = () => {
     const top = veins?.top;
-    return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.present(), now: () => veins?.top?.present(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
+    return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.ask(), now: () => veins?.top?.ask(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
   };
   const { PIN_DIR, labelPass, pinKind } = createLabelHost({ E, LABELS_ORDER, arcMid, easeInOut, frostWake, gLabels, gLeaders, gScan, geo, labelAnchor, labelHost, labelSvg, morphAnchorAt, nodePos, refreshCTM, worldToLocalInto, wrap }, live);
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
@@ -2217,7 +2274,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const body = [], layers = [cath.labels, sites.el];
     const NUMPX = (v) => parseFloat(v) || 0;
     glassAdd.add(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) body.push(c[i]); } return body; }, {
-      callouts: true, blur: GLASS.blur, scale: 4, before: cath.labels, watch: layers, outer: true, shadow: true, k: GLASS.tint,
+      callouts: true, blur: CARD.blur, card: true, before: cath.labels, watch: layers, outer: true, shadow: true,   // (the one glass: CARD, as every card's)
       tint: (g, cs) => cs.getPropertyValue('--surface'),
       shape: (g) => { const d = g.firstChild?.firstChild?.getAttribute?.('d'), w = NUMPX(g.style.width), h = NUMPX(g.style.height); return d && w && h ? { d, w, h } : false; },
     });
@@ -2228,19 +2285,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget && b.g.style.display !== 'none') labelGlA.push(b.pos); };   // (a label gone (display none) is not handed on: its point may be gone with its slide)
   const labelGlSync = () => { if (!labelGL || glSuppress) return;
     const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
-  const { CIRCUIT_LABEL_K, LABEL_MAX, LABEL_MIN, TURN_DIR, deskK, deskMQ, textW } = createLabelText({ updateLabels }, live);
+  const { CIRCUIT_LABEL_K, TURN_DIR, deskK, deskMQ, textW } = createLabelText({ updateLabels }, live);
 
-  let labelScale = (() => {
-    try {
-      let v = parseFloat(localStorage.getItem('pps.labelScale'));
-      // A size saved before that desktop baseline keeps a raised size where it was, and is never below the new 100 %.
-      if (localStorage.getItem('pps.labelScaleV') !== '2') {
-        if (v && deskMQ.matches) { v = Math.max(1, Math.round((v / 1.5) * 100) / 100); localStorage.setItem('pps.labelScale', String(v)); }
-        localStorage.setItem('pps.labelScaleV', '2');
-      }
-      return clamp(v || 1, LABEL_MIN, LABEL_MAX);
-    } catch { return 1; }
-  })();
+  // The figure's text is at its one size (Mohammad, 11 Nov 2026: the "Text size on the figure" setting removed everywhere): 100 %, with a
+  // desktop's baseline (deskK). A size an older build saved is dropped, so it can never apply again.
+  const labelScale = 1;
+  try { localStorage.removeItem('pps.labelScale'); localStorage.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
   // Every label on a figure (the lobule's too) reads the same scale.
   document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();
@@ -2266,7 +2316,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // want skipped it and it stayed on screen, whole, until the next layout.)
   let laidFrame = 0;
 
-  const { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean: beatMean$, blockersRead: blockersRead$, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor: labelAnchor$, labelHidden, layerMode: layerMode$, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead: readBlockersRead$, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, velItem } = createLabelItems({ E, EI, EV, LINE_H, NI, REF, STENT_FACTORS, arcMid, breath, cath, cssNum, dopGateOf, dpr, explain, fontPx, geo, lensNow, lineW, mix3, nextFrame, noGlows, nodePos, pinned, quietFx, revShown, scan, setGlowSrc, sites, stageBox, svg, termTone, textW, toRGB, update, updateLabels, worldToLocalInto, wrap }, live);
+  const { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean: beatMean$, blockersRead: blockersRead$, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor: labelAnchor$, labelHidden, layerMode: layerMode$, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead: readBlockersRead$, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem } = createLabelItems({ E, EI, EV, LINE_H, NI, REF, STENT_FACTORS, arcMid, breath, cath, cssNum, dopGateOf, dpr, explain, fontPx, geo, lensNow, lineW, mix3, nextFrame, noGlows, nodePos, pinned, quietFx, revShown, scan, setGlowSrc, sites, stageBox, svg, termTone, textW, toRGB, update, updateLabels, worldToLocalInto, wrap }, live);
   function layerMode(...a) { return layerMode$(...a); }   // <stage-split stub>
   function beatMean(...a) { return beatMean$(...a); }   // <stage-split stub>
   function blockersRead(...a) { return blockersRead$(...a); }   // <stage-split stub>
@@ -2288,7 +2338,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let colResolve = 0;   // (when a carried stent column last asked to be placed again: see layoutLabels)
   let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
-  const { JOB_NOW, KEY_NODES, SOLVED_A, SOLVED_B, SOLVE_TURN, cathHid, flagged, handRideEnd: handRideEnd$, keyInto, labelIns, labelJobDrop: labelJobDrop$, labelJobStep: labelJobStep$, labelKeyArr, labelKeyNow: labelKeyNow$, labelRestK: labelRestK$, labelSettleSoon: labelSettleSoon$, labelSig: labelSig$, labelSliceRun: labelSliceRun$, labelTail: labelTail$, labelVis, sigWidthMoved, sliceOver, stats, stentReady, updateLabels: updateLabels$, zoneStick, zoomedIn } = createLabelDriver({ E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease }, live);
+  const { JOB_NOW, KEY_NODES, SOLVED_A, SOLVED_B, SOLVE_TURN, cathHid, flagged, handRideEnd: handRideEnd$, keyInto, labelIns, labelJobDrop: labelJobDrop$, labelJobStep: labelJobStep$, labelKeyArr, labelKeyNow: labelKeyNow$, labelRestK: labelRestK$, labelSettleSoon: labelSettleSoon$, labelSig: labelSig$, labelSliceRun: labelSliceRun$, labelTail: labelTail$, labelVis, sigWidthMoved, sliceOver, stats, stentReady, updateLabels: updateLabels$, zoneStick, zoomedIn } = createLabelDriver({ E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, stationRev, themeKey, velItem, wrap, xfMarkCurrent, xfRelease }, live);
   function labelRestK(...a) { return labelRestK$(...a); }   // <stage-split stub>
   function labelSettleSoon(...a) { return labelSettleSoon$(...a); }   // <stage-split stub>
   function labelSig(...a) { return labelSig$(...a); }   // <stage-split stub>
@@ -2315,7 +2365,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const sigW = new Map();
   // A stent's velocity callout waits until the stent has grown in and the flow through it has settled: while it draws on,
   // widens, or the presenter eases the model to a new patient, the reading swings through values no scan would show.
-  const STENT_CALM_MS = 1200, stentCalm = new Map();
+  const STENT_CALM_MS = 1200, stentCalm = new Map();   // motion-scale: not a move (a wait for the model to settle)
   // The narrowings' part of the signature, kept per object: a change of parameters always makes new objects (updateParams
   // clones them, and each model frame brings its own), so the same object always gives the same text. The same holds for the
   // slide's marks and terms (the presenter sets new ones per slide) and the cards' boxes (readBlockers returns a new list):
@@ -2372,6 +2422,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of resMade.values()) {
       const zs = g._segs;
       if (!zs?.length) continue;
+      // (Its band as drawn on the screen: 13 Nov 2026, on a phone the zigzag's teeth keep at least 8 px while the old 22-unit band shrank with
+      // the map to about 5 px, and "R collaterals ×6.5" lay on the liver's zigzag on the Circuit's TIPS slide.)
+      ZZ_ITEM.obj.w = Math.max(22, g._bandPx > 0 ? 2 * g._bandPx / (CTM.sc || 1) : 22);
       for (let i = 0; i < zs.length; i++) { ZZ_ITEM.pts = zs[i]; segLine(n++, ZZ_ITEM); }
     }
     segLines.length = n;
@@ -2429,7 +2482,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The solver keeps what a layout carries from label to label in two records written in place: the live layout's and the solve ahead's.)
   let lbkNum = NaN, lbkStr = '', labelSolSpare = new Map();
-  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
+  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stationRev, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
   function* layoutLabelsGen(...a) { return yield* layoutLabelsGen$(...a); }   // <stage-split stub>
   // A station's marker (its dot, its label, the Δ ring) shows only while a vessel is drawn at it (circuit-nodes.js): a vessel the
   // plate leaves out, or one still closed, leaves no dot floating where it would end, and one that draws on or retracts brings
@@ -2437,7 +2490,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const NODE_ENDS = nodeEnds(ALL_EDGES, (e) => E[e.id]);
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && nodeDrawn(NODE_ENDS[id]);
 
-  const { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams } = createBlood({ E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold }, live);
+  const { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams } = createBlood({ E, EI, EV, GL_ROWS, SIDE_HOSTS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold }, live);
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
   let bloodEasing = false;
   let restOn = false, restU = 1, restK = 1;
@@ -2469,8 +2522,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let flowGate = lastT;
   // (The calm blood's pace, and how long nothing else may have moved before it counts: see animate.)
   // (CALM_MS 32 -> 0, 4 Nov 2026: the calm 30 Hz blood is taken out while the figure flicker is chased; the steady motion's 60 stands.)
-  const CALM_MS = 0, CALM_AFTER_MS = 600;
-  let busyAt = 0;
+  const CALM_MS = 0, CALM_AFTER_MS = 600;   // motion-scale: not a move (a wait before the calm blood)
+  let busyAt = 0, restAt = 0;   // (restAt: the last frame something other than the model's own vessel updates moved: what rest pacing counts from)
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   let swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
@@ -2654,6 +2707,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
   let animRaf = 0;
+  // (A held rest frame's wait: the next frame asked a little before it is due, so it lands on the screen frame it would have; false when too near to wait.)
+  const parkWake = () => { parkT = 0; askAnimate(); };
+  // (Anything that asks the figure to redraw (stage-idle.js wake: a camera move, a change) while a rest frame waits: drawn on the next screen frame.)
+  function unpark() { if (!parkT) return; stageScope.clear(parkT); parkT = 0; askAnimate(); }
+  const parkFor = (left) => { if (left < 18) return false; if (!parkT) parkT = stageScope.timer(parkWake, left - 8); return true; };
   const askAnimate = () => { if (!animRaf) animRaf = drawFrame(animate); };
   function animate(now) {
     animRaf = 0;
@@ -2691,11 +2749,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Calm (pure GPU plan C2): nothing but the blood has moved for CALM_AFTER_MS (no camera, glide, ease, redraw of the vessel layer, input
     // or idle-rest change), so the flow alone is drawn, at 30 Hz: the shader steps it on the blood's clock (uClock), so it reads the same.
     // Anything else (busyAt) takes the full rate on its own frame, and the first moving frame after a calm one waits at most CALM_MS.
-    if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
+    if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = restAt = now;
     const calm = now - busyAt > CALM_AFTER_MS;
     const base = m60 ? frameGapFor('glide') : paceOf(quality);   // (the governor, frame.js: 60 Hz while something moves; the calm 30 Hz below is its 'flow')
-    const interval = calm ? Math.max(base, CALM_MS) : base;
-    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
+    // (Rest pacing, every device (frame.js restGapFor, after 4 s with no input and nothing moving), counted from restAt, not busyAt: the running
+    // model's own vessel updates (a colour or a width easing, a few rows drawn again, about twice a second) stamp busyAt, so the figure was never
+    // calm for 4 s and rest pacing never began while the model ran: 57 frames a second drawn at rest on Mohammad's Mac and about 51 on his iPhone,
+    // 12 Nov 2026. Those updates are drawn on the paced frames at rest, within a gap of 28 or 46 ms.)
+    const restGap = restGapFor(now, restAt);
+    const interval = calm ? Math.max(base, CALM_MS, restGap) : Math.max(base, restGap);
+    // (At rest the held frames are not asked for one by one (12 Nov 2026, Mohammad's iPhone hot at 0.5 MP with the blur off): the loop asked the
+    // browser for every screen frame, 60 a second, to draw 30 or 15, so the page woke 60 times a second for nothing and the frame counter read 51.
+    // Under the rest gap it waits on a timer for the next drawn frame instead; a wake, an input or a change asks the frame at once (askAnimate).)
+    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { if (restGap && parkFor(interval - (now - flowGate))) return; askAnimate(); return; }
     flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
@@ -2705,7 +2771,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
-    veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
+    if (veinsTrimmed) { veinsTrimmed = false; lowWarm(); }   // (shown again: the next draw makes what trimVeins gave back, and the tiers' targets are made again a moment on)
     hiddenAt = 0;   // (shown: a later hide starts its warm window afresh)
     if (veinsHold) { veinsHold.drop(); veinsHold = null; }   // (in use again: no longer warm)
     if (lz?.covers()) { askAnimate(); return; }
@@ -2726,21 +2792,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
     // (So do vessel rows waiting to be drawn again, veinsRows: a coil's last step is drawn as its cells alone, no longer as a dirty layer.)
     syncOver();
-    // (The overlays changed with the figure still: the picture laid again with them, nothing else drawn.)
-    if (OVER_ON && veins?.overlay?.stale && !veins.lost) veins.present();
+    // (The overlays changed: the picture laid again with them, by the present of this frame's own draw below, or alone after it when that laid
+    // none. It was laid here first, ahead of the draw, so a frame of both laid the picture twice.)
+    const overAt = OVER_ON && veins?.top ? veins.top.presents : -1;
     const rowsWait = veinsRows.size > 0 && !!veins && !veins.lost && !!vLook && !!F;
-    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { sleep(); return; }
+    if (still && !veinsDirty && !rowsWait && !glowSync && !(glLines && olDirty) && (!glLines || !marksStale()) && !(glLines && olFading()) && !mapEasing() && !clampFading() && !markA.moving() && !widthEasing && !bloodEasing && !plateEasing() && !sprayFading() && !veins?.organs?.fading && !lensFrom && !colEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && keyDrawn.on && sameStill(keyNow, keyDrawn) && fSame && CTM === lastDrawCTM && !anyReveal()) { overAlone(overAt); sleep(); return; }
     stepPlateEase();
     stepMap(dt);
     if (morph !== morphTarget) {
-      morph = clamp(morph + Math.sign(morphTarget - morph) * dt / VIEW_CHANGE_S, 0, 1);
+      viewClock.sync(morph); viewClock.aim(morphTarget, viewMs());
+      morph = viewClock.tick(now);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
-      if (viewXf && !viewXf.same) { const p = viewXfP(); writeVT(p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
+      if (viewXf && !viewXf.same) { const u = viewXfCamU(viewXf, viewXfP()); writeVT(u >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, u)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
-      rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
+      turnClock.sync(rotU); turnClock.aim(rotTarget);
+      rotU = turnClock.tick(now);
       setViewBox(easeInOut(morph));
       rotStep();   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
     }
@@ -2760,16 +2829,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
     if (fluidMoved || morph !== morphTarget || rotU !== rotTarget || widthEasing || bloodEasing || plateEasing() || veinsDirty || veinsRows.size > 0 || glowSync || sprayFading() || bolus.active || lensFrom || colEasing || !!veins?.organs?.fading) busyAt = now;
+    if (morph !== morphTarget || rotU !== rotTarget || sprayFading() || bolus.active || lensFrom || plateEasing() || !!veins?.organs?.fading) restAt = now;   // (motion of the figure itself, not the model's own updates)
     if (drawVeins(fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
     else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
+    overAlone(overAt);
     drawnView = viewVersion;
     if (still) copyKey(keyNow, keyDrawn); else keyDrawn.on = false;
     // (The pinned labels drawn with the figure, in its frame, whenever its camera or its shape moved: label-gl.js pinDraw.)
     if (labelGL && (CTM !== lastDrawCTM || morph !== pinMorph || !CTM)) { if (!CTM) refreshCTM(); pinMorph = morph; labelGL.pinDraw(); }
     lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
-    askAnimate();
+    // (A drawn rest frame waits for the next on a timer too: the screen frames between two drawn ones are never asked for.)
+    if (!(restGap && restAt !== now && parkFor(interval))) askAnimate();
   }
   askAnimate();
+  // The overlays changed and the frame's draw laid no picture (`at`: how many pictures had been laid when the frame began): laid alone.
+  function overAlone(at) { if (at >= 0 && veins?.overlay?.stale && !veins.lost && veins.top.presents === at) veins.present(); }
   // Nothing to draw: the loop stops asking for frames (so the screen can idle) until something changes, and looks
   // again once a second in case a change came by a path that does not wake it. (The store, the page's visibility, the
   // figure's classes, the camera, the glows and the organ pictures landing all wake it themselves.)
@@ -2873,6 +2947,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
     /** The ring's centre and radius now, written into `o` (x, y, r: stage px): asked for on each step of a camera move, so it makes nothing. false: not on this view. */
     scopeRingInto(o) { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && !!F?.metrics && scopeRingInto(o, worldToLocalInto, live.CTM || (refreshCTM(), live.CTM), SCOPE_TMP); },
+    /** The cutouts plate's tap (cutout-frame-gl.js hit): the liver's spot opens and shuts the lobule window; null takes it away. */
+    onPlateTap(tap, at, box) {
+      const had = !!live.plateBox;
+      live.plateTap = tap || null; live.plateAt = at || null; live.plateBox = box || null;
+      if (had !== !!box) nextFrame(() => { if (F && !lobuleOn) { labelKey = null; solveAsked = true; updateLabels(F); } });   // (the ring is a keep-clear box for the labels while the plate stands: they are laid again when it comes or goes)
+    },
     onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
     rest(on) {
@@ -2910,12 +2990,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** What the label layer drew last frame, for the checks: the boxes of its pictures and marks (CSS px from its corner) and how many leaders and dots. */
     labelFrame: () => ({ boxes: labelGL?.boxes ?? [], marks: labelGL?.counts().marksDrawn ?? 0, riding: !!labelGL?.riding }),
     // How the frames of the changes between the views were drawn (from the stretches made ahead, gpu, or binned there, cpu, and why), for tests.
-    morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set).length }),
+    morphStats: () => ({ gpu: mt.stats.gpu, cpu: mt.stats.cpu, builds: mt.stats.builds, miss: { ...mt.stats.miss }, ready: (mt.pieces || []).filter((pc) => pc.set && (veins?.morphSetReady ? veins.morphSetReady(pc.set) : true)).length, of: (mt.pieces || []).length, failed: [...new Set((mt.pieces || []).map((pc) => pc.bad).filter(Boolean))], last: mt.stats.last, restart: mt.stats.restart, units: mt.stats.units, over: mt.stats.over, coilKept: mt.stats.coilKept, building: mt.build ? { done: mt.build.ndone, since: mt.build.t0, busy: mt.build.busy, longest: mt.build.longest } : null }),
     // (For the check that an ease drawn on the GPU matches its binning: the coils and fans held where they are, then binned on the CPU.)
     holdEase: (on) => { easeHeld = !!on; },
     rebinNow: () => { morphOff(); vBinKey = ''; binShown = null; bendShown = null; syncVeins(easeInOut(morph)); },
     coilStats: () => ({ gpu: et.stats.gpu, builds: et.stats.builds, miss: { ...et.stats.miss }, ready: !!et.pc?.set }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
+    // The catheter's readings' points in the world as they stand now (live: the tip, the point ahead of it; pinned: where the shown readings were taken), for tests.
+    cathPoints: () => (cath.at ? { tip: cath.at.tip.slice(), ahead: cath.at.ahead.slice(), still: !!cath.still, sum: cath.pinAt ? { tip: cath.pinAt.tip?.slice() || null, ahead: cath.pinAt.ahead?.slice() || null } : null, pins: [...(cath.made?.entries() || [])].map(([k, el]) => [k, el._pin ? el._pin.slice() : null]) } : null),
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
@@ -2943,8 +3025,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         wrap.classList.toggle('cath-on', hide);
         if (hide) cathHidAt = performance.now(); else if (F) { labelKey = null; updateLabels(F); }
       }
-      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; cath.lastTipD = null; }
+      if (!st) { cath.rc = 0; cath.lastTipD = null; cath.still = false; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint || varixFade) { cathTint = null; varixFade = 0; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
@@ -2980,6 +3062,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). arc: a long move pulls back and comes in. */
     cathFocus,
     /** A treatment route's named stretches as u (0..1 of the way in, as setCatheter takes it): { tract: [u0, u1], … }, or null. */
+    /** A place on one treatment route as the same place on another (u): a reading that goes on from where a procedure left the catheter. */
+    cathCarry,
     cathStops() {
       const r = cathRoute();
       if (!r?.spans) return null;
@@ -3009,19 +3093,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setDoppler(id) { dop.want = id; dopApply(); },
     /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). points: on a
      *  stent, the figure calls out all three points it is sampled at, the sampled one named in the Doppler's green. */
-    pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },
+    pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },   // (false: no probe drawn at all, stage-glow.js dopApply)
     setScanProbe,
-    setLabelScale(v) {
-      labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
-      try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch (e) { caught('stage:13721', e); /* storage unavailable */ }
-      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
-      dispatchEvent(new Event('pps:labelscale'));
-      if (F) updateLabels(F);
-    },
     setProjection(on) { projecting = typeof on === 'number' ? on : !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
     /** The treatment marks and how much of each shows now (for tests; mark-fade.js). */
     markAmounts: () => markA.amounts(),
+    /** The vessel marks' draws on the GPU (for tests): each one's fade key and the alpha built into it. */
+    markDraws: () => mk.draws.map((d) => ({ fade: d.fade, alpha: d.alpha })),
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
     /** The classes the GPU's state sets and what that state is (for tests): `gl-on` with the GPU holding its context, `gl-plate` with it holding the whole plate. */
@@ -3061,11 +3140,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
       const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? circWhole() : d, lo = whole.k < d.k ? whole : d;
       const base = vtGliding && vtTarget ? vtTarget : vt;
-      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, 260); return; }
+      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, CAM_MS_MAX, { scale: true }); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
-    keepView(on) { keptSpace = on ? spaceSig() : null; },
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
@@ -3165,9 +3243,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */
     organsSettled: () => plateOn() || !glWanted(),
     /** The camera is still gliding (a slide's cards wait for it to land). */
-    gliding: () => vtGliding,
+    gliding: () => vtGliding || !!viewXf,   // (a change between the views still landing is the camera's too: the marks and cards wait for it)
     /** What is left of the glide under way, and its whole length, ms ({ left: 0, ms: 0 } at rest): a slide's cards come in over its last part. */
-    glideLeft: () => (vtGliding ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
+    glideLeft: () => (vtGliding || viewXf ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
+    /** The change between Anatomy and Circuit is still under way (the figure morphing, or its landing not yet done): a slide's next step waits for it to land. */
+    viewChanging: () => !!viewXf || morph !== morphTarget,
     /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
     drifting: () => drifting,
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
@@ -3186,11 +3266,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lookChanged() { themeSnap = true; glowSync = true; veinsDirty = true; plateStale = true; stageWake(); },
     lookWhole(cap = 700) {
       return new Promise((done) => {
-        const t0 = performance.now(), t = setTimeout(done, cap);
+        const t0 = performance.now(), t = stageScope.timer(done, cap);
         let calm = 0;
         const poll = () => {
           if (lookPending() || !csSnap || csAsk || themeSnap || glowSync || veinsDirty || veins?.organs?.fading) calm = 0; else calm++;
-          if (calm >= 3 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
+          if (calm >= 3 || performance.now() - t0 >= cap) { stageScope.clear(t); done(); return; }
           lookFrame(poll);
         };
         lookFrame(poll);
@@ -3220,7 +3300,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
-    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
+    resZigs: () => [...resMade.values()].flatMap((g) => { const p = g.cur?.pts ? Array.from(g.cur.pts) : [], out = []; for (let i = 0, o = 0; i < g.lens.length; o += g.lens[i], i++) out.push({ pts: p.slice(o, o + g.lens[i]), band: g._bandPx || 0 }); return out; }),   // (for tests: each zigzag, world, and its half band in px)
+    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)
     labelDrawnBy: () => { const r = stageBox(), o = labelGL?.drawnLabels?.() ?? []; for (const d of o) { d.x += r.left; d.y += r.top; } return o; },   // (each GPU label's last picture, keyed, client px: the browser check's lag test)
@@ -3244,6 +3325,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
+    /** Three scales on one plate (cutouts.js): the lobule in a round window ({ x, y, w, h, r }, CSS px of the figure's box) beside the anatomy, its blood running when run; null closes it. Not while the lobule itself is open or diving. */
+    plateLobule(win, run = false) {
+      plateWant = win ? { win, run } : null;
+      if (!win) { lz?.plateOff(); return; }
+      if (lobuleOn || diveT > 0 || store.get().lobule) return;
+      if (lz) { lz.plateOn(win, run); return; }
+      lobuleReady().then(() => { if (plateWant && !lobuleOn && !store.get().lobule) lz.plateOn(plateWant.win, plateWant.run); }, () => { /* the lobule's code did not arrive: no window */ });
+    },
     /** The vessels as the corner credit counts them (credit.js), in world units: each course drawn (a vessel's own, and in the anatomy its
      *  strands' and drawn trunks'), its hit width w, its box, and ver (a new ver: the list changed). */
     vesselShapes,
@@ -3270,6 +3359,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
     lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
+    /** The presenter's glide inside the lobule (a station focus, the zoom back to the fit) is still moving: false once it has landed. */
+    lobuleGlide: () => !!lz?.glideBusy?.(),
     lobuleSettled: () => !diveWait && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
@@ -3295,6 +3386,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (me !== sinMoveGen || store.get().sinusoid) return;
       if (store.get().lobule) store.set({ lobule: false });
     },
+    /** The Sinusoid button: zoom into the sinusoid from the lobule. While the dive into the lobule is still landing the ask is kept in the
+     *  lobule (it carries on at the landing) and the store is not written, so the view says sinusoid once, not true, false, true. askSinusoid(false)
+     *  calls a kept ask off. */
+    askSinusoid(on = true) {
+      if (!on) { lz?.askSinusoid(false); return; }
+      if (!lz?.askSinusoid(true)) setViewKey('sinusoid');
+    },
     /** True once the sinusoid view is wholly in. */
     sinusoidOpen: () => !!lz?.sinusoidOpen(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
@@ -3305,7 +3403,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {
-      setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', amt: 1.3, dur: 380 })));
+      setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', amt: 1.3, dur: D_SURFACE })));
       stageScope.clear(glow.flashT); glow.flashT = stageScope.timer(() => setGlowSrc('flash', []), 1000);
     },
     edgeMid: (id, f = 0.5) => (geo[id]?.cur?.length ? pointAt(geo[id].cur, f) : null),   // (f: a point along it, 0..1 of its drawn course)

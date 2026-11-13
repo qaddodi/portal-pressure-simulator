@@ -18,9 +18,10 @@ test('slideTargets lights the sinusoids whenever it lights the portal venule or 
   assert.ok(body.indexOf("lit.add('lobule:sinusoid')") > body.indexOf('(s.glow || []).forEach'));
 });
 
-test('the sinusoids label has a lit pill and is kept when lit (not faded)', () => {
-  const pill = CSS.split('\n').find((l) => l.includes(')::before { opacity: 1;')) || '';
-  assert.ok(pill.includes('.app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"]'), 'a lit Sinusoids label takes the pill');
+test('the sinusoids label takes its term\'s ink when lit and is kept (not faded)', () => {
+  // (Its lit look is the words in the term's colour, outlined, with no pill since 13 Nov 2026, unification audit 12.)
+  const ink = CSS.split('\n').find((l) => l.startsWith(':root:root:root:root:root:root:root:root :is(.lz-lab, .lz-zone, .sv-region):is(') && l.includes('{ color: color-mix(in srgb, var(--term-c')) || '';
+  assert.ok(ink.includes('.app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"]'), 'a lit Sinusoids label takes the term\'s ink');
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(lz, /const LIT_OK = \[[^\]]*'sinusoid'/);
   assert.match(lz, /station\(m, 'sin', m\.P2, m\.R\[1\]\); setLab\('sin', 'Sinusoids', 'Sinusoids', reading\.v, reading\.u, reading\.d, reading\.col\)/, 'the reading is the model\'s sinusoidal pressure, one decimal');

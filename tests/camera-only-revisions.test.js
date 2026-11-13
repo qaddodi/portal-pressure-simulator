@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // R04 (review pass 2): a camera-only move (pan, pinch, glide) rebuilds neither the labels' signature nor any string key. The
 // signature follows revisions (the frame, the store's revision, the geometry's version, the vessels' shown set); the labels' key and

@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { lerpVT, viewGeom, geomView, viewsOverlap, camPath, blendPaths, ARC_STRETCH } from '../src/ui/cam-arc.js';
 
 // Long camera moves pull back and come in (deck-authoring camera recs, item B, 29 Oct): from one close-up to another far across

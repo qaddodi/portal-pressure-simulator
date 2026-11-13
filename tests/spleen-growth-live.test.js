@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { spleenMotion, SPLEEN_STILL } from '../src/ui/spleen-motion.js';
 
 // A spleen growing through a time-lapse stood still under the organs' picture, jumped bigger, waited and jumped again, while
@@ -52,4 +51,15 @@ test('a size that jumps once (a new patient) shows live at once, then the pictur
   m.see(1, 0); m.see(1, 300);
   assert.equal(m.see(1.4, 600), true);
   assert.equal(m.moving(600 + SPLEEN_STILL + 1), false);
+});
+
+// 8 Nov 2026: after a splenectomy (the spleen group at opacity 0.14) the next slide's spleen stayed near-black on the live GPU
+// painter: its opacity was not part of the key that makes the painter read the organs again.
+test('the live organs key moves with the spleen\'s own opacity', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/stage-plate.js', import.meta.url), 'utf8');
+  const m = src.match(/function liveKey\(\) \{[\s\S]*?return k;/);
+  assert.ok(m, 'liveKey found');
+  assert.match(m[0], /k\[12\] = organG\.spleen\.style\.opacity/);
+  assert.match(src, /const liveKeyNow = \[(?:'', ){12}''\], liveKeyOld = \[(?:'', ){12}''\]/);
 });

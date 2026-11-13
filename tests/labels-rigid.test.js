@@ -34,7 +34,7 @@ test('section 8: zone titles are not carried by a ride, and every zoom rule read
 test('step 3: figure labels carry a world anchor and label-gl pins by it', () => {
   assert.ok(st.includes('function localToWorldInto'));
   assert.ok(/pwv: gw \? it\.aWv : null/.test(st) && /it\.aWv = live\.morph/.test(st), 'the world anchor and its view taken in the layout frame (stampAnchor)');
-  assert.ok(/NO_ANCHOR = \/\^\(lane:/.test(st));
+  assert.ok(/NO_ANCHOR = \/\^\(scan/.test(st) && !/NO_ANCHOR = \/\^\([^/]*lane:/.test(st), 'a Circuit lane caption is anchored at its lane point too (L1, 12 Nov 2026)');
   assert.ok(gl.includes('s.pwv != null'));
 });
 

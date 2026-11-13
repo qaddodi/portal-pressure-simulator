@@ -65,6 +65,24 @@ const snap = (page) => page.evaluate(() => {
     for (const [k, q] of Object.entries(boxes)) if (ov(r, q)) issues.push(`callout "${name}" under ${k}`);
   }
   const c = document.querySelector('.stage-credit');
+  // (13 Nov 2026, the label thread: the figure's labels as the GPU drew them (label-gl, pps.stage.labelSnapshot, client px): none under a card or
+  // its controls, none on another label, none on a resistor's zigzag (its band as drawn, pps.stage.resZigs), none past the screen's edge.)
+  const S = window.pps?.stage, wrapR = document.querySelector('.stage-wrap')?.getBoundingClientRect();
+  if (S?.labelSnapshot && wrapR) {
+    const labs = (S.labelSnapshot().items || []).filter((d) => d.a > 0.5 && !d.clipped && d.w > 4 && d.h > 4).map((d) => ({ key: d.key, r: { left: d.x + 3, top: d.y + 3, right: d.x + d.w - 3, bottom: d.y + d.h - 3 } }));
+    const cards = Object.entries(boxes).concat([...document.querySelectorAll('.pz-case.on, .vdock, .zoom-pill, .topbar, .nb-views')].map((e) => [e.className.split(' ')[0], vis(e)]).filter(([, r]) => r));
+    for (const l of labs) {
+      for (const [k, q] of cards) if (ov(l.r, q)) issues.push(`label ${l.key} under ${k}`);
+      if (l.r.left < -1 || l.r.top < -1 || l.r.right > W + 1 || l.r.bottom > H + 1) issues.push(`label ${l.key} off-screen`);
+    }
+    for (let a = 0; a < labs.length; a++) for (let b = a + 1; b < labs.length; b++) if (ov(labs[a].r, labs[b].r)) issues.push(`label ${labs[a].key} on ${labs[b].key}`);
+    const segD = (px, py, x0, y0, x1, y1) => { const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / L2)); return Math.hypot(px - x0 - t * dx, py - y0 - t * dy); };
+    for (const z of S.resZigs?.() || []) {
+      if (z.pts.length < 4) continue;
+      const [x0, y0] = S.worldToLocal(z.pts[0], z.pts[1]), [x1, y1] = S.worldToLocal(z.pts.at(-2), z.pts.at(-1)), s = [x0 + wrapR.left, y0 + wrapR.top, x1 + wrapR.left, y1 + wrapR.top];
+      for (const l of labs) { const r = l.r, P = [[r.left, r.top], [r.right, r.top], [r.left, r.bottom], [r.right, r.bottom], [(r.left + r.right) / 2, (r.top + r.bottom) / 2]]; if (P.some(([x, y]) => segD(x, y, ...s) < z.band - 1)) issues.push(`label ${l.key} on a resistor's zigzag`); }
+    }
+  }
   if (c && +getComputedStyle(c).opacity >= 0.5) { const r = c.getBoundingClientRect(); for (const el of document.querySelectorAll('.pz-text, .pz-data, .pz-panel, .pz-bar')) { const q = vis(el); if (q && q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) issues.push(`credit touches ${el.className.split(' ')[0]}`); } }
   // A summary table: each cell's visible contents sit inside its column heading, and no two cells overlap.
   const tb = document.querySelector('.pz-table');
@@ -162,7 +180,7 @@ const norm = (t) => (t || '').replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replac
 const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
 const at = (page, k) => page.waitForFunction((k) => (document.querySelector('.pzb-n')?.textContent.trim() || '').startsWith(k + ' /'), k, { timeout: 15000 }).catch(() => {});
 async function run(deck, dev) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});   // (CHROMIUM: a browser other than the one this Playwright pins)
   try {
   const ctx = await browser.newContext({ ...SIZES[dev], serviceWorkers: 'block', reducedMotion: 'reduce' });
   const page = await ctx.newPage(); page.setDefaultTimeout(60000);

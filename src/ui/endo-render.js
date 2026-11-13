@@ -9,6 +9,7 @@
 // of strangulated tissue with the band as a tight ring at its base. The result is drawn once per
 // state into an offscreen bitmap and cached, so it never flickers.
 
+import { lerp as mix } from './num.js';
 import { cssRGB } from './util.js';
 const TAU = Math.PI * 2;
 const T = 1.55;          // tan(half field of view)
@@ -29,7 +30,6 @@ function nz(x, y, P) {
 }
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const wrapPi = (a) => { a %= TAU; return a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a; };
-const mix = (a, b, t) => a + (b - a) * t;
 
 // The seeded generator, one state kept here (makeColumns restarts it at 7 each call, as a new generator was).
 let seedX = 7;
@@ -108,7 +108,7 @@ export function renderEndo(res, p) {
   const red = Math.min(1, Math.max(0, +p.red || 0));
   const img = new ImageData(res, res), D = img.data;
   const half = res / 2, o = SEEN;
-  const ALB = cssRGB('--endo-mucosa'), DEEP = cssRGB('--endo-mucosa-deep');
+  const ALB = cssRGB('--endo-mucosa'), DEEP = cssRGB('--endo-mucosa-deep'), ZL = cssRGB('--endo-zline'), WALE = cssRGB('--red-wale');   // (the twin of endo-gl.js: the same tokens)
   const eth = 0.008;
   for (let py = 0; py < res; py++) {
     for (let px = 0; px < res; px++) {
@@ -142,7 +142,7 @@ export function renderEndo(res, p) {
       let r0 = mix(ALB[0], DEEP[0], tint * 0.7), g0 = mix(ALB[1], DEEP[1], tint * 0.8), b0 = mix(ALB[2], DEEP[2], tint * 0.65);
       const zl = 5.2 + 0.9 * (nz(th / TAU * 11, 0.5, 11) - 0.5) + 0.35 * (nz(th / TAU * 31, 2.5, 31) - 0.5);
       const zline = sstep(zl - 0.25, zl + 0.25, z);
-      r0 = mix(r0, 196, zline * 0.75); g0 = mix(g0, 68, zline * 0.75); b0 = mix(b0, 58, zline * 0.75);
+      r0 = mix(r0, ZL[0], zline * 0.75); g0 = mix(g0, ZL[1], zline * 0.75); b0 = mix(b0, ZL[2], zline * 0.75);
       const mott = nz(th / TAU * 14, z * 0.9, 14) * 0.6 + nz(th / TAU * 40, z * 2.5, 40) * 0.4;
       const mm = 0.93 + 0.12 * mott + 0.06 * (nz(th / TAU * 160, z * 11, 160) - 0.5) + 0.04 * (h2(px, py) - 0.5);
       r0 *= mm; g0 *= mm * (0.97 + 0.05 * mott); b0 *= mm;
@@ -169,7 +169,7 @@ export function renderEndo(res, p) {
           const spot = sstep(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220, z * 11, 220)) * vein * sstep(0.2, 0.7, rs);
           // (Full from grow 0.3, below the 5 mm of a large varix (endo-size.js), so a large varix the model gives red wale signs shows them plainly.)
           const rr = Math.max(wm * 0.6 * vein, spot * 0.75) * sstep(0.1, 0.3, grow);
-          r0 = mix(r0, 158, rr); g0 = mix(g0, 26, rr); b0 = mix(b0, 42, rr);
+          r0 = mix(r0, WALE[0], rr); g0 = mix(g0, WALE[1], rr); b0 = mix(b0, WALE[2], rr);
         }
       }
       // Soft occlusion in the groove beside a column.

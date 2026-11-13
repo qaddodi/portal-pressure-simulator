@@ -38,11 +38,12 @@ test('a wide Treat card lays the procedures out three or four to a row', () => {
 
 test('every framing of the whole circuit keeps clear of the zoom pill', () => {
   assert.doesNotMatch(stage, /insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\)(?!, circVB\(\)\))/, 'the whole map is always circWhole()');
-  assert.match(stage, /const circWhole = \(\) => clearPill\(insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\);/);
+  assert.match(stage, /const circWhole = \(\) => clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\);/);
 });
 
-test("Treat's spare room sits at the card's foot, under Changes, not between the orders and Changes", () => {
+test("Treat's card is as tall as the tab shown: no spare room under Changes (U3, 13 Nov 2026)", () => {
   const chart = readFileSync(new URL('../src/ui/chart.js', import.meta.url), 'utf8');
-  assert.match(chart, /setProperty\('--tp-spare', `\$\{tall - own\}px`\)/);
-  assert.match(css, /\.tc-body:has\(> \.treat-pane\) \{ padding-bottom: calc\(16px \+ var\(--tp-spare, 0px\)\); \}/);
+  assert.doesNotMatch(chart, /--tp-spare/);
+  assert.match(chart, /body\.style\.height = `\$\{own \+ pad\}px`;/);
+  assert.doesNotMatch(css, /tp-spare/);
 });

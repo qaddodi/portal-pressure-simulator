@@ -79,7 +79,7 @@ test('A2: the presenter\'s catheter monitor has its readings as text, written wh
   assert.match(m, /role: 'group', 'aria-label': 'Catheter pressure readings'/);
   assert.match(m, /const said = h\('p', \{ class: 'sr-only' \}\);/);
   const say = body(m, 'const sayNow = () =>');
-  for (const word of ['Free hepatic venous pressure (FHVP)', 'Wedged hepatic venous pressure (WHVP)', 'the wedged pressure (WHVP)', 'minus the free pressure (FHVP)', 'mmHg', 'HVPG is not measurable', 'sevWord(v.hvpg)']) assert.ok(say.includes(word), word);
+  for (const word of ['Free hepatic venous pressure (FHVP)', 'Wedged hepatic venous pressure (WHVP)', 'HVPG ${mm(v.hvpg)}: WHVP', 'minus FHVP', 'mmHg', 'HVPG is not measurable', 'sevWord(v.hvpg)']) assert.ok(say.includes(word), word);
   assert.match(say, /STEPS\[1\]\[2\]/, 'the same words as the procedure card gives the free step');
   assert.match(say, /STEPS\[2\]\[2\]/, 'and the wedged step (the plateau, once the pressure settles)');
   assert.match(m, /const saySoon = \(\) => \{ clearTimeout\(sayT\); sayT = setTimeout\(sayNow, 400\); \};/, 'debounced: a sweep\'s every frame is not written');

@@ -22,7 +22,7 @@ import { chartCtx } from './chart-ctx.js';
 const sv = svgModel;
 /** The wedged pressure's colour on the charts that draw it against the portal pressure (here and tool-curve.js). */
 export const WEDGE_C = '--s7';
-const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', WEDGE_C], ['fhvp', 'FHVP', '--text-3']];
+export const LINES = [['pv', 'PV', '--tr-pv'], ['whvp', 'WHVP', WEDGE_C], ['fhvp', 'FHVP', '--text-3']];
 const tokName = (v) => v.replace(/^--/, '');   // (a colour token's CSS name → its name in theme-tokens.js: what a piece's data-p-* holds)
 const sev = hvpgRate;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)

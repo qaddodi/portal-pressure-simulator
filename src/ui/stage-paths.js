@@ -1,7 +1,9 @@
 // Path builders (sample on the scratch path, meander, then the pure ones): polyline text, arc length, point and tangent at a fraction, wiggle, braid, tube outline and arc midpoint.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { LIGHT } from './light.js';
+import { smooth01 } from './motion.js';
 import { clamp, lerp, s } from './util.js';
+import { wiggleAt } from './wiggle-math.js';
 
 export function createPaths(st) {
   const { N_SAMPLES, scratchG } = st;
@@ -82,7 +84,8 @@ export function createPaths(st) {
   }
   // Tortuous collateral: a smooth serpentine (wavelength ≈ 64 units) along the centerline,
   // tapered to zero at both ends so the vessel still meets its nodes.
-  function wiggle(pts, amp, seed) {
+  // (With `hold`, the wave stays off for the first and last `hold` of the course and comes in over the next 1.4 of it: a strand that must leave its channel and join it as one vessel.)
+  function wiggle(pts, amp, seed, hold = 0) {
     if (amp < 0.3) return pts;
     const cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
@@ -94,15 +97,16 @@ export function createPaths(st) {
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
       const u = cum[i] / L;
-      const env = Math.min(1, u * 6, (1 - u) * 6);
-      const w = amp * env * Math.sin(cum[i] * k + seed);
+      let env = Math.min(1, u * 6, (1 - u) * 6);
+      if (hold) env *= smooth01((u - hold) / (1.4 * hold)) * smooth01((1 - u - hold) / (1.4 * hold));
+      const w = wiggleAt(amp, env, cum[i], k, seed);
       return [p[0] + nx * w, p[1] + ny * w];
     });
   }
   // Lateral offset of `off` units at mid-course, easing to zero at both ends (or, with `u0`, at
   // `u0` along the vessel and the far end: the strands leave a single trunk there).
   // With a stretch `span` [from, to] the strand leaves and rejoins the vessel there, its bow a little uneven (`ph`).
-  function braid(pts, off, u0 = 0, span = null, ph = 0) {
+  function braid(pts, off, u0 = 0, span = null, ph = 0, soft = false) {
     if (Math.abs(off) < 0.3) return pts;
     if (span) {
       // One normal for every strand (across the vessel's chord), so a bend in the vessel never kinks a strand or
@@ -116,12 +120,16 @@ export function createPaths(st) {
         return [p[0] + nx * o, p[1] + ny * o];
       });
     }
+    // (A soft braid bows off the chord's one normal, like a span: a large offset on the inner side of a curving course would fold at the bend.)
+    const A = pts[0], B = pts[pts.length - 1], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, cx = -(B[1] - A[1]) / cl, cy = (B[0] - A[0]) / cl;
     return pts.map((p, i) => {
       if (i === 0 || i === pts.length - 1) return p;
       const a = pts[i - 1], b = pts[i + 1];
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
-      const o = off * Math.sin(Math.PI * clamp((i / (pts.length - 1) - u0) / (1 - u0), 0, 1));
+      if (soft) { nx = cx; ny = cy; }
+      const s = Math.sin(Math.PI * clamp((i / (pts.length - 1) - u0) / (1 - u0), 0, 1));
+      const o = off * (soft ? s * s : s);
       return [p[0] + nx * o, p[1] + ny * o];
     });
   }
@@ -171,7 +179,27 @@ export function createPaths(st) {
   // The point half way along a drawn vessel, by length, and the direction it runs there.
   // (at: how far along, 0.5 by default: the middle.)
   const arcOut = [0, 0, 0, 0];   // (read at once by every caller, by destructuring or spreading)
+  // (The last answer for each course, kept with a copy of its points (13 Nov 2026, Mac heat): the labels' pins ask for the middle of the same
+  // unchanged course on every present, 30 to 40 times a second, and the walk with its square roots was the main thread's largest single cost
+  // at rest. The points are compared one by one, so a course moved in place is walked again; the answer is the same numbers either way.)
+  const arcMemo = new WeakMap();
   function arcMid(pts, at = 0.5) {
+    const n = pts.length;
+    let k = arcMemo.get(pts);
+    if (k && k.at === at && k.n === n) {
+      const xs = k.xs;
+      let same = true;
+      for (let i = 0, j = 0; i < n; i++, j += 2) { const p = pts[i]; if (p[0] !== xs[j] || p[1] !== xs[j + 1]) { same = false; break; } }
+      if (same) { arcOut[0] = k.r[0]; arcOut[1] = k.r[1]; arcOut[2] = k.r[2]; arcOut[3] = k.r[3]; return arcOut; }
+    }
+    arcWalk(pts, at);
+    if (!k) arcMemo.set(pts, (k = { at, n: -1, xs: null, r: new Float64Array(4) }));   // alloc-rare: once per course array
+    if (!k.xs || k.xs.length !== 2 * n) k.xs = new Float64Array(2 * n);   // alloc-rare: once per course array, again only if it changes length
+    for (let i = 0, j = 0; i < n; i++, j += 2) { k.xs[j] = pts[i][0]; k.xs[j + 1] = pts[i][1]; }
+    k.at = at; k.n = n; k.r[0] = arcOut[0]; k.r[1] = arcOut[1]; k.r[2] = arcOut[2]; k.r[3] = arcOut[3];
+    return arcOut;
+  }
+  function arcWalk(pts, at) {
     let total = 0;
     for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
     let run = 0;

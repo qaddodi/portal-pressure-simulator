@@ -13,12 +13,13 @@ import { activeInterventions } from './inspector.js';
 import { DRUG_NOTE } from './actions.js';
 import { factTarget } from './fact-target.js';
 import { caught } from './caught.js';
-import { rexSuitable } from './proc-anim.js';
+import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
 
 
 // The interventions treatCount counts, besides any drug.
 const TREATMENT_KEYS = ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'rex', 'occ:C5', 'splenicRx'];
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
+  const surgical = surgicalVerbs({ store, updateParams, select, toast });
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
   // A damaged saved value (not JSON, or not a list) starts closed rather than stopping the app.
@@ -104,8 +105,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     };
     const drugs = h('div', { class: 'order-chips' },
       Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, DRUGS[k].info || DRUG_NOTE[k] || '', (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
-      drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize as time passes.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
-      drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
+      drugChip('anticoag', 'Anticoagulation', 'Thrombosed veins recanalize gradually.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
+      drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: natriuresis mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
     const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
     // A fluid is given at once: its line under the name says what it does, and the tile answers the press with the
@@ -117,7 +118,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       return b;
     };
     const fluids = h('div', { class: 'order-grid three' },
-      fluid('1 L crystalloid', 'crystalloid', 'about 25% stays in the vessels'),
+      fluid('1 L crystalloid', 'crystalloid', 'about 25% stays intravascular'),
       fluid('1 unit PRBC', 'prbc', 'packed red cells'),
       fluid('Albumin', 'albumin', 'raises oncotic pressure'));
     const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
@@ -133,7 +134,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the gastric balloon on in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
+      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Inflate the gastric balloon in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
       placed(proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
@@ -148,19 +149,11 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         select({ type: 'edge', id: 'DIPS' });
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
       }), (p) => p.dips.on),
-      placed(proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }), (p) => p.portocaval || p.dsrs || p.mesocaval),
-      // A Meso-Rex bypass is for a clotted portal trunk with an open left portal vein, so it is offered only then (or once it is in).
-      (() => {
-        const b = placed(proc('stent', 'Meso-Rex bypass', 'SMV → left portal vein, past the clot', () => {
-          const on = store.get().params.rex;
-          if (!on) updateParams({ rex: true }, { label: 'Meso-Rex bypass' });
-          select({ type: 'edge', id: 'REX' });
-          toast(on ? 'The Meso-Rex bypass is already in place.' : 'Meso-Rex bypass placed: superior mesenteric vein → left portal vein.');
-        }), (p) => !!p.rex);
-        const offer = () => { const p = store.get().params; b.hidden = !(p.rex || rexSuitable(p)); };
-        offer(); live.push(offer); return b;
-      })(),
-      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
+      // The surgical shunts, each its own order (surgical-shunts.js: the same parameters the talks' slides set). A tap makes the shunt and
+      // shows its vessel, whose card takes it down. The Meso-Rex bypass is always listed: for a patient without a clotted trunk the tap
+      // says why it is not made. (A shunt of the learner's own, between any two veins, is still drawn from a vein's card: Add shunt.)
+      ...SURGICAL.map((x) => placed(proc('stent', x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
+      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {
         const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
@@ -178,8 +171,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'Drugs', drugs], ['fluids', 'Fluids', fluids], ['procs', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
-    // All three panes share one grid cell, the others hidden but still laid out, so the card is as tall as the tallest
-    // tab on every tab and never changes height when a tab is picked (review #20).
+    // All three panes share one grid cell so one tab fades out as the next rises in; the pane's height is set to the shown one's below.
     const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[2]));
     const show = (id) => {
       treatTab = id;
@@ -187,16 +179,14 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
       if (body.isConnected) spare();
     };
-    // The spare room under a shorter tab goes to the card's foot, under Changes, rather than sitting as a band between
-    // the orders and Changes (sweep, 16 Oct): the pane is as tall as the tab shown, and the card's body is padded by
-    // what the tallest tab needs more, so the card's frame still holds still from tab to tab.
+    // The card is as tall as the tab shown (U3, 13 Nov 2026: it was as tall as the tallest tab, with the spare room under Changes, which left
+    // the Drugs tab's card half empty): the pane takes the shown tab's height and the card follows it.
     const spare = () => {
       if (!body.isConnected) { ro?.disconnect(); return; }
       const on = panes.find((x) => x[0] === treatTab)?.[2];
-      const tall = Math.max(...panes.map((x) => x[2].offsetHeight)), own = on?.offsetHeight ?? tall, cs = getComputedStyle(body);
+      const own = on?.offsetHeight ?? Math.max(...panes.map((x) => x[2].offsetHeight)), cs = getComputedStyle(body);
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       body.style.height = `${own + pad}px`;
-      body.parentElement?.style.setProperty('--tp-spare', `${tall - own}px`);
     };
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
     for (const x of panes) ro?.observe(x[2]);
@@ -225,11 +215,11 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   function advanced() {
     const acts = h('div', { class: 'order-grid' },
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'valsalva' }) }, h('span', { class: 'ob-t' }, 'Valsalva', h('small', {}, '10 s strain'))),
-      h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start a bleed'))),
+      h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start variceal bleeding'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'hemorrhage', mL: 500 }) }, h('span', { class: 'ob-t' }, '− 500 mL', h('small', {}, 'hemorrhage'))));
     // Laid out as the Details panel's sections (heading, spaced rows, a hairline between groups), not bare subheads.
     return [
-      section('adv-tone', 'Inflow & vascular tone', null, null, ...controls(['splanchnicTone', 'systemicTone'])),
+      section('adv-tone', 'Inflow and vascular tone', null, null, ...controls(['splanchnicTone', 'systemicTone'])),
       section('adv-hepatic', 'Hepatic circulation', null, null, ...controls(['habr', 'apShunt'])),
       section('adv-variants', 'Anatomical variants', null, null, ...controls(['grShunt', 'srShunt'])),
       section('adv-sim', 'Simulation', null, null, ...controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts)];

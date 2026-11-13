@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // stops at startup (31 Oct, d213d755: the labels' host read OVER_ON two thousand lines before it was set; nothing showed on any device).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const STAGE = stageSource();
 

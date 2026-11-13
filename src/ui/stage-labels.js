@@ -4,10 +4,11 @@ import { EDGES } from '../engine/topology.js';
 import { CHIP_NODES } from './anatomy.js';
 import { afterMotion, cancelFrame, cancelMay, frameFor, inMotion, mayTask } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
+import { HEART_KEY, addHeart } from './heart-label.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { stationRev, E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -19,6 +20,7 @@ export function createLabelDriver(st, live) {
   // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
   // station in view. All: every station at every zoom. None: only a selected station.
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
+  const REV_FLAG = ['CONF', 'SMV', 'SV', 'LPV', 'RPV', 'RHV', 'MHV', 'LHV', 'IMV', 'LGV', 'IVCI'];   // (the anatomy's stations on a vein that can reverse)
   // (The zoom the labels' level of detail is read from is the camera at rest: the view a card zoom began at, or where a glide is headed, never the live
   // view part way, so a zoom or glide cannot flip a flag and solve the labels mid-move.)
   function labelRestK() { return live.zoomBase?.vt ? live.zoomBase.vt.k : live.vtGliding && live.vtTarget ? live.vtTarget.k : live.vt.k; }
@@ -32,6 +34,8 @@ export function createLabelDriver(st, live) {
     if (hasVarices('VAR', f)) out.push('VAR');
     if (hasVarices('GV', f)) out.push('GV');
     if (f.metrics?.ra > 10) out.push('RA');   // the Findings cut-off for a raised right atrial pressure
+    // A vein whose flow has reversed: its station, so the label carries the reversal icon (13 Nov 2026: the left gastric and the left portal vein had none).
+    for (let i = 0; i < REV_FLAG.length; i++) if (stationRev(REV_FLAG[i]) && !out.includes(REV_FLAG[i])) out.push(REV_FLAG[i]);
     // A narrowed vessel: the stations either side of it.
     const sten = (f.viewParams || st.params).stenosis;
     if (sten) for (const id in sten) {
@@ -54,7 +58,7 @@ export function createLabelDriver(st, live) {
   function rideKeyInto(k, st) {
     k[0] = st.selection?.type; k[1] = st.selection?.id; k[2] = st.layers.labels; k[3] = st.layers.chips; k[4] = layerMode(); k[5] = st.focus?.label;
     k[6] = st.focus?.edges?.[0]; k[7] = st.focus?.marks; k[8] = st.labelLevel; k[9] = scan.on; k[10] = dop.key; k[11] = live.fxSig; k[12] = live.fx; k[13] = st.presenting;
-    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames; k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = live.projecting; k[20] = explain.key;
+    k[14] = st.presentLabels; k[15] = st.presentTerms; k[16] = st.presentNames && String(st.presentGrads); k[17] = st.hiddenLabels; k[18] = labelBase(); k[19] = live.projecting; k[20] = explain.key;
     return k;
   }
   const rideKeyHeld = (st) => sameDeps(rideKeyA, rideKeyInto(rideKeyB, st));
@@ -72,6 +76,9 @@ export function createLabelDriver(st, live) {
   function sigWidth(x) {
     const w = x.width || 0, s = live.sigW.get(x.e.id);
     if (s != null && Math.abs(w - s) < 2) return s;
+    // (A solve at another stage (a view change's or a glide's end, live.glSuppress) reads the widths there and leaves the kept steps as the
+    // stage shown has them: written, the shown stage's next model frame found every width moved and laid its labels out again.)
+    if (live.glSuppress) return Math.round(w);
     live.sigW.set(x.e.id, Math.round(w));
     return Math.round(w);
   }
@@ -99,13 +106,13 @@ export function createLabelDriver(st, live) {
     const d = sigNow;
     d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = live.rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
     d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = live.fxSig; d[11] = live.fx; d[12] = live.slideGlow; d[13] = dop.key; d[14] = live.edgeRev;
-    d[15] = tips; d[16] = dips; d[17] = live.projecting; d[18] = live.glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = live.resMask; d[21] = live.resLitRev; d[22] = !!sites.list;
+    d[15] = tips; d[16] = dips; d[17] = live.projecting; d[18] = live.glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = live.resMask; d[21] = live.resLitRev; d[22] = !!sites.list; d[23] = live.resSegRev;
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
-    const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
+    const edges = '~' + EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');   // (after a ~: the field a view change's landing reads apart, stage-view.js sameButWidths)
     return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames && String(st.presentGrads), explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), d[23], edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)
@@ -120,7 +127,7 @@ export function createLabelDriver(st, live) {
     if (live.blockerBoxes) for (let i = 0; i < live.blockerBoxes.length; i++) { const o = live.blockerBoxes[i]; h = sigFold(sigFold(sigFold(sigFold(h, Math.round(o.x0 / 8)), Math.round(o.y0 / 8)), Math.round(o.x1 / 8)), Math.round(o.y1 / 8)); }   // (and the cards' boxes, which can arrive a frame after the insets)
     return h || 1;
   };
-  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0 };
+  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0, solves: 0 };   // (solves: the layouts that searched afresh, not carried)
   function solCacheKey(sig, sc, th, b, csig, ins) {
     if (live.morph !== 1 || live.morphTarget !== 1 || live.xfSolving || live.viewXf || !(sc > 0)) return null;
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(live.CTM.e / (b.width / 4)), Math.round(live.CTM.f / (b.height / 4)), b.width, b.height, live.rotU > 0.5, live.labelFonts, csig, ins].join('|');
@@ -165,7 +172,7 @@ export function createLabelDriver(st, live) {
     const moving = live.gestureOn() || live.vtGliding || live.drifting || !!live.zoomBase;
     if (moving && live.solvedFor && restView && !live.lobuleOn && !live.lz?.isOpen() && !(live.diveT > 0)) {
       if (!live.handRide) { rideKeyInto(rideKeyA, st); live.handRide = true; labelJobDrop(); handRideWatch(); }
-      if (rideKeyHeld(st)) { stats.skips++; stats.ms += performance.now() - t0; return; }
+      if (rideKeyHeld(st)) { handCarry(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); live.labelKey = null;
     } else if (live.handRide) { handRideEnd(); live.labelKey = null; }
     // (Labels are never hidden for a zoom: the anchored ones ride the camera on the GPU (world anchors), the rest are carried and solved as it goes. Mohammad, 4 Nov: "after I zoom there is like 2-3 s until labels show up in the Circuit" was this hide, lifted by a 3 s poll.)
@@ -200,7 +207,7 @@ export function createLabelDriver(st, live) {
       const solved = solve || layoutLabels(f, false) === false;
       live.carryReslot = false;
       if (solved) {
-        live.carryClear = false;
+        live.carryClear = false; stats.solves++;
         // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
         const sf = live.solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
         sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = live.morphTarget;
@@ -238,10 +245,27 @@ export function createLabelDriver(st, live) {
   function handRideWait() {
     if (!live.handRide) return;
     if (live.drag || live.glide || live.gestureOn() || live.vtGliding || live.drifting || live.zoomBase) { live.handRideT = nextFrame(handRideWait); return; }
-    live.handRideT = 0; live.handRide = false;
+    live.handRideT = 0; live.handRide = false; handCarryEnd();
     if (live.F && !live.camMove && !live.lz?.isOpen()) { live.labelKey = null; updateLabels(live.F); }
   }
-  function handRideEnd() { if (!live.handRide) return; live.handRide = false; cancelFrame(live.handRideT); live.handRideT = 0; }
+  function handRideEnd() { if (!live.handRide) return; live.handRide = false; cancelFrame(live.handRideT); live.handRideT = 0; handCarryEnd(); }
+  // (L1, 12 Nov 2026: a hand's pan, pinch or wheel carries the labels that are still unpinned (one laid out mid-change or hidden at its layout,
+  // a station whose point the figure cannot give this frame) by the camera, as a glide's ride does; the pinned ones keep to their points, label-gl
+  // pinOf. Started once the camera has left where the labels were laid out (a tap that does not move starts none), from that camera, and ended
+  // at the settle, before the labels are laid out again. A card's zoom that starts meanwhile owns the ride from then on.)
+  let handOwn = false;
+  function handCarry() {
+    if (handOwn && (!live.rideCTM || live.zoomBase)) handOwn = false;
+    if (!handOwn) {
+      const L = live.layCTM, n = live.CTM, w = live.wrapRect;
+      if (live.rideCTM || live.zoomBase || !live.gestureOn() || !L || !n || !w) return;
+      if (Math.abs(n.a - L[0]) < 1e-4 && Math.abs(n.b - L[1]) < 1e-4 && Math.abs(n.e - w.left - L[4]) < 0.5 && Math.abs(n.f - w.top - L[5]) < 0.5) return;
+      if (!rideStart(L)) return;
+      handOwn = true;
+    }
+    rideNow();
+  }
+  function handCarryEnd() { if (!handOwn) return; handOwn = false; if (live.rideCTM && !live.zoomBase) rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
     if (sites.list) sitesPaint();
@@ -331,9 +355,11 @@ export function createLabelDriver(st, live) {
   function refreshValues(f) {
     const next = refreshNext;
     next.length = 0;
+    const heartOn = live.labelSol.get(HEART_KEY)?.on;
     for (const it of live.labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'hz' ? { ...it, lines: it.lines.slice(0, 1) } : kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      if (n && heartOn?.has(it.key)) addHeart(n, f);   // (the heart's rate and output the last solve gave this label: heart-label.js)
       if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;

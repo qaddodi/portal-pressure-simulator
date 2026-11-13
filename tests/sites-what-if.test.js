@@ -32,15 +32,13 @@ test('the fibrosis slider moves both lobes from their shared value', () => {
   for (const id of ['pvt', 'presin', 'sin', 'postsin', 'post']) assert.ok(!slide(id).whatIf, `${id}: the Sites levels carry no control`);
 });
 
-test('the heart buttons: the failing heart is the slide\'s own patient, the normal one a healthy circulation', () => {
-  const c = slide('cardiac').compare;
-  assert.equal(c.filter((o) => o.own).length, 1);
-  assert.equal(slide('cardiac').preset, 'rhf');
-  // (Normal heart is the healthy patient, not the failing one with its pump fixed: that kept the retained fluid and 5.5 L of
-  // ascites, so the hepatic veins and the portal vein stayed high, PPG 8, Mohammad 17 Oct.) No station block: block left out.
-  const nrm = c.find((o) => !o.own);
-  assert.equal(nrm.preset, 'healthy');
-  assert.equal(nrm.block, undefined);
+test('the heart slide is the failing heart, with Normal heart and Failing heart buttons its notes promise', () => {
+  const c = slide('cardiac');
+  assert.equal(c.preset, 'rhf');
+  assert.deepEqual(c.compare.map((o) => o.label), ['Normal heart', 'Failing heart']);
+  assert.equal(c.compare[0].preset, 'healthy', 'Normal heart eases to the healthy patient');
+  assert.equal(c.compare[1].own, true, 'Failing heart is the slide itself');
+  assert.match(c.notes, /Normal heart/, 'the notes name the button');
 });
 
 test('the presenter moves every path of a what-if slider together', () => {
@@ -51,13 +49,13 @@ test('the presenter moves every path of a what-if slider together', () => {
 
 const pick = (f) => f.metrics ?? f;
 test('the controls teach their slides: portal pressure follows the fibrosis with HVPG flat; the heart moves every station together', async () => {
-  const sch = tract.whatIf, c = slide('cardiac').compare;
+  const sch = tract.whatIf;
   const [fib, clear] = (await runSteps([{ preset: 'schisto' }, { params: patchOf(sch, sch.min) }])).map(pick);
   assert.ok(fib.pv - clear.pv > 5, `portal pressure falls with the fibrosis (${fib.pv} → ${clear.pv})`);
   assert.ok(Math.abs(fib.hvpg - clear.hvpg) < 1.5 && fib.hvpg < 5 && clear.hvpg < 5, `HVPG stays near normal (${fib.hvpg}, ${clear.hvpg})`);
   // Normal heart: the healthy circulation the button eases to, every station and gradient in the normal range and no fall
   // between neighbouring stations above the ladder's 4 mmHg block; Failing heart: the slide's own state, all stations high.
-  const [fail, normal] = (await runSteps([{ preset: 'rhf' }, { preset: c.find((o) => o.preset).preset }])).map(pick);
+  const [fail, normal] = (await runSteps([{ preset: 'rhf' }, { preset: 'healthy' }])).map(pick);
   for (const k of ['pv', 'whvp', 'fhvp', 'ra']) assert.ok(fail[k] - normal[k] > 1, `${k} falls with a normal heart (${fail[k]} → ${normal[k]})`);
   assert.ok(Math.abs(fail.hvpg - normal.hvpg) < 2.5 && fail.hvpg < 5 && normal.hvpg < 5, `HVPG stays normal (${fail.hvpg}, ${normal.hvpg})`);
   assert.ok(normal.ppg < 6, `normal PPG (${normal.ppg})`);

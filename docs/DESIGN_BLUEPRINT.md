@@ -1,41 +1,13 @@
-# Portal Pressure Simulator: Design Blueprint (v0.1, draft)
+# Portal Pressure Simulator: Design Blueprint (cut down, 11 Nov 2026)
 
-> **Read this first (October 2026).** This is the original build spec, kept because the code
-> comments cite its sections. The model sections (§7 physics engine, §10 presets and
-> interventions, §12 acceptance tests) still describe the engine. The interface sections (§3–§5,
-> §8, §9, §11) are history: the app now has two modes, *Present* (decks) and *Patients*, and the
-> Lessons and Cases modes described here have been removed. For the current app see the
-> [README](../README.md) and the [CHANGELOG](../CHANGELOG.md).
-
-> **What this is:** the design spec for rebuilding the Portal Pressure Simulator from scratch.
-> It's written for the agent or developer who will build it. It covers **what** to build and
-> **why**, with enough **how** (the physics model, data schema, layout, and interactions)
-> that you won't have to guess.
+> **Status.** This was the original build spec (v0.1, October 2026). It is kept because the code comments cite its section numbers
+> (for example "blueprint §7.2", "§9.3", "P7"), so every heading is still here. What still holds is written out in full:
+> **§1 Design principles**, **§7 the physics engine**, **§10 presets, interventions and event detectors**, **§12 the acceptance tests**
+> (automated in `tests/acceptance.test.js`) and **§13.4 the worker protocol**. The interface sections (§3 to §6, §8, §9, §11, §13 and §14 to §16)
+> described the first build and are now one or two lines that say how the app works today. For the current app see the
+> [README](../README.md), the [CHANGELOG](../CHANGELOG.md) and `AGENTS.md`.
 >
-> **Status:** an early draft that will change a lot. Everything here can be negotiated except the
-> **Design Principles (§1)** and the **Physiological Acceptance Tests (§12)**. If you change those,
-> talk to the product owner first.
->
-> **Scope:** education only. This isn't a clinical decision tool, and the app must say so (§14).
-
-
-> **Implementation status (v1).** The first implementation is on `main`. It departs from this draft in these ways:
-> - **Stack.** It's a no-build ES-module app (vanilla JS + SVG + Canvas2D) instead of Vite/React/Pixi, so the repository serves directly as a static site.
-> - **Calibration.** Resistances are calibrated by construction (R = ΔP/Q from target pressures and flows) rather than by a fitting tool.
-> - **Compare.** Compare mode uses an A/B snapshot with ghost overlays instead of two live engines.
-> - **Scope.** It ships 11 lessons and 4 cases.
-> - **T15.** Paracentesis is tested on cirrhosis with tense ascites. Budd–Chiari was a poor test case: IVC decompression there raises cardiac output.
->
-> All §12 acceptance tests are automated in `tests/acceptance.test.js`.
->
-> **Interface revision (v1.1).** The UI was redesigned after the first build. It departs from §4 and §5 in these ways:
-> - **Layout.** The tool rail is a horizontal toolbar at the bottom of the stage, and the transport (play, speed, clock, fast-forward) is a floating bar at the top of the stage. The inspector is a full-height right panel with Pathology · Therapy · Physiology tabs. The clinical strip shows eight portal readouts plus a compact systemic-vitals block.
-> - **Labels.** Pressure labels hang in the stage margins with leader lines (atlas style) instead of chips on the vessels, and fall back to inline chips on narrow stages and in the circuit view.
-> - **Events.** Callouts are compact notifications in the stage corner with a pulse ring at the anatomical anchor, instead of cards with leader lines.
-> - **Typography and charts.** Inter throughout, with tabular figures only where numbers align in columns. The Scope uses stacked small multiples with one axis per unit instead of a second y-axis. Series colors come from a CVD-validated categorical order.
-> - **Vessel width.** Displayed width follows diameter on a compressed scale (∝ d^0.78) so the cavae don't drown out the portal tree. Distension is still visible.
-> - **Learn.** Lessons live in the side panel and embed the controls each step needs.
-> - **Focused stage (v1.2).** The anatomic view draws only the portal story: portal tree, liver microcirculation, hepatic veins, IVC → RA, collaterals, the hepatic artery, and faint systemic drains (SVC, azygos, iliac, left renal). The aorta, limb and head vessels and the right kidney are not drawn (§6.1 placement is otherwise kept). The retroperitoneal IVC is drawn behind the organs. The circuit view (§6.5) is a transit map with 45° routing and zone bands.
+> **Scope:** education only. The app is not a clinical decision tool and says so.
 
 ---
 
@@ -52,7 +24,7 @@
 8. [Interactions, tools & direct manipulation](#8-interactions-tools--direct-manipulation)
 9. [Readouts, instruments & charts](#9-readouts-instruments--charts)
 10. [Scenarios, interventions & the case engine](#10-scenarios-interventions--the-case-engine)
-11. [Pedagogy layer (Learn mode)](#11-pedagogy-layer)
+11. [Pedagogy layer](#11-pedagogy-layer)
 12. [Physiological acceptance tests](#12-physiological-acceptance-tests)
 13. [Technical architecture](#13-technical-architecture)
 14. [Accessibility, performance, safety copy](#14-accessibility-performance-safety-copy)
@@ -80,7 +52,7 @@ hepatology and look like a modern medical atlas that happens to be alive.
 | P1 | **Emergent, not scripted** | Flow reversal, varix inflation, and ascites come out of the equations. Never add `if (cirrhosis) showVarices()`. The UI only *reports* what the model computes. |
 | P2 | **One model, many lenses** | The anatomy view, circuit view, charts, Doppler, endoscopy, and dashboard all read the same state. None of them owns data. |
 | P3 | **Direct manipulation first** | Every parameter you can change with a slider you can also change *on the anatomy* (pinch a vessel, paint fibrosis, drag a catheter). Sliders are the precise fallback, not the main interface. |
-| P4 | **Predict → Observe → Explain** | Lessons ask the learner to predict an outcome before the model runs. The "Why?" trace explains the result in plain causal language. |
+| P4 | **Predict → Observe → Explain** | A deck can ask a question before the slide answers it (the question card and the case card's question). The "Why?" trace explains the result in plain causal language. |
 | P5 | **Clinically faithful numbers** | Pressures in mmHg, flows in L/min or mL/min, and clinical thresholds (HVPG 5 / 10 / 12 / 20, PPG < 12 after TIPS) match the literature within stated tolerances (§12). |
 | P6 | **Calm by default, dramatic on demand** | Healthy state is quiet and elegant. Pathology gets progressively more visual: swelling, color shift, pulsing, warnings. A bleed is loud. |
 | P7 | **Never color alone** | Every color encoding also has shape, motion, text, or pattern. |
@@ -118,157 +90,35 @@ residents, and nurses and APPs in hepatology. **Secondary:** educators projectin
 
 ## 3. Information architecture & modes
 
-The top bar has four modes. All of them share the same stage and engine.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ◉ Explore      ◎ Learn      ◎ Cases      ◎ Compare                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-| Mode | Purpose | What's unlocked |
-|------|---------|-----------------|
-| **Explore** (default) | Sandbox with every tool, every parameter, and all presets | Everything |
-| **Learn** | Guided lessons (§11) that follow Predict → Observe → Explain | Only the tools each lesson step allows. Other controls are shown but locked, with a lock tooltip |
-| **Cases** | Time-pressured clinical scenarios such as a variceal bleed (§10.4) | Clinical actions only (drugs, procedures, fluids). Raw resistances are hidden, like real life |
-| **Compare** | Two synchronized engines (A and B) side by side, or overlaid as a "ghost" | Snapshot, clone, and diff. Charts overlay A and B |
-
-**Global elements (every mode):**
-
-- **Time controls:** play/pause, speed (0.25× to 8×), step, and a **clock switch**:
-  `Hemodynamic (seconds)` ⇄ `Disease (days → months)` (§7.6).
-- **View switch:** `Anatomic` ⇄ `Circuit`, with a morph animation between the two (§6.5).
-- **Layers** menu: pressure color, flow particles, labels, values, collaterals, organs, grid.
-- **Presets** menu (§10.1).
-- **Undo/redo** for every manipulation (Ctrl/Cmd+Z). History is part of the state store.
-- **Share:** encodes the scenario in the URL, so teachers can send a link to an exact state.
-- **Units:** mmHg ⇄ cmH₂O ⇄ kPa for pressure, and L/min ⇄ mL/min for flow.
-
----
+The app has two modes, **Present** (the decks) and **Patients** (free exploration with the controls). Lessons, Cases and Compare modes were removed. Parameter changes keep an undo and redo history (`src/ui/store.js`). All views share one stage and one engine.
 
 ## 4. Screen layout
 
 ### 4.1 Desktop (≥ 1280 px): "cockpit"
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│ ▣ Portal Pressure Simulator   [Explore|Learn|Cases|Compare]   ⏵ 1× ⟲  ⏱ Hemo|Disease  ⚙ ⤴ │  top bar 56px
-├────┬───────────────────────────────────────────────────────────────┬─────────────────────┤
-│ 🖐 │                                                               │  INSPECTOR          │
-│ ✚  │                                                               │  (context-aware)    │
-│ ⌇  │                   ANATOMICAL STAGE                            │                     │
-│ ⊘  │        (SVG anatomy + WebGL particle layer)                   │  Selected: Portal   │
-│ ◍  │                                                               │  vein               │
-│ ⊕  │     floating value chips on vessels                           │  P  18.4 mmHg ▲     │
-│ 🎯 │     event callouts anchored to anatomy                        │  Q  0.62 L/min ⟲    │
-│ 📡 │                                                               │  v  9 cm/s          │
-│ 🔭 │                                           [mini-map] [zoom]   │  d  14.1 mm         │
-│    │                                                               │  [Why?]             │
-│ 72 │                                                               │  ── Parameters ──   │
-│ px │                                                               │  Stenosis  ▭▭▭▭ 0%  │
-│rail│                                                               │  Thrombus  ▭▭▭▭ 0%  │
-│    │                                                               │  320–380px          │
-├────┴───────────────────────────────────────────────────────────────┴─────────────────────┤
-│ DOCK  [Pressure profile] [Scope] [Flow Sankey] [Liver perfusion] [Doppler] [Endoscopy]    │  resizable
-│  ┌ clinical strip: HVPG 14 ▲ │ PPG 16 │ PV flow 0.6 ⟲ │ Shunt 38% │ Varix risk ██▒ │ ... ┐ │  220–360px
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-- **Left tool rail (72 px):** icon tools (§8.1). Hovering shows the name and shortcut. Clicking a tool
-  opens a flyout for its options.
-- **Stage:** takes up all remaining space. Pan (space+drag or middle mouse), zoom (wheel or pinch),
-  and double-click an organ to **semantic-zoom** into it (§6.4).
-- **Inspector (right, 320–380 px, collapsible):** shows whatever is selected (vessel, node,
-  organ, intervention, or event). When nothing is selected it shows the **Global parameters** panel
-  (§8.4).
-- **Dock (bottom, resizable, collapsible):** chart tabs, with the **Clinical strip** pinned above them
-  (a single row of key metrics with threshold coloring).
+Mac and iPad on its side: the figure fills the stage, the teaching card and the data card sit over it, the controls panel (`src/ui/inspector.js`) opens at the right, the instruments card (`dock.js`) at the bottom. See `docs/stage-map.md`.
 
 ### 4.2 Tablet (768–1279 px)
 
-- The stage is full width. The tool rail becomes a **floating vertical pill** on the left edge.
-- The inspector becomes a **right-side sheet** that slides over the stage and can be pinned in landscape.
-- The dock becomes a **bottom sheet** with three detents: peek (clinical strip only), half, and full.
+The tablet layout follows the desktop one; an upright iPad uses the phone layout.
 
 ### 4.3 Phone (< 768 px), portrait-first
 
-```
-┌──────────────────────────┐
-│ ▣ PPS   Explore ▾   ⏵ ⋯  │ 48px
-├──────────────────────────┤
-│                          │
-│     STAGE (≈ 58vh)       │  pinch-zoom, 1-finger pan
-│   (schematic by default) │  tap = select, long-press = tool radial menu
-│                          │
-├──────────────────────────┤
-│ HVPG 14 │ PV 18 │ ⟲ 38%  │  clinical strip, horizontally scrollable
-├──────────────────────────┤
-│ [Controls][Readouts][Charts][Lesson] │  bottom sheet tabs
-│  …sheet content…          │  drag up to expand
-└──────────────────────────┘
-```
-
-- Phones default to the **Circuit view** (§6.5), which is more legible when small. Anatomic is one tap away.
-- A **long-press radial menu** replaces the tool rail: Pinch, Clot, Stent, Band, Probe, Catheter.
-- All touch targets are at least **44 × 44 px**. Sliders get a **fine-tune mode**: press and hold,
-  then drag vertically to reduce sensitivity 10×.
-- Landscape on phone uses the tablet layout.
+A phone uses a stacked layout: the figure on top, the cards in a sheet under it, a thumb dock at the bottom. The cards are fixed-size; nothing tucks away (removed 7 Nov 2026).
 
 ### 4.4 Projector / lecture mode
 
-`F` toggles this mode. It hides the chrome, increases label sizes by 1.5×, raises contrast, and
-lets you place **big-number overlays** (e.g. a large HVPG) anywhere on the stage. The
-presenter's clicker (arrow keys) steps through lesson stages.
-
----
+Presenting is the Present mode: projector-first decks (`docs/deck-authoring-guide.md`), a presenter view in a second window (key P), and a laser and pen (key L).
 
 ## 5. Visual language & design tokens
 
 ### 5.1 Aesthetic direction
 
-**"Living atlas."** Soft, semi-schematic anatomy in the style of a modern medical illustration
-(think a simplified Netter, rendered flat with subtle depth). Organs sit in the background at low
-contrast. **Vessels are the heroes.** They're drawn with real proportional widths, colored by pressure,
-and animated with flowing cells. There are two themes:
-
-- **Atlas (light):** warm paper background, ink-dark text, organs in muted flesh tones.
-- **Monitor (dark):** near-black blue background like an ICU monitor, with vessels that glow slightly.
-  This is the default for projector mode.
+The look is an atlas plate: muted tissue tones so the vessels lead, Source Serif 4 titles over an Inter body.
 
 ### 5.2 Color tokens (define on `:root`, re-map for dark)
 
-```css
-:root {
-  /* surfaces */
-  --bg:            #F7F5F2;  /* warm paper */
-  --surface:       #FFFFFF;
-  --surface-2:     #F1EEEA;
-  --border:        #E3DED7;
-  --text:          #1D2330;
-  --text-muted:    #5B6475;
-  --focus:         #3B82F6;
-
-  /* anatomy (low-contrast backgrounds) */
-  --organ-liver:   #C9887A;  --organ-liver-a: .22;
-  --organ-spleen:  #9C6B8E;  --organ-spleen-a: .22;
-  --organ-gut:     #E0B48F;  --organ-gut-a: .18;
-  --organ-stomach: #D9A38F;  --organ-stomach-a: .20;
-  --organ-heart:   #B5505C;  --organ-heart-a: .22;
-  --organ-kidney:  #A9745F;  --organ-kidney-a: .20;
-  --artery:        #C2414B;  /* arteries: fixed hue, NOT on the pressure scale */
-
-  /* semantic status */
-  --ok:            #1F9D74;
-  --caution:       #D99A1E;
-  --danger:        #D23B3B;
-  --critical:      #A3134B;
-  --info:          #2D6CDF;
-
-  /* flow semantics */
-  --flow-normal:   #19A7A0;  /* hepatopetal / physiological direction */
-  --flow-reversed: #F0782B;  /* hepatofugal / reversed; always paired with ⟲ glyph + dashed halo */
-}
-```
+Colour tokens are defined once in `src/ui/theme-tokens.js` and printed to `styles/tokens.css` (`npm run gen:theme`). There are six looks: Light (Linen), Soft (Oat), Dark, Navy, Black and System. Every text token reads at 4.5:1 or better on every surface it sits on, in every look (`tests/token-contrast.test.js`).
 
 ### 5.3 The pressure colormap (venous and portal vessels only)
 
@@ -278,43 +128,27 @@ before 18 Oct 12 and 20 mmHg shared .55). Anchor stops:
 
 | mmHg | Meaning | Color (approx.) |
 |------|---------|-----------------|
-| 0 | RA / collapse | `#DCEBF7` pale ice |
-| 5 | normal portal / HVPG upper normal | `#99C2ED` sky |
-| 10 | **CSPH** threshold | `#718EDF` cornflower |
-| 12 | **variceal bleeding threshold** | `#8671CF` violet |
-| 20 | high-risk bleeding | `#9B2B6A` carmine |
-| 30+ | extreme | `#661030` deep wine |
+| 0 | RA / collapse | `#B8D5ED` pale ice |
+| 5 | normal portal / HVPG upper normal | `#85B6E9` sky |
+| 10 | **CSPH** threshold | `#6787E8` cornflower |
+| 12 | **variceal bleeding risk climbs** (not a cut-off) | `#925CDD` violet |
+| 20 | high-risk bleeding | `#A4216E` carmine |
+| 30+ | extreme | `#680C2F` deep wine |
 
-- The legend is a slim vertical bar with **tick marks at 5, 10, 12, and 20**, each labeled with its
-  clinical meaning on hover.
+(The stops are the Light (Linen) look's `ramp-pressure` in `src/ui/theme-tokens.js`; the dark looks lift the dark ends. `src/ui/colormap.js` interpolates them in OKLab.)
+
+- The key on the figure is a slim bar with ticks at the cut-offs and names the colouring.
 - Arteries aren't on this scale (they'd saturate at 90 mmHg). They're drawn in `--artery`, thinner and at lower opacity, so
   they read as "supply lines."
-- **Alternative color modes** (Layers menu):
-  1. *Absolute pressure* (default).
-  2. *Pressure drop*: colors each **edge** by ΔP, so you can see where resistance lives.
-  3. *Flow direction*: teal for physiological direction, orange for reversed.
-  4. *Change from baseline*: a diverging blue ↔ red map showing ΔP versus a snapshot.
+- **Other colourings** (the lens, set on a slide or from the colour menu): pressure (default), change from healthy, congestion, pressure drop, flow volume, velocity, flow direction, oxygen, blood origin and first pass. `docs/deck-authoring-guide.md` section 5.2 lists them.
 
 ### 5.4 Typography
 
-- UI: **Inter** (or IBM Plex Sans). Scale: 12 / 13 / 15 / 17 / 20 / 24 / 32.
-- Numbers: **JetBrains Mono** or **IBM Plex Mono** with `font-variant-numeric: tabular-nums`, so
-  values don't jitter as they update.
-- Values always show units in a lighter weight: `18.4 mmHg`.
-- Precision: pressures to 0.1 mmHg, flows to 0.01 L/min, percentages as integers. Don't show more
-  precision than the model deserves.
+Inter for the interface, Source Serif 4 for titles, JetBrains Mono for code-like values; tabular figures where numbers align. The figure's text is fixed at 100% (no text-size setting).
 
 ### 5.5 Motion
 
-- UI transitions: 180–260 ms, `cubic-bezier(.2,.8,.2,1)`.
-- Value changes: numbers **tick** over 250 ms, and a small ▲ or ▼ delta arrow fades out after 1.5 s.
-- Vessel diameter changes: smoothed with a 300 ms spring so vessels look like they inflate
-  rather than snap.
-- Events: callouts slide from the anatomical anchor with a leader line. **Critical** events
-  (variceal rupture) get a short 2-cycle red vignette pulse around the stage. Never flash more than 3 times
-  per second (WCAG 2.3.1).
-- `prefers-reduced-motion`: replace particles with static chevrons along the vessel spaced by
-  flow magnitude, disable pulses, and keep only opacity transitions.
+All durations and curves live in `src/ui/motion.js`. With Reduce Motion a change is instant, except the camera glide and the Anatomy to Circuit change, which run 300 ms (`docs/ACCESSIBILITY.md`).
 
 ### 5.6 Iconography
 
@@ -327,103 +161,28 @@ Line icons (Lucide style, 1.5 px stroke). Custom glyphs you'll need: `pinch`, `c
 
 ### 6.1 Canvas & orientation
 
-- Use a logical coordinate space of **1600 × 1000** units, scaled to fit the viewport.
-- Use the **standard anatomical frontal view**: the patient's right is on the viewer's **left**. So the liver
-  is on the screen-left, and the spleen and stomach are on the screen-right. **Don't mirror this.** Anatomy
-  teachers will notice.
-- Rough placement:
-  - **Heart (RA)** top-center, slightly left. **SVC** comes in from above and the **IVC** from below.
-  - **Esophagus** runs down the midline from the top to the stomach. The azygos vein runs along its
-    right-posterior side (drawn as a thin vein just screen-left of the esophagus, going up to the SVC).
-  - **Liver** is a large lobe at upper-left with a visible caudate lobe near the IVC. The three hepatic veins
-    fan into the suprahepatic IVC.
-  - **Stomach** is upper-right of center, and the **spleen** is at the far upper-right.
-  - **Pancreas** is a faint horizontal band. The **splenic vein** runs along it from right to left into the
-    **confluence** behind the pancreatic neck.
-  - **Small intestine/mesentery** fills the lower-center. **SMV** rises vertically to the confluence.
-  - The **colon frame** runs around the edges. **IMV** rises on the right side into the splenic vein.
-  - **Kidneys** sit on both sides. The **left renal vein** crosses in front of the aorta to the IVC (this is where
-    the splenorenal and gastrorenal shunts drain).
-  - **Rectum** is at the bottom-center: superior rectal to IMV (portal), and middle/inferior rectal to the iliac veins (systemic).
-  - **Umbilicus** is at lower-center on the anterior wall layer. The paraumbilical vein runs from the **left portal vein**
-    along the falciform ligament to the umbilicus, then fans out as a caput medusae when it's recruited.
+The anatomy plate has the logical space 1400 by 1000 units (`src/ui/anatomy.js`); the named camera regions are in `src/ui/decks.js` (`REGIONS`). The plate is drawn on the GPU.
 
 ### 6.2 Vessel rendering
 
-Each vessel is an authored **SVG centerline path** (`<path id="v-PV">`). The renderer draws it as:
+Vessels are drawn on the GPU by the Tube renderer (`docs/tube-renderer.md`): each vessel is a half tube with smoothed joints, cel-shaded with a dark outline, with the moving blood drawn in the tube's own shader. The lumen is coloured by the lens (pressure by default, §5.3); the wall thins as the vessel distends (tube law, §7.3).
 
-1. A **wall stroke**: outer width = lumen diameter + 2 × wall thickness. Neutral color. It thins
-   visibly as it distends.
-2. A **lumen fill**: width = current lumen diameter × a visual gain (anatomy isn't to scale, so use one
-   global gain plus a per-vessel minimum on-screen width of 3 px). Colored by the pressure map (§5.3).
-3. A **flow particle layer** (WebGL/Canvas): red-cell sprites that move along the centerline.
-   - **Speed** is proportional to mean velocity (Q/A), compressed with a log scale for display, and the legend says so.
-   - **Density** is proportional to |Q|.
-   - **Direction** follows the sign of Q. When a vessel's flow reverses, particles **decelerate,
-     stop, and turn around** over ~600 ms (they're smoothed and don't teleport). The vessel also gets a dashed
-     orange halo and a ⟲ badge.
-   - When flow is near zero (stagnation, |v| < 5 cm/s in the PV), particles jitter in place and a
-     "stasis" hatch appears. This hints at thrombosis risk.
-4. **Value chips** (toggleable) sit on major vessels: `PV 18.4`. Tapping one selects the vessel.
-
-**Distensibility is visible.** Vessel lumen area comes from the tube law (§7.3), so the
-splenic vein, left gastric vein, and varices swell visibly as pressure rises. Arteries don't swell
-noticeably.
+- **Blood speed** follows mean velocity (Q/A) on a compressed scale; **density** follows |Q|; **direction** follows the sign of Q. When a vessel's flow reverses, the blood decelerates, stops and turns round over about 600 ms (it never teleports), and chevrons point the new way, so reversal has a shape cue as well as a colour (P7).
+- Near zero flow (stasis, below 9 cm/s in the portal vein) the blood thins to faint smoke.
+- A station whose vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange.
+- Vessel labels are one style: outlined text with no box.
 
 ### 6.3 Collaterals & varices (the "hidden network")
 
-In a healthy state, collaterals are **ghosted**: 1 px dotted and 15% opacity, visible only when the
-"Collaterals" layer is on. As they're recruited (§7.4), they:
-
-- fade in and thicken, following the model's diameter,
-- start carrying particles,
-- become tortuous: the renderer adds a sinusoidal wiggle to the centerline with amplitude
-  proportional to (d / d_max). This mirrors the corkscrew look of real varices.
-
-**Esophageal varices** get special rendering: a cluster of 3–4 beaded, serpentine columns in
-the lower esophagus. Each bead is an ellipse whose radius follows the varix model. When wall
-stress goes up, the wall stroke thins and gets a **red-wale overlay** (thin red streaks), which is the
-real endoscopic sign of high risk. On rupture, a particle jet escapes into the esophageal lumen.
-
-Collaterals to model and draw (portal side → systemic side):
-
-| ID | Collateral | Portal source | Systemic drain | Clinical face |
-|----|------------|---------------|----------------|---------------|
-| C1 | Left gastric (coronary) vein → **esophageal varices** | PV/confluence | Azygos → SVC | Esophageal varices, the main bleeding source |
-| C2 | Short gastric / posterior gastric → **fundal varices** | Splenic vein | via C1 to azygos, **or** via C5 | Gastric varices (GOV2/IGV1) |
-| C3 | **Paraumbilical vein** | Left portal vein | Epigastric → iliac/IVC and internal thoracic → SVC | Caput medusae, Cruveilhier–Baumgarten murmur |
-| C4 | Superior ↔ middle/inferior **rectal veins** | IMV | Internal iliac → IVC | Anorectal varices (not hemorrhoids) |
-| C5 | **Gastrorenal shunt** | Fundal varices | Left renal vein → IVC | The target of BRTO |
-| C6 | **Spontaneous splenorenal shunt** | Splenic vein | Left renal vein → IVC | Can decompress a lot, and causes encephalopathy |
-| C7 | **Retroperitoneal (Retzius) veins** | SMV/IMV territory | Lumbar/renal → IVC | Usually minor, rounds out the network |
-| C8 | **Pericholedochal / periportal** (cavernous transformation) | SMV/confluence | Intrahepatic portal branches | Only recruited when the main PV is occluded. It's hepatopetal. |
+Collaterals C1a to C9 and the drawn shunts are listed in `docs/deck-authoring-guide.md` section 8.5. A red-wale overlay on the esophageal varices under high wall stress is still a wish (`docs/recommendations/visual-style.md`).
 
 ### 6.4 Semantic zoom levels
 
-Double-click (or pinch past a threshold) on an organ to go deeper:
-
-| Level | Name | Content |
-|-------|------|---------|
-| L0 | **Whole-body loop** | Heart → aorta → splanchnic beds → portal system → liver → IVC → heart. Shows how CO and MAP link to portal inflow. |
-| L1 | **Portal anatomy** (default) | Everything in §6.1 |
-| L2 | **Liver lobule** | A hexagonal lobule with **portal triads** at the corners (portal venule, hepatic arteriole, bile duct), **sinusoids** running radially to the **central vein**, and the **space of Disse** with lymph drainage. Shows the three resistance sites visually: **presinusoidal** (portal tract), **sinusoidal** (stellate-cell contraction, collagen in Disse, capillarization with fenestrae closing), and **postsinusoidal** (central vein / terminal hepatic venule). The fibrosis brush (§8.1) works here too. Hepatic-artery blood visibly **merges** into the sinusoids. |
-| L3 | **Varix cross-section** | A cross-section of the esophageal wall with a varix. Shows radius r, wall thickness w, transmural pressure arrows (P_varix − P_lumen), and a **wall stress gauge (σ = ΔP·r / w)** that fills toward the rupture line. The balloon-tamponade tool works here as a visible luminal balloon. |
-| L2b | **Spleen** | Pulp congestion. Spleen length gauge (cm) and platelet-sequestration illustration |
-| L2c | **Peritoneum** | Side view of the abdomen with ascites level rising, an intra-abdominal pressure gauge, and a paracentesis needle |
-
-Transitions: a 400 ms zoom into the organ's bounding box, a crossfade to the detail art, and a breadcrumb
-at the top-left (`Body › Portal system › Liver lobule`).
+A dive goes from the body plate into the **liver lobule** (portal triads at the corners, sinusoids running to the central vein, the space of Disse with lymph, zones 1 to 3 and the three resistance sites) and on into the **sinusoid wall**. The **varix** is shown in cross-section by the wall instrument (radius r, wall thickness w, wall stress σ = ΔP·r / w) and by the endoscopy scope. The `scales` and `cutouts` slide fields (`docs/deck-authoring-guide.md` 5.10 and 5.11) flip or lay these scales beside the anatomy.
 
 ### 6.5 Circuit view
 
-This is the same graph as the anatomy, drawn as a **subway-map/electrical schematic**. Nodes are
-circles, resistances are resistor glyphs (zig-zag, or boxes with a width inversely proportional to R),
-and compliances are small capacitor symbols. Layout goes left to right from **source (aorta)** to **sink
-(RA)**, so the **pressure falls from left to right** and the pressure-drop color mode is instantly
-readable. Toggling views **morphs** each node from its anatomic position to its schematic position
-over 600 ms. That's an "aha" moment for students coming from physics.
-
----
+The circuit view is a transit map with 45 degree routing and zone bands; the change from the anatomy to the circuit morphs over 1.3 s.
 
 ## 7. Physics engine
 
@@ -617,7 +376,7 @@ and a **fast-forward** control: +1 week, +1 month, +6 months, and "until next ev
   `(C/dt + G(P)) · Pⁿ⁺¹ = C/dt · Pⁿ + s`, a sparse ~35×35 system. Dense LU is fine
   at this size.
 - Run it in a **Web Worker** at a fixed timestep, decoupled from rendering. The worker posts
-  a snapshot (P, Q, A, slow states, events) at **30 Hz**, and the main thread interpolates to 60 fps.
+  a snapshot (P, Q, A, slow states, events) about ten times a second (`docs/PERFORMANCE.md`), and the main thread eases between them.
 - Use a **steady-state solver** (Newton on G(P)·P = s with volume conservation) for presets,
   Disease-mode steps, and instant "jump to equilibrium" (the **⟲ Settle** button).
 - **Conservation check:** total blood volume must be conserved to 0.01% per minute when there's no
@@ -678,34 +437,15 @@ free parameters to the targets.
 
 ### 8.1 Tool rail
 
-| Key | Tool | Gesture on stage | Effect in the model |
-|-----|------|------------------|---------------------|
-| `V` | **Select / Inspect** | Tap a vessel, node, or organ | Opens the inspector. A second tap on the same vessel pins a value chip. |
-| `P` | **Pinch (stenosis)** | Press on a vessel and drag **perpendicular** to it. A caliper appears. | Sets % lumen narrowing (0–100%). R scales with (1 − s)⁻⁴ (Poiseuille), with a Young–Tsai-style turbulence correction above 70%. The vessel shows a visible waist. |
-| `T` | **Thrombus brush** | Paint along a vessel | Occlusion % per segment, with a textured dark-red clot. **Acute** clot: no collaterals yet. After some disease-clock time, C8 (cavernous transformation) is recruited. |
-| `F` | **Fibrosis brush** | Paint on liver lobes (L1) or lobule zones (L2). The brush has a **zone selector**: Portal (pre), Sinusoidal, Central (post). | Increases R_pre, R_sin, or R_post regionally. Sinusoidal fibrosis also raises σ (capillarization) and lowers inter-sinusoidal conductance. The liver surface gets a nodular texture proportional to severity. |
-| `S` | **Stent / shunt** | Drag from one vessel to another. Valid targets glow as you drag. Release to create the shunt, then use the diameter handle. | Creates a new edge (TIPS: portal branch to hepatic vein; surgical shunts: named pairs). An **invalid** pair (e.g. artery to vein) is refused with an explanation. |
-| `B` | **Band (EVL)** | Tap a varix bead | Obliterates that varix column (R becomes ∞ for that column). The model redirects pressure and flow, and other columns or gastric varices may grow. That's realistic "whack-a-mole." |
-| `O` | **Occlude (BRTO / plug)** | Tap a collateral | Occludes it. For example, BRTO of C5 raises portal pressure and **can worsen esophageal varices and ascites** as an emergent result. |
-| `L` | **Balloon (tamponade)** | Tap the esophagus or fundus | Raises luminal pressure on the varices, which lowers transmural pressure. It has a timer and shows a warning after 24 h of disease-clock time. |
-| `C` | **Hepatic vein catheter** | Drag the catheter tip from the IVC into a hepatic vein, then press **Inflate balloon** | The procedure. See §8.3. |
-| `D` | **Doppler probe** | Drop on any vessel | Opens the Doppler panel for that vessel (§9.4) |
-| `E` | **Endoscope** | Tap the esophagus or stomach | Opens the endoscopy panel (§9.5) |
-| `N` | **Paracentesis needle** | Tap the abdomen at L2c | Drains ascites at a chosen rate. Offers **albumin** replacement (and warns about post-paracentesis circulatory dysfunction if you skip it for > 5 L). |
-| `M` | **Measure / probe** | Hover or tap anywhere on a vessel | Shows a live tooltip with P, Q, v, d, and ΔP from the previous node |
-
-All manipulations can be undone, show up in the **history timeline** (a small track under the scope
-chart with markers), and can be **edited later** by tapping the marker or the on-stage handle (e.g.
-dragging the stenosis caliper again).
+There is no tool rail. The controls are the inspector panel, the command palette and direct taps on the figure.
 
 ### 8.2 Hover and selection feedback
 
-- Hovering a vessel highlights its **upstream and downstream path** (trace-to-source and
-  trace-to-sink) and dims everything else to 40%.
-- Hovering a node shows a **mini-balance**: inflows and outflows as a tiny horizontal bar.
-- Selecting shows **handles** for everything you can manipulate on that element.
+Hover and selection light a vessel in its station colour. In a talk the figure is read-only.
 
 ### 8.3 The HVPG measurement procedure (a flagship interaction)
+
+(Today the catheter is under Measure › HVPG, and the decks play it step by step with the slide field `cath`; there is no tool rail.)
 
 1. Choose the **Catheter** tool. A sheath appears in the IVC (via the jugular approach, drawn coming
    down from the top).
@@ -722,9 +462,7 @@ dragging the stenosis caliper again).
    mmHg but **WHVP is normal**, so HVPG is normal. Repeat in **right heart failure**: FHVP and WHVP are both
    high, but HVPG is normal.
 
-The dashboard always shows the **"true" model HVPG** in grey (Explore mode) alongside the
-**"measured" HVPG**, which you only get from the catheter. In **Cases** mode, only the measured value is
-available.
+The HVPG tile always shows the model's HVPG (the "Always show HVPG" setting was removed on 11 Nov 2026); the catheter tracing shows how it is measured.
 
 ### 8.4 Global parameter panel (inspector with nothing selected)
 
@@ -747,55 +485,17 @@ resistances are under "Advanced ▸".
 
 ### 8.5 Keyboard map (desktop)
 
-`Space` play/pause · `.` step · `[` `]` speed · `1–4` modes · `A` anatomic/circuit toggle ·
-`V P T F S B O L C D E N M` tools · `Z` settle to equilibrium · `Ctrl/Cmd+Z / Shift+Z` undo/redo ·
-`?` shortcut sheet · `F` projector mode (when the stage is focused).
-
----
+Keyboard use is listed in the in-app Guide (Help › Keyboard shortcuts). The presenter keys are in `docs/deck-authoring-guide.md` section 12.
 
 ## 9. Readouts, instruments & charts
 
 ### 9.1 Clinical strip (always visible)
 
-A single row of metric tiles. Each tile shows its value, a ▲/▼ trend, a **status color bar**, and a tap target that opens "Why?".
-
-| Tile | Formula | Thresholds |
-|------|---------|------------|
-| **HVPG** | WHVP − FHVP (true or measured) | < 5 normal · 5–9 subclinical PH · ≥ 10 CSPH · ≥ 12 bleed risk · ≥ 20 high-risk bleed |
-| **PPG** | P_PV − P_IVC | Post-TIPS target < 12 |
-| **PV pressure** | P_PV | 5–10 normal |
-| **PV flow** | Q_PV (signed) plus a direction glyph | ⟲ orange if hepatofugal; "stasis" if \|v\| < 5 cm/s |
-| **Liver perfusion** | Q_PV→liver + Q_HA | % of baseline |
-| **Portosystemic shunt fraction** | Σ collateral and shunt outflow / total splanchnic venous outflow | > 30% caution · > 60% high HE risk |
-| **Varix** | r (mm) · T/T_crit gauge | Grade + red-wale flag |
-| **Ascites** | Volume (L) · IAP | Grades 1–3 |
-| **Spleen** | Length (cm) · estimated platelets (illustrative) | > 13 cm splenomegaly |
-| **Hemodynamics** | MAP / CO / HR / SVR | Hyperdynamic flag if CO↑ and SVR↓ |
-| **HE risk index** | f(shunt fraction, liver function) | Qualitative: low/moderate/high |
-| **Blood volume** | L and % of baseline | Shows hemorrhage class during bleeding |
+The tiles and their cut-offs are in `src/ui/table-marks.js` (`RATE`, `SCALE`, `CUT`) and in `docs/deck-authoring-guide.md` section 8.6. Pressure colours and cut-offs live once in `src/engine/pressure-cuts.js`: HVPG amber 5, red 10; PPG amber 6, red 12.
 
 ### 9.2 Dock charts
 
-1. **Pressure profile ("hydraulic grade line")**, the signature chart.
-   - X axis: sequential stations along a **selectable path** (e.g. *Aorta → SMA → Intestine → SMV →
-     PV → RPV → Pre → Sinusoid → Post → RHV → IVC → RA*, or the collateral route *SV → Short gastrics
-     → Fundal varix → LGV → Esophageal varix → Azygos → SVC → RA*).
-   - Y axis: pressure, drawn as a **staircase**. Each resistance is a labeled drop, with ΔP printed on the riser.
-   - A **ghost** line shows the baseline snapshot.
-   - **Prediction overlay:** in Learn mode, the learner **draws** their predicted line with
-     the pointer before running. After the run, the error is shaded.
-   - Horizontal threshold lines at 5, 10, 12, and 20 mmHg (subtle).
-2. **Scope (time series):** a rolling 60 s window (hemodynamic clock) or rolling 12 months (disease clock).
-   The user picks up to 4 traces. It shows the respiratory and cardiac waveform in pulsatile mode.
-   Intervention markers appear on the time axis.
-3. **Flow Sankey:** splanchnic arterial inflow on the left, splitting into *liver (sinusoids)* vs *each
-   collateral/shunt* in the middle, and ending at *IVC / SVC / GI lumen (bleeding)* on the right. Reversed
-   flows are drawn in orange with an arrow. Widths animate as they change.
-4. **Liver perfusion donut:** the portal vs arterial contribution to sinusoidal inflow, plus the "lost"
-   portal flow diverted to collaterals. It shows HABR compensation.
-5. **P–Q operating-point plot (advanced):** the liver's pressure–flow line (slope = R_liver) and the
-   collateral bed's line. The operating point shows *why* flow redistributes: the two resistances act as
-   parallel paths.
+The signature chart is the Gut to heart pressure profile (`charts.js`, `tool-profile.js`), with the healthy line dashed and a red block where the resistance is. Other cards (flows, curve, causes, trace, Doppler) are listed in the deck authoring guide, section 7.2.
 
 ### 9.3 "Why?" causal trace
 
@@ -856,6 +556,8 @@ for fairness) in the worker when the user asks. Cache the result until the state
 | Cardiac | **Right heart failure / TR** | Contractility ↓, TR ↑ | RA ↑↑, FHVP and WHVP both ↑, **HVPG normal**, **pulsatile PV**, high-protein ascites |
 | Cardiac | **Constrictive pericarditis** | Pericardial constraint ↑ | Similar to RHF, with a respiratory pattern |
 
+The app has 19 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): end-stage cirrhosis with hepatofugal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
+
 ### 10.2 Interventions library
 
 Each intervention is a **toggleable, parameterized object**. It shows up on the stage with its own handle
@@ -900,78 +602,21 @@ acknowledged.
 
 ### 10.4 Case engine (Cases mode)
 
-Cases are authored as **JSON state machines**:
-
-```jsonc
-{
-  "id": "acute-variceal-bleed",
-  "title": "Night shift: hematemesis in a patient with cirrhosis",
-  "initialPreset": "decompensated-cirrhosis",
-  "initialEvents": [{ "type": "VARIX_RUPTURE", "tearSize": 0.6, "at": 0 }],
-  "clock": "hemodynamic", "timeScale": 20,   // 1 real s = 20 sim s
-  "availableActions": ["crystalloid", "prbc", "terlipressin", "octreotide", "ceftriaxone",
-                       "evl", "balloon", "tips", "intubate"],
-  "hiddenReadouts": ["R_sin", "trueHVPG"],
-  "objectives": [
-    { "id": "stabilize", "text": "MAP ≥ 65 within 15 sim-min" },
-    { "id": "vasoactive", "text": "Start a vasoactive drug early" },
-    { "id": "restrictive", "text": "Don't over-transfuse (Hb target ~7)" },
-    { "id": "endoscopy", "text": "Endoscopic therapy within 12 h" },
-    { "id": "rescue", "text": "Consider pre-emptive TIPS if high risk" }
-  ],
-  "scoring": { "timeWeight": 0.3, "outcomeWeight": 0.5, "guidelineWeight": 0.2 },
-  "debrief": "markdown with dynamic placeholders {{maxHVPG}}, {{bloodLost}}, …"
-}
-```
-
-The case UI uses a **clinical action bar** (drug and procedure buttons with dose pickers) instead of raw
-sliders, a vitals monitor strip (HR, MAP, Hb, SpO₂-style), and a **debrief** screen at the end. The debrief
-replays the timeline with the learner's actions annotated and shows a counterfactual ("had TIPS been placed
-at t = 2 h…") by re-running the engine with the change.
-
-Initial case list: *Acute variceal bleed*, *Refractory ascites: TIPS or not?*, *Isolated gastric
-varices (find the cause)*, *New ascites with normal HVPG (cardiac)*, *Post-TIPS confusion*, *BRTO
-consequences*.
-
----
+There is no Cases mode. Case cards on slides (`vignette`, `caseQ`) and the decision decks (Ten years, Choose the treatment) took its place; `docs/recommendations/new-features-recs.md` has a case-engine proposal.
 
 ## 11. Pedagogy layer
 
 ### 11.1 Lesson format
 
-Each lesson is a sequence of **steps**, and each step is one of:
-
-- **Frame:** short text (≤ 60 words) plus an optional highlight on stage.
-- **Predict:** multiple choice, *draw the pressure line*, or *set the slider to where you think X
-  will end up*. The model is **paused** until the learner commits.
-- **Do:** the learner performs a manipulation. The step completes when a **goal predicate** on
-  state is true (e.g. `edge.TIPS.exists && edge.TIPS.d >= 8`).
-- **Observe:** the model runs, the camera frames the relevant anatomy, and key metrics are highlighted.
-- **Explain:** the auto-generated "Why?" trace plus authored commentary.
-- **Check:** a 1–3 question quiz with feedback.
-
-Progress is saved locally (§13.6). Lessons unlock tools progressively.
+Teaching is done by the presentation decks. See `docs/deck-authoring-guide.md`.
 
 ### 11.2 Initial curriculum
 
-1. **Pipes without valves.** P = Q × R, and flow goes wherever the gradient points.
-2. **Where is the resistance?** Pre / sinusoidal / post, and the lobule zoom.
-3. **Measuring HVPG.** The catheter procedure, and the presinusoidal and cardiac traps.
-4. **Forward flow matters.** Splanchnic vasodilation and the hyperdynamic circulation.
-5. **Blood finds a way.** Collateral recruitment and the CSPH threshold, run on the disease clock.
-6. **Laplace and the varix.** Why size, pressure, and wall thickness decide rupture.
-7. **When the portal vein runs backwards.** Hepatofugal flow and arterioportal shunting.
-8. **Ascites from Starling.** Sinusoidal pressure, albumin, lymph, and why presinusoidal disease spares the peritoneum.
-9. **Left-sided portal hypertension.** Splenic vein thrombosis.
-10. **Drugs vs. devices.** NSBB, carvedilol, and terlipressin compared with TIPS and surgical shunts.
-11. **Every fix has a cost.** TIPS and encephalopathy, BRTO and portal pressure, over-transfusion.
-12. **The heart is downstream.** Right heart failure and the pulsatile portal vein.
-
----
+The 31 decks replace the initial curriculum (`src/ui/decks/`).
 
 ## 12. Physiological acceptance tests
 
-These are **automated tests** that run against the engine headlessly (Vitest), using the steady-state solver
+These are **automated tests** that run against the engine headlessly (`node --test`, `tests/acceptance.test.js`), using the steady-state solver
 unless noted. They're the definition of "realistic." **A build that fails them doesn't ship.**
 
 | # | Scenario | Assertion |
@@ -1001,175 +646,50 @@ unless noted. They're the definition of "realistic." **A build that fails them d
 
 ### 13.1 Stack (recommended; the implementer may substitute equivalents)
 
-- **Vite + TypeScript (strict)**, static build, deployable to GitHub Pages.
-- **UI:** React 19 plus **Radix UI** primitives (accessible sliders, dialogs, tabs), with CSS variables
-  for theming (§5.2). No heavy component library.
-- **State:** Zustand (UI and scenario state) plus an **immutable action log** for undo, redo, URL sharing,
-  and case replay.
-- **Stage:** layered.
-  1. SVG for organs, vessel walls, labels, and handles (crisp, accessible, hit-testable).
-  2. **PixiJS (WebGL)**, or Canvas2D as a fallback, for flow particles and glows.
-  3. An HTML overlay for chips and callouts.
-- **Charts:** **uPlot** for the scope (fast streaming). **visx or D3** for the pressure profile, Sankey
-  (`d3-sankey`), and donut.
-- **Engine:** plain TypeScript, **no DOM dependencies**, running in a **Web Worker** through Comlink. It's also
-  importable in Node for tests and calibration.
-- **Tests:** Vitest (engine and acceptance), Playwright (end-to-end: tools, lessons, mobile viewport).
+The app is a no-build ES-module app (vanilla JS and WebGL2) served as a static site; `npm run build` makes the minified, hashed production build that GitHub Pages serves. Tests use `node --test`. See `AGENTS.md`.
 
 ### 13.2 Directory layout
 
-```
-/src
-  /engine            # pure TS, no DOM
-    model.ts         # graph types, element library
-    elements/        # resistor.ts, tubeLaw.ts, varix.ts, starling.ts, heart.ts, controllers.ts
-    solver/          # implicit.ts, steady.ts, linalg.ts
-    slow/            # remodeling.ts, ascites.ts, spleen.ts, fibrosis.ts
-    events.ts        # detectors with hysteresis
-    sensitivity.ts   # "Why?" contributions
-    rng.ts
-  /data
-    topology.json    # nodes, edges, element params (§13.3)
-    geometry.svg     # authored anatomy art with ids matching topology
-    circuitLayout.json
-    presets/*.json
-    interventions/*.json
-    lessons/*.json
-    cases/*.json
-  /worker
-    engine.worker.ts
-  /ui
-    shell/ (TopBar, ToolRail, Inspector, Dock, BottomSheet)
-    stage/ (AnatomyLayer, ParticleLayer, OverlayLayer, CircuitMorph, SemanticZoom)
-    instruments/ (Doppler, Endoscopy, Catheter, Lobule, VarixSection, Peritoneum)
-    charts/ (PressureProfile, Scope, Sankey, PerfusionDonut, OperatingPoint)
-    learn/ (LessonPlayer, PredictDraw, Quiz)
-    cases/ (CasePlayer, ActionBar, VitalsStrip, Debrief)
-  /state
-  /styles/tokens.css
-/tests
-  acceptance/*.test.ts   # §12
-  e2e/*.spec.ts
-/tools
-  calibrate.ts           # §13.5
-/legacy
-  index.html             # the current prototype, kept for reference only
-```
+See `docs/stage-map.md` and the folders `src/engine/`, `src/ui/`, `src/ui/decks/`, `scripts/`, `tests/`.
 
 ### 13.3 Topology schema (sketch)
 
-```ts
-type NodeDef = {
-  id: string;                    // "PV", "SIN_R", "VAR_ESO"
-  label: string;                 // "Portal vein"
-  region: "thorax" | "abdomen" | "liver" | "systemic";
-  compliance: { C: number; V0: number; Pknee?: number; Ps?: number };
-  externalPressure?: "IAP" | "PLEURAL" | "ESO_LUMEN" | "NONE";
-  geometryRef?: string;          // SVG id for anchoring chips/callouts
-};
-
-type EdgeDef = {
-  id: string;                    // "PV_RPV"
-  from: string; to: string;      // physiological (positive) direction
-  element: "resistor" | "tube" | "starlingResistor" | "diode" | "collateral" | "stent";
-  geom?: { d0_mm: number; L_cm: number; wall_mm?: number; dMin_mm?: number; dMax_mm?: number };
-  R0?: number;                   // PRU override when geometry is schematic
-  inertance?: number;
-  bidirectional: boolean;        // portal system: true
-  controllers?: ("HABR" | "BARO_SPLANCHNIC" | "NO_VASODILATION")[];
-  geometryRef: string;           // SVG path id
-  clinicalName?: string;         // "Left gastric (coronary) vein"
-};
-```
-
-Presets and interventions are **patches** to this schema (JSON-Patch-like), so they combine
-freely (e.g. *Decompensated cirrhosis* + *TIPS 10 mm* + *Propranolol*).
+The topology is `src/engine/topology.js` (nodes and edges with ids; see §7.2).
 
 ### 13.4 Worker ↔ UI protocol
 
 - UI → worker: `applyAction(action)`, `setClock(mode, speed)`, `settle()`, `snapshot()`,
   `explain(metricId)`, `runCounterfactual(actions)`.
-- Worker → UI (30 Hz): a `Frame { t, P: Float32Array, Q: Float32Array, A: Float32Array, slow: {...}, metrics: {...}, events: Event[] }`,
+- Worker → UI (about 10 Hz while running, at once after an action): a `Frame { t, P: Float32Array, Q: Float32Array, A: Float32Array, slow: {...}, metrics: {...}, events: Event[] }`,
   using **transferable** typed arrays.
 
 ### 13.5 Calibration tool
 
-`tools/calibrate.ts` fits the free parameters (resistances, compliances, controller gains) to the
-§7.8 targets and the §12 scenario targets using Nelder–Mead or Levenberg–Marquardt on the
-steady-state solver. It writes `topology.json` and prints a report table. Rerun it whenever the topology changes.
+Resistances are calibrated by construction (R = ΔP/Q from target pressures and flows), not by a fitting tool.
 
 ### 13.6 Persistence
 
-- Scenario sharing: action log → compressed (LZ-string) → URL hash.
-- Local progress (lessons, settings, theme): `localStorage`, wrapped in try/catch with in-memory
-  fallback. The app must work fully without it.
-
----
+Preferences and presenter scripts are kept in `localStorage` under keys that start with `pps.`, wrapped in try and catch. See `docs/PRIVACY.md`.
 
 ## 14. Accessibility, performance, safety copy
 
 ### 14.1 Accessibility (WCAG 2.2 AA)
 
-- **Every vessel is focusable.** Tab order follows the flow path (arterial supply, then portal, liver, hepatic veins, IVC, RA),
-  and collaterals come after. Arrow keys move to the upstream or downstream neighbor.
-- Each vessel has an `aria-label`, e.g. *"Portal vein, 18.4 millimeters of mercury, flow 0.62 liters per
-  minute, reversed."*
-- A **live region** announces significant events (throttled to at most one every 3 s) and threshold
-  crossings.
-- Keyboard equivalents for every gesture: Pinch uses the selected vessel plus `+`/`−` for stenosis. Stent uses
-  select source, `Enter`, select target, `Enter`.
-- Color is never the only encoding (P7). Pressure also shows as a value, and reversal shows as a glyph plus dashes plus text.
-- Contrast is ≥ 4.5:1 for text and ≥ 3:1 for UI components and chart marks in both themes.
-- Text scales to 200% without horizontal scrolling. Charts provide a **data table** alternative.
-- Reduced motion (§5.5).
+See `docs/ACCESSIBILITY.md`.
 
 ### 14.2 Performance budgets
 
-| Metric | Budget |
-|--------|--------|
-| First load (gzipped JS) | ≤ 350 KB initial. Instruments, lessons, and cases are lazy-loaded |
-| Time to interactive (mid-range phone, 4G) | ≤ 3 s |
-| Frame rate | 60 fps desktop, ≥ 50 fps mid-range phone |
-| Particles | ≤ 2500 desktop, ≤ 700 phone (adaptive: drop density if frame time > 14 ms) |
-| Engine | Real-time at 1 ms dt in pulsatile mode, at 8× speed on desktop |
-| Disease clock | 12 months simulated in ≤ 2 s |
+See `docs/PERFORMANCE.md` and `AGENTS.md` (the GPU rules).
 
 ### 14.3 Safety and educational copy
 
-- A persistent footer link and first-run modal: *"Educational simulation. Simplified model; values
-  are illustrative and must not be used for diagnosis or treatment decisions."*
-- Illustrative-only metrics (platelet estimate, HE risk index, rupture hazard) carry an
-  "illustrative" tag in their tooltip.
-- An in-app **References** panel lists guideline sources used for thresholds, such as Baveno VII consensus and
-  AASLD guidance on portal hypertension and varices. Check the current versions before release.
-
----
+The app says it is an educational simulation with a simplified model and illustrative values, not for diagnosis or treatment decisions (Help › About the model, the disclaimer in the Licenses section).
 
 ## 15. Roadmap
 
-| Phase | Deliverable | Exit criteria |
-|-------|-------------|---------------|
-| **0: Foundations** | Engine (mean mode), topology JSON, steady-state solver, calibration tool, tests T1–T4 and T16–T18 | Headless tests green |
-| **1: Stage MVP** | Anatomic view with pressure colors, particles, flow reversal animation, inspector, clinical strip, pressure profile, cirrhosis macro, presets for Healthy/CSPH/Decompensated/Presinusoidal/RHF, TIPS tool | T5, T7–T9 green; usable on phone |
-| **2: Collaterals & disease clock** | Recruitable collaterals, varix model and rendering, disease clock, spleen, ascites/IAP, events and callouts, Sankey | T3, T6, T10, T14, T15 green |
-| **3: Instruments** | HVPG catheter, Doppler (pulsatile mode), endoscopy, lobule zoom, varix cross-section, circuit view morph | Lessons 1–6 playable |
-| **4: Interventions & cases** | Drugs, EVL, BRTO, surgical shunts, bleeding and volume, case engine, debrief with counterfactuals | T11–T13 green; 3 cases |
-| **5: Polish** | Full curriculum, projector mode, share links, a11y audit, performance tuning, dark theme refinement | WCAG audit passed; budgets met |
-
----
+The phased roadmap is built; this section is gone. The open work is in `CHANGELOG.md` and `docs/recommendations/`.
 
 ## 16. Open questions
 
-1. **Art production:** hand-authored SVG anatomy (best quality, slower) or procedurally generated
-   from centerlines (faster, less beautiful)? *Recommendation: hand-authored, with a single designer pass
-   after Phase 1 locks the topology.*
-2. **Pulsatile mode on phones:** always available, or desktop-only with a precomputed waveform
-   fallback?
-3. **Localization:** is anything beyond English needed at launch? (Design for i18n anyway. No text baked into SVG.)
-4. **Teacher features:** a class dashboard or assignment tracking would need a backend. Out of scope
-   for v1?
-5. **Non-invasive estimates** (liver stiffness, platelet-based rules): include as illustrative
-   readouts, or leave out to avoid implying diagnostic use?
-6. **Level of anatomical variation:** should learners be able to toggle common variants (e.g. IMV
-   draining into the SMV vs. the splenic vein, or a left gastric vein draining into the splenic vein)?
-7. **Legacy prototype:** keep `index.html` in `/legacy` for reference, or delete it once Phase 1 ships?
+The open questions were answered in the build. Kept as a heading only.
+

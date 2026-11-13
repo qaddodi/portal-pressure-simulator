@@ -2,11 +2,14 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT } from './anatomy.js';
 import { caught } from './caught.js';
+import { CAM_MS_MAX, createGlideTracker } from './ease.js';
 import { FLICK, runFlick } from './flick.js';
 import { cancelFrame, setHandProbe } from './frame.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { clamp, systemEdge } from './util.js';
+import { createWheelGlide, isPadWheel } from './wheel-glide.js';
+import { viewXfDetach } from './view-xf.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGestures(st, live) {
@@ -17,6 +20,15 @@ export function createGestures(st, live) {
   // Trackpad scrolls are told from wheel notches once per gesture: Chrome and Safari report a
   // trackpad's legacy wheelDelta as exactly three times its delta, Firefox reports notches in lines.
   let wheelKind = null, wheelAt = 0, settleT = 0;
+  // The hand's own speed, for the spring-back that follows it (item 11): sampled with every step the hand gives the view (a pinch, a drag, a
+  // scroll, a wheel step), and taken when the spring-back begins, so a spring-back starts at the speed the hand left the view at, not from rest.
+  // handAge: how old the last sample may be: 80 ms after a finger, longer after a trackpad pinch, whose spring-back waits a quarter second
+  // to be sure the pinch is over.
+  const hand = createGlideTracker();
+  let handAge = 80;
+  const handSample = (age) => { hand.sample(live.vt, performance.now()); handAge = age; };
+  // A mouse-wheel notch glides (wheel-glide.js); a trackpad's pinch and scroll are direct.
+  const wheelGlide = createWheelGlide({ ask: nextFrame, cancel: cancelFrame, apply: (d, x, y) => { zoomAt(x, y, Math.exp(d)); handSample(300); } });
   const wheelPx = (ev, d) => d * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? stageBox().height : 1);
   const settleSoon = (ms = 220) => { stageScope.clear(settleT); settleT = stageScope.timer(springBack, ms); };
   // A Mac trackpad keeps sending scroll events for a second or more after the fingers lift (momentum). Pressed in that
@@ -25,13 +37,14 @@ export function createGestures(st, live) {
   let wheelMute = false;
   function handsOff() {
     if (performance.now() - wheelAt < 250) wheelMute = true;
-    stopGlide(); stageScope.clear(settleT); panFit = null;
+    stopGlide(); wheelGlide.cancel(); stageScope.clear(settleT); panFit = null;
   }
   const onWheel = (ev) => {
     ev.preventDefault();
     const now = performance.now();
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
+    viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
     if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; camSettle(); }
     stopGlide(); live.userMoved = true; live.fitted = false; live.handed = !live.lobuleOn;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY);
@@ -40,22 +53,32 @@ export function createGestures(st, live) {
       // vessels, the labels carried, refinement held), as it is for a wheel zoom or a pan below, and a button pressed mid-pinch mutes the
       // pinch's tail (handsOff). It had returned before wheelAt was set, so none of those held for a Mac pinch. A new gesture, after a quiet
       // quarter second, reads the fit framing afresh and forgets what kind of scroll came before.)
-      if (now - wheelAt > 250) { panFit = null; wheelKind = null; }
+      if (now - wheelAt > 250) { panFit = null; wheelKind = null; hand.begin(); }
       wheelAt = now;
-      zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return;
+      zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); handSample(300); settleSoon(); return;
     }
     if (now - wheelAt > 250) {
-      panFit = null;
-      const pad = ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1);
-      wheelKind = pad ? 'pad' : 'wheel';
+      panFit = null; hand.begin();
+      wheelKind = isPadWheel(ev) ? 'pad' : 'wheel';
     }
     wheelAt = now;
-    if (wheelKind === 'wheel' || live.lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); if (!live.lobuleOn) settleSoon(); return; }   // (out past the whole figure, it springs back once the wheel stops, as a pinch does)
+    if (wheelKind === 'wheel' || live.lobuleOn) {
+      const step = -clamp(dy, -120, 120) * 0.0015;
+      if (live.lobuleOn || reduceMotion.matches) zoomAt(ev.clientX, ev.clientY, Math.exp(step));
+      else {
+        // A notch is a glide of about 100 ms that carries the speed of the one before it (wheel-glide.js). The zoom it asks for stays inside
+        // the limits in the log, counting what the glide still owes, so the glide never runs against a limit.
+        const k = live.vt.k, owed = wheelGlide.left(), kTo = clamp(k * Math.exp(owed + step), K_MIN, K_MAX);
+        wheelGlide.push(Math.log(kTo / k) - owed, ev.clientX, ev.clientY, now);
+      }
+      if (!live.lobuleOn) settleSoon();
+      return;   // (out past the whole figure, it springs back once the wheel stops, as a pinch does)
+    }
     const s = vbScale();
     const u0 = unsoftPan(live.vt, PAN_RAW);
     PAN_IN.k = live.vt.k; PAN_IN.x = u0.x - dx / s; PAN_IN.y = u0.y - dy / s;
     live.vt = softPan(PAN_IN, VT_BUF);
-    applyVT(); live.CTM = null; settleSoon();
+    applyVT(); live.CTM = null; handSample(300); settleSoon();
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
   labelSvg.addEventListener('wheel', onWheel, { passive: false });
@@ -135,10 +158,13 @@ export function createGestures(st, live) {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     springAsk = 0;
     if (live.lobuleOn || live.vtGliding || live.drag || live.glide) return;
+    if (wheelGlide.active) { settleSoon(60); return; }   // (a wheel notch is still gliding: the spring-back waits for it to land)
+    // (The hand's speed as it let go, carried into the spring-back; the glide's time is its reach's, as every camera glide's: camMs.)
+    const v0 = hand.take(performance.now(), handAge);
     let to = { ...live.vt };
     const k = clamp(live.vt.k, K_MIN, K_MAX);
     // At or past the fit zoom (zoomed out, or panned about at the fit), the view springs back to the fit framing, as in the lobule view.
-    { const d = defaultVT(live.morphTarget === 1); if (live.vt.k <= d.k * 1.001) { if (live.morphTarget === 1) markCirc('focus', d); live.fitted = true; if (!sameView(d, live.vt)) animateVT(d, 420); return; } }
+    { const d = defaultVT(live.morphTarget === 1); if (live.vt.k <= d.k * 1.001) { if (live.morphTarget === 1) markCirc('focus', d); live.fitted = true; if (!sameView(d, live.vt)) animateVT(d, CAM_MS_MAX, { scale: true, v0 }); return; } }
     if (k !== live.vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - live.vt.x) / live.vt.k) * k, y: vy - ((vy - live.vt.y) / live.vt.k) * k };
@@ -150,7 +176,7 @@ export function createGestures(st, live) {
     const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
     to.x += vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0;
     to.y += vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0;
-    if (!sameView(to, live.vt)) animateVT(to, 380);
+    if (!sameView(to, live.vt)) animateVT(to, CAM_MS_MAX, { scale: true, v0 });
   }
   function stopGlide() { cancelFlick?.(); cancelFlick = null; live.glide = 0; }
   let cancelFlick = null;
@@ -187,7 +213,7 @@ export function createGestures(st, live) {
   const clearPress = () => { stageScope.clear(pressT); pressT = 0; };
   // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
   // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
-  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, live.plateAt?.(ev.clientX, ev.clientY) ? null : lb); });   // (a press on the plate's ring is the ring's, whatever label stands over it)
   svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
   function onDown(ev, label) {
     if (systemEdge(ev)) return;
@@ -196,7 +222,8 @@ export function createGestures(st, live) {
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     live.userMoved = true;
-    cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); stageScope.clear(settleT);
+    viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
+    cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); wheelGlide.cancel(); hand.begin(); stageScope.clear(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch (e) { caught('stage:13253', e); /* pointer already gone */ }
     clearPress();
     if (pointers.size >= 2) {
@@ -246,7 +273,7 @@ export function createGestures(st, live) {
       const k = softK(live.drag.k0 * d / live.drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
       VT_BUF.k = k; VT_BUF.x = vx - live.drag.wx * k; VT_BUF.y = vy - live.drag.wy * k; live.vt = VT_BUF; live.fitted = false; live.handed = true;
-      applyVT(); live.CTM = null;
+      applyVT(); live.CTM = null; handSample(80);
       return;
     }
     if (live.drag.type === 'pan') {
@@ -260,7 +287,7 @@ export function createGestures(st, live) {
       if (live.drag.moved) {
         PAN_IN.k = live.vt.k; PAN_IN.x = live.drag.vx + (ev.clientX - live.drag.x) / live.drag.s0; PAN_IN.y = live.drag.vy + (ev.clientY - live.drag.y) / live.drag.s0;
         live.vt = softPan(PAN_IN, VT_BUF); live.fitted = false; live.handed = true;
-        applyVT(); live.CTM = null;
+        applyVT(); live.CTM = null; handSample(80);
         const now = performance.now(), tr = live.drag.trail;
         tr.push(now, ev.clientX, ev.clientY);
         while (tr.length - live.drag.th > 6 && now - tr[live.drag.th] > 90) live.drag.th += 3;
@@ -300,7 +327,7 @@ export function createGestures(st, live) {
           return;
         }
         lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
-        if (live.tapHook?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
+        if (live.tapHook?.(ev.clientX, ev.clientY) || live.plateTap?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
         if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
         pick(d.id, ev);
         return;

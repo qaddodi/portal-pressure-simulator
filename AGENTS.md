@@ -54,6 +54,11 @@ Pages serves each copy as its production build (`npm run build` → `dist/`: bun
 file names and generated service worker. `tests/stamp.test.js` fails a committed stamp, and `npm run stamp` takes one out of a branch made before this.
 Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
+**The one headless step besides the smoke (owner, 10 Nov 2026): the shader compile check.** `node scripts/glsl-compile.mjs [name ...]` compiles and
+links the shader strings of `scripts/glsl-compile-list.mjs` in headless Chromium's software WebGL2 and prints the driver's logs. It opens `about:blank`
+(never the app), draws nothing, takes no picture and measures nothing, and runs in no workflow. The Tube renderer's threads run it on their own programs
+before a push (`docs/tube-renderer.md`); every other headless run stays off.
+
 ## Per-frame work (the GPU is the only per-frame painter)
 
 - No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,
@@ -103,6 +108,11 @@ One-time settings the owner made on GitHub (repo Settings), needed for deploys t
   tags" with rules `main` and `claude/*` (single `*`: it does not match `/`, so `claude/**`
   is rejected; branch names are one level deep, `claude/<name>`).
 
+**Branch-based Pages (12 Nov 2026, to save Actions storage).** Every deploy also force-pushes the built site as one orphan commit to the `gh-pages`
+branch (no history). When Settings > Pages > Source is "Deploy from a branch" (`gh-pages`, `/ (root)`), `pages.yml` sees it (`build_type: legacy`) and skips
+the artifact upload and `deploy-pages`; GitHub's own "pages build and deployment" run then serves the branch. `gh-pages` must be allowed under
+Environments > github-pages > Deployment branches. To go back, set Source to "GitHub Actions": nothing in the workflow changes.
+
 If a deploy fails:
 - A run that fails in about 2 seconds with no steps and the annotation "Branch ... is not
   allowed to deploy to github-pages due to environment protection rules" is the environment
@@ -131,4 +141,6 @@ open on it, and never touches the other copy's.
 `guides/beta-start-guide.pdf` (Letter) and `guides/beta-start-guide-iphone.pdf` (iPhone) are the beta testers'
 start guides, served at `/guides/` and `/preview/guides/` under stable names that testers get as links.
 When a change alters anything a guide shows or says (buttons, Settings rows, Send feedback, the first steps),
-regenerate both PDFs in the same push and keep the file names.
+update both PDFs in the same push and keep the file names. The repo holds no generator for them: edit the pictures and text in
+place (for example with pypdf) and keep the layout. Their Settings pictures and rows must match the app's Settings sheet (Appearance:
+Light, Soft, Dark, Navy, Black, System; Display: Blur effect, Figure size, Sharp while moving).

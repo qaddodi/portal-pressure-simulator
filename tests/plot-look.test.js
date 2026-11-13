@@ -71,21 +71,21 @@ test('the numbers stand on the plot: inside it, apart from each other, the names
 test('a number never sits on a point: a box kept off takes the number out, the axes\' names stay', () => {
   // (The CSPH plane keeps its axes' names; the HVPG against PPG plane's numbers are its cut-offs alone.)
   const pl = planeOf('csph'), fr = frame(800, 450), { X, Y } = scaler(pl, fr), fs = 16;
-  const all = plotNumbers(pl, fr, X, Y, fs), at100 = all.find((n) => n.text === '100' && n.anchor === 'start');
-  assert.ok(at100, 'the y 100 is on the plot with nothing in the way');
-  // (A point at the plot's left edge level with the 100, 8 px round it and its halo.)
-  const p = { x: X(1), y: Y(101) }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
+  const all = plotNumbers(pl, fr, X, Y, fs), at150 = all.find((n) => n.text === '150K' && n.anchor === 'start');
+  assert.ok(at150, 'the y 150K is on the plot with nothing in the way (11 Nov: written as the guideline card writes it)');
+  // (A point at the plot's left edge level with the 150K, 8 px round it and its halo.)
+  const p = { x: at150.box[0] + 4, y: (at150.box[1] + at150.box[3]) / 2 }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
   const some = plotNumbers(pl, fr, X, Y, fs, keep);
   assert.ok(!some.some((n) => touch(n.box, keep[0])), 'none touches the point');
-  assert.ok(!some.some((n) => n.text === '100' && n.anchor === 'start'), 'the y 100 beside it is left out');
+  assert.ok(!some.some((n) => n.text === '150K' && n.anchor === 'start'), 'the y 150K beside it is left out');
   assert.equal(some.filter((n) => n.cls === 'pze-ax').length, 2, 'the names stay');
-  assert.ok(some.some((n) => n.text === '150' && n.anchor === 'start'), 'the y 150, clear of it, stays');
+  assert.ok(some.some((n) => n.text === '20'), 'the x 20, clear of it, stays');
   // (The same on the HVPG against PPG plane: both axes named (2 Nov: "tough to know HVPG PPG"), and a point by the 12 takes only that number out.)
   const hp = planeOf('hvpg-ppg'), hf = frame(800, 450), h = scaler(hp, hf), hk = [[h.X(0.4) - 12, h.Y(12.3) - 12, h.X(0.4) + 12, h.Y(12.3) + 12]];
   const hs = plotNumbers(hp, hf, h.X, h.Y, fs, hk);
-  assert.deepEqual(hs.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['HVPG (wedged − free), mmHg', 'PPG (portal − IVC), mmHg'], 'each axis named in full, with what it is and its unit');
+  assert.deepEqual(hs.filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort(), ['HVPG (WHVP − FHVP), mmHg', 'PPG (portal − IVC), mmHg'], 'each axis named in full, with what it is and its unit');
   assert.deepEqual(hs.filter((n) => n.cls !== 'pze-ax').map((n) => n.text).sort(), ['10', '5', '6'], 'the y 12 beside the point is left out, the other cut-offs stay');
-  // (A narrow plot, a phone's, names them with the unit alone; the definition (wedged − free, portal − IVC) is for a plot 700 px or wider.)
+  // (A narrow plot, a phone's, names them with the unit alone; the definition (WHVP − FHVP, portal − IVC) is for a plot 700 px or wider.)
   for (const [W, H, fs] of [[345, 300, 16], [390, 340, 16], [620, 260, 14]]) {
     const f = frame(W, H), sc = scaler(hp, f), t = plotNumbers(hp, f, sc.X, sc.Y, fs).filter((n) => n.cls === 'pze-ax').map((n) => n.text).sort();
     assert.deepEqual(t, ['HVPG, mmHg', 'PPG, mmHg'], `${W} px: both axes named with their unit`);
@@ -167,7 +167,7 @@ test('the panel\'s foot follows the name: 1.7 em under the axis on the row, 3.1 
 test('a flow-time chart with treatments keeps their names and bars inside the panel, which runs to the chart\'s foot', () => {
   const ft = read('../src/ui/flow-time.js');
   assert.match(ft, /plotPanel\(sv, 0, G\.keyH \+ 0\.1 \* f, G\.w, G\.h - \(G\.keyH \+ 0\.1 \* f\)\)/);
-  assert.match(ft, /bandRoom = \(f\) => \(rx\.length \? \(1\.4 \+ 0\.32 \* rx\.length\) \* f : 0\)/);
+  assert.match(ft, /bandRoom = \(rxN, f\) => \(rxN \? \(1\.4 \+ 0\.32 \* rxN\) \* f : 0\)/);
   assert.match(ft, /--band-room', `\$\{rx\.length \? 1\.4 \+ 0\.32 \* rx\.length : 0\}em`/, 'the stylesheet\'s room is the same');
   // (The last bar ends 0.42 em over the foot: as far above it as the clock's numbers are over the foot with no treatments.)
   for (const n of [1, 2, 3]) assert.ok(1.4 + 0.32 * n - (2.8 - 1.7 + (n - 1) * 0.32 + 0.2) >= 0.4, `${n} bars: room under the last`);

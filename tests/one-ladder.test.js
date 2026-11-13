@@ -36,12 +36,12 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
-    'treatment.js': ['target', 'oct', 'vs'], 'cause-treated.js': ['high', 'high2'],
+    'treatment.js': ['target', 'oct', 'vs'], 'cause-treated.js': ['high'],   // (high2 shows the stiffness and platelets plane with its trail since 11 Nov 2026)
     'recompensation.js': ['csph'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
     'prehepatic.js': ['cath', 'gradients'], 'where.js': ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
   // (A card holds one instrument, and a phone has no room for a Doppler and the chart: there the chart's numbers are tiles.)
-  assert.deepEqual(at('outflow.js', 'nowedge').tiles, ['pv', 'ppg']);
+  assert.deepEqual(at('budd-chiari.js', 'dx').tiles, ['pv', 'ppg']);
   // (Each card that had tiles beside the ladder keeps them.)
   for (const s of slides) if (s.tiles?.length && s.tool) assert.equal(s.data, 'tiles', `${s.f} ${s.id}: its tiles show`);
 });
@@ -52,7 +52,8 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
   // (Ten years' Year 1 and carvedilol slides play the catheter on the figure and their tracing follows it: Mohammad, 5 Nov 2026, "no hvpg catheter or animations".)
   for (const id of ['d365', 'carv']) { assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg', catheter: true }, id); assert.equal(at('ten-years.js', id).cath, 'result', id); }
   assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
-  assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
+  // (The TIPS slide's instrument is the live graph of the stent, not a profile, Mohammad 10 Nov 2026: the teaching card holds no graph.)
+  assert.equal(at('ten-years.js', 'tips').tool.kind, 'evgraph');
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
   assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
@@ -60,7 +61,7 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
 });
 
 test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the heart chart, the catheter tracing in the data card of its own slides', () => {
-  const heart = at('hvpg.js', 'heart'); assert.equal(heart.data, 'tiles'); assert.deepEqual(heart.tiles, ['whvp', 'fhvp']);
+  const heart = at('hvpg.js', 'heart'); assert.equal(heart.data, 'tiles'); assert.deepEqual(heart.tiles, ['whvp', 'fhvp', 'ra']);
   // (The catheter slide reads the two on the tracing in its data card and gives the equation in its words; it carries no chart, tiles or buttons
   // of its own: D5, 25 Oct. The tracing moved from the teaching card to the data card on 26 Oct, and follows the figure's catheter.)
   const cath = at('hvpg.js', 'hvpg');
@@ -72,7 +73,7 @@ test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tile
 });
 
 test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
-  assert.match(pres, /ask: st\.ask, tool: \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
+  assert.match(pres, /ask: st\.ask, tool: Array\.isArray\(st\.spans\) \? \{ kind: 'profile', spans: st\.spans \} : \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
   // (The test decks still written with the old field come out as the built-in slides do.)
   const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.match(demo, /"data": "ladder"/);
@@ -93,6 +94,6 @@ test('the profile\'s HVPG and PPG brackets round the true values, never the diff
   assert.doesNotMatch(src, /wholeGap/);
   assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
   assert.match(src, /const b = m\.br\[r\], v = shown\[b\.key\], vi = whole0\(v\)/);
-  assert.match(src, /HVPG \$\{whole\(goal\.hvpg\)\}, PPG \$\{whole\(goal\.ppg\)\}/);
-  assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);
+  assert.match(src, /spans\.map\(\(\[k, name\]\) => `\$\{name\} \$\{whole\(goal\[k\]\)\}`\)/);   // (the label reads each bracket the chart draws, HVPG and PPG by default)
+  assert.match(src, /return \{ v, hvpg: fp\.hvpg, eus: Number\.isFinite\(fp\.eus\) \? fp\.eus : 0, ppg: fp\.ppg \};/);
 });

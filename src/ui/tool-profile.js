@@ -1,7 +1,7 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
-// liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) as brackets
-// inside the plot, each label inside its bracket (in a band at the plot's foot where it has no clear room) (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
+// liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) (and the EUS-PPG where a slide names it) as
+// brackets, all in one band at the plot's foot, each label inside its bracket (Mohammad, 13 Nov 2026: "keep all gradients on one side") (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
 // pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
 // 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another), named
@@ -9,6 +9,7 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
+import { lerp } from './num.js';
 import { frame, cancelFrame } from './frame.js';
 import { restPass, cancelRest, restAttr } from './rest-pass.js';
 import { PROFILE_PATHS } from './anatomy.js';
@@ -23,7 +24,7 @@ import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { numWords } from './num-words.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fittedType } from './chart-ctx.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, D_SURFACE } from './motion.js';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -44,6 +45,23 @@ const SPOKEN = { ...PATH.names, SIN_R: 'Sinusoid (WHVP)' };
 // A station's reading where the tiles have one (so its number is the tile's), else the node's own pressure.
 const AT_FP = { INT: 'int', CONF: 'pv', SIN_R: 'whvp', CV_R: 'cv', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
 export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', 'IVCS']];
+// The EUS-PPG's span (Mohammad, 12 Nov 2026: "we should be able to add EUS-PPG to the chart too ... keep it an option for other slides"): the left portal
+// vein to the left hepatic vein, which the chart's PV and HV stations stand for. A slide asks for it with the tool's `spans` option; HVPG and PPG stay the
+// default. The brackets and pills stand narrowest first (HVPG over EUS-PPG over PPG), so each nests inside the next.
+const SPAN_ALL = [SPANS[0], ['eus', 'EUS-PPG', 'CONF', 'RHV'], SPANS[1]], SPAN_SETS = new Map([['hvpg,ppg', SPANS]]);
+/** No bracket at all (a slide's `spans: []`): the raw pressures alone, for a slide that has students read them before the gradients are named
+ *  (Mohammad, 13 Nov 2026). Its own list, so a chart can tell it from the default by identity. */
+export const NO_SPANS = [];
+/** The brackets a slide's `spans` option names (['hvpg', 'eus', 'ppg'] in any order, any subset, or [] for none), in the chart's order; SPANS (HVPG and
+ *  PPG) where the slide sets no `spans`. The same list for the same names, so a chart can tell a changed set by identity. */
+export function spansOf(keys) {
+  const want = SPAN_ALL.filter(([k]) => Array.isArray(keys) && keys.includes(k)), id = want.map(([k]) => k).join(',');
+  if (Array.isArray(keys) && !keys.length) return NO_SPANS;
+  if (!want.length) return SPANS;
+  if (!SPAN_SETS.has(id)) SPAN_SETS.set(id, want);
+  return SPAN_SETS.get(id);
+}
+const RATE_OF = { hvpg: hvpgRate, eus: hvpgRate, ppg: ppgRate };   // (EUS-PPG is read on the HVPG's cut-offs)
 
 // The route's three zones, each on its own soft tint (Mohammad, 22 Oct: "add one that is PRE, change LIVER to INTRA, and add POST", meaning
 // pre-, intra- and posthepatic; the words are written out in full so they never read as the Pre- and Post- stations under the axis): before
@@ -130,7 +148,7 @@ export function profileOf(fp) {
   const P = fp.at?.P;
   const v = STATIONS.map((n) => { const k = AT_FP[n], x = k && Number.isFinite(fp[k]) ? fp[k] : P ? P[NI[n]] : NaN; return Number.isFinite(x) ? +x : NaN; });
   if (v.some((x) => !Number.isFinite(x))) return null;
-  return { v, hvpg: fp.hvpg, ppg: fp.ppg };
+  return { v, hvpg: fp.hvpg, eus: Number.isFinite(fp.eus) ? fp.eus : 0, ppg: fp.ppg };
 }
 
 /** The instrument drawn once at its own size (w0 px wide, type f0) and scaled down as one piece to the room W it has: k, never above 1. Its type
@@ -190,7 +208,7 @@ export function nameFit(slot, tw) {
  *  stand in the plot where placeBrackets finds them room; else (band) the plot keeps a band at its foot for them, under its zero
  *  line and over its axis, the PPG's lowest. B: the axis; Z: the zero line (B when inside). need: the height the chart takes with
  *  its plot at its smallest, the band kept. */
-export function profileGeo(w, h, f, tw, inside = false) {
+export function profileGeo(w, h, f, tw, inside = false, spans = SPANS) {
   const L = Math.ceil(tw('30') + 12), R = w - 10, slot = (R - L) / STATIONS.length, fit = nameFit(slot, tw);
   // (The plot starts a little over 1.4 em under the chart's top: the zones' tints rise over it in a strip that carries their names, the card
   // title stands above the chart in the card's header, and no key row is kept (the healthy line is named on itself, the unit sits in the
@@ -200,17 +218,18 @@ export function profileGeo(w, h, f, tw, inside = false) {
   // zone cannot hold its name; none where even that does not fit, the strip then only a lip over the readings.)
   const zone = zoneFit(slot, f, tw), zb = 0.36 * f + 6, zf = zoneSize(f), hdr = zone.lines ? zb + (0.84 + ZONE_TOP) * zf + (zone.lines === 2 ? 1.05 * zf : 0) : 0.36 * f + 4;
   const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
-  const brFit = SPANS.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
+  const brFit = spans.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
-  const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = 3 * BR_PAD + 2 * (half[0] + half[1]), band = inside ? 0 : bandH;
+  const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = spans.length ? (spans.length + 1) * BR_PAD + 2 * half.reduce((a, b) => a + b, 0) : 0, band = inside ? 0 : bandH;   // (no brackets: no band)
   // (The liver's brace and its name under the names: the brace 0.55 em deep, its name's baseline 1 em under its tip.)
   const braceH = 1.85 * f;
-  const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), y1 = B - BR_PAD - half[1];
+  const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), n = spans.length, yLast = n ? B - BR_PAD - half[n - 1] : B;
   const x = (i) => L + slot * (i + 0.5);
-  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, zone, zb, hdr, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
+  return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, spans, zone, zb, hdr, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
     braceY: B + nameH - 0.1 * f,
     nameX: (i) => x(i) + fit.dx[i], nameY: (i) => B + 1.05 * f + (fit.low[i] ? 1.25 * f : 0),
-    brY: (k) => (k ? y1 : y1 - half[1] - BR_PAD - half[0]) };
+    // (Row k's bar, the last row at the foot of the band and each row over it by its own half, a gap and the half under it.)
+    brY: (k) => { let y = yLast; for (let j = n - 1; j > k; j--) y -= half[j] + BR_PAD + half[j - 1]; return y; } };
 }
 
 /** The lines as fine polylines (the smooth curves drawn, not their chords), for the labels to keep clear of. */
@@ -416,7 +435,6 @@ const sv = svgModel;
 const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
   sv('rect', { class: 'pz-hb', 'data-look': 'card.hatch.bg', width: s, height: s }), sv('rect', { class: 'pz-hs', 'data-look': 'card.hatch.stripe', width: s / 2, height: s }));
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
-const lerp = (a, b, k) => a + (b - a) * k;
 // (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
 const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 
@@ -461,7 +479,7 @@ export function pillReadings(fp) {
 export const PILL_GAP = 4;
 export function pillSize(G, tw) {
   const { f } = G, pad = 0.6 * f;
-  return { w: SPANS.map(([, name]) => tw(`${name} 00`, 700) + 2 * pad), h: 1.5 * f, pad };
+  return { w: (G.spans || SPANS).map(([, name]) => tw(`${name} 00`, 700) + 2 * pad), h: 1.5 * f, pad };
 }
 /** Where the two pills stand on the chart G for the goal profile (hl, bf: the healthy and the earlier line; sides: numberSides; brk: the
  *  brackets' rows, where they are settled first): the nearest place to the plot's top right corner (the slide left plus the slide down, a
@@ -476,12 +494,13 @@ export function placePills(G, tw, goal, hl, bf, sides, brk = null) {
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));
   for (const b of zoneBoxes(G, tw)) place.take(b);
-  if (brk) for (const r of [0, 1]) place.take(bracketBox(G, r, brk[r]));
-  const row = (x1, y) => [[x1 - w[1] - PILL_GAP - w[0], x1 - w[1] - PILL_GAP, y, y + h], [x1 - w[1], x1, y, y + h]];
-  const col = (x1, y) => [[x1 - w[0], x1, y, y + h], [x1 - w[1], x1, y + h + PILL_GAP, y + 2 * h + PILL_GAP]];
+  if (brk) for (let r = 0; r < w.length; r++) place.take(bracketBox(G, r, brk[r]));
+  // (The pills in a row, the last at the corner and each before it a gap to its left, or in a column, each right-aligned under the one before.)
+  const row = (x1, y) => { const bs = new Array(w.length); let e = x1; for (let k = w.length - 1; k >= 0; k--) { bs[k] = [e - w[k], e, y, y + h]; e -= w[k] + PILL_GAP; } return bs; };   // alloc-rare: only while a chart is planned, between frames
+  const col = (x1, y) => w.map((wk, k) => [x1 - wk, x1, y + k * (h + PILL_GAP), y + k * (h + PILL_GAP) + h]);   // alloc-rare: as row
   // (The nearest clear place to the corner: the distance is the slide left plus the slide down, a row before a column at the same distance.)
   let best = null;
-  for (let dx = 0; dx <= G.R - G.L - Math.min(w[0], w[1]) && (!best || dx < best.d); dx += 3) {
+  for (let dx = 0; dx <= G.R - G.L - Math.min(...w) && (!best || dx < best.d); dx += 3) {
     for (let y = G.T + 3; y <= G.Z - h - 3 && (!best || dx + y - G.T < best.d); y += 2) {
       for (const mk of [row, col]) {
         const bs = mk(G.R - dx, y), d = dx + (y - G.T) + (mk === col ? 0.5 : 0);
@@ -506,7 +525,7 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const [x, y] of pg) place.take([x - dotR - 1, x + dotR + 1, y - dotR - 1, y + dotR + 1]);
   for (const v of sides || []) if (v?.box) place.take(v.box);
   for (const i of blocksOf(goal, hl)) place.take(blockBox(G, tw, goal, i));   // (clear of the red blocks)
-  for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
+  for (let r = 0; r < (G.spans || SPANS).length; r++) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
   for (const b of zoneBoxes(G, tw)) place.take(b);
   for (const b of pills) place.take(b);
   // (A snug placer holding the same boxes, 1 px clear of everything, for a plot too crowded for BR_PAD.)
@@ -560,7 +579,7 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
 
 /** A bracket's box, its bar at yy (G a profileGeo, r its row): the ticks and the label, a pixel round. */
 export function bracketBox(G, r, yy) {
-  const [, , a, b] = SPANS[r], { f } = G, x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b));
+  const [, , a, b] = (G.spans || SPANS)[r], { f } = G, x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b));
   const up = G.brMode[r] === 'stack' ? 0.91 * f : 0.36 * f, down = G.brMode[r] === 'stack' ? 0.91 * f : 0.36 * f;
   return [x0 - 1, x1 + 1, yy - up - 1, yy + down + 1];
 }
@@ -582,11 +601,13 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = [
   for (const b of pills) place.take(b);
   // (Every clear height for each, then the pair standing lowest that keeps the two apart: under the curve where it has room,
   // else over it.)
-  const ys = [0, 1].map((r) => {
+  const nsp = (G.spans || SPANS).length;
+  const ys = Array.from({ length: nsp }, (_, r) => {   // alloc-rare: only while a chart is planned, between frames
     const b0 = bracketBox(G, r, 0), out = [];
     for (let yy = G.Z - BR_PAD - b0[3]; yy >= G.T - b0[2]; yy -= 1) if (place.cost(bracketBox(G, r, yy)) === 0) out.push(yy);
     return out;
   });
+  if (nsp !== 2) return placeRows(G, ys, prev);
   const apart = (p, q) => { const a = bracketBox(G, 0, p), b = bracketBox(G, 1, q); return Math.max(b[0] - a[1], a[0] - b[1], b[2] - a[3], a[2] - b[3]) >= BR_PAD; };
   // (prev: the rows they stand on now, for a new state of the same chart (a what-if slider, the next slide). A bracket whose row is
   // still clear keeps it, so the brackets stay put while the numbers change (Mohammad, 19 Oct: "HVPG and PPG keep jumping up and
@@ -609,7 +630,39 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = [
   return best;
 }
 
-const FADE_MS = 420;
+/** More than two brackets (the EUS-PPG's joins the HVPG and the PPG): the rows standing lowest that keep every two apart (BR_PAD px), as the pair
+ *  above is found, else, for a new state of the same chart (prev), the rows nearest where they stood. ys: every clear height of each row, highest
+ *  first. → the rows' bars, or null where there are no such places. */
+function placeRows(G, ys, prev) {
+  const n = ys.length, got = new Array(n).fill(null);   // alloc-rare: planning, between frames
+  const apartAll = (r, y) => got.every((g, j) => {
+    if (g == null || j === r) return true;
+    const a = bracketBox(G, r, y), b = bracketBox(G, j, g);
+    return Math.max(b[0] - a[1], a[0] - b[1], b[2] - a[3], a[2] - b[3]) >= BR_PAD;
+  });
+  // (A row that still stands on a clear height keeps it while the rest keep clear of it, so the brackets stay put as the numbers change.)
+  if (prev && prev.length === n && prev.every((y, r) => ys[r].some((v) => Math.abs(v - y) < 0.01))) {
+    let ok = true;
+    prev.forEach((y, r) => { if (ok && apartAll(r, y)) got[r] = y; else ok = false; });
+    if (ok) return prev.slice();
+    got.fill(null);
+  }
+  // (Else the rows nearest where they stood (the 24 nearest clear heights of each), or, for a new chart, the lowest rows that keep apart.)
+  const cand = ys.map((list, r) => (prev ? list.slice().sort((x, y) => Math.abs(x - prev[r]) - Math.abs(y - prev[r])).slice(0, 24) : list));
+  let best = null, bestCost = 0;
+  const walk = (r, cost) => {
+    if (r < 0) { if (!best || cost < bestCost) { best = got.slice(); bestCost = cost; } return; }
+    for (const y of cand[r]) {
+      if (!apartAll(r, y)) continue;
+      got[r] = y; walk(r - 1, cost + (prev ? Math.abs(y - prev[r]) : -y)); got[r] = null;
+      if (!r && !prev) break;   // (the top row's highest clear place, as the pair takes it)
+    }
+  };
+  walk(n - 1, 0);
+  return best;
+}
+
+const FADE_MS = D_SURFACE;
 
 // ── The chart as a model that stays (2 Nov 2026, zero-allocation pass) ──
 // The chart used to be built afresh, tree and strings, in every frame of a glide. Now its pieces are made once for a size (buildModel,
@@ -620,7 +673,6 @@ const FADE_MS = 420;
 // for a look to be read in a frame.
 const TONES = ['ok', 'mid', 'hi'], LINE_NAMES = ['hl', 'bf'];
 const toneOf = (r) => (r === 'hi' ? 2 : r === 'mid' ? 1 : 0);
-const RATES = [hvpgRate, ppgRate];   // (the brackets' and pills' ratings, in SPANS' order)
 const V_MAX = 300;   // (a reading's width is tabled to here, a whole mmHg at a time; past it the last one stands)
 const whole0 = (v) => { const r = Math.round(v); return r > V_MAX ? V_MAX : r > 0 ? r : 0; };
 const SEG_K = 10;   // (steps of a span of the smooth line)
@@ -668,15 +720,16 @@ export function createProfileTool() {
   let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
   let S = null, geoNow = null;   // (the model drawn and the layout it was made for)
   // (The numbers a glide writes into, kept: the shown state and the first stage of its filter.)
-  const shownO = { v: new Float64Array(NS), hvpg: 0, ppg: 0, top: 15 }, shownWo = { v: new Float64Array(NS), hvpg: 0, ppg: 0, top: 15 };
+  const shownO = { v: new Float64Array(NS), hvpg: 0, eus: 0, ppg: 0, top: 15 }, shownWo = { v: new Float64Array(NS), hvpg: 0, eus: 0, ppg: 0, top: 15 };
   // (Each bracket's row as drawn: where it stands, where it stood, and when it began to fade from that one to this one. A bracket that
   // must move fades out where it was as it fades in where it goes, so it never sweeps across the line or the numbers.)
-  const rows = [null, null];
+  const rows = [null, null, null];   // (one for each of the three brackets a slide may ask for)
+  let spans = SPANS, RATES = [hvpgRate, ppgRate];   // (the brackets this slide draws: its `spans` option, else HVPG and PPG; and their ratings, in that order)
   let fading = false;
   // (Where each line's name stands, and where it glides from: a name that must move eases there, never jumps (Mohammad's NEVER SNAP).)
   const nameAt = {};
   // (The same for each pill: where it stands, where it glides from, and when it began.)
-  const pillAt = [null, null], pillK = { a: 0, from: 0, t0: 0, boxes: null };
+  const pillAt = [null, null, null], pillK = { a: 0, from: 0, t0: 0, boxes: null };
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
   const blkS = STATIONS.map(() => ({ a: 0, from: 0, t0: 0 })), blkLive = new Uint8Array(NS);
@@ -723,19 +776,16 @@ export function createProfileTool() {
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
     size = `${Math.round(w)}x${Math.round(hh)}`; fSeen = Math.round(f * 100);
     const hl = healthy(), bf = ref;
-    // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
-    // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
+    // (Each value's place is settled once per state, from where the lines will end up, so it never flips while the lines glide. The brackets
+    // stand in the band at the plot's foot, all of them.)
     // (A new state of the same chart at the same size keeps the brackets where they stand while they stay clear, and keeps the band
     // once the plot has needed it, so the plot never changes height under a what-if slider.)
     if (!plan || stale) {
       const old = plan && plan.size === size ? plan : null;
-      const band = !!old && !old.inside;
-      let g = profileGeo(w, hh, f, tw, true), s = numberSides(g, tw, goal), pl = placePills(g, tw, goal, hl, bf, s);
-      let brk = band ? null : placeBrackets(g, tw, goal, hl, bf, s, old?.brk, pl || []);
-      // (Where the pills cost the brackets their place in the plot, the brackets keep it and the pills take the nearest clear place left, or stand
-      // down where there is none: they repeat the brackets' numbers, and the plot keeps its height.)
-      if (!brk && !band) { brk = placeBrackets(g, tw, goal, hl, bf, s, old?.brk, []); pl = brk ? placePills(g, tw, goal, hl, bf, s, brk) : null; }
-      if (!brk) { g = profileGeo(w, hh, f, tw); s = numberSides(g, tw, goal); pl = placePills(g, tw, goal, hl, bf, s); }   // (the band at the plot's foot)
+      // (Every bracket stands in the one band at the plot's foot, stacked in the chart's order, never scattered inside the plot above and below the
+      // line: Mohammad, 13 Nov 2026, "keep all gradients on one side up or down in the ladder".)
+      const brk = null;
+      const g = profileGeo(w, hh, f, tw, false, spans), s = numberSides(g, tw, goal), pl = placePills(g, tw, goal, hl, bf, s);
       plan = { size, inside: !!brk, sides: s, brk, pills: pl, names: placeLineNames(g, tw, goal, hl, bf, s, brk, cfg.fromLabel, pl || []) };
       // (The pills fade in and out as a block does, and where they stand they glide from where they stood: they never jump.)
       const t1 = performance.now(), had = pillK.a;
@@ -760,8 +810,8 @@ export function createProfileTool() {
       }
       stale = false;
       const now = performance.now();
-      SPANS.forEach((_, r) => {
-        const yy = plan.inside ? plan.brk[r] : profileGeo(w, hh, f, tw).brY(r), cur = rows[r];
+      spans.forEach((_, r) => {
+        const yy = plan.inside ? plan.brk[r] : profileGeo(w, hh, f, tw, false, spans).brY(r), cur = rows[r];
         if (!old || !cur || reduceMQ.matches || old.inside !== plan.inside) { rows[r] = { y: yy, from: null, t0: 0 }; return; }
         if (Math.abs(cur.y - yy) < 0.01) return;
         // (Retargeted mid-fade: from the copy showing most, at the opacity it shows, so nothing blinks.)
@@ -769,15 +819,15 @@ export function createProfileTool() {
         rows[r] = { y: yy, from, t0: now - FADE_MS * Math.acos(2 * op - 1) / Math.PI };
       });
     }
-    geoNow = profileGeo(w, hh, f, tw, plan.inside);
+    geoNow = profileGeo(w, hh, f, tw, plan.inside, spans);
     // (A box shorter than the chart at its smallest with the band (a bracket's name over its value takes a taller row) asks for that
     // much: judged from that layout alone, so the box never flips between two heights.)
-    const need = profileGeo(w, hh, f, tw).need;
+    const need = profileGeo(w, hh, f, tw, false, spans).need;
     const cssMin = 11 * fs0, want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
     // (laid out between frames, never in the frame that drew: the next frame draws in the taller box)
     if (el.style.minHeight !== want && wantMin !== want) { wantMin = want; restPass(setMin); }
     // (Gridlines for the highest the axis may reach while it glides, in steps of eight.)
-    const cap = Math.max(16, Math.ceil((Math.max(goal.top, shown.top) / 5 + 2) / 8) * 8), key = `${w}|${hh}|${f.toFixed(3)}|${plan.inside}|${cap}`;
+    const cap = Math.max(16, Math.ceil((Math.max(goal.top, shown.top) / 5 + 2) / 8) * 8), key = `${w}|${hh}|${f.toFixed(3)}|${plan.inside}|${cap}|${spans.map(([k]) => k).join()}`;
     if (!S || S.key !== key) { S = buildModel(w, hh, f, tw, key, cap); syncPlan(hl, bf, tw); paintNow(performance.now()); gl.show(S.svg); return; }
     syncPlan(hl, bf, tw);
   }
@@ -789,7 +839,7 @@ export function createProfileTool() {
     for (const c of ['hl', 'bf']) m.nameOn[c] = false;
     for (const n of plan.names || []) { m.nameOn[n.c] = true; setWords(m.nameEl[n.c], n.t); }
     const labels = goal.v.map(whole);
-    restAttr(m.svg, 'aria-label', `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(goal.hvpg)}, PPG ${whole(goal.ppg)}.`);
+    restAttr(m.svg, 'aria-label', `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg.${spans.length ? ` ${spans.map(([k, name]) => `${name} ${whole(goal[k])}`).join(', ')}.` : ''}`);
     void tw;
   }
   // The pieces of the chart at its size, once (never in a frame): the tree a frame writes its numbers into.
@@ -831,7 +881,7 @@ export function createProfileTool() {
     M.vt = STATIONS.map((_, i) => sv('text', { class: 'ppf-v', 'data-look': 'prof.v', x: M.xs[i], y: 0, 'text-anchor': 'middle' }, ''));
     for (const c of ['hl', 'bf']) M.nameEl[c] = sv('text', { class: `ppf-lname ${c}`, 'data-look': 'prof.name', x: 0, y: 0, 'text-anchor': 'middle', opacity: 0 }, '');
     // (The brackets: for each of the two, two places (where it stands, where it stood) and in each the three ratings' pieces.)
-    M.br = SPANS.map(([k, name, a, b], r) => {
+    M.br = spans.map(([k, name, a, b], r) => {
       const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), fs = G.brFs[r], z = fs / f, stack = G.brMode[r] === 'stack', mid = (x0 + x1) / 2;
       const gap = new Float64Array(2 * (V_MAX + 1));   // (where the bar breaks round each whole reading)
       for (let v = 0; v <= V_MAX; v++) {
@@ -860,7 +910,7 @@ export function createProfileTool() {
     });
     // (The two pills, a piece for each rating.)
     const ps = pillSize(G, tw);
-    M.pill = SPANS.map(([k, name], q) => ({ key: k, w: ps.w[q], h: ps.h, tones: TONES.map((rate) => {
+    M.pill = spans.map(([k, name], q) => ({ key: k, w: ps.w[q], h: ps.h, tones: TONES.map((rate) => {
       const rect = sv('rect', { 'data-look': 'prof.pill.rect', x: 0, y: 0, width: ps.w[q], height: ps.h, rx: ps.h / 2 }), val = sv('tspan', { 'data-look': 'prof.tspan' }, '0');
       const txt = sv('text', { 'data-look': 'prof.pill.text', x: 0, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k', 'data-look': 'prof.pill.k' }, `${name} `), val);
       return { g: sv('g', { class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0 }, rect, txt), rect, txt, val };
@@ -960,7 +1010,7 @@ export function createProfileTool() {
     }
     // (The brackets: a row that moves fades out where it was as it fades in where it goes; held, they ease out.)
     const hk = blkOp(heldK, t);
-    for (let r = 0; r < 2; r++) {
+    for (let r = 0; r < m.br.length; r++) {
       const b = m.br[r], v = shown[b.key], vi = whole0(v), row = rows[r], e = row ? fadeK(row, t) : 1, tone = toneOf(RATES[r](v));
       if (row && row.from != null && e >= 1) row.from = null;
       for (let s = 0; s < 2; s++) {
@@ -986,7 +1036,7 @@ export function createProfileTool() {
     }
     // (The two readings as pills in the plot's top right, gliding where they must move.)
     const po = pillK.boxes ? blkOp(pillK, t) : 0;
-    for (let k = 0; k < 2; k++) {
+    for (let k = 0; k < m.pill.length; k++) {
       const p = m.pill[k], v = shown[p.key], tone = toneOf(RATES[k](v)), box = pillK.boxes?.[k], at = pillAt[k], on = !!box && po >= 0.005;
       for (let q = 0; q < 3; q++) setGeo(p.tones[q].g, 'opacity', on && q === tone ? (po < 0.995 ? po : 1) : 0);
       if (!on) continue;
@@ -996,15 +1046,15 @@ export function createProfileTool() {
       setWords(q.val, numWords(v, 0));
     }
     // (Frames keep coming while anything still fades or glides.)
-    fading = (rows[0]?.from != null) || (rows[1]?.from != null) || (nameAt.hl ? t - nameAt.hl.t0 < FADE_MS : false) || (nameAt.bf ? t - nameAt.bf.t0 < FADE_MS : false)
-      || (pillAt[0] ? t - pillAt[0].t0 < FADE_MS : false) || (pillAt[1] ? t - pillAt[1].t0 < FADE_MS : false) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS;
+    fading = (rows[0]?.from != null) || (rows[1]?.from != null) || (rows[2]?.from != null) || (nameAt.hl ? t - nameAt.hl.t0 < FADE_MS : false) || (nameAt.bf ? t - nameAt.bf.t0 < FADE_MS : false)
+      || (pillAt[0] ? t - pillAt[0].t0 < FADE_MS : false) || (pillAt[1] ? t - pillAt[1].t0 < FADE_MS : false) || (pillAt[2] ? t - pillAt[2].t0 < FADE_MS : false) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS;
     for (let i = 0; i < NS && !fading; i++) if (blkLive[i] && t - blkS[i].t0 < FADE_MS) fading = true;
   }
   // (The numbers glide on the shown state's filter, display-state.js follow2, premium-feel R4: the widths', the bar's and the charts' one
   // clock, the same curve at 60 or 120 Hz. shownWo: its first stage. tickAt: the last step's time, 0 at rest.)
   let shownW = null, tickAt = 0;
   const NEAR_V = 0.02, NEAR_TOP = 0.05;
-  const copyGoal = (to, from) => { for (let i = 0; i < NS; i++) to.v[i] = from.v[i]; to.hvpg = from.hvpg; to.ppg = from.ppg; to.top = from.top; };
+  const copyGoal = (to, from) => { for (let i = 0; i < NS; i++) to.v[i] = from.v[i]; to.hvpg = from.hvpg; to.eus = from.eus; to.ppg = from.ppg; to.top = from.top; };
   function tick(now = performance.now()) {
     raf = 0;
     if (!goal) return;
@@ -1020,6 +1070,7 @@ export function createProfileTool() {
         if (!(Math.abs(shown.v[i] - goal.v[i]) < NEAR_V && Math.abs(shownW.v[i] - goal.v[i]) < NEAR_V)) done = false;
       }
       let r = follow2(shown.hvpg, shownW.hvpg, goal.hvpg, dt, SHOWN_TAU, 0.005); shown.hvpg = r.v; shownW.hvpg = r.w;
+      r = follow2(shown.eus, shownW.eus, goal.eus, dt, SHOWN_TAU, 0.005); shown.eus = r.v; shownW.eus = r.w;
       r = follow2(shown.ppg, shownW.ppg, goal.ppg, dt, SHOWN_TAU, 0.005); shown.ppg = r.v; shownW.ppg = r.w;
       r = follow2(shown.top, shownW.top, goal.top, dt, SHOWN_TAU, 0.005); shown.top = r.v; shownW.top = r.w;
       if (!(Math.abs(shown.top - goal.top) < NEAR_TOP && Math.abs(shownW.top - goal.top) < NEAR_TOP)) done = false;
@@ -1037,7 +1088,10 @@ export function createProfileTool() {
     goal = { ...p, top: axisTop(p, healthy(), ref) };
     // (The first state is shown at once; the goals after it are glided to.)
     if (!shown) { shown = shownO; shownW = shownWo; copyGoal(shown, goal); copyGoal(shownW, goal); tickAt = 0; }
-    const want = new Set(held ? [] : blocksOf(goal, healthy())), t = performance.now();
+    // (Until the slide has landed, its blocks are those of its own state, not of the patient as he eases there: the chart comes in with its blocks
+    // and they fade in with it, never after it (Mohammad, 13 Nov 2026: "the chart shows up without it, and then it kind of just pops in".)
+    const own = ctx0?.fp && ctx0.shown && !ctx0.shown() ? profileOf(ctx0.fp) : null;
+    const want = new Set(held ? [] : blocksOf(own || goal, healthy())), t = performance.now();
     for (let i = 0; i < NS; i++) {
       const a = want.has(i) ? 1 : 0, b = blkLive[i] ? blkS[i] : null;
       if (!b || b.a !== a) { blkS[i].from = reduceMQ.matches ? a : b ? blkOp(b, t) : 0; blkS[i].a = a; blkS[i].t0 = t; blkLive[i] = 1; }
@@ -1058,6 +1112,13 @@ export function createProfileTool() {
     // the slide's numbers, and placed with its looks read (svg-gl g.show): the card comes in with the chart already drawn, never empty with it
     // popping in a moment later (Mohammad, 2 Nov 2026, "this arrived empty then flashed the graph").)
     configure(t, ctx) { if (!sz0) measure0(); else if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); });
+      // (The brackets the slide asks for; a changed set is planned and built afresh.)
+      const sp = spansOf(t?.spans);
+      if (sp !== spans) {
+        // (Brackets after a slide with none (the raw ladder, then the gradients named) ease in, never pop.)
+        if (spans === NO_SPANS && !held && !reduceMQ.matches) Object.assign(heldK, { a: 1, from: 0, t0: performance.now() });
+        spans = sp; RATES = sp.map(([k]) => RATE_OF[k]); plan = null; S = null; rows.fill(null); pillAt.fill(null);
+      }
       cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },

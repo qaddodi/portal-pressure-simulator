@@ -20,7 +20,7 @@ import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
-import { cssColor } from './css-color.js';
+import { rgbaOf } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
 import { createLabelGL } from './label-gl.js';
 import { createLayerAlpha } from './layer-alpha.js';
@@ -31,12 +31,7 @@ const NONE = [];
 const NOOP = () => {};   // (a disposed layer's mutators)
 const ZERO = [0, 0];
 const MIRROR = { lh: 1, gap: 0, halo: 0, haloC: '', runs: {} };   // (a mirrored caption's runs carry their own looks)
-/** A colour as the page computed it (rgb(), color(srgb …), oklab() from a color-mix, a token's raw value), as rgba() the GPU's pen reads; '' for none. */
-export function rgbaOf(c) {
-  if (!c || c === 'none' || c === 'transparent') return '';
-  const [r, g, b, a] = cssColor(c);
-  return a > 0 ? `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${+a.toFixed(4)})` : '';
-}
+export { rgbaOf };   // (css-color.js's: the one reader of a computed colour as rgba(), 13 Nov 2026, unification audit 12)
 /**
  * A caption's halo colour for the GPU's pen. The page's names set their outline from the theme's token (--label-halo, the Anatomy and Circuit labels' halo),
  * so the token is read first, as the theme gives it for this element, and the browser's computed stroke colour only where there is none: a browser

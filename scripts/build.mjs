@@ -22,6 +22,7 @@ import { join, dirname, resolve, relative, basename, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
+import { gzipSync } from 'node:zlib';
 import { withCsp } from './csp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,19 +81,27 @@ const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.end
 const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
 const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and stage.js at the
-// bundled binning worker.
+// 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
+// the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
+// moved the binning and dye workers out of stage.js, a filter naming stage.js left the shipped build asking for ./sweep-worker.js, which
+// is not there, so every stretch of the change between the views failed and each of its frames was binned on the CPU (his Mac, 8 Nov
+// 2026: "stretches ready 0 of 6", 5 to 10 fps). The build also refuses an output that still names a source worker (see below).
+const WORKER_SRC = [
+  [/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${workerFile}', import.meta.url)`],
+  [/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${sweepFile}', import.meta.url)`],
+  [/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${dyeFile}', import.meta.url)`],
+];
+const workerHolders = new Set(readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'src/ui', f))
+  .filter((f) => WORKER_SRC.some(([re]) => { re.lastIndex = 0; return re.test(readFileSync(f, 'utf8')); })));
 const workerUrl = {
   name: 'worker-url',
   setup(b) {
-    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/](host|presenter)\.js$/ }, (args) => ({
-      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${workerFile}', import.meta.url)`),
-      loader: 'js',
-    }));
-    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]stage\.js$/ }, (args) => ({
-      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${sweepFile}', import.meta.url)`).replace(/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${dyeFile}', import.meta.url)`),
-      loader: 'js',
-    }));
+    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/][\w-]+\.js$/ }, (args) => {
+      if (!workerHolders.has(resolve(args.path))) return undefined;   // (left to the next plugin and esbuild's own loading)
+      let contents = readFileSync(args.path, 'utf8');
+      for (const [re, to] of WORKER_SRC) contents = contents.replace(re, to);
+      return { contents, loader: 'js' };
+    });
   },
 };
 // Picture and glyph data (plain literals, nothing to run) ships as data, not script (Holding 120 Hz §2.9): a JSON file parses several
@@ -100,7 +109,7 @@ const workerUrl = {
 // loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
 // and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
 // repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
-const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png)\.js$/;
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png|glyph-metrics|liver-geo-data)\.js$/;
 const dataOut = new Map();   // module name → the file it became
 const dataFiles = {
   name: 'data-files',
@@ -129,17 +138,51 @@ const dataFiles = {
 // file of its own, and the build runs again until no such chunk is left. (A single module over the limit has to be split in its source.)
 const CHUNK_LIMIT = 200 * 1024;
 const appEntries = new Set([join(ROOT, 'src/ui/main.js')]);
+// The module to make an entry next: the one that takes the most bytes out of the chunk with it, meaning itself and every module of the chunk
+// that is reached only through it (it dominates them), so one new file carries a whole subtree. The largest single module (the old rule) took the
+// chunk down a few KB a file: the presenter's chunk held ~40 small modules besides the presenter, 60 rounds ran out, and ~50 more files would have
+// broken the first-load file ceiling. Roots of the chunk: its entry module, and any module an importer outside the chunk reaches.
+function subtreeEntry(meta, inChunk, mods, out) {
+  const size = new Map(mods);
+  const edges = (i) => (meta.inputs[i]?.imports || []).filter((e) => e.kind === 'import-statement' && inChunk.has(e.path)).map((e) => e.path);
+  const roots = new Set(out.entryPoint ? [out.entryPoint] : []);
+  for (const [i, x] of Object.entries(meta.inputs)) if (!inChunk.has(i)) for (const e of x.imports || []) if (e.kind === 'import-statement' && inChunk.has(e.path)) roots.add(e.path);
+  const reach = (skip) => {
+    const seen = new Set(), stack = [...roots].filter((r) => r !== skip && inChunk.has(r));
+    while (stack.length) { const n = stack.pop(); if (seen.has(n)) continue; seen.add(n); for (const m of edges(n)) if (m !== skip) stack.push(m); }
+    return seen;
+  };
+  const all = reach(null);
+  let best = null, bestBytes = 0;
+  for (const x of all) {
+    if (appEntries.has(resolve(ROOT, x)) || roots.has(x)) continue;
+    const after = reach(x);
+    let bytes = 0;
+    for (const n of all) if (!after.has(n)) bytes += size.get(n) || 0;
+    if (bytes > bestBytes) { best = x; bestBytes = bytes; }
+  }
+  return best && resolve(ROOT, best);
+}
 const appOpts = () => ({ ...common, plugins: [stripStamps, workerUrl, dataFiles], entryPoints: [...appEntries], outdir: ASSETS, splitting: true, entryNames: '[name]-[hash]', chunkNames: 'chunk-[hash]', metafile: true });
 for (let round = 0; round < 60; round++) {
   const trial = await build({ ...appOpts(), write: false });
   const over = Object.values(trial.metafile.outputs).filter((o) => o.bytes > CHUNK_LIMIT && Object.values(o.inputs).filter((i) => i.bytesInOutput > 0).length > 1);
   if (!over.length) break;
   for (const o of over) {
-    const top = Object.entries(o.inputs).sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput).map(([i]) => resolve(ROOT, i)).find((i) => !appEntries.has(i));
+    const mods = Object.entries(o.inputs).filter(([, x]) => x.bytesInOutput > 0).map(([i, x]) => [i, x.bytesInOutput]);
+    const picked = subtreeEntry(trial.metafile, new Set(mods.map(([i]) => i)), mods, o);
+    const top = picked || Object.entries(o.inputs).sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput).map(([i]) => resolve(ROOT, i)).find((i) => !appEntries.has(i));
     if (top) appEntries.add(top);
   }
 }
 const app = await build({ ...appOpts(), write: true });
+if (process.env.PPS_META) writeFileSync(process.env.PPS_META, JSON.stringify(app.metafile));   // (the size breakdown by source module: scripts/first-load.mjs reads it)
+// (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
+// callers fall back to the main thread without a word. Always refused, preview builds too.)
+for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
+  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker)\.js/);
+  if (left) throw new Error(`Build refused: ${basename(f)} still starts a worker from its source address (${left[0]}): add its module to the worker-url plugin`);
+}
 // A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export
 // file nothing imports (and that is not the app itself or an import() target) is left out.
 const reached = new Set(Object.values(app.metafile.outputs).flatMap((o) => o.imports.map((i) => i.path)));
@@ -172,7 +215,7 @@ for (const queue = [appOut]; queue.length;) {
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
-writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css', 'styles/path.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
+writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css', 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
 const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file', '.png': 'file' }, write: true, metafile: true });
 rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));
@@ -198,7 +241,7 @@ const head = [
   monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   // (The data the first screen's scripts wait for: fetched beside them, not after them.)
-  ...['organ-art', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
+  ...['organ-art', 'liver-geo-data', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
   dataOut.has('glyphs-inter-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-png')}" as="image" />` : '',
   dataOut.has('glyphs-inter-display-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-display-png')}" as="image" />` : '',
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
@@ -251,6 +294,39 @@ self.addEventListener('fetch', (e) => {
     .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
 });
 `);
+
+// First load (P3, 13 Nov 2026): what a person's first visit must fetch before the first picture: the entry and every chunk it imports
+// statically (all preloaded in the page's head), the style sheet, the picture and glyph data the head preloads and the fonts it preloads.
+// Raw and gzip (GitHub Pages serves gzip). The target, under 1 MB of script and 150 KB of CSS as sent (gzip), is the ceiling the build holds
+// (scripts/size-budget.json firstLoad; the raw ceilings sit just above today's and only come down): over one, a warning, and an error where
+// BUILD_STRICT is set.
+{
+  const gz = (f) => gzipSync(readFileSync(join(OUT, f)), { level: 6 }).length;
+  const sum = (list) => list.reduce((a, f) => ({ raw: a.raw + statSync(join(OUT, f)).size, gz: a.gz + gz(f) }), { raw: 0, gz: 0 });
+  const script = sum([`assets/${appFile}`, ...staticChunks.map((c) => `assets/${c}`)]);
+  const style = sum([`assets/${cssFile}`]);
+  const data = sum(['organ-art', 'liver-geo-data', 'glyphs-inter', 'glyphs-inter-display', 'glyphs-inter-png', 'glyphs-inter-display-png'].filter((n) => dataOut.has(n)).map((n) => `assets/${dataOut.get(n)}`));
+  const fonts = sum([interLatin, serifLatin, monoLatin].filter(Boolean).map((f) => `assets/${f}`));
+  const k = (n) => (n / 1024).toFixed(0);
+  const line = (what, v, n) => `${what.padEnd(24)} ${k(v.raw).padStart(6)} KB raw, ${k(v.gz).padStart(6)} KB gzip${n ? `  (${n})` : ''}`;
+  const firstLoad = { script, style, data, fonts, modules: staticChunks.length + 1 };
+  writeFileSync(join(OUT, 'first-load.json'), JSON.stringify(firstLoad));
+  console.log('first load (before the first picture):');
+  console.log('  ' + line('script', script, `${staticChunks.length + 1} files preloaded`));
+  console.log('  ' + line('style sheet', style));
+  console.log('  ' + line('picture + glyph data', data));
+  console.log('  ' + line('fonts', fonts));
+  const budget = JSON.parse(readFileSync(join(ROOT, 'scripts/size-budget.json'), 'utf8')).firstLoad;
+  if (budget) {
+    const over = [['script (raw KB)', script.raw / 1024, budget.scriptKB], ['script (gzip KB)', script.gz / 1024, budget.scriptGzKB], ['style sheet (raw KB)', style.raw / 1024, budget.cssKB],
+      ['style sheet (gzip KB)', style.gz / 1024, budget.cssGzKB], ['preloaded files', staticChunks.length + 1, budget.preloads]].filter(([, v, max]) => max && v > max);
+    for (const [what, v, max] of over) {
+      const msg = `first load: ${what} is ${v.toFixed(0)}, over its ceiling of ${max} in scripts/size-budget.json (firstLoad): load it later, or lower something else first`;
+      if (process.env.BUILD_STRICT) throw new Error(msg);
+      console.warn(`::warning title=First load::${msg}`);
+    }
+  }
+}
 
 // Report.
 const size = (f) => statSync(join(OUT, f)).size;

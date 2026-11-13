@@ -13,6 +13,9 @@ export function createLabelSize(st, live) {
   // a presentation raises it to the projector's size (never below Explore's).
   const fontPx = (size) => rolePx(roleOf(size)) * live.labelScale * (live.projecting ? Math.max(1, Math.min(typeof live.projecting === 'number' ? live.projecting : 2, 2.2) / 1.5) : 1);
   const LINE_H = (line) => { let m = -Infinity; for (let i = 0; i < line.length; i++) m = Math.max(m, fontPx(line[i].size)); return m * 1.24; };
-  const lineW = (line) => { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * live.labelK : 0); } return w; };
+  // (L4, 12 Nov 2026: a reading is laid out at its widest value, its first run of digits padded to the most it shows (r.pad, else 2) and the digits
+  // tabular (textW), so a value ticking from 9.8 to 10.2 keeps its box and lays no label out again: refreshValues found the width moved and solved.)
+  const padNum = (r) => (r.cls === 'lb-val' || r.cls?.startsWith('lb-delta') ? r.t.replace(/\d+/, (n) => (n.length < (r.pad || 2) ? n.padStart(r.pad || 2, '0') : n)) : r.t);
+  const lineW = (line) => { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(padNum(r), fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * live.labelK : 0); } return w; };
   return { LINE_H, fontPx, labelBase, lineW };
 }

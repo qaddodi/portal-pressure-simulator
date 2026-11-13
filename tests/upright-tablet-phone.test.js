@@ -9,7 +9,6 @@ import { unsnap } from './unsnap.js';
 // the Doppler. It should.").
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = read('../styles/app.css');
-const util = read('../src/ui/util.js');
 const js = read('../src/ui/presenter.js');
 const UP = '(max-width: 1100px) and (orientation: portrait)';
 

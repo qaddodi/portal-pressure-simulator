@@ -191,7 +191,7 @@ test('a vessel drawn again after it went starts afresh, with no ease', () => {
 });
 
 const stage = stageSource();
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
   assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);
@@ -220,7 +220,7 @@ test('composite: with nothing chained, the streaks, the heads and the join are d
   // Unchained ends fade as before.
   assert.match(gl, /if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/);
   // The join: 0.6 as before with rel and mn both 0; 0.3 for the minor inflow; none where one pattern runs through.
-  assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\);/);
+  assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\) \* \(1\.0 - castAt\(id1, s1, len1\)\);/);
   assert.match(gl, /c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/);
   // (The noise table this once fed is gone with the lattice: the tile is read per pixel.)
 });

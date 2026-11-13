@@ -3,11 +3,11 @@
 import { ORGANS, RECTUM_FADE } from './anatomy.js';
 import { acrossVessel, spanOf, spanPath, spleenCaliper, zoneBand } from './callout-math.js';
 import { caught } from './caught.js';
-import { easeMove } from './ease.js';
+import { D_FLIP, D_SMALL, easeMove } from './ease.js';
 import { bandRing, dashRings, normalShown } from './highlight-math.js';
 import { darkMQ } from './look.js';
 import { markFade } from './mark-fade.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, smooth01 } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { measurePath } from './shape-gl.js';
 import { store } from './store.js';
@@ -48,19 +48,25 @@ export function createOutlines(st, live) {
   new MutationObserver((rs) => { orgToneRead(); if (rs.some((r) => r.attributeName === 'class')) nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
   darkMQ.addEventListener?.('change', orgToneRead);
   onTheme(resTheme);
-  const OL_FADE = 160;   // ms
+  const OL_FADE = D_FLIP;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
   // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
   // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
-  const CLAMP_FADE = 250;   // ms
+  const CLAMP_FADE = D_SMALL;   // ms
   const clampA = new Map();   // id → { a, on }
   const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
-  const clampEase = (id) => { const a = clampA.get(id)?.a ?? 1; return a * a * (3 - 2 * a); };
+  const clampEase = (id) => smooth01(clampA.get(id)?.a ?? 1);
   // The marks a treatment leaves (a stent's mesh, a shunt's sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
   // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
   // at that key's amount (marksBuild tags its draws), the SVG copy takes the amount as the group's opacity. markLast: when it last stepped.
   const markA = markFade();
-  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : clampEase(key));
+  // A stent the figure brings in on its own clock (stage-venous.js: the TIPS, a slide's stented vein): its amount set here as it eases, laid on
+  // its draws the same way (13 Nov 2026: the amount was the pieces' opacity, which the marks' build reads once, so a stent built while it was
+  // still at nothing stayed at nothing on the GPU until something else rebuilt the marks: Mohammad's "the mesh failed to draw").
+  const stentAmt = new Map();
+  let stentMoved = false;
+  const stentFade = (key, a) => { if (a == null) stentAmt.delete(key); else stentAmt.set(key, a); stentMoved = true; live.askAnimate?.(); };
+  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
   // (The group's opacity, for the SVG copy the browser draws; the GPU's copy takes the amount on the draw, never from the group, or a
   // fade would be read as a new look at each step.)
   const markShade = (el, a) => {
@@ -314,7 +320,8 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     if (!more) pinList = list || [];
     const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, warm: !!o.warm, fade: o.fade || 0 }));
     const ids = items.map((o) => o.id);
-    caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));
+    live.caudPin = ids.includes('caudate') || ids.includes('caudate-lobe');   // (the circuit's caudate lane follows it: stage-frame.js edgeVisible)
+    caud.show(live.caudPin, ids.includes('caudate'));   // (only a slide about the caudate draws it: the lobe with its veins, or the lobe alone)
     const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of live.olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;   // (it keeps its own fade on the way out)
@@ -365,9 +372,17 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = true; live.olLast = performance.now(); live.stageWake();
   }
   const fxWide = new Map(), fxBuild = new Map(), fxEls = new Map();
+  // A slide's spleen caliper comes whole, in one reveal: while the patient is still morphing to the slide's state (the spleen grows or
+  // shrinks to its length, a second or so) a caliper not yet drawn waits, and neither its line nor its reading is made; the frame
+  // the morph ends makes both at the landed length. (Mohammad, 11 Nov 2026: "when the spleen caliper appears it only half appears then
+  // it shows up fully": it was made at the spleen's size mid-way and grew with it.) One already drawn keeps following the spleen,
+  // as a time-lapse's does.
+  const capShown = new Set();   // (the caliper ids drawn since the slide's callouts were set)
+  let capWas = false;   // (a caliper was waiting at the last frame)
+  const capHolds = (c, f) => !!f.morphing && !capShown.has(c.id);
   function setCallouts(sp) {
-    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone]) : '';
-    if (!sp || sig !== live.fxSig) { fxWide.clear(); for (const [k, b] of live.pool) if (k.startsWith('fxs:')) b.fxIn = false; }
+    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone, !!sp.heart]) : '';
+    if (!sp || sig !== live.fxSig) { capShown.clear(); capWas = false; fxWide.clear(); for (const [k, b] of live.pool) if (k.startsWith('fxs:')) b.fxIn = false; }
     live.fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; live.fxSig = sig;
     const band = live.fx && zoneBand(live.fx.zone);
     if (band) { MAP.fxX[0] = band[0]; MAP.fxX[1] = band[1]; }
@@ -427,9 +442,10 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   function caliperAt(c, f) {
     if (c.organ) {
       const p = f.viewParams || store.get().params;
-      if (p?.splenicRx === 2 || !organEls.spleen) return null;
+      if (p?.splenicRx === 2 || !organEls.spleen || capHolds(c, f)) return null;
       const [a, b] = spleenCaliper((f.slow?.spleen ?? 11) / 11);
       capG.a = a; capG.b = b;
+      capShown.add(c.id);
       return capG;
     }
     const x = E[c.edge], cur = geo[c.edge]?.cur;
@@ -454,6 +470,11 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   }
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
+    // (A caliper that waited for the morph is let in: the labels are solved again for its reading, which a changed `live.fx` asks for.)
+    let capWait = false;
+    if (live.fx) for (const c of live.fx.calipers) if (c.organ && capHolds(c, f)) capWait = true;
+    if (capWas && !capWait && live.fx) { live.fx = { ...live.fx }; live.stageWake(); }   // alloc-rare: once, as a held caliper is let in
+    capWas = capWait;
     if (live.fx && t < 0.5) for (const c of live.fx.calipers) {
       const g = caliperSegs(c, f);
       if (!g) continue;
@@ -490,8 +511,10 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   let olDrawN = 0, olFadeN = 0, olSpecI = 0;
   function olDraw(first, count, col, alpha, soft, warm) {
     let d = olDrawPool[olDrawN++];
-    if (!d) olDrawPool.push(d = { first: 0, count: 0, col: null, alpha: 0, soft: undefined, warm: undefined, endFade: 0 });
-    d.first = first; d.count = count; d.col = col; d.alpha = alpha; d.soft = soft; d.warm = warm; d.endFade = RECTUM_FADE;
+    if (!d) olDrawPool.push(d = { first: 0, count: 0, col: null, alpha: 0, soft: undefined, warm: undefined, under: undefined, endFade: 0 });
+    // (An organ's line, a hard draw that is neither a glow nor the warm glow, is laid under the vessels: the vessels that cross an organ's
+    // edge cover its outline. Mohammad, 11 Nov 2026: "the liver outline should be below the vessels. That reads better.")
+    d.first = first; d.count = count; d.col = col; d.alpha = alpha; d.soft = soft; d.warm = warm; d.under = !soft && !warm ? true : undefined; d.endFade = RECTUM_FADE;
     return d;
   }
   // A mark's draw at its fade's amount (a copy: the mark's own keeps its full alpha).
@@ -570,6 +593,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       if (r.moving || r.gone.length) clampMoved = true;
     }
     live.markLast = now;
+    if (stentMoved) { stentMoved = false; clampMoved = true; }
     live.marksSync();
     if (!glLines || (!live.olDirty && !live.olList.length && !live.mk.dirty && !clampMoved && !nd.dirty)) return false;
     const dt = now - live.olLast;
@@ -588,7 +612,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     olDrawN = 0; olFadeN = 0;
     let first = 0;
     for (const o of live.olList) {
-      const ease = o.a * o.a * (3 - 2 * o.a);
+      const ease = smooth01(o.a);
       const col = o.col || (o.kind === 'pin' ? live.olCol : orgTone(o.id));
       // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it (strips are laid with MAX,
       // so where two meet they never stack). Only a loop's edge that shows is lit: not where a loop drawn over it lies on it, nor
@@ -685,5 +709,5 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = false;
     return moving || !!V;
   }
-  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans };
+  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade };
 }

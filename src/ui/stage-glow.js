@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
 import { makeProbeDraw, makeProbePose } from './dop-probe.js';
-import { D_SMALL } from './ease.js';
+import { D_SMALL, D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 
@@ -71,14 +71,14 @@ export function createGlow(st, live) {
       }
       if (!l.to) l.start = now + (g.at || 0);
       if (l.col !== g.col) { l.from = l.v > 0 && l.col && l.rgb ? l.rgb : null; l.cu = l.from ? 0 : 1; l.col = g.col; }
-      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.top = !!g.top; l.dur = (g.dur || 450) / 1000;
+      l.to = 1; l.amt = g.amt ?? 1; l.wide = g.wide || 1; l.top = !!g.top; l.dur = (g.dur || D_SURFACE) / 1000;
       l.endT[0] = glowEnd(E[id].e.from, key, len); l.endT[1] = glowEnd(E[id].e.to, key, len);
       if (l.v <= 0) { l.end[0] = l.endT[0]; l.end[1] = l.endT[1]; }
       // A stretch eases along the vessel to its new place (a whole vessel is the stretch 0–1).
       if (g.span) { l.spanT[0] = g.span[0]; l.spanT[1] = g.span[1]; } else { l.spanT[0] = 0; l.spanT[1] = 1; }
       if (l.v <= 0) { l.span[0] = l.spanT[0]; l.span[1] = l.spanT[1]; }
     }
-    // (A slide's halos leave in one small step with its cards and labels, not at the 500 ms they come in over: a leave takes the step below its
+    // (A slide's halos leave in one small step with its cards and labels, not at the D_SURFACE they come in over: a leave takes the step below its
     // entrance, and the camera sets off as the cards are gone, so no old halo is still fading as it moves. ?onemove=0: as before.)
     for (const [id, l] of glow.lit) if (!want.has(id)) { l.to = 0; if (src === 'slide') l.dur = Math.min(l.dur, D_SMALL / 1000); }
     if (!glow.raf) { glow.t = now; glow.raf = nextFrame(glowStep); }
@@ -90,7 +90,10 @@ export function createGlow(st, live) {
       if (l.to && now < l.start) { moving = true; continue; }
       waitOnly = false;
       const k = reduceMotion.matches ? 1 : dt / l.dur;
-      l.v = l.to > l.v ? Math.min(1, l.v + k) : Math.max(0, l.v - k);
+      // (l.v is the glow's progress, stepped linearly by k = dt / dur toward its goal; glow-texels.js eases it (easeInOut) where it is drawn, so
+      // a fade is eased at both ends over its duration, which is a step of the motion scale. A glow at its goal stays there.)
+      const goal = l.to ? 1 : 0;
+      l.v = l.v < goal ? Math.min(goal, l.v + k) : Math.max(goal, l.v - k);
       l.cu = Math.min(1, l.cu + k);
       for (let i = 0; i < 2; i++) { const d = l.endT[i] - l.end[i]; l.end[i] = Math.abs(d) < 0.5 ? l.endT[i] : l.end[i] + d * Math.min(1, k * 2); }
       for (let i = 0; i < 2; i++) { const d = l.spanT[i] - l.span[i]; l.span[i] = Math.abs(d) < 0.003 ? l.spanT[i] : l.span[i] + d * Math.min(1, k * 1.5); }
@@ -117,9 +120,10 @@ export function createGlow(st, live) {
     hold: 0, mon: false, noneT: 0, headOff: false, headP: 1, eRaf: 0, eAt: 0, box: null, boxA: { x0: 0, y0: 0, x1: 0, y1: 0 }, marks: [], swap: 0, ready: false, gate: null, gateA: [0, 0], monAt: 0, syncKey: -1, searchAt: 0, searchGap: 150, lastSig: -1,
     refitUntil: 0, carry: false, track: false, oP: 1, leaving: false, leaveT: 0, draw: makeProbeDraw(), pose: makeProbePose(), hId: null, hIdV: 0, hSeg: null, hSegV: 0 };
   let dopKeyOn = false, dopKeyId = null, dopKeySeg = '', dopKeyAll = false;   // (what dop.key was made of)
-  const dopGlow = { id: null, col: 'var(--dop-glow)', amt: 1.1, wide: 0.8, dur: 360, top: true, span: null }, dopGlowList = [dopGlow], noGlows = [];
+  const dopGlow = { id: null, col: 'var(--dop-glow)', amt: 1.1, wide: 0.8, dur: D_SURFACE, top: true, span: null }, dopGlowList = [dopGlow], noGlows = [];
   function dopApply() {
-    let id = dop.pin ?? dop.want ?? null;
+    // (pin false: the slide's Doppler reads a vessel with no probe on the figure, the scope is the probe (a tool's probe: 'scope'); Explore's choice does not bring one back.)
+    let id = dop.pin === false ? null : (dop.pin ?? dop.want ?? null);
     if (id && !E[id]) id = null;
     const st = store.get(), seg = id && isStent(EDGES[EI[id]]) ? stentGate(st.dopGate, st.params, id) : '';
     const all = !!seg && dop.points && id === dop.pin;
@@ -132,7 +136,9 @@ export function createGlow(st, live) {
     // probe showed before the zoom, went with it and came back after (Doppler 2, Mohammad, 20 Oct). animateVT lets it go.)
     if (id && store.get().presenting) live.dprHold();
     // (On top of every vessel it crosses, as a glow should lie (18f2e33): the stent's lit third over the hepatic vein above it, Review 15 Oct.)
-    if (id) { dopGlow.id = id; dopGlow.span = seg ? STENT_SPANS[seg] : null; }
+    // (A stent's lit third takes the stent's own colour, soft and slim, its ends easing out over a fifth of the stent: the white halo round the gate
+    // read as a bright round blob with fringed edges (Mohammad, 11 Nov). Any other vessel keeps the Doppler's white.)
+    if (id) { dopGlow.id = id; dopGlow.span = seg ? STENT_SPANS[seg] : null; dopGlow.col = seg ? null : 'var(--dop-glow)'; dopGlow.amt = seg ? 0.85 : 1.1; dopGlow.wide = seg ? 0.6 : 0.8; }
     setGlowSrc('dop', id ? dopGlowList : noGlows);
     live.dprobePaint();
   }
@@ -146,7 +152,7 @@ export function createGlow(st, live) {
     slideGlowOut.length = 0;
     if (list) for (let i = 0; i < list.length; i++) {
       const g = list[i], o = slideGlowObjs[i] || (slideGlowObjs[i] = {});
-      o.id = g.id; o.col = toneCol(g.tone || 'accent'); o.amt = g.soft ? 0.55 : 1; o.wide = g.soft ? 0.8 : 0.75; o.at = g.at; o.dur = 500;
+      o.id = g.id; o.col = toneCol(g.tone || 'accent'); o.amt = g.soft ? 0.55 : 1; o.wide = g.soft ? 0.8 : 0.75; o.at = g.at; o.dur = D_SURFACE;
       slideGlowOut.push(o);
     }
     setGlowSrc('slide', slideGlowOut);
@@ -161,7 +167,7 @@ export function createGlow(st, live) {
   // liver's own views. live: from the spotlight set until the plate has eased back after it (the ascites follows it there).
   const spot = { ids: new Set(), on: false, live: false };
   const spotOn = () => spot.on && !store.get().lobule && !store.get().sinusoid;
-  const SEL_FADE = 0.3;
+  const SEL_FADE = D_SMALL / 1000;   // (seconds: a small step of the motion scale)
   const selAKey = () => { let k = ''; for (const [id, v] of vh.selA) k += id + v; return k; };
   return { SEL_FADE, dop, dopApply, dopGateOf, dpr, glow, noGlows, revShown, selAKey, setGlow, setGlowSrc, spot, spotOn, toneCol, vh };
 }

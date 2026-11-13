@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 // old spot. One rule now places it, whoever asks, and a label that has to stand off from its arrows is joined to them by a leader.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const stage = stageSource();
 const body = (from, to) => stage.slice(stage.indexOf(from), stage.indexOf(to, stage.indexOf(from)));
@@ -52,4 +51,14 @@ test('the clamp label search measures once per text direction', () => {
   // (2 Nov 2026: the measure is worked out in script (clampTextBox, Inter's advances and metrics), not by getBBox.)
   assert.equal((search.match(/clampTextBox\(el\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
   assert.equal((search.match(/getBBox\(\)/g) || []).length, 0, 'nothing measured by the browser');
+});
+
+// 7 Nov 2026 (Mohammad: the "60 %" on the IVC web glitched between its size and a gigantic one): the outlines were drawn at the
+// font-size written on the label at the last label solve, so a camera move left them at an old zoom's size between solves.
+test('a live "60 %" is drawn at the camera\'s size now (live.clampFs), never at the size written on it at the last solve', () => {
+  const g = body('function clampGlyphs(el) {', 'const clampGlyphsIn');
+  assert.match(g, /const size = parseFloat\(live\.clampFs\) \|\| 12/);
+  assert.doesNotMatch(g, /el\.style\.fontSize/);
+  const tb = body('function clampTextBox(el) {', 'return textBox(');
+  assert.match(tb, /\(\/clamp-label\/\.test\(cls\) && parseFloat\(live\.clampFs\)\) \|\| parseFloat\(el\.style\.fontSize\)/);
 });

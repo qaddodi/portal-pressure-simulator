@@ -1,7 +1,6 @@
 // Label fonts and word widths, and the desk size and turn tables.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { measure as measureWords } from './glyph-measure.js';
-import { TEXT_MAX, TEXT_MIN } from './type-scale.js';
 
 export function createLabelText(st, live) {
   const { updateLabels } = st;
@@ -31,12 +30,11 @@ export function createLabelText(st, live) {
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
-  const LABEL_MIN = TEXT_MIN, LABEL_MAX = TEXT_MAX;   // (a size saved below 100 % reads as 100 %)
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   // A desktop (a wide screen and a mouse) is read from farther away: its 100 % is half as large again as a phone's or tablet's.
   const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
   // One label size on every screen and window width at 100 % (the laptop's): only the label setting changes it.
   const deskK = () => 1.5;
-  return { CIRCUIT_LABEL_K, LABEL_MAX, LABEL_MIN, TURN_DIR, deskK, deskMQ, textW };
+  return { CIRCUIT_LABEL_K, TURN_DIR, deskK, deskMQ, textW };
 }

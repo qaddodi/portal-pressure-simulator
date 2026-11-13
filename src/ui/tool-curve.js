@@ -68,8 +68,9 @@
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE } from './table-marks.js';
-import { HVPG_CUTS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { frameFor } from './frame.js';
+import { minusFixed as fmt, clamp } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { restPass, restClass } from './rest-pass.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { plotPanel } from './plot-look.js';
@@ -80,25 +81,26 @@ import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-curve');
 
-const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const CV_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const MAX_PTS = 41;
 
 // The settings a curve knows by name: the axis's words, its unit, its decimals and a scale on the model's value.
 export const PARAM = {
-  'thrombus.PV_TRUNK': ['Portal vein clot', '%', 0, 100], 'stenosis.TIPS': ['Stent narrowing', '%', 0, 100], habrStrength: ['Arterial buffer', '%', 0, 100],
+  'thrombus.PV_TRUNK': ['Portal vein thrombus', '%', 0, 100], 'stenosis.TIPS': ['TIPS stenosis', '%', 0, 100], habrStrength: ['Hepatic arterial buffer', '%', 0, 100],
   'tips.d': ['TIPS diameter', 'mm', 0], 'dips.d': ['DIPS diameter', 'mm', 0],
   cirrhosis: ['Cirrhosis', '%', 0, 100], gestation: ['Weeks pregnant', 'weeks', 0], albumin: ['Serum albumin', 'g/dL', 1],
-  splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['Right heart contractility', '×', 2],
-  'scope.air': ['Air in the esophagus', 'mmHg', 0],
+  splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['RV contractility', '×', 2],
+  'scope.air': ['Esophageal insufflation', 'mmHg', 0],
   tr: ['Tricuspid regurgitation', '%', 0, 100], pericardial: ['Pericardial constraint', '%', 0, 100], apShunt: ['Arterioportal shunting', '%', 0, 100],
 };
 // Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears; and on a curve
 // over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
-const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 }, seen: { t: 'Varix seen', u: 'mm', d: 1 }, across: { t: 'Across the wall', u: 'mmHg', d: 1 } };
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
 // (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
-const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--s7', whvp: '--s7', plt: '--tr-ivc', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
+// (A reading wears its one colour on every chart and monitor: the WHVP orchid, the FHVP blue, the portal vein magenta, the IVC cyan (theme-tokens.js tr-*; the monitor's
+// mon-* are the same values). The sinusoidal pressure has its own token, tr-sin, so the WHVP's colour means the WHVP alone. Unification audit, finding 2.)
+const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--s7', whvp: '--tr-wedge', plt: '--tr-ivc', sin: '--tr-sin', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
 const PLACE = ['--tr-pv', '--tr-hv'];
 
 export { pathOf, getAt, patchOf };
@@ -277,7 +279,6 @@ export function xTicks(a, b, most = 6) {
   }
 }
 const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) > 1e-6) ? 2 : sc.ticks.some((v) => v % 1) ? 1 : 0);
-const fmt = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
 /** An axis number: a whole number stays whole whatever the axis's decimals (0, 5, 10, not 0.0, 5.0, 10.0). */
 export const fmtTick = (v, d) => fmt(v, Math.abs(v - Math.round(v)) < 1e-6 ? 0 : d);
 const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
@@ -288,7 +289,7 @@ export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !ax.name.toLowe
 const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (portal − IVC)' };
 export const spellAxis = (ax) => (X_SPELT[ax.k] ? { ...ax, name: X_SPELT[ax.k] } : ax);
 /** The name a cut-off on the x reading goes by on the chart, or '': the HVPG 10 line is the CSPH line ("CSPH ≥10"). */
-export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? 'CSPH' : '');
+export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? HVPG_WORDS.danger[0] : '');
 /** The x axis's numbers and where its name stands (his G2 look, 27 Oct: the name on the numbers' row, as the planes' x name is, so the plot gains
  *  the row it had of its own). The name takes the widest stretch between the numbers (each 6 px clear, and 8 px in from the panel's edges) when it
  *  fits there with at least three numbers kept: the most numbers that leave it room, `most` at the most. { xt, nameAt }: nameAt the name's centre

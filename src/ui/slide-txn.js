@@ -13,6 +13,9 @@
 //   txns.current()  txns.stats()
 import { caught } from './caught.js';
 
+const PHASE_TRAIL = 24;   // (steps kept per change: a slide change has about a dozen)
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
 export function createTxns() {
   let cur = null, ids = 0;
   const st = { begun: 0, superseded: 0, published: 0, stale: 0, ended: 0, released: 0, owned: 0 };
@@ -24,8 +27,10 @@ export function createTxns() {
     const was = cur;
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const t = {
-      id: ++ids, meta, over: false, releases: [], disowned: new Set(),
+      id: ++ids, meta, over: false, at: 0, trail: [], releases: [], disowned: new Set(),
       signal: ctl?.signal || null,
+      /** The step the change is in now (a readable name for the trace and the "did not land" warning); changes nothing else. */
+      phase(name, now = nowMs()) { if (t.over) return; t.at = now; if (t.trail.length < PHASE_TRAIL) t.trail.push(name, now); t.name = name; },
       live: () => cur === t && !t.over,
       onRelease(fn) { if (t.over) { try { fn(); } catch (e) { caught('slide-txn:32', e); /* given back already */ } return; } t.releases.push(fn); },
       /** Runs fn only while this is the current transaction; false (and counted stale) otherwise. */
@@ -55,7 +60,13 @@ export function createTxns() {
     }
     return t;
   }
-  return { begin, current: () => cur, stats: () => ({ ...st, id: ids }) };
+  return {
+    begin, current: () => cur,
+    /** Counts, plus the current change's step: { phase, since } (since: ms the step has run; null phase before the first). */
+    stats: (now = nowMs()) => ({ ...st, id: ids, phase: cur?.name || null, since: cur?.name ? Math.max(0, now - cur.at) : 0 }),
+    /** The steps the current change went through, oldest first: [{ phase, at }]. */
+    trail: () => { const o = [], tr = cur?.trail || []; for (let k = 0; k < tr.length; k += 2) o.push({ phase: tr[k], at: tr[k + 1] }); return o; },
+  };
 }
 
 // (createScope lives in scope.js now; re-exported here so the presenter and its tests keep their import.)

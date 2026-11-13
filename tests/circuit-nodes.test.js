@@ -4,12 +4,10 @@ import { stageSource } from './stage-src.js';
 // sits on a dot: every visible dot, with a reading beside it or not, has a box the readings keep out of.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { HIDDEN_EDGES, HIDDEN_NODES, NEEDS_C3, NODE_POS } from '../src/ui/anatomy.js';
 import { nodeEnds, nodeDrawn, drawnAt, leadEnd, dotRadius, dotBox, bareDots } from '../src/ui/circuit-nodes.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const ALL = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id));
 // The stations the circuit gives a dot (stage.js builds one for each of these).
 const STATIONS = NODES.filter((n) => n.kind !== 'wedge' && !HIDDEN_NODES.has(n.id)).map((n) => n.id);

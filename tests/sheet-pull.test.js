@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 // A sheet pulled down by a finger is carried by the compositor (src/ui/sheet-pull.js): the pull is one paused animation whose clock a move of
 // the finger sets, the let-go one animation on the curve that carries the finger's speed on. Nothing is written to the panel's style in a
-// move, and nothing runs in script while the let-go eases (3 Nov 2026: "100% GPU, no glitches").
+// move, and the let-go carries the pull's own clock on, frame by frame, so the GPU frost takes the same number (3 and 13 Nov 2026).
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
 globalThis.window ??= globalThis;
@@ -54,22 +54,35 @@ test('a pull is the mover\'s one paused animation (num-move.js): a number per mo
   assert.equal(el.writes.length, 0, 'the panel\'s style is never written');
 });
 
-test('a let-go lays its animation under the pull before the pull is taken away, and goes back to the stylesheet at its end', () => {
+// Where a pull's animation draws the panel: its first key's offset plus its clock (one px to each ms).
+const posOf = (a) => Number(String(Object.values(a.kf[0])[0]).replace(/^(0px )?(translateY\()?/, '').replace(/(px|px\))$/, '')) + a.currentTime;
+
+// The let-go of a pull is the pull's own number carried on frame by frame on the shared scheduler (frame.js), so the sheet and its GPU frost take
+// the same number in the same frame (13 Nov 2026, iPhone: a swipe-down close "flickers and goes blank": the frost trailed a compositor let-go).
+// A clock and a frame queue stand in for the page's here.
+let now = 1000;
+const frames = [];
+globalThis.performance.now = () => now;
+globalThis.requestAnimationFrame = (f) => { frames.push(f); return frames.length; };
+const tick = (ms) => { now += ms; const q = frames.splice(0); for (const f of q) f(now); };
+const runOut = (ms) => { for (let t = 0; t < ms; t += 16) tick(16); };
+
+test('a let-go carries the pull\'s own animation to rest frame by frame and hands the panel back to the stylesheet at its end', () => {
   const el = fakeEl();
   const pull = moverOf(el, 'translate', 'y');
   pull.set(0, 40);
   let done = 0;
   const r = pullRelease(el, 'translate', pull, 40, 0, 240, 'cubic-bezier(.2, .1, .2, 1)', () => { done++; });
-  const rel = el.made[1];
-  assert.deepEqual(rel.kf, [{ translate: '0px 40px' }, { translate: '0px 0px' }]);
-  assert.equal(rel.opts.duration, 240);
-  assert.equal(rel.opts.easing, 'cubic-bezier(.2, .1, .2, 1)');
-  assert.equal(el.made[0].cancelled, true, 'the pull is taken away once the let-go is in place');
-  assert.equal(rel.cancelled, false);
-  rel.onfinish();
+  assert.equal(el.made.length, 1, 'no second animation: the pull itself is carried');
+  const a = el.made[0];
+  tick(120);
+  const mid = posOf(a);
+  assert.ok(mid > 0 && mid < 40, `part way back: ${mid}`);
+  assert.equal(done, 0);
+  runOut(200);
   assert.equal(done, 1);
-  assert.equal(rel.cancelled, true, 'back at rest the animation lets go of the panel');
-  rel.onfinish();
+  assert.equal(a.cancelled, true, 'back at rest the animation lets go of the panel');
+  runOut(200);
   assert.equal(done, 1, 'its end is told once');
   assert.equal(pullAt(r), 0);
 });
@@ -80,9 +93,10 @@ test('a sheet let go away stays where it lands until the menu takes it off the p
   pull.set(0, 0);
   let done = 0;
   const r = pullRelease(el, 'translate', pull, 120, 600, 220, 'ease', () => { done++; });
-  el.made[1].onfinish();
+  runOut(240);
   assert.equal(done, 1);
-  assert.equal(el.made[1].cancelled, false, 'it holds at the sheet\'s height');
+  assert.equal(el.made[0].cancelled, false, 'it holds at the sheet\'s height');
+  assert.equal(posOf(el.made[0]), 600);
   assert.equal(pullAt(r), 600);
 });
 
@@ -99,8 +113,6 @@ test('where a let-go has the panel now comes from its own clock and curve, never
   assert.equal(pullAt(null), 0);
 });
 
-// Where a pull's animation draws the panel: its first key's offset plus its clock (one px to each ms).
-const posOf = (a) => Number(String(Object.values(a.kf[0])[0]).replace(/^(0px )?(translateY\()?/, '').replace(/(px|px\))$/, '')) + a.currentTime;
 
 // swipeSheet on a panel that animates as above: a touch, moves, a lift.
 function rig({ thumb = false, h = 600 } = {}) {
@@ -142,19 +154,19 @@ test('swipeSheet: a short slow pull eases back, a long one goes and the menu is 
   r.on.pointermove(r.ev(120)); r.on.pointermove(r.ev(140));
   r.on.pointerup(r.ev(0));
   assert.equal(r.closed.length, 0);
-  let rel = r.el.made[1];
-  assert.equal(rel.kf[1].transform, 'translateY(0px)', 'it eases back to rest');
-  assert.equal(rel.opts.duration, 240);
-  assert.equal(r.el.made[0].cancelled, true);
+  assert.equal(r.el.made.length, 1, 'the pull is carried back, no second animation');
+  tick(239);
+  assert.ok(posOf(r.el.made[0]) > 0, 'still on its way at 239 ms');
+  runOut(64);
+  assert.equal(r.el.made[0].cancelled, true, 'it eased back to rest within one D_SMALL');
 
   r = rig({ thumb: true, h: 600 });
   r.on.pointerdown(r.ev(100));
   r.on.pointermove(r.ev(150)); r.on.pointermove(r.ev(260));
   r.on.pointerup(r.ev(0));
   assert.equal(r.closed.length, 1, 'past the line the menu is told');
-  rel = r.el.made[1];
-  assert.equal(rel.kf[1].translate, '0px 608px', 'it goes to its own height and the dock\'s 8 px');
-  assert.equal(rel.opts.duration, 240, 'one sheet time, D_SMALL, over the dock too (W4)');
+  runOut(260);
+  assert.equal(posOf(r.el.made[0]), 608, 'it goes to its own height and the dock\'s 8 px, in one sheet time, D_SMALL, over the dock too (W4)');
 });
 
 test('swipeSheet: a touch while the let-go eases takes the sheet over from where it is drawn, without a jump', () => {
@@ -162,16 +174,17 @@ test('swipeSheet: a touch while the let-go eases takes the sheet over from where
   r.on.pointerdown(r.ev(100));
   r.on.pointermove(r.ev(120)); r.on.pointermove(r.ev(150));
   r.on.pointerup(r.ev(0));
-  const rel = r.el.made[1];
-  rel.currentTime = rel.opts.duration * 0.5;   // (part way back)
-  const here = pullAt({ a: rel, from: 50, to: 0, ms: rel.opts.duration, ease: (k) => k, over: false });
-  assert.ok(here > 0 && here < 50);
+  tick(120);   // (part way back)
+  const a = r.el.made[0];
+  const here = posOf(a);
+  assert.ok(here > 0 && here < 30, `${here}`);
   r.on.pointerdown(r.ev(100 + here));
   r.on.pointermove(r.ev(100 + here + 10));
-  const pull = r.el.made[2];
-  assert.ok(pull.paused);
-  assert.ok(posOf(pull) > 0 && posOf(pull) < 60, `the new pull carries on from where the sheet was drawn: ${posOf(pull)}`);
-  assert.equal(rel.cancelled, true, 'and the old let-go is taken away');
+  assert.ok(a.paused);
+  const at = posOf(r.el.made[r.el.made.length - 1]);
+  assert.ok(Math.abs(at - here) < 1e-6, `the new pull carries on from where the sheet was drawn: ${at} vs ${here}`);
+  runOut(400);
+  assert.ok(Math.abs(posOf(r.el.made[r.el.made.length - 1]) - here) < 1e-6, 'and the old let-go no longer moves it');
 });
 
 test('the sheet\'s drag source writes no style or variable in a move and starts no frame loop', () => {

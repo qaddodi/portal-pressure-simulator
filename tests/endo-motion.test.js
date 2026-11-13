@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FADE_MS, DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide } from '../src/ui/endo-motion.js';
+import { FADE_MS, SIZE_TAU_MS, DEFLATE_TAU_MS, BAND_TAU_MS, BAND_DELAY_MS, fadeIn, glide } from '../src/ui/endo-motion.js';
+import { D_SMALL, D_FLIP } from '../src/ui/motion.js';
 
 test('a new field fades in smoothly, from nothing to full', () => {
   assert.equal(fadeIn(0), 0);
@@ -22,11 +23,20 @@ test('the balloon and the jet glide to on and off and land exactly', () => {
   }
 });
 
-test('banding eases: the band follows the deflating vein, nothing snaps', () => {
-  assert.ok(DEFLATE_MS >= 300 && BAND_MS >= 300 && BAND_DELAY_MS > 0);
+test('the scope view moves by one rule, a follow: the field fades over D_SMALL, banding follows a beat after the deflating vein, nothing snaps', () => {
+  assert.equal(FADE_MS, D_SMALL);
+  assert.ok(SIZE_TAU_MS > 0 && DEFLATE_TAU_MS > 0 && BAND_TAU_MS > 0 && BAND_DELAY_MS > 0);
+  assert.equal(BAND_DELAY_MS, D_FLIP, 'the band cinches in one flip step after the vein starts');
   const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(src, /tween\(an\.kn\[i\], knT\[i\], now, BAND_MS/);
-  assert.doesNotMatch(src, /tween\([^)]*, now, 1, 0\)/, 'no tween runs in 1 ms (a snap)');
+  assert.match(src, /tween\(an\.kn\[i\], knT\[i\], wall, dt \* 1000, BAND_TAU_MS, knT\[i\] \? BAND_DELAY_MS : 0\)/);
+  assert.doesNotMatch(src, /const ease = \(t\) => \(t < 0\.5/, 'no fixed cubic tween beside the follow');
+  // A tween is a follow with a delay: it holds for the delay, then lands exactly (glide's own rule), and a new target turns it round without a jump.
+  let cur = 0, at = 0, to = 1, wall = 0;
+  const step = (dtMs) => { wall += dtMs; if (wall < at) return cur; cur = glide(cur, to, dtMs, BAND_TAU_MS); return cur; };
+  at = BAND_DELAY_MS;
+  for (let i = 0; i < 6; i++) assert.equal(step(16), 0, 'holds for the beat');
+  let prev = 0, n = 0; while (cur !== 1 && n++ < 1000) { const v = step(16); assert.ok(v >= prev && v - prev < 0.2); prev = v; }
+  assert.equal(cur, 1);
   // The balloon and the jet are drawn at their easing strength, not on a bare on/off.
   assert.match(src, /if \(balA > 0\)/);
   assert.match(src, /if \(jetA > 0 && bleedLast\)/);

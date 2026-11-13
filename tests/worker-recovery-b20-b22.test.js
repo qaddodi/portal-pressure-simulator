@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // worker is terminated and its running injections go on locally). Fake workers, so the message order is driven by hand.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createSweepClient } from '../src/ui/sweep-client.js';
 import { DYE_BINS } from '../src/ui/blood.js';
 

@@ -56,7 +56,7 @@ test('the CSPH plane follows Baveno VIII: 15 and 150 rule out, 25 rules in, unde
   assert.equal(pl.boxes, undefined);
   assert.deepEqual(pl.cuts, { x: [15, 25], y: [150] });
   assert.ok(pl.x.ticks.includes(20), '20 stays a plain axis number');
-  assert.deepEqual(zoneRect(pl, pl.zones[1]), [0, 15, 150, 300]);
+  assert.deepEqual(zoneRect(pl, pl.zones[1]), [5, 15, 150, 250]);   // (the guideline card's ranges, baveno-zones.js)
   // (The plan's own spelling of the field.)
   assert.equal(planeOf({ x: 'lsm', y: 'plt', zones: 'csph' }).zones.length, 3);
   assert.equal(planeOf({ x: 'hvpg', y: 'ppg' }).x.key, 'hvpg');
@@ -79,7 +79,7 @@ test('the model\'s compensated patients fall where the stiffness deck says', asy
 });
 
 test('words fit whole or not at all, and names never overlap one another or leave the plot', () => {
-  assert.deepEqual(fitWords('Gray zone', 200, 13), ['Gray zone']);
+  assert.deepEqual(fitWords('Indeterminate zone', 200, 13), ['Indeterminate zone']);
   assert.deepEqual(fitWords('No screening scope', 80, 13), ['No', 'screening', 'scope']);
   assert.equal(fitWords('Unbreakableveryveryverylongword', 60, 13), null);
   const fr = frame(360, 260);

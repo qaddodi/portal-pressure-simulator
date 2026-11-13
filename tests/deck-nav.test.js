@@ -76,8 +76,12 @@ test('the Guide lists the presenter\'s keys, and ? opens it there while presenti
   for (const k of ["lk === 'g'", "lk === 'f'", "lk === 'b'", "k === 'Home'", "k === 'End'", "k === 'Escape'"]) assert.ok(onKey.includes(k), `the Guide lists a key the presenter has: ${k}`);
 });
 
-test('the phone\'s Settings sheet carries Help as well as Search', () => {
-  assert.match(main, /menuItem\('Search', \{ icon: 'search'[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => \{ closePopover\(\); openHelpMenu\(anchor, \{ place: 'above'/);
+test('the phone\'s Settings sheet carries History and Help, and Search is a tab of the dock\'s tab row in History\'s old place', () => {
+  // (13 Nov 2026, menu recs P4: History and Help are pages pushed inside the Settings sheet, not sheets of their own.)
+  assert.match(main, /menuItem\('History', \{ icon: 'clock'[^\n]*menuPush\('Settings', 'History', timeline\.historyBody\(\)\)[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => menuPush\('Settings', 'Help', helpRows\(\)\)/);
+  assert.doesNotMatch(main, /menuItem\('Search'/);
+  assert.match(main, /tab\('search', 'search', 'Search', \(\) => \{ if \(palette\.isOpen\(\)\) \{ palette\.close\(\); return; \} clear\(\); palette\.open\(\); \}\)/);
+  assert.match(main, /treat, tests, find, layers, more\)/);
 });
 
 test('every deck\'s outline lists three to five sections, and the circuit talk places each slide in one', () => {

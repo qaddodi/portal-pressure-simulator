@@ -38,6 +38,6 @@ test('the leaders follow a label along the glide\'s own curve', () => {
   const sync = between('function syncLeaders()', '// ── Frame loop');
   assert.doesNotMatch(sync, /offset(Left|Top|Width|Height|Parent)|getAnimations/);
   assert.match(sync, /seenAt\(L, now\)/);
-  assert.match(src, /const EASE_LAB = cubicBezier\(0\.2, 0\.8, 0\.2, 1\);/, 'app.css --ease (ease-arrive) on the labels\' left and top');
+  assert.match(src, /const EASE_LAB = easeArrive;/, 'app.css --ease (ease-arrive, ease.js easeArrive) on the labels\' left and top');
   assert.match(src, /EASE_LAB\(clamp\(\(now - g\.t0\) \/ D_SURFACE, 0, 1\)\)/);
 });

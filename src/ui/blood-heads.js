@@ -21,14 +21,29 @@
 // apart) and the rows it already has (flow, rad, tube). The instance list (createHeadList) is (row, k, run) per possible head, sized
 // from each vessel's length on the CPU and made again only when a size changes.
 
-/** The closest two heads of one run ever stand along their stream (chevOne: the level is at least log2 2.5 above 0, so 28 · 2). */
-export const P_MIN = 56;
+import { CHEV_PITCH, CHEV_PITCH_GLSL, headInksGLSL } from './chevron-glsl.js';
+
+/** The closest two heads of one run ever stand along their stream (chevLevel: the level is at least -1, so 14 world units). */
+export const P_MIN = 14;
+
+/** The spacing rule of chevron-glsl.js, in JS (for the node trace, scripts/chevron-trace.mjs, and the tests): chevLevel and chevKeep. */
+export function headLevel(pxW, cssPx, B, stillLv = -1) {
+  const Pt = CHEV_PITCH * cssPx * pxW;
+  return { lv: Math.max(Math.max(-1, Math.log2(Pt * Math.abs(B) / 28)), stillLv), Pt };
+}
+export function headKeep(j, n0, lv) {
+  let m = 0, q = Math.abs(j);
+  for (let i = 0; i < 10; i++) { if (q < 0.5 || q % 2 > 0.5) break; q *= 0.5; m += 1; }
+  if (q < 0.5) m = 10;
+  return Math.min(1, Math.max(0, 2 ** (1 - (lv - n0 - m)) - 1));
+}
 
 /**
  * The quads' vertex shader. zoom: ZOOM_VS (pxW and the composite's zoom outputs, which the composite build declares as inputs);
- * along: ALONG_GLSL; rows: ROWS_GLSL (radAt, flowD, rootDD); orange: CHEV_ORANGE_GLSL; nSamples: N_SAMPLES.
+ * along: ALONG_GLSL; rows: ROWS_GLSL (radAt, flowD, rootDD); orange: CHEV_ORANGE_GLSL; nSamples: N_SAMPLES; pitch: the text of
+ * chevron-glsl.js chevLevel and chevKeep (CHEV_PITCH_GLSL).
  */
-export function headVS({ zoom, along, rows, orange, nSamples }) {
+export function headVS({ zoom, along, rows, orange, nSamples, pitch = CHEV_PITCH_GLSL }) {
   // alloc-rare: assembles the shader text once when the renderer's programs are made (veins-gl.js), never per frame
   return `#version 300 es
 precision highp float;
@@ -40,18 +55,21 @@ uniform vec2 size;
 uniform highp sampler2D flow;
 uniform highp sampler2D rad;
 uniform highp sampler2D tube;
-uniform highp sampler2D axis;          // per vessel: its axis, ${nSamples} points (x, y), equal arc apart (veins-gl setBend)
+uniform highp sampler2D axis;          // per vessel: its axis, ${nSamples} points (x, y), equal arc apart (veins-gl setBend); then its heads' run (setHeadRuns)
 uniform highp float bT;
 uniform int still;
 uniform float cssPx;
 uniform vec3 chevInk, chevLight, revCol, inkLight;
+uniform vec3 blendA;                   // (the origin lens's share, in z: chevInks)
+uniform int origin;
 ${zoom}
 ${along}
 ${rows}
-${orange}
+${headInksGLSL(orange)}
+${pitch}
 flat out vec4 hC;                      // the head's centre (world) and the way it points (unit)
-flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row
-flat out vec3 hInk, hRim;              // the colours of its core and of its light rim
+flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row, its reversed flag (0 … 1)
+flat out vec3 hInk, hRim;              // the colours of its core and of its rim
 const int N_LAST = ${nSamples - 1};
 void main() {
   zoomOut();
@@ -61,32 +79,53 @@ void main() {
   bool root = head.z > 0.5;
   vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
   if (f1.z <= 0.0) return;
-  // (chevAt: one size and one spacing for the whole vessel, from its caliber midway.)
+  // (chevAt: one size for the whole vessel, from its caliber midway; the spacing is the screen's, chevPitch.)
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
   if (R < 1.3 * pxW) return;
-  // (A stream carried on from another vessel: the root's heads, mixed with the vessel's own by the link's weight. Reduced motion: each its own.)
+  // (A stream carried on from another vessel: the root's heads while the vessel has any link (flow texel 4, w), its own otherwise; never the
+  // two mixed: the streaks cross-fade through a link as it forms or lets go, the heads move onto the new stream where the old one stood
+  // and ease from there (the axis texture's last column: the offset added to A, and B; stage-blood.js chainRows). Reduced motion: each its own.)
   vec4 ch4 = texelFetch(flow, ivec2(4, id), 0), ch5 = texelFetch(flow, ivec2(5, id), 0);
+  vec2 ch8 = texelFetch(axis, ivec2(N_LAST + 1, id), 0).xy;
   float cw = still == 1 ? 0.0 : ch4.w;
-  float wRun = root ? cw : 1.0 - cw;
-  if (wRun <= 0.0) return;
-  float Dm, Rsp = R, A = 0.0, B = 1.0, runDir = 0.0;   // (runDir: the way a root run's heads travel along this vessel)
+  if (root != (cw > 0.0)) return;
+  float Dm, A, B, runDir;   // (runDir: the way the run's heads travel along this vessel)
+  int rid = -1;
   if (root) {
-    int rid = int(ch4.x + 0.5) - 1;
+    rid = int(ch4.x + 0.5) - 1;
     Dm = rootDD(rid, ch5.xy).x;
-    Rsp = max(texelFetch(rad, ivec2(N_LAST / 2, rid), 0).r, 0.3);
-    A = ch4.y; B = ch4.z;
+    A = ch4.y + ch8.x; B = ch8.y != 0.0 ? ch8.y : ch4.z;
     runDir = texelFetch(flow, ivec2(0, rid), 0).y * B < 0.0 ? -1.0 : 1.0;   // (the root's speed over B: the stream carries the heads that way)
-  } else Dm = flowD(id, f0.x, f0.y);
+  } else {
+    Dm = flowD(id, f0.x, f0.y);
+    A = ch8.x; B = ch8.y != 0.0 ? ch8.y : 1.0;
+    runDir = f0.y * B < 0.0 ? -1.0 : 1.0;
+  }
   if (abs(B) < 1e-4) return;
-  // (chevOne's spacing: a power-of-two multiple of 28 world units, 2.5 times as far apart as the zoom and the flow alone set them; every
-  // other head fades as the level rises.)
-  float lv = max(0.0, log2(max(3.6 * Rsp, 60.0 * pxW) / 28.0));
-  if (still == 1) lv = max(lv, texelFetch(flow, ivec2(3, id), 0).y);
-  float Pc = 28.0 * exp2(lv);
-  lv += 1.3219281;
-  float n = floor(lv), fr = lv - n;
-  float P = 28.0 * exp2(n);
+  // (chevLevel: one spacing on screen for every vessel and run; reduced motion's still heads spaced by flow, 2.5 times its level's 28 units.)
+  float stillLv = still == 1 ? texelFetch(flow, ivec2(3, id), 0).y + 1.3219281 : -1.0;
+  vec2 lw = chevLevel(pxW, cssPx, B, stillLv);
+  // (The level the stage holds for this row, a whole number at rest: stage-blood.js headRun. Without it, the zoom's own.)
+  vec2 lr = texelFetch(axis, ivec2(N_LAST + 2, id), 0).xy;
+  float lvOwn = lr.y > 0.5 ? max(lr.x, stillLv) : lw.x, Pt = lw.y, lvUp = lvOwn, eu = 0.0;
+  // A root run comes in through its upstream join at the level its parent draws the same stream at (the parent's own B on it, or its own
+  // stream's where the parent is the root): from there it eases to its own over one spacing, so a head running into a slower or faster
+  // branch keeps its strength as it crosses and thins or fills out along the way, instead of fading in a frame at the join.
+  if (root) {
+    eu = clamp(runDir > 0.0 ? ch5.z : ch5.w, 0.0, 1.0);
+    int pid = int(texelFetch(flow, ivec2(3, id), 0).w + 0.5) - 1;
+    if (eu > 0.0 && pid >= 0) {
+      vec4 p4 = texelFetch(flow, ivec2(4, pid), 0);
+      float pB = texelFetch(axis, ivec2(N_LAST + 1, pid), 0).y;
+      bool same = pid == rid || (abs(p4.x - ch4.x) < 0.5 && p4.w > 0.0);
+      float Bp = same ? (pB != 0.0 ? pB : (pid == rid ? 1.0 : p4.z)) : 1.0;
+      vec2 pl = texelFetch(axis, ivec2(N_LAST + 2, pid), 0).xy;
+      lvUp = !same ? lvOwn : pl.y > 0.5 ? max(pl.x, stillLv) : chevLevel(pxW, cssPx, Bp, stillLv).x;
+    } else eu = 0.0;
+  }
+  float n0 = floor(min(lvOwn, mix(lvOwn, lvUp, eu)));
+  float P = 28.0 * exp2(n0);
   // The heads stand at stream positions se = Dm + j P; this vessel's arc s maps to se = A + B s. The run starts one spacing before the
   // vessel's start, so k = 0, 1, … covers it (the list gives each row enough: createHeadList).
   float seLo = min(A, A + B * len) - P;
@@ -95,9 +134,15 @@ void main() {
   float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;
   float reach = 0.6 * L + 0.15 * hw + 4.0 * pxW;   // (how far along a head and its rim reach: chevOne's bound)
   if (sc < -reach || sc > len + reach) return;
-  float keep = mod(j, 2.0) > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
-  // Toward either end a head fades out (and the next vessel's fades in); through a chained end it runs on (chevOne).
-  float lo = 0.6 * L, ramp = max(2.0 * L, 0.3 * Pc), endF;
+  // (A head from the parent keeps the parent's level for about a head's length past the join, and takes this vessel's within a few CSS px
+  // of travel there: a head that the slower branch thins out leaves at the join itself, never mid-vessel or along a faint run.)
+  float cut = min(1.2 * L, 0.45 * len), cwid = min(0.03 * Pt, 0.5 * cut);
+  float lvAt = mix(lvOwn, mix(lvUp, lvOwn, smoothstep(cut - cwid, cut + cwid, runDir > 0.0 ? sc : len - sc)), eu);
+  float keep = chevKeep(j, n0, lvAt);
+  if (keep <= 0.0) return;
+  // Toward either end a head fades out (and the next vessel's fades in); through a chained end it runs on (chevOne). (The ramp: an
+  // eighth of the spacing, as chevOne's 0.3 of a level below its 2.5 times.)
+  float lo = 0.6 * L, ramp = max(2.0 * L, 0.12 * Pt), endF;
   vec2 ends = ch5.zw;
   if (ends.x <= 0.0 && ends.y <= 0.0) {
     float e = min(sc, len - sc);
@@ -108,10 +153,10 @@ void main() {
     endF = min(mix(a0, 1.0, clamp(ends.x, 0.0, 1.0)), mix(a1, 1.0, clamp(ends.y, 0.0, 1.0)));
     if (endF <= 0.0) return;
   }
-  float vd = f0.y, dir = root ? runDir : (vd < 0.0 ? -1.0 : 1.0);   // (the heads point the way they travel: this stream's own speed, or the root's over B)
+  float vd = f0.y, dir = runDir;   // (the heads point the way they travel: this stream's own speed, or the root's, over B)
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // (Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.)
-  fade *= smoothstep(0.85 * hw, 1.15 * hw, radAt(id, sc, len)) * wRun;
+  fade *= smoothstep(0.85 * hw, 1.15 * hw, radAt(id, sc, len));
   if (fade <= 0.0) return;
   // The point on the axis and the way it runs there (past an end: on along the end's own direction, where a head runs through a join).
   float u = clamp(sc / len, 0.0, 1.0) * float(N_LAST);
@@ -123,19 +168,16 @@ void main() {
   tg /= tl;
   vec2 c = mix(p0, p1, u - float(i0)) + tg * (sc - clamp(sc, 0.0, len));
   vec2 t = tg * dir, nn = vec2(-t.y, t.x);
-  float ea = reach + 2.0 * pxW, ec = 1.1 * hw + 3.8 * pxW;   // (the quad: the head, its rim and two pixels more)
+  float ea = reach + 2.0 * pxW + 0.4 * L * f1.w, ec = 1.1 * hw + 3.8 * pxW;   // (the quad: the head, its rim and two pixels more)
   vec2 q = corner * 2.0 - 1.0;
   vec3 d = world * vec3(c + t * (q.x * ea) + nn * (q.y * ec), 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  // Its colours (the composite's: a dark core tinted a fifth toward a deep shade of the vessel, orange if reversed, cream on an
-  // orange vessel; a light rim), from the vessel's colour at the head.
+  // Its colours (chevron-glsl.js headInksGLSL: forward near-black on a light lumen and cream on a dark one, reversed orange, cream on an
+  // orange vessel; the rim sepia on a light lumen and cream on a dark one), from the vessel's colour at the head.
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, alongAt(id, clamp(sc / len, 0.0, 1.0)));
-  vec3 ink = mix(chevInk, vc * 0.3, 0.2);
-  float rv = f1.w, warm = rv * chevOrange(vc);
-  hRim = mix(inkLight, vc * 0.45, warm);
-  hInk = mix(mix(ink, revCol, rv), chevLight, warm);
+  chevInks(vc, f1.w, hInk, hRim);
   hC = vec4(c, t);
-  hS = vec4(hw, fade, float(id), 0.0);
+  hS = vec4(hw, fade, float(id), f1.w);   // (w: the eased reversed flag, for the » pair behind a reversed head)
 }`;
 }
 
@@ -193,7 +235,7 @@ void main() {
   if (wt <= 0.0) discard;
   vec2 w = (inv * vec3(FC.x, H - FC.y, 1.0)).xy;
   vec2 dw = w - hC.xy;
-  vec2 c = chevHead(dot(dw, hC.zw), abs(dot(dw, vec2(-hC.w, hC.z))), hS.x, pxW) * (hS.y * wt);
+  vec2 c = chevHead(dot(dw, hC.zw), abs(dot(dw, vec2(-hC.w, hC.z))), hS.x, pxW, hS.w) * (hS.y * wt);
   if (c.x + c.y <= 0.0) discard;
   // None under a figure reading on its vessel, nor round a stent point (the composite's cut-outs, a pixel of antialiasing).
   for (int i = 0; i < 12; i++) {
@@ -228,20 +270,23 @@ void main() {
  * root stream, the root's run (its heads stand P / |B| apart along the vessel). update() returns true when the list changed (then
  * data() holds count() × 3 floats: row, k, run), false when every row's count is as it was.
  *   has: rows with an axis; bloodRow: rows carrying blood; tube: the rows' attributes (rowW floats a row; texel 5 z the length);
- *   flow: the flow rows as uploaded (stride floats a row; texel 4: root + 1, A, B, weight), or null.
+ *   flow: the flow rows as uploaded (stride floats a row; texel 4: root + 1, A, B, weight), or null; runs: the heads' runs (veins-gl
+ *   setHeadRuns: 2 floats a row, the offset and B), or none.
  */
 export function createHeadList(nTubes) {
   const kOwn = new Int32Array(nTubes), kRoot = new Int32Array(nTubes);   // alloc-rare: once per renderer
   let data = new Float32Array(0), n = 0;   // alloc-rare: once per renderer
   return {   // alloc-rare: once per renderer
-    update(has, bloodRow, tube, rowW, flow, stride) {
+    update(has, bloodRow, tube, rowW, flow, stride, runs) {
       let ch = false;
       for (let r = 0; r < nTubes; r++) {
         let ko = 0, kr = 0;
         if (has[r] && bloodRow[r]) {
-          const len = Math.max(tube[r * rowW + 22] || 0, 1);
-          ko = Math.ceil(len / P_MIN) + 3;
-          if (flow && flow[r * stride + 19] > 0) kr = Math.ceil(len * Math.max(Math.abs(flow[r * stride + 18]), 1e-3) / P_MIN) + 3;
+          // (A run's heads stand P / |B| apart along the vessel, B its own (runs: while it eases after a hand-over) or 1 and the link's;
+          // counted in fours, so a B easing by a little does not send a new list every frame.)
+          const len = Math.max(tube[r * rowW + 22] || 0, 1), bh = runs ? Math.abs(runs[r * 4 + 1] || 0) : 0;
+          ko = Math.ceil((Math.ceil(len * Math.max(1, bh) / P_MIN) + 3) / 4) * 4;
+          if (flow && flow[r * stride + 19] > 0) kr = Math.ceil((Math.ceil(len * Math.max(Math.abs(flow[r * stride + 18]), bh, 1e-3) / P_MIN) + 3) / 4) * 4;
         }
         if (ko !== kOwn[r] || kr !== kRoot[r]) { kOwn[r] = ko; kRoot[r] = kr; ch = true; }
       }

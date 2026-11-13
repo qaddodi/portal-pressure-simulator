@@ -1,5 +1,17 @@
 {
  "note": "Line counts the three big files may not pass (PR-09). The numbers only go down: a feature that needs room first moves code out into its own module, then lowers the number here in the same commit. node scripts/rules-lint.mjs --tighten lowers each to today's count.",
- "files": { "src/ui/stage*": 17325, "src/ui/stage.js": 3299, "src/ui/presenter.js": 6251, "styles/app.css": 7461
+ "files": {
+  "src/ui/stage*": 17325,
+  "src/ui/stage.js": 3299,
+  "src/ui/presenter.js": 6251,
+  "styles/app.css": 7461
+ },
+ "firstLoad": {
+  "note": "What the first visit fetches before the first picture (scripts/build.mjs). Gzip is what is sent: the target of 13 Nov 2026 is under 1 MB of script and 150 KB of CSS as sent. Raw ceilings sit just above today's (2385 KB script, 591 KB CSS, 143 files) and only come down. Over one: a warning, an error where BUILD_STRICT is set.",
+  "scriptGzKB": 1000,
+  "cssGzKB": 150,
+  "scriptKB": 2480,
+  "cssKB": 620,
+  "preloads": 150
  }
 }

@@ -106,8 +106,8 @@ test('origin: a vessel whose flow only runs one way is one blood end to end', ()
   assert.ok(ORIGIN_PE_FADE[0] < ORIGIN_PE_FADE[1]);
 });
 
-test('origin: after a splenectomy or a Warren shunt the to-and-fro proximal splenic vein mixes IMV into SMV blood along it', () => {
-  for (const params of [{ splenicRx: 2 }, { dsrs: true }]) {
+test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV into SMV blood along it', () => {
+  for (const params of [{ splenicRx: 2 }]) {
     const m = originMix('cirr-decomp', params), pe = m.pe('SV_CONF'), up = m.up('SV_CONF'), down = m.down('SV_CONF');
     assert.ok(pe !== 0 && Math.abs(pe) < ORIGIN_PE_FADE[0], `${JSON.stringify(params)}: Pe ${pe}`);
     // (Upstream is the splenic end while the mean runs toward the confluence, the confluence end while it runs back.)
@@ -117,6 +117,14 @@ test('origin: after a splenectomy or a Warren shunt the to-and-fro proximal sple
     // The superior mesenteric vein beside it still runs one way: one blood.
     assert.equal(m.pe('SMV_CONF'), 0);
   }
+});
+
+// (The Warren shunt ties off the coronary vein too, 7 Nov: the portal pressure then drives the proximal splenic vein back toward the
+// gastric collateral steadily, past the mix's fade, so it reads one blood end to end and no longer flips between IMV and SMV.)
+test('origin: after a Warren shunt the proximal splenic vein is one blood end to end, not flipping between IMV and SMV', () => {
+  const m = originMix('cirr-decomp', { dsrs: true });
+  assert.equal(m.pe('SV_CONF'), 0);
+  assert.deepEqual(m.down('SV_CONF'), m.up('SV_CONF'));
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {
@@ -221,4 +229,66 @@ test('B3: a reversal shows only once it has held for a breath; flapping with the
   // Paused (model time stands still): nothing turns.
   at(1, 60); at(1, 60); at(1, 60);
   assert.equal(h.hold[0], 0);
+});
+
+// The First pass lens (colorMode 'firstpass'): the same pass with other channels: 0 gut blood the liver has not cleaned, 1 gut blood
+// the sinusoids have, 3 the hepatic artery's.
+function firstPass(preset, params) {
+  const e = new Engine(); e.loadPreset(preset); if (params) { e.setParams({ ...e.params, ...params }); e.settle(); }
+  const n = EDGES.length, ends = { slosh: new Float64Array(n), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n) };
+  const up = originFractionsInto(EDGES, NODES, e.Q, e.P, new Float32Array(n * ORIGIN_N), ends, true);
+  const at = (arr, id) => Array.from(arr.slice(EI[id] * ORIGIN_N, EI[id] * ORIGIN_N + ORIGIN_N));
+  return { e, up: (id) => at(up, id), down: (id) => at(ends.down, id), pe: (id) => ends.pe[EI[id]] };
+}
+
+test('first pass: in health the gut blood is raw in the portal vein, cleared in the hepatic veins, and none of it reaches the heart raw', () => {
+  const m = firstPass('healthy');
+  const pv = m.up('PV_TRUNK');
+  assert.ok(pv[0] > 0.97 && pv[1] === 0, `portal vein: all raw ${pv}`);
+  const hv = m.up('RHV_IVC');
+  assert.ok(hv[1] > 0.3 && hv[0] < 0.005, `hepatic vein: cleared gut blood, none raw ${hv}`);
+  const ra = m.up('IVCS_RA');
+  assert.ok(ra[0] < 0.005 && ra[1] > 0.05, `right atrium: cleared gut blood only ${ra}`);
+  const sin = m.up('SIN_RR'), out = m.down('SIN_RR');
+  assert.ok(sin[0] > 0.4 && sin[1] === 0, `sinusoid inlet raw ${sin}`);
+  assert.ok(out[0] === 0 && Math.abs(out[1] - (sin[0] + sin[1])) < 1e-5, `sinusoid outlet cleared ${out}`);
+  assert.ok(m.pe('SIN_RR') > 0 && m.pe('SIN_RR') < 0.05, 'a sinusoid cleans along its length, a straight blend');
+});
+
+test('first pass: blood that reaches the cava by a collateral or a stent stays raw', () => {
+  const h = firstPass('healthy');
+  const c = firstPass('cirr-decomp');
+  const azy = c.up('AZY_SVC');
+  assert.ok(azy[0] > 0.5 && azy[1] < 1e-4, `azygos carries raw gut blood ${azy}`);
+  assert.ok(c.up('SVC_RA')[0] > 0.05 && h.up('SVC_RA')[0] < 0.005, 'raw gut blood reaches the right atrium by the collaterals, and not in health');
+  assert.ok(c.up('IVCS_RA')[0] > 0.05 && c.up('IVCS_RA')[1] > 0.05, 'the cava holds both: collateral blood raw, hepatic blood cleared');
+  const t = firstPass('cirr-decomp', { tips: { on: true, d: 8 } });
+  const tips = t.up('TIPS');
+  assert.ok(tips[0] > 0.7 && tips[1] < 1e-4, `the stent carries raw gut blood ${tips}`);
+  assert.ok(t.up('RHV_IVC')[0] > 0.05, 'and it reaches the hepatic vein raw');
+});
+
+test('first pass: the origin lens is unchanged by it', () => {
+  const e = new Engine(); e.settle();
+  const a = originFractions(EDGES, NODES, e.Q, e.P), b = originFractions(EDGES, NODES, e.Q, e.P, false);
+  firstPass('healthy');
+  assert.deepEqual(Array.from(originFractions(EDGES, NODES, e.Q, e.P)), Array.from(a));
+  assert.deepEqual(Array.from(b), Array.from(a));
+});
+
+// A shunt drawn into a vein's side part-way (the splenorenal shunt into the left renal vein's venules, stage-geo.js SIDE_HOSTS): from the
+// join on, the vein carries its downstream node's blend, which holds the shunt's blood (the renal vein stayed slate blue past the join).
+test('origin: a vein a shunt runs into part-way carries the shunt\'s blood from the join on, in both lenses', () => {
+  const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams({ ...e.params, spontaneous: { C6: true }, diuretics: false }); e.settle();
+  const n = EDGES.length, kh = EI.V_KID_L;
+  assert.ok(e.Q[EI.C6] > 1 && e.Q[kh] > 0, 'the shunt flows into the renal vein');
+  for (const pass of [false, true]) {
+    const mk = (j) => { const ends = { slosh: new Float64Array(n), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n), join: new Float32Array(n) }; ends.join[kh] = j; const up = originFractionsInto(EDGES, NODES, e.Q, e.P, new Float32Array(n * ORIGIN_N), ends, pass); return { up, ends }; };
+    const none = mk(0), at = mk(0.4);
+    assert.equal(none.ends.pe[kh], 0, 'no join, no step');
+    assert.ok(Math.abs(at.ends.pe[kh] - 10.4) < 1e-4, `pe ${at.ends.pe[kh]}`);
+    const upK = Array.from(at.up.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N)), dn = Array.from(at.ends.down.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N));
+    assert.ok(upK[0] + upK[1] + upK[2] + upK[3] < 1e-4, `the kidney's blood is systemic ${upK}`);
+    assert.ok(dn[0] + dn[1] + dn[2] > 0.3, `after the join it holds the shunt's gut blood ${dn}`);
+  }
 });

@@ -15,6 +15,8 @@ const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > but
 // Pills that grow reveal their new width from the old one instead of snapping wide.
 const GROW = '.tb-id, .top-right, #viewSeg';
 const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
+// (What was on screen already and is displaced travels on the move curve and adds to a glide still running; EASE, the arrive curve, is for what comes in.)
+const ROW_MOVE = { duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' }, BAR_MOVE = { duration: MOVE_MS, easing: EASE_MOVE, composite: 'add' };
 const SETTLE_MS = 400;   // (how long a bar that has just come into view takes its layout as it comes, unglided: keep(), below)
 // The lens pill (the Layers and Blood chips and the colour key) glides its plate to a new width on the key's own clock (a new lens
 // takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
@@ -90,7 +92,8 @@ export function initTopbarMotion() {
       const t = tot.get(el), s = snap.get(el), n = next.get(el);
       if (t && s?.vis && n?.vis) t.x += (s.x + s.w - n.x - n.w) - (s.x - n.x);
     }
-    for (const el of next.keys()) for (const a of el.getAnimations()) if (a.id === 'tbm') a.cancel();
+    // (A glide still running is not cancelled: the new one is added to it, composite 'add', so a second change carries on at the speed the first
+    // had instead of starting again from the top of a curve. The new one is only the move since the layout the running one was aimed at.)
 
     for (const [el, n] of next) {
       const s = snap.get(el), p = trackedParent(el, next), ps = p && snap.get(p), pn = p && next.get(p);
@@ -103,10 +106,10 @@ export function initTopbarMotion() {
         ghost(el, s, { own, tot, next });
       } else if (n.vis && s?.vis) {
         const t = tot.get(el), pt = p && tot.get(p);
-        const dx = t.x - (pt ? pt.x : 0), dy = t.y - (pt ? pt.y : 0);
+        const o = own.get(el), dx = t.x - o.x - (pt ? pt.x : 0), dy = t.y - o.y - (pt ? pt.y : 0);
         const frames = [];
         if (Math.abs(dx) >= 1.5 || Math.abs(dy) >= 1.5) frames.push({ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' });
-        if (frames.length) { const a = el.animate(frames, inRow(el) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
+        if (frames.length) { const a = el.animate(frames, inRow(el) ? ROW_MOVE : BAR_MOVE); a.id = 'tbm'; }
         if (el === row && Math.abs(t.dw) > 2) {
           const face = row.querySelector(':scope > .tb-face');
           if (face) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
@@ -115,7 +118,7 @@ export function initTopbarMotion() {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
-          if (face) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
+          if (face) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE_MOVE });
           else if (!face) ghost(el, s, { own, tot, next }, true);
         }
         if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
@@ -178,7 +181,7 @@ export function initTopbarMotion() {
   // as the plate covers it, by its opacity (coverage of its box by the moving edge, sampled on the glide's curve). No clip-path.
   const LOOK = ['backgroundColor', 'backgroundImage', 'boxShadow', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'];
   function growPill(el, s, n, next) {
-    const timing = { duration: MOVE_MS, easing: EASE };
+    const timing = { duration: MOVE_MS, easing: EASE_MOVE };
     let face = el.querySelector(':scope > .tb-face:not([data-ghost])'), lent = null;
     if (!face) {
       const cs = getComputedStyle(el);
@@ -235,7 +238,7 @@ export function initTopbarMotion() {
     st.left = `${s.x + o.x + cx - base.x}px`; st.top = `${s.y + o.y + cy - base.y}px`;
     const pt = tot.get(op);
     if (pt && (Math.abs(pt.x) >= 1.5 || Math.abs(pt.y) >= 1.5)) {
-      g.animate([{ transform: `translate(${-pt.x}px, ${-pt.y}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
+      g.animate([{ transform: `translate(${-pt.x}px, ${-pt.y}px)` }, { transform: 'none' }], inRow(op) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE_MOVE }).id = 'tbm';   // (counter-glide: the same time and curve as the parent's, else the ghost drifts)
     }
     const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN, fill: 'forwards' });
     a.id = 'tbm'; a.onfinish = a.oncancel = () => removeSoon(g);

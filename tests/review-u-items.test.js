@@ -25,7 +25,7 @@ test('U8: the Why? sentence reads aloud: no nested brackets, no arrows, "above h
   assert.match(s, /[\d.]+ is taken off by the collaterals\.$/, s);
   // The bars' names are short, with the amount kept for the tooltip ("Cirrhosis 60 %").
   for (const c of explain(e, 'hvpg').contributions) assert.doesNotMatch(c.label, /[():]/, c.label);
-  assert.match(read('../src/ui/why.js'), /'Working out what drives it…'/);
+  assert.match(read('../src/ui/why.js'), /'Calculating the contributions…'/);
 });
 
 test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {

@@ -20,6 +20,7 @@ import { gpuProbe } from './gpu-probe.js';
 import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
+import { fenceFrame, fenceMark } from './gpu-fence.js';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
@@ -102,6 +103,7 @@ function flush(now) {
   paceStep();
   frames++; allFrames++;
   if (chained && lastNow && now > lastNow) noteGap(now - lastNow);
+  fenceFrame(allFrames);   // (?perf only: a fence in the figure's context at the frame's start and after each phase, gpu-fence.js)
   frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
@@ -117,13 +119,24 @@ function flush(now) {
   queue = spareQ.size ? new Batch() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
+    fenceMark(1);
     lateNow = late;
     late = spareL.size ? new Batch() : spareL;   // asked for while the late ones run: the next frame
     run(lateNow, now, 'late');
+    fenceMark(2);
     finalNow = fin;
     fin = spareF.size ? new Batch() : spareF;    // (likewise)
     run(finalNow, now, 'final');
-    if (finals.size) for (const w of finals) try { w(now); } catch (e) { rethrow(e); }   // (after the last callback, before the frame is judged: the ink lays itself on the figure as drawn)
+    fenceMark(3);
+    if (finals.size) {
+      // (After the last callback, before the frame is judged: the ink lays itself on the figure as drawn, and the figure's present (veins-gl.js
+      // flushPresent: the kept picture onto the canvas, the glasses over it) runs here. Timed as its own surface, 'frame end', so the ?perf
+      // readout names it: 8 Nov 2026, a Mac's frames showed 26 ms of script with 14 ms in named surfaces, and this was the untimed rest.)
+      const tf = timeFrame ? performance.now() : 0;
+      for (const w of finals) try { w(now); } catch (e) { rethrow(e); }
+      if (timeFrame) { const ms = performance.now() - tf; totals.ms[FRAME_END] = (totals.ms[FRAME_END] || 0) + (parts || TIME_ALL ? ms : ms * TIME_EVERY); parts?.push([FRAME_END, 'final', ms]); }   // alloc-rare: only while frames are watched (parts is null otherwise)
+    }
+    fenceMark(4);
     runMay(now);
   } finally {
     current.clear(); spareQ = current; current = null;
@@ -161,6 +174,7 @@ function flush(now) {
 // totals.ms (an estimate of the same sum), plus the deferrable surfaces, whose predicted cost the watchdog judges by. The other frames
 // make no performance.now() pair per callback.)
 export const TIME_EVERY = 30;
+const FRAME_END = 'frame end';   // (the surface name of the frame-end hooks' time: the figure's present and the ink)
 const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
@@ -487,16 +501,12 @@ export function cancelFrame(id) {
 /** Where the scheduler is now: 'early' (the frame's first callbacks), 'late', 'final', or null (outside a frame). A surface asked to
  *  draw while the early ones run can leave it to its own late callback, which still runs in this frame, and so draw once in it. */
 // ── The eases' clock (1 Nov 2026, Mohammad: "the cards start popping in instead of smoothing in eased") ──
-// An ease timed by the wall clock jumps over a long frame: a 900 ms crossfade begun just before a 400 ms frame shows its first half
-// in one step, and a zoom leaps ahead by the frame's length. easeNow() runs with the wall clock while frames come promptly, and
-// moves on by at most PACE_CAP ms (or twice the usual interval, see paceStep) from one frame to the next, so after a long frame an ease timed by it carries on from where the
-// screen last showed it instead of landing past it. The total time runs a little longer by what the long frames held back. Monotonic,
-// in performance.now()'s timebase while nothing has been held back.
+// (First built as a held clock, 1 Nov 2026: a long frame carried an ease on by at most PACE_CAP ms. R20 below, 2 Nov, replaced that with
+// the honest wall clock, and motion.js (the clock rule) added back only a 40 ms cap on the first two frames of a move. PACE_CAP and PACE_MAX
+// stay as the yardstick for what counts as a long frame in clockStats: the cap is twice the usual interval of the last frames that ran one
+// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second does not count its own
+// pace as long frames.)
 export const PACE_CAP = 50;
-export const PACED = true;   // (switch deleted; kept for stage.js, presenter.js and lobule-zoom.js until their own pass)
-// (Only a frame long against the ones before it is held back: the cap is twice the usual interval of the last frames that ran one
-// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second keeps its eases at
-// their own speed, and only its sudden long frames are smoothed over.)
 export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart, run at their own speed)
 let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
 const paceGaps = new Float64Array(9), paceSort = new Float64Array(9);
@@ -524,7 +534,7 @@ function paceNote(gap) {
   paceSort.set(paceGaps); paceSort.fill(Infinity, paceN); paceSort.sort();
   paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * paceSort[paceN >> 1]));
 }
-/** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
+/** The eases' clock (ms): the wall clock, performance.now(), one time per frame (motion.js has the rule for the first frames of a move). */
 export function easeNow() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }
@@ -536,6 +546,11 @@ export function easeNow() {
 let holdUntil = 0;
 /** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
 export function holdMotion(ms) { holdUntil = Math.max(holdUntil, wall() + ms); }
+// The figure's camera moving (a pan, a pinch, a glide): stage-camera.js notes each step. The charts that do not ride the figure (a card's
+// readouts) hand their pictures over less often meanwhile (svg-gl.js): each hand-over waits on the figure's GPU work.
+let camUntil = 0;
+export const noteCamera = () => { camUntil = wall() + 200; };
+export const cameraMoving = () => wall() < camUntil;
 export const MOTION_MAX_MS = 5000;
 const moving = new Map();   // (transition token → { name, t0, until })
 /** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */
@@ -611,7 +626,7 @@ function inputMeasure() {
 
 // (Asked for in the address, ?perf or ?inputs, it is made now, at load, before the presenter and the rest add their own window key
 // listeners: a key one of them uses stops at its listener (stopImmediatePropagation), and a tracker made later never sees it.)
-if (typeof location !== 'undefined' && /[?&](perf|inputs)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
+if (typeof location !== 'undefined' && /[?&](perf|inputs|lap)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
 
 // Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
 // numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.
@@ -659,13 +674,21 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 // The figure's further resolution options (30 Oct, experiments, all off until chosen; the anatomy's canvas only, stage.js):
 // move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
 // glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
-// cap: the most megapixels the canvas holds (a big screen draws fewer, a phone is under it); 0 = off. 8 by default since 1 Nov 2026 (the
-//   GPU move, step 4: a pixel budget): every laptop, iPad and phone is under it, a 16-inch MacBook's whole screen too (7.7), so none of
-//   them changes; only a large external screen (a 5K one, 14.7) draws fewer pixels than its full density, and its heat with them.
+// cap: the most megapixels the canvas holds (a big screen draws fewer); 0 = off. The default is per device since 11 Nov 2026 (Mohammad:
+//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"); since 12 Nov 2026 ("default phone 0.5MP and default Mac 1.5MP", for heat)
+//   1.5 on a Mac and an iPad (iPad Safari names itself a Mac), 0.5 on a phone (capDefault below). It was 8
+//   since 1 Nov 2026 (the GPU move, step 4: a pixel budget). Settings › Figure size still picks any step; a choice is stored (pps.fig.cap),
+//   and only the device's own default stores nothing.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
-export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
-const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
+export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
+/** Whether this device is a phone (an iPhone, an iPod, an Android phone), by its user agent: the figure's size and the blur default by it. */
+export const isPhone = () => /iPhone|iPod|Android.*Mobile/.test((typeof navigator !== 'undefined' && navigator?.userAgent) || '');
+// The cap's default for this device: a phone 0.5 MP, a Mac, an iPad and anything else 1.5 MP (12 Nov 2026).
+const capDefault = isPhone() ? 0.5 : 1.5;
+/** The value a figure option has when nothing is chosen: the first of FIG_OPTS[k], but the cap's is the device's (capDefault). */
+export const figDefault = (k) => (k === 'cap' ? capDefault : FIG_OPTS[k][0]);
+const figOpts = { move: 1, glow: 1, cap: capDefault, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }
 }
@@ -673,7 +696,7 @@ export const figOpt = (k) => figOpts[k];
 export function setFigOpt(k, v) {
   if (!FIG_OPTS[k]?.includes(v) || figOpts[k] === v) return;
   figOpts[k] = v;
-  try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
+  try { if (v === figDefault(k)) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
   for (const f of renderSubs) f(renderK);
 }
 // Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,
@@ -709,6 +732,9 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
+// Vessel renderer: the Tube is the only one (owner, 11 Nov 2026), so there is nothing to choose and nothing kept. Classic and Mesh are shelved on the
+// branch shelf/classic-mesh-renderers. A tester's earlier choice (pps.vesselRenderer, and the two switches it replaced) is dropped once.
+try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']) localStorage.removeItem(k); } catch (e) { caught('frame:vrend-x', e); /* storage unavailable */ }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
@@ -756,8 +782,69 @@ export function frameGapFor(reason = frameReason()) {
 // gap above. 28 ms, as the first flow gap was: a 60 Hz screen's frames come 16.7 ms apart so every 2nd is drawn, a 120 Hz screen's
 // 8.3 ms so every 4th, a 90 Hz screen's 11.1 ms so every 3rd; no phase is carried.)
 export const CALM_FLOW_MS = 28;
-/** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off. */
-export function calmFlowGapFor() {
+// (Tube speed plan P1, 10 Nov 2026: where the lobule's vessel renderer draws Tube stage 3 its blood pass is far cheaper than the old full-screen
+// blood, so its calm blood is drawn at the screen's rate; the classic safety net and Tube stages 1 and 2 keep the 30 Hz cap, Battery saver its 15 Hz.)
+/** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off, or where `cheapBlood` (the Tube's stage 3 drew the lobule). */
+export function calmFlowGapFor(cheapBlood = false) {
   if (saverOn) return SAVER_MS;
-  return figLabs.motion60 ? CALM_FLOW_MS : 0;
+  return figLabs.motion60 && !cheapBlood ? CALM_FLOW_MS : 0;
 }
+/** Which rule is in force for a calm lobule's blood, in words, for ?perf. */
+export function calmFlowRule(cheapBlood = false) {
+  if (saverOn) return 'calm 15 Hz (Battery saver)';
+  if (!figLabs.motion60) return 'calm every frame (Motion at 60 off)';
+  return cheapBlood ? 'calm every frame (tube 3)' : 'calm 30 Hz';
+}
+// ── Rest pacing on every device (brief H1, 10 Nov 2026, touch devices; 12 Nov 2026 the Mac too, heat recs H1 picked by Mohammad) ──
+// A screen left alone slows its blood: after REST_AFTER_MS (4 s) with no input and nothing moving, a frame of blood alone is drawn
+// every 28 ms (30 a second); after IDLE_AFTER_MS (30 s) every IDLE_MS, 46 ms (20 a second: every 3rd frame of a 60 Hz screen, every 6th of a 120 Hz one), in
+// Explore as in a talk (13 Nov 2026: Explore stepped to 15 and then stopped its blood at 30 s, read as the chevrons slowing; now one 20 Hz step) (Mohammad, 5 Nov 2026: "no slide should stop anymore", so a talk
+// held 30 at the lowest; 13 Nov 2026, Mac heat rec 2 picked by him: a slide untouched for 30 s steps to 20, Full sharpness kept). The blood moves on its own clock in the shader (bT), so a held frame only skips
+// pictures. (Until 12 Nov it was for touch devices only: a whole-app 30 Hz step flickered on Mohammad's Mac on 4 Nov, while the shown canvas
+// was still drawn on part-way through a frame. Since keepScreen (8 Nov) the shown canvas gets one whole copy a frame and nothing else, so a
+// frame that draws nothing leaves the last whole picture; this is blood-only frames at rest, never the whole app.) Sharpness is unchanged and
+// any input brings the full rate back on the next frame. ?rest=off turns it off for comparing.
+export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 46, TALK_IDLE_MS = IDLE_MS;
+let restTouch = true, restOff = false, restTalk = null;   // (restTouch: rest pacing on; every device since 12 Nov 2026, the name kept for the tests' hook)
+try { restOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rest') === 'off'; } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
+let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
+/** Turns rest pacing on or off for this page (on for every device since 12 Nov 2026; tests set it). */
+export function setRestTouch(on) { restTouch = !!on; }
+/** ?rest=off (or a test): rest pacing off. */
+export function setRestOff(off) { restOff = !!off; }
+/** The talk's probe (main.js: the presenter is on): it only names the rule for ?perf ('talk idle 20 Hz'); the steps are the same as Explore's. */
+export function setRestTalk(fn) { restTalk = fn; }
+/** An input of any kind (a pointer, touch, wheel or key event, scroll, focus, the page shown again: idle-rest.js hears them all) restarts the rest clock. */
+export function noteInput(t = wall()) { if (t > restInputAt) restInputAt = t; }
+/**
+ * The least ms between two drawn frames of blood alone, for rest: 0 (pacing off, ?rest=off, or the last input, motion or change of
+ * `activeAt` less than REST_AFTER_MS ago), REST_MS, then IDLE_MS (20 a second, Explore and talks alike). `activeAt` is the caller's own last busy stamp (the
+ * figure's and the sinusoid's busyAt, the lobule's calmAt): a camera move, glide, dive, view switch, slide change, time-lapse step, card or
+ * model change stamps it. A transition in flight (inMotion) counts as motion too. Battery saver's own gap wins when larger.
+ */
+export function restGapFor(now, activeAt = 0) {
+  if (!restTouch || restOff) return 0;
+  if (inMotion()) restMotionAt = now;
+  const since = now - Math.max(restInputAt, restMotionAt, activeAt);
+  let gap = 0, rule = '';
+  if (since >= IDLE_AFTER_MS) {
+    gap = IDLE_MS; rule = restTalk && restTalk() ? 'talk idle 20 Hz' : 'idle 20 Hz';
+  } else if (since >= REST_AFTER_MS) { gap = REST_MS; rule = 'rest 30 Hz'; }
+  if (gap && saverOn && SAVER_MS >= gap) return SAVER_MS;   // (Battery saver's own gap wins when larger)
+  if (gap) { restRuleNow = rule; restRuleAt = now; }
+  return gap;
+}
+/**
+ * An instrument's wait at rest (the Doppler, the pressure strip and the vitals strip: Mac heat rec 7, 13 Nov 2026, picked by Mohammad). They
+ * pace by restGapFor as the blood does; with `left` ms or more to their next drawn frame, `fn` is called by a timer 8 ms before it, so the
+ * page is not woken for the screen frames between (as the figure's own loop waits, stage.js parkFor). Returns the timer, or 0 under 18 ms
+ * (the next frame is asked for as before). Their sweeps are drawn from the clock, so only the steps are fewer, never slower.
+ */
+export const restPark = (left, fn) => (left >= 18 ? setTimeout(fn, left - 8) : 0);
+/** The rest rule in force in the last half second, in words, for ?perf ('' when none). */
+export const restRuleText = () => (wall() - restRuleAt < 500 ? restRuleNow : '');
+
+let calmRuleNow = '';
+/** The lobule's loop notes the rule it paced a calm frame by (''= not calm / not showing); ?perf reads it. */
+export const noteCalmRule = (t) => { calmRuleNow = t; };
+export const calmRuleText = () => calmRuleNow;

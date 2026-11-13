@@ -19,6 +19,7 @@ import { strHash } from './liver-geo.js';
 import { readStyle, readLocalCTM } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { getLive } from './live-style.js';
+import { WARM_MS } from './warm-views.js';
 import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -439,7 +440,45 @@ const ownList = () => LISTS[ld++] || (LISTS[ld - 1] = []);   // alloc-rare: a li
 const DEFS_RE = /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/, META_RE = /^(title|desc|metadata)$/;
 const CAPS = { butt: 0, round: 1, square: 2 };
 const CSS_OK = { cssTransforms: true };
-const MITER_RE = /[LlHhVvZz]/;
+// (A stroke the GPU lays with round joins only: a path whose straight pieces meet at a corner (two or more pieces in one subpath, one of them
+// straight, or a closed one) is refused unless the page joins it round too. A lone straight piece has no join at all: the TIPS stent's ring
+// across the mesh (M a L b) was refused for it, which kept the stents' overlay group and every one above it in the SVG, drawn over the cards'
+// glass (Mohammad, 11 Nov 2026: "Tips stent (or maybe others too) appears on top of cards and glass").)
+// (Read a character at a time, with nothing made: the path's commands and how many numbers each has had.)
+const ARGS = new Int8Array(128), MITER_RE = /[LlHhVvZz]/;   // (MITER_RE: the straight pieces and closes the refusal looked for before, kept as its first test so nothing it let through is refused now)
+for (const [k, n] of [['M', 2], ['L', 2], ['H', 1], ['V', 1], ['C', 6], ['S', 4], ['Q', 4], ['T', 2], ['A', 7]]) { ARGS[k.charCodeAt(0)] = n; ARGS[k.toLowerCase().charCodeAt(0)] = n; }
+/** Whether path data `d` has a join a miter could show at: a closed subpath, or a subpath of two or more pieces with a straight one among them. */
+export function miterJoins(d) {
+  if (!d) return false;
+  let n = 0, cmd = 0, nums = 0, pieces = 0, straight = false, line = false, inNum = false, dot = false, ex = false;
+  for (let i = 0; i < d.length; i++) {
+    const ch = d.charCodeAt(i) | 32;   // (lower case for the letters)
+    const c = d.charCodeAt(i);
+    if (c === 90 || c === 122) return true;   // (Z: closed)
+    if (c >= 65 && c <= 122 && ch !== 101) {   // (a command; e is a number's exponent)
+      inNum = false;
+      n = ARGS[c] || 0; cmd = ch;
+      if (ch === 109) { pieces = 0; straight = false; }
+      line = ch === 109 || ch === 108 || ch === 104 || ch === 118;   // (m, l, h, v)
+      nums = 0;
+      continue;
+    }
+    let starts = false;
+    if (c >= 48 && c <= 57) { if (!inNum) starts = true; }
+    else if (c === 46) { if (!inNum || dot || ex) { starts = true; } dot = true; }
+    else if (c === 45 || c === 43) { const p = d.charCodeAt(i - 1) | 32; if (!(inNum && p === 101)) starts = true; }
+    else if (ch === 101 && inNum) { ex = true; continue; }
+    else { inNum = false; continue; }
+    if (!starts) continue;
+    inNum = true; dot = c === 46; ex = false;
+    if (!n || ++nums % n) continue;
+    if (cmd === 109 && nums === 2) continue;   // (the move itself; pairs after it are straight pieces)
+    pieces++;
+    if (line) straight = true;
+    if (pieces > 1 && straight) return true;
+  }
+  return false;
+}
 function fail(c, r, el) { c.ok = false; lastFail = [r, el]; }   // alloc-rare: a refusal ends the reading and the caller gives that group up (the picture or the SVG stays); it is read again only when a change is seen, never in a frame
 /** The ops of a list, as the array they were last handed out in where they are the same ones. */
 function settle(prev, list) {
@@ -585,7 +624,7 @@ function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
     dash = readDash(cs);
     if (!dash) { fail(c, 'dash', el); return; }
   }
-  if (c.strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && MITER_RE.test(el.getAttribute('d'))) { fail(c, 'miter join', el); return; }
+  if (c.strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && MITER_RE.test(el.getAttribute('d')) && miterJoins(el.getAttribute('d'))) { fail(c, 'miter join', el); return; }
   const eo = (cs.fillRule || 'nonzero') === 'evenodd';
   const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
   if (fill === false || stroke === false) { fail(c, `paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }   // alloc-rare: a refusal, as fail
@@ -1221,6 +1260,7 @@ export function createOrganPaint(gl, shape) {
   }
   function clearOne(b, t) {
     if (!t.on) allocOne(t);   // (a layer is given its room when first cleared for a group: the mask layers and the deeper pairs of a painter that never needs them stay one texel)
+    if (t !== layers[0]) warmDeep();
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
     gl.viewport(0, 0, W, H);
     scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
@@ -1243,6 +1283,24 @@ export function createOrganPaint(gl, shape) {
     gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(null);
+  }
+  // (Perf D2: the mask layer and the nested pairs are given back once nothing has cleared them for WARM_MS. A plain idle timer: they are not
+  // held in the global budget, so counting them cannot make the budget drop anything else mid gesture. Only ever from a timer, never within
+  // a paint, and never while a picture's job holds them (a slide change's bakes clear them all the time; dropping and making them again
+  // mid-change cost 385 ms frames, 3 Nov). The next first clear makes them again.)
+  let deepT = 0, deepAt = 0;
+  const deepBytesNow = () => { let n = 0; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) n++; return n * AW * AH * 4; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const trimDeepNow = () => { if (holder) return false; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) trimOne(depths[d][j]); return true; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const deepArm = (ms) => { clearTimeout(deepT); deepT = setTimeout(deepCheck, ms); deepT?.unref?.(); };   // alloc-rare: armed when the layers are first used after being given back
+  function deepCheck() {   // alloc-rare: runs from a timer, a few times in a warm period
+    deepT = 0;
+    if (gl.isContextLost()) return;
+    const idle = performance.now() - deepAt;
+    if (idle < WARM_MS || !trimDeepNow()) deepArm(Math.max(1000, WARM_MS - idle));   // used lately, or a picture's job is painting with them: asked again
+  }
+  function warmDeep() {
+    deepAt = performance.now();
+    if (!deepT) deepArm(WARM_MS);
   }
   const trimOne = (t) => { t.on = false; gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   const dropOne = (t) => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
@@ -1352,13 +1410,14 @@ export function createOrganPaint(gl, shape) {
       const spent = meshesOld; meshesOld = meshes; meshes = spent; meshes.clear(); dKeys.clear(); forgetLives();
     },
     /** The bytes held by the layers a live frame does not need: the mask layer and every nested depth (made when a masked or nested group first needs them). */
-    deepBytes() { let n = 0; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) n++; return n * AW * AH * 4; },
+    deepBytes: deepBytesNow,
     /** Gives those layers back (not while a picture's job is painting with them); a group that needs one again makes it at its first clear. */
-    trimDeep() { if (holder) return false; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) trimOne(depths[d][j]); return true; },
-    trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
+    trimDeep() { return trimDeepNow(); },
+    trim() { this.dropKept(); clearTimeout(deepT); deepT = 0; if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       // (Every mesh's arrays given back with the shape drawer: those kept for pictures, the live frame's and the last frame's.)
       kept.clear(); meshes.clear(); meshesOld.clear(); holder = null;
+      clearTimeout(deepT); deepT = 0;
       shape.dispose();
       dropOne(scratch); for (let d = 0; d < depths.length; d++) { dropOne(depths[d][0]); dropOne(depths[d][1]); }
       gl.deleteRenderbuffer(stencil); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(paintP.p); gl.deleteProgram(layP.p);

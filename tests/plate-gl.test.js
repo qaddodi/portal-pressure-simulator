@@ -1,12 +1,10 @@
 // A popover's or menu's look, and a tooltip, drawn on the GPU (plate-gl.js, tip-gl.js): the layout is script, the look is the stylesheet's.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { shadowsOf } from '../src/ui/shadow-parse.js';
 import { layoutTip, covers } from '../src/ui/tip-layout.js';
 import { measure } from '../src/ui/glyph-measure.js';
 
-const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
 test('shadowsOf reads a computed box-shadow: blurred layers, a ring, an inset ring', () => {
   const s = shadowsOf('rgba(46, 22, 34, 0.16) 8.28px 18px 48px 0px, rgba(46, 22, 34, 0.08) 1.84px 4px 12px 0px, rgba(40, 20, 30, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.2) 0px 0px 0px 1px inset');

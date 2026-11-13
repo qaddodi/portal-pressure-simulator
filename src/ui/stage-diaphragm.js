@@ -3,6 +3,7 @@
 import { SPLEEN_CENTER } from './anatomy.js';
 import { pressureColor } from './colormap.js';
 import { diaphragmD, diaphragmLine } from './diaphragm.js';
+import { heldBin } from './idle-keys.js';
 import { fluidTarget } from './fluid-step.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liverShrink, smooth01 } from './liver-morph.js';
@@ -13,7 +14,7 @@ import { store } from './store.js';
 import { clamp } from './util.js';
 
 export function createDiaphragm(st, live) {
-  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
+  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
   // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
@@ -87,7 +88,15 @@ export function createDiaphragm(st, live) {
     const tT = live.isImaging() ? 0 : live.lvTT * 0.5;
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
-    live.lvGT = stepHeld(live.lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
+    // (The congestion's target from the venous pressure with the breath taken out (12 Nov 2026, his Mac at rest: the organ layer painted again twice a
+    // second, "page changed: liver g.organ transform"): the beat-filtered pressure still breathes, about 0.4 mmHg in a congested liver, more than
+    // the 0.3 mmHg the hold below allows, so the target flipped a step each breath, the liver eased to it and back, and its outline and scale were
+    // written again over and over with nothing visible changing. Low-passed over BREATH_TAU first; a jump of a real change (a slide, a TIPS) is taken at once.)
+    const gRaw = clamp((cvUp - 4) / 10, 0, 1), gNow = performance.now();
+    if (gLow === null || Math.abs(gRaw - gLow) > G_JUMP) gLow = gRaw;
+    else gLow += (gRaw - gLow) * -Math.expm1(-(gNow - gLowAt) / BREATH_TAU);
+    gLowAt = gNow;
+    live.lvGT = stepHeld(live.lvGT, gLow, 0.03);
     const cT = Math.min(1, p.cirrhosis), gT = live.lvGT;
     if (live.lvC === null || reduceMotion.matches || !live.figureShown) { live.lvC = cT; live.lvG = gT; live.lvT = tT; }   // under the loading screen nothing is seen easing
     else { live.lvC = easeTo(live.lvC, cT, dt); live.lvG = easeTo(live.lvG, gT, dt); live.lvT = easeTo(live.lvT, tT, dt); }
@@ -96,11 +105,15 @@ export function createDiaphragm(st, live) {
     return lvTargets;
   }
   const lvTargets = [0, 0, 0];   // (read at once by its callers)
+  // (The congestion's breath-free pressure, easeLiver: low-passed over BREATH_TAU ms; a change past G_JUMP is taken whole.)
+  const BREATH_TAU = 3000, G_JUMP = 0.12;
+  let gLow = null, gLowAt = 0;
   // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
-  let orgMoving = false, orgPA2 = null, orgShrink = 1;
+  let orgMoving = false, orgPA2 = null, orgShrink = 1, caudBin = NaN;
+  let caputK = null;   // (the caput medusae's held share, updateOrgans)
   let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   const orgMorphLiver = () => morphLiver(live.lvC, live.lvG, orgMoving);
-  const orgCaudate = () => caud.sync(pressureColor(qP(orgPA2[NI.IVCS] + 0.5)), live.caudK);
+  const orgCaudate = () => { caudBin = heldBin(caudBin, orgPA2[NI.IVCS] + 0.5); caud.sync(pressureColor(caudBin), live.caudK); };   // (the colour's bin held: a pressure breathing across a bin's edge must not flip the lobe's colour, and the organ layer with it)
   const orgMasks = () => syncOrganMasks(orgShrink, organG.spleen.getAttribute('transform'));
   const QUARTERS = ['0', '0.25', '0.5', '0.75', '1'];   // (String(n / 4) for n 0 … 4)
   // The congestion's shades stay hidden at no opacity (the glossy one aside), and all hide in the figure view.
@@ -147,15 +160,20 @@ export function createDiaphragm(st, live) {
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
       live.caudK = stepHeld(live.caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
       orgPA2 = PA2;
+      caud.stented(!!p.dips?.on);
       gpuProbe.time(null, 'organs: caudate', orgCaudate);
     }
-    const c3 = recruitFrac('C3', f);
-    abdTo((clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
-    // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
+    // The caput medusae: one value for everything that belongs to it (the skin's tint around the navel, the navel's ring, the epigastric
+    // veins and the paraumbilical vein, stage-frame edgeVisible and stage-tubes), from the vein's recruitment (0 closed, 1 as wide as it
+    // grows): it starts at 15% and is whole at 45%, and a finding the view keeps hidden takes all of it away. Held in steps of 5%, so a
+    // wobble in the model never moves it; the tint then eases to each new step (stage.js abdTo).
+    caputK = stepHeld(caputK, findingHidden('coll') ? 0 : clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1), 0.05);
+    abdTo((caputK * 0.9 * k).toFixed(2));
+    // The navel is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
     if (organEls.umbilicus) {
-      const op = QUARTERS[Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1)))];
+      const op = QUARTERS[Math.round(4 * caputK)];
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;

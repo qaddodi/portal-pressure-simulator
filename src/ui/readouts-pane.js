@@ -1,14 +1,15 @@
 // The Readouts tab of the Tests card: every readout the old bottom bar showed (pressure, flow, consequences,
 // systemic), live, each with its scale bar. A tap on a readout says what drives it, as it did in the bar.
-// The tile markup, classes and status logic follow the bar's tiles in dock.js; the data comes from there
-// (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
+// The tile is the bar's own (tile-el.js, one builder: unification audit, finding 6) and the status logic follows the bar's in dock.js; the data
+// comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked } from '../engine/pressure-cuts.js';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn } from './util.js';
-import { vitalReading } from './vital-read.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './util.js';
+import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js';
+import { tileEl } from './tile-el.js';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -17,11 +18,11 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
 // The data card tile's rating class as this pane's severity: green, amber, red; a reading its tile only informs of (a slow heart rate, a high
 // output) stays the neutral gray.
-const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
+const SEV = SEV_OF_RATE;
 
 // [id, full name, short name for a narrow card]
 const SYSTEMIC = [
-  ['map', 'Mean arterial pressure', 'MAP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Cardiac output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
+  ['map', 'Blood pressure', 'BP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Cardiac output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
 ];
 
 export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show }) {
@@ -30,12 +31,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const vitEls = [];
 
   function tile(t) {
-    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
-    const fill = h('i', { class: 'rb-fill' });
-    const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-    const el = h('button', { type: 'button', class: 'metric', 'data-id': t.id },
-      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    // (The bar's tile, tile-el.js: here a button with the reading's full name, never the short one.)
+    const { el, val, tr, st, cmp, fill } = tileEl(t, { names: false, type: 'button' });
     if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
     els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
@@ -46,14 +43,17 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   // never disagree about what is normal (Mohammad, 22 Oct: any tile should have its normals).
   function vital(v, name, short) {
     const S = SCALE[v.id];
-    const val = h('span', { class: 'val' }, '—'), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
+    const val = h('span', { class: 'val' }, ''), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
+    // (The blood pressure: systolic/diastolic before the mean in its brackets, 120/80 (93). The mean and its brackets are one piece, .v-map, so a
+    // narrow tile (a phone's row of five) breaks the line before "(93)", never inside it.)
+    const pre = v.s ? h('span', { class: 'val v-bp' }, '') : null, open = v.s ? h('span', { class: 'val v-bp' }, '') : null, post = v.s ? h('span', { class: 'val v-bp' }, '') : null;
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, S[2].map((c) => h('i', { class: 'rb-tick', style: { left: clamp((c - S[0]) / (S[1] - S[0]), 0, 1) * 100 + '%' } })));
     const el = h('button', { type: 'button', class: 'metric rp-vital', 'data-id': v.id },
-      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, v.u)), bar, h('span', { class: 's' }, st));
+      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, pre, v.s ? h('span', { class: 'v-map' }, open, val, post) : val, h('span', { class: 'unit' }, v.u)), bar, h('span', { class: 's' }, st));
     el.title = `${v.title}${v.why ? '\nClick for what is driving it.' : ''}`;
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     else el.style.cursor = 'default';
-    vitEls.push({ v, S, el, val, st, fill, sev: null, ariaTxt: '' });
+    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, ariaTxt: '' });
     return el;
   }
 
@@ -109,9 +109,10 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (v != null && (t.id === 'hvpg' || t.id === 'ppg') && !hidden?.has(t.hideKey)) { const g = shownOr(t.id, v); if (Math.abs(g - v) < 0.25) v = g; }
       // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted.)
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
+      if (v != null && !Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }   // (being worked out again: the last number stays, dimmed, with its word, band and bar: util.js countTo)
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? 'Not measurable' : 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
@@ -157,8 +158,12 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const r = { v: x.shown, bad: x.r?.bad };
       if (follow) { const fk = `${x.shown}|${hid}|${shownState.or('rpfill:' + x.v.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
+      if (x.pre) {
+        const t = hid || !Number.isFinite(r.v) || !Number.isFinite(x.r?.s) || !Number.isFinite(x.r?.d) ? '' : `${Math.round(x.r.s)}/${Math.round(x.r.d)}`;
+        if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.open, t ? '(' : ''); putText(x.post, t ? ')' : ''); }
+      }
       // (Its tile's word and colour, judging the number as shown; the tile's colour holds a moment before it changes, as the others do.)
-      const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), {}), sev = SEV[cls] ?? 'none';
+      const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), x.v.s ? { sbp: x.r?.s } : {}), sev = SEV[cls] ?? 'none';
       const w = none ? 0 : fillQ(clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1));
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
       if (sev !== x.sev) {
@@ -169,7 +174,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         }
       } else x.sevNext = null;
       if (sev === x.sev) swapText(x.st, word, () => x.st.classList.toggle('unmeas', none));
-      const aria = `${x.v.title}: ${none ? 'not measured' : `${fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
+      const aria = `${x.v.title}: ${none ? 'not measured' : `${x.v.s ? bpText(x.r?.s, x.r?.d, r.v) : fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; x.el.setAttribute('aria-label', aria); }
     }
   }

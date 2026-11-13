@@ -1,6 +1,7 @@
 // The camera core: the view transform write (flush, apply), the box and safe-side reads, the world transform matrix and the coordinate conversions, the zoom at a point.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { figOpt } from './frame.js';
+import { CAM_MS_MAX } from './ease.js';
+import { figOpt, noteCamera } from './frame.js';
 import { gpuProbe } from './gpu-probe.js';
 import { provideStage } from './layout-snap.js';
 import { cams, camSet } from './scene-cam.js';
@@ -22,7 +23,7 @@ export function createCamera(st, live) {
     live.worldOver?.setAttribute('transform', tr);
   };
   const applyVT = () => {
-    vtDirty = true;
+    vtDirty = true; noteCamera();
     syncSemantic();
     live.CTM = null; live.viewVersion++; live.stageWake();
     live.viewHook?.();   // (the scope view's lens hides while the figure moves: scope-lens.js)
@@ -102,7 +103,12 @@ addEventListener('orientationchange', saRead);
     const s = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
     // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
-    const th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * live.vt.k;
+    const deg = rotDeg(), th = (deg * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * live.vt.k;
+    // (The circuit's map is turned against this same turn, so it is set here with it, never a frame apart. The world's turn moves with the
+    // landing (rotDeg reads lastMorph), not with the camera: set only in flushVT, the map kept the old turn for the one frame where the view
+    // landed on, or left, an upright circuit, and its bands showed as columns for that frame. Mohammad's iPhone, 12 Nov 2026: "when I
+    // switch to circuit view there is a flicker of the background".)
+    mapTurn(deg);
     const ma = sk * co, mb = sk * si, mc = -sk * si, md = sk * co, me = ox + s * live.vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), mf = oy + s * live.vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]);
     // An unchanged view keeps the same object, so the frame loop (which compares it) sees that nothing moved; a new one is made only when it moved.
     if (!(ctmLast && ctmLast.a === ma && ctmLast.b === mb && ctmLast.c === mc && ctmLast.d === md && ctmLast.e === me && ctmLast.f === mf && ctmLast.sc === sk)) ctmLast = { a: ma, b: mb, c: mc, d: md, e: me, f: mf, sc: sk };
@@ -136,7 +142,7 @@ addEventListener('orientationchange', saRead);
     return o;
   }
   // (The inverse: a stage point (local px) as a world point under the camera now.)
-  const NO_ANCHOR = /^(lane:|scan|stage|60%:)/, ANCHOR_W = [0, 0];
+  const NO_ANCHOR = /^(scan|stage|60%:)/, ANCHOR_W = [0, 0];
   function localToWorldInto(o, x, y) {
     if (!live.CTM) refreshCTM();
     const px = x + live.wrapRect.left - live.CTM.e, py = y + live.wrapRect.top - live.CTM.f, det = live.CTM.a * live.CTM.d - live.CTM.b * live.CTM.c;
@@ -155,13 +161,13 @@ addEventListener('orientationchange', saRead);
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
-  // A zoom step by the buttons glides there instead of jumping.
+  // A zoom step by the buttons (or a double click) glides there instead of jumping, in the time its reach needs (camMs, ease.js).
   function animZoomAt(cx, cy, factor) {
     live.fitted = false; live.handed = !live.lobuleOn;
     if (live.lobuleOn) return;
     const [vx, vy] = clientToVBFast(cx, cy), base = live.vtTarget && live.vtAnim ? live.vtTarget : live.vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - live.vt.x) / live.vt.k, wy = (vy - live.vt.y) / live.vt.k;
-    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
+    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, CAM_MS_MAX, { scale: true });
   }
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {

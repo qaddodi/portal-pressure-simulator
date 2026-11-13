@@ -82,16 +82,19 @@ export function createRes(st, live) {
   // the canvas is moved by the rest, in CSS px, so a pan glides with the labels instead of stepping (review, 30 Oct). At Full nothing
   // is set, as on the live site. (`translate`, not `transform`: the dive scales the canvas by its transform.)
   function subPixel(T) {
-    let v = '';
-    if (live.vdpr < live.vBase - 1e-9) {
+    let v = '', rx = 0, ry = 0;
+    const split = !!live.picNow && !!live.veins?.setRest;   // (the picture is smaller than the canvas: the upscale pass moves the picture by the rest, so the labels and glass in the canvas stay where the layout puts them)
+    if (split || live.vdpr < live.vBase - 1e-9) {
       const fx = T[4] - Math.round(T[4]), fy = T[5] - Math.round(T[5]);
-      if (fx || fy) {
+      if (split) { rx = fx; ry = fy; }
+      else if (fx || fy) {
         if (fx !== subFx || fy !== subFy || live.vdpr !== subVd) { subFx = fx; subFy = fy; subVd = live.vdpr; subTxt = `${(fx / live.vdpr).toFixed(3)}px ${(fy / live.vdpr).toFixed(3)}px`; }
         v = subTxt;
       }
     }
     if (vCanvas.style.translate !== v) vCanvas.style.translate = v;
-    if (live.veins?.overlay) live.veins.overlay.snap = live.vdpr < live.vBase - 1e-9;   // (the overlays drawn in the canvas go at whole pixels with the vessels)
+    live.veins?.setRest?.(rx, ry);   // (in picture px; 0 when the picture is the canvas)
+    if (live.veins?.overlay) live.veins.overlay.snap = !!live.picNow || live.vdpr < live.vBase - 1e-9;   // (the overlays drawn in the canvas go at whole pixels with the vessels)
   }
   let subFx = NaN, subFy = NaN, subVd = NaN, subTxt = '';   // (the rest and density the kept text was made for: the text is made again only when they change)
   function easeRes() {
@@ -129,7 +132,12 @@ export function createRes(st, live) {
     let full = live.veins?.overlay && (!live.SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
     // (The pixel budget holds for that canvas too (figOpt('cap'), 8 MP): on a big external screen at the screen's own density it had been
     // 14.7 MP, the figure upscaled onto it past the budget. Every laptop, iPad and phone is under it, so none of them changes.)
+    // (Figure size caps the figure's picture, figShare above, and not the canvas the labels, leaders, glass and overlays are drawn in: that
+    // is at least 1 device px per CSS px, so at 0.25 MP the text is no coarser than on a plain screen and the picture alone is upscaled
+    // onto it (veins-gl upDraw: the vessel edges steepened, a dither). Never denser than the screen, and never over the 8 MP budget.)
+    const fullFloor = full ? capDensity(Math.min(1, full), r.width, r.height, 8) : 0;
     full = capDensity(full, r.width, r.height, figOpt('cap'));
+    if (full && figOpt('cap') > 0) full = Math.max(full, fullFloor);
     let lin = false;
     if (full && live.vdpr < full - 1e-9) { bw = Math.max(1, Math.round(r.width * full)); bh = Math.max(1, Math.round(r.height * full)); lin = !figLab('upscale'); }
     else if (figLab('upscale') && live.veins?.setPicture && !live.SOFTWARE && live.vdpr < base - 1e-9) { bw = Math.max(1, Math.round(r.width * base)); bh = Math.max(1, Math.round(r.height * base)); }
@@ -151,7 +159,11 @@ export function createRes(st, live) {
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
-    if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); }
+    if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); live.veins?.showNow?.(); }
+    // (The renderer keeps the canvas itself and copies it onto the shown surface once a frame, at the frame's end (keep-screen.js). This runs from the
+    // resize observer, after that copy and before the paint: the width assigned above has cleared the shown surface, and the picture just drawn again
+    // would reach it only at the next frame's end, so the paint between showed the figure gone for one frame (Mohammad's iPhone, 12 Nov 2026, the Doppler
+    // card open: the figure blank for a frame, the cards and charts whole). showNow lays it in this task.)
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
@@ -162,5 +174,5 @@ export function createRes(st, live) {
   const lowWarm = () => { stageScope.clear(lowWarmT); lowWarmT = stageScope.timer(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
   lowWarm();
 new ResizeObserver(lowWarm).observe(wrap);
-  return { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
+  return { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
 }

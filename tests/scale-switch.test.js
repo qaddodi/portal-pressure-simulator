@@ -2,9 +2,8 @@
 // never carried to another slide, the sinusoid only on pressure-lens slides, and only the adopted built-in slides using it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
-import { homeScale, offeredScales, scaleCam, scaleView, pickedScale, scalesProblems } from '../src/ui/scale-switch.js';
+import { homeScale, offeredScales, scaleCam, scaleView, scalesProblems, scaleCentre } from '../src/ui/scale-switch.js';
 import { adopted } from './deck-adopted.js';
 // (as presenter.js slideLens reads a slide's lens: pressure when it names none)
 const slideLens = (s) => s.lens || 'pressure';
@@ -78,4 +77,19 @@ test('built-in slides use scales only where adopted, each with a valid list', ()
     assert.ok(offeredScales(s, { lens: slideLens(s) }).length > 1, `${d.id}/${s.id} offers no other scale`);
   }
   assert.ok(n > 0);
+});
+
+// Upright iPad (820x1180): the pill stands centred over the teaching card and never leaves the screen. (It was placed from restRect's
+// `left`, which is the milliseconds the card's entry has left, so a card still sliding in pushed Anatomy / Lobule / Sinusoid off the right edge.)
+test('the upright pill is centred on the teaching card and fully on screen, 820 wide, a top card and a bottom card', () => {
+  const W = 820, pill = 300, card = { right: 123 + 574, width: 574 };   // (the card takes 70% of the width, centred)
+  assert.ok(Math.abs(scaleCentre({ ...card, wrapLeft: 0, k: 1, pill, wrapW: W }) - W / 2) < 1e-9);
+  // (the rest boxes restRect returns, wide, narrow and near either edge)
+  for (const rest of [{ right: 697, width: 574 }, { right: 820, width: 820 }, { right: 400, width: 200 }, { right: 818, width: 100 }, { right: 60, width: 100 }]) {
+    for (const k of [1, 0.9]) for (const wrapLeft of [0, 10]) {
+      const cx = scaleCentre({ ...rest, wrapLeft, k, pill, wrapW: W });
+      assert.ok(cx - pill / 2 >= 8 - 1e-9 && cx + pill / 2 <= W - 8 + 1e-9, `pill ${cx - pill / 2}..${cx + pill / 2} in 0..${W}`);
+    }
+  }
+  assert.equal(scaleCentre({ ...card, pill: 900, wrapW: W }), W / 2, 'a pill wider than the stage is centred');
 });

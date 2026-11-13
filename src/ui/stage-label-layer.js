@@ -183,10 +183,11 @@ export function createLabelLayer(st, live) {
   // (Where a label is anchored, taken in the layout's own frame, under the camera it was solved under: a label built later in a rest pass (new,
   // or its pieces changed) keeps these, never the camera of that later moment. 5 Nov 2026 review #2: a pan begun between the layout and the
   // build put its world anchor off by the pan, and it stood rigidly on the wrong spot until the next solve.)
+  // (A stent's point callout (n:TIPS:mid) names no station: it has no node to be pinned to (13 Nov 2026: TIPS Doppler slide 3 threw in nodePos every frame).)
   function stampAnchor(it) {
     if (it.aSt) return;
     it.aSt = true;
-    it.aPk = it.key.startsWith('n:') && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0;
+    it.aPk = /^n:[^:]+$/.test(it.key) && !it.live && Number.isFinite(it.ax) && Number.isFinite(it.ay) ? pinKind(it.key.slice(2), it.ax, it.ay, it.au) : 0;
     if (it.cls === 'organ' && !it.rot) { it.ax = it.x + it.w / 2; it.ay = it.y + it.h / 2; }
     const gp = !(it.aPk > 0) && !it.live && !it.hide && Number.isFinite(it.ax) && Number.isFinite(it.ay) && (live.morph === 0 || live.morph === 1) && !NO_ANCHOR.test(it.key);
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
@@ -371,7 +372,7 @@ export function createLabelLayer(st, live) {
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.aPk, pin = pk > 0;   // (taken in the layout's frame: stampAnchor)
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
+    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (the scan, the stage; a Circuit lane's caption is anchored at its lane point, L1 12 Nov) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
     const gw = it.aGw;
     const look = lookOf(b, it);
     // (A lean label's look id changing is a change of its pieces' classes or colours, which its record does not carry: label-gl reads it again.

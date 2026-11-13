@@ -60,8 +60,8 @@ test('the tile is rated from the cut-off module alone: red below the MAP line ca
   assert.deepEqual(bandsOf('rpp').map((z) => rateOf('rpp', { rpp: z.m })[0]), ['hi', 'ok']);
   assert.equal(RATE.map(KIDNEY_CUTS.mapBeta)[0], 'ok');
   assert.equal(RATE.map(KIDNEY_CUTS.mapBeta - 1)[0], 'hi');
-  assert.equal(TILE.rpp.t, 'Kidney pressure');
-  assert.equal(TILE.rpp.s, 'MAP − abdomen');
+  assert.equal(TILE.rpp.t, 'Renal perfusion pressure');
+  assert.equal(TILE.rpp.s, 'MAP − IAP');
   assert.ok(COLS.rpp && CUT.rpp);
   assert.ok(METRICS.rpp, 'the Why? explanation covers it');
 });
@@ -69,8 +69,9 @@ test('the tile is rated from the cut-off module alone: red below the MAP line ca
 test('no wording on the tile claims kidney function', () => {
   const words = [TILE.rpp.t, TILE.rpp.s, CUT.rpp, METRICS.rpp.label, read('src/engine/kidney-cuts.js').split('\n').slice(0, 12).join(' ')];
   for (const w of words) assert.ok(!/\b(GFR|filtration rate|creatinine clearance)\b/i.test(w.replace(/no GFR|not kidney function|no GFR, no creatinine/g, '')), w);
-  const dock = read('src/ui/dock.js').split('\n').find((l) => l.includes("id: 'rpp'"));
-  assert.match(dock, /not kidney function/, 'the tile\'s tooltip says it is a pressure');
+  // (The bar's tile takes its tooltip from the reading's one definition, TILE.rpp.long: unification audit, finding 6.)
+  assert.match(TILE.rpp.long, /not kidney function/, 'the tile\'s tooltip says it is a pressure');
+  assert.ok(read('src/ui/dock.js').split('\n').find((l) => l.includes("id: 'rpp'")).includes("...fromTile('rpp')"), 'the bar\'s RPP tile reads it');
 });
 
 const blank = (line) => line.replace(/\/\/.*$/, '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');
@@ -88,8 +89,8 @@ test('no file but the module writes the kidney pressure cut-off as a number', ()
 test('the kidney talk types the same two rules as the module (a deck is one file with no imports)', async () => {
   const { DECKS } = await import('../src/ui/decks.js');
   const d = DECKS.find((x) => x.id === 'kidney'), text = JSON.stringify(d);
-  const hold = d.slides.find((s) => s.id === 'hold'), live = hold.tool.rows.find((r) => Array.isArray(r));
-  assert.deepEqual(live.slice(1), ['map', '<', KIDNEY_CUTS.mapBeta], 'the live MAP row is the beta-blocker line');
+  const hold = d.slides.find((s) => s.id === 'hold'), live = hold.tool.rows.filter((r) => Array.isArray(r) || r?.key).map((r) => (Array.isArray(r) ? r : [r.text, r.key, r.op, r.value]));
+  assert.deepEqual(live.map((r) => r.slice(1)), [['sbp', '<', KIDNEY_CUTS.sbpBeta], ['map', '<', KIDNEY_CUTS.mapBeta]], 'the live rows are the beta-blocker lines, systolic and mean');
   assert.ok(text.includes(`MAP <${KIDNEY_CUTS.mapBeta} mmHg`));
   assert.ok(d.slides.find((s) => s.id === 'carv').line.includes(`{>=${KIDNEY_CUTS.rpp} mmHg}`), 'the carvedilol slide\'s rule pill is the tile\'s line');
   assert.ok(!/\b(GFR|creatinine)\b/i.test(JSON.stringify(d.slides.map((s) => s.line))), 'no line claims kidney function');

@@ -49,7 +49,7 @@ test('a part of the app that cannot load says so once with a Reload, and the cal
   assert.match(u, /export function loadFailed\(err\) \{[\s\S]*?toast\('Part of the app could not load\. Reload the page to get the latest version\.', 'bad', \{ actions: \[\['Reload', \(\) => location\.reload\(\)\]\] \}\);/);
   const m = read('src/ui/main.js');
   assert.match(m, /pending = null; loadFailed\(err\); throw err;/);
-  assert.match(m, /open: \(\) => paletteL\.get\(\)\.then\(\(p\) => p\.open\(\)\)\.catch\(\(\) => \{\}\)/);
+  assert.match(m, /return paletteL\.get\(\)\.then\(\(q\) => q\.open\(\)\)\.catch\(\(\) => \{\}\)/);
   const menu = read('src/ui/menu.js');
   assert.equal((menu.match(/library\(\)\.then\([^\n]*\.catch\((?:\(\) => \{\}|NOOP)\)/g) || []).length, 2);
   assert.match(stageSource(), /lzWaiting = false; loadFailed\(err\); store\.set\(LOBULE_OFF_BOTH\)/);

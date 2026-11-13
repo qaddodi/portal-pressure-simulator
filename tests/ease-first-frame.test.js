@@ -143,3 +143,17 @@ test('stage.js asks the frame scheduler for its eases, and no local helper is na
   assert.match(stage, /me\.raf = easeFrame\(step\);/, 'the catheter fade-out steps on the scheduler');
   assert.match(stage, /const el = Math\.max\(0, now - t0\), k = Math\.min\(1, el \/ CATH_OUT_MS\);/);
 });
+
+// Motion recommendation 23: the catheter's fade-out has one value (hvpg-clock.js cathFadeAlpha), worked out once a frame and written to the GPU draws
+// and to the SVG group, not a WAAPI fade on one and (1 - k)² on the other. And a procedure's shots are timed by the camera (cathFocus scale).
+test('the catheter fade-out drives the GPU draws and the SVG group from one value; its shots pass scale on to the glide', () => {
+  const at = stage.indexOf('const step = (now) => {', stage.indexOf('function cathFadeOut'));
+  const body = stage.slice(at, stage.indexOf('me.raf = easeFrame(step);', at));
+  assert.equal((body.match(/cathFadeAlpha\(k\)/g) || []).length, 1, 'worked out once a frame');
+  assert.match(body, /if \(svgOn\) cath\.g\.style\.opacity = a;/);
+  assert.match(body, /alpha: d\.alpha \* a/);
+  assert.doesNotMatch(stage.slice(stage.indexOf('function cathFadeOut'), at), /\.animate\(/, 'no second clock on the SVG group');
+  assert.doesNotMatch(body, /\(1 - k\) \* \(1 - k\)/);
+  assert.match(stage, /animateVT\(\{ k, x: \(fr\.x0 \+ fr\.x1\) \/ 2 - cx \* k, y: \(fr\.y0 \+ fr\.y1\) \/ 2 - cy \* k \}, ms, \{ arc, steady, scale \}\);/);
+  assert.match(stage, /animateVT\(cath\.saved, ms, \{ arc, scale \}\)/);
+});

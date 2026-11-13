@@ -2,7 +2,7 @@
 // summary table's row in focus. All opt-in: no built-in deck sets any of them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { citeOk, citeText, focusOf, oneLadder } from '../src/ui/teach-extras.js';
 import { handoutHTML } from '../src/ui/handout.js';
 import { adopted } from './deck-adopted.js';

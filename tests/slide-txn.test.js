@@ -82,12 +82,12 @@ test('slide preparation belongs to its change: a newer aim, or a superseded tran
   assert.equal(calls.filter((c) => c === 'tool5').length, 0, 'the slide passed over is not warmed');
 });
 
-test('slide preparation finishes a manifest when nothing supersedes it, and keeps at most three', async () => {
+test('slide preparation finishes a manifest when nothing supersedes it, and keeps at most five (two either side)', async () => {
   const prep = createSlidePrep({ count: () => 10, steps: { state: () => Promise.resolve({}), glyphs: () => Promise.resolve({}), tool: () => {}, shaders: () => 0 } });
   for (const i of [1, 2, 3, 7]) prep.aim(i, 'next');
   await until(() => prep.ready(7));
   assert.equal(prep.ready(7), true);
-  assert.ok(prep.stats().kept <= 3);
+  assert.ok(prep.stats().kept <= 5);
   assert.equal(prep.manifest(1), null, 'a slide far behind is dropped');
 });
 
@@ -121,4 +121,21 @@ test('the leaving cards are disowned at the press and when the change starts, an
   assert.match(PZ, /function cardsIn\(at\) \{[^\n]*?if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\); txn\?\.restore\(\);/);
   assert.match(PZ, /if \(mine && want === to\) tx\.end\(\);/);
   assert.match(fn('function stopNow('), /txn\?\.end\(\); txn = null;/);
+});
+
+test('phase: each begin starts without a phase; stats and trail name the current step', () => {
+  const txns = createTxns();
+  const a = txns.begin({ to: 1 });
+  assert.equal(txns.stats(0).phase, null);
+  a.phase('leave', 100); a.phase('camera', 250);
+  assert.deepEqual(txns.stats(1000), { ...txns.stats(1000), phase: 'camera', since: 750 });
+  assert.deepEqual(txns.trail(), [{ phase: 'leave', at: 100 }, { phase: 'camera', at: 250 }]);
+  const b = txns.begin({ to: 2 });
+  assert.equal(txns.stats(0).phase, null);
+  a.phase('late', 300);   // a superseded change names nothing
+  assert.equal(txns.stats(0).phase, null);
+  b.phase('cards', 5);
+  assert.equal(txns.stats(10).phase, 'cards');
+  b.end();
+  assert.equal(txns.stats(10).phase, null);
 });

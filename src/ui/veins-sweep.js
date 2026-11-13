@@ -16,6 +16,11 @@
 //   - a segment entry's points are the first sample's; the shader reads the points from the frame's rows instead. Its head's circle
 //     and its runs' radii hold the points of every sample, and the slack, so the passes they let the shader skip stay safe.
 //   - a join entry's first float is the join's index: its centre, reach, blend width and fillet are read from the frame's rows.
+//   - (tight) a head's spare floats hold a circle about the middle point of its segments as the frame has it (A.w its radius, B.z that
+//     point's index), and a run's first entry holds its own in A.zw (radius, index), which the shader tests as well as the swept ones. Swept over the whole stretch, the
+//     heads' and runs' circles held a vessel in every cell it passes through anywhere in the stretch, so a pixel walked every entry of
+//     every vessel that would pass it in the stretch (mid-change 4 to 5 times the entries a pixel walks in the Anatomy at rest); about
+//     the frame's own points, the vessels not near in this frame are passed over at their head (8 Nov 2026, "anatomy to circuit 10fps").
 
 import { CELL, ENT_W, RUN } from './veins-bin.js';
 
@@ -38,7 +43,7 @@ export function hull4Dist2(px, py, ax, ay, bx, by, cx, cy, dx, dy) {
     segDist2(px, py, bx, by, dx, dy), segDist2(px, py, ax, ay, dx, dy), segDist2(px, py, bx, by, cx, cy));
 }
 /** Squared distance from (px, py) to segment i of a vessel anywhere between its samples (path: P0 … Pm). */
-function sweptDist2(px, py, path, i) {
+export function sweptDist2(px, py, path, i) {
   if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]); }
   let best = Infinity;
   for (let j = 0; j + 1 < path.length && best > 0; j++) {
@@ -46,6 +51,36 @@ function sweptDist2(px, py, path, i) {
     best = Math.min(best, hull4Dist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], Q[i][0], Q[i][1], Q[i + 1][0], Q[i + 1][1]));
   }
   return best;
+}
+/**
+ * Whether (px, py) lies within sqrt(lim2) of segment i of a vessel anywhere between its samples: sweptDist2(...) <= lim2, found without
+ * the distance. Each pair of neighbouring moments' hull is first passed over when the point lies farther than the limit from the box
+ * about its four points (`box`: the boxes of the segment's hulls, 4 numbers each, from hullBoxes), and the answer is given at the first
+ * hull that holds the point or has a side within the limit. (R1, 10 Nov 2026: the stretches' binning is the longest part of making the
+ * change between the views ready, and the exact distance to every hull was 60% of it. The same cells are listed, but for a segment with
+ * two samples on one point: every cross product of its hull is zero, which hull4Dist2 took as holding every point, so its cells out of
+ * its reach were listed; they are not now.)
+ */
+function sweptWithin(px, py, path, i, lim2, box) {
+  if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]) <= lim2; }
+  // (A margin past the root, so a rounding of it never passes over a hull that is exactly at the limit.)
+  const L = Math.sqrt(lim2) * (1 + 1e-9) + 1e-9;
+  for (let j = 0, b = 0; j + 1 < path.length; j++, b += 4) {
+    if (px < box[b] - L || px > box[b + 2] + L || py < box[b + 1] - L || py > box[b + 3] + L) continue;
+    const P = path[j], Q = path[j + 1], ax = P[i][0], ay = P[i][1], bx = P[i + 1][0], by = P[i + 1][1], cx = Q[i][0], cy = Q[i][1], dx = Q[i + 1][0], dy = Q[i + 1][1];
+    if (inTri(px, py, ax, ay, bx, by, cx, cy) || inTri(px, py, ax, ay, bx, by, dx, dy) || inTri(px, py, ax, ay, cx, cy, dx, dy) || inTri(px, py, bx, by, cx, cy, dx, dy)) return true;
+    if (segDist2(px, py, ax, ay, bx, by) <= lim2 || segDist2(px, py, cx, cy, dx, dy) <= lim2 || segDist2(px, py, ax, ay, cx, cy) <= lim2 ||
+      segDist2(px, py, bx, by, dx, dy) <= lim2 || segDist2(px, py, ax, ay, dx, dy) <= lim2 || segDist2(px, py, bx, by, cx, cy) <= lim2) return true;
+  }
+  return false;
+}
+/** The box about each hull of segment i (minX, minY, maxX, maxY for each pair of neighbouring moments) into `box`. */
+function hullBoxes(path, i, box) {
+  for (let j = 0, b = 0; j + 1 < path.length; j++, b += 4) {
+    const P = path[j], Q = path[j + 1], a = P[i], c = P[i + 1], d = Q[i], e = Q[i + 1];
+    box[b] = Math.min(a[0], c[0], d[0], e[0]); box[b + 1] = Math.min(a[1], c[1], d[1], e[1]);
+    box[b + 2] = Math.max(a[0], c[0], d[0], e[0]); box[b + 3] = Math.max(a[1], c[1], d[1], e[1]);
+  }
 }
 function polyDist2(px, py, C) {
   if (C.length === 1) return d2(px - C[0][0], py - C[0][1]);
@@ -58,10 +93,11 @@ const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
 /**
  * tubes: [{ id (row), path: [P0, … Pm] (each nSamples points [x, y]), reach, core }]; joins: [{ path: [[x, y], …] (its centre at each
  * sample), reach (the most it reaches anywhere in the stretch), k, fillet, members, trunk, fork }]. opts: { rows (vessel rows the frame's
- * points cover), samples (points a vessel), slack (world units) }. Returns binVeins' result, with `posBase` and `joinBase` (texel
+ * points cover), samples (points a vessel), slack (world units), tight (the heads' and runs' circles about a point of the frame too: see
+ * fitSwept; for frames that lie between two neighbouring moments) }. Returns binVeins' result, with `posBase` and `joinBase` (texel
  * indices of the frame's points and joins in `ent`, filled with the first sample's) and `nJoins`.
  */
-export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
+export function binSwept(tubes, joins, { rows, samples, slack = 2, tight = false }) {
   const HALF = CELL * Math.SQRT1_2;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const t of tubes) {
@@ -80,20 +116,21 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
     const { path, reach, core } = t, n = path[0].length;
     const R = reach + slack, lim2 = (R + HALF) ** 2, limC2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF) ** 2;
     const limQ2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF / 2) ** 2;
-    const cs = [], ss = [], bc = [], bq = [];
+    const cs = [], ss = [], bc = [], bq = [], box = new Float64Array(4 * Math.max(1, path.length - 1));
     for (let i = 0; i < n - 1; i++) {
       let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
-      for (const P of path) for (const q of [P[i], P[i + 1]]) { ax0 = Math.min(ax0, q[0]); ay0 = Math.min(ay0, q[1]); ax1 = Math.max(ax1, q[0]); ay1 = Math.max(ay1, q[1]); }
+      for (const P of path) { const a = P[i], b = P[i + 1]; ax0 = Math.min(ax0, a[0], b[0]); ay0 = Math.min(ay0, a[1], b[1]); ax1 = Math.max(ax1, a[0], b[0]); ay1 = Math.max(ay1, a[1], b[1]); }
       const cx0 = Math.max(0, Math.floor((ax0 - R - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((ax1 + R - x0) / CELL));
       const cy0 = Math.max(0, Math.floor((ay0 - R - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((ay1 + R - y0) / CELL));
+      hullBoxes(path, i, box);
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-        const dd = sweptDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, path, i);
-        if (dd > lim2) continue;
+        const mx = x0 + (cx + 0.5) * CELL, my = y0 + (cy + 0.5) * CELL;
+        if (!sweptWithin(mx, my, path, i, lim2, box)) continue;
         cs.push(cy * nx + cx); ss.push(i);
-        if (dd <= limC2) {
+        if (sweptWithin(mx, my, path, i, limC2, box)) {
           bc.push(cy * nx + cx);
           if (core != null) for (let q = 0; q < 4; q++) {
-            if (sweptDist2(x0 + (cx + 0.25 + 0.5 * (q & 1)) * CELL, y0 + (cy + 0.25 + 0.5 * (q >> 1)) * CELL, path, i) <= limQ2) bq.push((cy * nx + cx) * 4 + q);
+            if (sweptWithin(x0 + (cx + 0.25 + 0.5 * (q & 1)) * CELL, y0 + (cy + 0.25 + 0.5 * (q >> 1)) * CELL, path, i, limQ2, box)) bq.push((cy * nx + cx) * 4 + q);
           }
         }
       }
@@ -149,7 +186,7 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
       let g = e + 1;
       while (g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1) g++;
       ent[e * 8 + 7] = g - e - 1;
-      fitSwept(ent, e, g, path, slack);
+      fitSwept(ent, e, g, path, slack, tight);
       e = g;
     }
   }
@@ -185,25 +222,64 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
   wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
   const nBloodQ = quarters.length / 2, bloodQ = new Float32Array(nBloodQ * 6);
   for (let k = 0; k < nBloodQ; k++) { bloodQ[k * 6] = quarters[k * 2]; bloodQ[k * 6 + 1] = quarters[k * 2 + 1]; }
-  return { ent, rows: total, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ, posBase, joinBase, nJoins: joins.length, entRows };
+  return { ent, rows: total, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ, posBase, joinBase, nJoins: joins.length, entRows, tight };
 }
 
 // A stretch's head (h, its stretch running to g) and runs, fitted to every sample's points of its segments.
-function fitSwept(ent, h, g, path, slack) {
+// (tight) How far any point of the list `idx` (sample indices) can lie from point r of the same vessel in a frame between two neighbouring
+// moments of the stretch: each point of such a frame lies within the slack of the line between its own two samples (stage-vessels.js
+// frameFrom), at a share of the way of its own, and the farthest two points on two segments are at two of their ends, so the farthest
+// is the most of the four distances between the ends at each pair of neighbouring moments, and the slack of each of the two points.
+function tightR(path, idx, r, slack) {
+  let R2 = 0;
+  if (path.length === 1) { const P = path[0]; for (const j of idx) R2 = Math.max(R2, d2(P[j][0] - P[r][0], P[j][1] - P[r][1])); }
+  for (let s = 0; s + 1 < path.length; s++) {
+    const A = path[s], B = path[s + 1], ax = A[r][0], ay = A[r][1], bx = B[r][0], by = B[r][1];
+    for (const j of idx) {
+      const p = A[j], q = B[j];
+      R2 = Math.max(R2, d2(p[0] - ax, p[1] - ay), d2(p[0] - bx, p[1] - by), d2(q[0] - ax, q[1] - ay), d2(q[0] - bx, q[1] - by));
+    }
+  }
+  return up(Math.sqrt(R2) + 2 * slack);
+}
+const IDX = [];
+// The sample half way between the first and the last of a list's (any sample will do: the frame has every one of the vessel's points).
+function midIdx(idx) {
+  let lo = Infinity, hi = -Infinity;
+  for (const i of idx) { if (i < lo) lo = i; if (i > hi) hi = i; }
+  return Math.round((lo + hi) / 2);
+}
+function fitSwept(ent, h, g, path, slack, tight = false) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   for (let f = h + 1; f < g; f++) {
     const i = ent[f * 8 + 5];
-    for (const P of path) for (const q of [P[i], P[i + 1]]) { bx0 = Math.min(bx0, q[0]); bx1 = Math.max(bx1, q[0]); by0 = Math.min(by0, q[1]); by1 = Math.max(by1, q[1]); }
+    for (const P of path) { const a = P[i], b = P[i + 1]; bx0 = Math.min(bx0, a[0], b[0]); bx1 = Math.max(bx1, a[0], b[0]); by0 = Math.min(by0, a[1], b[1]); by1 = Math.max(by1, a[1], b[1]); }
   }
   const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
   let R2 = 0;
   for (let f = h + 1; f < g; f++) { const i = ent[f * 8 + 5]; for (const P of path) R2 = Math.max(R2, d2(P[i][0] - cx, P[i][1] - cy), d2(P[i + 1][0] - cx, P[i + 1][1] - cy)); }
   ent[h * 8] = cx; ent[h * 8 + 1] = cy; ent[h * 8 + 2] = up(Math.sqrt(R2) + slack);
+  // (tight: the head's circle about the middle point of its segments as the frame has it (that point's index in the head's spare float
+  // B.z), its radius in A.w; read by the shader with morphOn 2, as well as the swept one.)
+  if (tight) {
+    IDX.length = 0;
+    for (let f = h + 1; f < g; f++) { const i = ent[f * 8 + 5]; IDX.push(i, i + 1); }
+    const r = midIdx(IDX);
+    ent[h * 8 + 3] = tightR(path, IDX, r, slack); ent[h * 8 + 6] = r;
+  }
   for (let e = h + 1; e < g;) {
     const q0 = e * 8, ax = ent[q0], ay = ent[q0 + 1], n = Math.min(RUN, g - e);
     let rho2 = 0;
     for (let k = 0; k < n; k++) { const i = ent[(e + k) * 8 + 5]; for (const P of path) rho2 = Math.max(rho2, d2(P[i][0] - ax, P[i][1] - ay), d2(P[i + 1][0] - ax, P[i + 1][1] - ay)); }
     ent[q0 + 6] = up(Math.sqrt(rho2) + slack); ent[q0 + 7] = n;
+    // (tight: the run's circle about the middle point of its segments as the frame has it, its radius in A.z and that point's index in
+    // A.w: with morphOn the shader reads the segment's ends from the frame's rows, never the entry's own.)
+    if (tight) {
+      IDX.length = 0;
+      for (let k = 0; k < n; k++) { const i = ent[(e + k) * 8 + 5]; IDX.push(i, i + 1); }
+      const r = midIdx(IDX);
+      ent[q0 + 2] = tightR(path, IDX, r, slack); ent[q0 + 3] = r;
+    }
     e += n;
   }
 }

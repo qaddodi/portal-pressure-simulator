@@ -74,15 +74,16 @@ test('the stage runs the blur guard at start, on a changed renderer and on Batte
   assert.match(st, /guardBlur\(document\.documentElement, \{ low: SOFTWARE, asked: asked === '1' \? null : asked \}\)/);
   assert.match(st, /wrap\.dataset\.renderer = SOFTWARE \? 'software' : 'gpu'; wrap\.dataset\.quality = String\(quality\);\n\s*blurGuard\(\);/);
   assert.match(st, /saverOn = !!on;\n\s*blurGuard\(\);/);
-  assert.match(src('src/ui/main.js'), /toggleAttribute\('data-noglass', !on\);\n\s*document\.documentElement\.removeAttribute\('data-noglass-auto'\);/);
+  assert.match(src('src/ui/main.js'), /const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/);
   // (The noglass look itself: no backdrop-filter anywhere.)
   assert.match(src('styles/app.css'), /:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/);
   // (The visual references are the GPU's look: they keep the blur on SwiftShader.)
   assert.match(src('tests/e2e/visual.mjs'), /'\?preset=cirr-decomp' \+ KEEP_BLUR \+ QUERY/);
 });
 
-test('8 MP pixel budget: the default, the figure canvas and its full-density overlay canvas', () => {
-  assert.match(src('src/ui/frame.js'), /const figOpts = \{ move: 1, glow: 1, cap: 8,/);
+test('Pixel budget (8 MP until 11 Nov 2026, 2 MP then, now 1.5 MP, 0.5 on a phone): the default, the figure canvas and its full-density overlay canvas', () => {
+  assert.match(src('src/ui/frame.js'), /const figOpts = \{ move: 1, glow: 1, cap: capDefault,/);
+  assert.match(src('src/ui/frame.js'), /const capDefault = isPhone\(\) \? 0\.5 : 1\.5;/, 'the device default: 0.5 MP on a phone, 1.5 on a Mac and an iPad');
   // (A 5K screen at 2x: 2560 x 1440 CSS px.)
   const d = capDensity(2, 2560, 1440, 8);
   assert.ok(Math.abs(2560 * 1440 * d * d - 8e6) < 1);
@@ -90,7 +91,8 @@ test('8 MP pixel budget: the default, the figure canvas and its full-density ove
   for (const [w, h, k] of [[390, 844, 3], [1024, 1366, 2], [1728, 1117, 2]]) assert.equal(capDensity(k, w, h, 8), k);
   assert.equal(capDensity(2, 2560, 1440, 0), 2);
   const st = stageSource();
-  assert.match(st, /full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);/);
+  // (Figure size caps the picture, not the canvas, since 11 Nov 2026: the canvas keeps at least 1 device px per CSS px, within the 8 MP budget; quarter-mp-big-screen-tricks rec 1.)
+  assert.match(st, /const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/);
   assert.match(st, /const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/);
 });
 
@@ -111,7 +113,6 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   // (The ones that read an existing context: the anatomy's and the lobule's vessels restore through their owner.)
   assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
-  const lz = src('src/ui/lobule-zoom.js');
   assert.match(src('src/ui/sinusoid-gl.js'), /const onBack = \(\) => \{ if \(gone\) return; epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \};\s*evCv\.addEventListener\('webglcontextrestored', onBack\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)

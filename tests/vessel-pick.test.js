@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // one drawn on top (highest rank) wins, near one the nearest within slop CSS px; the stage picks through it, not through elements.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createVesselPick, dist2 } from '../src/ui/vessel-pick.js';
 
 const A = [[0, 0], [100, 0]], B = [[50, -50], [50, 50]], C = [[200, 0], [300, 0]];

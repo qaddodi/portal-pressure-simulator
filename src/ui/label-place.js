@@ -65,3 +65,52 @@ export const needsLeader = (region, gapPx, hadLeader) => !region && (gapPx > LEA
 export const boxGap = (b, x, y) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
 // The two costs a leader pays in a placement: free up to SHORT_LEAD px, dearer to LONG_LEAD, never beyond.
 export const SHORT_LEAD = 45, LONG_LEAD = 140;
+// How far (x, y) is from the triangle: 0 inside it.
+function triSide(a, b, x, y) { return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]); }
+export function triDist(x, y, tri) {
+  const s0 = triSide(tri[0], tri[1], x, y), s1 = triSide(tri[1], tri[2], x, y), s2 = triSide(tri[2], tri[0], x, y);
+  if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
+  let m = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
+    m = Math.min(m, Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t));
+  }
+  return m;
+}
+
+// A vessel whose middle lies outside the stage but part of it is in view takes its label at the middle of the part in view: the label's point slides
+// along the vessel (it.au, which the GPU pins to), so the label is not lost off the edge with its point. The longest run in view, 18 px clear of the
+// edges; none in view, and the middle stays (the label is hidden with its vessel, as before). 13 Nov 2026: the left portal vein with the camera in
+// on the portal bifurcation had only its tail on the stage, and its label stood off it.
+const VIS_STEPS = 100, VIS_INSET = 18;
+export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL }) {
+  const P0 = [0, 0];
+  return function slideInView(it, id, view) {
+    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && geo[eid]?.cur;
+    if (!(P?.length > 1)) return;
+    const inside = (x, y) => x >= view.x0 + VIS_INSET && x <= view.x1 - VIS_INSET && y >= view.y0 + VIS_INSET && y <= view.y1 - VIS_INSET;
+    if (inside(it.ax, it.ay)) return;
+    const seglen = (k) => Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
+    let total = 0;
+    for (let k = 1; k < P.length; k++) total += seglen(k);
+    if (!(total > 0)) return;
+    let seg = 1, run = 0, from = -1, best0 = -1, best1 = -1;
+    for (let n = 0; n <= VIS_STEPS; n++) {
+      const want = (total * n) / VIS_STEPS;
+      while (seg < P.length - 1 && run + seglen(seg) < want) { run += seglen(seg); seg++; }
+      const u = Math.min(1, Math.max(0, (want - run) / (seglen(seg) || 1)));
+      worldToLocalInto(P0, P[seg - 1][0] + (P[seg][0] - P[seg - 1][0]) * u, P[seg - 1][1] + (P[seg][1] - P[seg - 1][1]) * u);
+      if (inside(P0[0], P0[1])) { if (from < 0) from = n; if (best0 < 0 || n - from > best1 - best0) { best0 = from; best1 = n; } } else from = -1;
+    }
+    if (best0 < 0) return;
+    const au = (best0 + best1) / 2 / VIS_STEPS, m = arcMid(P, au);
+    worldToLocalInto(P0, m[0], m[1]);
+    it.ax = P0[0]; it.ay = P0[1]; it.au = au;
+  };
+}
+
+// The spots a label may be tried at around its station, as the offset of the label's centre, nearest ring first and each ring round from east (a station
+// with no room beside it on its eight directions: a reversed vein must be named, so it is tried all the way round, wholly on the stage, with a leader that
+// crosses no other label or leader). 13 Nov 2026: the left portal vein on a phone at the home framing, boxed in by the portal vein's, the right portal vein's
+// and the cava's labels and the hepatic artery's.
+export const RING_SPOTS = [36, 52, 68, 84, 100, 120, 140].flatMap((r) => Array.from({ length: 24 }, (_, a) => [Math.round(r * Math.cos((a * Math.PI) / 12)), Math.round(r * Math.sin((a * Math.PI) / 12))]));

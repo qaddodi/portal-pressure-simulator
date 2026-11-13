@@ -6,12 +6,14 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js';
+import { fmt } from './num.js';
 import { LEVELS, withOverview } from './decks.js';
 import { TILE, cutText } from './table-marks.js';
 import { plateletText } from './glue.js';
 import { citeText } from './teach-extras.js';
 import { cleanEq } from './import-safety.js';
 import { plainLine } from './reveal.js';
+import { trialOf, trialLines } from './trials.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -91,12 +93,12 @@ const fig = (base, d, s) => (base && !d.mine && s.id && !NO_FIGURE.has(s.visual)
 // ({ppg@before} another slide's), {<15 cm/s} a cut-off as its number, {6 to 8 g} its words. fp: the slide's numbers;
 // at(id): another slide's. A value not known prints as a dash.
 export function lineText(t, fp = null, at = () => null) {
-  // (to the slide's decimals, with a true minus and no "−0", as util.js fmt writes it; that module needs a page)
-  const num = (v, dp) => { const t = v.toFixed(dp); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
-  const val = (k, f) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${num(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
+  // (to the slide's decimals, with a true minus and no "−0", num.js fmt)
+  const val = (k, f, whole = false) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
     if (/^#\d+$/.test(mk)) return `(${mk.slice(1)})`;   // (a figure's step marker, {#2}: its number in brackets, as a printed line says it)
     if (TILE[mk]) return val(mk, fp);
+    if (/^\w+:0$/.test(mk) && TILE[mk.slice(0, -2)]) return val(mk.slice(0, -2), fp, true);   // ({hvpg:0}: a whole mmHg, as the ladder's brackets read it)
     const m = mk.match(/^(\w+)@([\w-]+)$/);
     if (m && TILE[m[1]]) return val(m[1], at(m[2]));
     return cutText(mk);
@@ -118,7 +120,8 @@ function slideBlock(d, base, s, i, fp, at) {
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
     ${s.tool?.kind === 'criteria' && (Array.isArray(s.tool.rows) || Array.isArray(s.tool.key)) ? `<div class="notes"><p class="cap">${esc(s.tool.title || 'Criteria')}</p><ul>${(Array.isArray(s.tool.rows) ? s.tool.rows : s.tool.key).map((r) => (typeof r === 'string' ? r : Array.isArray(r) ? r[0] : r?.text)).filter(Boolean).map((t) => t.replace(/\*\*/g, '')).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
-    ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
+    ${s.tool?.kind === 'trial' && trialOf(s.tool.id) ? `<div class="notes"><p class="cap">${esc(trialOf(s.tool.id).name)}</p><ul>${trialLines(trialOf(s.tool.id)).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    ${q ? `<div class="ask"><p class="cap">Discussion question</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;
 }

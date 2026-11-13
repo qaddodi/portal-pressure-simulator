@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MEASURES, READS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
-import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_RIGID, EUS_SCOPE_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
+import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_RIGID, EUS_SCOPE_R, EUS_EXIT_SIDE, EUS_PORT_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, ORGANS, SEAM_D } from '../src/ui/anatomy.js';
 import { NODES } from '../src/engine/topology.js';
 
@@ -144,8 +144,13 @@ test('each needle leaves the turned scope at its elevator’s angle, crosses onl
     const cos = g.a1[0] * g.nd[0] + g.a1[1] * g.nd[1];
     assert.ok(Math.abs(Math.acos(cos) - S.exit) < 0.01, `${k}: the needle’s angle to the scope`);
     assert.ok(S.exit <= Math.PI / 2 + 1e-9, `${k}: forward of the scope or square to it, as an elevator raises it`);
-    // (The transducer against the wall: where the needle leaves is within a few units of it.)
-    assert.ok(inside(stomach, g.exit) && distTo(stomach, g.exit, true) < 5, `${k}: the needle leaves at the wall`);
+    // (The transducer against the wall: the scope's side beside where the needle leaves is within a few units of it. The port itself is
+    // inside the scope's outline, so only the needle comes out (his ask, 8 Nov 2026), and just behind the curved array.)
+    const skin = [g.exit[0] + g.side[0] * EUS_SCOPE_R * (1 - EUS_EXIT_SIDE), g.exit[1] + g.side[1] * EUS_SCOPE_R * (1 - EUS_EXIT_SIDE)];
+    assert.ok(inside(stomach, g.exit) && distTo(stomach, skin, true) < 5, `${k}: the needle leaves at the wall: ${distTo(stomach, skin, true).toFixed(2)}`);
+    const off = (g.exit[0] - g.end[0]) * g.side[0] + (g.exit[1] - g.end[1]) * g.side[1], back = -((g.exit[0] - g.end[0]) * g.a1[0] + (g.exit[1] - g.end[1]) * g.a1[1]);
+    assert.ok(off > 0 && off + EUS_PORT_R * EUS_SCOPE_R < EUS_SCOPE_R * 0.95, `${k}: the port inside the scope's outline (${off.toFixed(2)} from its axis)`);
+    assert.ok(back > EUS_RIGID * 0.9 && back < EUS_RIGID, `${k}: the port just behind the curved array, on the rigid tip (${back.toFixed(1)} back)`);
     for (let i = 0; i <= 100; i++) {
       const p = [g.exit[0] + g.nd[0] * g.len * (i / 100), g.exit[1] + g.nd[1] * g.len * (i / 100)];
       assert.ok(inside(liver, p) || inside(stomach, p), `${k}: the needle at ${p.map((v) => v.toFixed(0))} is in the stomach or the liver`);
@@ -208,7 +213,10 @@ test('the rigid tip is drawn the same every frame: its own five samples, its len
 test('the scope, its sector and its needle are whole draws for the GPU catheter', () => {
   const r = route();
   const rgb = () => [0.5, 0.5, 0.5];
-  for (const t of [3000, 6600, 8000, 10000, 13500, 15500, 18000, 22000]) {
+  // (Sampled where the sequence has them: after the way in, which is as long as the route takes, so the times move with it.)
+  const shift = T.travel1 - 5200;
+  for (const t0 of [3000, 6600, 8000, 10000, 13500, 15500, 18000, 22000]) {
+    const t = t0 >= 5000 ? t0 + shift : t0;
     const f = procFrame('eus', t);
     const st = { ...f, ring: f.read ? 'var(--tr-pv)' : null, clock: t };
     const tipD = r.start + ((r.free + (r.hvD - r.free) * f.tgt) - r.start) * f.u;
@@ -229,4 +237,31 @@ test('the scope, its sector and its needle are whole draws for the GPU catheter'
 test('the target and pointOn agree with the course’s length', () => {
   const P = [[0, 0], [10, 0], [10, 10]];
   assert.deepEqual(pointOn(P, 0), [0, 0]); assert.deepEqual(pointOn(P, 0.5), [10, 0]); assert.deepEqual(pointOn(P, 1), [10, 10]);
+});
+
+test('the scope lies under the vessels, with a faint outline; the needle and the sector do not', () => {
+  const r = route();
+  const rgb = (c) => (String(c).includes('edge') ? [0, 0, 0] : [0.8, 0.8, 0.8]);
+  const f = procFrame('eus', T.travel1 + 4000);
+  const st = { ...f, ring: null, clock: 0, needle: 1, fan: 1, aim: 1, opacity: 1 };
+  const o = eusDraw(st, r, r.free, at, () => [0.5, 0.5, 0.5]);
+  const under = o.draws.filter((d) => d.under);
+  assert.ok(under.some((d) => d.mode === 2), 'its body is under');
+  assert.ok(under.some((d) => d.mode === 4), 'its rounded end is under');
+  for (const d of o.draws.filter((x) => x.mode === 9 || x.mode === 3)) assert.ok(!d.under, `mode ${d.mode} (the sector, the steel) stays over the vessels`);
+  for (const d of under.filter((x) => x.mode === 7)) assert.ok(d.alpha <= 0.3, 'the hairline is faint');
+  const o2 = eusDraw(st, r, r.free, at, rgb);
+  const hair = o2.draws.find((d) => d.under && d.mode === 7);
+  assert.ok(hair.col[0] > 0.1, 'its colour is moved toward the body, not the near-black edge');
+});
+
+test('the esophageal varices fade as the scope goes in, stay faded through the work, and are back before the run ends', () => {
+  let prev = 0;
+  for (const t of times) { const f = procFrame('eus', t).fade; assert.ok(f >= 0 && f <= 1, `fade in range at ${t}`); if (t <= T.varix1) assert.ok(f >= prev - 1e-9, `fade only grows going in (${t})`); prev = f; }
+  assert.equal(procFrame('eus', 0).fade, 0);
+  assert.equal(procFrame('eus', (T.varix1 + T.pv0) / 2).fade, 1, 'faded while the scope is in the esophagus');
+  assert.equal(procFrame('eus', T.hvRead0).fade, 1, 'still faded while the needle reads');
+  assert.equal(procFrame('eus', T.varixOut1).fade, 0, 'back as the scope leaves');
+  assert.equal(procFrame('eus', T.end).fade, 0);
+  assert.equal(procFrame('eusglue', 9000).fade || 0, 0, 'the glue slide leaves the varices as they are');
 });

@@ -4,7 +4,6 @@
 // pills), glides to a new state and arrives, and that a frame of the glide makes no new piece (code only: nobody has looked on screen).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const Txt = (text) => ({ text, nodeType: 3, data: text, children: [], attributes: [], getAttribute: () => null });
 class El {
@@ -36,7 +35,7 @@ globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListe
 globalThis.addEventListener = () => {};
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
-globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: (k) => (k === '--ramp-pressure' ? '#DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30' : '') });
+globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: (k) => (k === '--ramp-pressure' ? '#B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30' : '') });
 
 const { createProfileTool, STATIONS } = await import('../src/ui/tool-profile.js');
 const { geoOf } = await import('../src/ui/svg-gl.js');

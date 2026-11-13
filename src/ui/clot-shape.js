@@ -3,7 +3,7 @@
 // rises, lengthens along the vessel, and at full occlusion spans the lumen with blunt ends.
 // Every number is a smooth function of the occlusion v (0–1), so an eased change of v eases the
 // clot. The lumps and the side come from the vessel's id, so a clot never shimmers or flips.
-const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+import { clamp } from './num.js';
 
 export function hashSeed(str) {
   let h = 2166136261;

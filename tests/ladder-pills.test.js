@@ -9,7 +9,6 @@ import { profileOf, profileGeo, axisTop, numberSides, curveRuns, labelPlacer, pl
 import { runSteps } from './deck-states.js';
 
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const approxW = (f) => (t, wt = 600) => t.length * 0.58 * f * (wt >= 700 ? 1.04 : 1);
 const hit = (a, b, g = 0) => a[0] < b[1] + g && b[0] < a[1] + g && a[2] < b[3] + g && b[2] < a[3] + g;
 const SIZES = [['phone', 13.8, 352, 248], ['iPad', 15.6, 552, 245], ['Mac', 13, 450, 280], ['grid cell', 12.02, 259, 210], ['six ladders, Mac', 16, 433, 357], ['six ladders, laptop', 14, 379, 250]];
@@ -77,7 +76,7 @@ test('the pills are drawn over the chart, tinted as the brackets rate them, glid
   // (Rated by the table's own cut-offs, as the brackets are.)
   assert.match(prof, /class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0/);
   assert.match(prof, /toneOf\(RATES\[k\]\(v\)\)/);
-  assert.match(prof, /const RATES = \[hvpgRate, ppgRate\]/);
+  assert.match(prof, /RATES = \[hvpgRate, ppgRate\]/);   // (the default pair; a slide's `spans` option sets the chart's own, in its brackets' order)
   assert.match(prof, /setWords\(q\.val, numWords\(v, 0\)\)/);
   // (Over the brackets in the picture's stack, so nothing hides them.)
   const at = (re) => prof.search(re);
@@ -86,8 +85,8 @@ test('the pills are drawn over the chart, tinted as the brackets rate them, glid
   assert.match(prof, /const gx = at \? glideX\(at, t\) : box\[0\]/);
   assert.match(prof, /blkOp\(pillK, t\)/);
   assert.match(prof, /t - pillK\.t0 < FADE_MS/);
-  // (The brackets keep their place in the plot before the pills do: they stand down, with the plot's height unchanged.)
-  assert.match(prof, /if \(!brk && !band\) \{ brk = placeBrackets\(g, tw, goal, hl, bf, s, old\?\.brk, \[\]\); pl = brk \? placePills\(g, tw, goal, hl, bf, s, brk\) : null; \}/);
+  // (Every bracket stands in the one band at the plot's foot, never inside the plot above and below the line: Mohammad, 13 Nov 2026, "keep all gradients on one side".)
+  assert.match(prof, /const brk = null;\n\s*const g = profileGeo\(w, hh, f, tw, false, spans\), s = numberSides\(g, tw, goal\), pl = placePills\(g, tw, goal, hl, bf, s\);/);
   // (The look: a soft fill in the rating's own tone, a ring, bold figures; the same three tones as the .pz-val pills.)
   // (The pill's tones are the table's prof.pill.*: tests/profile-looks.test.js.)
 });

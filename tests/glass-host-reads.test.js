@@ -27,7 +27,7 @@ globalThis.Path2D = class {};
 globalThis.createImageBitmap = () => { return Promise.resolve({ close() {} }); };
 function fakeGL(name) {
   const n = { draw: 0, blur: 0, blit: 0, clear: 0, deleted: 0, calls: [] };
-  let progs = 0, prog = null;
+  let progs = 0;
   const gl = new Proxy({}, {
     get(_, k) {
       if (typeof k !== 'string') return undefined;
@@ -36,10 +36,11 @@ function fakeGL(name) {
       if (k === 'isContextLost') return () => false;
       if (k === 'getProgramParameter') return () => true;
       if (k === 'createProgram') return () => ({ n: ++progs, name });
-      if (k === 'useProgram') return (p) => { prog = p; };
+      if (k === 'useProgram') return () => {};
       return (...a) => {
         n.calls.push([k, ...a]);
-        if (k === 'drawArrays') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }   // (the glass's program is the second of each pair)
+        if (k === 'drawArrays') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes)
+        if (k === 'blitFramebuffer' && a[5] > a[7]) n.blur++;   // (a copy made: its last blit, turned over)
         if (k === 'blitFramebuffer') n.blit++;
         if (k === 'clear') n.clear++;
         if (k.startsWith('delete')) n.deleted++;
@@ -142,7 +143,6 @@ test('let go: its page-wide listeners go with it', () => {
 });
 
 test('what lies between the figure and a glass (stage.js frostOver) is kept until something there may have moved', async () => {
-  const { readFileSync } = await import('node:fs');
   const st = stageSource();
   const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);

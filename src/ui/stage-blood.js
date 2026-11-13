@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
-import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
+import { DRIFT_PERIOD, DRIFT_RATE, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { flowClose, retireRows } from './flow-rows.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -10,13 +10,14 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { bloodColors, clamp } from './util.js';
 import { FLOW_TEXELS } from './veins-gl.js';
+import { CHEV_PITCH } from './chevron-glsl.js';
 import { STYLE_D, STYLE_E } from './blood-tile.js';
 
 // The blood look each view draws (blood-tile.js): Anatomy look D; Circuit look E (sines, no texture read).
 const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_E;
 
 export function createBlood(st, live) {
-  const { E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
+  const { E, EI, EV, GL_ROWS, SIDE_HOSTS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
   // ── Moving blood ──────────────────────────────────
   // What is kept true, and what is exaggerated, is set out in blood.js. Every model vessel has a
   // stream (hidden ones too: a dye bolus passes through them); each drawn vessel, strand and
@@ -31,6 +32,11 @@ export function createBlood(st, live) {
   //      texels 0 and 3 then hold the distance and drift as they stood at that clock (anchorStream, veins-gl flowD);
   //      w: the origin blend's Péclet number along the vessel, signed by the flow from → to (0: one blood all along; blood.js originEnds)
   //   7: the downstream junction's blend (as texel 2), which the origin colours mix toward along a vessel whose blood sloshes
+  // And beside the table, headRuns: the arrowheads' own run per row (blood-heads.js, 13 Nov 2026; veins-gl setHeadRuns): the offset
+  // added to the run's A, and its B (0: the run's own, A 0 and B 1 for the vessel's own stream). The streaks cross-fade from one stream
+  // to another through a junction's link (texel 4, w); the heads move over at once, onto the new stream placed where the old one stood
+  // (chainRows), and then ease to the junction's own A and B, so a head never fades out for another to come in somewhere else.
+  // Then the spacing level the row's heads are drawn at (whole numbers at rest; between two while every other head comes or goes) and 1.
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
@@ -57,7 +63,7 @@ export function createBlood(st, live) {
       // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part. The GPU integrates the
       // display speed's slope aA too (flowD), so a beat's swing needs no new anchor while the slope holds.)
       sm.D = (((sm.aD + (sm.aV + 0.5 * sm.aA * dt) * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
-      sm.drift = (sm.aR + sm.aT * 0.06 * dt) % DRIFT_PERIOD;
+      sm.drift = (sm.aR + sm.aT * DRIFT_RATE * dt) % DRIFT_PERIOD;
       if (sp === sm.aS && Math.abs(sm.vd - (sm.aV + sm.aA * dt)) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) { sm.vp = sm.vd; return; }
     }
     // (The new slope: this frame's change in the display speed over the blood clock it took; none while the clock stands still.)
@@ -76,13 +82,40 @@ export function createBlood(st, live) {
   const laneOpen = (id) => !!E[id]?.vis && !E[id].ghost;
   const keyOnly = () => !!store.get().presenting || !!store.get().blood?.keyChevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
-  const originOn = () => !!live.F && layerMode() === 'origin';
+  // (Its sibling, the First pass lens, colors the same streams by what the liver did to the gut blood: blood.js FIRSTPASS.)
+  const originOn = () => !!live.F && (layerMode() === 'origin' || layerMode() === 'firstpass');
+  let oPass = false, oPassed = false;   // (the lens the origin colours are worked for; kept while the lens fades out, so they do not change colour on the way)
   // Its mixing along a vessel (blood.js originEnds): each vessel's flow forward and back, from the model's beat-by-beat flow, averaged
   // over a few breaths (ORIGIN_TAU s). Their difference is the mean that sets the blends at the junctions; the smaller of the two is the
   // blood that runs to and fro. One pass over the vessels a frame, a few sums each; the blends themselves are worked out once a model frame.
   const ORIGIN_TAU = 3;
   const oFwd = new Float64Array(EDGES.length), oBack = new Float64Array(EDGES.length), oMean = new Float64Array(EDGES.length);
-  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
+  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length), join: new Float32Array(EDGES.length) };
+  // A shunt drawn into the side of a vein part-way (stage-geo.js SIDE_HOSTS) whose model end is the shunt's own node: the left renal vein's
+  // venules (V_KID_L) take the splenorenal shunt in front of the node, so from there on they carry the shunt's blood too (blood.js originEnds, join).
+  const HOSTED = [];
+  for (const cid of Object.keys(SIDE_HOSTS || {})) for (const hid of SIDE_HOSTS[cid][1] || []) if (EI[cid] != null && EI[hid] != null && EDGES[EI[cid]].to === EDGES[EI[hid]].to) HOSTED.push({ cid, hid, kc: EI[cid], kh: EI[hid] });
+  // Where along `P` (a polyline of [x, y]) the point (px, py) falls, 0 to 1 by arc length.
+  function arcFrac(P, px, py) {
+    let tot = 0, best = Infinity, at = 0;
+    for (let i = 1; i < P.length; i++) {
+      const ax = P[i - 1][0], ay = P[i - 1][1], dx = P[i][0] - ax, dy = P[i][1] - ay, l2 = dx * dx + dy * dy, l = Math.sqrt(l2);
+      const t = l2 > 0 ? clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1) : 0, d2 = (ax + t * dx - px) ** 2 + (ay + t * dy - py) ** 2;
+      if (d2 < best) { best = d2; at = tot + t * l; }
+      tot += l;
+    }
+    return tot > 0 ? at / tot : 0;
+  }
+  function setJoins() {
+    oEnds.join.fill(0);
+    if (live.morph >= 0.5) return;   // (the circuit draws no shunt into a vein's side)
+    for (let i = 0; i < HOSTED.length; i++) {
+      const h = HOSTED[i], c = E[h.cid], P = geo[h.hid]?.cur, C = geo[h.cid]?.cur;
+      if (!c?.vis || c.ghost || !E[h.hid]?.vis || !P || P.length < 2 || !C || C.length < 2 || !(oMean[h.kc] > 0.01) || !(oMean[h.kh] > 0)) continue;
+      const end = C[C.length - 1], j = arcFrac(P, end[0], end[1]);
+      if (j > 0.02 && j < 0.98) oEnds.join[h.kh] = j;
+    }
+  }
   let oSeeded = false;
   function stepOriginFlow(dt) {
     const Q = live.F.Q, Qf = live.F.Qf || Q;
@@ -161,11 +194,146 @@ export function createBlood(st, live) {
   // was still easing at the last step; otherwise the last step's answer, unchanged, is written into the rows again. Each candidate's
   // record is kept per slot, so a change is told by comparing each field as it is written, and a steady frame allocates nothing.)
   let chainLast = null;
-  function chainRows(kW, kB) {
+  // The arrowheads' runs (flow texel 8), per row: the stream they are drawn on (-1 the vessel's own, else the root's row; -2 none last step),
+  // that stream's edge, the A they were drawn with (target plus offset), their B and their offset. A head sits where A + B s − D is a
+  // multiple of its spacing (blood-heads.js), D the stream's distance. When the stream a row's heads are drawn on changes (a link forms, lets
+  // go or moves to another root), the new run takes B = ±(the old B) and A = D_new ± (A_old − D_old): the same lattice on the vessel, so
+  // every head stays where it is (the sign keeps B's own: a run the other way round is the same set, j for −j). The offset to the junction's
+  // own A is cut to the nearest two spacings at the zoom now (so every other head's fade matches too); then the heads catch the junction's
+  // A and B up only by moving forward (headRun).
+  // The level (13 Nov 2026, no faint in-between heads at any zoom): a whole number per row at rest, the one that stands the heads nearest
+  // CHEV_PITCH apart on screen (blood-heads.js headLevel), with a margin so a row near the middle does not swing between two. It is held
+  // while the view zooms (the heads ride the figure, closer or wider) and taken up LEVEL_QUIET seconds after the zoom stops, every other
+  // head then coming or going over LEVEL_SWAP seconds: one short change after the gesture, never a faint set at rest.
+  const HEAD_EASE = 0.5, LEVEL_QUIET = 0.2, LEVEL_SWAP = 0.3, LEVEL_MARGIN = 0.65;
+  const hLv = new Float64Array(GL_ROWS), hLt = new Float64Array(GL_ROWS);
+  let lvSc = 0, lvQuiet = 0, lvEasing = false, scCur = 1, lvG = NaN, lvGt = NaN;   // (lvG: the level of every row outside the chain, a vessel's own stream)   // (scCur: CSS px per world unit now, stage-camera refreshCTM; the last known while the camera record is being made again)
+  const hRun = new Int32Array(GL_ROWS).fill(-2), hK = new Int32Array(GL_ROWS), hA = new Float64Array(GL_ROWS), hAt = new Float64Array(GL_ROWS), hB = new Float64Array(GL_ROWS);
+  const hSeen = new Uint32Array(GL_ROWS), headRuns = new Float32Array(GL_ROWS * 4);
+  let hStamp = 0;
+  // (A level toward its target over LEVEL_SWAP seconds; the target taken up only once the zoom has stood still, and only past the margin.)
+  function levelStep(cur, tgt, raw, fresh, dtL) {
+    if (fresh || !(cur === cur)) return [Math.max(-1, Math.round(raw)), Math.max(-1, Math.round(raw))];
+    if (lvQuiet >= LEVEL_QUIET && Math.abs(raw - tgt) > LEVEL_MARGIN) tgt = Math.max(-1, Math.round(raw));
+    const d = tgt - cur, st = dtL / LEVEL_SWAP;
+    if (d !== 0) { cur = Math.abs(d) <= st ? tgt : cur + Math.sign(d) * st; lvEasing = true; }
+    return [cur, tgt];
+  }
+  // The heads only ever move forward (13 Nov 2026, Mohammad on his devices: "They go the other way against their arrow direction"). Their
+  // lattice on the vessel is the stage's own (hA, hB), never the junction's A and B as they ease: a head moves by its stream's distance
+  // and nothing else, except two corrections that never push it back. (1) The junction's A (blood.js, eased over a second as a link
+  // forms, lets go or swings) is caught up the short way round (the lattice repeats every two spacings) by running the heads a little
+  // faster or slower, in proportion to the gap and at most HEAD_CATCH of the stream's own step. (2) A change of B stretches the lattice about the
+  // vessel's upstream join, as the junction's own A does, in steps small enough that no head moves back.
+  // Until 13 Nov the offset eased either way at up to a spacing in half a second, faster than the blood, and the junction's own B eased
+  // about its upstream join: heads slid backward.
+  // (3, 13 Nov 2026: hops at a join in the disease presets, up to 90 px.) A chained vessel's lattice is held at its junction end to the
+  // heads drawn on its parent there (the parent's hA, hB at its downstream end), not to the junction's own A: while a parent eases, its heads
+  // stand off the junction's A, and the branch then took them up somewhere else. J, the stream distance of the row's lattice at its junction
+  // end, follows the parent's own move there each step (a head runs out of the parent and on into the branch in step), and a gap left (a link
+  // formed, a root changed) is caught up whichever way round is quicker: the heads slowed to no less than 1 - HEAD_CATCH of the stream, or
+  // run up to 1 + HEAD_FAST times it. A vessel drawn on its own stream has no join to keep: its lattice stays where it is.
+  // A B that falls (a link let go: the heads had kept the root's larger B, and ran slow) is taken down quickly, since that only spreads
+  // the heads forward from the join (HEAD_B_OUT); one that rises pulls them back toward it and goes no faster than HEAD_B.
+  const HEAD_CATCH = 0.45, HEAD_FAST = 0.45, HEAD_B = 0.3, HEAD_B_OUT = 0.8, HEAD_J = 0.65;   // (J back at most 0.65, B at most 0.3 of the stream's step: forward)
+  const hDp = new Float64Array(GL_ROWS), hT = new Float64Array(GL_ROWS), hTm = new Int32Array(GL_ROWS).fill(-1);
+  // (A row's last move beyond the stream's own (the parent's, followed, and the gap's catch-up), as a part of the stream's step, and the gain it is applied at. The gap is not caught up while
+  // the view changes; the move it had then dies away over CATCH_OUT and comes back over CATCH_IN once the view stands, so that its speed goes up
+  // and down smoothly and a head does not change speed in a frame when a morph starts or ends: 13 Nov 2026, jumps at joins after Anatomy <-> Circuit.)
+  const CATCH_IN = 0.6, CATCH_OUT = 0.25;
+  const hCr = new Float64Array(GL_ROWS), hCg = new Float64Array(GL_ROWS);
+  const wrapD = (d) => d - PERIOD * Math.round(d / PERIOD);
+  // (The lattice's repeat, in stream units: one spacing, at the coarser of the row's level and its parent's, which the heads keep at the join.
+  // At a whole level every head on it is drawn (blood-heads.js headKeep); only while every other head comes or goes (LEVEL_SWAP) does the
+  // pattern repeat every two, and a join may then pass a fading head on as a whole one for that moment.)
+  const latM = (row, pr) => 28 * 2 ** Math.floor(Math.max(hLv[row], pr >= 0 ? hLv[pr] : -1));
+  function headRun(row, root, k, At, Bt, kH, dtL, len = 0, s0 = 0, pr = -1, sjP = 0) {
+    const fresh = hRun[row] === -2;
+    hSeen[row] = hStamp;
+    const D = streams[k].D;
+    // (The parent's heads, when they are drawn on this row's stream and placed this step: what the branch's heads take up at the join.)
+    const viaP = pr >= 0 && hSeen[pr] === hStamp && hRun[pr] !== -2 && hK[pr] === k && (hRun[pr] === root || (hRun[pr] === -1 && root === pr));
+    const Jt = viaP ? hA[pr] + hB[pr] * sjP : At + Bt * s0, joined = root >= 0;
+    if (fresh) { hA[row] = Jt - Bt * s0; hB[row] = Bt; }
+    else if (hRun[row] !== root || hK[row] !== k || Math.sign(hB[row]) !== Math.sign(Bt)) {
+      // (A new stream: placed where the old run stood, the old stream's distance now and the A it was drawn with. B keeps its size.)
+      const sg = Math.sign(Bt) * Math.sign(hB[row]) || 1;
+      const Ad = D + sg * (hA[row] - streams[hK[row]].D), M = latM(row, viaP ? pr : -1);
+      hA[row] = At + (Ad - At) - M * Math.round((Ad - At) / M); hB[row] = sg * hB[row];   // (the same lattice: whole periods taken off)
+    } else if (reduceMotion.matches) { hA[row] = At; hB[row] = Bt; }   // (still heads: nothing moves, so nothing to ease)
+    else {
+      const dD = wrapD(D - hDp[row]);
+      if (dD !== 0) {
+        // (2) B toward the junction's, pivoting at the junction end (s0), so J stands; a rise in steps small enough that the head furthest
+        // from the join moves back by at most HEAD_B of the stream's own step.
+        if (hB[row] !== Bt) {
+          const B0 = hB[row], lim = (Math.abs(Bt) < Math.abs(B0) ? HEAD_B_OUT : HEAD_B) * Math.abs(dD) / Math.max(len, 1);
+          const B1 = Math.abs(Bt - B0) <= lim ? Bt : B0 + Math.sign(Bt - B0) * lim;
+          hA[row] += (B0 - B1) * s0; hB[row] = B1;
+        }
+        // (3) J with the parent's heads, then (1) the gap, in proportion to it (the heads ease into step with no jump in speed). The lattice
+        // repeats every two spacings, at the coarser of the two vessels' levels.
+        // (Not while the view changes: the vessels' lengths and joins move under the heads then, and the heads ride their own lattice.)
+        if (joined && !(live.morph > 0 && live.morph < 1)) {
+          const J = hA[row] + hB[row] * s0, M = latM(row, viaP ? pr : -1), sd = Math.sign(dD), ad = Math.abs(dD);
+          let f = hTm[row] === (viaP ? pr : -1) ? Jt - hT[row] : 0;
+          if (!(Math.abs(f) <= 1.2 * ad)) f = 0;   // (the parent re-placed, or its own run changed: no move to follow, only a gap)
+          // (Slowed, the heads gain at most what HEAD_J leaves over the parent's own move; the quicker way round by the rate each has.)
+          const rS = Math.max(0, Math.min(HEAD_CATCH, HEAD_J - f * sd / ad)), e0 = (Jt - J - f) * sd, eSlow = sd * (e0 - M * Math.floor(e0 / M)), eFast = eSlow - sd * M;
+          const slow = Math.abs(eSlow) * HEAD_FAST <= Math.abs(eFast) * rS, e = slow ? eSlow : eFast;
+          const c = (slow ? HEAD_CATCH : HEAD_FAST) * ad * Math.min(1, Math.abs(e) / (0.1 * M));
+          const g = hCg[row] = Math.min(1, hCg[row] + dtL / CATCH_IN), cu = (Math.abs(e) <= c || Math.abs(e) < 1e-3 ? e : Math.sign(e) * c) * g;
+          let dJ = f + cu;
+          // (Slowed: the whole move held under HEAD_J of the step, so a head still moves forward. Sped up: HEAD_FAST past the parent's own
+          // move, so a branch closes its gap while its parent still closes one; never more than twice the stream's speed.)
+          const hi = HEAD_J * ad, lo = -Math.min(1, Math.max(0, -f * sd / ad) + HEAD_FAST) * ad;
+          if (dJ * sd > hi) dJ = sd * hi; else if (dJ * sd < lo) dJ = sd * lo;
+          hCr[row] = dJ * sd / ad;
+          hA[row] += dJ;
+        }
+        else {   // (a morph: the move of the gap's catch-up dies away, never stops in a frame)
+          hCg[row] = 0;
+          if (hCr[row] !== 0) { hCr[row] = Math.abs(hCr[row]) < 1e-3 ? 0 : hCr[row] * Math.max(0, 1 - dtL / CATCH_OUT); hA[row] += hCr[row] * dD; }
+        }
+      }
+    }
+    hDp[row] = D; hT[row] = Jt; hTm[row] = viaP ? pr : -1;
+    { const g = Jt - hA[row] - hB[row] * s0, M = latM(row, viaP ? pr : -1), e = g - M * Math.round(g / M);
+      if ((joined && Math.abs(e) > 1e-3) || hB[row] !== Bt) live.bloodEasing = true; }
+    const off = hA[row] - At;
+    hRun[row] = root; hK[row] = k; hAt[row] = At;
+    // The level: the one nearest CHEV_PITCH at the zoom the view last settled at, by the B the heads are drawn with.
+    const raw = Math.max(-1, Math.log2(Math.max(CHEV_PITCH / (lvSc || scCur) * Math.abs(hB[row]), 1e-6) / 28));
+    const lt = levelStep(hLv[row], hLt[row], raw, fresh, dtL);
+    hLv[row] = lt[0]; hLt[row] = lt[1];
+    headRuns[row * 4] = off; headRuns[row * 4 + 1] = hB[row]; headRuns[row * 4 + 2] = hLv[row]; headRuns[row * 4 + 3] = 1;
+  }
+  // (The heads: on the root's stream while there is any link, else the vessel's own; never mixed. Reduced motion: each its own. A parent's
+  // heads are placed before its branches', which take them up at the join.)
+  const hIx = new Int32Array(GL_ROWS), hIxS = new Uint32Array(GL_ROWS), hDone = new Uint32Array(GL_ROWS);
+  function chainHead(c, i, kH, dtL) {
+    const it = chainIt[i];
+    if (hDone[it.key] === hStamp) return;
+    hDone[it.key] = hStamp;
+    const rk = c.w[i] > 0 ? chainK.get(c.root[i]) : undefined, own = rk == null || reduceMotion.matches, p = own ? -1 : c.par[i];
+    const pi = p >= 0 && hIxS[p] === hStamp ? hIx[p] : -1;
+    if (pi >= 0) chainHead(c, pi, kH, dtL);
+    headRun(it.key, own ? -1 : c.root[i], own ? it.k : rk, own ? 0 : c.A[i], own ? 1 : c.B[i], kH, dtL, Math.abs(it.sj - it.s0), it.s0, pi >= 0 ? p : -1, pi >= 0 ? chainIt[pi].sj : 0);
+  }
+  function chainRows(kW, kB, kH = kW, dtL = 0) {
+    hStamp++;
+    // (The zoom: held while it moves, taken up once it has stood still LEVEL_QUIET seconds.)
+    const scNow = live.CTM?.sc || scCur; scCur = scNow;
+    if (scNow !== lvSc) { if (!lvSc) lvQuiet = LEVEL_QUIET; else lvQuiet = 0; lvSc = scNow; } else lvQuiet += dtL;
+    lvEasing = lvQuiet < LEVEL_QUIET;
     let n = 0, changed = !chainLast || chainLast.easing;
     for (let ix = 0; ix < EV.length; ix++) {
       const x = EV[ix];
-      if (!x.vis || x.isArt || x.ghost || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) continue;
+      if (!x.vis || x.isArt || x.ghost || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) {
+        // (Never chained, still drawing blood: its heads on its own stream, at a level held as any other's.)
+        if (x.vis && flowNow[x.row] && EI[x.e.id] != null) headRun(x.row, -1, EI[x.e.id], 0, 1, kH, dtL);
+        continue;
+      }
       const g = geo[x.e.id], P = g?.cur, len = g?.len;
       if (!P || P.length < 2 || !(len > 0)) continue;
       const k = EI[x.e.id], sm = streams[k], sg = sm.sgn || 1, fwd = sg > 0;
@@ -184,6 +352,8 @@ export function createBlood(st, live) {
     const c = changed ? (chainLast = chain.step(chainIt, kW, kB)) : chainLast;
     if (c.easing) live.bloodEasing = true;
     for (let i = 0; i < n; i++) chainK.set(chainIt[i].key, chainIt[i].k);
+    for (let i = 0; i < n; i++) { hIx[chainIt[i].key] = i; hIxS[chainIt[i].key] = hStamp; }
+    for (let i = 0; i < n; i++) chainHead(c, i, kH, dtL);
     for (let i = 0; i < n; i++) {
       const o = chainIt[i].key * FLOW_TEXELS * 4, w = c.w[i], ef = c.ef[i], et = c.et[i];
       if (!(w > 0) && !ef && !et) continue;
@@ -197,6 +367,12 @@ export function createBlood(st, live) {
       }
       flowData[o + 22] = ef; flowData[o + 23] = et;
     }
+    // (A row no longer in the chain starts afresh when it comes back: its heads come in with its blood.)
+    // (A row outside the chain (the circuit's liver branches, the feeders) draws its own stream at the one level lvG, held as any other's.)
+    const g = levelStep(lvG, lvGt, Math.max(-1, Math.log2(CHEV_PITCH / (lvSc || scCur) / 28)), false, dtL);
+    lvG = g[0]; lvGt = g[1];
+    for (let r = 0; r < GL_ROWS; r++) if (hSeen[r] !== hStamp) { hRun[r] = -2; headRuns[r * 4] = 0; headRuns[r * 4 + 1] = 0; headRuns[r * 4 + 2] = lvG; headRuns[r * 4 + 3] = 1; }
+    if (lvEasing) live.bloodEasing = true;
   }
   // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
   const NONE = Object.freeze([]), NO_OBJ = Object.freeze({});
@@ -257,6 +433,8 @@ export function createBlood(st, live) {
       const Qm = breathQ.mean;
       for (let k = 0; k < EDGES.length; k++) { velQf[k] = velOf(k, Qm[k]); velQ[k] = velOf(k, live.F.Q[k]); }
     }
+    // (A vein closed by its clot carries no blood, so it shows no chevrons: one faint mark ran over the chronic PVT's clot, 13 Nov 2026.)
+    const thr = store.get().params?.thrombus;
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
       const rt = revHold[k];
@@ -266,22 +444,25 @@ export function createBlood(st, live) {
       qSlow[k] = qSlow[k] === qSlow[k] && !still ? qSlow[k] + (qa - qSlow[k]) * aQ : qa;
       anchorStream(sm, so, bReset);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
-      const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
+      const ct = thr && thr[EDGES[k].id] >= 0.95 ? 0 : !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
     // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
     // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
-    // review, B4).
-    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st ? 1 : 0, tO = originOn() ? 1 : 0;
+    // review, B4). The chevrons also stand aside while the figure changes between Anatomy and Circuit and come back as it lands (Mohammad,
+    // 13 Nov 2026, "do 2"): a vessel sliding against its own flow carried its arrows backward on the screen.
+    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st && live.morph === live.morphTarget ? 1 : 0, tO = originOn() ? 1 : 0;
     blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
     blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
     if (!live.veins) return;
     const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
     stepOriginFlow(moving ? dt * live.restK : 0);
-    if (blendA.o > 0 && live.originsF !== live.F) {
-      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds);
-      live.originsF = live.F;
+    if (originOn()) oPass = layerMode() === 'firstpass';
+    if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) setJoins();
+    if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) {
+      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds, oPass);
+      live.originsF = live.F; oPassed = oPass;
     }
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
@@ -307,14 +488,15 @@ export function createBlood(st, live) {
       // Tributaries drawn into a trunk: a share of its flow by caliber.
       if (live.morph < 0.5) for (const fd of x.feeders || NONE) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
-      if (live.morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
+      if (live.morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs, oPass);   // (First pass: a liver branch cleans along its length too)
     }
     if (on) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
       // still on its way does not keep the figure awake. It goes on from there when the motion comes back.)
-      if (restStill()) { const was = live.bloodEasing; chainRows(0, 0); live.bloodEasing = was; }
-      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1));
+      if (restStill()) { const was = live.bloodEasing; chainRows(0, 0, 0, dt); live.bloodEasing = was || lvEasing; }
+      else chainRows(reduceMotion.matches ? 1 : -Math.expm1(-dt / 0.25), reduceMotion.matches ? 1 : -Math.expm1(-dt / 1), reduceMotion.matches ? 1 : -Math.expm1(-dt / HEAD_EASE), reduceMotion.matches ? 1e9 : dt);
     }
+    live.veins.setHeadRuns?.(headRuns);   // (every step: the heads' level eases at rest too; veins-gl sends only what changed)
     const retired = retireRows(flowData, flowWas, flowNow, FLOW_TEXELS * 4);
     if (retired && gpuProbe.on) for (let i = 0; i < retired; i++) gpuProbe.note(COUNTED.flowRetired);
     // (While the blood stands still, a table within a hundredth of what the GPU holds is not sent: the same picture, so the
@@ -381,6 +563,7 @@ export function createBlood(st, live) {
     L.style = live.morph < 0.5 ? STYLE_ANATOMY : STYLE_CIRCUIT;   // (a view's look: blood-tile.js STYLE_*; Circuit's is its own thread's to change)
     L.clock = live.bloodClock; L.bt = live.bloodClock - bEpoch; L.dye = !st.imaging; L.bleed = bleedSpray(); L.noChev = live.noChevBoxes; L.holes = live.chevHoles; L.vdpr = live.vdpr;
     L.originCol = bc.originCol; L.dyeCol = bc.dyeCol; L.inkLight = bc.inkLight; L.inkDark = bc.inkDark; L.revCol = bc.revCol; L.chevInk = bc.chevInk; L.chevLight = bc.chevLight;
+    if (oPass) L.originCol = bc.firstCol;   // (the First pass lens's five colours in the origin slots)
     return L;
   }
   return { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams };

@@ -6,7 +6,6 @@ import { stageSource } from './stage-src.js';
 // the row joins veinsRows, which drawVeins hands to veins.drawRows rather than drawing the whole layer.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const stage = stageSource();
 const block = stage.slice(stage.indexOf('  function renderBlock(it) {'), stage.indexOf('  const rectOf = (it) =>'));

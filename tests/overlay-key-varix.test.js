@@ -8,7 +8,6 @@ import { stageSource } from './stage-src.js';
 // put it in the key on purpose, and hold it against the beat.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const stage = stageSource();
 const between = (from, to) => { const a = stage.indexOf(from), b = stage.indexOf(to, a); assert.ok(a > 0 && b > a, `${from} ... ${to}`); return stage.slice(a, b); };

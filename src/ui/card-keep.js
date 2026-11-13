@@ -17,12 +17,16 @@ const own = (s) => !s || OWN.some((k) => s[k]);
 // A catheter slide whose data card is the catheter's own tracing (tool.catheter, presenter-tools.js) leaves the data card alone: the
 // catheter carries on from one step to the next and the tracing follows its balloon, so the card stays up between such slides.
 const cathCard = (s) => ['free', 'wedge', 'result'].includes(s?.cath) && s.tool?.kind === 'hvpg' && !!s.tool.catheter;   // (the steps a tracing follows: tool-hvpg.js STEPS)
-const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'cath' && cathCard(s)));
+// A measuring procedure's slide whose data card is the one monitor (tool { kind: 'reading' }, tool-reading.js) keeps it too: from one measurement slide
+// to the next the monitor stays where it is and starts the new measurement afresh, its readings stepped on Next (Mohammad, 13 Nov 2026: "when i click
+// next, it like moves the card off and they appear again.. it shouldnt.. it should just do the readings as i click next").
+const readCard = (s) => s?.tool?.kind === 'reading' && !!s.procedure;
+const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'cath' && cathCard(s)) && !(k === 'procedure' && readCard(s)));
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.
 const records = (t) => !!t && (t.kind === 'doppler' || t.kind === 'vitals' || (t.kind === 'trace' && t.range === 'beats'));
-const drawn = (t) => !!t && (t.kind === 'flowtime' || (t.kind === 'trace' && t.range !== 'beats'));
+const drawn = (t) => !!t && (t.kind === 'flowtime' || t.kind === 'evgraph' || (t.kind === 'trace' && t.range !== 'beats'));
 /** Whether the data card's instrument can ride a change of patient: it reads the live model, which eases from the old patient to the new. */
 export const eases = (t) => !records(t) && !drawn(t);
 
@@ -40,7 +44,7 @@ export function dataPlan(s, o = {}) {
 // What a slide's teaching card is made of: the whole slide but what only the data card, the figure, the camera or the model read. A
 // field this leaves out that does change the words would keep stale words; so it names what to leave out, not what to keep.
 const NOT_WORDS = ['id', 'notes', 'tell', 'tool', 'data', 'tiles', 'dataTitle', 'clock', 'hvpgResp', 'delta', 'cam', 'view', 'kMax', 'clear', 'layers',
-  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'ramp', 'beats'];
+  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'relax', 'ramp', 'beats'];
 /** A slide's teaching card, or null when the slide has none (a visual's panel is another card). */
 export function textPlan(s) {
   if (!s || s.visual) return null;
@@ -72,7 +76,7 @@ export function keepData({ from, to, prev, next, swap = false, again = false }) 
 export function keepText({ from, to, prev, next, swap = false, again = false }) {
   if (again || swap || !from || !to || from !== to || own(prev) || own(next)) return false;
   // (Choices, a slider, the scale switch keep what the viewer did to them on the slide before; each slide opens them afresh.)
-  return !['compare', 'whatIf', 'column', 'scales', 'ask'].some((k) => prev[k] || next[k]);
+  return !['compare', 'whatIf', 'strain', 'column', 'scales', 'ask'].some((k) => prev[k] || next[k]);
 }
 
 // ── A kept card, checked against the layout ──

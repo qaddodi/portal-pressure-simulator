@@ -39,7 +39,7 @@ export function createSites(st, live) {
     rLiver: { kicker: 'Liver resistance', cls: 'res', unit: '', res: 'liver' },
     rColl: { kicker: 'Collateral resistance', cls: 'res coll', unit: '', res: 'coll' },
     // The gut's arterioles (the splanchnic arteries in parallel), in series before the liver: most of the pressure falls here.
-    rGut: { kicker: 'Gut arteriole resistance', cls: 'res gut', unit: '', res: 'gut' } };
+    rGut: { kicker: 'Splanchnic arteriolar resistance', cls: 'res gut', unit: '', res: 'gut' } };
   const { RES_BIT, resItem, resMade, resPaint, resPlace, resRatio } = createResistors({ EI, NI, SITE_DEF, geo, pointAt, recs, worldToLocalInto }, live);
   // (The readings' parts, made ahead: a frame clones them, never builds them.)
   // (A reading's own box, with its glass in it already for those that have one: cloned on a frame, nothing built there. callout.js withGlass)

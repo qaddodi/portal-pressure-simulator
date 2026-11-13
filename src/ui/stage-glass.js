@@ -63,7 +63,7 @@ export function createGlass(st, live) {
   const frostOn = () => !frostWhy();
   const frostHost = (o, src = null) => (src
     ? { gl: src.gl, canvas: src.canvas, add: src.add, warmIn: src.warmIn, now: src.now, active: frostOn, why: frostWhy, view: () => null, ...o }
-    : { gl: live.veins.top.gl, canvas: live.veins.top.canvas, add: live.veins.top.add, warmIn: live.veins.top.warmIn, now: () => { if (live.veins && !live.veins.lost) live.veins.present(true, true); }, active: frostOn, why: frostWhy, view: () => live.veins?.viewKey ?? null, ...o });
+    : { gl: live.veins.top.gl, canvas: live.veins.top.canvas, add: live.veins.top.add, warmIn: live.veins.top.warmIn, now: () => { if (live.veins && !live.veins.lost) live.veins.top.ask(); }, active: frostOn, why: frostWhy, view: () => live.veins?.viewKey ?? null, ...o });
   // (Every glass moved together to the canvas the frost is taken from now: the liver's (lobule-zoom.js glassHost) while it shows, else
   // the figure's. Between frames, never inside the glass's own frame, which asked.)
   let rehostT = 0;

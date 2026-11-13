@@ -2,9 +2,11 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js';
+import { store, updateParams, setViewKey } from './store.js';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
-import { D_FLIP, EASE_ARRIVE } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, easeArrive } from './ease.js';
+import { readMetric } from './layout-snap.js';
+import { reduceMotionMQ } from './motion.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { classSoon, attrSoon } from './class-soon.js';
 import { frame } from './frame.js';
@@ -12,6 +14,7 @@ import { EDGES } from '../engine/topology.js';
 import { DRUGS } from '../engine/scenario.js';
 import { HIDDEN_EDGES } from './anatomy.js';
 import { LOOKS } from './looks.js';
+import { SURGICAL, SURGICAL_BY_ID, shuntName, surgicalVerbs } from './surgical-shunts.js';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
@@ -19,13 +22,16 @@ const FOCUS_NO_SCROLL = Object.freeze({ preventScroll: true });
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
+  const surgical = surgicalVerbs({ store, updateParams, select: (sel) => ctx.select(sel), toast });
   const back = h('div', { class: 'pal-back', hidden: true });
   const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
   const list = h('div', { class: 'pal-list glides', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
   const hl = h('div', { class: 'pal-glide', 'aria-hidden': 'true' });   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
   const foot = h('div', { class: 'pal-foot', 'aria-hidden': 'true' }, h('span', {}, h('kbd', {}, '↑'), h('kbd', {}, '↓'), 'to move'), h('span', {}, h('kbd', {}, 'Enter'), 'to run'), h('span', {}, h('kbd', {}, 'Esc'), 'to close'));
-  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input), list, foot);
+  // (A close button, seen only where the palette is a sheet from the thumb dock, menu recs P3: there is no Esc key there, and every sheet has one.)
+  const shut = h('button', { class: 'ib pal-x', type: 'button', 'aria-label': 'Close search', onclick: () => close() }, svgIcon('close'));
+  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input, shut), list, foot);
   back.append(box);
   document.body.append(back);
   const syncMore = fadeWhileMore(list);   // (a list that scrolls fades at its foot while there is more below it, as the menus do)
@@ -62,6 +68,9 @@ export function createPalette({ ctx }) {
     // (The tamponade tube: the gastric balloon first, drawn up against the cardia; the esophageal balloon second, on a tube whose gastric balloon is up.)
     add('Treat', 'Gastric balloon', () => updateParams((p) => { p.balloonGas = !p.balloonGas; if (!p.balloonGas) p.balloonEso = false; return p; }, { label: 'Gastric balloon' }), { kw: 'tamponade sengstaken minnesota traction first' });
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
+    // The surgical shunts, as the Treat card's Procedures tab makes them (surgical-shunts.js), each with its take-down.
+    for (const x of SURGICAL) add('Treat', shuntName(x), () => surgical.placeShunt(x.id), { kw: `${x.kw} ${x.sub}` });
+    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}` });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time
@@ -72,8 +81,8 @@ export function createPalette({ ctx }) {
     add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Colored by ${t.toLowerCase()}`, () => store.set({ colorMode: id }), { kw: `color colour lens ${d}` });
-    add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
-    add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
+    add('View', 'Anatomy view', () => setViewKey('anatomy'), { kw: 'anatomic' });
+    add('View', 'Circuit view', () => setViewKey('circuit'), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
     add('View', 'Tests', () => ctx.instruments(), { kw: 'measure instruments charts dock' });
     // Go to a structure
@@ -88,7 +97,7 @@ export function createPalette({ ctx }) {
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
-    for (const l of LOOKS) add('App', `Appearance: ${l.name}`, () => ctx.look(l.id), { kw: `theme look colour palette ${l.theme} ${l.palette || ''}` });   // (Settings > Appearance, by name: "navy" finds Navy)
+    for (const l of LOOKS) add('App', `Appearance: ${l.name}`, () => ctx.look(l.id), { kw: `theme look color colour palette ${l.theme} ${l.palette || ''}` });   // (Settings > Appearance, by name: "navy" finds Navy)
     add('App', 'Guide & shortcuts', () => ctx.help(), { kw: 'help keyboard' });
     add('App', 'Copy share link', () => ctx.share(), { kw: 'url' });
     return cmds;
@@ -218,9 +227,14 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     clearTimeout(leaveT); back.classList.remove('leaving');
+    openAt = performance.now(); palExit?.cancel(); palExit = null;
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
-    setTimeout(() => input.focus(), 0);
+    // (Focused in the tap itself, so iOS raises the keyboard at once; a focus from a timer is outside the gesture and iOS waits for a second
+    // tap: menu recs C3, 13 Nov 2026. The timer stays for a browser that moves focus back to the button after the click.)
+    input.focus(FOCUS_NO_SCROLL);
+    setTimeout(() => { if (!back.hidden && document.activeElement !== input) input.focus(FOCUS_NO_SCROLL); }, 0);
+    ctx.onToggle?.(true);
     vv?.addEventListener('resize', fitSoon); vv?.addEventListener('scroll', fitSoon);
     fitList();   // (a keyboard already up, from another field, shows no resize: the list is held to its room at once)
   }
@@ -234,16 +248,42 @@ export function createPalette({ ctx }) {
     geomFor = null; remeasure();
     const room = visibleBottom() - list.getBoundingClientRect().top - 12;
     back.style.setProperty('--pal-room', `${Math.max(96, Math.floor(room))}px`);
+    // (Over the thumb dock the palette is a sheet resting on the dock, or on the keyboard when it is up: the keyboard's height and the room
+    // above it, which the sheet's list is sized from, not from where the list starts, which moves with it.)
+    const v = window.visualViewport;
+    back.style.setProperty('--pal-kb', `${Math.max(0, Math.round(innerHeight - visibleBottom()))}px`);
+    back.style.setProperty('--pal-vh', `${Math.round(v ? v.height : innerHeight)}px`);
+    liftSoon();
+  }
+  // (13 Nov 2026, iPhone: the Search sheet rose onto the dock and then jumped up onto the keyboard as it came up. Its box takes the new place
+  // at once (nothing laid out is eased); the move is eased by transform from where its top stood, read between frames, as the patient menu's
+  // sheet does (menu.js sheetLift). Added to its own entrance, so one still rising carries on rising from where it is.)
+  let liftAsk = 0, palTop = null;
+  function liftSoon() { if (!liftAsk && document.documentElement.classList.contains('thumb-ui')) liftAsk = restPass(lift); }
+  function lift() {
+    liftAsk = 0;
+    if (back.hidden || back.classList.contains('leaving')) { palTop = null; return; }
+    const t = readMetric(box, 'offsetTop'), was = palTop;
+    palTop = t;
+    if (was == null || Math.abs(was - t) < 1 || reduceMotionMQ.matches || !box.animate) return;
+    box.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });   // alloc-rare: once per keyboard move
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
-  let leaveT = 0;
-  const leaveDone = () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); };
+  let leaveT = 0, openAt = -1e9, palExit = null;
+  const leaveDone = () => { palExit?.cancel(); palExit = null; palTop = null; back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
+    // (Over the thumb dock, put away while it still rises (a second tap on Search): it sinks from where it had got to, not from its resting place,
+    // which it jumped up to for a frame first. 13 Nov 2026, iPhone.)
+    const x = (performance.now() - openAt) / D_SMALL;
+    if (x < 1 && box.animate && !reduceMotionMQ.matches && document.documentElement.classList.contains('thumb-ui')) {
+      palExit = box.animate([{ transform: `translateY(calc((100% + 8px) * ${(1 - easeArrive(Math.max(0, x))).toFixed(4)}))` }, { transform: 'translateY(calc(100% + 8px))' }], { duration: D_SMALL, easing: EASE_IN, fill: 'forwards' });   // alloc-rare: a close during the entrance
+    }
     vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
     leaveT = afterExit(back, 'leaving', leaveDone);
     ret?.focus?.(FOCUS_NO_SCROLL);
+    ctx.onToggle?.(false);
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {

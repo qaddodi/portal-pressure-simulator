@@ -7,7 +7,6 @@ import { stageSource } from './stage-src.js';
 // comes out above the dome to join the trunk smoothly.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { EDGES } from '../src/engine/topology.js';
 import { EDGE_PATH, NODE_POS, FEEDERS, HIDDEN_EDGES, ANAT_HIDDEN, ORGANS, BACK_EDGES } from '../src/ui/anatomy.js';
 import { diaphragmLine } from '../src/ui/diaphragm.js';

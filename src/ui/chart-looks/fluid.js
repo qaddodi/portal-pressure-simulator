@@ -1,8 +1,8 @@
 // The fluid balance's looks (docs/chart-looks-in-code-plan.md WP10): tool-fluid.js, host 'fluid'. Written by hand from app.css's .gf-* and
-// .gs-* rules (7448-7507, the model's rules now deleted), in cascade order. Three pictures use them: the flow picture (gf), the day strip's
-// parts (gs) and the sinusoid-wall tug (gs). The card's own rows, swatches and track are page elements and keep their rules.
-// The colours are the card's scoped variables written out (they were set on `.gf`, app.css 7445 and 7466-7471). The page keeps the five the
-// swatches and the track read (--gs-lymph, --gs-carried, --gs-back, --gs-build, --gs-dash, --gs-slot): change one here, change it there.
+// .gs-* rules (7448-7507, the model's rules now deleted), in cascade order. Three pictures use them: the flow picture (gf), the day card's lymph
+// gauge (gs, 13 Nov 2026: Mohammad's pick "C, Two tiles") and the sinusoid-wall tug (gs). The card's own rows, tiles and slots are page elements and keep their rules.
+// The colours are the card's scoped variables written out (they were set on `.gf`, app.css 7445 and 7466-7471). The page keeps the ones the
+// slots read (--gs-lymph, --gs-slot): change one here, change it there.
 import { tok, mix, px, em, ease } from './dsl.js';
 
 // ── the card's colours (7445, 7467-7469) ──
@@ -10,7 +10,6 @@ const CARRIED = mix('srgb', tok('text'), 42, tok('surface'));        // --gf-car
 // --gs-lymph: the lymph green, 55 % of it in a dark look (7470-7471, the attribute and the system-dark copies)
 const LYMPH = tok('sv-gl-lymph-hi'), LYMPH_DARK = mix('srgb', tok('sv-gl-lymph-hi'), 55, tok('surface'));
 const lymph = { fill: LYMPH }, lymphDark = { fill: LYMPH_DARK };
-const BACK = mix('srgb', tok('tour-sys'), 80, tok('surface'));       // --gs-back (--gf-back is the plain systemic vein)
 const DASH = [3, 2.5];
 
 const node = (fill, extra = {}) => ({ base: { fill, ...extra } });
@@ -38,20 +37,13 @@ export const FLUID = {
   'fluid.room': { base: { fill: 'none', stroke: CARRIED, width: 1.5, dash: DASH } },
 
   // ── the day strip (7466-7507) ──
-  // 7491 .gs-seg and 7493-7494: a part of the strip, in its fate's colour
+  // 7491 .gs-seg: a part of the gauge or the forces strip, in its fate's colour
   'fluid.seg.car': { base: lymph, when: [[{ dark: true }, lymphDark]] },
-  'fluid.seg.blue': { base: { fill: BACK } },
-  'fluid.seg.shrink': { base: { fill: tok('ok') } },
   'fluid.seg.build': { base: { fill: tok('caution') } },
   'fluid.seg.push': { base: { fill: tok('tour-portal') } },
   'fluid.seg.pull': { base: { fill: CARRIED } },
-  // 7492 .gs-ghost: the lymphatics' spare room as a dashed outline (--gs-dash: the lymph mixed toward the quiet text; its strength is its width)
-  'fluid.seg.ghost': {
-    base: { fill: 'none', stroke: mix('srgb', LYMPH, 40, tok('text-2')), width: 1.5, dash: DASH },
-    when: [[{ dark: true }, { stroke: mix('srgb', LYMPH_DARK, 40, tok('text-2')) }]],
-  },
-  // 7496 .gs-brk: the Leaked bracket
-  'fluid.brk': { base: { fill: 'none', stroke: mix('srgb', tok('text'), 45, 'transparent'), width: 1.5, join: 'miter' } },
+  // the limit of what the lymphatics carry: a short line across the day card's lymph gauge, shown while something leaks past it
+  'fluid.tick': { base: { fill: 'none', stroke: mix('srgb', tok('text'), 70, 'transparent'), width: 2, join: 'miter' } },
   // 7497 .gs-in (the font is the strip's own, 1em of the card's text size): a word set inside a part
   'fluid.in': { base: { font: [600, em(1)], fill: tok('text'), baseline: 'central' } },
   // 7507 .gs-wall: the sinusoid wall the push and the pull meet at

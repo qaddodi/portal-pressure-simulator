@@ -1,5 +1,5 @@
 // The sinusoid view keeps its names on a presenter slide (Mohammad, 26 Oct: "keep most of the labels especially hepatocyte, lymph,
-// portal venule, central vein and the arrows"): a slide's lit names take the pill, the rest stay plain as in Explore, and only
+// portal venule, central vein and the arrows"): a slide's lit names take their term's ink, the rest stay plain as in Explore, and only
 // the lobule's own names ease out. The Fenestrae callout points at a fenestra, not at an endothelial cell body.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,10 +10,11 @@ const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const GL = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
 const VIEW = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
 
-test('a lit sinusoid name still takes the pill and its colour', () => {
-  const pill = CSS.split('\n').find((l) => l.includes(')::before { opacity: 1;')) || '';
-  for (const k of ['fenestrae', 'disse', 'stellate', 'kupffer', 'hepatocyte', 'lymph', 'lumen']) assert.ok(pill.includes(`.app[data-lit~="sinusoid:${k}"] [data-target="sinusoid:${k}"]`), k);
-  assert.match(pill, /^:is\(\.lz-lab, \.lz-zone, \.sv-region\):is\(/);
+test('a lit sinusoid name takes its term\'s colour as its ink, with no pill behind', () => {
+  // (13 Nov 2026, unification audit 12: one style on the figure, outlined text; the lit term is its words in the term's colour.)
+  const ink = CSS.split('\n').find((l) => l.startsWith(':root:root:root:root:root:root:root:root :is(.lz-lab, .lz-zone, .sv-region):is(') && l.includes(') { color: color-mix(in srgb, var(--term-c, var(--accent)) 84%, var(--cap-ink)); }')) || '';
+  for (const k of ['fenestrae', 'disse', 'stellate', 'kupffer', 'hepatocyte', 'lymph', 'lumen']) assert.ok(ink.includes(`.app[data-lit~="sinusoid:${k}"] [data-target="sinusoid:${k}"]`), k);
+  assert.ok(!CSS.split('\n').some((l) => l.includes(')::before { opacity: 1;') && l.includes('sinusoid:')), 'no lit pill');
 });
 
 test('the end arrows follow their names, so the kept names keep their arrows', () => {

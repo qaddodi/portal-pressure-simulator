@@ -76,11 +76,9 @@ test('a called glide writes in each frame from 0 to exactly 1, takes no frame af
 });
 
 import { readFileSync } from 'node:fs';
-test('the instrument card\'s height fit is written by the frames, not a compositor animation', () => {
+test('the instrument card keeps its height between tests, and a sheet\'s ease is the frames\'', () => {
   const src = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
-  const fit = src.slice(src.indexOf('function setFit('), src.indexOf('const reduceFit'));
-  assert.match(fit, /glideCall\(workspace, D_SMALL, easeArrive, write\)/);
-  assert.doesNotMatch(fit, /\.animate\(/);
+  assert.doesNotMatch(src, /function setFit\(/, 'no glide of the card between heights (12 Nov 2026)');
   const sheet = readFileSync(new URL('../src/ui/sheet-move.js', import.meta.url), 'utf8');
   assert.doesNotMatch(sheet, /\.animate\(/, 'a sheet\'s ease is the frames\'');
 });

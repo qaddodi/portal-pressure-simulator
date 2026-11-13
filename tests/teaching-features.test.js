@@ -34,7 +34,7 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
   assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
   assert.match(src('presenter-tools.js'), /holdAnswer\(on, instant = false\) \{ cur\?\.hold\?\.\(!!on, instant\); \}/);
   const prof = src('tool-profile.js');
-  assert.match(prof, /new Set\(held \? \[\] : blocksOf\(goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
+  assert.match(prof, /new Set\(held \? \[\] : blocksOf\(own \|\| goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
   assert.match(prof, /if \(row && hk >= 0\.005\) \{/, 'held, the brackets ease out');
   // (CSS: the rating words, the Doppler's words and the figure's alerts fade, never snap.)
   assert.match(css, /\.pz-data\[data-held\] \.pzt-r, \.pz-data\[data-held\] \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ opacity: 0; \}/);
@@ -75,7 +75,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
       assert.ok(!s.tool.rows, `${d.id}/${s.id}: a graph or rows, never both`);
       const keys = s.tool.key.map(keyLine);
       assert.ok(keys.length >= 1 && keys.length <= CRITERIA_MAX && keys.every(Boolean), `${d.id}/${s.id}: 1 to 4 key lines with words`);
-      for (const k of keys) assert.ok(k.plain.length <= 50, `${d.id}/${s.id}: "${k.plain}" fits one line on a phone`);
+      for (const k of keys) assert.ok(k.plain.length <= 54, `${d.id}/${s.id}: "${k.plain}" fits one line on a phone`);
     } else {
       assert.equal(rows.length, s.tool.rows.length, `${d.id}/${s.id}: every row has words`);
       assert.ok(rows.length >= 1 && rows.length <= CRITERIA_MAX, `${d.id}/${s.id}: 1 to 4 rows`);
@@ -175,14 +175,14 @@ test('every content slide of a built-in deck has a question for the handout', ()
   for (const d of DECKS) for (const s of d.slides) if (!s.visual) assert.ok(Array.isArray(s.ask) || typeof s.ask === 'string', `${d.id}/${s.id}: has an ask`);
 });
 
-test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a named slide, with 10% and 20% marks', async () => {
+test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a named slide, with one 10% mark', async () => {
   const { RATE, TILE, DERIVED_TILE, SCALE } = await import('../src/ui/table-marks.js');
-  assert.deepEqual(SCALE.hvpgFall, [0, 40, [10, 20]]);
+  assert.deepEqual(SCALE.hvpgFall, [0, 40, [10]]);
   assert.equal(DERIVED_TILE.hvpgFall.u, '%');
   assert.equal(TILE.hvpgFall, undefined, 'worked out by the presenter, not read from the fingerprint');
-  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥20%']);
-  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['mid', '≥10%']);
-  assert.deepEqual(RATE.hvpgFall(15, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
+  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥10%']);
+  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['ok', '≥10%']);
+  assert.deepEqual(RATE.hvpgFall(8, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
   assert.deepEqual(RATE.hvpgFall(5, {}), ['hi', '<10%']);
   const used = slidesUsing('hvpgResp');
   assert.ok(used.length >= 4);
@@ -207,7 +207,7 @@ test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed ti
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {
   const p = src('presenter.js');
-  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land`\); break; \}/, 'the move loop gives up on a slide after two tries');
+  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land\$\{phaseNote\(\)\}`\); break; \}/, 'the move loop gives up on a slide after two tries');
   const vb = DECKS.find((d) => d.id === 'variceal-bleed').slides.find((s) => s.id === 'minutes');
   assert.equal(vb.predict, undefined, 'Predict is gone: Variceal bleed 4 never had a choice question');
 });

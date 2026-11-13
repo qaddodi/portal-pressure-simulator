@@ -3,7 +3,7 @@ import { stageSource } from './stage-src.js';
 // read anywhere else counts against its file's allowance (scripts/layout-read-allowance.json), which may only go down.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { directReads, readRatchet, readAllowance, SNAPSHOT_FILE } from '../scripts/off-gpu-scan.mjs';

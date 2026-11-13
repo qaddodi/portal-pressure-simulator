@@ -102,6 +102,7 @@ export function viewInside(p, m, cw, ch) {
   }
   return true;
 }
+const INVC = [0];   // (invalidateFramebuffer's list)
 const VQ = [1, 0, 0, 1, 0, 0], VI = [1, 0, 0, 1, 0, 0], VM = [1, 0, 0, 1, 0, 0];   // (viewInside's and marginViewTo's scratch)
 /** The view the margin picture is painted under: m with the canvas's centre kept and everything MOVE_MARGIN times smaller about it. */
 export function marginView(m, cw, ch) { return marginViewTo([0, 0, 0, 0, 0, 0], m, cw, ch); }
@@ -115,9 +116,10 @@ export function marginViewTo(o, m, cw, ch) {
 import { createShapeGL } from './shape-gl.js';
 import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js';
-import { netChanged } from './idle-keys.js';
+import { netChanged, netWho } from './idle-keys.js';
 import { uniformCache } from './uniform-cache.js';
 import { easeMove, D_SURFACE } from './ease.js';
+import { counts, tally } from './frame-counts.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -133,6 +135,29 @@ const EMPTY_ORGANS = new Map();   // (never written: no live organs, no cuts)
 const numEq = (a, b) => a === b || (a !== a && b !== b);   // (equal as the numbers' text would be: NaN is NaN)
 /** A key record: the stack's version numbers, the view m (n numbers), the canvas size, and a clock reading while a view's picture fades in (-1: none). */
 const newKey = () => ({ ok: false, ver: 0, liveVer: 0, page: 0, n: 0, m: [0, 0, 0, 0, 0, 0], cw: 0, ch: 0, f: -1 });   // alloc-rare: a key record, made three times when a stack is made
+/** The view tolerance (device pixels): a camera that lies within it of the view last drawn, over the whole canvas, is that view. */
+export const VIEW_TOL = 1 / 64;
+/**
+ * How far (device px) the view `a` puts a point from where `b` puts it, the worst over the canvas cw × ch (b's device corners taken back
+ * to the world, then forward by a: the shift is affine, so its worst is at a corner). 0 for the same six numbers; Infinity when they cannot
+ * be compared (NaN, a flat b). The model's updates move the camera's matrix by the last digit while nothing moves.
+ */
+export function viewDrift(a, b, cw, ch) {
+  let same = true;
+  for (let i = 0; i < 6; i++) if (!numEq(a[i], b[i])) { same = false; break; }
+  if (same) return 0;
+  const det = b[0] * b[3] - b[1] * b[2];
+  if (!(Math.abs(det) > 1e-12)) return Infinity;
+  let worst = 0;
+  for (let c = 0; c < 4; c++) {
+    const X = c & 1 ? cw : 0, Y = c & 2 ? ch : 0, dx = X - b[4], dy = Y - b[5];
+    const wx = (b[3] * dx - b[2] * dy) / det, wy = (b[0] * dy - b[1] * dx) / det;
+    const ex = a[0] * wx + a[2] * wy + a[4] - X, ey = a[1] * wx + a[3] * wy + a[5] - Y;
+    const d = Math.sqrt(ex * ex + ey * ey);
+    if (!(d <= worst)) worst = d;   // (a NaN is kept: it fails the test below)
+  }
+  return worst === worst ? worst : Infinity;
+}
 function setView(k, ver, m, cw, ch) {
   k.ver = ver; k.n = m.length; k.cw = cw; k.ch = ch;
   for (let i = 0; i < m.length; i++) k.m[i] = m[i];
@@ -228,8 +253,32 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   // synchronously at each check (takeRecords), so a write made in the same task as the composite is seen by that composite.
   // (No MutationObserver: every render describes, as before.)
   let pageVer = 0;
-  const watch = typeof MutationObserver === 'function' ? new MutationObserver((rs) => { if (netChanged(rs)) pageVer++; }) : null;   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const pull = () => { if (!watch) return; const rs = watch.takeRecords(); if (rs.length && netChanged(rs)) pageVer++; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // (pageWho, 12 Nov 2026: what the last such write was, the organ, the element and the attribute, as ?perf's "organ layer painted" line names it: his Mac
+  // at rest on a deck slide painted the layer 17 times a second, "page changed", and nothing said which write. One name per element and attribute, kept.)
+  let pageWho = '';
+  const whoNames = new WeakMap(), whyNames = new Map();   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const whoName = (el, key) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    if (!el || el.nodeType !== 1) return key;
+    let m = whoNames.get(el);
+    if (!m) { m = new Map(); whoNames.set(el, m); }   // alloc-rare: once per element watched
+    let n = m.get(key);
+    if (n === undefined) {
+      const g = el.closest?.('[class*="organ-"]'), og = g ? (/organ-([\w-]+)/.exec(g.getAttribute('class') || '')?.[1] || '') : '';
+      const cl = (el.getAttribute('class') || '').split(' ')[0];
+      n = `${og ? og + ' ' : ''}${el.tagName.toLowerCase()}${el.id ? '#' + el.id : cl ? '.' + cl : ''} ${key}`;   // alloc-rare: once per element and attribute
+      m.set(key, n);
+    }
+    return n;
+  };
+  const changedNow = (rs) => { if (!netChanged(rs)) return; pageVer++; pageWho = whoName(netWho.target, netWho.key); netWho.target = null; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const whyOf = (why) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    if (why !== 'page changed' || !pageWho) return why;
+    let w = whyNames.get(pageWho);
+    if (!w) { w = `page changed: ${pageWho}`; whyNames.set(pageWho, w); }   // alloc-rare: once per element and attribute
+    return w;
+  };
+  const watch = typeof MutationObserver === 'function' ? new MutationObserver(changedNow) : null;   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const pull = () => { if (!watch) return; const rs = watch.takeRecords(); if (rs.length) changedNow(rs); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const elsOf = (spec, out) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     if (!spec) return;
     out.add(spec.root);
@@ -275,10 +324,14 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // The key of a render at view m: filled into `k` (kNow) and returned; the same as another when every part of it is.
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // (A camera within VIEW_TOL of the view last drawn is that view: its numbers are taken from the drawn key, so the strict compares below hold and no
+  // drift builds up: each is judged against the last drawing, never against the one before it. Nothing is made.)
+  const steady = (m, cw, ch) => (kDrawn.ok && kDrawn.n === 6 && m.length === 6 && kDrawn.cw === cw && kDrawn.ch === ch && viewDrift(m, kDrawn.m, cw, ch) <= VIEW_TOL ? kDrawn.m : m);   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const keyOf = (k, m, cw, ch) => {
     pull();
     setView(k, ver, m, cw, ch);
     k.liveVer = liveVer; k.page = watch ? pageVer : -1; k.f = pending() ? performance.now() : -1; k.ok = true;
+    if (steady(m, cw, ch) !== m) copyView(k.m, kDrawn.m);
     return k;
   };
   const sameKey = (a, b) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -286,6 +339,9 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     for (let i = 0; i < a.n; i++) if (!numEq(a.m[i], b.m[i])) return false;
     return true;
   };
+  // (Why a render paints: the first part of the key that differs, for the ?perf readout's organ-layer line. Fixed strings, nothing made.)
+  const whyKey = (a, b) => (!b.ok ? 'first picture' : a.cw !== b.cw || a.ch !== b.ch ? 'size changed' : a.ver !== b.ver ? 'layers changed' : a.liveVer !== b.liveVer ? 'live organ changed' : a.page !== b.page ? 'page changed' : a.f !== b.f ? 'view fading in' : 'view moved');   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  let lastWhy = '';
   const dropPrev = (L) => { if (L.prev) { gl.deleteTexture(L.prev.tex); L.prev = null; } };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const free = (map) => { for (const L of map.values()) { gl.deleteTexture(L.tex); dropPrev(L); } map.clear(); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (A view's picture fading in: its key moves with the clock until it is whole, so each frame draws it a step further.)
@@ -487,15 +543,6 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const dropTarget = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } return null; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (Given back once the camera has settled, on trim and on dispose: two canvas-sized textures held only while the camera moves.)
   function moveDrop() { mvS = dropTarget(mvS); mvM = dropTarget(mvM); base = marg = null; }
-  // Whether a frame at view m lands on the base's own view (to a hundredth of a device pixel), its content as the base was copied, with no
-  // view's picture still fading in: the base's copy is then the exact picture for it (render puts it back).
-  const landsOnBase = (m, ck, cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-    if (!base || !mvS || base.ck !== ck || !painter || w !== cw || h !== ch || mvS.w !== cw || mvS.h !== ch) return false;
-    const b = base.m;
-    if (Math.abs(b[0] - m[0]) > 1e-6 || Math.abs(b[1] - m[1]) > 1e-6 || Math.abs(b[2] - m[2]) > 1e-6 || Math.abs(b[3] - m[3]) > 1e-6 || Math.abs(b[4] - m[4]) > 0.01 || Math.abs(b[5] - m[5]) > 0.01) return false;
-    for (const L of live[1].values()) if (L.from != null) return false;
-    return true;
-  };
   // (Only with live groups, whose shapes are what a frame paints; a stack of pictures alone lays a quad a layer, cheaper than a copy.
   // Never while a view's picture fades in (each frame of it is drawn a step further) or without the page watch, which says that nothing
   // in the live groups was written.)
@@ -584,6 +631,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, w, h);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+    INVC[0] = gl.COLOR_ATTACHMENT0; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INVC);   // (the move writes every pixel of the stack: the old picture is not loaded into the pass)
     gl.useProgram(moveP.p);
     setM(U.toS, mulTo(MA, base.m, im));
     setM(U.toM, useM ? mulTo(MB, marg.p, im) : IDM);
@@ -598,6 +646,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     // (What the texture holds is no exact picture now: the next exact render draws it whole.)
     exactAt = null; kAt.ok = false; mvShown = true; mvAt = performance.now(); moveStats.moved++;
+    freeCache();   // (the groups' kept pictures were made under a view this frame left: none is laid again after it, 13 Nov 2026)
     return true;
   }
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -706,9 +755,11 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     setLiveAll(organs) { this.setLive(organs, null); full = liveOrgans.size > 0; },
     /** Whether the stack shows every layer live (setLive full). */
     get full() { return full; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-    /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. */
+    /** A layer gathered under a cut (its `under`) now at dy world units down (drawn at its `at`), as of the next render. Returns whether it moved a layer (false: nothing changed). */
     shift(name, dy) {
-      for (const c of cuts.values()) { const un = c.under; if (un) for (let i = 0; i < un.length; i++) { const u = un[i]; if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; } } }
+      let moved = false;
+      for (const c of cuts.values()) { const un = c.under; if (un) for (let i = 0; i < un.length; i++) { const u = un[i]; if (u.name === name && u.dy !== dy) { u.dy = dy; liveVer++; moved = true; } } }
+      return moved;
     },
     /** The names the stack lays, back to front (the layers' and the live organs'). */
     setOrder(names) { setNames(names); ver++; },
@@ -725,6 +776,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
     // (Without the page watch, a render is always asked while groups are live: what they draw is read from the page there, and
     // nothing is drawn when it is as it was.)
+    /** Why the last render painted (a fixed string; ?perf's organ-layer line). */
+    get lastWhy() { return lastWhy; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     stale: (m, cw, ch) => !sameKey(keyOf(kNow, m, cw, ch), kDrawn) || (!watch && liveNow()) || (mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS),   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     /**
      * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
@@ -732,24 +785,16 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
      * or null when nothing on it changed.
      */
     render(m, cw, ch) {
+      m = steady(m, cw, ch);   // (the last view drawn, when the camera lies within a 64th of a pixel of it)
       const key = keyOf(kNow, m, cw, ch), unchanged = sameKey(key, kDrawn);
       const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
       if (unchanged && (watch || !liveNow()) && !settle) return null;
+      lastWhy = settle ? 'camera settled' : !unchanged ? whyKey(key, kDrawn) : 'live, read from the page';
+      counts.organ++; tally(counts.organWhy, whyOf(lastWhy));   // (?perf's "organ layer painted" line, by reason: a render past here paints)
       const ck = contentKey(cw, ch);
-      // (Landed back on the camera the move set off from, its content unchanged: the copy taken as the move began (mvS) is that exact
-      // picture, so it is put back and nothing is painted from shapes. A view change that returns to the framing it left, Anatomy to
-      // Circuit and back to its home framing, lands without repainting the organs: the next-view pre-render's kept plate.)
-      if ((settle || !unchanged) && landsOnBase(m, ck, cw, ch)) {
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, mvS.fb); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
-        gl.disable(gl.SCISSOR_TEST);
-        gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-        moveDrop(); mvShown = false;
-        keepKey();
-        setView(kAt, ver, m, cw, ch); kAt.ok = true;
-        setExact(m, ck); moveStats.restored++;
-        return true;
-      }
+      // (A move that lands back on the camera it set off from is painted exactly, as any other landing: the copy taken as the move began (mvS)
+      // is not put back. Anatomy -> Circuit -> Anatomy put that copy back, and on Mohammad's iPhone (13 Nov 2026, eb5123c9) pieces of the
+      // bowel and the stomach stood in the wrong places after the switch back: a picture no longer the stack's, laid as if it were.)
       // (Only the camera moved: the last pictures moved on the GPU, nothing painted from shapes.)
       if (!unchanged && moveOk(ck, cw, ch)) {
         if (moveFrame(m, ck, cw, ch)) { keepKey(); return true; }

@@ -26,7 +26,7 @@ test('Advanced physiology is in Settings for everyone', () => {
   assert.doesNotMatch(main, /=== 'instructor' \? \[h\('div', \{ class: 'menu-sep' \}\),\s*menuItem\('Advanced physiology'/);
 });
 
-test('the HVPG shows without measuring unless Settings turned it off', () => {
+test('the HVPG always shows without measuring, and an old saved choice is dropped', () => {
   const store = read('../src/ui/store.js');
-  assert.match(store, /showHvpg: \(\(\) => \{ try \{ return localStorage\.getItem\('pps\.showHvpg'\) !== '0'; \} catch \{ return true; \} \}\)\(\)/);
+  assert.match(store, /showHvpg: \(\(\) => \{ try \{ localStorage\.removeItem\('pps\.showHvpg'\); \} catch \{[^}]*\} return true; \}\)\(\)/);
 });

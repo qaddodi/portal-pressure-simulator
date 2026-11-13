@@ -40,3 +40,34 @@ export function peelRanks(C) {
 }
 // How bright the front gets at most, as a share of the hover's lift (veins-gl: lum toward lum · 1.18 + 0.04).
 export const PEEL_GLOW = 0.8;
+
+// ── A vessel that reverses between the views (13 Nov 2026) ──
+// Lerped point by point, a vessel whose course runs the other way in the circuit (the portal chain from the spleen to the liver, the left
+// renal vein, the hepatic artery: its chord turns more than 120 degrees) crosses itself on the way: its points pass each other, it folds into
+// a loop or a knot at the portal confluence. The trim that drew such a vessel out toward its downstream end and in from its upstream end
+// (v3.4) cut it off the vessels it joins: in a chain of them every vessel stood alone, detached capsules with cut ends beside the portal vein
+// (Mohammad, 13 Nov: "do NOT ship bugs like this"). Instead its ends move with their stations as every other point does (so it stays joined to
+// its neighbours) and its shape is carried in the frame of its chord: each point's place along the chord and off it, eased from the anatomy's
+// to the circuit's on the point's own share of the change. It turns and stretches with its two ends and never folds. At either end of the
+// change it is exactly its anatomy or circuit course.
+export const FLIP_COS = Math.cos((120 * Math.PI) / 180);
+/** A course's points in the frame of its own chord: for each point, its share along the chord and off it (to the chord's left), [u, v, ...].
+ *  (alloc-rare: once a course is made) */
+export function chordShape(P) {
+  const n = P.length, s = new Float64Array(2 * n);
+  if (n < 2) return s;
+  const x0 = P[0][0], y0 = P[0][1], dx = P[n - 1][0] - x0, dy = P[n - 1][1] - y0, L2 = dx * dx + dy * dy || 1;
+  for (let i = 0; i < n; i++) { const px = P[i][0] - x0, py = P[i][1] - y0; s[2 * i] = (px * dx + py * dy) / L2; s[2 * i + 1] = (py * dx - px * dy) / L2; }
+  return s;
+}
+/** Whether the course turns more than 120 degrees between the views, for the circuit's chord (cdx, cdy) as it is laid out now (turned or not). */
+export function reverses(A, cdx, cdy) {
+  const n = A.length, ax = A[n - 1][0] - A[0][0], ay = A[n - 1][1] - A[0][1], la = Math.hypot(ax, ay), lc = Math.hypot(cdx, cdy);
+  return la > 1e-6 && lc > 1e-6 && (ax * cdx + ay * cdy) / (la * lc) < FLIP_COS;
+}
+/** Point i of a reversing vessel at its share w, between its ends as they stand (x0, y0) and (x1, y1): sA, sC its chordShape in each view. */
+export function chordPointInto(out, sA, sC, i, w, x0, y0, x1, y1) {
+  const u = sA[2 * i] + (sC[2 * i] - sA[2 * i]) * w, v = sA[2 * i + 1] + (sC[2 * i + 1] - sA[2 * i + 1]) * w, dx = x1 - x0, dy = y1 - y0;
+  out[0] = x0 + u * dx - v * dy; out[1] = y0 + u * dy + v * dx;
+  return out;
+}

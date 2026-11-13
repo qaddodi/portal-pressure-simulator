@@ -73,7 +73,7 @@ export function routeFlows(Q, params = null) {
   const stented = Math.min(stentQ, Math.max(0, Math.max(0, q('PV_TRUNK')) - portalIn - Math.max(0, q('C3'))));
   for (const id of STENTS) if (stentQ > 0) by[of[id]] += stented * (stent[id] || 0) / stentQ;
   let custom = 0;
-  for (const e of EDGES) if (e.shunt === 'custom' && params?.customShunts?.[e.id]) custom += Math.max(0, q(e.id));
+  for (const e of EDGES) if (e.shunt === 'custom' && !e.portal && params?.customShunts?.[e.id]) custom += Math.max(0, q(e.id));
   const inflow = SPLANCHNIC_ARTERIES.reduce((s, id) => s + q(id), 0) + Math.max(0, q('AP_R')) + Math.max(0, q('AP_L'));
   return { by, custom, inflow };
 }
@@ -438,7 +438,7 @@ export function createFlowsTool() {
   function apply() {
     const { geo, mark } = memo, inflow = of === 'inflow', say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
     const br = flowView(goal, of).bracket;
-    model.root.setAttribute('aria-label', `${inflow ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}`);
+    model.root.setAttribute('aria-label', `${inflow ? 'Hepatic inflow' : 'Distribution of portal venous flow'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}`);
     setGeo(model.clipRect, 'height', geo.barH); setGeo(model.clipRect, 'rx', Math.min(6, geo.barH / 2));
     setWords(model.mkText, mark ? mark.text : '');
     if (mark) setGeo(model.mkText, 'x', (mark.L + mark.R) / 2);

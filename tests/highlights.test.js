@@ -8,11 +8,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EDGES, NODES, PORTAL_TERRITORY } from '../src/engine/topology.js';
 import { ORGANS } from '../src/ui/anatomy.js';
-import { DECKS, REGIONS, withOverview } from '../src/ui/decks.js';
+import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { EXT, expandIds } from '../src/ui/slide-ext.js';
 import A from '../src/ui/ext-highlights.js';
-import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR, stateIndex, sinceWords } from '../src/ui/highlight-math.js';
+import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, nearPath, LIFT_EASE_SHARE, LIFT_EASE_MAX, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR } from '../src/ui/highlight-math.js';
 import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 
@@ -219,7 +219,13 @@ test('Circulation 4/13 numbers each bed\'s vessels as a group, in a frame that h
   const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'series');
   assert.deepEqual(s.glow, [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']]);
   assert.ok(adopted(circ, s, 'glow:group'));
-  const [x0, y0, x1, y1] = s.cam;
+  // The camera frames the bed's vessels by name (cam-frame.js: the box is what the names fill, with room for their leaders and labels), so
+  // every vessel in the glow groups is named in it; a raw box (older form) is checked against each vessel's middle below.
+  if (s.cam && !Array.isArray(s.cam)) {
+    assert.deepEqual(s.cam.on.filter((id) => s.glow.flat().includes(id)).sort(), s.glow.flat().sort(), 'the camera names every vessel it numbers');
+    assert.equal(s.cam.near, 'route', 'and starts from the route, as the older box did');
+  }
+  const [x0, y0, x1, y1] = Array.isArray(s.cam) ? s.cam : [-Infinity, -Infinity, Infinity, Infinity];
   // Each vessel's middle (and the solid stretch of one that fades out of its organ) lies inside the camera's box.
   const paths = { V_INT: 'M756 800 C 752 758 700 716 690 660', V_SPL: 'M1034 360 C 1010 385 988 420 962 448', V_IMV: 'M932 690 C 925 620 905 560 880 505' };
   for (const [id, d] of Object.entries(paths)) {
@@ -306,8 +312,34 @@ test('a spotlit vessel fades toward every end that meets no other lifted vessel'
   assert.equal(liftEnd(false, [dim, lit]), 0);
   // The stage asks it for each end of a lifted vessel (written to tube row 12, which the vessel shader fades over a third of
   // the vessel, at most 60), with no early return that kept a spotlit vessel whole to its ends.
-  const fn = STAGE.match(/function selEnd\(id, n\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
+  const fn = STAGE.match(/function selEnd\(id, n, atEnd\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
   assert.match(fn, /return liftEnd\(spot\.ids\.has\(id\) && spotOn\(\), joins\)/);
   assert.doesNotMatch(fn, /spotOn\(\)\) return 0/);
-  assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to\);/);
+  assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from, false\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to, true\);/);
+});
+
+// Two lit vessels that share a node in the model need not meet in the picture. TIPS and shunts 8/14 (the fixture is the TIPS's course of 7 Nov, before it
+// was moved to end on the vein's start, 11 Nov; the rule it holds is the same for any pair like it): the TIPS (505 398 → 540 240)
+// leaves the right hepatic vein (500 246 → 616 206) 40 units in from its blunt end, which ran on at full into nothing and stopped in
+// a hard cut-off (Mohammad, 7 Nov). A lit neighbour keeps an end at full only where it is drawn there.
+test('a lit neighbour that is not drawn at a vessel\'s end leaves that end to ease back into the network', () => {
+  const rhv = [[500, 246], [545, 240], [590, 232], [616, 206]], tips = [[505, 398], [498, 356], [536, 298], [540, 240]], pvhR = [[602, 442], [568, 428], [535, 414], [505, 398]];
+  const tol = 3 + 0.5 * (9 + 9);
+  // The TIPS ends on the vein's middle, 40 units from its start: that start is free; the TIPS's own end meets the vein.
+  assert.equal(nearPath(tips, rhv[0][0], rhv[0][1], tol), false);
+  assert.equal(nearPath(rhv, tips[3][0], tips[3][1], tol), true);
+  // The right portal vein ends where the TIPS starts: they run on into each other.
+  assert.equal(nearPath(tips, pvhR[3][0], pvhR[3][1], tol), true);
+  // A point near a segment's middle counts, not only near a sample; a point well off does not.
+  assert.equal(nearPath([[0, 0], [100, 0]], 50, 4, 5), true);
+  assert.equal(nearPath([[0, 0], [100, 0]], 50, 9, 5), false);
+  assert.equal(nearPath([], 0, 0, 5), false);
+  assert.equal(nearPath(null, 0, 0, 5), false);
+  // Joined to that far-off lit neighbour alone, a spotlit end eases back instead of running on.
+  assert.equal(liftEnd(true, [{ lit: nearPath(tips, rhv[0][0], rhv[0][1], tol), ghost: false }]), 1);
+  // The shader eases over this much of the vessel, at most this long, and the stage asks nearPath of each lit neighbour.
+  assert.ok(LIFT_EASE_SHARE > 0.35 && LIFT_EASE_SHARE <= 0.5 && LIFT_EASE_MAX > 60 && LIFT_EASE_MAX <= 120);
+  assert.match(STAGE, /jn\.lit = \(vh\.sel\.has\(y\.e\.id\) \|\| spot\.ids\.has\(y\.e\.id\)\) && \(!pe \|\| nearPath\(/);
+  const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the selection's ease: veins-mesh-glsl.js vesAttrs)
+  assert.match(GL, /fs = min\(\$\{LIFT_EASE_SHARE\} \* Ls, \$\{LIFT_EASE_MAX\}\.0\)/);
 });
