@@ -1,4 +1,1 @@
-{
- "stiffness:7:mac": "The 'Rule of five' path chart is 513 px tall in a 482 px card on a 900 px-high Mac: it stops shrinking at 72 % (tool-path.js FIT_MIN) and the card clips its last 90 px. Needs a device look and a design choice (smaller floor, or the chart under the words).",
- "carvedilol:2:mac": "The HVPG and LSM chart on a 900 px-high Mac stands 42 px past its card (flowtime tool). Not yet looked at on a device."
-}
+{}

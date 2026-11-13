@@ -29,7 +29,7 @@ import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingF
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
-const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.5, FIT_MIN = 0.72;   // (the data card keeps about half the window's height for the picture; never drawn below 72%)
+const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.5, FIT_MIN = 0.62;   // (the data card keeps about half the window's height for the picture; never drawn below 62%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac)
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
@@ -209,7 +209,8 @@ export function createPath() {
     // (a chart or card taller than the data card can hold is drawn smaller, all of it together, rather than cut off at the bottom: the card keeps
     // about half the window's height for it; the phone's small map has its own room)
     const room = Math.max(300, viewSize().h * FIT_SHARE);
-    if (sc === 1 && !compact && L.H > room) return layout(Math.max(FIT_MIN, room / L.H));
+    // (The small map is fitted the same way off a phone: on a 900 px Mac the Rule of five map stood 513 px tall in a 482 px card and the card cut its last 90 px.)
+    if (sc === 1 && (!compact || !phone) && L.H > room) return layout(Math.max(FIT_MIN, room / L.H));
     L.Hr = Math.ceil(L.H * sc);
     lay = L;
     pic.style.height = `${L.Hr}px`;
