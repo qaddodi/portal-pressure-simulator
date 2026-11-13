@@ -8,7 +8,7 @@
 import { store, hiddenNow } from './store.js';
 import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
+import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, hvpgSev } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
@@ -437,14 +437,17 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const live = () => frame?.running && (range !== 'days' || stripDays) && (io ? seen : true) && !document.hidden && !pageRest();
   // (Battery saver or Settings › Figure performance › Motion at 60: the scroll is drawn at that pace, as the figure's steady motion is;
   // otherwise on every frame, as before. tickAt: when the loop last drew.)
-  let tickAt = -Infinity;
+  // (At rest (frame.js restGapFor: 4 s with no input and nothing moving) it scrolls 30 steps a second, 20 in a talk left 30 s, and waits
+  // on a timer between them, not on every screen frame (restPark). The scroll is drawn from the clock (headX), so it is as fast as before.)
+  let tickAt = -Infinity, parkT = 0;
+  const unpark = () => { parkT = 0; if (ticking && !tickRaf) tickRaf = nextFrame(tickLoop); };
   function tickLoop(now = performance.now()) {
     tickRaf = 0;
     if (!live()) { ticking = false; anim(false); return; }
     anim(true);
-    tickRaf = nextFrame(tickLoop);
-    const pace = paceMs();
-    if (pace && now - tickAt < pace) return;
+    const pace = paceMs(), rest = restGapFor(now), gap = Math.max(pace, rest), due = !gap || now - tickAt >= gap;
+    if (!(rest > pace && !parkT && (parkT = restPark(due ? rest : gap - (now - tickAt), unpark)))) tickRaf = nextFrame(tickLoop);
+    if (!due) return;
     tickAt = now;
     draw();
     noteDraw('pressure-time');
@@ -1330,7 +1333,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     before = ctx?.ref ? { fp: ctx.ref, label: t?.deltaLabel || 'before' } : null;
     if (frame) redraw();
   }
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); offRest(); cancelFrame(tickRaf); tickRaf = 0; ticking = false; frame = null; anim(false); still.drop(); } };
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear, pin, configure, backfill, historySecs: () => RANGES[0][2], dispose() { gpu?.dispose(); offs.forEach((off) => off()); io?.disconnect(); offRest(); cancelFrame(tickRaf); tickRaf = 0; clearTimeout(parkT); parkT = 0; ticking = false; frame = null; anim(false); still.drop(); } };
 }
 
 // The charts' X and Y are straight lines (v ↦ a + b·v): their two numbers, the time's then the value's of the lane being drawn, are kept here and

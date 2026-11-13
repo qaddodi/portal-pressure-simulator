@@ -112,10 +112,12 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   assert.match(fn, /Math\.ceil\(y1\) \+ 2/);
 });
 
-test('H7: the pressure strip and the vitals monitor scroll at the pace the figure\'s steady motion keeps (every frame by default)', () => {
+test('H7: the pressure strip and the vitals monitor scroll at the pace the figure\'s steady motion keeps (every frame by default), and at rest at the rest pace (13 Nov 2026)', () => {
   const pt = src('pressure-time.js'), vm = src('vitals-monitor.js');
-  assert.match(pt, /const pace = paceMs\(\);\n\s+if \(pace && now - tickAt < pace\) return;\n\s+tickAt = now;\n\s+draw\(\);/);
-  assert.match(vm, /if \(!pace \|\| now - loopAt >= pace\) \{ loopAt = now; draw\(now\); noteDraw\('vitals-monitor'\); \}\n\s+loopRaf = nextFrame\(loop\);/);
+  assert.match(pt, /const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - tickAt >= gap;/);
+  assert.match(pt, /if \(!due\) return;\n\s+tickAt = now;\n\s+draw\(\);/);
+  assert.match(vm, /const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - loopAt >= gap;/);
+  assert.match(vm, /if \(due\) \{ loopAt = now; draw\(now\); noteDraw\('vitals-monitor'\); \}\n\s+if \(!\(rest > pace && !parkT && \(parkT = restPark\(due \? rest : gap - \(now - loopAt\), unpark\)\)\)\) loopRaf = nextFrame\(loop\);/);
 });
 
 test('H10: the FibroScan probe\'s tap restarts with no style read and no layout (1 Nov 2026: two copies of its animation, turned between)', () => {

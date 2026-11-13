@@ -13,7 +13,7 @@
 
 import { h, fmt, canvasSize, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
-import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
+import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { VITALS, vitalReading, bpText } from './vital-read.js';
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
@@ -298,13 +298,16 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   // (One frame asked for at a time (loopRaf), let go with the strip: dispose. eased: the numbers were still easing at the last draw.)
   // (Battery saver or Settings › Figure performance › Motion at 60: the strip scrolls at that pace, as the figure's steady motion does;
   // otherwise on every frame, as before. loopAt: when the loop last drew.)
-  let ticking = false, loopRaf = 0, eased = false, gone = false, loopAt = -Infinity;
+  // (At rest (frame.js restGapFor: 4 s with no input and nothing moving) it scrolls 30 steps a second, 20 in a talk left 30 s, and waits
+  // on a timer between them, not on every screen frame (restPark). The scroll is drawn from the clock (headX), so it is as fast as before.)
+  let ticking = false, loopRaf = 0, eased = false, gone = false, loopAt = -Infinity, parkT = 0;
+  const unpark = () => { parkT = 0; if (ticking && !gone && !loopRaf) loopRaf = nextFrame(loop); };
   function loop(now) {
     loopRaf = 0;
     if (gone || !live()) { ticking = false; frameAnimating('vitals-monitor', false); if (eased && !gone && !raf) raf = nextFrame(rafDraw); return; }
-    const pace = paceMs();
-    if (!pace || now - loopAt >= pace) { loopAt = now; draw(now); noteDraw('vitals-monitor'); }
-    loopRaf = nextFrame(loop);
+    const pace = paceMs(), rest = restGapFor(now), gap = Math.max(pace, rest), due = !gap || now - loopAt >= gap;
+    if (due) { loopAt = now; draw(now); noteDraw('vitals-monitor'); }
+    if (!(rest > pace && !parkT && (parkT = restPark(due ? rest : gap - (now - loopAt), unpark)))) loopRaf = nextFrame(loop);
   }
   // (R10: while the strip scrolls, Locked never carries its frames over: frame.js frameAnimating.)
   function wake() { if (!ticking && !gone && live()) { ticking = true; frameAnimating('vitals-monitor', true); loopRaf = nextFrame(loop); } }
@@ -398,6 +401,6 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     clear() { clock.reset(); raw.t.length = raw.ph.length = 0; lastT = -Infinity; firstT = Infinity; synth = null; off = 0; synthed = false; xs.clear(); shownV.clear(); if (frame) draw(); },
     backfill, historySecs: () => SPAN_S,
     restart() { this.clear(); },
-    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); offRest(); glr?.dispose(); },
+    dispose() { gone = true; cancelFrame(raf); raf = 0; cancelFrame(loopRaf); loopRaf = 0; clearTimeout(parkT); parkT = 0; if (ticking) frameAnimating('vitals-monitor', false); ticking = false; io?.disconnect(); ro?.disconnect(); offRest(); glr?.dispose(); },
   };
 }

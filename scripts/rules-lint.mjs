@@ -377,8 +377,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
 }
 
-// Rest pacing, Mac heat rec 2 (13 Nov 2026): tests/talk-rest-20hz.test.js runs the pacing; these pin the wiring a unit test cannot reach
-// without the page. A pattern that no longer matches means the code it guarded changed: look before editing the rule.
+// Rest pacing, Mac heat recs 2 and 7 (13 Nov 2026): tests/talk-rest-20hz.test.js and tests/instruments-rest-pace.test.js run the pacing and
+// the strips' loops; these pin the wiring a unit test cannot reach without the page. A pattern that no longer matches means the code it guarded
+// changed: look before editing the rule.
 {
   const text = (f) => readFileSync(join(ROOT, f), 'utf8');
   const need = (file, rules) => {
@@ -389,6 +390,17 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/lobule-zoom.js', [[/const dt = Math\.min\(0\.1, \(now - \(last \|\| now\)\) \/ 1000\);/, "the lobule's blood steps by the time that passed: its 20 Hz talk frame loses no time"]]);
   need('src/ui/main.js', [[/setRestTalk\(\(\) => presenter\.active\(\)\)/, "a talk's rest steps (30, then 20 after 30 s, never 15) follow the presenter"]]);
   need('src/ui/frame-hud.js', [['blood pacing (untouched): ${restRule}', '?perf names the rest rule in force']]);
+  need('src/ui/doppler.js', [
+    [/const paced = live\(\) && !labBusy, pace = paced \? paceMs\(\) : 0, rest = paced \? restGapFor\(now\) : 0, gap = Math\.max\(pace, rest\);/, 'the running Doppler is rest-paced; a change while paused, or the lab drawing, is drawn at once'],
+    [/if \(gap && now - paintAt < gap\) \{ if \(!\(rest > pace && park\(gap - \(now - paintAt\)\)\)\) raf = nextFrame\(loop\); return; \}/, 'at rest the Doppler waits on a timer between its frames, not on every screen frame'],
+    [/clearTimeout\(parkT\); parkT = 0;/, 'the Doppler lets its rest timer go with it'],
+    [/const tNow = buf\.length >= 2 \? clockNow\(now\) : null;/, "the Doppler's sweep is drawn from the clock, so rest pacing steps it less often but never slower"],
+    [/const cNow = Math\.floor\(tNow \* g\.cps\);/, "the Doppler's newest column is the clock's"],
+  ]);
+  need('src/ui/pressure-time.js', [
+    [/const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - tickAt >= gap;/, 'the pressure strip is rest-paced'],
+    [/clearTimeout\(parkT\); parkT = 0;/, 'the pressure strip lets its rest timer go with it'],
+  ]);
 }
 
 // Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit

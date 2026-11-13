@@ -10,7 +10,7 @@ import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './u
 import { FONT, textW } from './charts.js';
 import { logAction, shownVel, store } from './store.js';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor } from './dopplerColor.js';
-import { readFrameFor, noteDraw, paceMs, cancelFrame, frameAnimating, framePart } from './frame.js';
+import { readFrameFor, noteDraw, paceMs, restGapFor, restPark, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
 import { calloutCell } from './trace-callouts.js';
@@ -1454,7 +1454,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     }
     return false;
   }
-  let raf = 0, askedAt = 0, paintAt = 0, reportDue = false;
+  let raf = 0, askedAt = 0, paintAt = 0, reportDue = false, parkT = 0;
+  // (At rest (frame.js restGapFor: 4 s with no input and nothing moving) the running trace is drawn 30 a second, 20 in a talk left 30 s,
+  // and between its frames the loop waits on a timer, not on every screen frame (restPark). Any input gives the full rate back.)
+  const unpark = () => { parkT = 0; if (!raf) raf = nextFrame(loop); };
+  const park = (left) => !!(parkT || (parkT = restPark(left, unpark)));
   // (While the trace scrolls its frames are never carried to a later one by the scheduler: a carried frame of a moving picture steps, then jumps.)
   let animating = false;
   const anim = (on) => { if (animating !== on) { animating = on; frameAnimating('doppler', on); } };
@@ -1464,13 +1468,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!frame || !shown()) { if (reportDue) { reportDue = false; updateReport(); } return; }
     // The running trace scrolls on every frame the screen offers (15 a second in Battery saver). Its samples are the model's,
     // whatever the frame rate: each frame adds only the columns its elapsed time covers. A change while paused draws at once.
-    if (live() && !labBusy && now - paintAt < paceMs()) { raf = nextFrame(loop); return; }
+    const paced = live() && !labBusy, pace = paced ? paceMs() : 0, rest = paced ? restGapFor(now) : 0, gap = Math.max(pace, rest);
+    if (gap && now - paintAt < gap) { if (!(rest > pace && park(gap - (now - paintAt)))) raf = nextFrame(loop); return; }
     paintAt = now;
     // (The words are set in the same frame as the picture, so the reading and the trace and its scale never disagree.)
     if (reportDue || velShown.moving) { reportDue = false; updateReport(); }
     draw(now);
     noteDraw('doppler');
-    if ((live() && now - askedAt < 400) || labBusy || velShown.moving) raf = nextFrame(loop);
+    if ((live() && now - askedAt < 400) || labBusy || velShown.moving) { if (!(rest > pace && park(rest))) raf = nextFrame(loop); }
   }
   function redraw() {
     if (!frame) return;
@@ -1512,7 +1517,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     anim(false);
     if (raf) { cancelFrame(raf); raf = 0; }
     io?.disconnect(); ro?.disconnect(); frame = null;
-    gpu?.dispose(); words?.dispose(); offSurface();
+    gpu?.dispose(); words?.dispose(); offSurface(); clearTimeout(parkT); parkT = 0;
   }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, restart, backfill, historySecs: () => sweepSeconds, setInvert, setWaves, autoWindow, pin, configure, dispose };
 }

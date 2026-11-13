@@ -835,6 +835,13 @@ export function restGapFor(now, activeAt = 0) {
   if (gap) { restRuleNow = rule; restRuleAt = now; }
   return gap;
 }
+/**
+ * An instrument's wait at rest (the Doppler, the pressure strip and the vitals strip: Mac heat rec 7, 13 Nov 2026, picked by Mohammad). They
+ * pace by restGapFor as the blood does; with `left` ms or more to their next drawn frame, `fn` is called by a timer 8 ms before it, so the
+ * page is not woken for the screen frames between (as the figure's own loop waits, stage.js parkFor). Returns the timer, or 0 under 18 ms
+ * (the next frame is asked for as before). Their sweeps are drawn from the clock, so only the steps are fewer, never slower.
+ */
+export const restPark = (left, fn) => (left >= 18 ? setTimeout(fn, left - 8) : 0);
 /** The rest rule in force in the last half second, in words, for ?perf ('' when none). */
 export const restRuleText = () => (wall() - restRuleAt < 500 ? restRuleNow : '');
 
