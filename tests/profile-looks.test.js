@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { TOKENS } from '../src/ui/theme-tokens.js';
 import { makeCtx, withCtx, resolveProps, hostSizeFor } from '../src/ui/chart-looks/resolve.js';
 
 const base = (over = {}, local = {}) => withCtx(makeCtx({ host: 'prof', layout: 'wide', scale: { sm: 12.5, chCap: 12, lab: 13, cap: 14 }, ...local }), { theme: 'light', dark: false, palette: 'navy', ...over });
@@ -51,9 +52,9 @@ test('readings, blocks and brackets: the outline, the ring and the rating\'s col
   assert.equal(P('prof.br.k').weight, 600);
 });
 test('the zones\' tints and the pills\' tones', () => {
-  assert.equal(P('prof.zone.liver').fill, 'rgba(176, 96, 84, 0.09)');
-  assert.equal(P('prof.zone.pre').fill, 'rgba(92, 128, 186, 0.1)');
-  assert.equal(P('prof.zone.post').fill, 'rgba(84, 164, 142, 0.1)');
+  // (one source: the --chart-*-band theme tokens, the same ones charts.js and stage.js read; no rgba copy in the look)
+  for (const z of ['liver', 'pre', 'post']) assert.equal(P(`prof.zone.${z}`).fill, TOKENS.light[`chart-${z}-band`], z);
+  assert.equal(TOKENS.light['chart-liver-band'], 'rgba(176, 96, 84, .09)', 'the liver band keeps its tint');
   assert.equal(P('prof.zone.text').weight, 600);
   assert.equal(P('prof.zone.text').size, undefined, 'the zone name\'s size is the piece\'s own');
   const ok = P('prof.pill.rect'), mid = P('prof.pill.rect', { rate: 'mid' }), hi = P('prof.pill.rect', { rate: 'hi' });

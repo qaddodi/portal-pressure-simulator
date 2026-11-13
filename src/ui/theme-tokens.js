@@ -185,6 +185,8 @@ export const TOKENS = {
 
     // WP11 (card diagrams, the lobule leaders): flat colours the same in every look, read by chart-looks/card.js (the pressure ramp's 12 and 20 mmHg stops; the hepatocyte)
     'ramp-violet': '#925CDD', 'ramp-wine': '#A4216E', 'pz-hepatocyte': '#C58B5C', 'fibroscan': '#f0924a',
+    // charts: the zones of the pressure ladder, the liver's warm band behind its stations and the cool blue and green before and after it (charts.js, stage.js, chart-looks/profile.js)
+    'chart-liver-band': 'rgba(176, 96, 84, .09)', 'chart-pre-band': 'rgba(92, 128, 186, .10)', 'chart-post-band': 'rgba(84, 164, 142, .10)',
 
     'pze-black': '#000000',   // (the dark looks' zone tints are mixed over it; the same as --black)
     // WP9 plane (chart-looks/plane.js reads the same mixes as numbers; these are printed for the keys' swatches, .pze-key and .pze-ckey): a zone's fill and its words' ink
