@@ -134,9 +134,9 @@ void main() {
   float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;
   float reach = 0.6 * L + 0.15 * hw + 4.0 * pxW;   // (how far along a head and its rim reach: chevOne's bound)
   if (sc < -reach || sc > len + reach) return;
-  // (A head from the parent keeps the parent's level to the middle of the first spacing, or of most of a short vessel, and takes this
-  // vessel's within a few CSS px of travel there: a head that the slower branch thins out leaves at one place, quickly, never a faint run.)
-  float cut = 0.5 * min(Pt, 0.9 * len), cwid = min(0.03 * Pt, 0.5 * cut);
+  // (A head from the parent keeps the parent's level for about a head's length past the join, and takes this vessel's within a few CSS px
+  // of travel there: a head that the slower branch thins out leaves at the join itself, never mid-vessel or along a faint run.)
+  float cut = min(1.2 * L, 0.45 * len), cwid = min(0.03 * Pt, 0.5 * cut);
   float lvAt = mix(lvOwn, mix(lvUp, lvOwn, smoothstep(cut - cwid, cut + cwid, runDir > 0.0 ? sc : len - sc)), eu);
   float keep = chevKeep(j, n0, lvAt);
   if (keep <= 0.0) return;
