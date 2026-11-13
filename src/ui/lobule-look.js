@@ -262,3 +262,21 @@ export function wideTiles(W, H, dpr) {
     return out;
   }
 }
+
+/**
+ * A point on an inlet venule (u 0 … 1 from its portal triad at A to the middle of the edge A–B): half-way along the edge, bowed in toward the lobule's centre
+ * (n: the unit inward normal, bow: its height). The two venules of neighbouring triads meet at u = 1 (lobule-zoom.js: "meet halfway along the edge"), so the bow must
+ * leave the edge with the slope it always had (INLET_LEAN, a little inside the lobule at the triad) and arrive FLAT: both halves then reach the middle along the edge,
+ * and the two make one smooth course. It was sin(0.8 π u), whose slope at u = 1 is not 0: each half came in 7° off the edge and the two met in a sharp V, a kink in the
+ * main vessel, its chevrons coming in from both sides to the point (Mohammad, 13 Nov 2026, the lobule). A cubic Hermite bow: height 0 and slope INLET_LEAN at u = 0,
+ * height sin(0.8 π) (what it was at the middle) and slope 0 at u = 1.
+ */
+export const INLET_LEAN = 0.8 * Math.PI, INLET_MID = Math.sin(0.8 * Math.PI);
+export function inletBow(u) {
+  const u2 = u * u, u3 = u2 * u;
+  return INLET_LEAN * (u3 - 2 * u2 + u) + INLET_MID * (3 * u2 - 2 * u3);
+}
+export function inletPoint(A, B, n, bow, u) {
+  const g = bow * inletBow(u);
+  return [A[0] + (B[0] - A[0]) * 0.5 * u + n[0] * g, A[1] + (B[1] - A[1]) * 0.5 * u + n[1] * g];
+}

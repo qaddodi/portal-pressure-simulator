@@ -32,7 +32,8 @@ import { STEP_MAX } from './glide-clock.js';
 import { sinusoidTargets } from './sinusoid-model.js';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js';
 import { placeFenDisse } from './fen-place.js';
-import { frameFor, noteDraw, saver, paceMs, frameGapFor, restGapFor, renderScale, onRenderScale, easeNow } from './frame.js';
+import { frameFor, noteDraw, saver, paceMs, frameGapFor, restGapFor, renderScale, onRenderScale, figOpt, easeNow } from './frame.js';
+import { figureDensity } from './pixel-budget.js';
 import { softwareGL, softwareYield } from './sw-yield.js';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -283,12 +284,14 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // Figure resolution: taken up as the sinusoid opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "the lobule and sinusoid are not obeying resolutions") waits (svWant) for it to be open and still (not mid-zoom), then eases in:
   // svSwap.
-  let svK = renderScale(), svWant = null;
-  const svScale = () => svK;
+  // The figure's pixel budget (Settings › Figure size, figOpt('cap')) holds here as in the anatomy and the lobule (lobule-zoom.js lzDensity); svCap is the cap the
+  // canvas was drawn for, taken up with the scale (svWant, svSwap).
+  let svK = renderScale(), svCap = figOpt('cap'), svWant = null;
+  const svDensity = (W, H) => figureDensity(Math.min(saver() ? 1 : 2, devicePixelRatio || 1), svK, W, H, svCap);
   onRenderScale(() => {
     const k = renderScale();
-    if (!(shown > 0)) { svK = k; svWant = null; return; }
-    svWant = k === svK ? null : k;
+    if (!(shown > 0)) { svK = k; svCap = figOpt('cap'); svWant = null; return; }
+    svWant = k === svK && figOpt('cap') === svCap ? null : k;
     if (svWant != null) wake();
   });
   // The change, mixed on the GPU (sinusoid-gl keep/mix): the picture as it stands is drawn once more in this frame and kept in a texture
@@ -299,12 +302,12 @@ export function createSinusoidView({ host, before = null, share = null }) {
   function svSwap() {
     const k = svWant;
     svWant = null;
-    if (k === svK) return;
+    if (k === svK && figOpt('cap') === svCap) return;
     gpuKey = '';
     draw(0, false);   // (the picture as it stands, drawn again in this frame so it can be kept; a fade still running: its mix, remade)
     if (gpu.keep?.()) svFade = { t0: performance.now() }; // alloc-rare: a resolution swap starts once, when the figure's render scale changes
     else svFadeEnd();
-    svK = k;
+    svK = k; svCap = figOpt('cap');
   }
   // (Called right after the canvas was drawn, in the same frame.)
   function svFadeStep() {
@@ -1159,7 +1162,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
     if (svWant != null && gpu && open && !dive) svSwap();
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale() * zres;   // (Battery saver: one pixel per CSS pixel; zres: a card's zoom landed, sharpen)
+    const dpr = svDensity(W, H) * zres;   // (Battery saver: one pixel per CSS pixel; zres: a card's zoom landed, sharpen)
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
@@ -1317,7 +1320,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     /** A card's zoom has landed (on) or is going (off): the picture is drawn at k times the density, the same geometry and layout, so what the camera carries
      *  is sharp. Capped so the canvas is no more than 3 device px per CSS px. */
     sharpen(on) {
-      const base = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * svScale();
+      const base = svDensity(...(hostSize() || [1, 1]));
       const z = on ? Math.max(1, Math.min(zk, 3 / (base || 1))) : 1;
       if (z === zres) return;
       zres = z; gpuKey = ''; wake();
@@ -1359,7 +1362,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
       if (opacity <= 0 && was > 0) { svFadeEnd(); canvas.width = 0; canvas.height = 0; gpuKey = ''; if (shareTop) { gpu?.free?.(); shareTop.present(); } }
       else if (shareTop && opacity > 0 && !model) shareTop.present();
       if (opacity > 0 && was <= 0) {
-        svK = renderScale(); svWant = null;   // (Figure resolution, as it is now: taken up as it opens)
+        svK = renderScale(); svCap = figOpt('cap'); svWant = null;   // (Figure resolution, as it is now: taken up as it opens)
         last = 0; lastKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
         if (model) {
           for (const k in S) delete S[k];

@@ -7,3 +7,12 @@ export function capDensity(dpr, w, h, capMP) {
   const cap = capMP * 1e6, px = w * h * dpr * dpr;
   return cap > 0 && px > cap && dpr > 0 ? dpr * Math.sqrt(cap / px) : dpr;
 }
+
+/**
+ * The density the figure's other canvases (the lobule's, the sinusoid's) are drawn at: the screen's own `base` at Figure resolution's `scale`, held to the same pixel budget
+ * as the anatomy's canvas, so one setting (Settings › Figure size) governs all three (14 Nov 2026: the lobule had ignored it and was drawn sharper, and hotter, than the
+ * anatomy). The same number as stage-res.js figShare gives the anatomy: base × scale × √(budget / pixels), never under a tenth of the screen's density.
+ */
+export function figureDensity(base, scale, w, h, capMP) {
+  return Math.max(0.1 * base, capDensity(base * scale, w, h, capMP));
+}

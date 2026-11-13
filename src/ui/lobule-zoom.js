@@ -28,7 +28,7 @@ import { glideClock } from './glide-clock.js';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js';
 import { softwareYield } from './sw-yield.js';
 import { lobuleStateInto, lymphRate, sinceOf, lensModeOf, LOBE } from './lobule-model.js';
-import { SIN_NARROW, dullSinusoidInto, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js';
+import { inletPoint, SIN_NARROW, dullSinusoidInto, NEIGHBOUR_FLAT, neighbourBlur, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, fieldDof, surroundGrade, greyStep } from './lobule-look.js';
 import { isGreyLens } from './organ-dim.js';
 import { createFieldGL } from './field-gl.js';
 import { createTissueGL } from './tissue-gl.js';
@@ -49,7 +49,8 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion } from './frame.js';
+import { figureDensity } from './pixel-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -752,12 +753,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Figure resolution: taken up as the lobule opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "when I check manual 25% for example the lobule doesn't change") waits (lzWant) for the lobule to stand still and whole (not
   // mid-dive, mid-rise or inside a sinusoid), then eases in: resSwap.
-  let lzK = renderScale(), lzWant = null;
-  const lzScale = () => lzK;
+  // The figure's pixel budget (Settings › Figure size, frame.js figOpt('cap'), 1.5 MP on a Mac and an iPad, 0.5 MP on a phone) holds for the lobule as it
+  // does for the anatomy (14 Nov 2026: the anatomy's canvas was capped and the lobule drawn at the screen's own density whatever the setting, so the two
+  // pictures differed in sharpness and the lobule cost far more heat). lzCap is the cap the layers were drawn for, taken up with the scale (lzWant, resSwap).
+  let lzK = renderScale(), lzCap = figOpt('cap'), lzWant = null;
+  /** The lobule's pixels per CSS pixel for a W × H box: the screen's own (one in Battery saver, at most two) at Figure resolution's share, held to the pixel budget as the anatomy's canvas is (stage-res.js figShare, never under a tenth). */
+  const lzDensity = (W, H) => figureDensity(Math.min(saver() ? 1 : 2, devicePixelRatio || 1), lzK, W, H, lzCap);
   onRenderScale(() => {
     const k = renderScale();
-    if (fade <= 0) { lzK = k; lzWant = null; return; }
-    lzWant = k === lzK ? null : k;
+    if (fade <= 0) { lzK = k; lzCap = figOpt('cap'); lzWant = null; return; }
+    lzWant = k === lzK && figOpt('cap') === lzCap ? null : k;
     if (lzWant != null) coverGL()?.prepare();   // (the cover's program compiles while the lobule comes to rest: res-cover-gl.js)
     if (lzWant != null) lzLoop.want();
   });
@@ -1087,7 +1092,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const inletF = (i, dir) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const A = C[i], B = C[(i + dir + 6) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(cx - mx, cy - my);
       const n = [(cx - mx) / nl, (cy - my) / nl], bow = R * 0.03;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      return (u) => [A[0] + (B[0] - A[0]) * 0.5 * u + n[0] * bow * Math.sin(0.8 * Math.PI * u), A[1] + (B[1] - A[1]) * 0.5 * u + n[1] * bow * Math.sin(0.8 * Math.PI * u)];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      return (u) => inletPoint(A, B, n, bow, u);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     };
     const inlets = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
@@ -2949,7 +2954,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function resSwap() {
     const k = lzWant;
     lzWant = null;
-    if (k === lzK) return;
+    if (k === lzK && figOpt('cap') === lzCap) return;
     freshDraw();
     const g = coverGL();
     if (g?.ready && draw(0)) {
@@ -2959,7 +2964,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         resCover = true; resT0 = performance.now(); resV0 = { ...V }; resW = W; resH = H; resShownA = -1;   // (the kept picture is laid whole, at weight 1 and no move)   // alloc-rare: only on a change of the Figure's resolution (lzWant), never a frame's own
       } else resCoverEnd();
     } else resCoverEnd();
-    lzK = k;
+    lzK = k; lzCap = figOpt('cap');
     freshDraw();
   }
   // (The next frame draws everything again.)
@@ -3009,7 +3014,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     diveDrawn = scaled;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres;   // (Battery saver: one pixel per CSS pixel)
+    const dpr = lzDensity(W, H) * zres;   // (Battery saver: one pixel per CSS pixel)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     // (The picture it last drew, kept as numbers and compared in place: idleDrawn is '' when no paused picture stands.)
@@ -3126,7 +3131,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const wg = wideGLOn();
     if (!wg || !wg.begin()) return null;
     const hosted = !!wideHostFor, res = hosted && g.software ? 0.5 : 1;   // (hosted: the tiles at the vessels' canvas's density, as drawGL sizes it)
-    const dpr0 = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), dpr = wideDpr(dpr0, box.w, box.h, apple());
+    const dpr0 = lzDensity(W, H), dpr = wideDpr(dpr0, box.w, box.h, apple());
     const dark = isDark(), cs = styles(), cx = sX(geo.cx), cy = sY(geo.cy), r = geo.R * V.k;
     // (Each tile reaches OV under its right and lower neighbours, as above: there it only feeds the filtering at the tile's edge.)
     const OV = 2 / dpr, parts = wideTiles(box.w, box.h, dpr), TW = Math.max(...parts.map((t) => t.w)) + OV, TH = Math.max(...parts.map((t) => t.h)) + OV;
@@ -3674,7 +3679,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     try { update(F); } finally { staging = false; }
     const G = geo, m = model;
     if (!G || !m) return null;
-    const dark = isDark(), cs = styles(), dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();   // (draw's own)
+    const dark = isDark(), cs = styles(), dpr = lzDensity(...hostSize());   // (draw's own)
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), worldCap(G, dpr)), ws = worldStateOf(m, G, dark, cs), wk = wkOf(sc, ws);
     if (wk === worldKey) return null;
     return new Promise((done) => setTimeout(() => {
@@ -4188,7 +4193,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
     if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), cap = worldCap(G, dpr);
+    const dpr = lzDensity(...hostSize()), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap, seenCap(G));
     if (bitmapUnseen()) {
       // (The shader has the whole picture, so no bitmap is seen at the zooms this one is for: none is painted, and one made earlier is given back.)
@@ -4514,7 +4519,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const tg = tissueGLOn();
     if (!tg) return false;
     const [W, H] = hostSize();
-    const on = paintTissue(W, H, Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale(), isDark(), styles(), false, tg);
+    const on = paintTissue(W, H, lzDensity(W, H), isDark(), styles(), false, tg);
     showTissueGL(on);
     return on;
   }
@@ -5027,7 +5032,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Drawn ahead in the dive (staged), and still framed the same: nothing more to draw, the loop just starts.)
       // (A copy built for a framing the dive no longer lands on is dropped: the layers are drawn again for the new one below.)
       if (fade > 0 && was === 0 && wide && !(staged && staged === api.viewKey() && model)) dropWide();
-      if (fade > 0 && was === 0) { lzK = renderScale(); lzWant = null; }
+      if (fade > 0 && was === 0) { lzK = renderScale(); lzCap = figOpt('cap'); lzWant = null; }
       if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { lzLoop.want(); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
@@ -5224,7 +5229,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     zoomSharp(on) {
       if (!zbase) return;
       if (zbase.sin) { sv.sharpen?.(on); return; }
-      const base = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale();
+      const base = lzDensity(...hostSize());
       const z = on ? Math.max(1, Math.min(CARD.k, 3 / (base || 1))) : 1;
       if (z === zres) return;
       zres = z; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++;

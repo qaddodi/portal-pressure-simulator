@@ -45,21 +45,22 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   assert.match(stage, /(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/);
   assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?(?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?(?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?(?:live\.)?adaptK;/);
   assert.match(stage, /onRenderScale\(\(\) => \{ (?:live\.)?autoK = autoNow\(\); (?:live\.)?moveLow = false; (?:live\.)?adaptK = 1; moveGaps\.length = 0; easeRes\(\); (?:live\.)?veinsDirty = true; (?:live\.)?forceDraw = true; (?:live\.)?stageWake\(\); settleRes\(\); \}\)/);
-  assert.equal(src('lobule-zoom.js').split('* lzScale()').length - 1, 6);   // (a sixth reader joined the five below; draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU. The 2D ones went 1 Nov)
-  assert.equal(src('sinusoid-view.js').split('* svScale()').length - 1, 2);
+  // (The lobule's six readers: draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU; the card zoom's sharpen. Each reads
+  // lzDensity, the scale held to the figure's pixel budget; none reads the scale bare, or the lobule would be drawn at a density the anatomy's canvas is not (14 Nov 2026).)
+  assert.equal(src('lobule-zoom.js').split('lzDensity(').length - 1, 6);
+  assert.ok(!/\blzK\b[^;\n]*devicePixelRatio|devicePixelRatio[^;\n]*\blzK\b/.test(src('lobule-zoom.js').replace(/\/\/.*$/gm, '').replace(/const lzDensity[^\n]*/, '')), 'the scale is read only through lzDensity');
+  assert.equal(src('sinusoid-view.js').split('svDensity(').length - 1, 2);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
 });
 
 test('the lobule and the sinusoid take a change up while hidden and as they open, and ease one made while they show', () => {
   const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js');
-  assert.match(lz, /const lzScale = \(\) => lzK;/);
-  assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
-  assert.match(lz, /lzWant = k === lzK \? null : k;/, 'one made while it shows waits for resSwap (none when the share is the same)');
-  assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzWant = null; \}/, 'and as it opens: never a share from before');
-  assert.match(sv, /const svScale = \(\) => svK;/);
-  assert.match(sv, /if \(!\(shown > 0\)\) \{ svK = k; svWant = null; return; \}/);
-  assert.match(sv, /svWant = k === svK \? null : k;/);
-  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\); svWant = null;/);
+  assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzCap = figOpt\('cap'\); lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
+  assert.match(lz, /lzWant = k === lzK && figOpt\('cap'\) === lzCap \? null : k;/, 'one made while it shows (the scale or the size cap) waits for resSwap (none when both are the same)');
+  assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzCap = figOpt\('cap'\); lzWant = null; \}/, 'and as it opens: never a share from before');
+  assert.match(sv, /if \(!\(shown > 0\)\) \{ svK = k; svCap = figOpt\('cap'\); svWant = null; return; \}/);
+  assert.match(sv, /svWant = k === svK && figOpt\('cap'\) === svCap \? null : k;/);
+  assert.match(sv, /if \(opacity > 0 && was <= 0\) \{\n\s*svK = renderScale\(\); svCap = figOpt\('cap'\); svWant = null;/);
 });
 
 test('Auto: 1/zoom past the home framing, in steps down to 10%, changed only once the view settles', () => {
