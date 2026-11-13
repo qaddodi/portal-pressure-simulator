@@ -83,3 +83,33 @@ test('every collateral drawn at full strength carries the shunt flag, and none o
     }
   }
 });
+
+// The strands of a varix end on the node its vessel runs on through (the short gastric veins into the gastrorenal shunt, the esophageal varices' fan). The trunk is redrawn smooth through
+// that node (vein-joins.js smoothRunOn) and may pass it by RUN_ON_MISS; a strand's round end is as thick as the trunk, so a miss of more than about half a unit left it standing out of the
+// trunk's wall (vein-joins.js now moves the strands' ends with the node: STRAND_SNAP), a stair in the arch's outline (Mohammad, 13 Nov 2026, "a sharp cliff" at the fundal varices).
+test('every strand of the fundal and esophageal varices ends on its vessel\'s smoothed course (no stair at the node)', { timeout: BOOT_MS + 20000 }, async () => {
+  const cap = (await runs['gastric-varix']).anatomy;
+  const near = (P, x, y) => {
+    let best = Infinity;
+    for (let i = 0; i < 63; i++) {
+      const ax = P[2 * i], ay = P[2 * i + 1], dx = P[2 * i + 2] - ax, dy = P[2 * i + 3] - ay, l2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+      best = Math.min(best, Math.hypot(ax + dx * t - x, ay + dy * t - y));
+    }
+    return best;
+  };
+  let checked = 0;
+  for (const s of cap.rows.filter((r) => r.kind === 's' && (r.edge === 'C2' || r.edge === 'C1a'))) {
+    const trunks = cap.rows.filter((r) => r.edge === s.edge && r.kind === 'v');
+    assert.ok(trunks.length, `${s.edge} has its vessel`);
+    for (const i of [0, 63]) {
+      const x = s.P[2 * i], y = s.P[2 * i + 1];
+      const d = Math.min(...trunks.map((t) => near(t.P, x, y)));
+      // (A strand's start may lie on the vessel's own start, off the smoothed stretch: only an end on a run-on node is smoothed, so judge the end that is on one: the fundal node and the varices' top.)
+      if (d > 3) continue;
+      checked++;
+      assert.ok(d <= 0.1, `${s.edge} strand ${s.id} ${i ? 'end' : 'start'} is ${d.toFixed(2)} off its vessel's course`);
+    }
+  }
+  assert.ok(checked >= 4, `the strands' ends on a run-on were found (${checked})`);
+});

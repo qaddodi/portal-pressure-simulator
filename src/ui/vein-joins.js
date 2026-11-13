@@ -147,8 +147,10 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   // junction gives, then the ghost leg is taken out of them, so no run-on bends a drawn vein toward a stretch that is not drawn and no web is owned by it. 13 Nov 2026.)
   if (OUT.ra >= 0 && !ghostAt(OUT.ra) && !ghostAt(OUT.rb)) {
     let s = st.straightPool[st.straight.length];
-    if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false }; st.straightPool.push(s); }   // alloc-rare: a run-on record, made the first time a figure has that many
+    if (!s) { s = { a: 0, ia: 0, b: 0, ib: 0, fork: false, x: 0, y: 0, o: [] }; st.straightPool.push(s); }   // (o: the strands that end on the node, row and end in turn)   // alloc-rare: a run-on record, made the first time a figure has that many
     s.a = UIT[OUT.ra].row; s.ia = UI[OUT.ra]; s.b = UIT[OUT.rb].row; s.ib = UI[OUT.rb]; s.fork = nu - strands > 2;
+    s.x = cx; s.y = cy; s.o.length = 0;
+    for (let u = 0; u < nu; u++) if (UIT[u].kind === 's' && UI[u] >= 0) s.o.push(UIT[u].row, UI[u]);
     st.straight.push(s);
   }
   for (let a = 0; a < nu; a++) for (let b = a + 1; b < nu; b++) pairAdd(UIT[a].row, UIT[b].row);
@@ -288,6 +290,8 @@ function copyCourse(co, row, src) {
   if (dst.length !== n) dst.length = n;
   return dst;
 }
+// The samples over which a strand's end is moved with the node: its end goes to where the smoothed trunk now passes, easing back to its own course.
+export const STRAND_SNAP = 12;
 // How near (world units) a run-on's smoothed curve must pass to the join it smooths.
 export const RUN_ON_MISS = 2;
 // How near the cubic (p0 … p3) passes to (jx, jy): the least distance over its middle half, where the join lies.
@@ -349,6 +353,23 @@ export function smoothRunOn(items, straight, st) {
       if (d.length !== 2) d.length = 2;
     }
     co.gen[a] = co.cur; co.gen[b] = co.cur;
+    // The strands that end on this node end on the trunk where it passes now: the smoothed trunk may pass the node by up to RUN_ON_MISS, and a strand's round end is as thick as the
+    // trunk, so left on the node it stood out of the trunk's wall, a stair in the outline on each side of the node (the fundal varices' arch, 13 Nov 2026). Its last STRAND_SNAP samples ease from the move to none.
+    const o = straight[q].o;
+    if (o && o.length) {
+      const nx = 0.5 * 0.5 * 0.5 * p0x + 3 * 0.5 * 0.5 * 0.5 * p1x + 3 * 0.5 * 0.5 * 0.5 * p2x + 0.5 * 0.5 * 0.5 * p3x - straight[q].x;
+      const ny = 0.5 * 0.5 * 0.5 * p0y + 3 * 0.5 * 0.5 * 0.5 * p1y + 3 * 0.5 * 0.5 * 0.5 * p2y + 0.5 * 0.5 * 0.5 * p3y - straight[q].y;
+      for (let k = 0; k < o.length; k += 2) {
+        const row = o[k], end = o[k + 1], it = ROWIT[row];
+        if (!it) continue;
+        const P = co.gen[row] === co.cur ? co.arr[row] : copyCourse(co, row, it.pts);
+        for (let j = 0; j <= STRAND_SNAP && j < P.length; j++) {
+          const w = 1 - j / STRAND_SNAP, k2 = w * w * (3 - 2 * w), d = P[end ? P.length - 1 - j : j];
+          d[0] += nx * k2; d[1] += ny * k2;
+        }
+        co.gen[row] = co.cur;
+      }
+    }
   }
   for (let k = 0; k < items.length; k++) ROWIT[items[k].row] = undefined;
   return co;

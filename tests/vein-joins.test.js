@@ -4,7 +4,7 @@
 // globals it read being arguments.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { veinJoins, smoothRunOn, newJoinStore, joinKeyOf, nearCourse, runOnMiss, RUN_ON_MISS } from '../src/ui/vein-joins.js';
+import { veinJoins, smoothRunOn, newJoinStore, joinKeyOf, nearCourse, runOnMiss, RUN_ON_MISS, STRAND_SNAP } from '../src/ui/vein-joins.js';
 import { forkJoins, nodeJoins } from '../src/ui/fork-joins.js';
 
 const N = 64;
@@ -90,7 +90,7 @@ function refVeinJoins(items, nearCourse) {
     const kOf = (m) => clamp(1.2 * m.rMin + 1.2, 1.5, 11);
     const dir = ([it, i]) => { if (i == null) return null; const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
     const { groups, runOn } = refNodeJoins(uniq.map((e) => ({ dir: dir(e), strand: isStrand(e) })));
-    if (runOn) straight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.filter((e) => !isStrand(e)).length > 2 });
+    if (runOn) straight.push({ a: uniq[runOn[0]][0].row, ia: uniq[runOn[0]][1], b: uniq[runOn[1]][0].row, ib: uniq[runOn[1]][1], fork: uniq.filter((e) => !isStrand(e)).length > 2, x: c[0], y: c[1], o: uniq.filter((e) => isStrand(e) && e[1] != null).flatMap(([it, i]) => [it.row, i]) });
     const rows = uniq.map(([it]) => it);
     for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
     for (const g of groups) {
@@ -140,7 +140,7 @@ const refRunOnSamples = (it, n) => (it.ra ? Math.max(2, Math.round(n * (1 - it.f
 function refSmoothRunOn(items, straight) {
   const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 10;
   const pt = (P, i, end) => (end ? P[P.length - 1 - i] : P[i]);
-  for (const { a, ia, b, ib } of straight) {
+  for (const { a, ia, b, ib, x, y, o } of straight) {
     const A = byRow.get(a), B = byRow.get(b);
     if (!A || !B) continue;
     const PA = out.get(a) || A.pts.map((q) => q.slice()), PB = out.get(b) || B.pts.map((q) => q.slice());
@@ -163,6 +163,18 @@ function refSmoothRunOn(items, straight) {
     for (let i = 0; i <= Ea; i++) PA[ia ? PA.length - 1 - i : i] = bez(0.5 * (1 - i / Ea));
     for (let i = 0; i <= Eb; i++) PB[ib ? PB.length - 1 - i : i] = bez(0.5 + 0.5 * (i / Eb));
     out.set(a, PA); out.set(b, PB);
+    // (The strands that end on the node end on the trunk where it passes now, easing back to their own course over STRAND_SNAP samples: vein-joins.js smoothRunOn.)
+    const mid = bez(0.5), sx = mid[0] - x, sy = mid[1] - y;
+    for (let k = 0; k < o.length; k += 2) {
+      const it = byRow.get(o[k]);
+      if (!it) continue;
+      const P = out.get(o[k]) || it.pts.map((q) => q.slice());
+      for (let j = 0; j <= STRAND_SNAP && j < P.length; j++) {
+        const w = 1 - j / STRAND_SNAP, k2 = w * w * (3 - 2 * w), at = o[k + 1] ? P.length - 1 - j : j;
+        P[at] = [P[at][0] + sx * k2, P[at][1] + sy * k2];
+      }
+      out.set(o[k], P);
+    }
   }
   return out;
 }
