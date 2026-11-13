@@ -113,6 +113,7 @@ test('why the webs add nothing without origin or dye: a web pixel is placed at t
 
 // ---- PL item 3: the lumen pass only where the lobule is ----
 import { lumenBox, lumenRect, lumenCut, cullUpdate, createDepthStamp } from '../src/ui/tube-stage2.js';
+import { WEB_FAR_TAPER } from '../src/ui/tube-joint.js';
 
 function rows3() {   // three straight rows (N_SAMPLES points each) along x at y = 10 r, from x = 100 r to 100 r + 50
   const N = 64, pts = new Float32Array(3 * 32 * 4), on = new Uint8Array(3).fill(1);
@@ -141,7 +142,7 @@ test('lumenBox adds the squares round a kept row\'s webs\' legs, as far as a web
   const out = new Float64Array(4), plain = new Float64Array(4);
   lumenBox(C, 3, null, B.pts.pts, plain);
   lumenBox(C, 3, W, B.pts.pts, out);
-  const e = 5 * Math.max(C.hr[1], C.hr[2]) + 10;
+  const e = (WEB_FAR_TAPER + 1) * Math.max(C.hr[1], C.hr[2]) + 10;   // (a taper reaches WEB_FAR_TAPER radii: tube-joint.js)
   assert.ok(Math.abs(out[2] - (200 + e)) < 1e-3, 'the leg on row 2 at x 200 reaches e further');
   assert.ok(out[0] <= plain[0] && out[1] <= plain[1] && out[2] > plain[2] && out[3] >= plain[3]);
   const one = { count: 1, data: W.data.slice(12, 24) };

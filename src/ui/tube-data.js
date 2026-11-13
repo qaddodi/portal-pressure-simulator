@@ -12,7 +12,7 @@
 // tubeBuckets and websByTier run in a frame and make nothing at all.
 import { N_SAMPLES, memberOf } from './veins-mesh.js';
 import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
-import { WEB_FLOATS, WEB_MIN_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
+import { WEB_FLOATS, WEB_MIN_DEG, WEB_TAPER_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
 import { endTrunk, endContinues, END_THRU_START, END_THRU_END, joinThruSideJS, joinNextCode } from './tube-join-glsl.js';
 
 export const TUBE_ROW_FLOATS = 12;            // a row record: row, endStart, endEnd, kind + 2, then MOUTH_N mouth codes (floats 4 to 11)
@@ -338,7 +338,7 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
  * layout with the join's place in x, y (between the views, a join entry's x is its index: the caller passes entries with the frame's place filled in); repeats of a
  * join are left out, as are joins with no reach, no fillet or fewer than two legs. tubeData: the tube attribute array (its length gives the rows); pts: the rows'
  * points as pointsFromEntries lays them. For each join: its legs (see legsOf), sorted by the angle of their direction about the join; each pair of neighbours in that
- * order (round the circle) whose directions differ by at least WEB_MIN_DEG and under WEB_MAX_DEG makes one web, between the first leg's wall on its left and the
+ * order (round the circle) whose directions differ by at least WEB_TAPER_DEG (a taper under WEB_MIN_DEG) and under WEB_MAX_DEG makes one web, between the first leg's wall on its left and the
  * second's on its right. owner: 0 or 1 if exactly one of the two legs is a trunk, else 2 (the larger radius, decided in the shader where the radii are).
  * out.at: each web's join place (x, y), for the tests and the diagnostics only. out.joins: the joins read; out.empty: pairs left out for an angle outside the range; out.kinds: webs by the number of legs of their join.
  */
@@ -374,7 +374,7 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       if (la === lb) continue;
       let gap = S.ang[lb] - S.ang[la];
       if (gap < 0) gap += 2 * Math.PI;
-      if (gap < WEB_MIN_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
+      if (gap < WEB_TAPER_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
       // A mouth: one leg is a branch that ends here (one leg of its row), the other a trunk running through (two legs). The join cuts the branch at the trunk's wall and carries the trunk's tones on,
       // so its crotch is a plain V; a fillet web there adds a round bay whose outline steps off the branch's real wall, a dark wedge of the branch's shade and a pale rim. Under MOUTH_WEB_DEG it is left out (13 Nov 2026).
       let nA = 0, nB = 0;
@@ -386,7 +386,7 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       data[o + 8] = rho0; data[o + 9] = joinEntries[q + 2];
       out.at[count * 2] = x0; out.at[count * 2 + 1] = y0; out.e[count] = e;
       const ta = S.mark[la] > 0.1, tb = S.mark[lb] > 0.1;
-      data[o + 10] = ta !== tb ? (ta ? 0 : 1) : 2; data[o + 11] = 0;
+      data[o + 10] = ta !== tb ? (ta ? 0 : 1) : 2; data[o + 11] = gap < WEB_MIN_DEG * DEG ? 1 : 0;   // (a taper: legs under WEB_MIN_DEG apart, tube-joint.js)
       count++;
       out.kinds[n]++;
     }

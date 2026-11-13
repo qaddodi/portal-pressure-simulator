@@ -59,7 +59,10 @@ export const WEB_FILL = 1, WEB_IN = 1 + WEB_PTS, WEB_OUT = 1 + 2 * WEB_PTS, WEB_
 export const WEB_FLOATS = 12;                    // a web's instance record (see above)
 export const WEB_STRIP_LEVEL = TUBE_LEVEL.LUMEN0 + 0.01;   // a wall strip: just over a lumen's level at its wall (a lumen's height there is near zero), under any taller lumen over the join; clear of the fade band's top (WEB_LEVEL)
 export const WEB_LEVEL = 0.295;                  // a web's fill: over every casing and fading lumen, under every opaque lumen (TUBE_LEVEL's table is A's)
-export const WEB_MIN_DEG = 20;                   // legs closer to parallel than this make no web: the plain union of the two tubes is the join there (planner, 10 Nov: B)
+export const WEB_MIN_DEG = 20;                   // legs closer to parallel than this are a taper, not a fillet (WEB_TAPER_DEG): a long thin web that rounds the notch where their walls cross (13 Nov 2026; before it, none: planner, 10 Nov: B)
+export const WEB_TAPER_DEG = 6;                  // legs closer to parallel than this make no web: the plain union of the two tubes is the join there
+export const WEB_DEV_TAPER = 0.02;               // a taper's wall must stay this close to its straight line (a share of the larger radius), a third of a fillet's: its edges run far along the walls
+export const WEB_FAR_TAPER = 14;                // a taper's C may lie this many radii of the larger leg from a leg's sample (the walls of legs this close meet far along them)
 export const WEB_MAX_DEG = 170;                  // legs this far apart or more make none (a straight run has no corner)
 export const WEB_FAR = 4;                        // C farther than this many radii (of the larger leg) from either leg's sample is an empty web (planner, 10 Nov: B; the brief said 3 reaches)
 export const WEB_CUT = 0.9;                      // the tangent length is at most this share of a leg's length
@@ -183,11 +186,14 @@ export function webGeometry(PA, RA, PB, RB, inst, aaPad) {
   const cr = cross2(A.d[0], A.d[1], B.d[0], B.d[1]), cs = A.d[0] * B.d[0] + A.d[1] * B.d[1];
   const theta = Math.atan2(Math.abs(cr), cs);
   out.theta = theta;
-  if (theta < WEB_MIN_DEG * DEG || theta >= WEB_MAX_DEG * DEG) return out;
+  const taper = inst[11] > 0.5;   // (a pair of legs under WEB_MIN_DEG apart at the join: tube-data.js webInstances)
+  if (theta < (taper ? WEB_TAPER_DEG : WEB_MIN_DEG) * DEG || theta >= (taper ? WEB_MIN_DEG : WEB_MAX_DEG) * DEG) return out;   // (a taper whose legs, refitted to the real walls, are 20 degrees apart or more is not a taper: its vessels bend away from each other, and a fillet there lies off the walls)
   if (Math.max(A.over, B.over) > WEB_OVER * Rm) return out;
-  if (Math.max(Math.hypot(C[0] - A0.p[0], C[1] - A0.p[1]), Math.hypot(C[0] - B0.p[0], C[1] - B0.p[1])) > WEB_FAR * Rm) return out;
+  if (Math.max(Math.hypot(C[0] - A0.p[0], C[1] - A0.p[1]), Math.hypot(C[0] - B0.p[0], C[1] - B0.p[1])) > (taper ? WEB_FAR_TAPER : WEB_FAR) * Rm) return out;
+  // (A taper's corner lies ahead of both legs' samples, along the legs: with a thin leg beside a thick one the walls can meet behind the join, and a web there lies inside a leg.)
+  if (taper && ((C[0] - A0.p[0]) * A.d[0] + (C[1] - A0.p[1]) * A.d[1] < 0 || (C[0] - B0.p[0]) * B.d[0] + (C[1] - B0.p[1]) * B.d[1] < 0)) return out;
   const th2 = Math.tan(0.5 * theta);
-  const eps = WEB_DEV * Rm, wA = wall(A), wB = wall(B);
+  const eps = (taper ? WEB_DEV_TAPER : WEB_DEV) * Rm, wA = wall(A), wB = wall(B);
   const tlMax = Math.min(webWallSpan(PA, RA, A, dA, inst[3], eps) - ((C[0] - wA[0]) * A.d[0] + (C[1] - wA[1]) * A.d[1]), webWallSpan(PB, RB, B, dB, inst[7], eps) - ((C[0] - wB[0]) * B.d[0] + (C[1] - wB[1]) * B.d[1]));
   const rho = Math.min(inst[8], Math.min(WEB_CUT * Math.min(A0.len, B0.len) * th2, Math.min(inst[9] * th2, tlMax * th2)));
   if (!(rho > 1e-5)) return out;
@@ -255,7 +261,7 @@ precision highp sampler2D;
 layout(location=0) in vec4 aV;         // (kind, arc index, 0, 0): tube-joint.js webIndex
 layout(location=1) in vec4 aLegA;      // (row, sample, dir, side) of the first leg (per instance)
 layout(location=2) in vec4 aLegB;      // the second leg's
-layout(location=3) in vec4 aWeb;       // (rho0, reach, owner, 0)
+layout(location=3) in vec4 aWeb;       // (rho0, reach, owner, taper: 1 for a pair of legs under WEB_MIN_DEG apart)
 uniform mat3 world;                    // world → device pixels
 uniform vec2 size;
 uniform vec2 lOff;
@@ -284,14 +290,17 @@ const int W_LOOK = ${WEB_LOOK};
 const float W_LEVEL = ${f(WEB_LEVEL)};
 const float W_CASE0 = ${f(L.CASE0)};
 const float W_CASE1 = ${f(L.CASE1)};
-const float W_MIN = ${f(WEB_MIN_DEG * DEG)};
+const float W_MIN = ${f(WEB_TAPER_DEG * DEG)};
+const float W_FULL = ${f(WEB_MIN_DEG * DEG)};
 const float W_MAX = ${f(WEB_MAX_DEG * DEG)};
 const float W_FAR = ${f(WEB_FAR)};
+const float W_FAR_T = ${f(WEB_FAR_TAPER)};
 const float W_CUT = ${f(WEB_CUT)};
 const int W_SPAN = ${WEB_SPAN};
 const int W_REFIT = ${WEB_REFIT};
 const int W_DEVN = ${WEB_DEVN};
 const float W_DEV = ${f(WEB_DEV)};
+const float W_DEV_T = ${f(WEB_DEV_TAPER)};
 const float W_OVER = ${f(WEB_OVER)};
 ${ZOOM_VS ? `${ZOOM_VS}\n` : ''}out float vI;
 flat out int vRow;
@@ -422,17 +431,19 @@ void main() {
   vec2 wa = A.p + A.n * A.r;
   float cr = wCross(A.d, B.d);
   float theta = atan(abs(cr), dot(A.d, B.d));
-  empty = empty || theta < W_MIN || theta >= W_MAX;
+  bool taper = aWeb.w > 0.5;
+  empty = empty || theta < (taper ? W_MIN : W_FULL) || theta >= (taper ? W_FULL : W_MAX);
   vec2 O = wa, bis = vec2(0.0);
   float rho = 0.0;
   if (!empty) {
     if (max(A.over, B.over) > W_OVER * Rm) empty = true;
-    if (max(distance(C, A0.p), distance(C, B0.p)) > W_FAR * Rm) empty = true;
+    if (max(distance(C, A0.p), distance(C, B0.p)) > (taper ? W_FAR_T : W_FAR) * Rm) empty = true;
+    if (taper && (dot(C - A0.p, A.d) < 0.0 || dot(C - B0.p, B.d) < 0.0)) empty = true;
   }
   float th2 = 0.0;
   if (!empty) {
     th2 = tan(0.5 * theta);
-    float eps = W_DEV * Rm;
+    float eps = (taper ? W_DEV_T : W_DEV) * Rm;
     vec2 wA = A.p + A.n * A.r, wB = B.p + B.n * B.r;
     float tlMax = min(wSpan(idA, A, sA, dA, eps) - dot(C - wA, A.d), wSpan(idB, B, sB, dB, eps) - dot(C - wB, B.d));
     rho = min(aWeb.x, min(W_CUT * min(A0.len, B0.len) * th2, min(aWeb.y * th2, tlMax * th2)));

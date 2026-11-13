@@ -6,7 +6,7 @@
 //     buffers and vertex arrays they are drawn from (the strip's vertices are the stage 1 strip's, the same buffers).
 // Nothing here allocates in a frame: the arrays are made on the first frame or when a binning (a geometry upload) needs more, each marked alloc-rare.
 import { tubeStripVS } from './tube-geo.js';
-import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
+import { tubeWebVS, webIndex, WEB_FLOATS, WEB_FAR_TAPER } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeGlowFS } from './tube-glow-glsl.js';
@@ -210,7 +210,7 @@ export function lumenPiece(x, w, s, out) {
 
 /**
  * The world box of what the lumen pass can draw, into out [x0, y0, x1, y1] (x0 > x1 when there is nothing): the boxes of the rows the cull keeps (C.mask, C.boxes) and, for each web one of whose
- * legs is such a row, the squares round its two legs' samples (pts, as meshGeo().pts.pts holds them) as far as a web reaches from a leg: WEB_FAR (4) radii of the larger leg and the join's reach, and a
+ * legs is such a row, the squares round its two legs' samples (pts, as meshGeo().pts.pts holds them) as far as a web reaches from a leg: WEB_FAR_TAPER (14, a taper's; a fillet's is 4) radii of the larger leg and the join's reach, and a
  * radius more. W: the webs of the binning (tube-data.js webInstances: data, count). A web with neither leg a kept row is left out: its rows are not drawn, and it adds only a fillet at their ends.
  */
 export function lumenBox(C, nRows, W, pts, out) {
@@ -225,7 +225,7 @@ export function lumenBox(C, nRows, W, pts, out) {
   for (let p = 0, n = d ? W.count : 0; p < n; p++) {
     const q = p * WEB_FLOATS, ra = Math.floor(d[q] + 0.5), rb = Math.floor(d[q + 4] + 0.5);
     if (!(ra >= 0 && ra < nRows && rb >= 0 && rb < nRows) || !(mk[ra] || mk[rb])) continue;
-    const e = 5 * Math.max(C.hr[ra], C.hr[rb]) + d[q + 9];
+    const e = (WEB_FAR_TAPER + 1) * Math.max(C.hr[ra], C.hr[rb]) + d[q + 9];
     for (let l = 0; l < 2; l++) {
       const row = l ? rb : ra, i = Math.floor(d[q + (l ? 5 : 1)] + 0.5), at = (row * 32 + (i >> 1)) * 4 + (i & 1) * 2, x = pts[at], y = pts[at + 1];
       if (x - e < x0) x0 = x - e; if (x + e > x1) x1 = x + e; if (y - e < y0) y0 = y - e; if (y + e > y1) y1 = y + e;

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WEB_ARC, WEB_PTS, WEB_KIND, WEB_VERTS, WEB_FILL, WEB_IN, WEB_OUT, WEB_FLOATS, WEB_LEVEL, WEB_MIN_DEG, WEB_MAX_DEG, WEB_FAR, WEB_CUT, WEB_LOOK,
+  WEB_ARC, WEB_PTS, WEB_KIND, WEB_VERTS, WEB_FILL, WEB_IN, WEB_OUT, WEB_FLOATS, WEB_LEVEL, WEB_MIN_DEG, WEB_TAPER_DEG, WEB_FAR_TAPER, WEB_MAX_DEG, WEB_FAR, WEB_CUT, WEB_LOOK,
   WEB_STRIP, WEB_STRIP_PTS, WEB_STRIP_LEVEL, webIndex, webGeometry, webVertex, legDirection, tubeWebVS,
 } from '../src/ui/tube-joint.js';
 import { webInstances } from '../src/ui/tube-data.js';
@@ -198,9 +198,9 @@ test('empty webs have zero area: parallel legs, a straight run, a distant corner
     const sc = scene([rowA, rowB], []);
     return { rec: rec({ sample: 0, dir: 1 }, { sample: 0, dir: 1 }, over), PA: sc.P[0], RA: sc.R[0], PB: sc.P[1], RB: sc.R[1] };
   };
-  // two legs 1 degree apart, and 15 degrees apart (under WEB_MIN_DEG)
+  // two legs 1 degree apart, and 4 degrees apart (under WEB_TAPER_DEG)
   const par = mk(ray(0, 0, 90, 80, 3), ray(2, 0, 91, 80, 3));
-  const shallow = mk(ray(0, 0, 90, 80, 3), ray(0, 0, 105, 80, 3));
+  const shallow = mk(ray(0, 0, 90, 80, 3), ray(0, 0, 94, 80, 3));
   assert.equal(geo(shallow).empty, true); assert.ok(area(shallow) < 1e-9);
   assert.equal(geo(par).empty, true); assert.ok(area(par) < 1e-9);
   // 177 degrees apart (a nearly straight run)
@@ -215,7 +215,40 @@ test('empty webs have zero area: parallel legs, a straight run, a distant corner
   // and one that does draw
   const ok = mk(ray(0, 0, 0, 80, 3), ray(0, 0, 90, 80, 3));
   assert.equal(geo(ok).empty, false); assert.ok(area(ok) > 0.01);
-  assert.ok(WEB_MIN_DEG === 20 && WEB_MAX_DEG === 170 && WEB_FAR === 4);
+  assert.ok(WEB_MIN_DEG === 20 && WEB_TAPER_DEG === 6 && WEB_MAX_DEG === 170 && WEB_FAR === 4 && WEB_FAR_TAPER === 14);
+});
+
+test('a taper: legs 6 to 20 degrees apart get a long thin web that rounds the notch where their walls cross, tangent to both walls and within the reach', () => {
+  const M = webIndex();
+  const mk = (deg, r2 = 3) => {
+    const sc = scene([ray(0, 0, 90, 120, 3), ray(0, 0, 90 + deg, 120, r2)], []);
+    const r = new Float32Array(WEB_FLOATS);
+    r.set([0, 0, 1, 1, 1, 0, 1, -1, 3, 20, 2, 1]);   // (the last float: a taper)
+    return { rec: r, PA: sc.P[0], RA: sc.R[0], PB: sc.P[1], RB: sc.R[1] };
+  };
+  for (const deg of [10, 14, 19]) {
+    const w = mk(deg), g = geo(w);
+    assert.equal(g.empty, false, `${deg} degrees`);
+    assert.ok(Math.abs(g.theta - deg * DEG) < 1e-6);
+    const tl = Math.hypot(g.Ta[0] - g.C[0], g.Ta[1] - g.C[1]);
+    assert.ok(tl <= 20 + 1e-6, `tangent length ${tl} within the reach 20`);
+    assert.ok(g.rho > 0 && g.rho <= 3 + 1e-9, `the arc is no larger than the join asks: ${g.rho}`);
+    assert.ok(Math.abs(g.rho / Math.tan(0.5 * g.theta) - tl) < 1e-6, 'rho and the tangent length agree');
+    // the web's vertices stay near the corner: nothing flies off
+    for (let v = 0; v < WEB_VERTS; v++) {
+      const p = webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, M.attr.subarray(v * 4, v * 4 + 4), AA);
+      assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
+      assert.ok(Math.hypot(p.x - g.C[0], p.y - g.C[1]) <= tl + 1 + 3 * g.rho, `vertex ${v} within the tangent length of the corner`);
+    }
+  }
+  // below the taper's angle nothing; with the corner farther than WEB_FAR_TAPER radii, nothing
+  assert.equal(geo(mk(5)).empty, true);
+  const plain = mk(15); plain.rec[11] = 0;
+  assert.equal(geo(plain).empty, true, 'a record that is not a taper keeps the 20 degree floor');
+  const farOff = (() => { const sc = scene([ray(0, 0, 90, 200, 3), ray(120, 0, 100, 200, 3)], []); const r = new Float32Array(WEB_FLOATS); r.set([0, 0, 1, 1, 1, 0, 1, -1, 3, 20, 2, 1]); return { rec: r, PA: sc.P[0], RA: sc.R[0], PB: sc.P[1], RB: sc.R[1] }; })();
+  assert.equal(geo(farOff).empty, true);
+  // a thick leg and a thin one close together: the corner is near, so the web draws
+  assert.equal(geo(mk(9, 1.2)).empty, false);
 });
 
 test('vertex values: levels, vD, vG, vRad as the contract has them', () => {
