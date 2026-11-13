@@ -125,7 +125,7 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   const stage = stageSource();
   assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
   assert.match(stage, /putMark\(ov\.plugs, `tieX:\$\{id\}`/, 'the plug cross is half way along the tied vein');
-  assert.match(stage, /class: 'tied-off'/, 'the tied vein is greyed out');
+  assert.doesNotMatch(stage, /class: 'tied-off'/, 'no grey band over the tied vein: it fades as any vessel with no flow does (Mohammad, 13 Nov)');
   const { tiedOff } = await import('../src/engine/topology.js');
   assert.ok(tiedOff({ dsrs: true }, 'LGV_CONF') && tiedOff({ dsrs: true }, 'LGV') && !tiedOff({}, 'LGV_CONF') && !tiedOff({ dsrs: true }, 'SV_CONF'), 'only the tied coronary vein and its station read "—"');
   assert.match(stage, /tiedOff\(f\.viewParams \|\| st\.params, id\)/, 'the station label reads —');

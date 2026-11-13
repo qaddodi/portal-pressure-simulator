@@ -349,34 +349,11 @@ export function createTransitions(st, live) {
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same two ties there, greys
-  // the whole vein out as clotted, and puts the plug's cross halfway along it: the coronary vein in a Warren shunt.)
+  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same tie there and the plug's cross
+  // halfway along it, the vein left to fade as any vessel with no flow does (no grey band over it, 13 Nov 2026): the coronary vein in a Warren shunt.)
   function ligature(id, shunt, at) {
     const x = E[id], c = at != null ? geo[id].len * at : Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1);
-    if (at != null) {
-      // (The grey wash is a filled shape that tapers to a point at each end, about a width clear of the vein it leaves and the vein it joins: the vein's own
-      // joint off the portal vein shows as every branch's does, and the wash eases in as a wedge, not a square-ended slab glued onto the wall. 13 Nov 2026.)
-      const cur = geo[id].cur, gap = x.width * 0.9, near = (q) => {
-        for (const v of EV) {
-          if (!hostable(v, id)) continue;
-          if (distToLine(geo[v.e.id].cur, q[0], q[1]) < v.width / 2 + (v.wallPx || 1) + gap) return true;
-        }
-        return false;
-      };
-      let i0 = 0, i1 = cur.length - 1;
-      while (i0 < i1 - 3 && near(cur[i0])) i0++;
-      while (i1 > i0 + 3 && near(cur[i1])) i1--;
-      const sub = cur.slice(i0, i1 + 1), cum = [0];
-      for (let i = 1; i < sub.length; i++) cum.push(cum[i - 1] + Math.hypot(sub[i][0] - sub[i - 1][0], sub[i][1] - sub[i - 1][1]));
-      const S = cum[cum.length - 1], span = Math.min(x.width * 1.4, S / 2), Lp = [], Rp = [];
-      for (let i = 0; i < sub.length; i++) {
-        const a0 = sub[Math.max(0, i - 1)], a1 = sub[Math.min(sub.length - 1, i + 1)], l = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) || 1;
-        const t = Math.min(1, Math.min(cum[i], S - cum[i]) / (span || 1)), r = R * t * t * (3 - 2 * t), nx = -(a1[1] - a0[1]) / l, ny = (a1[0] - a0[0]) / l;
-        Lp.push(`${(sub[i][0] + nx * r).toFixed(1)} ${(sub[i][1] + ny * r).toFixed(1)}`); Rp.push(`${(sub[i][0] - nx * r).toFixed(1)} ${(sub[i][1] - ny * r).toFixed(1)}`);
-      }
-      putMark(ov.stents, `tieGrey:${id}`, shunt, [s('path', { class: 'tied-off', d: `M${Lp.join(' L')} L${Rp.reverse().join(' L')} Z` })]);
-    }
     // (A wound tie, S1 of the suture mocks, cleaned up for the phone: three turns of thin thread over the near side and a knot, no tails and no far half. On a divided vein it sits a little in from the cut end.)
     const w = woundTie((u) => frameAt(id, u), at != null ? c : stumpCentre(divideLen(id), geo[id].len), R, 2.2, 3, at != null ? 0 : 1);
     const kn = `M${w.knot.x.toFixed(1)} ${w.knot.y.toFixed(1)} L${(w.knot.x + 0.4).toFixed(1)} ${w.knot.y.toFixed(1)}`;
