@@ -423,7 +423,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
   // A stent is judged at its gate, as its reading, trace and tiles show it: a 90% narrowing's jet is flow, not an occlusion,
   // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
-  function interpret(r0, g = 1) {
+  // (seen: the reading the strip shows, signed and at the stent's gate, and the open stent's velocity its segment tiles read from: a stent's
+  // words are judged on the numbers beside them, so "Patent" never sits beside a 191, nor "High velocity" beside a 189.)
+  const SEEN = { gated: NaN, open: NaN };
+  function interpret(r0, g = 1, seen = null) {
     const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
     let r = r0;
     if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; }
@@ -483,12 +486,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = RI_TEXT[Math.max(0, Math.min(100, Math.round(ri * 100)))];
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
-      dir = js.none ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = js.none || r.mean < 0 ? 'critical' : js.slow || js.fast ? 'caution' : 'ok';
-      const sr = stentReads(open), jet = Math.max(a, sr[0], sr[1], sr[2]);   // the fastest segment: a narrowing's jet
+      // (Judged on the shown numbers when there are some: the strip's steady reading at the gate and the three segment tiles, each rounded as
+      // it is printed. Without them (no reading shown yet), the 3 s mean, as before.)
+      const shown = seen && Number.isFinite(seen.gated) && Number.isFinite(seen.open);
+      const m = shown ? seen.gated : r.mean, jsS = shown ? judgeFlow(m, null, normal, OPT_STENT) : js;
+      dir = jsS.none ? 'No flow' : m < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = jsS.none || m < 0 ? 'critical' : jsS.slow || jsS.fast ? 'caution' : 'ok';
+      const sr = stentReads(shown ? seen.open : open);
+      const jet = shown ? Math.max(Math.round(Math.abs(m)), Math.round(sr[0]), Math.round(sr[1]), Math.round(sr[2])) : Math.max(a, sr[0], sr[1], sr[2]);   // the fastest segment: a narrowing's jet
       const hiV = normal[1];   // (the stent's ceiling: its probe's normal, from the one table of them, velNormal.js PROBE_NORMAL)
-      pattern = js.none ? 'Occluded' : js.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
+      pattern = jsS.none ? 'Occluded' : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > hiV) sev = 'caution';
-      note = js.none ? 'No flow in the stent: occluded.' : p.rangeNote;
+      note = jsS.none ? 'No flow in the stent: occluded.' : p.rangeNote;
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -591,9 +599,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       return;
     }
     const p = meta();
-    const it = interpret(r, gateFactor());
     const set = wSet;
-    setDir(it.dir); dataSoon(dirEl, 'sev', it.sev);
     // (In a slide's top strip the reading is signed as the trace is drawn, the scanner's way: a hepatic vein's forward flow runs away from the
     // probe, below the baseline, so it reads "−18 · Toward the heart", and the sign, the words and the drawing agree.)
     // (And steady: the 3 s mean swings a few percent with the beat and breath, so a slide's strip, and the callout that copies it, read a
@@ -609,6 +615,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // vessel, a paused model or a jump of the model shows the new reading at once.)
     { const t = performance.now(), dt = velShownAt && velShown.moving ? Math.min(0.1, Math.max(0, (t - velShownAt) / 1000)) : 0; velShownAt = t; mean = velShown.step(mean, dt, velProbe !== probe || !frame?.running); velProbe = probe; }
     const drawn = ovOn ? mean * pol() : mean;
+    // (The words after the number: a stent is judged on the reading it shows, SEEN.)
+    SEEN.gated = mean; SEEN.open = open;
+    const it = interpret(r, gf, SEEN);
+    setDir(it.dir); dataSoon(dirEl, 'sev', it.sev);
     set(velEl.firstChild, num(drawn, Math.abs(drawn) < 10 ? 1 : 0));
     // (No flow, as in an occluded stent or a clotted vein: the words say it, "No flow · No signal", with no "0.0 cm/s" beside them,
     // and the figure's callout says "No flow" too.)
