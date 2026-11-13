@@ -1547,6 +1547,38 @@ void main() { o = texture(uT, vUV) * uA; }`;
     ucOf(gl).f4a(MU.uStroke, r.col); ucOf(gl).f1(MU.uA, LA * Math.min(1, a));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
+  // (L-H1, 13 Nov 2026, the Mac warm at rest: what the last sync was given, kept as numbers and references, so a sync that changes nothing asks
+  // for no picture. At rest the stage lays its labels out on every model frame (about 10 a second) and each ask, with the figure waiting on its
+  // rest timer, laid a whole present for the labels alone: 37 presents a second against 30 composites, 41 with a TIPS. A label's new words
+  // still ask, through its writer (told); its place, alpha, pin, the set and the leaders and dots are compared here.)
+  let sigV = new Float64Array(512), sigI = 0, sigJ = 0, sigLI = -1, sigLJ = -1, sigDiff = false;
+  const sigR = [];
+  const sigRef = (v) => { if (sigJ >= sigR.length) { sigR.push(v); sigDiff = true; } else if (sigR[sigJ] !== v) { sigR[sigJ] = v; sigDiff = true; } sigJ++; };
+  const sigNum = (v) => {
+    const n = v == null ? -1e300 : +v;
+    if (sigI >= sigV.length) { const w = new Float64Array(sigV.length * 2); w.set(sigV); sigV = w; }   // alloc-rare: only when a layout holds more labels and marks than ever before (doubling)
+    const o = sigV[sigI];
+    if (o !== n && !(o !== o && n !== n)) { sigV[sigI] = n; sigDiff = true; }
+    sigI++;
+  };
+  const sigWant = (v, k) => { sigRef(k); sigNum(v); };
+  function syncChanged(list) {
+    sigI = 0; sigJ = 0; sigDiff = false;
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i];
+      sigRef(q.g); sigRef(q.pid); sigRef(q.pmid); sigRef(q.pau); sigRef(q.want); sigRef(!!q.full); sigRef(!!q.rot);
+      sigNum(q.x); sigNum(q.y); sigNum(q.alpha); sigNum(q.pwx); sigNum(q.pwy); sigNum(q.pwv); sigNum(q.pax); sigNum(q.pay);
+    }
+    for (const root of marks) for (const el of root.children) {
+      if (el.tagName === 'g') continue;
+      const mg = markGeo.get(el);
+      sigRef(el); sigRef(mg?.k); sigRef(!!mg?.ok); sigNum(mg?.ra); for (let i = 0; i < 4; i++) sigNum(mg?.v[i]);
+    }
+    pinWant.forEach(sigWant);
+    if (sigI !== sigLI || sigJ !== sigLJ) sigDiff = true;
+    sigLI = sigI; sigLJ = sigJ; sigR.length = sigJ;   // (no reference kept to a group or mark gone from the layout)
+    return sigDiff;
+  }
   // (A picture asked for from inside a picture (the labels still moving, an ease going on) is asked for in the next frame: the host's present is
   // not laid again from inside its own.)
   let drawing = false, againF = 0;
@@ -2595,7 +2627,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (hostK() !== dpr) densityChanged();
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
       // would apply that camera move twice. rideEnd hands the drawn positions to the first sync of the landed layout instead.
-      if (rideM) { ask(); return; }
+      if (rideM) { ask(); sigLI = -1; return; }
+      const wasStuck = stuck;
       WAS.clear();
       for (const s of last) WAS.add(s.g);
       // (Pinned labels take their layout's offset at once; no glide. A ride's or a follow's glide is not theirs.)
@@ -2628,7 +2661,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (svgAsk && !released) for (const s of list) { const sp = sprites.get(s.g); if (s.full && sp?.mode === 'gl' && sp.slot && !sp.wait) svgAsk(s.g, false); }
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
-      ask();
+      // (L-H1: a picture only when this layout differs from the last, or a picture the atlas could not take is to be tried again.)
+      if (syncChanged(list) || wasStuck) ask();
     },
     /** Whether the labels can ride a camera move on the GPU. A label the SVG still draws (one with a glyph Inter's cut lacks, as the Circuit's
      *  "Epigastric → SVC" caption) cannot be carried: the stage fades it for the ride (app.css lb-ride), it is back at the landing. */
