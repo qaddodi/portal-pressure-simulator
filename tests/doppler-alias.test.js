@@ -24,8 +24,14 @@ test('a fixed scale holds the Nyquist limit either side of the baseline, the spa
 });
 
 test('past the scale\'s end the spectrum also shows one span above and below; otherwise each line is drawn as before', () => {
-  assert.match(doppler, /wraps = span > 0 && P > \(s > 0 \? g\.topV : g\.botV\);/);
-  assert.match(doppler, /let S = power\(vel \* s\);[^\n]*\n\s+if \(wraps\) S \+= power\(\(vel \+ span\) \* s\) \+ power\(\(vel - span\) \* s\);/);
+  // (The wrap was pinned in the CPU's writeLine; since the unification audit §4 the spectrum is made by the GPU's line shader alone,
+  // doppler-synth.js, so the same rule is read there: lineParams flags a line that reaches past an end, and the shader adds the two aliases.)
+  const synth = readFileSync(new URL('../src/ui/doppler-synth.js', import.meta.url), 'utf8');
+  assert.match(doppler, /const wraps = g\.span > 0 && P > \(s > 0 \? g\.topV : g\.botV\);/);
+  assert.match(doppler, /gpu\.setCol\(x, P, b\.L, [^\n]*1 \+ \(wraps \? 2 : 0\) \+ \(s < 0 \? 4 : 0\), cn\);/);
+  assert.match(synth, /bool wraps = \(fl & 2\) != 0;/);
+  assert.match(synth, /float S = power\(vel \* s, P, L, sigHi, sigLo\);\n\s+if \(wraps\) S \+= power\(\(vel \+ span\) \* s, P, L, sigHi, sigLo\) \+ power\(\(vel - span\) \* s, P, L, sigHi, sigLo\);/);
+  assert.match(synth, /uniform float [^;]*\bspan\b/);
   // The alias of a true velocity v shows at v − span: 112 cm/s on a ±80 scale shows at −48, under the baseline.
   const span = 160, v = 112;
   assert.equal(v - span, -48);

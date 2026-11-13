@@ -118,7 +118,7 @@ const headsVS = (g, cg, bh) => bh.headVS({ zoom: g.ZOOM_VS, along: cg.ALONG_GLSL
 add('compositor Tube COMP_FS(heads, tube)', headsNeeds, (g, cg, bh) => ({ vs: headsVS(g, cg, bh), fs: g.COMP_FS(false, false, true, 1) }));
 add('compositor COMP_FS(heads)', headsNeeds, (g, cg, bh) => ({ vs: headsVS(g, cg, bh), fs: g.COMP_FS(false, false, true) }));
 
-// The Doppler spectrum's line shader (doppler-synth.js), with the stent's clean filled look.
+// The Doppler spectrum's line shader (doppler-synth.js): every vessel in the main portal vein's look, filled from the baseline.
 add('doppler spectrum synth', { '../src/ui/doppler-synth.js': ['SYNTH_VS', 'SYNTH_FS'] }, (d) => ({ vs: d.SYNTH_VS, fs: d.SYNTH_FS }));
 
 // The plate's frame (Three scales on one plate): the ring on the lobule's window, the ring on the liver and the cone's lines.

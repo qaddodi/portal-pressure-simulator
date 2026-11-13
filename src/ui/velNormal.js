@@ -1,5 +1,5 @@
 // Each vessel's usual velocity, for the figure colored by velocity (colormap.js velocityColor), in cm/s as the Doppler
-// reads it (topology.js dopplerK). No DOM here, so the unit tests load it. The vessels the Doppler samples keep its ranges (doppler.js PROBES); with a TIPS or
+// reads it (topology.js dopplerK). No DOM here, so the unit tests load it. The vessels the Doppler samples keep its ranges (PROBE_NORMAL, below, which doppler.js PROBES reads); with a TIPS or
 // DIPS in, the main portal vein's floor is 30 cm/s, the follow-up scan's cut-off, and it has no ceiling: fast flow is what a working stent does. Every other vein is compared with its
 // own healthy velocity, normal from two-thirds to one and a half times it, as no published range covers it. Collaterals
 // and the other shunts have no normal and stay neutral.
@@ -9,10 +9,19 @@ import { FLOW_CUTS } from '../engine/flow-cuts.js';
 export { FLOW_CUTS };
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
-export const DOPPLER_NORMAL = {
-  PV_TRUNK: [15, 40], PVH_R: [12, 35], PVH_L: [12, 35], SMV_CONF: [10, 30], SV_CONF: [10, 30], V_SPL: [10, 30],
-  RHV_IVC: [10, 40], MHV_IVC: [10, 40], LHV_IVC: [10, 40], IVCS_RA: [10, 50], TIPS: [90, 190], DIPS: [90, 190],
-};
+// The one table of usual velocities (cm/s, [lo, hi]) of the vessels the Doppler samples: its PROBES read their `normal` from here (doppler.js),
+// and the stent's 90–190 cm/s is read from here wherever the Doppler judges a stent. A sampled vessel missing here (the collaterals) has no normal.
+export const PROBE_NORMAL = Object.freeze({
+  PV_TRUNK: [15, 40], PVH_R: [12, 35], PVH_L: [12, 35], SMV_CONF: [10, 30], V_INT: [10, 30], SV_CONF: [10, 30], V_SPL: [10, 30],
+  RHV_IVC: [10, 40], MHV_IVC: [10, 40], LHV_IVC: [10, 40], IVCS_RA: [10, 50],
+  A_HEP: [30, 100], A_HR: [30, 100], A_HL: [30, 100],
+  TIPS: [90, 190], DIPS: [90, 190],
+});
+// The vessels the figure colours by the Doppler's range, the same arrays as PROBE_NORMAL's (one table, not a copy). Two the Doppler samples stay
+// out, as before: the jejunal and ileal veins (V_INT, the lumped bundle, compared with its own healthy velocity like every other vein) and the
+// hepatic arteries (the figure's velocity colours are for the veins and stents; an artery stays neutral there).
+const FIGURE_FIXED = ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF', 'V_SPL', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'TIPS', 'DIPS'];
+export const DOPPLER_NORMAL = Object.freeze(Object.fromEntries(FIGURE_FIXED.map((id) => [id, PROBE_NORMAL[id]])));
 // The vessel a station's name means: the velocity layer's callout at that station reads it (stage.js layerRuns), so
 // "Portal v." is the portal vein the Doppler samples, not a faster collateral or tributary joining it there.
 export const STATION_VESSEL = { CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'SV_CONF', LPV: 'PVH_L', RPV: 'PVH_R', RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA' };

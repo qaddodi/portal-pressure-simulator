@@ -2,11 +2,12 @@
 // one fragment per pixel of the trace. It has no WebGL context of its own (pure-GPU plan B1, 4 Nov 2026: contexts from 8 to 2): it
 // draws in the context of the monitor's chart drawer (trace-gl.js, the shared pool), inside the drawer's own frame, as the first thing
 // in the trace's rectangle, and the drawer lays the margins, words, ticks and calipers over it in the same picture. The ring is a
-// texture of that context; the spectrum's new lines reach it as a GPU draw (doppler-synth.js) or a texture update of those columns alone.
+// texture of that context; the spectrum's new lines reach it as a GPU draw (doppler-synth.js), the only way they are made: no line is made
+// on the CPU or sent up as pixels.
 //
 // The same picture as before: the ring and the noise are read texel for texel, the noise is added and clamped as 'lighter' adds it, and
 // the band darkens as the gradient's black did. There is no 2D path (the owner, 1 Nov 2026: nothing off the GPU). A drawer that cannot
-// draw (no WebGL2, a lost context) shows the trace black; a context made again, or the chart moved to another pool, builds the
+// draw (no WebGL2, a lost context, its programs still compiling or failed) shows the trace black; a context made again, or the chart moved to another pool, builds the
 // programs and the ring afresh (`lost` holds until the program is published) and the monitor makes the ring whole again.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js';
@@ -70,8 +71,9 @@ export function createDopplerGL({ onReady = null } = {}) {
   let started = null, startedL = null, quad = null, vao = null, ringT = null, stopPoll = null;
   let prog = null, U = null, failed = false;
   // (The spectrum's lines worked out on the GPU, doppler-synth.js: its program, the two textures of each line's numbers by ring column, the arrays
-  // they are sent from, and the framebuffer that draws into the ring. synthFailed: the shader did not build, and the CPU writes the lines.)
-  let startedLS = null, startedS = null, stopPollS = null, progS = null, synthFailed = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
+  // they are sent from, and the framebuffer that draws into the ring. synthFailed: the shader did not build, and the trace stays black.
+  // waitingSynth: a frame found the shader still compiling and drew no lines; publishing it asks the monitor to draw again, onReady.)
+  let startedLS = null, startedS = null, stopPollS = null, progS = null, synthFailed = false, waitingSynth = false, colAT = null, colBT = null, colAArr = null, colBArr = null, cw = 0, synthFb = null;
   const SU = {}, SEED = (Math.random() * 4294967296) >>> 0;
   let rw = 0, rh = 0;
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
@@ -88,7 +90,7 @@ export function createDopplerGL({ onReady = null } = {}) {
     prog = null; U = null; failed = false; rw = rh = 0; lost = true; gl = g; gen = n;
     started = startProgram(gl, VS, FS, [['p', 0]]);
     startedS = startProgram(gl, SYNTH_VS, SYNTH_FS, [['p', 0]]); startedLS = null;
-    progS = null; synthFailed = false; cw = 0; colAArr = colBArr = null;
+    progS = null; synthFailed = false; waitingSynth = false; cw = 0; colAArr = colBArr = null;
     startedL = [started];   // (the list each frame's status ask is given while the program is compiling: made here, once for each program)
     quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -99,7 +101,7 @@ export function createDopplerGL({ onReady = null } = {}) {
     gl.bindVertexArray(null);
     ringT = tex(); colAT = tex(); colBT = tex(); synthFb = gl.createFramebuffer();
     stopPoll?.(); stopPoll = publishWhenDone(gl, [started], publish);
-    stopPollS?.(); stopPollS = publishWhenDone(gl, [startedS], publishSynth);   // (its own: the monitor draws without it, the CPU writing the lines, until it is published)
+    stopPollS?.(); stopPollS = publishWhenDone(gl, [startedS], publishSynth);   // (its own: until it is published the trace is black, and the monitor is asked to draw again then)
   }
   // The drawer this frame is drawn through, and the build for its context: false where the drawer cannot draw now.
   function attach(p) {
@@ -122,7 +124,8 @@ export function createDopplerGL({ onReady = null } = {}) {
       progS = p;
       // (One 1 × 1 draw, so the browser builds the shader's GPU pipeline now, beside the page, not in the first frame that draws lines.)
       exerciseDraw(gl, () => { gl.useProgram(p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null); });
-    } catch (e) { if (mine.isContextLost()) return; synthFailed = true; console.warn('Doppler on the GPU: the spectrum shader failed; the lines are made on the CPU.', e); }
+    } catch (e) { if (mine.isContextLost()) return; synthFailed = true; console.warn('Doppler on the GPU: the spectrum shader failed; the trace stays black.', e); return; }
+    if (waitingSynth) { waitingSynth = false; try { onReady?.(); } catch (e2) { console.warn('Doppler on the GPU: the redraw failed.', e2); } }
   }
   function publish() {
     if (prog || failed || !gl || gl.isContextLost()) return;
@@ -156,33 +159,15 @@ export function createDopplerGL({ onReady = null } = {}) {
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, df); gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst, 0);
     gl.blitFramebuffer(sx0, 0, sx1, sh, dx0, 0, dx1, dh, gl.COLOR_BUFFER_BIT, filter);
   };
-  // (An ImageData's own array is the same object each time it is asked for: its Uint8Array view is made once for it, not on every send.)
-  let viewOf = null, viewAs = null;
-  const bytes = (d) => {
-    if (d instanceof Uint8Array) return d;
-    if (d !== viewOf) { viewOf = d; viewAs = new Uint8Array(d.buffer, d.byteOffset, d.byteLength); }   // alloc-rare: once for each ImageData given (the noise floor's, set once, or again for a new one)
-    return viewAs;
-  };
   // Enters the drawer's open frame for a pass of this monitor's own (its draws laid, its scissor and clip off); leave() gives its state back.
   const enter = () => (gl && pen && !dead && !failed ? pen.enter() : null);
   return {
     get lost() { return lost || failed || !gl; },
     attach,
-    /** The whole ring from an ImageData or a canvas of the ring's size (its first row the top). */
-    ringAll(src, w, h) {
-      if (!enter()) return;
-      try {
-        rw = w; rh = h;
-        gl.bindTexture(gl.TEXTURE_2D, ringT);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-        if (src instanceof ImageData) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes(src.data));
-        else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
-      } finally { pen.leave(); }
-    },
     /**
      * A ring of a new size (w × h) from the one the GPU holds, stretched as the 2D canvas's copies did: the ring turned so its oldest line
      * (column po + 1) is on the left, then laid with that line at column sx, scaled to the new size. Two blits each way, on the GPU.
-     * False where there is nothing to stretch (the ring is then sent whole).
+     * False where there is nothing to stretch (the ring's lines are then all drawn again).
      */
     stretch(w, h, po, sx) {
       if (lost || failed || !rw || !rh || w < 1 || h < 1 || !enter()) return false;
@@ -205,24 +190,12 @@ export function createDopplerGL({ onReady = null } = {}) {
         return true;
       } finally { pen.leave(); }
     },
-    /** Columns x0 … x0 + n − 1 of the ring from the ImageData img (the ring's size), as synthesised. */
-    ringCols(img, x0, n) {
-      if (img.width !== rw || img.height !== rh || n <= 0 || !enter()) return;
-      try {
-        gl.bindTexture(gl.TEXTURE_2D, ringT);
-        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, img.width);
-        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, x0, 0, n, rh, gl.RGBA, gl.UNSIGNED_BYTE, bytes(img.data));
-        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
-        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
-      } finally { pen.leave(); }
-    },
     /** Whether the GPU writes the spectrum's lines (its program is published, the context is whole). */
     canSynth() {
       if (lost || failed || synthFailed || !gl || gl.isContextLost()) return false;
       // (Its poll waits for the page to be left alone, which a busy phone may not be for long: once the driver is done compiling it, the
       // program is published here, as the monitor's own is in render(), never waiting for the driver inside a frame.)
-      if (!progS && startedS) { if (stillCompiling(gl, startedL2())) { stopPollS?.want?.(); return false; } publishSynth(); }
+      if (!progS && startedS) { if (stillCompiling(gl, startedL2())) { waitingSynth = true; stopPollS?.want?.(); return false; } waitingSynth = false; publishSynth(); }
       return !!progS;
     },
     /** The ring at this size (an empty texture of it where it is another size): the lines are then drawn into it by synth(). */
@@ -263,7 +236,7 @@ export function createDopplerGL({ onReady = null } = {}) {
         gl.uniform1i(SU.colA, 2); gl.uniform1i(SU.colB, 3);
         gl.uniform1f(SU.rBase, G.rBase); gl.uniform1f(SU.rPxPerV, G.rPxPerV); gl.uniform1f(SU.fade, G.fade); gl.uniform1f(SU.wfV, G.wfV);
         gl.uniform1f(SU.spkPx, G.spkPx); gl.uniform1f(SU.spkMix, G.spkMix); gl.uniform1f(SU.span, G.span); gl.uniform1f(SU.uK, G.uK);
-        gl.uniform1i(SU.venous, G.venous ? 1 : 0); gl.uniform1i(SU.mode, G.mode); gl.uniform1ui(SU.seed, SEED);
+        gl.uniform1i(SU.mode, G.mode); gl.uniform1ui(SU.seed, SEED);
         const M = dopplerMap();
         gl.uniform3fv(SU.cToward, M.TOWARD); gl.uniform3fv(SU.cAway, M.AWAY);
         gl.uniform3fv(SU.cVarT0, M.VAR_TOWARD[0]); gl.uniform3fv(SU.cVarT1, M.VAR_TOWARD[1]);
