@@ -3,18 +3,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { GLASS, SMOOTH, parseShadow, glassWanted } from '../src/ui/glass-gl.js';
+import * as GL from '../src/ui/glass-gl.js';
+import { CARD, SMOOTH, parseShadow, glassWanted } from '../src/ui/glass-gl.js';
 
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 
-test('the GPU glass draws the CSS glass\'s own blur, saturation and tint', () => {
-  // (Since 1 Nov 2026 the CSS declares no blur at all: the GPU's is the only one, the browser's look it was matched to kept here.)
-  const m = /\.cl-glass \{[^}]*background: color-mix\(in srgb, var\(--surface\) (\d+)%, transparent\);/.exec(CSS);
-  assert.ok(m, 'the CSS glass');
-  assert.equal(+m[1] / 100, GLASS.tint);
-  assert.equal(GLASS.blur, 22, 'the one glass: the cards\' 22 px (16 px before 11 Nov 2026)');
-  assert.equal(GLASS.sat, 1.15);
+test('one glass look: CARD is the only look glass-gl.js exports, and every stand-in fill for the glass is the one tint', () => {
+  // (Unification audit 13, 13 Nov 2026: the callouts' GLASS repeated CARD and the liver pane's PANE had no caller; both went with the pane option.)
+  const looks = Object.entries(GL).filter(([, v]) => v && typeof v === 'object' && 'blur' in v && 'sat' in v).map(([k]) => k);
+  assert.deepEqual(looks, ['CARD'], 'a second glass look');
+  assert.equal(CARD.blur, 22, 'the one glass: 22 px (16 px before 11 Nov 2026)');
+  assert.equal(CARD.sat, 1.15);
+  assert.equal(CARD.tint, 0.66);
+  // (The one tint: the surface at --pz-frost, 66 %, the GPU's CARD.tint; the callouts' glass, the menus' and the tooltip's declare it.)
+  assert.match(CSS, /:root \{ --pz-frost: 66%; \}/);
+  assert.equal(0.66, +/--pz-frost: (\d+)%/.exec(CSS)[1] / 100);
+  assert.match(CSS, /\.cl-glass \{[^}]*background: var\(--glass-tint\);/);
+  assert.match(CSS, /\.tooltip \{ --gl-tint: var\(--glass-tint\);/);
+  // (Where the browser has no backdrop-filter, the stand-in fill is that tint too, never a 90-odd % of its own.)
+  for (const line of CSS.split('\n').filter((l) => l.startsWith('@supports not ((backdrop-filter'))) assert.doesNotMatch(line, /color-mix\([^)]*9\d%/, line.slice(0, 160));
 });
 
 test('its filter is the field (12 Nov 2026, his F4): 72 px cells over a copy averaged at 64 px a texel, its reads inside the parts made', () => {

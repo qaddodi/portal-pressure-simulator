@@ -4,7 +4,7 @@
 // card sliding changed that size and reallocated all three targets every few frames, and two card instances (a slide change's old and
 // new run) blurred the same picture twice.
 //
-// Now the instances of one look (its blur and its grid: CARD, GLASS and PANE each their own, so no glass takes another's frost) in one
+// Now the instances of one look (its blur and its grid; since 13 Nov 2026 every glass is CARD's, one look) in one
 // context share one set of targets laid on the whole canvas's grid (the grid each instance already used: a texel always covers the same
 // figure pixels, so the shared copy's texels are the ones each would have made), sized by the canvas alone, never by where the glasses
 // are. Each instance's prep only enters what it needs (its glasses' boxes and the key of the picture under them); the first glass drawn

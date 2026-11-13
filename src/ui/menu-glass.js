@@ -105,7 +105,7 @@ const cut = (e) => {
 function ensure() {
   if (reg || !api?.add) return;
   // (No watch root: a subtree watch of the body measured every glass at each style or class write anywhere in the page, which flickered the pills and cards behind a menu. Each open menu is watched on its own, below.)
-  reg = api.add(live, { card: (e) => e.id !== 'tooltip', watch: [], before: document.body, cut });   // (the one glass, the cards'; the tooltip keeps its own dark one)
+  reg = api.add(live, { card: true, watch: [], before: document.body, cut });   // (the one glass, the cards', the tooltip's too: unification audit 13, 13 Nov 2026)
 }
 const own = new MutationObserver((rs) => { if (rs.length) reg?.redraw?.(); });
 const watchOne = (el) => own.observe(el, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] });

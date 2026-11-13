@@ -934,7 +934,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 
 /* ── Popovers, menus, modals, toasts ────────────── */
 .tooltip {
-  position: fixed; left: 0; top: 0; /* (placed by translate from JS) */ z-index: var(--z-toast); pointer-events: none; background: var(--text); color: var(--stage-bg); padding: 6px 10px 7px; border-radius: var(--r-control);
+  position: fixed; left: 0; top: 0; /* (placed by translate from JS) */ z-index: var(--z-toast); pointer-events: none; background: var(--surface); color: var(--text); padding: 6px 10px 7px; border-radius: var(--r-control);
   font-size: var(--fs-12); font-weight: 500; max-width: min(300px, calc(100vw - 16px)); line-height: 1.45; letter-spacing: .005em; box-shadow: var(--shadow-2);
   /* It eases in a few pixels from its button's side (--tip-x/-y) and leaves at once in place, so a pointer moving along a row never trails tips. */
   --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y));
@@ -1859,7 +1859,7 @@ button.finding { cursor: pointer; }
 :root[data-theme="dark"] .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade { --pz-glass-edge: color-mix(in srgb, var(--white) 14%, transparent); --pz-glass-line: rgb(var(--black-rgb) / .5); --pz-glass-drop: rgb(var(--black-rgb) / .42); } }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { --gl-glass: 0; background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 /* The words' card (presenter.js TEXT_CARD): on a laptop or tablet the glass is a floating card like the data card, the same
    margin from the screen's edge as the data card, and the words sit inside it. */
@@ -1871,7 +1871,7 @@ button.finding { cursor: pointer; }
 .pz-shade.pz-card:not(.stack) { --pz-glass-drop: var(--glass-drop); --pz-r: clamp(16px, calc(2.2 * var(--pzh)), 28px); left: var(--pz-cm); top: var(--pz-cm); bottom: var(--pz-cm); --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: var(--pz-r); box-shadow: 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 :root[data-theme="dark"] .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.pz-card:not(.stack) { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.pz-card:not(.stack) { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* A card never changes shape in view: its size snaps while it is gone, and it leaves and arrives like the data card. */
 .pz-shade.pz-card:not(.stack) { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
@@ -1903,7 +1903,7 @@ button.finding { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
 /* A faint halo of the page colour keeps the words crisp over a busy figure. */
 .pz-text, .pz-data { text-shadow: 0 0 10px color-mix(in srgb, var(--stage-bg) 55%, transparent); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz-safe-r { left: auto; right: 0; }
@@ -2047,7 +2047,7 @@ button.finding { cursor: pointer; }
 .pz.stack.fk-short .pz-fk .pz-lk-s { display: inline; }
 .pz.stack.fk-two.fk-flow .pz-fk:not(.grad) .pz-lens-items { display: contents; }   /* (name and swatches flow over the two lines together) */
 .pz-fk.col .pz-lens-k + .pz-lens-k { margin-left: 0; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-fk { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-fk { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-fk { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 /* (A slide with a colour key keeps its words' card to half the screen on a phone: the key is about the figure, so the figure must stay in view; the words fit a little smaller.) */
@@ -2246,7 +2246,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-case { border-radius: 18px; }
 :root[data-theme="dark"] .pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-case { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-case { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-case { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .pz-case { translate: none; } }
 .pz-case-tag { --site: var(--accent); align-self: center; font-size: calc(var(--s-body) * 1.15); }
@@ -2467,7 +2467,7 @@ button.finding { cursor: pointer; }
 /* The presenter bar is the same frosted glass as the data card: quiet controls, a soft accent on Next, no solid blocks. */
 :root[data-theme="dark"] :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-bar, .pz-fk) { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-bar { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-bar { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-bar { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-bar { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 .pz-bar .ib { width: 40px; height: 40px; border-radius: var(--r-control); transition: opacity var(--d-small) var(--ease), scale var(--d-flip) var(--ease); }
@@ -2505,7 +2505,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 340px) { .pz-scales > button { font-size: 12px; padding: 0 10px; } }
 :root[data-theme="dark"] .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 12%, transparent); --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-scales { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-scales { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-scales { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .app.pz-hi .pz-scales { background: color-mix(in srgb, var(--surface) 92%, transparent); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
 .app.pz-hi .pz-scales > button { color: var(--text); }
@@ -2521,7 +2521,7 @@ button.finding { cursor: pointer; }
 .pz-shade.stack.pz-leave { opacity: 0 !important; transform: translateY(18px); transition-delay: 0s; }
 :root[data-theme="dark"] .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-shade.stack { --pz-glass-drop: rgb(var(--black-rgb) / .45); } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade.stack { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade.stack { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 .pz.stack .pz-text.pz-leave, .pz.stack .pz-text > .pz-leave { transform: translateY(18px); }
 .pz.stack .pz-text.pz-enter > * { animation-name: fade-rise; }
@@ -2672,7 +2672,7 @@ button.finding { cursor: pointer; }
    narrower screen two to a row, so no reading, fall or bracket runs out of its cell or into its neighbour.) */
 .pz.stack .pz-bar { left: auto; right: 21px; top: auto; bottom: calc(21px + var(--pz-sb)); translate: none; max-width: none; height: 38px; gap: 0; padding: 0; overflow: visible; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); transition: opacity var(--d-small) var(--ease); }
 .app.pz-hi .pz.stack .pz-bar { --gl-tint: color-mix(in srgb, var(--surface) 92%, transparent); background: var(--gl-tint); border-color: color-mix(in srgb, var(--text) 32%, transparent); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack .pz-bar { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack .pz-bar { --gl-glass: 0; background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack .pz-bar { --gl-glass: 0; background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
    44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
@@ -3350,12 +3350,12 @@ button.finding { cursor: pointer; }
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
 .cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
-.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 66%, transparent); }
+.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: var(--glass-tint); }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 /* The printed tag (callout.js): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
    colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */
 .cl-glass.cl-hair path { stroke: color-mix(in srgb, var(--c) 20%, var(--border-strong)); stroke-width: 2; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .cl-glass { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .cl-glass { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 /* (Its blur and tint drawn on the GPU under the callout layers instead, glass-gl.js: the outline above stays the DOM's) */
 .cl-glass[data-gl] { background: none; }
@@ -6041,7 +6041,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .pz.stack.stack > .pz-data.pz-sheet.pz-hide { transition: visibility 0s linear var(--d-small) !important; }
   .pz.stack.stack > .pz-data.pz-sheet::before, .pz.stack.stack > .pz-data.pz-sheet::after, .pz.stack.stack > .pz-data.pz-sheet > :is(.pz-dh, .pz-tool, .pz-tiles) { transition: opacity var(--d-small) var(--ease) !important; }
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after { background: var(--surface-2); } }
 /* Mac and iPad landscape: the same two stacked cards under the words (presenter.js splitSheet, pz-wide; Mohammad, 22 Oct: "the phone data
    cards look better than the mac because of the stacked card situation"), turned upside down: the instrument's card at the teaching card's
@@ -6109,7 +6109,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    They come back down as the readings tuck away. A translate: their tops ease on their own.) */
 .pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }
 .pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--glass-tint); } }
 @media (prefers-reduced-transparency: reduce) { .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after { background: var(--surface-2); } }
 /* The data card zoomed to the middle of the screen (Mac and iPad landscape; presenter.js zoomOpen, src/ui/card-zoom.js; Mohammad, 28 Oct: "the
    camera should like zoom on the card to display it centered large in middle of the screen"). The card and its handle glide and grow by a
@@ -7606,7 +7606,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }
 /* A menu opened from inside a card lies over that card's words and pictures, which the page draws above the figure's canvas where the frost is: the GPU leaves it out (menu-glass.js live) and it keeps a plain fill (main.js cardsAway). */
 :root:root :is(.menu, .why-pop).over-card:not([data-gl]) { background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); }
-.tooltip { --gl-tint: color-mix(in srgb, var(--text) 80%, transparent); --gl-drop: var(--shadow-2); }
+.tooltip { --gl-tint: var(--glass-tint); --gl-line: var(--hairline); --gl-drop: var(--shadow-2); }   /* (the one glass, a card's, its words the text's ink: unification audit 13, 13 Nov 2026; a dark tip with light words before) */
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: var(--glass-tint); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.um-pv, .modal, .pal)[data-gl] { background: none; box-shadow: none; }
@@ -7615,7 +7615,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 :root:root .modal > header { background: color-mix(in srgb, var(--surface) 92%, transparent); }   /* (sticky: nearly solid, so scrolled rows do not show through it)  */
 /* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
    no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
-:root:not([data-noglass]) :is(.menu, .umenu, .why-pop, .um-pv.on, .modal, .pal):not([data-gl]) { background: var(--gl-tint); }
+:root:not([data-noglass]) :is(.menu, .umenu, .why-pop, .um-pv.on, .modal, .pal, .tooltip):not([data-gl]) { background: var(--gl-tint); }
 
 /* Frame-rate counter (fps-counter.js): bottom-left, over everything, never takes a tap. */
 .fps-counter { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 9999; pointer-events: none; display: flex; align-items: baseline; gap: 3px; font: 600 12px/1.2 Inter, system-ui, sans-serif; color: var(--text, white); }
