@@ -2,8 +2,8 @@
 // the HVPG catheter tracing). Every measurement in the app draws on this monitor, the same way: the HVPG procedure pane (Measure › HVPG), the HVPG
 // talk's catheter tracing card and the measurement card of a procedure slide (the HVPG, the EUS-PPG, the PPG by IR and the PPG through a TIPS). A
 // dark bedside screen, both themes: the header names what the tip reads and gives ONE big number, the live reading; under it the trace, swept as the
-// procedure's clock runs, with its beat and breath, a marker dropping onto the trace where each reading is taken, each reading's level and name at the
-// right once taken, and the gradient as a bracket between the two with its pill in its cut-off colour.
+// procedure's clock runs, with its beat and breath, a marker dropping onto the trace where each reading is taken, each reading's level (a short faded dash from the end of its trace) and name at the
+// right once taken, a very faint dashed curve between two readings taken apart in time, and the gradient as a bracket between the two with its pill in its cut-off colour.
 //
 // What differs between measurements is only their script (the procedure's clock, what the tip reads when, its colours and words): a script is
 // { heads, win: [t0, t1], at(t, v, wave), lv(t, v), segs, status(t, v, st, out), drops, levels, result, ticks, target?, notes, ymax(v) }, every time
@@ -188,8 +188,11 @@ function monOn({ ctx, w, h: hh }, S, st) {
     const both = on0 && on1, lo = both ? (a <= b ? 0 : 1) : on0 ? 0 : 1;   // (the lower level's label goes below, the upper's above)
     const yA = Y(a), yB = Y(b), sep = both ? Math.max(0, 28 * HK - Math.abs(yA - yB)) / 2 : 0;
     const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 12), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - 28 * HK);
-    if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 12), narrow, R, L, cLv0);
-    if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 12), narrow, R, L, cLv1);
+    // (Each level's line is a short faded dash from the end of its own trace, not a rule across the screen: Mohammad, 13 Nov 2026. The label stays at the right, where it was.)
+    const sa = on0 ? stubAt(S, L0, tNow) : 0, sb = on1 ? stubAt(S, L1, tNow) : 0;
+    if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, a, tNow, sa);
+    if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 12), narrow, R, cLv0, sa);
+    if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 12), narrow, R, cLv1, sb);
   }
   const res = S.result;
   if (res && t >= res.show) {
@@ -249,13 +252,48 @@ function seg(ctx, S, v, wave, a, b, colr, tNow) {
   }
   ctx.fill();
 }
-// A level's solid line across the grid and, when there is room, its name and number at the right (c: the number's text cell).
-function level(ctx, p, colr, txt, ly, narrow, R, L, c) {
-  ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.75;
-  const dy = Math.round(Y(p));
-  ctx.fillRect(L, dy, R - L, 1);   // (solid, as the trace is: owner, 10 Nov 2026; one box, drawn wherever the dot does: see seg)
-  ctx.restore();
+// A level: its short dashed line and, when there is room, its name and number at the right (c: the number's text cell; x0: where the dashes start).
+const STUB_PX = 40, DASH = 5, DASH_GAP = 4;   // (the level line's length from the trace's end, and its dashes)
+function level(ctx, p, colr, txt, ly, narrow, R, c, x0) {
+  const x1 = Math.min(R, x0 + STUB_PX), dy = Math.round(Y(p));
+  if (x1 - x0 > 3) {
+    ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.5;
+    for (let xx = x0; xx < x1; xx += DASH + DASH_GAP) ctx.fillRect(xx, dy, Math.min(DASH, x1 - xx), 1);   // (boxes, not a stroked dash: see seg)
+    ctx.restore();
+  }
   if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(txt, R + 6, ly - FS * 0.6); ctx.font = FONT(700, FS); ctx.fillText(fm1(c, p), R + 6, ly + FS * 0.6); }
+}
+/** The segment (index in S.segs) drawn in a level's colour: the trace that reading was taken on; -1 if none. */
+function segOfLevel(S, lv) {
+  for (let i = 0; i < S.segs.length; i++) if (S.segs[i][2] === lv[2]) return i;
+  return -1;
+}
+/** Where a level's dashes start: just past the end of the trace it was read on (the sweep's head while that trace still runs). */
+function stubAt(S, lv, tNow) {
+  const i = segOfLevel(S, lv);
+  return Math.max(axL, X(Math.min(i < 0 ? lv[0] : S.segs[i][1], tNow))) + 3;
+}
+/** Two readings taken apart in time (the needle out between them: a gap between their traces): a very faint grey dashed curve from the end of the first level's
+ *  dashes to where the second trace begins, laid down as the sweep crosses the gap. Smoothstep, so it leaves and arrives level, with no corner. A visual aid only. */
+function joinLevels(ctx, S, v, wave, L0, L1, a, tNow, x0) {
+  const i = segOfLevel(S, L0), j = segOfLevel(S, L1);
+  if (i < 0 || j < 0 || i === j) return;
+  const e1 = S.segs[i][1], s2 = S.segs[j][0];
+  if (s2 - e1 < 60 || tNow <= e1) return;   // (traces that run on into each other need none)
+  const p2 = S.at(s2 + 1, v, wave);
+  if (!Number.isFinite(p2) || !Number.isFinite(a)) return;
+  const xa = Math.min(x0 + STUB_PX, X(e1) + 0.3 * (X(s2) - X(e1))), xb = X(s2), xe = Math.min(X(tNow), xb), ya = Math.round(Y(a)) + 0.5, yb = Y(p2);
+  if (xb - xa < 6 || xe <= xa) return;
+  ctx.save(); ctx.fillStyle = C.text; ctx.globalAlpha = 0.3; ctx.beginPath();
+  let px = xa, py = ya, d = 0;
+  for (let xx = xa + 2; ; xx += 2) {
+    const xc = Math.min(xx, xe), u = (xc - xa) / (xb - xa), y = ya + (yb - ya) * u * u * (3 - 2 * u);
+    d += Math.hypot(xc - px, y - py);
+    if (d % (DASH + DASH_GAP) < DASH) inkSeg(ctx, px, py, xc, y, 1.2);
+    px = xc; py = y;
+    if (xc >= xe) break;
+  }
+  ctx.fill(); ctx.restore();
 }
 // One end of the difference's bracket: a small arrowhead at yy, pointing d (1 down the page's way, -1 the other).
 function arrowHead(ctx, xa, yy, d) {
