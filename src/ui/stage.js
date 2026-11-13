@@ -391,7 +391,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get liverFluidCut() { return liverFluidCut; }, set liverFluidCut(v) { liverFluidCut = v; },
     get liverKey() { return liverKey; }, set liverKey(v) { liverKey = v; },
     get liverScale() { return liverScale; }, set liverScale(v) { liverScale = v; },
-    get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; },
+    get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; }, get bowelAt() { return bowelAt; }, set bowelAt(v) { bowelAt = v; },
     get lobAnim() { return lobAnim; }, set lobAnim(v) { lobAnim = v; },
     get lobEnd() { return lobEnd; }, set lobEnd(v) { lobEnd = v; },
     get diveClock() { return diveClock; },
@@ -1891,7 +1891,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
     let plateDim = null, plateSat = 1, netA = 1;
     let colAt = 0, colEasing = false;
-    let liveKeyWas = '', liveSet = false;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts)
+    let liveKeyWas = '', liveSet = false, bowelAt = NaN;   // (liveKeyWas: '' for none, 'kept' while liveKeyOld holds the last key's parts; bowelAt: the bowel's float last handed to the live stack, NaN after a setLive)
     let revF = null, revH = null, revT = 0, revP = null, revFlip = false;
     let balloonSqueeze = 1;
   const { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne: cavaAsOne$, cssNum, drawVeins: drawVeins$, et, glItems, glWanted, glowOnlyOk: glowOnlyOk$, itemRadii: itemRadii$, lenOfArc, lensNow, mix3, sendRadii: sendRadii$, smoothRunOn, sweepBin, syncGlowOnly, syncVeins: syncVeins$, toRGB: toRGB$, veinJoins: veinJoins$, veinsRows } = createVessels({ E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls }, live);

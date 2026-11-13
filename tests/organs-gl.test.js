@@ -48,7 +48,10 @@ test('the bowel is a picture at rest gathered under the gut, moved by its float 
   assert.match(stage, /const LIVE_ORDER = \['back', 'behind', 'bowel', 'gut', /);
   assert.match(stage, /for \(const L of LIVE_ORDER\) \{/);
   assert.match(stage, /opacity: parseFloat\((?:getComputedStyle|csNow)\((?:live\.)?(?:live\.)?(?:live\.)?gGut\)\.opacity\), under: \[\{ name: 'bowel', dy: (?:live\.)?bowelDy\(\) \}\]/);
-  assert.match(stage, /if \((?:live\.)?(?:live\.)?(?:live\.)?liveSet\) (?:live\.)?(?:live\.)?(?:live\.)?veins\.organs\.shift\('bowel', (?:live\.)?(?:live\.)?bowelDy\(\)\);/);
+  // (Handed to the stack when the float moved, or when a setLive made new cuts: handed on every draw it marked the textures new, so no rest frame
+  // was the blood's alone; 13 Nov 2026, tests/heat-rest-picture.test.js.)
+  assert.match(stage, /if \(live\.liveSet\) \{ const dy = live\.bowelDy\(\); if \(dy !== live\.bowelAt\) \{ live\.bowelAt = dy; live\.veins\.organs\.shift\('bowel', dy\); \} \}/);
+  assert.equal((stage.match(/organs\.setLive(?:All)?\([^)]*\); live\.liveSet = (?:true|false); live\.bowelAt = NaN;/g) || []).length, 4, 'every setLive hands the float again');
   // The picture: the bowel alone, painted where the bowel is (at), its float held in the pictures' state while the fluid eases and
   // taken once it settles.
   assert.match(stage, /out\.set\(L, ok \? \{ groups, at: L === 'bowel' \? (?:live\.)?bowelDy\(\) : 0, key \} : null\);/);

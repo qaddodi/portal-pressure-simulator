@@ -270,7 +270,7 @@ export function createPlate(st, live) {
   function syncLiveOrgans(force = false) {
     const v = live.veins;
     if (!v || v.lost || !v.organs) return;
-    if (!liveOn()) { if (live.liveSet) { v.organs.setLive(null, null); live.liveSet = false; live.liveKeyWas = ''; } return; }
+    if (!liveOn()) { if (live.liveSet) { v.organs.setLive(null, null); live.liveSet = false; live.bowelAt = NaN; live.liveKeyWas = ''; } return; }
     const key = liveKey();
     if (!force && live.liveKeyWas && liveKeySame()) return;
     // (fullWanted: the whole set, while no picture is in; its change asks for a new reading too, through the key.)
@@ -334,14 +334,14 @@ export function createPlate(st, live) {
       if (!ok || !fullWanted()) { if (!ok) live.fullFailed = true; const swap = live.fullSwap; live.fullSwap = false; live.liveKeyWas = ''; if (swap) hidePlate(); syncLiveOrgans(true); return; }
       live.fullSwap = false;
       if (v.organs.pictured(0)) v.dropPlate(0);   // (the old pictures, of the state before, go as the whole set comes in)
-      v.organs.setLiveAll(organs); live.liveSet = true;
+      v.organs.setLiveAll(organs); live.liveSet = true; live.bowelAt = NaN;
       v.organs.setOrder(ORGAN_LAYERS);
       live.veinsDirty = true; platePoke(); live.stageWake();
       return;
     }
-    if (!ok) { live.liveFailed = true; v.organs.setLive(null, null); live.liveSet = false; hidePlate(); platePoke(); return; }
+    if (!ok) { live.liveFailed = true; v.organs.setLive(null, null); live.liveSet = false; live.bowelAt = NaN; hidePlate(); platePoke(); return; }
     // (The next composite renders the stack again for it (its version moved): the vessels themselves need no redraw.)
-    v.organs.setLive(organs, masks); live.liveSet = true;
+    v.organs.setLive(organs, masks); live.liveSet = true; live.bowelAt = NaN;   // (its cuts are new: the bowel's float is handed again at the next draw)
     live.veinsDirty = true; live.stageWake();   // (composited again with the new specs in the next frame, as it was in the frame they were read)
   }
   // What the plate shows, in coarse steps: re-rasterize when it changes. A selected organ is not part of it: its outline is drawn

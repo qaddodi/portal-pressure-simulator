@@ -220,8 +220,10 @@ export function createTransitions(st, live) {
     const spotK = spot.live && live.plateDim != null ? clamp(live.plateDim / (flag.dataLayer ? 0.72 : 1), SEL_DIM, 1) : 1;
     const t = easeInOut(live.morph), k = (1 - t) * (flag.hasSel ? SEL_DIM : spotK);
     const fs = fluidLook.s, fi = fluidLook.ink;   // (written in place: the look is read on the draw)
-    fs[0] = fluidFloorAt(live.fluidH); fs[1] = live.fluidH; fs[2] = live.fluidAmp; if (run) fs[3] = fluidPhase();
     fi[0] = live.fluidInkRGBA[0]; fi[1] = live.fluidInkRGBA[1]; fi[2] = live.fluidInkRGBA[2]; fi[3] = live.fluidInkRGBA[3] * k * fluidFade();
+    // (The ripple's phase handed on only while the fluid shows (ink above 0; the shader reads it there alone): stepped with no ascites, it made every rest frame's uniforms
+    // new, so none was the blood's alone. 13 Nov 2026, the Mac's heat at rest. The phase runs on (fluidPh), so the ripple shows where it would.)
+    fs[0] = fluidFloorAt(live.fluidH); fs[1] = live.fluidH; fs[2] = live.fluidAmp; if (run && fi[3] > 0) fs[3] = fluidPhase();
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     fluidLv[0] = live.liverScale; fluidLv[1] = live.liverFluidCut; fluidLook.lv = fluidLv;
     if (live.vLook) live.vLook.fluid = fluidLook;
