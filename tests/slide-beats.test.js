@@ -75,7 +75,7 @@ test('Next goes through a slide\'s beats before the next slide, Back the other w
   assert.ok(nx.indexOf('skipLapse()') < nx.indexOf('procNext()') && nx.indexOf('procNext()') < nx.indexOf('toBeat(beat + 1)') && nx.indexOf('toBeat(beat + 1)') < nx.indexOf('go(want + 1)'),
     'a case card, a time-lapse, a procedure step, then a beat, then the next slide');
   assert.match(nx, /\{ firstBeat = true; go\(want \+ 1\); firstBeat = false; \}/, 'stepping on opens the first beat');
-  assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(want > 0\) go\(want - 1\); \};/, 'Back: the beat before, then the slide before (its last beat)');
+  assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(want > 0\) go\(want - 1\); \};/, 'Back: the beat before, then the slide before (its last beat)');
   assert.match(fn(PZ, 'function go(i) {'), /beat = firstBeat \? 0 : lastBeat\(want\);/, 'a jump, Back, a reload or resume: the last beat');
   const tb = fn(PZ, 'function toBeat(k) {');
   assert.match(tb, /if \(zoomOn\(\)\) \{ (?:const d0 = deck, t0 = txn; )?ui\.zoom\.close\(\)\.then\(/, 'a zoomed card glides back first, as for a slide');

@@ -305,7 +305,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   const st = stageSource();
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
-  assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\)\) return;/);
+  assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\) \|\|/);
   const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.match(pn, /if \(procRun\) return procRun\.next\(\) \|\| procChain\(\);/, 'a step, or (a TIPS on its last step) the reading that goes on from where the catheter stands');
   assert.match(pn, /procDoneAt === want/, 'once played through, Next moves on');
