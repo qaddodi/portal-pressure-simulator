@@ -91,8 +91,20 @@ function unmark() {
   clearTimeout(foldTimer); foldTimer = 0;
   if (folding) { folding.classList.remove('vp-fold'); folding = null; }
 }
+// While the GPU draws the face's glass (the page marks it data-gl), the fold asks that glass to change size in view (data-gl-morph, glass-gl.js morphFor):
+// it eases from where it is drawn to the pill's new box on the fold's own length and curve (D_SURFACE, easeArrive: FOLD_MS, FOLD_EASE), its ring and
+// shadow with it, so the pill keeps its frosted glass the whole way. (The two halves below copy the face's CSS look, and a face the GPU draws has none: the
+// page's fill, ring and shadow are taken off ([data-gl], [data-gl="edge"]), so they were empty and the real face hidden: the pill had no glass for the whole
+// fold, 13 Nov 2026.) The mark stays a little past the fold: the glass reads the new box in the next frame's read phase, which a slow frame may put late.
+let morphing = null, morphTimer = 0;
+const MORPH_KEEP = 600;
+function unmorph() {
+  clearTimeout(morphTimer); morphTimer = 0;
+  if (morphing) { morphing.removeAttribute('data-gl-morph'); morphing = null; }
+}
 /** Ends a fold where it stands: its animations dropped (each button at rest) and its ghosts removed. */
 export function stopFold() {
+  unmorph();
   for (const x of running) { if (x instanceof Element) x.remove(); else x.cancel(); }
   running.clear();
   unmark();
@@ -135,8 +147,13 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   // (The face's width eased on the compositor: two halves that only translate, face-split.js. The face is centred in the pill: its
   // edges are the pill's centre ± half its width. A face narrower than its two corners takes the new width at once: the pill never is.)
   const face = box.querySelector(':scope > .vp-face'), cx = box.clientWidth / 2;
-  const sp = splitFace(face, { a0: cx - before.w / 2, b0: cx + before.w / 2, a1: cx - after.w / 2, b1: cx + after.w / 2 }, opt);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
-  if (sp) keep(sp);
+  if (face.hasAttribute('data-gl')) {   // (the GPU draws this glass: it plays the change of size itself, see above; nothing of the page's is hidden or copied)
+    morphing = face; face.setAttribute('data-gl-morph', '');
+    morphTimer = setTimeout(unmorph, ms + MORPH_KEEP);
+  } else {
+    const sp = splitFace(face, { a0: cx - before.w / 2, b0: cx + before.w / 2, a1: cx - after.w / 2, b1: cx + after.w / 2 }, opt);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
+    if (sp) keep(sp);
+  }
   const real = (k) => seg.querySelector(`:scope > button[data-view="${k}"]`);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   for (const [k, p] of plan) {
     if (p.kind !== 'out') {

@@ -136,6 +136,26 @@ function morphInto(o, q, t, tx, ty) {
   o.left = L + tx; o.top = T + ty; o.right = L + W + tx; o.bottom = T + H + ty; o.width = W; o.height = H;
   return o;
 }
+const sameBox = (a, b) => Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
+/** Where a card's box is drawn at time t, before its motion: its eased size (morph) or its box. */
+export function morphAt(q, t) {
+  const M = q.morph;
+  if (!M) return q.r0;
+  const u = Math.min(1, Math.max(0, (t - M.t0) / M.ms));
+  if (u >= 1) return q.r0;
+  const e = easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
+  const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
+  return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
+}
+/** The size change a card's glass plays now (null: none). q: the pane as last read ({ r0, morph }), r0: the box it has now, asked: the page asks for
+ *  its glass to change size in view (data-gl-morph). A change already under way to this same box carries on (a read made part way through it, which the fold's
+ *  own ghost leaving or a poll makes, never starts it over from where it has got to: that was an ease that never arrived); a new box starts from where
+ *  the glass is drawn now. */
+export function morphFor(q, t, r0, asked) {
+  if (q.morph && t - q.morph.t0 < q.morph.ms && sameBox(q.r0, r0)) return q.morph;
+  if (asked && !sameBox(morphAt(q, t), r0)) return { from: morphAt(q, t), t0: t, ms: D_SURFACE };
+  return null;
+}
 /** Shared, read-only: a clear colour, and no glasses. Handed out in a frame in place of a fresh [0, 0, 0, 0] or []. */
 const CLEAR4 = [0, 0, 0, 0], NONE = [];
 // A frame's "same as last time" test, kept as numbers and strings in arrays that are written in place and compared field by field: no key
@@ -1696,17 +1716,6 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     MV.x = tx; MV.y = ty; MV.o = o;
     return MV;
   }
-  const sameRect = (a, b) => Math.abs(a.left - b.left) < 0.5 && Math.abs(a.top - b.top) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
-  /** Where a card's box is drawn at time t, before its motion: its eased size (morph) or its box. */
-  function morphAt(q, t) {
-    const M = q.morph;
-    if (!M) return q.r0;
-    const u = Math.min(1, Math.max(0, (t - M.t0) / M.ms));
-    if (u >= 1) return q.r0;
-    const e = easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
-    const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
-    return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
-  }
   // (scene-cam.js zoomRide.of(): the zoom's scale s about (ox, oy), then the move (dx, dy), in screen px, as the card is drawn this frame.)
   const unzoom = (r, a) => { const f = (v, m, d) => m + (v - d - m) / a.s, l = f(r.left, a.ox, a.dx), t = f(r.top, a.oy, a.dy), rt = f(r.right, a.ox, a.dx), b = f(r.bottom, a.oy, a.dy); return { left: l, top: t, right: rt, bottom: b, width: rt - l, height: b - t }; };
   const shift = (r, t) => (t[0] || t[1] ? { left: r.left + t[0], top: r.top + t[1], right: r.right + t[0], bottom: r.bottom + t[1], width: r.width, height: r.height } : r);
@@ -1780,11 +1789,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       let morph = null;
       if (p.rad && !p.d && !za) {
         const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
-        if (q) {
-          const cur = morphAt(q, tNow);
-          if (p.g.hasAttribute('data-gl-morph') && !sameRect(cur, r0)) morph = { from: cur, t0: tNow, ms: D_SURFACE };
-          else if (q.morph && tNow - q.morph.t0 < q.morph.ms && sameRect(q.r0, r0)) morph = q.morph;
-        }
+        if (q) morph = morphFor(q, tNow, r0, p.g.hasAttribute('data-gl-morph'));
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
       return { ...p, chain, r0, er0, rz, erz, tr0, aS, aC, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
