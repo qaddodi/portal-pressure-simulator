@@ -65,7 +65,7 @@ export function createGeo(st, live) {
     // To where the drawn course actually ends (on the cava's wall), not to the node.
     const end = EDGE_PATH[e.id]?.match(/(-?[\d.]+)[ ,]+(-?[\d.]+)\s*$/);
     const [bx, by] = end ? [+end[1], +end[2]] : NODE_POS[e.to][0], [ax, ay] = NODE_POS[e.from][0], d = Math.hypot(bx - ax, by - ay) || 1;
-    const k = Math.min(e.id === 'S_PC' ? 12 : IVC_JOIN_LEN, d) / d;   // (the portocaval shunt keeps its opacity to within a few units of the cava: it is drawn over it, 13 Nov 2026)
+    const k = Math.min(e.id === 'S_PC' || e.id === 'S_MC' ? 12 : IVC_JOIN_LEN, d) / d;   // (the portocaval and mesocaval shunts keep their opacity to within a few units of the cava: drawn over it, not fading under the bowel, 13 Nov 2026)
     IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0.3, 1];
   }
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [800, 870], V_UP: [38, 4] };
