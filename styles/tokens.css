@@ -322,9 +322,9 @@
   --dev-ptfe: #D9DEE5;
   --dev-tips-mesh: #2A3650;
   --dev-graft: #F8F7F4;
-  --dev-stent-wire: #B8975C;
-  --dev-stent-glint: #F1E1B8;
-  --dev-stent-gold: #D9B263;
+  --dev-stent-wire: #7A5416;
+  --dev-stent-glint: #F3DDA0;
+  --dev-stent-gold: #B07A1C;
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
@@ -602,9 +602,9 @@
     --dev-ptfe: #C9D0DA;
     --dev-tips-mesh: #2A3650;
     --dev-graft: #F8F7F4;
-    --dev-stent-wire: #B8975C;
-    --dev-stent-glint: #F1E1B8;
-    --dev-stent-gold: #D9B263;
+    --dev-stent-wire: #7A5416;
+    --dev-stent-glint: #F3DDA0;
+    --dev-stent-gold: #B07A1C;
     --thrombus: #8C3442;
     --thrombus-edge: #D49AA0;
     --lv-sep: #E8C4AE;
@@ -843,9 +843,9 @@
   --dev-ptfe: #C9D0DA;
   --dev-tips-mesh: #2A3650;
   --dev-graft: #F8F7F4;
-  --dev-stent-wire: #B8975C;
-  --dev-stent-glint: #F1E1B8;
-  --dev-stent-gold: #D9B263;
+  --dev-stent-wire: #7A5416;
+  --dev-stent-glint: #F3DDA0;
+  --dev-stent-gold: #B07A1C;
   --thrombus: #8C3442;
   --thrombus-edge: #D49AA0;
   --lv-sep: #E8C4AE;
