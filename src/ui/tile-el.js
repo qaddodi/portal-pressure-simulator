@@ -24,9 +24,10 @@ export function tileEl(t, opts = NO_OPTS) {
   if (width) val.style.setProperty('--vr', `round(up, calc(${2 + t.d}ch${t.d ? ' + 0.26em' : ''}), 1px)`);
   const fill = h('i', { class: 'rb-fill' });
   const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-  const attrs = { class: 'metric' + (inert ? ' inert' : '') + (primary ? ' primary' : ''), 'data-id': t.id };
+  // (A readout only is a group of its parts, not a control: the ARIA attribute is set in the literal, never by an assignment that reads like
+  // the removed Student role's, tests/no-role.test.js.)
+  const attrs = inert ? { class: 'metric inert' + (primary ? ' primary' : ''), 'data-id': t.id, role: 'group' } : { class: 'metric' + (primary ? ' primary' : ''), 'data-id': t.id };
   if (type && !inert) attrs.type = type;
-  if (inert) attrs.role = 'group';
   const el = h(inert ? 'div' : 'button', attrs,
     h('span', { class: 'k' }, names && t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k),
     h('span', { class: 'v' }, val, unit ? h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null) : null, tr),
