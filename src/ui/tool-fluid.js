@@ -94,7 +94,7 @@ export function dayWords(d) {
   const detail = d.over > 0
     ? (d.back > 0 ? `Transudation ${mlInt(d.over)}; peritoneal reabsorption ${mlInt(d.back)}.` : `Transudation ${mlInt(d.over)}; no peritoneal reabsorption.`)
     : d.back > 0 ? `No transudation; peritoneal reabsorption ${mlInt(d.back)}.` : 'Lymphatic drainage matches lymph formation.';
-  return { title, detail, limit: d.room > 0 ? `Capacity ${mlInt(d.limit)}` : `Capacity ${mlInt(d.limit)} · saturated`,
+  return { title, detail, limit: d.room > 0 ? `Capacity ${mlInt(d.limit)}` : `Capacity ${mlInt(d.limit)} · full`,
     net: d.net > 0 ? `▲ ${mlInt(d.net)}` : d.net < 0 ? `▼ ${mlInt(-d.net)}` : '0', dir: d.net > 0 ? 'up' : d.net < 0 ? 'down' : '' };
 }
 
