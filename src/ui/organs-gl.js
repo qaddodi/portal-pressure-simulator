@@ -543,15 +543,6 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const dropTarget = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } return null; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (Given back once the camera has settled, on trim and on dispose: two canvas-sized textures held only while the camera moves.)
   function moveDrop() { mvS = dropTarget(mvS); mvM = dropTarget(mvM); base = marg = null; }
-  // Whether a frame at view m lands on the base's own view (to a hundredth of a device pixel), its content as the base was copied, with no
-  // view's picture still fading in: the base's copy is then the exact picture for it (render puts it back).
-  const landsOnBase = (m, ck, cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-    if (!base || !mvS || base.ck !== ck || !painter || w !== cw || h !== ch || mvS.w !== cw || mvS.h !== ch) return false;
-    const b = base.m;
-    if (Math.abs(b[0] - m[0]) > 1e-6 || Math.abs(b[1] - m[1]) > 1e-6 || Math.abs(b[2] - m[2]) > 1e-6 || Math.abs(b[3] - m[3]) > 1e-6 || Math.abs(b[4] - m[4]) > 0.01 || Math.abs(b[5] - m[5]) > 0.01) return false;
-    for (const L of live[1].values()) if (L.from != null) return false;
-    return true;
-  };
   // (Only with live groups, whose shapes are what a frame paints; a stack of pictures alone lays a quad a layer, cheaper than a copy.
   // Never while a view's picture fades in (each frame of it is drawn a step further) or without the page watch, which says that nothing
   // in the live groups was written.)
@@ -655,6 +646,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     // (What the texture holds is no exact picture now: the next exact render draws it whole.)
     exactAt = null; kAt.ok = false; mvShown = true; mvAt = performance.now(); moveStats.moved++;
+    freeCache();   // (the groups' kept pictures were made under a view this frame left: none is laid again after it, 13 Nov 2026)
     return true;
   }
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -800,20 +792,9 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       lastWhy = settle ? 'camera settled' : !unchanged ? whyKey(key, kDrawn) : 'live, read from the page';
       counts.organ++; tally(counts.organWhy, whyOf(lastWhy));   // (?perf's "organ layer painted" line, by reason: a render past here paints)
       const ck = contentKey(cw, ch);
-      // (Landed back on the camera the move set off from, its content unchanged: the copy taken as the move began (mvS) is that exact
-      // picture, so it is put back and nothing is painted from shapes. A view change that returns to the framing it left, Anatomy to
-      // Circuit and back to its home framing, lands without repainting the organs: the next-view pre-render's kept plate.)
-      if ((settle || !unchanged) && landsOnBase(m, ck, cw, ch)) {
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, mvS.fb); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
-        gl.disable(gl.SCISSOR_TEST);
-        gl.blitFramebuffer(0, 0, cw, ch, 0, 0, cw, ch, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-        moveDrop(); mvShown = false;
-        keepKey();
-        setView(kAt, ver, m, cw, ch); kAt.ok = true;
-        setExact(m, ck); moveStats.restored++;
-        return true;
-      }
+      // (A move that lands back on the camera it set off from is painted exactly, as any other landing: the copy taken as the move began (mvS)
+      // is not put back. Anatomy -> Circuit -> Anatomy put that copy back, and on Mohammad's iPhone (13 Nov 2026, eb5123c9) pieces of the
+      // bowel and the stomach stood in the wrong places after the switch back: a picture no longer the stack's, laid as if it were.)
       // (Only the camera moved: the last pictures moved on the GPU, nothing painted from shapes.)
       if (!unchanged && moveOk(ck, cw, ch)) {
         if (moveFrame(m, ck, cw, ch)) { keepKey(); return true; }

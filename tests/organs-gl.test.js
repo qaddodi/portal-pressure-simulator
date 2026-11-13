@@ -258,26 +258,19 @@ test('a camera-only frame moves the last exact picture on the GPU instead of pai
   assert.ok(Math.abs(p[0] * ((400 - m[4]) / 2) + p[4] - 400) < 1e-9 && Math.abs(p[3] * ((300 - m[5]) / 2) + p[5] - 300) < 1e-9);
 });
 
-// Next-view pre-render (view switch): a camera move that lands back on the view it set off from, its content unchanged, puts back the
-// exact picture copied as the move began (mvS) instead of painting the organs from shapes again. Anatomy -> Circuit -> Anatomy at its
-// home framing then lands with no organ repaint (perf-labels-zoom-review.md P4).
+// A camera move that lands back on the view it set off from is painted exactly, like any landing (13 Nov 2026): putting back the copy taken as
+// the move began left pieces of the bowel and the stomach in the wrong places after Anatomy -> Circuit -> Anatomy on Mohammad's iPhone.
 const ogl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
 const lobRender = ogl.slice(ogl.indexOf('    render(m, cw, ch) {'), ogl.indexOf('// (Only the camera moved: the last pictures moved on the GPU'));
-const lands = ogl.match(/const landsOnBase = \(m, ck, cw, ch\) => \{[\s\S]*?\n {2}\};\n/)[0];
 
-test('a move landing on its base view puts the base copy back, on the GPU, before any paint', () => {
-  assert.match(lobRender, /if \(\(settle \|\| !unchanged\) && landsOnBase\(m, ck, cw, ch\)\) \{/);
-  assert.match(lobRender, /gl\.bindFramebuffer\(gl\.READ_FRAMEBUFFER, mvS\.fb\); gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, fbo\);/);
-  assert.match(lobRender, /gl\.blitFramebuffer\(0, 0, cw, ch, 0, 0, cw, ch, gl\.COLOR_BUFFER_BIT, gl\.NEAREST\);/, 'a 1:1 copy: the exact pixels');
-  assert.match(lobRender, /setExact\(m, ck\); moveStats\.restored\+\+;\n\s+return true;/);
-  assert.doesNotMatch(lobRender, /paintStack|paintGroup/, 'nothing painted from shapes on the way');
+test('a move landing on its base view is painted again, never the base copy put back', () => {
+  assert.doesNotMatch(ogl, /landsOnBase/);
+  assert.doesNotMatch(lobRender, /blitFramebuffer/, 'no copy laid in place of the stack at a landing');
 });
 
-test('only for the same content and size, the same view to a hundredth of a pixel, and no view picture fading in', () => {
-  assert.match(lands, /base\.ck !== ck/);
-  assert.match(lands, /w !== cw \|\| h !== ch \|\| mvS\.w !== cw \|\| mvS\.h !== ch/);
-  assert.match(lands, /Math\.abs\(b\[4\] - m\[4\]\) > 0\.01 \|\| Math\.abs\(b\[5\] - m\[5\]\) > 0\.01/);
-  assert.match(lands, /for \(const L of live\[1\]\.values\(\)\) if \(L\.from != null\) return false;/);
+test('a moved frame gives up the groups\' kept pictures (made under the view it left)', () => {
+  const mf = ogl.slice(ogl.indexOf('  function moveFrame(m, ck, cw, ch) {'), ogl.indexOf('  // alloc-rare: built once when the stack is made', ogl.indexOf('  function moveFrame(m, ck, cw, ch) {')));
+  assert.match(mf, /moveStats\.moved\+\+;\n\s+freeCache\(\);/);
 });
 
 test('next-view pre-render: the circuit\'s idle paints the margin the change back would paint in its tap frame', () => {
