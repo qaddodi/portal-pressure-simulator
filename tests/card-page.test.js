@@ -20,7 +20,7 @@ const procKind = (s) => procKindOf(s.procedure);
 
 // presenter.js turnsSlide, as written there, run against each state of the walk.
 const turnsSrc = (() => { const i = presenter.indexOf('const turnsSlide = (dx) =>'); return presenter.slice(presenter.indexOf('=>', i) + 2, presenter.indexOf(';\n', i)); })();
-const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procHeld', 'procWait', 'slides', 'want', 'beat', 'lastBeat', 'hop', `return ${turnsSrc};`);
+const turnsSlide = new Function('dx', 'caseLift', 'lapseOn', 'procHeld', 'procWait', 'slides', 'want', 'beat', 'lastBeat', `return ${turnsSrc};`);
 
 // Next as presenter.js next() runs it on a landed slide (no case card, no time-lapse playing): a procedure's steps first (the first
 // Next sends the catheter in, each next plays a step, the one after the last moves on), then the slide's views, then the next slide.
@@ -35,7 +35,7 @@ function pressNext(deck, st) {
   if (st.at < deck.slides.length - 1) { st.at++; st.beat = 0; st.step = -1; st.done = false; return 'slide'; }
   return 'end';
 }
-const follows = (deck, st, dx) => turnsSlide(dx, null, false, () => st.step >= 0 && !st.done, false, deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1, (i, d) => (i + d >= 0 && i + d < deck.slides.length ? i + d : null));
+const follows = (deck, st, dx) => turnsSlide(dx, null, false, () => st.step >= 0 && !st.done, false, deck.slides, st.at, st.beat, (i) => beatCount(deck.slides[i]) - 1);
 
 test('every slide of every deck: a Next swipe moves the card only when that Next changes the slide, never on a step or a view', () => {
   let slides = 0, steps = 0, views = 0;

@@ -335,7 +335,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const st = stageSource();
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(hop(want, 1))'), 'a procedure step comes before the next slide');
+  assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
   assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\) \|\|/);
   const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.match(pn, /procNavPlan\(/, 'the press is counted by the ring: proc-nav.js');
