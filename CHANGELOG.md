@@ -2,6 +2,7 @@
 
 ## November 2026
 
+- **Short routes through the four longest talks.** (14 Nov 2026, Mohammad, item 3 of the external-review opinion.) The outline slide of Ascites, One patient, ten years, Portal vein thrombosis and Acute variceal bleeding now asks "How long do you have?": the whole talk, or a route of about half the slides. Ascites: Mechanism and paracentesis (7 slides), Treating ascites (9). Ten years: The turning points (10). PVT: The short version (8), PVT without cirrhosis (7), PVT in cirrhosis (7). Variceal bleed: The first bleed (8), When the bleeding comes back (6). A route copies no slide (`src/ui/deck-routes.js` names slide ids), so slide ids, handouts and old links are unchanged; `?script=<deck>&route=<id>` opens one, and Next, Back, the count and the slide list step over the rest while the patient still moves through them. Each route has its own outline, objectives and quick-check questions. `tests/deck-routes.test.js` fails a route whose slide leans on a slide it skips.
 - **Acute variceal bleed talk: the coil-embolization of the left gastric (coronary) vein slide is gone.** (13 Nov 2026, Mohammad.)
   The `tipscoil` slide between the preemptive TIPS and the second patient is removed (the talk now runs TIPS, then "The first bleed is controlled"), with its handout figure, pill and adopted-feature entries. The algorithm slide still names Baveno VIII's "TIPS with or without embolization". The `tipscoil` and `tipscoilin` procedure kinds stay in `proc-anim.js` for a later slide; no deck uses them now.
 

@@ -29,7 +29,7 @@ const SHADER_MS = 4, SHADER_TRIES = 8;
  * kept for a turn the other way). calm(): nothing is moving; a neighbour's preparation waits for it (the slide going in never does).
  * Returns { aim, ready, manifest, state, cancel, stats }.
  */
-export function createSlidePrep({ count, steps = {}, ahead = 2, behind = 1, identity = () => '', calm = () => true }) {
+export function createSlidePrep({ count, steps = {}, ahead = 2, behind = 1, identity = () => '', calm = () => true, hop = (k, d) => k + d }) {
   let gen = 0, idNow = null;
   const made = new Map();   // i → { state, tool, glyphs, shaders, done, failed, id }
   const live = new Set();   // (the jobs of this generation, cancelled by the next)
@@ -102,8 +102,9 @@ export function createSlidePrep({ count, steps = {}, ahead = 2, behind = 1, iden
     try { steps.shaders?.(shaderMs()); } catch (e) { caught('slide-prep:70', e); /* next time */ }
     // (The slide going in, then those ahead in the direction of travel, then those behind.)
     const step = dir === 'back' ? -1 : 1, order = [i];
-    for (let n = 1; n <= ahead; n++) order.push(i + step * n);
-    for (let n = 1; n <= behind; n++) order.push(i - step * n);
+    // (hop: the slide a step away, so a route's slides are prepared, not the ones it skips.)
+    for (let n = 1, k = i; n <= ahead && (k = hop(k, step)) != null; n++) order.push(k);
+    for (let n = 1, k = i; n <= behind && (k = hop(k, -step)) != null; n++) order.push(k);
     const inDeck = order.filter((k) => k >= 0 && k < count());
     const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0 })); return m; };
     // (One job, the slide going in first, then the one ahead, then the one behind: each a list of small steps. B19: a slide that failed

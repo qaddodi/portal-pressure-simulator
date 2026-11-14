@@ -36,6 +36,7 @@ import { NODE_POS } from './anatomy.js';
 import { DISEASE_SRC, diseasePieces } from './diseases.js';
 import { nb, listCase, plateletText } from './glue.js';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js';
+import { routeOf, routeIndices, routeAtOrAfter } from './deck-routes.js';
 import { fingerprintOf } from '../engine/fingerprint.js';
 import { hvpgSev, TOKEN_OF_RATE, NOT_MEASURABLE, VALUE_PENDING } from '../engine/pressure-cuts.js';
 import { createHvpgMonitor } from './hvpg-proc.js';
@@ -953,6 +954,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const getCalc = () => (calc ||= makeCalc());
   const cache = new Map();   // deck id → computed states, reused the next time it is presented
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
+  // A route (deck-routes.js): the slide indexes it keeps, in order, or null for the whole talk. The slides and their states stay the whole
+  // deck's (a skipped slide still changes the patient); only Back, Next, the count and the slide list step over the others.
+  let keep = null, routeId = '';
+  const hop = (i, d) => (keep ? (d > 0 ? keep.find((k) => k > i) : keep.findLast((k) => k < i)) ?? null : i + d >= 0 && i + d < slides.length ? i + d : null);
+  const placeOf = (i) => (keep ? [Math.max(1, keep.filter((k) => k <= i).length), keep.length] : [i + 1, slides.length]);
   // `gen` counts redraws asked of the slide in place: a transition under way for an older one starts over.
   let want = 0, shown = null, shownState = -1, busy = false, playing = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let entering = null;   // (the slide whose cards are coming in, from their last unseen layout: its sizes hold from there, see layout's lockKey)
@@ -2240,7 +2246,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // slide-prep.js.)
   // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
   // presentation's states and this look: identity.)
-  const slidePrep = createSlidePrep({ count: () => slides.length, calm: () => !inMotion() && !busy && !prepT, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
+  const slidePrep = createSlidePrep({ count: () => slides.length, hop: (k, d) => hop(k, d), calm: () => !inMotion() && !busy && !prepT, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
     tool: (i) => { const s = slides[i]; return s ? warmOf(s, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
@@ -2273,7 +2279,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     want = clamp(i, 0, slides.length - 1);
     const tx = (txn = txns.begin({ to: want, dir: turn }));
     slidePrep.aim(want, turn, tx ? tx.live : undefined);
-    noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it)
+    if (!keep) noteResume(deck.id, want, slides.length);   // (the Present menu offers to resume here; the first or last slide forgets it; a route's places mean nothing to the whole talk)
     if (ui) delete ui.root.dataset.pzDegraded;   // (R05: a press starts clean)
     beat = firstBeat ? 0 : lastBeat(want);
     paintChrome();
@@ -2342,9 +2348,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (procNext()) return;   // (a procedure's next step: proc-anim.js)
     else if (shown?.i === want && ui.tools?.step(1)) return;   // (the card's next reading: the HVPG tracing, tool-hvpg.js)
     else if (beat < lastBeat(want)) toBeat(beat + 1);   // (the slide's next view of the figure)
-    else if (want < slides.length - 1) { firstBeat = true; go(want + 1); firstBeat = false; } else stop();
+    else if (hop(want, 1) != null) { firstBeat = true; go(hop(want, 1)); firstBeat = false; } else stop();
   };
-  const prev = () => { if (procBack() || (shown?.i === want && ui.tools?.step(-1))) return; if (beat > 0) toBeat(beat - 1); else if (want > 0) go(want - 1); };
+  const prev = () => { if (procBack() || (shown?.i === want && ui.tools?.step(-1))) return; if (beat > 0) toBeat(beat - 1); else if (hop(want, -1) != null) go(hop(want, -1)); };
   // (N1: the presenter view's window: the slide on show goes to it, its Next, Back and jumps come back as the keys do.)
   const pview = createPresenterLink({ onBlocked: () => toast('Allow pop-ups to open the presenter view', '', { present: true }),
     onCmd: (m) => { if (!deck || leaving) return; if (m.c === 'next') next(); else if (m.c === 'prev') prev(); else if (m.c === 'go' && Number.isFinite(m.i)) go(clamp(m.i | 0, 0, slides.length - 1)); } });
@@ -3517,7 +3523,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     })),
     outline: (s) => h('div', { class: 'pz-outline' },
       h('section', {}, h('h2', { class: 'pz-sub' }, 'Outline'), h('ol', {}, s.outline.map((k) => h('li', {}, k)))),
-      s.objectives.length ? h('section', { class: 'pzo-obj' }, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null),
+      s.objectives.length ? h('section', { class: 'pzo-obj' }, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null,
+      // (A long deck offers its short routes, deck-routes.js: a pick plays that route from this slide, and the whole talk is the first choice.)
+      s.routes ? h('section', { class: 'pzo-routes' }, h('h2', { class: 'pz-sub' }, 'How long do you have?'),
+        h('div', { class: 'pzo-rt', role: 'group', 'aria-label': 'Routes through this talk' }, s.routes.map((r) => h('button', { type: 'button', class: 'pzo-r', 'aria-pressed': String(r.id === s.route),
+          onclick: () => { if (r.id !== s.route) start(deck.id, 0, { route: r.id }); } },
+          h('b', {}, r.name), h('span', {}, `${r.n} slides · about ${r.minutes} min`), r.about ? h('i', {}, r.about) : null)))) : null),
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
@@ -5585,21 +5596,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function announce(force = false) {
     poke();   // (a change of slide or a beat wakes a resting page, whoever asked: a clicker, the presenter's window)
     if (!ui) return;
-    const i = want, t = `Slide ${i + 1} of ${slides.length}${slides[i]?.title ? `: ${slides[i].title}` : ''}`;
+    const i = want, [pk, pn] = placeOf(i), t = `Slide ${pk} of ${pn}${slides[i]?.title ? `: ${slides[i].title}` : ''}`;
     if ((force || landedNow()) && ui.say.textContent !== t) ui.say.textContent = t;
     const moving = String(busy && !landedNow());
     for (const e of [ui.text, ui.data]) if (e.getAttribute('aria-busy') !== moving) e.setAttribute('aria-busy', moving);
   }
   function paintChrome() {
     if (!ui) return;
-    const n = slides.length, i = want;
+    const i = want, [pk, pn] = placeOf(i);
     pview.publish(deck, slides, i, beat, lastBeat(i) + 1);
-    ui.prog.style.setProperty('--p', String((i + 1) / n));
+    ui.prog.style.setProperty('--p', String(pk / pn));
     announce();
-    const ph = phone(), skip = lapseOn && lapseLeft > 0, more = !skip && beat < lastBeat(i), last = i === n - 1 && !skip && !more;
+    const ph = phone(), skip = lapseOn && lapseLeft > 0, more = !skip && beat < lastBeat(i), last = hop(i, 1) == null && !skip && !more;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
-    const countLabel = `Slide ${i + 1} of ${n}: list the slides`, listOpen = String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave'));
+    const countLabel = `Slide ${pk} of ${pn}: list the slides`, listOpen = String(!ui.jump.hidden && !ui.jump.classList.contains('pz-leave'));
     ui.bar.classList.toggle('phone', ph); ui.bar.classList.toggle('pzb-pill', !ph);
     ui.bar.dataset.kind = pillKind();
     const nextLabel = skip ? 'Run the time-lapse to its end' : more ? `Next view, ${beat + 2} of ${lastBeat(i) + 1}` : 'Next slide', nextTitle = skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)';
@@ -5611,16 +5622,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (T2: the count never disappears. It was swapped through a fade to nothing and its words then came back between frames or as a GPU
       // picture, and through a case or question card, the busiest part of a slide change, the pill stood with no number for the whole card.
       // The number is written in place, at once: a speaker glances at it to pace the talk. The pill's width is measured again, 9 to 10 widens it.)
-      const countTxt = `${i + 1} / ${n}`;
+      const countTxt = `${pk} / ${pn}`;
       if (k.count.textContent !== countTxt) k.count.textContent = countTxt;
       k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
-      if (k.prev) k.prev.disabled = i === 0 && beat === 0;
+      if (k.prev) k.prev.disabled = hop(i, -1) == null && beat === 0;
       if (k.next) { k.next.disabled = last; k.next.classList.toggle('skipping', skip); k.next.setAttribute('aria-label', nextLabel); k.next.title = nextTitle; }
       placeBar();
       return;
     }
-    const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, `${i + 1} / ${n}`);
-    const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0 && beat === 0, onclick: prev }, icon('chev-left'));
+    const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, `${pk} / ${pn}`);
+    const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: hop(i, -1) == null && beat === 0, onclick: prev }, icon('chev-left'));
     const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': nextLabel, title: nextTitle, disabled: last, onclick: next }, icon('chev-right'));
     if (ph) {
       // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping. An upright tablet's
@@ -5703,11 +5714,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       return;
     }
     const groups = [];
-    slides.forEach((s, i) => { const k = s.kicker || ''; if (groups.at(-1)?.k !== k) groups.push({ k, items: [] }); groups.at(-1).items.push(i); });
+    (keep || [...slides.keys()]).forEach((i) => { const k = slides[i].kicker || ''; if (groups.at(-1)?.k !== k) groups.push({ k, items: [] }); groups.at(-1).items.push(i); });
     j.replaceChildren(h('div', { class: 'pzj-h' }, h('span', {}, deck.title), h('button', { class: 'ib', 'aria-label': 'Close the slide list', onclick: () => toggleJump(false) }, icon('close'))),
       h('div', { class: 'pzj-list' }, groups.map((g) => h('section', {}, g.k ? h('h3', {}, g.k) : null,
         h('ol', {}, g.items.map((i) => h('li', {}, h('button', { type: 'button', 'aria-current': i === want ? 'true' : null, onclick: () => { toggleJump(false); go(i); } },
-          h('span', { class: 'n' }, String(i + 1)), h('span', { class: 't' }, nb(slides[i].title))))))))));
+          h('span', { class: 'n' }, String(placeOf(i)[0])), h('span', { class: 't' }, nb(slides[i].title))))))))));
     j.classList.add('pz-leave'); j.hidden = false; void readMetric(j, 'offsetWidth'); j.classList.remove('pz-leave');
     const curBtn = j.querySelector('[aria-current]');
     curBtn?.focus({ preventScroll: true }); scrollInto(curBtn, { block: 'center' });
@@ -5792,7 +5803,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (A data card the slide the swipe goes to keeps (the same instrument: card-keep.js keepData) stays where it is: it does not follow the finger,
   // as it is not thrown out on Next. Mohammad, 3 Nov 2026, the iPhone: "it's moving with my finger".)
   const keepsOnSwipe = (dx) => {
-    const to = dx < 0 ? want + 1 : want - 1, nx = slides[to];
+    const to = hop(want, dx < 0 ? 1 : -1), nx = slides[to];
     if (!nx || !shown || !dataOn) return false;
     const pl = planOf(nx, to);
     return pl === undefined || keepData({ from: dataOn, to: pl, prev: slides[shown.i], next: nx, swap: stateOf[to] !== shownState || liveOff });
@@ -5800,8 +5811,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
   const turnsSlide = (dx) => dx < 0
-    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
-    : !procHeld() && !procWait && beat === 0 && want > 0;
+    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && hop(want, 1) != null
+    : !procHeld() && !procWait && beat === 0 && hop(want, -1) != null;
   const pullCan = (dx) => turnsSlide(dx) && !!ui && !changing() && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
@@ -6021,7 +6032,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (k === 'Escape' && popoverOpen()) return;
     let used = true;
     if (/^[0-9]$/.test(k)) { digits = (digits + k).slice(-3); clearTimeout(digitT); digitT = setTimeout(() => { digits = ''; }, 2500); toast(`Slide ${digits}: press Enter`, '', { present: true }); }
-    else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }
+    else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(keep ? keep[Math.min(n, keep.length) - 1] : n - 1); }
     else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { if (!e.repeat) next(); }
     else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { if (!e.repeat) prev(); }
     else if (k === 'Home') go(0);
@@ -6455,7 +6466,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder).map(zoneCam);   // (the old ladder card's slides show the Gut to heart profile)
+    const rt = d.mine ? null : routeOf(d, opts?.route);   // (a route of a built-in deck, deck-routes.js; an id it does not have plays the whole talk)
+    deck = d; slides = (d.mine ? d.slides : withOverview(d, rt).slides).map(oneLadder).map(zoneCam); keep = rt ? routeIndices(slides, rt) : null; routeId = rt?.id || '';   // (the old ladder card's slides show the Gut to heart profile)
     shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();
@@ -6481,7 +6493,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     wrapRO ||= typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (ui && sizeNow() !== sizeSeen) onResize({ type: 'resize' }); }) : null;
     wrapRO?.observe(wrap);
     document.fonts?.addEventListener('loadingdone', onFonts);   // (a font arriving late changes the words' size: the cards are fitted again)
-    go(Math.min(want0, slides.length - 1));
+    go(keep ? routeAtOrAfter(keep, want0) : Math.min(want0, slides.length - 1));
     wake();
   }
   // Ending a talk, the slide's cards fade out first (the exit curve, .2 s), then the app's own bars and zoom pill fade back in,
@@ -6510,7 +6522,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     strainStop(); stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     txn?.end(); txn = null;
     slidePrep.cancel(); clearTimeout(prepT); prepT = 0;   // (recs §6: the preparation stops with the deck; nothing it started publishes after)
-    deck = null; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
+    deck = null; keep = null; routeId = ''; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
@@ -6547,7 +6559,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (restore && saved) putHealthy(saved);
     if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
     // (The talk is over: a reload, or a tab the phone discarded and brings back, must not start it again from the link that opened it.)
-    if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch (e) { caught('presenter:5785', e); /* no history here */ } }
+    if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); u.searchParams.delete('route'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch (e) { caught('presenter:5785', e); /* no history here */ } }
   }
   // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
   // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
@@ -6678,7 +6690,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
 
   return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
-    position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
+    position: () => (deck ? { id: deck.id, at: shown?.i ?? want, route: routeId } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
     go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.

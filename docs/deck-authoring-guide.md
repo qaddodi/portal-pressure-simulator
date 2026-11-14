@@ -980,6 +980,12 @@ export const CLOT_DEMO = {
 
 ---
 
+### Short routes through a long deck (14 Nov 2026)
+
+A route is a chosen subset of one built-in deck's slides, kept in `src/ui/deck-routes.js` (`ROUTES`, by deck id). It copies nothing: it names slide ids, so slide ids, handout figures (`brand/handout/<deck>/<slide id>.webp`) and every link stay as they were. The outline slide lists "The whole talk" first and then each route, with its slide count and minutes (the deck's `minutes` in proportion to the slides kept); a pick plays that route, and `?script=<deck>&route=<id>` opens one. Next, Back, the count, the slide list and the time-lapse neighbours step over the slides the route skips; the patient does not: a skipped slide still moves the model, so the slides after it show the state they would in the whole talk. The outline's sections, the objectives (`goals`) and the quick check (`checks`) are the route's own, by index into the deck's lists.
+
+`{ id, name (32 characters or fewer), about, slides: [ids in the deck's order], goals?, checks?, over?: { slideId: { delta } } }`. Three routes at most per deck. A route that drops a slide must not leave a slide that leans on it: `tests/deck-routes.test.js` fails a slide that reads `delta`, `since`, a table row (`of`), a chart's start or dots, or a `{x@id}` value from a slide the route skips, a slide whose "since the slide before" ghost would read a patient state a skipped slide made, and a question whose answer slide is skipped. `over` points one slide's change ghost at another slide when the one it named is not on the route. 
+
 ## 12. Adding the deck to the app
 
 1. **Create** `src/ui/decks/<id>.js` exporting one `const` (section 10/11). No other file imports it yet.
