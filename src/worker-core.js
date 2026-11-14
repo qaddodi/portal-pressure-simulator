@@ -457,6 +457,7 @@ export function createCore(post) {
     switch (a.kind) {
       case 'infuse': e.infuse(a.fluid); break;
       case 'hemorrhage': e.hemorrhage(a.mL); break;
+      case 'retain': e.addVolume(a.mL, 0.35, true); break;   // salt and water kept (a failing or constricted heart, as a preset's `volume`) or given up again (negative mL): the patient's own volume, which the tissues do not refill away
       case 'band': e.band(); break;
       case 'paracentesis': e.paracentesis(a.mL, a.albumin); break;
       case 'valsalva': e.startValsalva(a.sec || 10); break;

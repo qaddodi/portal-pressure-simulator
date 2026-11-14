@@ -1211,5 +1211,42 @@
   "{hvpg}",
   "{eus}",
   "{ppg}"
+ ],
+ "two-lesions/base": [
+  "{hvpg}",
+  "{ppg}",
+  "{pv}",
+  "{ra}"
+ ],
+ "two-lesions/clot": [
+  "{ppg}",
+  "{hvpg}"
+ ],
+ "two-lesions/varices": [
+  "{pv}",
+  "{varix}",
+  "{plt}"
+ ],
+ "two-lesions/both": [
+  "{ra}",
+  "{fhvp}",
+  "{whvp}",
+  "{hvpg}"
+ ],
+ "two-lesions/unclot": [
+  "{pvFlow}",
+  "{ppg}",
+  "{ra}",
+  "{pv}"
+ ],
+ "two-lesions/unsqueeze": [
+  "{ra}",
+  "{hvpg}"
+ ],
+ "two-lesions/together": [
+  "{ppg}",
+  "{ppg@base}",
+  "{hvpg}",
+  "{pv}"
  ]
 }
