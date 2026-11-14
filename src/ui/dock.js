@@ -191,7 +191,7 @@ export const savedInstruments = () => { try { return JSON.parse(localStorage.get
 // What the Doppler's trace reads of a frame it is only keeping for later (the Doppler loads after the first paint, lazy-pane.js).
 const dopplerSlim = (f) => ({ probe: f.probe, clock: f.clock, resp: f.resp, running: f.running, settling: f.settling, samples: f.samples });
 
-/** `lazy`: the Doppler's and the FibroScan's loads (main.js lazy(): { doppler, fibroscan }), which come after the first paint. */
+/** `lazy`: the Doppler's, the FibroScan's and the Trials tab's loads (main.js lazy(): { doppler, fibroscan, trials }), which come after the first paint. */
 // The header's day count, made when the day or the running state changes, not each frame.
 let dayKept = null, dayRun = null, dayWords = '';
 function dayText(running, day) {
@@ -484,7 +484,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoscopy, createAbdomen({ onAction }),
     lazyPane({ id: 'fibroscan', label: 'FibroScan', handle: lazy.fibroscan, onReady: () => { fitHeight(); queueRefresh(); } }),
     readouts,
-  ];
+    // The landmark trials against this patient (trials-pane.js), after the first paint too.
+    lazy.trials ? lazyPane({ id: 'trials', label: 'Trials', handle: lazy.trials, cls: 'trials-view', onReady: () => { fitHeight(); queueRefresh(); } }) : null,
+  ].filter(Boolean);
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
     return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.head, p.el) };   // (head: an instrument's own switch row above its view, the FibroScan's Liver/Spleen)
@@ -504,11 +506,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => { if (fibroReading.organ !== 'spleen') return `${fmt(f.metrics.lsm, 1)} kPa`; return f.metrics.ssm == null ? 'No spleen' : `Spleen ${fmt(f.metrics.ssm, 1)} kPa`; }],
     readouts: ['grid', (f) => readouts.summary(f)],
+    trials: ['book', () => 'Landmark trials'],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts' };
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts', trials: 'Trials' };
   // Narrow cards use these shorter names so all six tabs always fit without scrolling.
   const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
-  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts'];
+  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts', 'trials'].filter((id) => byId[id]);
   // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
   // small switch inside it; 'scope' stays a pane of its own, so the Presenter still reaches it.
   const TABS = ORDER.filter((id) => id !== 'scope');

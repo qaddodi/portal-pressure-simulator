@@ -16,6 +16,7 @@ import { FLOWS } from './flows.js';
 import { PATH } from './path.js';
 import { ALLP } from './allp.js';
 import { TRIAL } from './trial.js';
+import { FOREST } from './forest.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -35,6 +36,7 @@ export const LOOKS = {
   ...PATH,
   ...ALLP,
   ...TRIAL,
+  ...FOREST,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -54,5 +56,6 @@ export const HOSTS = {
   pstrip: (c) => c.scale.lab ?? 12,
   pstriph: (c) => c.scale.cap ?? 12,
   trial: (c) => c.scale.sm ?? 12,   // (the trial card: one type size, the card's small size, grown to 12 px at the least by fittedType)
+  forest: (c) => c.scale.sm ?? 13,   // (the forest plot, trial-forest.js: the Tests card's 13 px, or the card's small size on a slide)
   path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };
