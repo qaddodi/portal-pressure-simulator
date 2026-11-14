@@ -130,7 +130,7 @@ export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', '
 export const CUTOFFS = [
   // (Written as the decks and the tiles write them: a symbol hard against its number, "to" in a range, no space before a percent. Each range runs on
   // from the cut-off before it by one step of the last digit the tile prints, so no value falls between two bands.)
-  ['HVPG (WHVP − FHVP)', '<5 mmHg', '5 to 9.9 (subclinical)', '≥10 (CSPH in cirrhosis)', '—'],
+  ['HVPG (WHVP − FHVP)', '≤5 mmHg', '5.1 to 9.9 (subclinical)', '≥10 (CSPH in cirrhosis)', '—'],
   ['PPG: portosystemic gradient (portal vein − IVC)', '<6 mmHg', '6 to 11.9', '≥12', '—'],
   ['Portal vein pressure', '≤10 mmHg', '10.1 to 14.9', '≥15', '—'],
   ['Renal perfusion pressure (MAP − IAP; a pressure, not kidney function)', `≥${KIDNEY_CUTS.rpp} mmHg`, '—', `<${KIDNEY_CUTS.rpp}`, '—'],

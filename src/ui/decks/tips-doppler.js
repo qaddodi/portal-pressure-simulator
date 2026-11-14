@@ -70,8 +70,8 @@ export const TIPS_DOPPLER = {
     },
     {
       id: 'left', cam: 'liver', lens: 'direction', labels: ['LPV'], terms: ['lpv'], tool: { kind: 'doppler', vessel: 'PVH_L' },
-      kicker: 'A patent TIPS', title: 'Every intrahepatic portal branch flows toward the stent',
-      line: 'With a patent TIPS every branch flows toward the stent, so the [left portal vein](lpv) is hepatofugal. Only the right portal segment before the stent is hepatopetal.',
+      kicker: 'A patent TIPS', title: 'After a TIPS the intrahepatic portal branches flow toward the stent',
+      line: 'With a patent TIPS the intrahepatic branches drain toward the stent, so the [left portal vein](lpv) is hepatofugal. Here only the right portal segment before the stent is hepatopetal.',
       notes: 'The stent is the lowest-resistance outflow from the liver, so blood in the left portal vein, much of it hepatic arterial blood that has entered the sinusoids, flows back to the bifurcation and into the stent. Before TIPS this branch was hepatopetal. Here hepatofugal flow is the expected finding, a sign of a patent stent, not of advanced disease. Colored by direction, reversed flow is orange. The stent starts in the right portal vein, close to the bifurcation, so the short segment between the bifurcation and the stent remains hepatopetal, on its way into the stent. Beyond the stent the right portal branches drain back toward it, hepatofugal like the left. The rule is the same for every segment: flow is directed toward the stent. (Lechowicz 2015, Polish Ultrasound Society standards.)',
       ask: ['With a patent TIPS, what is the direction of left portal vein flow?', 'Away from the liver, toward the stent (hepatofugal).'],
     },
