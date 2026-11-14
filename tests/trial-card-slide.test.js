@@ -1,5 +1,6 @@
-// The trial card on a deck slide (design A, "the two numbers", Mohammad 14 Nov 2026): a slide's tool { kind: 'trial' } stands under the teaching
-// card's words, not in the data card (tool-trial.js trialBelow); its drawing lays out two or three arms' numbers, says when its rates are
+// The trial card on a deck slide (design A, "the two numbers", Mohammad 14 Nov 2026): a slide's tool { kind: 'trial' } is the slide's instrument
+// card, one more instrument a deck can use, in the slot every instrument card has (Mohammad, 14 Nov 2026: "Just another instrument card that
+// decks can use"; never part of the teaching card); its drawing lays out two or three arms' numbers, says when its rates are
 // Kaplan–Meier estimates, and ends with one line on whether the slide's patient fits the trial. The Landmark trials deck closes on the trials'
 // ratios on one scale (tool { kind: 'forest' }) before its model summary.
 import './dom-shim.js';
@@ -7,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TRIALS, TRIAL_IDS, trialOf } from '../src/ui/trials.js';
-import { trialLayout, trialBelow, fitWords, effectOf, endpointOf, trialWords, fitOf } from '../src/ui/tool-trial.js';
+import { trialLayout, createTrial, fitWords, effectOf, endpointOf, trialWords, fitOf } from '../src/ui/tool-trial.js';
 import { TYPE } from '../src/ui/chart-looks/trial.js';
 import { measure } from '../src/ui/glyph-measure.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
@@ -26,31 +27,33 @@ const inside = (L, W) => {
   }
 };
 
-test('a slide with a trial tool keeps its trial under the words and no tool in its data card; any other slide is untouched', () => {
-  const s = { id: 'x', tool: { kind: 'trial', id: 'predesci' }, data: 'tiles', tiles: ['hvpg'] };
-  const t = trialBelow(s);
-  assert.equal(t.tool, undefined);
-  assert.deepEqual(t.trial, { kind: 'trial', id: 'predesci' });
-  assert.deepEqual(t.tiles, ['hvpg']);
-  const o = { id: 'y', tool: { kind: 'doppler' } };
-  assert.equal(trialBelow(o), o);
-  assert.equal(trialBelow(null), null);
-  // (Its warm, the glyph metrics its drawing measures with, is still asked for before the slide shows.)
+test('the trial card is an instrument card: a slide keeps it as its tool, in the instrument card\'s slot on every device, never inside the teaching card', () => {
+  const pres = read('src/ui/presenter.js'), tt = read('src/ui/tool-trial.js');
+  assert.doesNotMatch(pres, /trialBelow|trialUnder|trialNow|s\.trial\b|tool-trial\.js/, 'the presenter builds no trial card of its own: the words\' card holds none');
+  assert.match(pres, /\.map\(oneLadder\)\.map\(zoneCam\);/, 'a deck\'s slides keep their tool as written');
+  assert.doesNotMatch(tt, /export function trial(Below|Under)/);
+  assert.doesNotMatch(read('index.html'), /trial-card\.css/, 'no plate of its own: the instrument card\'s glass');
+  // (Every trial slide of every deck names it as its tool, so the presenter's one instrument path shows it: presenter-tools.js make, EXT.tools.)
+  let n = 0;
+  for (const s of LANDMARK_TRIALS.slides) if (s.tool?.kind === 'trial') { n++; assert.ok(trialOf(s.tool.id), `${s.id}: a trial the app has`); assert.equal(s.trial, undefined); }
+  assert.ok(n >= 6);
+  assert.match(read('src/ui/presenter-tools.js'), /EXT\.tools\[k\]\.make\(/);
+  assert.equal(typeof EXT.tools.trial.make, 'function');
   assert.equal(typeof EXT.tools.trial.warm, 'function');
-  assert.ok(warmOf(t, null) != null, 'the trial under the words warms as its tool did');
+  assert.ok(warmOf({ tool: { kind: 'trial', id: 'predesci' } }, null) != null, 'its glyph metrics are warmed before the slide shows');
 });
 
-test('the presenter puts the trial card under the words, drawn once it is in the card, and lets it go with them', () => {
-  const src = read('src/ui/presenter.js');
-  assert.match(src, /\.map\(oneLadder\)\.map\(zoneCam\)\.map\(trialBelow\)/, 'every deck slide with a trial tool, at the source');
-  assert.match(src, /\(trialNow = s\.trial \? trialUnder\(s\.trial\) : null\)\?\.el\]\);\n\s+trialNow\?\.show\(st\);/, 'the last part of the words, its fit line from the slide\'s state');
-  assert.match(src, /lgDrop\(\); evDrop\(\); trialDrop\(\);/);
-  assert.match(src, /if \(keepNow\.text\) trialNow\?\.show\(st\);/, 'kept words follow the slide\'s patient');
-  // (The plate's look is its own stylesheet, loaded by the page and the build.)
-  assert.match(read('index.html'), /styles\/trial-card\.css/);
-  assert.match(read('scripts/build.mjs'), /'styles\/trial-card\.css'/);
-  assert.match(read('styles/trial-card.css'), /\.pz-trialcard \{/);
-  assert.doesNotMatch(read('styles/trial-card.css'), /backdrop-filter|filter:|box-shadow/, 'no blur, glow or shadow on the plate');
+test('the instrument card asks its fit line of the slide\'s own patient (configure(tool, ctx): ctx.fp, ctx.params, the presenter\'s ctxOf)', () => {
+  const tt = read('src/ui/tool-trial.js'), pres = read('src/ui/presenter.js');
+  assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx\)/, 'configure asks the fit of the context it is given');
+  assert.match(read('src/ui/presenter-tools.js'), /inst\.configure\?\.\(t, ctx\)/, 'the instrument path hands every instrument its slide\'s context');
+  assert.match(pres, /params: st\?\.params \?\? null, fp: st\?\.fp \?\? null/, 'a context carries the slide\'s own patient');
+  const t = TRIALS.predesci, ctx = { fp: { hvpg: 14, varix: 3, gv: 0, asc: 0 }, params: { cirrhosis: 1, tips: { on: false } } };
+  const fit = fitOf(t, ctx);
+  assert.equal(fit.verdict, 'fits', 'CSPH, small varices, no ascites: PREDESCI\'s patient');
+  assert.notEqual(fitOf(t, { fp: { hvpg: 6 }, params: { cirrhosis: 1 } }).verdict, 'fits', 'an HVPG under 10 does not fit');
+  assert.equal(fitOf(t, null), null);
+  assert.match(trialWords(t, fit), new RegExp(fitWords(fit)));
 });
 
 test('design A: the name, the source line, the endpoint, each arm\'s share large, the bars on one scale and the effect, inside the card at every width', () => {

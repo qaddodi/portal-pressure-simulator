@@ -4,8 +4,7 @@
 //                                                     model (tool-criteria.js)
 //   tool: { kind: 'trial', id }   a landmark trial: each arm's event rate as a large number over a bar, what was counted, follow-up, the trial's own
 //                                 effect size, its source line and whether the slide's patient fits it (trials.js, guidelines/trials.md; tool-trial.js).
-//                                 On a slide it stands under the teaching card's words, not in the data card (tool-trial.js trialBelow); the entry
-//                                 here is its title and its warm
+//                                 It is the slide's instrument card, where every instrument card goes (Mohammad, 14 Nov 2026)
 //   tool: { kind: 'forest', ids, highlight? }   the trials' ratios on one scale, one row a trial (trial-forest.js), in the data card
 //   tool: { kind: 'path', of: an algorithm of path-data.js ALGOS, patient? }   a Baveno VIII flowchart with the patient's own path lit (tool-path.js)
 //   tool: { kind: 'reading' }   the measurement tracing card: the slide's procedure (HVPG, EUS-PPG, PPG by IR, PPG through a TIPS) drawn as a monitor

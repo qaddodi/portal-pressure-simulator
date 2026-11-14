@@ -1,6 +1,6 @@
 // Presenter talk: six landmark trials replayed. For each, a slide with the patient the trial enrolled, then the treatment arm run on the
 // model beside the control (the compare button goes back to the patient slide). The trial's own numbers are on the trial card
-// (tool: { kind: 'trial' }, src/ui/trials.js), never typed in a line; on a slide it stands under the teaching card (tool-trial.js trialBelow).
+// (tool: { kind: 'trial' }, src/ui/trials.js), never typed in a line; it is the slide's instrument card, where every instrument card stands.
 // After the last trial, the trials that reported a ratio on one scale (tool: { kind: 'forest' }, trial-forest.js), then the model's summary table.
 //
 // Trials, with the paper each statement rests on (the abstracts were read on 11 Nov 2026; guidelines/trials.md says where each number came from):

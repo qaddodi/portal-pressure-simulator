@@ -1,6 +1,6 @@
 // The trial card (deck feature 39, 11 Nov 2026; design A, "the two numbers", Mohammad 14 Nov 2026): one landmark trial, a record in trials.js
-// (its numbers, each read from the abstract: guidelines/trials.md). On a slide (tool { kind: 'trial', id }) the card stands under the teaching
-// card's words, not in the data card (trialBelow): the data card keeps its tiles. From the top:
+// (its numbers, each read from the abstract: guidelines/trials.md). On a slide (tool { kind: 'trial', id }) it is the slide's instrument card, one more
+// kind of instrument a deck can use, placed where every instrument card goes (Mohammad, 14 Nov 2026). From the top:
 //   the trial's name, and its source line (journal year · first author · people randomized)
 //   what was counted, and for how long
 //   each arm's share as a large number (the treated arm first), with its name and the people in it; two arms side by side, or three, or one
@@ -9,13 +9,13 @@
 //   the trial's own effect (its ratio and interval as reported, or its P value), and a caveat when there is one
 //   for a trial whose numbers have not been read against its paper, a line that says so
 //   on a slide, one line on whether the slide's patient fits the trial (trial-fit.js), set when the slide's patient changes, never per frame
-// One base type size (the host's; under the words, the teaching card's caption size), told apart by weight and colour as the other cards' words
+// One base type size (the host's), told apart by weight and colour as the other cards' words
 // are. The card is a model drawn on the GPU (svg-gl.js: the same tree, of plain elements, never painted by the browser) and drawn again only
 // when its width, its type size or its fit line changes; its height follows those only.
 
 import { h } from './util.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
-import { fittedType, chartCtx } from './chart-ctx.js';
+import { fittedType } from './chart-ctx.js';
 import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { trialOf, trialSource } from './trials.js';
@@ -29,14 +29,6 @@ const TONE = { treat: 's1', control: 'text-3' };
 
 /** Whether a deck's tool names a trial the card can draw. */
 export const trialTool = (t) => !!trialOf(t?.id);
-
-/** A slide with a trial tool, as the presenter shows it: the trial moved out of the data card (tool) to under the teaching card's words (trial),
- *  so a slide's data card keeps only its tiles. Any other slide comes back as it is. */
-export function trialBelow(s) {
-  if (s?.tool?.kind !== 'trial') return s;
-  const { tool, ...r } = s;
-  return { ...r, trial: tool };
-}
 
 /** Words cut into lines no wider than w (greedy, at the given weight and size); at most `max` lines, the last ending in an ellipsis when words were left. */
 export function wrapWords(text, w, f, wt, meas, max) {
@@ -176,17 +168,15 @@ export function fitOf(t, st) {
 
 const sv = svgModel;
 const textW = (s, font) => measure(s, font);
-/** The card. base: one of the card's type sizes (card-scale.js: 'cap' under the teaching card's words) its words grow to; else the host's own. */
-export function createTrial({ base = null } = {}) {
+/** The card, in the instrument card's slot: its words at the host's own type size (chart-looks/index.js HOSTS.trial). */
+export function createTrial() {
   const el = h('div', { class: 'pz-trial', role: 'group' });
   const gl = createSvgGL(el, { host: 'trial' });
   let trial = null, fit = null, drawnW = 0, drawnF = 0;
   function draw() {
     const W = Math.round(readMetric(el, 'clientWidth') || 0);
     if (!trial || !W || !el.isConnected) return;
-    let boost = 12;
-    if (base) { try { boost = Math.max(12, chartCtx(el).scale[base] || 0); } catch { /* (no card round it yet) */ } }
-    const f = fittedType(el, gl, boost);
+    const f = fittedType(el, gl, 12);
     if (W === drawnW && f === drawnF) return;
     drawnW = W; drawnF = f;
     const L = trialLayout(trial, W, f, textW, fit);
@@ -202,8 +192,10 @@ export function createTrial({ base = null } = {}) {
   ro?.observe(el);
   return {
     el,
-    configure(t) {
+    /** t: the slide's tool; ctx: the slide's context (presenter ctxOf: fp, params), whose patient the fit line is asked for. */
+    configure(t, ctx = null) {
       const next = trialOf(t?.id);
+      if (ctx) { const f2 = fitOf(next, ctx); if (fitWords(f2) !== fitWords(fit)) drawnW = 0; fit = f2; }
       if (next !== trial) { trial = next; drawnW = 0; }
       el.setAttribute('aria-label', trial ? trialWords(trial, fit) : '');
       if (trial) draw(); else gl.clear?.();
@@ -216,18 +208,5 @@ export function createTrial({ base = null } = {}) {
     },
     clear() {},
     dispose() { ro?.disconnect(); gl.dispose?.(); },
-  };
-}
-
-/** The trial card under a slide's teaching card (a slide's trial, trialBelow): its element, and show(st) with the slide's state, called once
- *  the element is in the card (its first drawing reads its width) and again when the slide's patient changes. Null for a trial the app lacks. */
-export function trialUnder(tool) {
-  const t = trialOf(tool?.id);
-  if (!t) return null;
-  const card = createTrial({ base: 'cap' });
-  return {
-    el: h('div', { class: 'pz-trialcard' }, card.el),
-    show(st) { card.setFit(fitOf(t, st)); card.configure(tool); },
-    dispose() { card.dispose(); },
   };
 }

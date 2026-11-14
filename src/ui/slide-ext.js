@@ -79,9 +79,8 @@ export function guard(inst, tag) {
 /** The work a slide's tool, or its visual, asks to start once the deck's states are in (a curve over model days, the all-patients chart's runs): a promise,
  *  or null when it has none. A tool's warm takes (tool, ctx), a visual's (slide, ctx). */
 export function warmOf(s, ctx) {
-  const tool = s?.tool ?? s?.trial;   // (a slide's trial card stands under its words, tool-trial.js trialBelow, and warms as its tool did)
-  const tw = EXT.tools[tool?.kind]?.warm;
-  if (tw) return tw(tool, ctx);
+  const tw = EXT.tools[s?.tool?.kind]?.warm;
+  if (tw) return tw(s.tool, ctx);
   const vw = s?.visual && Object.hasOwn(EXT.visuals, s.visual) ? EXT.visuals[s.visual].warm : null;
   return vw ? vw(s, ctx) : null;
 }
