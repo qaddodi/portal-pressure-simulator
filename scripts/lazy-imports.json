@@ -6,6 +6,7 @@
     "src/ui/main.js → ./presenter-view-page.js": "only the presenter's second window (?presenter-view), whose page loads it at boot instead of the app; no person reaches it from a tap",
     "src/ui/main.js → ./doppler.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./fibroscan.js": "main.js warmUp, idle after boot and under the loading cover",
+    "src/ui/main.js → ./trials-pane.js": "main.js warmUp (dock.load asks every lazy pane), idle after boot and under the loading cover; a Tests tab left open at the last visit is read in at boot",
     "src/ui/main.js → ./presenter.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./palette.js": "main.js warmUp, idle after boot and under the loading cover",
     "src/ui/main.js → ./frame-hud.js": "?perf only, at boot",

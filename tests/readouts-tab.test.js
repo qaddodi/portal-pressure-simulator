@@ -8,8 +8,8 @@ const dock = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8')
 const pane = readFileSync(new URL('../src/ui/readouts-pane.js', import.meta.url), 'utf8');
 const vitals = readFileSync(new URL('../src/ui/vital-read.js', import.meta.url), 'utf8');   // (the vitals' definitions, shared by the bar and the vitals monitor)
 
-test('Readouts is a tab of the Tests card, after the other instruments', () => {
-  assert.match(dock, /ORDER = \[[^\]]*'fibroscan', 'readouts'\]/);
+test('Readouts is a tab of the Tests card, after the other instruments (Trials, the landmark trials, comes last)', () => {
+  assert.match(dock, /ORDER = \[[^\]]*'fibroscan', 'readouts', 'trials'\]/);
   assert.match(dock, /readouts: \['grid',/);
   assert.match(dock, /readouts: 'Readouts'/);
   assert.match(dock, /createReadoutsPane\(\{ tiles: TILES, groups: GROUPS, vitals: VITALS/);

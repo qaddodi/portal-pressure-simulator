@@ -567,6 +567,13 @@ export function createCore(post) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });
     },
+    // The Trials tab's Model line (trials-pane.js): the live patient settled as it is and settled with one change (a drug, a TIPS), each on a
+    // copy, so the live model is left as it is. Its hemodynamics only: the copies run no disease days.
+    whatIf({ patch, reqId }) {
+      const read = (e) => { const m = computeMetrics(e); return { hvpg: m.hvpg, ppg: m.ppg, pv: m.pv, hr: m.hr, map: m.map, varix: m.varix.d }; };
+      const copy = (p) => { const e = new Engine({ params: eng.params }); e.restore(eng.snapshot()); if (p) e.setParams(sanitizeParams(deepMerge(e.paramsTarget(), p))); e.settle(); return read(e); };
+      post({ type: 'whatIf', reqId, result: { base: copy(null), rx: copy(patch || {}) } });
+    },
     healthyProfile({ reqId }) {
       const h = new Engine();
       post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
@@ -652,7 +659,7 @@ export function createCore(post) {
   const queue = [];
   let busy = false;
   // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
-  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats'];
+  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -677,7 +684,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf'].includes(msg.type)) {
           // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
           if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
           else {

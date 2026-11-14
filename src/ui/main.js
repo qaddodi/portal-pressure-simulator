@@ -126,7 +126,7 @@ function lazy(load, make) {
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
-let paletteL, presenterL, dopplerL, fibroL;
+let paletteL, presenterL, dopplerL, fibroL, trialsL;
 const palette = {
   // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
   // (Opened in the same task as the tap once it is loaded (it is warmed at idle), so the field's focus is inside the gesture and iOS raises the
@@ -171,9 +171,10 @@ async function main() {
   const probeTo = (id) => { host.send({ type: 'probe', id }); logAction('probe', id); };
   dopplerL = lazy(() => import('./doppler.js'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js'), ({ createFibroScan }) => createFibroScan());
+  trialsL = lazy(() => import('./trials-pane.js'), ({ createTrialsPane }) => createTrialsPane());   // (the Tests card's Trials tab)
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
-  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
+  if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL], ['trials', trialsL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
@@ -283,7 +284,7 @@ async function main() {
     const want = underWant;
     setTimeout(() => { if (underWant === want && underTok === want && !underQueued) underQueued = nextFrame(underStep); }, 450);
   }
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL, trials: trialsL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
@@ -503,7 +504,7 @@ async function main() {
   // The surfaces most sessions never open are fetched and read in once the page is idle, one at a time, each only after the page has been
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (dock.load reads in the Doppler and FibroScan panes too)
+  const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (dock.load reads in the Doppler, FibroScan and Trials panes too)
   const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
   setTimeout(warmNext, 3000);
   // While the loading cover is still up, the same modules are read in under it (the cover waits for them), not in the first seconds of use.
