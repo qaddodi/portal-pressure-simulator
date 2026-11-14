@@ -14,14 +14,14 @@ test('the unified menu lists every presentation under exactly one topic, with a 
 });
 
 // The deck's short name (presenter.js deckTab), in a tab at the teaching card's top right corner.
-test('the five topics list only the eleven core talks, in teaching order; "More talks" lists the other twenty-seven', () => {
+test('the five topics list only the eleven core talks, in teaching order; "More talks" lists the other twenty-eight', () => {
   const CORE = ['circulation', 'circuit', 'sites', 'hvpg', 'doppler', 'stiffness', 'varices', 'variceal-bleed', 'next-bleed', 'ascites', 'encephalopathy'];
   const main = TOPICS.filter(([k]) => k !== 'more').flatMap(([, , list]) => list.map(([id]) => id));
   assert.deepEqual([...main].sort(), [...CORE].sort());
   assert.equal(TOPICS.at(-1)[0], 'more');
   assert.equal(TOPICS.at(-1)[1], 'More talks');
-  assert.equal(TOPICS.at(-1)[2].length, 27);
-  assert.equal(DECKS.length, 38);
+  assert.equal(TOPICS.at(-1)[2].length, 28);
+  assert.equal(DECKS.length, 39);
 });
 
 test('every presentation has a short deck name of 20 characters or fewer, distinct from the others', () => {

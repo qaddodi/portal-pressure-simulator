@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **New talk, "Same gradient, different patient" (`same-gradient`).** (14 Nov 2026, item 4 of the external-review opinion, approved by Mohammad.)
+  Four men with the same HVPG, 12.0 mmHg, tuned with the engine (the `cirrhosis` setting on a preset, with `relax: 365`; the numbers are in the deck's header comment): sinusoidal cirrhosis (PPG 13.8, portal flow 1.13 L/min), MASLD cirrhosis with resistance upstream of the wedge (PPG 15.2, 39% of the portal blood bypasses the liver), a high-inflow patient (portal flow 1.43 L/min through a less resistant liver) and a large splenorenal shunt (PPG 12.0, portal flow -0.54 L/min, liver flow 32%, encephalopathy index 0.83, with smaller varices and higher platelets). Seven slides, a ladders comparison and a summary table. Baveno VIII 2.5 and AASLD 2024 statements 3 to 6, checked against `guidelines/`. `tests/same-gradient.test.js` keeps the four HVPGs within 0.1 mmHg and the contrasts that make the talk (a later engine change that breaks either fails there). Registered under More talks (`decks.js`, `tests/menu.test.js` now counts 39 talks), three `caseQ`/`kind:flows` entries in `tests/deck-adopted.js`. No handout figures yet (`node scripts/handout-figures.mjs same-gradient` needs a browser run; `tests/handout.test.js` only warns).
+
 - **Acute variceal bleed talk: the coil-embolization of the left gastric (coronary) vein slide is gone.** (13 Nov 2026, Mohammad.)
   The `tipscoil` slide between the preemptive TIPS and the second patient is removed (the talk now runs TIPS, then "The first bleed is controlled"), with its handout figure, pill and adopted-feature entries. The algorithm slide still names Baveno VIII's "TIPS with or without embolization". The `tipscoil` and `tipscoilin` procedure kinds stay in `proc-anim.js` for a later slide; no deck uses them now.
 
