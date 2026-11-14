@@ -1,0 +1,1 @@
+function o(n){return+n>=4.95?Math.min(1,.7+(1-.7)*Math.max(0,n-5)/5):Math.min(1,Math.max(0,(n-2)/10))}function R(n,r){if(!Array.isArray(n)||!(n[0]>0)||!(r>0))return 1;let t=Math.min(r,n.length-1),M=Math.floor(t);return(n[M]+((n[M+1]??n[M])-n[M])*(t-M))/n[0]}function G(n,r){return r>=1||!(n>2)?1:Math.min(1,Math.max(0,(n*r-2)/(n-2)))}export{o as a,R as b,G as c};

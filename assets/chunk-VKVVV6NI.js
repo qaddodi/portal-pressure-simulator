@@ -1,0 +1,1 @@
+var t=await fetch(new URL("./glyph-metrics-bd0187e5d1.json",import.meta.url));if(!t.ok)throw new Error("glyph-metrics-bd0187e5d1.json: "+t.status);var{METRICS:o,STOPS:r,UPM:e}=await t.json();export{o as METRICS,r as STOPS,e as UPM};

@@ -1,0 +1,1 @@
+var n=new Set,i=s=>{let o=s.firstElementChild;if(o&&n.size)for(let f of n)f(o);s._glass?.dispose?.(),s._kW?.dispose?.(),s._bW?.dispose?.(),s._uW?.dispose?.();let t=s._spW;if(t)for(let f of t)f?.dispose?.()};function c(s){if(!s)return;i(s);let o=s._rows;if(o)for(let t of o)t&&i(t);s._calc&&i(s._calc)}export{n as a,c as b};

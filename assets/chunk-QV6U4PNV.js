@@ -1,0 +1,1 @@
+var s=typeof location<"u"&&/[?&]perf\b/.test(location.search||""),e=new Map;function c(n,t){let o=e.get(n);o||(o={n:0,last:""},e.set(n,o),s&&console.warn(`caught (${n}):`,t)),o.n++,o.last=t?.message??String(t)}var i=()=>Object.fromEntries([...e].map(([n,t])=>[n,{...t}]));typeof window<"u"&&(window.pps=window.pps||{},window.pps.caught=i);export{c as a,i as b};
