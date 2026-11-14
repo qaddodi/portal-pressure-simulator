@@ -75,7 +75,7 @@ export const WHERE = {
       ask: ['Why does the PPG miss the web?', 'The PPG subtracts the IVC pressure, which is measured below the web and is elevated as well.'],
     },
     {
-      id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
+      id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX, question: 'Which cases will neither gradient detect?',
       kicker: 'Telling them apart', title: 'Six ladders, six levels of resistance',
       line: 'From the portal vein to the right atrium, the largest pressure drop moves one level at a time.',
       notes: 'Read the ladders in order of level. Case 2: the pressure drop is at the thrombus, before the liver; case 5: in the portal venules. Both lie upstream of the wedged position, so only the PPG detects them, and portal vein Doppler distinguishes them, as the next slide shows. Cases 1 and 4: the drop lies inside the HVPG bracket, which the HVPG measures. Case 6: the drop lies between the IVC and the right atrium, which neither gradient includes. Case 3: there is no focal drop.',
@@ -103,13 +103,13 @@ export const WHERE = {
     {
       // (The relation chart before the summary: each case's portal pressure across and its HVPG up. The portal pressure is high in
       // all six; the HVPG only where the resistance lies in the sinusoids or just past them.)
-      id: 'relation', cam: 'fit', visual: 'plane',
+      id: 'relation', cam: 'fit', visual: 'plane', question: 'In which cases will the HVPG be raised?',
       plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
         y: { key: 'hvpg', min: 0, max: 20, ticks: [0, 5, 10, 20], name: 'HVPG, mmHg' },
         zones: [{ when: [['hvpg', '<', 5]], t: 'HVPG normal', tone: 'ok' }, { t: 'HVPG raised', tone: 'hvpg' }], cuts: { y: [5] }, key: 'never' },
       of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'a2', name: 'Portal vein thrombosis', short: 'PVT' }, { id: 'a5', name: 'Schistosomiasis', short: 'Schisto' },
         { id: 'a1', name: 'Cirrhosis' }, { id: 'a4', name: 'Sinusoidal obstruction', short: 'SOS' }, { id: 'a6', name: 'IVC web' }, { id: 'a3', name: 'Constrictive pericarditis', short: 'Pericarditis' }],
-      kicker: 'Summary', title: 'The portal pressure is raised in all six; the HVPG detects two',
+      kicker: 'Summary', title: 'Portal pressure against HVPG in all six cases',
       line: 'Every case plots to the right of the healthy liver. Only cirrhosis and sinusoidal obstruction syndrome reach an HVPG ≥5 mmHg: their resistance lies inside the HVPG bracket.',
       notes: 'Each case is a point: portal vein pressure on the x-axis, HVPG on the y-axis. All six have portal hypertension, but the HVPG measures only the pressure drop between the WHVP and the FHVP. Portal vein thrombosis and schistosomiasis lie upstream of the wedged position, and the IVC web and constrictive pericarditis downstream of the hepatic veins, so their HVPG stays normal. A normal HVPG with varices or a high portal pressure calls for the PPG, the IVC pressure and the right atrial pressure. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3. That portal vein thrombosis or schistosomiasis leaves the HVPG normal is the model\'s own result, from the site of the resistance.)',
       ask: ['A patient has varices and an HVPG of 3 mmHg. Does that rule out portal hypertension?', 'No. The resistance may be prehepatic or presinusoidal, in the IVC or cardiac: measure the PPG and the right atrial pressure.'],
