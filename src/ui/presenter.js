@@ -83,6 +83,7 @@ import { createCardZoom, tapTracker } from './card-zoom.js';
 import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
+import { trialBelow, trialUnder } from './tool-trial.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive, easeOut3 } from './ease.js';
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
@@ -1858,6 +1859,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     lg.ft.set(st?.trail ?? null, lgK, lg.spec);
   }
   function lgSet(k, trail) { lgLap = false; lgK = k; lg?.ft.set(trail, k, lg.spec); }
+  // ── The trial card under the teaching card's words (tool-trial.js trialBelow, trialUnder): made with the words, let go with them ──
+  let trialNow = null;
+  function trialDrop() { trialNow?.dispose(); trialNow = null; }
   // ── The procedure's graph on the teaching card (event-graph.js) ──
   // A slide that plays a TIPS, BRTO, BATO or a Meso-Rex bypass carries a graph of its two tiles over its steps, drawn live from the moment the
   // procedure changes the patient (Mohammad, 7 Nov 2026: the PPG and the sinusoidal flow "changing in real time after the TIPS gets placed").
@@ -3038,6 +3042,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     keepArgs = { s, st, i, fresh, lap, now };
     ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
     lgLap = lap;
+    if (keepNow.text) trialNow?.show(st);   // (kept words: the trial card's fit line follows the slide's patient)
     if (!keepNow.text) textIn(s, st, i);
     if (keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -3046,7 +3051,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i) {
     const { text, panel } = ui;
-    lgDrop(); evDrop();   // (the last slide's time graph is let go before the words are drawn again)
+    lgDrop(); evDrop(); trialDrop();   // (the last slide's time graph and trial card are let go before the words are drawn again)
     paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
@@ -3091,7 +3096,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
           s.lapse && i > 0 ? lapseGraph(s) : null,
           s.lapse && i > 0 ? lapseRow(s) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
-          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
+          s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null,
+          (trialNow = s.trial ? trialUnder(s.trial) : null)?.el]);
+      trialNow?.show(st);   // (drawn once it is in the card, at its width, so the card is fitted with it: tool-trial.js)
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
       lgStart(st); evStart(st);   // (the graph's chart is drawn once its box is in the card: its size is read from it)
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
@@ -6524,7 +6531,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     lastAt = -1;
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
-    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder).map(zoneCam);   // (the old ladder card's slides show the Gut to heart profile)
+    deck = d; slides = (d.mine ? d.slides : withOverview(d).slides).map(oneLadder).map(zoneCam).map(trialBelow);   // (the old ladder card's slides show the Gut to heart profile; a trial card stands under the words)
     shown = null; entering = null; shownState = -1; black = false; app.classList.remove('pz-blacked');
     closeHome?.();
     const st0 = store.get();
@@ -6600,7 +6607,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; plateApply(null); app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); trialDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; plateApply(null); app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

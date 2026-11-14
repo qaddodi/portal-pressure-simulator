@@ -1,6 +1,7 @@
 // Presenter talk: six landmark trials replayed. For each, a slide with the patient the trial enrolled, then the treatment arm run on the
 // model beside the control (the compare button goes back to the patient slide). The trial's own numbers are on the trial card
-// (tool: { kind: 'trial' }, src/ui/trials.js), never typed in a line.
+// (tool: { kind: 'trial' }, src/ui/trials.js), never typed in a line; on a slide it stands under the teaching card (tool-trial.js trialBelow).
+// After the last trial, the trials that reported a ratio on one scale (tool: { kind: 'forest' }, trial-forest.js), then the model's summary table.
 //
 // Trials, with the paper each statement rests on (the abstracts were read on 11 Nov 2026; guidelines/trials.md says where each number came from):
 // - PREDESCI: Villanueva C, et al. Lancet 2019 (AASLD 2024 reference list). Baveno VIII 3.15 (NSBBs, particularly carvedilol, in CSPH).
@@ -139,6 +140,13 @@ export const LANDMARK_TRIALS = {
       line: 'Without the stent, her ascites is {asc@covered} and recurs after every paracentesis. With the stent, the ascites falls to {asc}.',
       notes: 'In the model the stent lowers the portal pressure, so ascites stops accumulating; paracentesis drains the ascites but does not treat the cause, so it reaccumulates, which is the state shown on the LVP button. The model does not simulate survival, so it cannot replay the trial: the card gives 1-year transplant-free survival, 93% after a covered TIPS and 52% after LVP with albumin. Baveno VIII 6.3: patients with recurrent or refractory ascites should be considered for TIPS.',
       ask: ['Why does ascites reaccumulate after paracentesis but not after a TIPS?', 'Paracentesis drains the ascites and leaves the portal hypertension that caused it; a TIPS lowers the portal pressure.'],
+    },
+    {
+      id: 'forest', cam: 'fit', tool: { kind: 'forest', ids: ['predesci', 'lvtips', 'transfusion', 'rifaximin'], highlight: [] },
+      kicker: 'Summary', title: 'The trials with a ratio, on one scale',
+      line: 'Each row is one trial: its ratio as a mark, its confidence interval as a line. A ratio <1 favors the treatment.', pill: false,
+      notes: 'Each row is one trial that reported a ratio: the mark is the ratio, the line its confidence interval, and the upright line is a ratio of 1, no difference between the arms. A ratio below 1 favors the treatment; an interval that crosses 1 leaves the trial short of showing a difference. The rows are hazard ratios and odds ratios, each as its abstract reported it. They measure different things, so the chart shows each on its own row and never pools them into one number. A trial that reported no ratio is left out; its result is on its own trial card.',
+      ask: ['How do you read a ratio on this chart?', 'A ratio <1 favors the treatment and >1 favors the control; an interval that crosses 1 shows no clear difference.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'liver', 'shunt'], asc: false, vs: 'first', rowHead: 'Arm',

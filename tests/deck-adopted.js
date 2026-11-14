@@ -226,6 +226,7 @@ export const ADOPTED = {
   'landmark-trials/transfusion-arms': ['cite', 'kind:trial'],
   'landmark-trials/rifaximin-arms': ['cite', 'kind:trial'],
   'landmark-trials/covered-arms': ['cite', 'kind:trial'],
+  'landmark-trials/forest': ['kind:forest'],
   'day/strain': ['strain'],
   'day/meal': ['cite', 'kind:flowtime'],
   'tipping/injury-card': ['kind:criteria'],
