@@ -63,11 +63,14 @@ const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw)));
 const ticksOf = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, k) => +(lo + k * step).toPrecision(6));
 // A line's range as it is fitted: the values' own span with `pad` (a share of it) kept clear above and below, never under zero. A
 // line that does not move at all (a span of nothing) gets a small span around its value, so it sits mid-axis and not on a rule.
-const PAD = 0.08;
+// A line that barely moves is not stretched to the plot's height either (14 Nov 2026: an HVPG of 8.3 to 8.4 drew as a drop and a climb
+// on an axis from 7.5 to 8.75): the range keeps at least MIN_SPAN of the line's value, centred on what it did.
+const PAD = 0.08, MIN_SPAN = 0.15;
 function rangeOf(v, pad = PAD) {
   const lo0 = Math.min(...v), hi0 = Math.max(...v), span = hi0 - lo0;
   if (span < 1e-6 * (Math.abs(hi0) + 1)) { const h = Math.max(Math.abs(hi0) * 0.05, 0.5); return [Math.max(0, lo0 - h), hi0 + h]; }
-  return [Math.max(0, lo0 - span * pad), hi0 + span * pad];
+  const floor = MIN_SPAN * Math.max(Math.abs(lo0), Math.abs(hi0)), mid = (lo0 + hi0) / 2, wide = Math.max(span, floor);
+  return [Math.max(0, mid - wide / 2 - wide * pad), mid + wide / 2 + wide * pad];
 }
 // The nice step (and the first gridline under the range's start) that covers [a, b] in exactly n steps.
 function fitSteps(a, b, n) {
@@ -85,7 +88,14 @@ const fixedScale = ([lo, hi, step]) => scaleOf({ lo, step }, Math.round((hi - lo
  *  plot's whole height, and cut in the same number of steps so the gridlines are one set and both axes' numbers sit on them. A line
  *  with a scale given (LINE option scale) keeps it and the other is fitted to its step count; else the count (2 to 5) that wastes the
  *  least of either axis, four preferred. → [left scale, right scale], each { min, max, ticks }. */
-export function pairScales(vl, vu, optL = {}, optU = {}) {
+export function pairScales(vl, vu, optL = {}, optU = {}, same = false) {
+  if (same && !optL.scale && !optU.scale) {   // (two readings in one unit share one axis: a mmHg is the same height on both lines, so they cannot be read against each other falsely)
+    const [a, b] = rangeOf([...vl, ...vu], Math.min(optL.pad ?? PAD, optU.pad ?? PAD));
+    let best = null;
+    for (const n of [4, 3, 5, 2]) { const F = fitSteps(a, b, n), waste = n * F.step / (b - a); if (!best || waste < best.waste - 1e-9) best = { n, F, waste }; }
+    const one = scaleOf(best.F, best.n);
+    return [one, one];
+  }
   if (optL.scale && optU.scale) return [fixedScale(optL.scale), fixedScale(optU.scale)];   // (both given, in the same number of steps: a slide's own honest scales)
   if (optL.scale) { const L = fixedScale(optL.scale), n = L.ticks.length - 1, [a, b] = rangeOf(vu, optU.pad); return [L, scaleOf(fitSteps(a, b, n), n)]; }
   if (optU.scale) { const U = fixedScale(optU.scale), n = U.ticks.length - 1, [a, b] = rangeOf(vl, optL.pad); return [scaleOf(fitSteps(a, b, n), n), U]; }
@@ -128,7 +138,7 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   const calm = (a, j) => (clock !== 'days' || !(view?.smooth > 0) || opt(lines[j]).given ? a : smoothed(a, view.smooth, lead));
   const pv = calm(col0(0), 0), flow = calm(col0(1), 1);
   const o = (j) => (view?.scales?.[lines[j]] ? { ...opt(lines[j]), scale: view.scales[lines[j]] } : opt(lines[j]));
-  const [pScale, fScale] = pairScales(pv, flow, o(0), o(1));
+  const [pScale, fScale] = pairScales(pv, flow, o(0), o(1), !opt(lines[0]).given && !opt(lines[1]).given && LINE[lines[0]]?.[1] === LINE[lines[1]]?.[1]);
   return { min, pv, flow, pScale, fScale, ax };
 }
 // Each value from index `from` on, the mean of the values within h days of it (the window shortened toward either end so it stays centred,

@@ -1220,6 +1220,7 @@
  ],
  "two-lesions/clot": [
   "{ppg}",
+  "{ppg@base}",
   "{hvpg}"
  ],
  "two-lesions/varices": [

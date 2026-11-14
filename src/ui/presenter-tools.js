@@ -175,7 +175,7 @@ export function createTools({ host, stage }) {
       cur = inst; kind = k;
       box.dataset.kind = k === 'evgraph' ? 'flowtime' : k;   // (the procedure's graph is the flow-time chart's box and looks: its card sizes and fits as that one does)
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view ? { scales: t.view.scales, smooth: t.view.smooth, before } : null });
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view || before ? { scales: t.view?.scales, smooth: t.view?.smooth, before } : null });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
       if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },
