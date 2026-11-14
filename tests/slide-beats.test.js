@@ -72,10 +72,10 @@ test('the presenter pushes while the days run, finishes with Next, and opens on 
 
 test('Next goes through a slide\'s beats before the next slide, Back the other way; a slide opened any other way shows its last', () => {
   const nx = fn(PZ, 'const next = () => {');
-  assert.ok(nx.indexOf('skipLapse()') < nx.indexOf('procNext()') && nx.indexOf('procNext()') < nx.indexOf('toBeat(beat + 1)') && nx.indexOf('toBeat(beat + 1)') < nx.indexOf('go(want + 1)'),
+  assert.ok(nx.indexOf('skipLapse()') < nx.indexOf('procNext()') && nx.indexOf('procNext()') < nx.indexOf('toBeat(beat + 1)') && nx.indexOf('toBeat(beat + 1)') < nx.indexOf('go(hop(want, 1))'),
     'a case card, a time-lapse, a procedure step, then a beat, then the next slide');
-  assert.match(nx, /\{ firstBeat = true; go\(want \+ 1\); firstBeat = false; \}/, 'stepping on opens the first beat');
-  assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(want > 0\) go\(want - 1\); \};/, 'Back: the beat before, then the slide before (its last beat)');
+  assert.match(nx, /\{ firstBeat = true; go\(hop\(want, 1\)\); firstBeat = false; \}/, 'stepping on opens the first beat');
+  assert.match(PZ, /const prev = \(\) => \{ if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return; if \(beat > 0\) toBeat\(beat - 1\); else if \(hop\(want, -1\) != null\) go\(hop\(want, -1\)\); \};/, 'Back: the beat before, then the slide before (its last beat)');
   assert.match(fn(PZ, 'function go(i) {'), /beat = firstBeat \? 0 : lastBeat\(want\);/, 'a jump, Back, a reload or resume: the last beat');
   const tb = fn(PZ, 'function toBeat(k) {');
   assert.match(tb, /if \(zoomOn\(\)\) \{ (?:const d0 = deck, t0 = txn; )?ui\.zoom\.close\(\)\.then\(/, 'a zoomed card glides back first, as for a slide');
@@ -93,7 +93,7 @@ test('a beat moves only the figure: call-outs out, the camera, call-outs in; the
   for (const no of ['wordsIn(', 'cardsIn(', 'morphTo(', 'applyState(', 'keepFor(', 'dataTo(']) assert.ok(!bm.includes(no), `no ${no}`);
   assert.match(PZ, /if \(shownBeat !== beat\) return; {3}\/\/ \(a beat still on its way\)/, 'no flip while a beat moves');
   const chrome = fn(PZ, 'function paintChrome() {');
-  assert.match(chrome, /more = !skip && beat < lastBeat\(i\), last = i === n - 1 && !skip && !more;/, 'Next stays on for the last slide\'s beats');
+  assert.match(chrome, /more = !skip && beat < lastBeat\(i\), last = hop\(i, 1\) == null && !skip && !more;/, 'Next stays on for the last slide\'s beats');
   assert.match(chrome, /`Next view, \$\{beat \+ 2\} of \$\{lastBeat\(i\) \+ 1\}`/);
 });
 

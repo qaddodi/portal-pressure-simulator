@@ -48,7 +48,7 @@ test('a dive into or out of the sinusoid stops when a newer one has begun', () =
 test('stopping a talk moves the slide generation on, so a move still in flight is cut', () => {
   const p = read('src/ui/presenter.js');
   const fn = p.slice(p.indexOf('function stopNow(restore = true)'), p.indexOf('function stopNow(restore = true)') + 900);
-  assert.match(fn, /deck = null; shown = null; entering = null; want = 0; gen\+\+;/);
+  assert.match(fn, /deck = null; keep = null; routeId = ''; shown = null; entering = null; want = 0; gen\+\+;/);
 });
 
 test('the figure is measured again when the window moves to a screen of another density', () => {
