@@ -51,7 +51,7 @@ export const MASLD = {
       cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PLANE, key: ['hvpg', 'ppg'],
       kicker: GAPS, site: 'sin', title: 'An HVPG ≥10 mmHg still carries the risk', cite: 'Baveno VIII 2.5',
       line: 'An HVPG of {hvpg} is {>=10 mmHg}, which carries a significantly higher risk of decompensation. A lower HVPG carries a lower risk, but not none.',
-      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can underestimate the gradient in MASLD, a measured value is a lower bound for the portal pressure gradient, so a value just <10 mmHg does not exclude CSPH. In milder cirrhosis the HVPG can be <10 mmHg while the PPG remains high. On the plane, a dot above the dashed line is a PPG higher than the HVPG, and a dot to the right of the HVPG 10 line is CSPH whatever the PPG.',
+      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can underestimate the gradient in MASLD, a value just <10 mmHg does not exclude CSPH. In milder cirrhosis the HVPG can be <10 mmHg while the PPG remains high. On the plane, a dot above the dashed line is a PPG higher than the HVPG, and a dot to the right of the HVPG 10 line is CSPH whatever the PPG.',
       ask: ['In MASLD cirrhosis with obesity the HVPG is 8 mmHg. Does that exclude an elevated portal pressure gradient?', 'No. The HVPG can underestimate the gradient, and the risk at an HVPG <10 mmHg is lower but still present.'],
     },
     {

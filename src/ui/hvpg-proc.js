@@ -37,7 +37,7 @@ const STEPS = [
   ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
   ['free', 'Free pressure (FHVP)', 'With the balloon deflated, the tip records the hepatic venous outflow pressure.', 'Free'],
   ['wedge', 'Wedged pressure (WHVP)', 'The balloon is inflated just proximal to the tip and occludes the vein. Once the pressure is stable, the static column beyond it reflects the sinusoidal pressure.', 'Wedged'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 mmHg is clinically significant portal hypertension.', 'HVPG'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal ≤5 mmHg; ≥10 mmHg is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is the one monitor (monitor.js), dark in both themes; its colours are the figure's rings' too.
 const sevOf = hvpgSev;

@@ -49,7 +49,7 @@ test('About the model lists its cut-offs the way the tiles and decks write them,
     assert.doesNotMatch(c, / %/, `no space before a percent: ${c}`);
     assert.doesNotMatch(c, /\d–\d/, `a range says "to": ${c}`);
   }
-  for (const c of ['5 to 9.9 (subclinical)', '6 to 11.9', '10.1 to 14.9', '13.1 to 16 cm']) assert.ok(cells.includes(c), c);
+  for (const c of ['5.1 to 9.9 (subclinical)', '6 to 11.9', '10.1 to 14.9', '13.1 to 16 cm']) assert.ok(cells.includes(c), c);
 });
 
 test('a toggle row in a menu is a plain row with a switch, not a card with a ring', () => {

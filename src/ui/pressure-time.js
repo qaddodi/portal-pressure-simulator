@@ -56,7 +56,7 @@ const JUMP_S = 0.5;   // (a first sample this far ahead of the last one recorded
 const LIMITS = [[HVPG_CUTS.amber, ''], [HVPG_CUTS.red, `${HVPG_WORDS.danger[0]} ${HVPG_CUTS.red}`], [HVPG_CUTS.bleed, `${BLEED_WORD} ${HVPG_CUTS.bleed}`]];
 const sevOf = hvpgSev;
 const BLEED_BAND = `${HVPG_WORDS.danger[0]} · ${BLEED_WORD.toLowerCase()}`;
-const wordOf = (v) => (v < HVPG_CUTS.amber ? HVPG_WORDS.ok[0] : v < HVPG_CUTS.red ? HVPG_WORDS.caution[0] : v < HVPG_CUTS.bleed ? HVPG_WORDS.danger[0] : BLEED_BAND);
+const wordOf = (v) => (v >= HVPG_CUTS.bleed ? BLEED_BAND : HVPG_WORDS[sevOf(v)][0]);
 const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = Math.pow(10, Math.floor(Math.log10(raw))); const r = raw / p; return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p; };
 
 // Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,

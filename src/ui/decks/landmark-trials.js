@@ -97,7 +97,7 @@ export const LANDMARK_TRIALS = {
       compare: [{ label: 'No blood yet', short: 'None', slide: 'transfusion' }, { label: 'Restrictive: one unit', short: 'Restrictive', own: true }],
       kicker: 'Acute bleeding', site: 'sin', title: 'One unit of packed red cells raises the MAP and the portal pressure together',
       line: 'In the same man, one unit of packed red cells raises his blood pressure from {map@transfusion} to {map}. His portal vein pressure rises from {pv@transfusion} to {pv}.',
-      notes: 'The restrictive arm transfuses only when the hemoglobin is low, and gives the minimum needed. One unit partly restores the MAP and raises the portal pressure, because it expands the intravascular volume. The model\'s hemoglobin does not fall with the bleed, so the trial\'s thresholds cannot be run on it; the units are only the volume of blood given.',
+      notes: 'The restrictive arm transfuses only when the hemoglobin is low, and gives the minimum needed. One unit partly restores the MAP and raises the portal pressure, because it expands the intravascular volume. The model\'s hemoglobin does not fall at the moment of the bleed; it falls over hours as plasma refills the circulation (the variceal bleeding talk shows it). The model does not transfuse to a hemoglobin threshold, so the trial\'s two strategies cannot be replayed on it: here the units are only the volume of blood given.',
       ask: ['Why does transfusing red cells raise the portal pressure?', 'Transfusion expands the intravascular volume, so portal venous pressure rises while intrahepatic resistance is unchanged.'],
     },
     {

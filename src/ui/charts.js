@@ -393,7 +393,7 @@ export function createProfile() {
       const a = STRIP.indexOf(d.hi), b = STRIP.indexOf(d.lo);
       if (a < 0 || b < 0) continue;
       const v = gapOf(d, m, reading(d.hi, PM), reading(d.lo, PM));
-      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const sv = d.sev(v), col = sv === 'danger' ? c.danger : sv === 'caution' ? c.caution : c.muted;
       const yy = d.k === 'HVPG' ? sRows.hvpg : sRows.ppg, bx0 = sCx[a], bx1 = sCx[b], name = DIM_NAME.get(d.k), num = fmt(v, 1);
       ctx.font = FONT(600, 12); const w1 = ctx.measureText(name).width; ctx.font = FONT(700, 12.5); const w2 = ctx.measureText(num).width;
       const lw = w1 + w2, inl = bx1 - bx0 - lw - 16 >= 8, lx = inl ? (bx0 + bx1) / 2 - lw / 2 : bx1 + 8;
@@ -670,7 +670,7 @@ export function createProfile() {
       if (a < 0 || b < 0 || (d.hide && hid?.has(d.hide))) { it.on = false; continue; }
       const m = F.metrics || NO_METRICS;
       const v = gapOf(d, m, now[a], now[b]);
-      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const sv = d.sev(v), col = sv === 'danger' ? c.danger : sv === 'caution' ? c.caution : c.muted;
       const txt = DIM_NAME.get(d.k), num = fmt(v, 1);
       ctx.font = FONT(600, 12); const tw1 = ctx.measureText(txt).width;
       ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;

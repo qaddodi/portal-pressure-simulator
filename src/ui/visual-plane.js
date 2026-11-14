@@ -101,10 +101,10 @@ export const PLANES = {
     x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
     y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
-      { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
-      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG ≥${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG ≥${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<=', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG ≤${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<=', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
+      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG >${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG >${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
     cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)

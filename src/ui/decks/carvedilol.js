@@ -39,9 +39,9 @@ export const CARVEDILOL = {
   summary: 'Carvedilol through every stage: why not before CSPH, when it starts, who can forgo screening endoscopy, when it is reduced or held and restarted, EVL after a bleed, a TIPS, and the HVPG that lets it stop.',
   slides: [
     {
-      id: 'first', preset: 'cirr-comp', cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
+      id: 'first', preset: 'cirr-comp', cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path', patient: { bmi: false, ant: false } }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       vignette: 'A 54-year-old woman with MASH cirrhosis, a BMI of 27 and type 2 diabetes. She feels well. Her platelets are 160,000/µL.',
-      kicker: 'First visit', site: 'sin', title: 'At an LSM of 12 kPa there is no CSPH to treat',
+      kicker: 'First visit', site: 'sin', title: 'An LSM of 12 kPa with normal platelets: no CSPH to treat',
       line: 'Her liver stiffness (LSM) is {lsm} and her platelet count {plt}, ruling out CSPH. Carvedilol does not prevent decompensation without CSPH, so LSM is repeated in a year.',
       notes: 'Source: Baveno VIII 1.15, 3.16. An LSM ≤15 kPa with platelets ≥150,000/µL rules out CSPH, and patients with compensated cirrhosis without CSPH should not take a nonselective beta-blocker (NSBB) to prevent decompensation. She has cirrhosis, so the cause is treated: weight loss, glycemic control and ultrasound every 6 months for HCC surveillance. The chart shows the first visit as Baveno VIII draws it, lit for her own LSM and platelet count.',
       ask: ['A woman with compensated cirrhosis has an LSM of 12 kPa and platelets of 160,000/µL. Does she need carvedilol?', 'No. CSPH is ruled out, and an NSBB does not prevent decompensation without CSPH. Repeat LSM in 12 months.'],
@@ -54,7 +54,7 @@ export const CARVEDILOL = {
       ask: ['Her LSM was 12 kPa two years ago and is now 26 kPa. What changed?', 'CSPH is now ruled in (LSM ≥25 kPa in non-obese MASLD), so carvedilol starts.'],
     },
     {
-      id: 'rise-path', cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'first',
+      id: 'rise-path', cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path', patient: { bmi: false, ant: false } }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'first',
       kicker: 'First visit', site: 'sin', title: 'On the first-visit path, this LSM leads to carvedilol',
       line: 'On the first-visit path, an LSM of {lsm} rules in CSPH and leads to carvedilol.',
       notes: 'Source: Baveno VIII 1.16. The same woman as on the previous slide, two years later. The first-visit path starts from her LSM and platelet count: in non-obese MASLD an LSM ≥25 kPa rules in CSPH without HVPG measurement, and carvedilol starts.',
@@ -98,7 +98,7 @@ export const CARVEDILOL = {
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, hrs: false } },
       kicker: 'Hypotension', site: 'sin', title: 'Hypotension holds carvedilol for now',
       line: 'A large bleed lowers her blood pressure to {map}. Systolic {<90 mmHg}, MAP {<65 mmHg} or HRS-AKI means carvedilol is reduced or stopped.',
-      notes: 'Source: Baveno VIII 4.6; AASLD 2024. Carvedilol is dose-reduced or stopped for persistent hypotension (systolic blood pressure <90 mmHg or MAP <65 mmHg) and/or HRS-AKI. Any one of the three is enough. Hemorrhage is one cause; infection and overdiuresis are others. The chart reads her blood pressure from the model; the model does not simulate HRS-AKI, so the chart takes its absence as a fact of the case. Carvedilol is still on in the model on this slide, which is the state that triggers the rule.',
+      notes: 'Source: Baveno VIII 4.6; AASLD 2024. Carvedilol is dose-reduced or stopped for persistent hypotension (systolic blood pressure <90 mmHg or MAP <65 mmHg) and/or HRS-AKI. Any one of the three is enough. Hemorrhage is one cause; infection and overdiuresis are others. The chart reads her blood pressure from the model; the model does not simulate HRS-AKI, so it is a fact of the case: she has none. Carvedilol is still on in the model on this slide, which is the state that triggers the rule.',
       ask: ['She bleeds and her blood pressure falls to 78/56 (62) mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The systolic is <90 mmHg and the MAP is <65 mmHg.'],
     },
     {
@@ -127,7 +127,7 @@ export const CARVEDILOL = {
     {
       id: 'cure', preset: 'cirr-decomp', params: CARV, days: 730, ramp: { cirrhosis: [0.85, 0.45], albumin: [2.8, 3.9] }, lapse: { seconds: 9, from: 'Still drinking', to: 'Two years abstinent' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over two years' }, data: 'tiles', tiles: ['hvpg', 'asc'], key: ['hvpg'],
       vignette: 'A 49-year-old man with alcohol-associated cirrhosis, ascites and varices, on carvedilol. He stopped drinking two years ago. His ascites has resolved off diuretics, and his albumin is 3.9 g/dL.',
-      kicker: 'Stopping', site: 'sin', title: 'On carvedilol the HVPG understates the portal pressure',
+      kicker: 'Stopping', site: 'sin', title: 'An HVPG on carvedilol cannot show that CSPH has resolved',
       line: 'In another man, abstinent for two years, the HVPG is {hvpg} on carvedilol. Baveno VIII asks for the HVPG off the drug, so this reading cannot confirm resolution.',
       notes: 'Source: Baveno VIII 7.4, 7.16. He meets the recompensation criteria: the cause is removed, the ascites has resolved off diuretics, and his liver function is back to Child–Pugh A. CSPH resolution is confirmed by an HVPG <10 mmHg measured off carvedilol or another NSBB (7.16), because the drug itself lowers the HVPG. The model shows the HVPG on carvedilol here; the next slide stops the drug for a month.',
       ask: ['Why must the HVPG be measured off carvedilol to confirm that CSPH has resolved?', 'Carvedilol lowers the HVPG itself, so a reading on the drug could hide CSPH that is still there (Baveno VIII 7.16).'],

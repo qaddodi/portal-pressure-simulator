@@ -123,7 +123,7 @@ export const RATE = {
 // A reading that the bottom bar and Tests › Readouts show carries its long description too (long: their tiles' hover text and spoken name), so a reading is
 // defined once (unification audit, finding 6; moved from dock.js TILES, the words unchanged).
 export const TILE = {
-  hvpg: { t: 'HVPG', s: 'WHVP − FHVP', u: 'mmHg', better: -1, long: 'Hepatic venous pressure gradient: HVPG = WHVP − FHVP (wedged minus free hepatic venous pressure). Estimates the sinusoidal pressure gradient; normal <5 mmHg, CSPH ≥10 mmHg.' },
+  hvpg: { t: 'HVPG', s: 'WHVP − FHVP', u: 'mmHg', better: -1, long: 'Hepatic venous pressure gradient: HVPG = WHVP − FHVP (wedged minus free hepatic venous pressure). Estimates the sinusoidal pressure gradient; normal ≤5 mmHg, CSPH ≥10 mmHg.' },
   ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1, long: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure (portal confluence minus suprahepatic IVC), read directly from the model network. Unlike the HVPG, it includes presinusoidal and prehepatic resistance. Normal <6 mmHg, high ≥12 mmHg.' },
   eus: { t: 'EUS-PPG', s: 'Portal − hepatic vein', u: 'mmHg', better: -1 },
   pv: { t: 'Portal vein pressure', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1, long: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤10 mmHg.' },

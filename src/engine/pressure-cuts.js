@@ -7,9 +7,13 @@
 // again. No imports, so the worker loads it too. The bands' words, the ratings' maps and the missing-number glyph live here as well
 // (below; tests/rating-vocabulary.test.js and scripts/source-shapes/vocab.mjs keep a second copy out).
 //
+// HVPG portal hypertension is a gradient ABOVE 5 mmHg (Baveno VIII: normal 1 to 5), so 5.0 itself is normal and amber starts past it
+// (`over: true`); CSPH is 10 or more. The PPG has no guideline line of its own and keeps amber from 6. Every reading reaching these is
+// already at one decimal (the difference of the two readings as shown), so the colour and the printed number never disagree.
+//
 // `bleed` is not a guideline cut-off: HVPG 12 is where this model's varices start to rupture (a calibration, src/version.js), drawn
 // as a faint line and named "Bleed risk" on the Over time chart, never as a colour change of its own.
-export const HVPG_CUTS = Object.freeze({ amber: 5, red: 10, bleed: 12 });
+export const HVPG_CUTS = Object.freeze({ amber: 5, red: 10, bleed: 12, over: true });
 export const PPG_CUTS = Object.freeze({ amber: 6, red: 12 });
 // HVPG at which a preemptive TIPS is offered after a controlled variceal bleed, whatever the Child–Pugh score (Baveno VIII 5.31): a treatment
 // criterion, not a colour. Read by the guideline path card (path-data.js).
@@ -23,7 +27,9 @@ export const HV_BLOCKED = 0.8;
 export const hvBlocked = (params) => (params?.thrombus?.RHV_IVC || 0) >= HV_BLOCKED;
 
 /** A gradient's status as the colour tokens name it: 'ok' (green), 'caution' (amber), 'danger' (red). */
-export const sevOfCuts = (cuts, v) => (v >= cuts.red ? 'danger' : v >= cuts.amber ? 'caution' : 'ok');
+/** Past the amber line: above it for a cut-off written "over" (HVPG >5), at or above it otherwise (PPG ≥6). */
+export const pastAmber = (cuts, v) => (cuts.over ? v > cuts.amber : v >= cuts.amber);
+export const sevOfCuts = (cuts, v) => (v >= cuts.red ? 'danger' : pastAmber(cuts, v) ? 'caution' : 'ok');
 export const hvpgSev = (v) => sevOfCuts(HVPG_CUTS, v);
 export const ppgSev = (v) => sevOfCuts(PPG_CUTS, v);
 
