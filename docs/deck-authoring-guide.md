@@ -718,6 +718,7 @@ Patch only what you need: `params: { drugs: { carvedilol: true } }`.
 | `rupture` | `site?` (`'VAR'` default), `tear?` (0–1, default 0.6) | a varix tears and bleeds |
 | `stopBleed` | none | bleeding stops (clot) |
 | `valsalva` | `sec?` (default 10) | a Valsalva strain |
+| `retain` | `mL` (negative gives it up) | salt and water kept or given up: the patient's own volume, which the tissues do not refill away (what a preset's `volume` does when it loads). Adds the volume to a patient already on screen, so a lesion that needs it (the Two lesions talk's constriction, with `params: { pericardial: 0.9 }` and 1,150 mL) can be added to, and taken off, one patient; the same negative amount with the lesion switched off returns the patient |
 
 ### 8.4 Stations (node ids for `labels`, `terms`, `[word](ID)`, and catheter/circuit work)
 

@@ -53,6 +53,6 @@ test('the retain action keeps and gives up salt and water: the right atrium rise
 test('every line of the talk stays short', () => {
   for (const s of deck.slides) {
     const n = (s.line || '').replace(/\{[^}]*\}/g, 'x').split(/\s+/).filter(Boolean).length;
-    assert.ok(n <= 34, `${s.id}: ${n} words`);
+    assert.ok(n <= 30, `${s.id}: ${n} words`);
   }
 });
