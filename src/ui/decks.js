@@ -118,7 +118,6 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { responseButtons } from './nsbb-response.js';
-import { routeChoices } from './deck-routes.js';
 import { CIRCULATION } from './decks/circulation.js';
 import { SITES } from './decks/sites.js';
 import { HVPG } from './decks/hvpg.js';
@@ -183,31 +182,24 @@ export const LEVELS = { foundation: 'Foundation', core: 'Core', advanced: 'Advan
 // The opening slide of every deck: the outline (its kicker groups, in order, Summary aside) and its objectives,
 // over the first slide's patient, which the first slide then keeps (so the figure does not change between them).
 const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
-export function withOverview(d, route = null) {
+export function withOverview(d) {
   if (!d?.slides?.length || d.slides[0].visual === 'outline') return d;
   const [first, ...rest] = d.slides, keep = !first.lapse && !first.ramp;
   // The talk's sections: its own (sections: [[name, [kickers or slide ids]]], ids for a talk under one kicker), else its
   // kicker groups when there are three to five; each slide then carries its place (sec: [n, of]) for the running head.
-  // Fewer groups: the slide titles. On a route (deck-routes.js) the outline names only the sections it passes through, and the
-  // objectives and quick-check questions are the ones it covers.
-  const used = route ? d.slides.filter((s) => route.slides.includes(s.id)) : d.slides;
-  const groups = [...new Set(used.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
-  const secs0 = d.sections || (groups.length >= 3 && groups.length <= 5 ? groups.map((g) => [g, [g]]) : null);
-  const secs = route && secs0 ? secs0.filter(([, ks]) => used.some((s) => ks.includes(s.kicker) || (s.id && ks.includes(s.id)))) : secs0;
-  const outline = secs ? secs.map(([n]) => n) : used.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
-  const pick = (all, at) => (at ? at.map((k) => all?.[k]).filter(Boolean) : all || []);
+  // Fewer groups: the slide titles.
+  const groups = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
+  const secs = d.sections || (groups.length >= 3 && groups.length <= 5 ? groups.map((g) => [g, [g]]) : null);
+  const outline = secs ? secs.map(([n]) => n) : d.slides.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
   const withResponse = (s) => (s.response && !s.compare ? { ...s, compare: responseButtons(s) } : s);   // (the beta-blocker response control: nsbb-response.js)
-  const place = (s0) => { const s = withResponse(route?.over?.[s0.id] ? { ...s0, ...route.over[s0.id] } : s0); const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
-  const routes = routeChoices(d);
-  const open = { id: 'outline', visual: 'outline', outline, objectives: pick(d.objectives, route?.goals), kicker: d.title, title: 'Outline and objectives',
+  const place = (s0) => { const s = withResponse(s0); const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
+  const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'The outline of the talk and its learning objectives.',
-    ...(routes ? { routes, route: route?.id || '' } : {}),
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
   // A first slide that opens with a case keeps its patient too, so it loads that patient afresh behind the case card.
   const firstNow = keep && !first.vignette ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
   // The closing quick check (checks: [[question, answer]]): over the last slide's patient, which it keeps.
-  const checks = pick(d.checks, route?.checks);
-  const check = checks.length ? [{ id: 'check', visual: 'check', checks, kicker: 'Quick check', title: 'Check what you remember',
+  const check = d.checks?.length ? [{ id: 'check', visual: 'check', checks: d.checks, kicker: 'Quick check', title: 'Check what you remember',
     line: 'Answer each question in your head, then tap it to see the answer.' }] : [];
   return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }

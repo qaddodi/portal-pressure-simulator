@@ -7,7 +7,6 @@ Add `?embed` to any deep link. It is the same app with no top bar, no first-run 
 |---|---|
 | One patient | `https://qaddodi.github.io/portal-pressure-simulator/?embed&preset=cirr-decomp` |
 | One presentation | `https://qaddodi.github.io/portal-pressure-simulator/?embed&script=hvpg` |
-| A short route through a long deck | `https://qaddodi.github.io/portal-pressure-simulator/?embed&script=ascites&route=treat` |
 | A presentation from slide 5 | `https://qaddodi.github.io/portal-pressure-simulator/?embed&script=hvpg&slide=5` |
 
 Patient ids are the `id` values in `src/engine/scenario.js` (`PRESETS`); presentation ids are the `id` values in `src/ui/decks/*.js`.

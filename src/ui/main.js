@@ -452,7 +452,7 @@ async function main() {
   // The default patient starts without loadPreset, so record what it came with: Treat > Changes then lists its
   // settings under About this patient, not as changes nobody made, and Clear all keeps them (review #18).
   if (!shared && !store.get().presetParams) store.set({ presetParams: { id: store.get().presetId, params: structuredClone(store.get().params) } });
-  if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide', 'route']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
+  if (back) { const u = new URL(location.href); for (const k of ['back', 'script', 'slide']) u.searchParams.delete(k); u.hash = ''; history.replaceState(null, '', u.pathname + u.search); }   // (a later plain reload starts fresh)
   // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
   store.set({ booted: true });
   // B6: a share link pasted into this open tab (the address changes, the page does not reload) is applied as at start.
@@ -510,12 +510,12 @@ async function main() {
   const warmUnder = () => { if (!booting()) return; while (warmUp.length) holdCover(Promise.resolve().then(warmUp.shift()).catch(() => {})); };
   if (window.ppsFigureReady) warmUnder(); else addEventListener('pps:figure-ready', warmUnder, { once: true });
 }
-// Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>, &route=<route id>, deck-routes.js), ?preset=<id>,
+// Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
   // (data-pz-opening: the deck is on its way; the corner credit waits for it rather than settle on the plain figure first.)
-  if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1), { route: q.get('route') }).catch(() => {}).finally(() => delete de.dataset.pzOpening); return true; }
+  if (q.get('script')) { const de = document.documentElement; de.dataset.pzOpening = ''; presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)).catch(() => {}).finally(() => delete de.dataset.pzOpening); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
@@ -727,9 +727,9 @@ async function loadShared(s, { quiet = false } = {}) {
 // "back" tells the next load to land there quietly: no case card, no "shared scenario" toast.
 function resumeUrl() {
   const u = new URL(location.href), pos = presenter.position();
-  for (const k of ['script', 'slide', 'route', 'preset', 'home']) u.searchParams.delete(k);
+  for (const k of ['script', 'slide', 'preset', 'home']) u.searchParams.delete(k);
   u.searchParams.set('back', '1');
-  if (pos) { u.searchParams.set('script', pos.id); u.searchParams.set('slide', String(pos.at + 1)); if (pos.route) u.searchParams.set('route', pos.route); u.hash = ''; }
+  if (pos) { u.searchParams.set('script', pos.id); u.searchParams.set('slide', String(pos.at + 1)); u.hash = ''; }
   else { const st = store.get(); u.hash = `#s=${encodeShare({ sel: st.selection || undefined, cam: st.lobule ? undefined : stage.cameraState() })}`; }
   return u.href;
 }
