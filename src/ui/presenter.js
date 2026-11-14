@@ -106,6 +106,7 @@ import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
 import { procNavPlan } from './proc-nav.js';
 import { VIEW_CHANGE_MS } from './view-xf.js';
+import { chartBefore } from './chart-start.js';
 const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
 // Looked at by frame (a hidden tab, which runs none, by a slow poll and the timer), no longer by a 40 ms timer that made every wait about 20 ms late.
@@ -3159,10 +3160,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     holdAnswer(!s.visual && (!!s.hold || holdEase), true);
   }
   // (A days chart that starts from an earlier slide's state, tool.view.since: that state's readings of the chart's two lines, for its first day.)
-  const viewBefore = (t, i) => {
-    const j = t.view?.since ? slides.findIndex((x, k) => k <= i && x.id === t.view.since) : -1, fp = j >= 0 ? states[stateOf[j]]?.fp : null;
-    return fp ? Object.fromEntries(t.lines.map((k) => [k, fp[k]])) : null;
-  };
+  const viewBefore = (t, i) => chartBefore(slides, stateOf, states, i);   // (chart-start.js: the state before the change the slide makes at once, or the slide's own view.since)
   const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, before: viewBefore(s.tool, i), chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
 
   // ── Cards that stay between slides ──
