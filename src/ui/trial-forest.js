@@ -30,7 +30,8 @@ const SM = 0.92;   // (the quieter words: a step under the host's size, as the l
 
 const fin = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 /** A ratio as the card prints it: two decimals ("0.51"). */
-export const fmtRatio = (v) => v.toFixed(2);
+// (Two decimals, or three where the paper gave three (CAVARLY's 0.192–0.716): a reported bound is never rounded.)
+export const fmtRatio = (v) => v.toFixed(Math.max(2, Math.min(3, (String(v).split('.')[1] || '').length)));
 /** "HR 0.51 (0.26–0.97)". */
 export const ratioText = (r) => `${r.kind} ${fmtRatio(r.est)} (${fmtRatio(r.lo)}–${fmtRatio(r.hi)})`;
 const tickText = (v) => String(v);
@@ -167,18 +168,18 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
 }
 
 /** A trial's arms as bars on a 0 to 100% track (the trial card's, tool-trial.js): the treated arm in the series colour, the others muted, each
- *  with its name over it and its people at the right. { texts, rects, H }, in the trial card's looks (host 'trial'). */
+ *  with its name over it and its people at the right. { texts, rects, H }, in the forest's arm looks (forest.arm…, chart-looks/forest.js), drawn on host 'trial'. */
 export function armsLayout(t, W, f, meas) {
   const texts = [], rects = [], bh = Math.round(f * 1.7), pad = f * 0.5, gap = f * 0.6;
   let y = 0;
   for (const a of t?.arms || []) {
-    texts.push({ x: 0, y: y + f, t: a.label, look: 'trial.arm', anchor: 'start' });
-    if (a.n) texts.push({ x: W, y: y + f, t: `n = ${a.n}`, look: 'trial.n', anchor: 'end' });
+    texts.push({ x: 0, y: y + f, t: a.label, look: 'forest.arm', anchor: 'start' });
+    if (a.n) texts.push({ x: W, y: y + f, t: `n = ${a.n}`, look: 'forest.armn', anchor: 'end' });
     const by = y + f * 1.45, bw = Math.max(2, (W * Math.max(0, Math.min(100, a.rate))) / 100), pct = `${a.rate}%`, pw = meas(pct, `700 ${f}px Inter`);
-    rects.push({ x: 0, y: by, w: W, h: bh, r: bh / 2, look: 'trial.track' });
-    rects.push({ x: 0, y: by, w: bw, h: bh, r: bh / 2, look: 'trial.bar', tone: a.side === 'treat' ? 's1' : 'text-3' });
+    rects.push({ x: 0, y: by, w: W, h: bh, r: bh / 2, look: 'forest.track' });
+    rects.push({ x: 0, y: by, w: bw, h: bh, r: bh / 2, look: 'forest.bar', tone: a.side === 'treat' ? 's1' : 'text-3' });
     const inside = bw >= pw + 2 * pad + bh / 2;
-    texts.push({ x: inside ? bw - pad - bh / 4 : bw + pad, y: by + bh / 2 + f * 0.36, t: pct, look: 'trial.pct', anchor: inside ? 'end' : 'start' });
+    texts.push({ x: inside ? bw - pad - bh / 4 : bw + pad, y: by + bh / 2 + f * 0.36, t: pct, look: 'forest.pct', anchor: inside ? 'end' : 'start' });
     y = by + bh + gap;
   }
   return { texts, rects, H: Math.ceil(Math.max(0, y - gap) + f * 0.3) };

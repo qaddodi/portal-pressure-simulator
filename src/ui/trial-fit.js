@@ -19,7 +19,7 @@
 // 'unknown' when it could check none. 'unknown' is never shown as eligible.
 
 import { hvBlocked } from '../engine/pressure-cuts.js';
-import { varixGrade } from '../engine/metrics.js';
+import { varixGrade, ascitesGrade, VARIX_NONE_MM } from '../engine/metrics.js';
 
 export const NOT_IN_MODEL = 'Not in the model';
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
@@ -65,6 +65,18 @@ export function fitTrial(trial, metrics, params) {
     rows.push({ rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL });
   }
   return { verdict: failed ? 'no' : checked ? 'fits' : 'unknown', rows };
+}
+
+/** A slide's patient (its fingerprint, fingerprint.js: hvpg, varix and gv diameters in mm, asc in mL) in the shape fitTrial reads, so a deck's
+ *  card and the Tests card ask the same tests. A fact the fingerprint does not carry (bleeding now) stays out, and its row answers 'na'. */
+export function metricsOfFp(fp) {
+  if (!fp) return null;
+  const m = {};
+  if ('hvpg' in fp) m.hvpg = fp.hvpg;
+  if (Number.isFinite(fp.varix)) m.varix = { d: fp.varix, grade: varixGrade(fp.varix), present: fp.varix >= VARIX_NONE_MM };
+  if (Number.isFinite(fp.gv)) m.gastricVarix = { d: fp.gv, present: fp.gv >= VARIX_NONE_MM };
+  if (Number.isFinite(fp.asc)) m.ascites = { volume: fp.asc, grade: ascitesGrade(fp.asc).grade };
+  return m;
 }
 
 /** The rows that keep a patient out of the trial (state 'no'), for the "Not this patient" reason. */

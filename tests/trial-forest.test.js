@@ -114,11 +114,11 @@ test('pure: the same trials at the same size give the same drawing', () => {
 
 test('the arms are bars on a 0 to 100% track, the treated arm in the series colour, three arms when the trial had three', () => {
   const L = armsLayout(T.three, 400, 13, measure);
-  const bars = L.rects.filter((r) => r.look === 'trial.bar');
+  const bars = L.rects.filter((r) => r.look === 'forest.bar');
   assert.deepEqual(bars.map((b) => b.tone), ['s1', 'text-3', 'text-3']);
   assert.deepEqual(bars.map((b) => Math.round(b.w)), [80, 120, 100]);
-  assert.deepEqual(L.rects.filter((r) => r.look === 'trial.track').map((r) => r.w), [400, 400, 400]);
-  assert.deepEqual(L.texts.filter((s) => s.look === 'trial.pct').map((s) => s.t), ['20%', '30%', '25%']);
+  assert.deepEqual(L.rects.filter((r) => r.look === 'forest.track').map((r) => r.w), [400, 400, 400]);
+  assert.deepEqual(L.texts.filter((s) => s.look === 'forest.pct').map((s) => s.t), ['20%', '30%', '25%']);
   assert.equal(ratesText(T.predesci), '16% vs 27%');
 });
 
@@ -149,4 +149,10 @@ test('the Trials tab is the last of the Tests card, loaded after the first paint
   assert.doesNotMatch(pane, /requestAnimationFrame|frameFor\(/, 'no frame of its own');
   assert.match(pane, /function askBuild\(\) \{ if \(!ask\) ask = restPass\(build\); \}/, 'the card is built between frames');
   assert.match(read('src/worker-core.js'), /whatIf\(\{ patch, reqId \}\)/);
+});
+
+test('a ratio keeps the decimals the paper gave: two, or three (CAVARLY 0.192–0.716), never rounded', () => {
+  assert.equal(ratioText({ kind: 'HR', est: 0.5, lo: 0.25, hi: 0.98 }), 'HR 0.50 (0.25–0.98)');
+  assert.equal(ratioText({ kind: 'HR', est: 0.37, lo: 0.192, hi: 0.716 }), 'HR 0.37 (0.192–0.716)');
+  for (const t of Object.values(TRIALS)) for (const r of t.ratios ?? []) for (const v of [r.est, r.lo, r.hi]) assert.equal(Number(ratioText({ kind: 'HR', est: v, lo: v, hi: v }).split(' ')[1]), v, `${t.id}: ${v} shown as given`);
 });
