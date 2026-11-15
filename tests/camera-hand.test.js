@@ -198,7 +198,7 @@ function glideRig({ carry = true } = {}) {
   const tr = createGlideTracker();
   const vtTrack = carry ? tr : { take: () => null, begin() {}, sample() {} };
   const st = {
-    CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb: { w: 1000, h: 600, cx: 500, cy: 300 }, wMax: 1000 }), camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {},
+    CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb: { w: 1000, h: 600, cx: 500, cy: 300 }, wMax: 1000 }), screenW: () => VIEW.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {},
     glideXfStart() {}, glideXfStep() {}, logMove() {}, nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }),
     sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: {}, vbCenter: () => [500, 300], vtTrack,
   };

@@ -12,12 +12,12 @@ import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
-  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
+  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, screenW, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
   // (T4: the vessel paths as the figure draws them now, for a glide between neighbouring slides that follows one: cam-routes.js. Built when
   // such a glide is asked for, once a slide change, never in a frame.)
   const ptsOf = (id) => geo?.[id]?.cur || geo?.[id]?.A || null;
   const routeLines = () => Object.values(ROUTES).map((ids) => routeLine(ids, ptsOf));
-  let alongAsk = false;   // (frameBox asks for its glide to follow a vessel path: set only around its animateVT call)
+  let alongAsk = false, freeAsk = null;   // (frameBox asks for its glide to follow a vessel path: set only around its animateVT call)
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
   // asked.
@@ -43,7 +43,7 @@ export function createGlide(st, live) {
     const from = { ...live.vt };
     let t0 = performance.now();
     if (reduceMotion.matches) ms = reducedMs(ms, true);   // (reduced motion: a short glide, never a jump: REDUCED_MOVE_MS, the exception motion.js writes down)
-    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
+    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, screenW()));
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
       live.drifting = false;
@@ -55,7 +55,7 @@ export function createGlide(st, live) {
     // (opt.v0: the hand's own speed when it let go, a spring-back's: stage-gestures.js.)
     const v0 = opt.v0 || (!drift && live.vtGliding ? vtTrack.take(performance.now()) : null);
     vtTrack.begin();
-    const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
+    const room = opt.arc && !reduceMotion.matches ? arcRoom(freeAsk) : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && live.vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
       // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.
@@ -74,7 +74,7 @@ export function createGlide(st, live) {
     }
     let c0 = 0;
     if (v0 && (!live.arcRun || newArc) && !sameView(from, to)) {
-      c0 = springSlope(v0, from, to, VIEW.w, ms);
+      c0 = springSlope(v0, from, to, screenW(), ms);
       // (A new arc takes the old speed on too, along the straight line to its end: an arc leaves the old framing toward the same side, and
       // the cap keeps the carried term from running the progress past 1. A refit's blend reads an older arc by u alone, so the carried
       // arc finds its clock from u again.)
@@ -165,9 +165,9 @@ export function createGlide(st, live) {
     if (live.morphTarget !== 0 && live.morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, live.vtGliding ? live.vtTarget : live.vt)) return;
-    alongAsk = !!opt.along;   // (T4: read by the glide this asks for, at once)
+    alongAsk = !!opt.along; freeAsk = live.lastFree;   // (T4: read by the glide this asks for, at once; the rectangle this framing was fitted into)
     if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
-    alongAsk = false;
+    alongAsk = false; freeAsk = null;
   }
   function riseTo(box, kMax, clear) { live.riseBox = box ? { box, kMax, clear } : null; live.riseExp = performance.now() + 4000; }
   function riseVT() {
