@@ -50,9 +50,10 @@ export function vitalHeading(x, m) {
   return x.heading ? to : null;
 }
 
-/** The blood pressure as it is written at the bedside: systolic/diastolic (mean), "120/80 (93)"; the mean alone where the other two are unknown. */
+/** The blood pressure as it is written at the bedside: systolic/diastolic (mean), "120/80 (93)". Where the other two are unknown the mean is the
+ *  only number, and it is named as what it is, "MAP 93": a bare number under the name "blood pressure" would read as a systolic. */
 export function bpText(sbp, dbp, map) {
   if (!Number.isFinite(map)) return '—';
   const r = (v) => String(Math.round(v));
-  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(map)})` : r(map);
+  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(map)})` : `MAP ${r(map)}`;
 }

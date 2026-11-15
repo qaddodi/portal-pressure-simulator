@@ -1,7 +1,7 @@
 // The Presenter's visuals over the dimmed figure (scale, quadrant, walls) and its calculator worker, moved out of presenter.js (size budget).
 import { h, fmt, clamp } from './util.js';
 import { noteLoop } from './svg-gl.js';
-import { NO_ASC, TILE, atShown } from './table-marks.js';
+import { NO_ASC, TILE, atShown, numName } from './table-marks.js';
 import { SAAG_PORTAL, TP_HIGH } from '../engine/ascites-cuts.js';
 import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { restPass } from './rest-pass.js';
@@ -38,7 +38,7 @@ function scaleKey(sc, rows) {
   const rate = (r) => (GRAD ? GRAD(atShown(sc.key, r.f[sc.key])) : (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c);
   // A second reading or several under each patient (sub: a tile key or a list), pressures in whole mmHg.
   const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG', pv: 'Portal vein', sin: 'Sinusoids', ra: 'Right atrium', ivc: 'IVC' };
-  const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
+  const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || numName(k) || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
   const box = h('div', { class: 'pz-visual pz-sk', role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)} ${u}`).join(', ') },
     // (the names and the rules sit in columns as wide as their zones, so a long one wraps inside its zone, never into the next)
     h('div', { class: 'pzk-names', 'aria-hidden': 'true', style: cols }, zones.map((z) => h('span', { 'data-rate': z.c }, z.t))),

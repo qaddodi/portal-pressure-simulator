@@ -29,7 +29,7 @@
 
 import { h, fmt, clamp } from './util.js';
 import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS, BLEED_WORD } from '../engine/pressure-cuts.js';
-import { TILE, tileShown } from './table-marks.js';
+import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
 import { frameFor, easeNow } from './frame.js';
@@ -138,7 +138,7 @@ export function planeOf(p) {
   if (typeof p === 'string') return PLANES[p] || null;
   if (!p || typeof p !== 'object') return null;
   const b = PLANES[p.base] || PLANES[p.zones] || null;   // (zones: 'csph' as the plan writes it, with x and y keys of its own)
-  const ax = (a, d) => (typeof a === 'string' ? { ...(d?.key === a ? d : {}), key: a, name: d?.key === a ? d.name : TILE[a]?.t || a, min: d?.key === a ? d.min : 0, max: d?.key === a ? d.max : 30 } : { ...d, ...a });
+  const ax = (a, d) => (typeof a === 'string' ? { ...(d?.key === a ? d : {}), key: a, name: d?.key === a ? d.name : numName(a) || a, min: d?.key === a ? d.min : 0, max: d?.key === a ? d.max : 30 } : { ...d, ...a });
   const pl = { ...b, ...p, x: ax(p.x ?? b?.x, b?.x), y: ax(p.y ?? b?.y, b?.y) };
   if (!Array.isArray(pl.zones)) pl.zones = b?.zones || [];
   if (!pl.x?.key || !pl.y?.key || !(pl.x.max > (pl.x.min ?? 0)) || !(pl.y.max > (pl.y.min ?? 0))) return null;

@@ -1,11 +1,12 @@
 // A slide's words: lens keys, targets and clauses (moved out of the presenter)
 // (moved out of presenter.js, text unchanged; a name the rest still reads is exported.)
-import { fmt, h } from './util.js';
+import { h } from './util.js';
 import { camNames } from './cam-frame.js';
 import { NODE_POS } from './anatomy.js';
 import { DISEASE_SRC, diseasePieces } from './diseases.js';
-import { nb, plateletText } from './glue.js';
-import { TOKEN_OF_RATE, VALUE_PENDING } from '../engine/pressure-cuts.js';
+import { nb } from './glue.js';
+import { valueText } from './callout-math.js';
+import { TOKEN_OF_RATE } from '../engine/pressure-cuts.js';
 import { cleanEq } from './import-safety.js';
 import { TILE, cutText, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { dropCss, flowCss, gradientCss, heatCss, oxygenCss } from './colormap.js';
@@ -246,11 +247,7 @@ export const camOn = (on) => camNames(expandIds(on), { targets: TARGETS, organs:
 let fpAt = () => null;
 const atRe = /^(\w+)@([\w-]+)$/, wholeRe = /^(\w+):0$/;
 function liveVal(k, s, fp, whole = false) {
-  const T = TILE[k], v = fp?.[k];
-  if (v == null || !Number.isFinite(v)) return VALUE_PENDING;
-  const d = whole ? 0 : T.d ?? 1;   // ({hvpg:0}: a whole mmHg, as the ladder's brackets and pills read it)
-  if (k === 'plt') return plateletText(v);   // (in running text "88,000/µL"; the tile keeps ×10³/µL)
-  return `${fmt(v * (T.x || 1), d)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;   // ("75%": no space before the sign)
+  return valueText(k, fp, whole);   // ({hvpg:0}: a whole mmHg, as the ladder's brackets and pills read it; callout-math.js, the one formatter of a tile's value in words)
 }
 // A line, typeset (see above). Also: {pv} a live value, {>=10 mmHg} a cut-off (outlined), and a term that points
 // at the figure, [portal vein](pv) or through the slide's terms field, as a pill in its station's colour.

@@ -29,13 +29,15 @@ export function parseLive(label) {
   text(label.slice(at));
   return live ? runs : null;
 }
-/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one), or "…" (VALUE_PENDING) while it is unknown. */
-export function valueText(k, fp) {
+/** A reading as its tile prints it, in running text (to its tile's decimals: pressures to one; whole: a whole number), or "…" (VALUE_PENDING)
+ *  while it is unknown. The ONE formatter of a tile's value in words: a slide's {key}, the handout's lines and the callouts all read it, so the
+ *  blood pressure is never printed as its mean alone under the name "blood pressure" (a bare 93 is the MAP, vital-read.js bpText). */
+export function valueText(k, fp, whole = false) {
   const T = TILE[k], v = fp?.[k];
   if (!T || v == null || !Number.isFinite(v)) return VALUE_PENDING;
   if (k === 'plt') return plateletText(v);
   if (T.bp) return `${bpText(fp.sbp, fp.dbp, v)} ${T.u}`;   // (the blood pressure as the bedside writes it: 120/80 (93) mmHg)
-  return `${fmt(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
+  return `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
 }
 // A reading's rating colour, as its tile's bar shows it (and the line's pill: presenter valTone): green, amber or red; after TIPS
 // the PPG is read against its target. A reading its tile does not rate has none.

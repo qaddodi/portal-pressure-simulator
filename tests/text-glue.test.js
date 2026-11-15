@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { nb, listCase, plateletText } from '../src/ui/glue.js';
 import { presenterSource } from './split-src.js';
+import { valueText } from '../src/ui/callout-math.js';
 
 const NB = ' ';
 const SRC = presenterSource();
@@ -27,8 +28,8 @@ test('a list reads in sentence case after its first item, abbreviations and name
 test('running text writes a platelet count in full, the tiles keep thousands', () => {
   assert.equal(plateletText(88.4), '88,000/µL');
   assert.equal(plateletText(150), '150,000/µL');
-  assert.match(SRC, /if \(k === 'plt'\) return plateletText\(v\);/);
-  assert.match(SRC, /T\.u === '%' \? '%'/, 'no space before a percent sign');
+  assert.equal(valueText('plt', { plt: 88.4 }), '88,000/µL', 'a slide\'s {plt} (the one formatter of a tile value in words)');
+  assert.equal(valueText('shunt', { shunt: 0.25 }), '25%', 'no space before a percent sign');
 });
 
 test('the slide text glues units, the case card and the causes too', () => {

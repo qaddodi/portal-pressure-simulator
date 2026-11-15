@@ -67,7 +67,7 @@
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
-import { TILE, SCALE, RATE } from './table-marks.js';
+import { TILE, SCALE, RATE, numName } from './table-marks.js';
 import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { READING_COLOUR } from './reading-colours.js';
 import { frameFor } from './frame.js';
@@ -180,12 +180,12 @@ export const readingName = (t) => (typeof t?.reading === 'string' && t.reading ?
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
 export function lineMeta(k, j = 0) {
   const tl = TILE[k] || LINE_ONLY[k] || {};
-  return { k, name: (tl.t?.length <= 14 ? tl.t : tl.n || tl.t) || k, unit: tl.u || '', d: tl.d ?? 1, x: tl.x ?? 1, c: COLOR[k] || PLACE[j] || PLACE[0] };
+  return { k, name: (tl.bp ? tl.meanN : tl.t?.length <= 14 ? tl.t : tl.n || tl.t) || k, unit: tl.u || '', d: tl.d ?? 1, x: tl.x ?? 1, c: COLOR[k] || PLACE[j] || PLACE[0] };
 }
 /** The x axis's words, unit, decimals and scale. */
 export function axisMeta(t) {
   const xk = xKeyOf(t);
-  if (xk) { const m = lineMeta(xk); return { name: t.label || TILE[xk]?.t || m.name, unit: t.unit ?? m.unit, d: m.d, x: m.x, k: xk }; }
+  if (xk) { const m = lineMeta(xk); return { name: t.label || numName(xk) || m.name, unit: t.unit ?? m.unit, d: m.d, x: m.x, k: xk }; }
   const p = PARAM[t.param] || [];
   return { name: t.label || p[0] || pathOf(t.param).at(-1) || '', unit: t.unit ?? p[1] ?? '', d: p[2] ?? (curveXs(t).some((x) => x % 1) ? 1 : 0), x: p[3] ?? 1 };
 }

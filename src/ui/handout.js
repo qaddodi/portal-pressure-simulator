@@ -6,10 +6,9 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './download.js';
-import { fmt } from './num.js';
 import { LEVELS, withOverview } from './decks.js';
 import { TILE, cutText } from './table-marks.js';
-import { plateletText } from './glue.js';
+import { valueText } from './callout-math.js';
 import { citeText } from './teach-extras.js';
 import { cleanEq } from './import-safety.js';
 import { plainLine } from './reveal.js';
@@ -94,7 +93,7 @@ const fig = (base, d, s) => (base && !d.mine && s.id && !NO_FIGURE.has(s.visual)
 // at(id): another slide's. A value not known prints as a dash.
 export function lineText(t, fp = null, at = () => null) {
   // (to the slide's decimals, with a true minus and no "−0", num.js fmt)
-  const val = (k, f, whole = false) => { const T = TILE[k], v = f?.[k]; return v == null || !Number.isFinite(v) ? '—' : k === 'plt' ? plateletText(v) : `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`; };
+  const val = (k, f, whole = false) => (f?.[k] == null || !Number.isFinite(f[k]) ? '—' : valueText(k, f, whole));   // (callout-math.js: the one formatter of a tile's value in words)
   return String(t ?? '').replace(/\[([^\]]+)\]\([\w:]+\)/g, '$1').replace(/\{([^}]+)\}/g, (_, mk) => {
     if (/^#\d+$/.test(mk)) return `(${mk.slice(1)})`;   // (a figure's step marker, {#2}: its number in brackets, as a printed line says it)
     if (TILE[mk]) return val(mk, fp);

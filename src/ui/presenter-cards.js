@@ -102,7 +102,7 @@ export function wedgeColumn() {
   return svg;
 }
 // (The blood pressure tile prints systolic/diastolic (mean), 120/80 (93), from f's sbp and dbp: TILE.map.bp.)
-export const tileVal = (k, v, f = null) => (v == null ? '—' : tileOf(k)?.bp && f ? bpText(f.sbp, f.dbp, v) : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
+export const tileVal = (k, v, f = null) => (v == null ? '—' : tileOf(k)?.bp ? bpText(f?.sbp, f?.dbp, v) : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
 // The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure): the same function the worker builds a slide's
 // state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
 export const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });

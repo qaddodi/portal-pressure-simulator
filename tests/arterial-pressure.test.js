@@ -85,6 +85,6 @@ test('the blood the lungs and the ventricle hold is counted, and comes back in a
 
 test('the blood pressure is written systolic/diastolic (mean)', () => {
   assert.equal(bpText(119.6, 78.2, 92.4), '120/78 (92)');
-  assert.equal(bpText(NaN, NaN, 92.4), '92');
+  assert.equal(bpText(NaN, NaN, 92.4), 'MAP 92');
   assert.equal(bpText(1, 1, NaN), '—');
 });
