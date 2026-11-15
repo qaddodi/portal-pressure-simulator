@@ -75,6 +75,8 @@ export function calloutPore(pores, x, lo, hi, nsd) {
 export const SEED = { poreUp: 3, poreDn: 5, nucUp: 41, nucDn: 42, plateUp: 29, plateDn: 71 };
 export const UM = { lum: 5, endo: 0.8, disse: 3.4, hep: 20 };
 
+const CELL_BOX = new Int32Array(8);   // the cells pass's scissor boxes, written each draw
+
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
 uniform vec2 size;
@@ -535,6 +537,7 @@ import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompili
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { glOkAfter, glOkBefore } from './gl-state.js';
 import { caught } from './caught.js';
+import { cellBoxes } from './sinusoid-cell-box.js';
 
 // host (4 Nov 2026, Mohammad: "everything on one GPU context"): the figure's renderer's `top` ({ gl, canvas, screen, present, ... }, veins-gl.js). The view is then drawn
 // in that context into a texture of its own (host mode: `target`), which the stage lays over the figure in its present (sinusoid-view.js); no canvas context
@@ -724,7 +727,14 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
       gl.drawArrays(gl.POINTS, 0, n);
     }
-    tissue(u, 1);
+    // The cells' pass writes nothing outside two small boxes, so it is scissored to them (OG-2, sinusoid-cell-box.js): the same picture.
+    const nb = u.uF0 && u.uF1 ? cellBoxes(u, canvas.width, canvas.height, CELL_BOX) : -1;
+    if (nb < 0) tissue(u, 1);
+    else if (nb > 0) {
+      gl.enable(gl.SCISSOR_TEST);
+      for (let i = 0; i < nb; i++) { gl.scissor(CELL_BOX[i * 4], CELL_BOX[i * 4 + 1], CELL_BOX[i * 4 + 2], CELL_BOX[i * 4 + 3]); tissue(u, 1); }
+      gl.disable(gl.SCISSOR_TEST);
+    }
     gl.bindVertexArray(null);
     unbindT();
     presents++;

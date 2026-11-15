@@ -370,6 +370,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
   ]);
 
+  // The sinusoid view's cells pass is scissored to the cells' boxes (15 Nov 2026, app review OG-2): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/sinusoid-gl.js', [
+    [/const nb = u\.uF0 && u\.uF1 \? cellBoxes\(u, canvas\.width, canvas\.height, CELL_BOX\) : -1;/, "the cells' pass is drawn only inside the boxes the shader can colour (a draw with no camera still draws it whole)"],
+    [/gl\.scissor\(CELL_BOX\[i \* 4\][^\n]*tissue\(u, 1\); \}\n\s+gl\.disable\(gl\.SCISSOR_TEST\);/, "each box is its own scissored draw, and the test is switched off again for what is drawn after"],
+  ]);
+
   // The probe's waves reach the GPU pass as numbers (15 Nov 2026, app review SF-2): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/stage-scan.js', [
     [/toDom = !live\.labelGL\?\.setWaves \|\| !live\.labelGL\.wavesOn\(\)/, "the page's wave elements are written only where the labels' GPU pass is not drawing the probe (they are a mailbox it no longer reads)"],
