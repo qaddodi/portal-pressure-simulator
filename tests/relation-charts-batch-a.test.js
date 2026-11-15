@@ -54,10 +54,10 @@ test('every relation slide sits just before its summary, names slides that exist
   }
 });
 
-test('Treating the cause: both hepatitis C patients sit on the line; the first ends under 10 on both cut-offs, the second does not', async () => {
+test('Treating the cause: both hepatitis C patients sit on the line; the first ends under an HVPG of 10 but not yet under a stiffness of 10, the second ends on neither', async () => {
   const c = await chart(CAUSE_TREATED), [a0, a1, a2, b0, b1] = ['before', 'year1', 'year2', 'high', 'high2'].map(c.dot);
   for (const p of [a0, a1, a2, b0, b1]) near(p.f.hvpg, p.on[0], 0.4, `${p.x.toFixed(1)} kPa sits on the HVPG line`);
-  assert.ok(a0.f.hvpg > 10 && a2.f.hvpg < 10 && a2.f.lsm < 10, 'cure takes the first patient under an HVPG of 10 and a stiffness of 10 kPa');
+  assert.ok(a0.f.hvpg > 10 && a2.f.hvpg < 10 && a2.f.hvpg > 5 && a2.f.lsm >= 10, 'cure takes the first patient under an HVPG of 10, not to normal, with the stiffness still over 10 kPa (the HVPG falls slower than the stiffness)');
   assert.ok(b1.f.hvpg >= 10 && b1.f.lsm >= 10, `the second stays at ${b1.f.hvpg.toFixed(1)} mmHg and ${b1.f.lsm.toFixed(1)} kPa`);
   assert.ok(b0.f.hvpg > a0.f.hvpg + 2, 'she starts well above him');
   assert.ok(a0.x > a1.x && a1.x > a2.x && b0.x > b1.x, 'every walk goes down the line');

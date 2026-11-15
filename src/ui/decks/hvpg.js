@@ -72,9 +72,9 @@ export const HVPG = {
     {
       // (EUS-PPG, played step by step as the TIPS is on the shunts talk: proc-anim.js MEASURES.eus. A measurement, so the model does not
       // change; the callouts read the live left portal and left hepatic veins.)
-      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
-      kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG measures the portal vein pressure directly',
-      line: 'Back in the woman with schistosomiasis, an EUS-guided transgastric needle measures the portal and hepatic veins. The gradient is near the PPG of {ppg}; the HVPG is {hvpg}.',
+      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'eus'], key: ['eus'],
+      kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG measures the gradient from inside the portal vein',
+      line: 'Back in the woman with schistosomiasis, an EUS-guided transgastric needle measures the left portal and left hepatic veins. The EUS-PPG is {eus}; the HVPG is {hvpg}.',
       notes: 'Press Next to step through it: echoendoscope placement, the portal vein, the hepatic vein and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a 25-gauge needle is advanced into the left portal vein, then into the left hepatic vein, each measured with a compact manometer, and the EUS-PPG is the left portal vein pressure minus the left hepatic vein pressure, from one needle in one session. Because the portal vein itself is measured, the EUS-PPG captures the presinusoidal resistance the WHVP misses, here schistosomiasis, and porto-sinusoidal vascular disorder the same way. It needs no catheter, no radiation and no contrast, and varices can be treated or a liver biopsy obtained in the same session. It is interpreted against the HVPG cut-offs. In early series it agrees well with the HVPG in cirrhosis, but the EUS-PPG is not yet a guideline standard, and it is performed in expert centers under sedation, which can lower the measurements.',
       ask: ['Why can the EUS-PPG detect a pressure the HVPG misses?', 'It measures the portal vein itself, upstream of a presinusoidal resistance; the WHVP reflects only the sinusoids.'],
     },

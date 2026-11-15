@@ -93,7 +93,7 @@ export const CARVEDILOL = {
       ask: ['What blood pressure thresholds call for holding carvedilol?', 'A systolic blood pressure <90 mmHg or a MAP <65 mmHg (Baveno VIII 4.6).'],
     },
     {
-      // (No action of its own: the bleed is the last slide's. A second 1.3 L here took her mean to 15 mmHg, and the next slide's four units gave back only one.)
+      // (No action of its own: the bleed is the last slide's. A second 1.3 L here took her mean to 15 mmHg, and the next slide's two units gave back only part of it.)
       id: 'low', cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, hrs: false } },
       kicker: 'Hypotension', site: 'sin', title: 'Hypotension holds carvedilol for now',
@@ -102,11 +102,11 @@ export const CARVEDILOL = {
       ask: ['She bleeds and her blood pressure falls to 78/56 (62) mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The systolic is <90 mmHg and the MAP is <65 mmHg.'],
     },
     {
-      id: 'restart', action: [UNIT, UNIT, UNIT, UNIT], cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
+      id: 'restart', action: [UNIT, UNIT], cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: true, hrs: false } },
       kicker: 'Hypotension', site: 'sin', title: 'Carvedilol restarts once the blood pressure has recovered',
-      line: 'After transfusion her blood pressure is back to {map} and her renal perfusion pressure (RPP) to {rpp}. She has no HRS-AKI, so the algorithm says restart and re-titrate.',
-      notes: 'Source: Baveno VIII 4.7. Carvedilol is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered. A patient whose drug is held and who still has hypotension or HRS-AKI stays off it. The four units of packed red cells replace the 1.3 L lost on the previous slide, and the tiles compare with the prebleed state. The model keeps carvedilol on throughout, so these numbers show the pressure on the drug; the chart takes the held drug as the case\'s own facts.',
+      line: 'After two units her blood pressure is back to {map} and her renal perfusion pressure (RPP) to {rpp}. She has no HRS-AKI, so the algorithm says restart and re-titrate.',
+      notes: 'Source: Baveno VIII 4.7. Carvedilol is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered. A patient whose drug is held and who still has hypotension or HRS-AKI stays off it. Two units of packed red cells win back part of the 1.3 L lost on the previous slide, and the tiles compare with the prebleed state. The transfusion is restrictive: Baveno VIII 5.4 gives blood at a hemoglobin <7 g/dL, aiming for 7 to 8 g/dL, never to replace the volume lost. The model\'s hemoglobin has not fallen at the moment of the bleed, so it cannot show the 7 g/dL threshold; the units are a volume that brings the MAP back above 65 mmHg. The model keeps carvedilol on throughout, so these numbers show the pressure on the drug; the chart takes the held drug as the case\'s own facts.',
       ask: ['She had HRS-AKI and carvedilol was stopped. The AKI has resolved and her blood pressure has recovered. What next?', 'Restart carvedilol and re-titrate to the dose she tolerates (Baveno VIII 4.7).'],
     },
     {

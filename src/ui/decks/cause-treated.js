@@ -47,13 +47,13 @@ export const CAUSE_TREATED = {
       ask: ['The LSM falls quickly in the first year after cure. Has the fibrosis regressed as quickly?', 'No: much of the early fall reflects resolving inflammation, so the LSM overstates the regression.'],
     },
     {
-      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
+      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.43] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
       // (His trail on the plane: where he stood before cure and a year after, a line on to the dot as it moves. Mohammad, 1 Nov, mock B.)
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'ssm'], keepTiles: true, title: 'HVPG and spleen stiffness over the year' },
       data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
-      kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
-      line: 'The LSM is {lsm}, which is {<10 kPa}, and the platelet count {plt}: by Baveno VIII, CSPH has resolved.',
-      notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved at an HVPG <10 mmHg, an LSM <10 kPa, or an LSM <15 kPa with a spleen stiffness (SSM) <25 kPa; his SSM tile, the model\'s value, has fallen below 25 kPa with the lower pressure and the smaller spleen. HCC surveillance every 6 months continues, because cirrhosis was present before the cure. Repeat the LSM and platelet count if a new cause of liver injury appears.',
+      kicker: HCV, site: 'sin', title: 'Two years after cure, the HVPG is <10 mmHg',
+      line: 'His HVPG is {hvpg}, which is {<10 mmHg}: resolved by Baveno VIII, though not normal. His LSM of {lsm} and platelets of {plt} would not have shown it.',
+      notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved at an HVPG <10 mmHg, an LSM <10 kPa, or an LSM <15 kPa with a spleen stiffness (SSM) <25 kPa. Here only the HVPG meets a criterion: it is under 10 mmHg but still above the normal 5, because the pressure falls slowly and seldom reaches normal within two years; his LSM and SSM have not yet crossed their lines, so the stiffness alone would not have called CSPH resolved. HCC surveillance every 6 months continues, because cirrhosis was present before the cure. Repeat the LSM and platelet count if a new cause of liver injury appears.',
       ask: ['Does he still need HCC surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the HCC risk remains.'],
     },
     {
@@ -65,20 +65,20 @@ export const CAUSE_TREATED = {
     },
     {
       id: 'year2-plane', cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] }, data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
-      kicker: HCV, site: 'sin', title: 'On the CSPH plane, the trail ends where CSPH has resolved',
-      line: 'The trail runs from before the cure, through one year, to two years after it.',
-      notes: 'The same man as the slide before, two years after the cure. The plane marks where he stood before the cure, at one year and now, against the CSPH criteria.',
-      ask: ['What does the trail across the plane show?', 'The HVPG and LSM fall after the cure, until CSPH has resolved.'],
+      kicker: HCV, site: 'sin', title: 'On the CSPH plane, the trail ends in the indeterminate zone',
+      line: 'The trail runs from before the cure, through one year, to two years after it. It never reaches the No CSPH zone, though his HVPG is <10 mmHg.',
+      notes: 'The same man as the slide before, two years after the cure. The plane marks where he stood before the cure, at one year and now, against the rules for untreated disease (LSM ≤15 kPa with platelets ≥150,000/µL rules CSPH out). His stiffness and platelets still lie in the indeterminate zone, so the HVPG is what shows that CSPH has resolved.',
+      ask: ['What does the trail across the plane show?', 'Stiffness and platelets improve but stay in the indeterminate zone; only the HVPG, <10 mmHg, shows that CSPH has resolved.'],
     },
     {
       // (The same man, on carvedilol since the cure: his stiffness is under 10 kPa, so the chart for stopping it lights Resolved. Baveno VIII 7.15 to 7.19 are written
       // for recompensated patients; he was never decompensated, and 3.14b has CSPH reassessed after cure, so the card applies by extension.)
       id: 'path-stopcarv', cam: 'liver',
-      tool: { kind: 'path', of: 'stopcarv', short: 'Stopping carvedilol', patient: { hv: 'none' } },
+      tool: { kind: 'path', of: 'stopcarv', short: 'Stopping carvedilol', patient: { hv: 'low' } },
       kicker: HCV, site: 'sin', title: 'With CSPH resolved, carvedilol may be stopped',
-      line: 'His LSM is {lsm}, which is {<10 kPa}: CSPH is ruled out without HVPG measurement, so the algorithm allows carvedilol to be stopped. Surveillance for hepatocellular carcinoma continues.',
-      notes: 'Source: Baveno VIII 3.14, 7.15 to 7.19. After etiologic treatment CSPH can persist and should be reassessed (3.14b). Carvedilol may be stopped only if the resolution is confirmed (7.18, weak): by an HVPG under 10 mmHg measured off carvedilol (7.16), or by LSM, which his chart uses: an LSM <10 kPa, or <15 kPa with an SSM <25 kPa (7.19). An LSM of 9.1 kPa meets the first. Varices and collaterals may persist after CSPH has resolved, so they are no reason to keep the drug (7.17). Statements 7.15 to 7.19 are written for recompensated patients; he was never decompensated, so the chart applies by extension, as the guideline\'s 3.14b asks for CSPH to be reassessed after cure. His LSM falls faster than fibrosis regresses, so many centers repeat it, or measure an HVPG off carvedilol, before stopping. The model shows him off carvedilol throughout.',
-      ask: ['His LSM is 12 kPa and his SSM 30 kPa. Can carvedilol be stopped?', 'No: 12 kPa is not <10, and <15 kPa counts only with an SSM <25 kPa. Measure the HVPG off carvedilol, or repeat the LSM later.'],
+      line: 'His HVPG, measured off carvedilol, is {hvpg}, which is {<10 mmHg}: the portal hypertension has resolved, so carvedilol may be stopped. HCC surveillance continues.',
+      notes: 'Source: Baveno VIII 3.14, 7.15 to 7.19. After etiologic treatment CSPH can persist and should be reassessed (3.14b). Carvedilol may be stopped only if the resolution is confirmed (7.18, weak): by an HVPG under 10 mmHg measured off carvedilol (7.16), which his chart uses, or by LSM: an LSM <10 kPa, or <15 kPa with an SSM <25 kPa (7.19). His LSM and SSM do not meet those cut-offs, so the HVPG decides. Varices and collaterals may persist after CSPH has resolved, so they are no reason to keep the drug (7.17). Statements 7.15 to 7.19 are written for recompensated patients; he was never decompensated, so the chart applies by extension, as the guideline\'s 3.14b asks for CSPH to be reassessed after cure. The model shows him off carvedilol throughout, so its HVPG is the one measured off the drug.',
+      ask: ['His LSM is 12 kPa and his SSM 30 kPa. Can carvedilol be stopped?', 'Not on stiffness: 12 kPa is not <10, and <15 kPa counts only with an SSM <25 kPa. Measure the HVPG off carvedilol; <10 mmHg shows that CSPH has resolved (Baveno VIII 7.16, 7.19).'],
     },
     {
       id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix', 'asc'],
@@ -146,7 +146,7 @@ export const CAUSE_TREATED = {
           { slide: 'high', name: 'Higher start', on: [0], walk: 'second' }, { slide: 'high2', name: 'CSPH persists', on: [0], walk: 'second' }] },
       kicker: 'Summary', site: 'sin', title: 'A higher starting HVPG can leave CSPH after cure',
       line: 'Cure took the first patient from {hvpg@before} to {hvpg@year2}, which is {<10 mmHg}. The second starts at {hvpg@high} and is at {hvpg} two years on, still {>=10 mmHg}.',
-      notes: 'LSM on the x-axis, the HVPG and the platelet count on the y-axis: the model\'s cirrhosis from mild to severe, each point at steady state after a year. Curing the cause moves a patient down this line, not off it. Both patients are cured of hepatitis C, but the second starts higher, at an HVPG of 14.7 mmHg against 11.6, and in the model her fibrosis regresses less over the two years, so she ends at 10.8 mmHg while he ends at 4.8 mmHg, with an LSM <10 kPa. Baveno VIII counts CSPH as resolved at an HVPG <10 mmHg, an LSM <10 kPa, or an LSM <15 kPa with an SSM <25 kPa (Fig. 2): the dashed lines mark 10 on both axes. Removing the cause lowers the HVPG in most patients, and how far it must fall to prevent decompensation is not yet established (Table 3). One model patient per point; real recoveries vary far more. The MASLD patient is left off: at a BMI ≥30 the LSM overestimates portal pressure, so the line does not describe her (1.16). (Baveno VIII Fig. 2, Table 3, 1.16.)',
+      notes: 'LSM on the x-axis, the HVPG and the platelet count on the y-axis: the model\'s cirrhosis from mild to severe, each point at steady state after a year. Curing the cause moves a patient down this line, not off it. Both patients are cured of hepatitis C, but the second starts higher, at an HVPG of 14.7 mmHg against 11.6, and in the model her fibrosis regresses less over the two years, so she ends at 10.8 mmHg while he ends at 7.1 mmHg, below the line but not normal. Baveno VIII counts CSPH as resolved at an HVPG <10 mmHg, an LSM <10 kPa, or an LSM <15 kPa with an SSM <25 kPa (Fig. 2): the dashed lines mark 10 on both axes. Removing the cause lowers the HVPG in most patients, and how far it must fall to prevent decompensation is not yet established (Table 3). One model patient per point; real recoveries vary far more. The MASLD patient is left off: at a BMI ≥30 the LSM overestimates portal pressure, so the line does not describe her (1.16). (Baveno VIII Fig. 2, Table 3, 1.16.)',
       ask: ['Both patients were cured of hepatitis C. Why has CSPH resolved in the man but not in the woman?', 'She started higher, at an HVPG of 14.7 mmHg, and the pressure falls only part of the way in two years, so she stays ≥10 mmHg; he started at 11.6 mmHg and fell to <10 mmHg.'],
     },
     {

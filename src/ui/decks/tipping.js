@@ -1,7 +1,7 @@
 // Presenter talk: what tips a compensated patient with CSPH into decompensation. One man follows the talk: a second liver injury,
 // an infection, surgery, the mouth and, after the first decompensation, the antibiotic question.
 //
-// Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026:
+// Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026 (the SBP prophylaxis row of the antibiotic card: guidelines/aasld-2021-ascites.pdf, 15 Nov 2026):
 // - 3.7: superimposed acute liver injury (alcohol-related hepatitis, acute viral hepatitis HEV/HAV/HBV, HBV flares, autoimmune hepatitis,
 //   drug-induced liver injury) can precipitate decompensation and/or ACLF in compensated cirrhosis/cACLD (LoE 2).
 // - 3.10: bacterial infections in compensated cirrhosis/cACLD with CSPH can precipitate decompensation and/or ACLF (LoE 2);
@@ -107,16 +107,17 @@ export const TIPPING = {
       cam: 'fit', data: 'tiles', tiles: TILES, key: ['asc'], delta: 'stable',
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over five months' },
       kicker: 'After the first', site: 'sin', title: 'After the first decompensation, long-term antibiotics are not given to prevent the next',
-      line: 'Five months later, {asc} of ascites has formed. The next slide gives the Baveno VIII advice for him now.',
-      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation, new). The statement is about a long-term antibiotic given to prevent further decompensation. It does not stop the usual treatment of an infection when one occurs. In the model fibrosis progresses and the serum albumin falls over five months, and the first ascites forms.',
+      line: 'Five months later, {asc} of ascites has formed, with a protein of {tp}. The next slide gives the Baveno VIII advice, and the AASLD 2021 question his protein raises.',
+      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation, new). The statement is about a long-term antibiotic given to prevent further decompensation. It does not stop the usual treatment of an infection when one occurs. In the model fibrosis progresses and the serum albumin falls over five months, and the first ascites forms, with a low ascitic protein: that is a separate question from 4.12, taken up on the next slide.',
       ask: ['A man has had his first ascites. Should he start a long-term antibiotic to prevent further decompensation?', 'No. Long-term primary antibiotic prophylaxis is not recommended after the first decompensating event (Baveno VIII 4.12, strong).'],
     },
     {
-      id: 'antibiotic-card', cam: 'fit', tool: { kind: 'criteria', title: 'After the first decompensation', short: 'After the first', ticks: false, lead: 'To prevent further decompensation.', rule: 'Baveno VIII 4.12',
-        rows: ['Long-term **primary antibiotic prophylaxis**: not recommended'] }, data: 'tiles', tiles: TILES, key: ['asc'], delta: 'stable',
+      id: 'antibiotic-card', cam: 'fit', tool: { kind: 'criteria', title: 'After the first decompensation', short: 'After the first', lead: 'Two different questions.', rule: 'Baveno VIII 4.12',
+        rows: ['Long-term **antibiotic** to prevent further decompensation: not recommended', { text: '**Primary SBP prophylaxis** (AASLD 2021) may be considered: ascitic protein', key: 'tp', op: '<', value: 1.5, cut: '<1.5 g/dL' }, 'with **Child–Pugh >9** and **bilirubin >3 mg/dL**', 'or **creatinine >1.2 mg/dL**, **BUN >25 mg/dL** or **sodium <130 mEq/L**'],
+        verdict: 'Not the same question: 4.12 is about decompensation; SBP prophylaxis is about the risk of a first infection.' }, data: 'tiles', tiles: ['asc', 'tp'], key: ['tp'], delta: 'stable',
       kicker: 'After the first', site: 'sin', title: 'No long-term antibiotic to prevent further decompensation',
-      line: 'Baveno VIII does not recommend long-term primary prophylaxis to prevent further decompensation. Infections are still treated, and other indications, such as secondary SBP prophylaxis, still apply.',
-      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation). The same man as the slide before, five months on. The statement covers only that preventive use: it does not stop the treatment of an infection, and it leaves other indications for prophylaxis, such as secondary prophylaxis after an episode of SBP, as they are.',
+      line: 'Baveno VIII gives no long-term antibiotic against decompensation. His ascitic protein of {tp} is {<1.5 g/dL}: AASLD 2021 would consider primary SBP prophylaxis if liver or kidney function is poor.',
+      notes: 'Baveno VIII 4.12: after the first decompensating event, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation (LoE 2, strong recommendation). The same man as the slide before, five months on. The statement covers only that preventive use: it does not stop the treatment of an infection, and it leaves other indications for prophylaxis, such as secondary prophylaxis after an episode of SBP, as they are. His ascitic protein, from the model, is below 1.5 g/dL. AASLD 2021 (SBP prophylaxis) says that without a prior SBP or gastrointestinal bleed, antibiotic prophylaxis may be considered in selected patients with low-protein ascites (<1.5 g/dL) and advanced liver failure (Child–Pugh score >9 with bilirubin >3 mg/dL) or impaired renal function (creatinine >1.2 mg/dL, BUN >25 mg/dL or sodium <130 mEq/L); in the trial behind this, norfloxacin cut first SBP at one year from 60% to 7%. That is a different question from 4.12: whether this ascites puts him at high risk of a first SBP. Norfloxacin is not sold in the US, where ciprofloxacin is the reasonable alternative (AASLD 2021). The model has no bilirubin or kidney function, so it cannot say whether he meets the second part.',
       ask: ['Does a man with his first ascites start a long-term antibiotic to prevent the next decompensation?', 'No. It is not recommended (Baveno VIII 4.12, strong). An infection is still treated when it occurs.'],
     },
     {

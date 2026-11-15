@@ -27,8 +27,8 @@ const VITALS = { kind: 'vitals', show: ['hr', 'map', 'co'] };
 const BELLY = { kind: 'abdomen' };
 const TAP = { kind: 'paracentesis', mL: 5100, albumin: true };
 const BLEED = { kind: 'hemorrhage', mL: 1300 };
-// (Four units of red cells give back the 1.3 L of BLEED; the albumin goes with the terlipressin. The model's bleed is replaced before the HRS-AKI slide.)
-const UNIT = { kind: 'infuse', fluid: 'prbc' }, ALBUMIN = { kind: 'infuse', fluid: 'albumin' };
+// (No blood is given after the BLEED: Baveno VIII 5.4 transfuses at a hemoglobin <7 g/dL, to 7 to 8, and this man's hemoglobin is not that low. The HRS-AKI slide gives terlipressin with albumin, as the guideline does.)
+const ALBUMIN = { kind: 'infuse', fluid: 'albumin' };
 const CARV_ON = { drugs: { carvedilol: true } }, CARV_OFF = { drugs: { carvedilol: false } };
 const TILES = ['map', 'rpp'];
 
@@ -109,12 +109,19 @@ export const KIDNEY = {
       ask: ['A man on carvedilol has a MAP of 62 mmHg after a hemorrhage. What do you do with the carvedilol, and when is it restarted?', 'Dose-reduce or stop it. Restart it once the blood pressure has recovered and any HRS-AKI has resolved.'],
     },
     {
-      id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, action: [UNIT, UNIT, UNIT, UNIT, ALBUMIN], cam: 'fit', tool: VITALS, data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
-      compare: [{ label: 'Terlipressin', short: 'Terli.', own: true }, { label: 'Norepinephrine', short: 'Norepi.', params: { drugs: { carvedilol: false, terlipressin: false } } }],
+      id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, action: [ALBUMIN], cam: 'fit', tool: VITALS, data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
+      compare: [{ label: 'Terlipressin', short: 'Terli.', own: true }, { label: 'No terlipressin', short: 'None', params: { drugs: { carvedilol: false, terlipressin: false } } }],
       kicker: 'HRS-AKI', site: 'sin', title: 'Terlipressin with albumin raises the MAP in HRS-AKI', cite: 'Baveno VIII 6.18, 6.19, 6.20',
       line: 'Terlipressin with albumin is considered for HRS-AKI, preferably as a continuous infusion from {2 to 3 mg/24 h}; his blood pressure rises to {map}. Norepinephrine, the alternative, is not modeled.',
-      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous IV infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin constricts the splanchnic and systemic arteries, so the MAP rises; the albumin expands the circulating volume. HRS-AKI is not caused by blood loss, so the 1.3 L hemorrhage of the last slide is replaced first, with four units of packed red blood cells, and the tiles compare with the state before the hemorrhage. Carvedilol is held here, which is why the heart rate is slightly higher than on carvedilol. Baveno VIII 6.20: norepinephrine is the alternative if terlipressin is unavailable, contraindicated or not tolerated (LoE 1, strong). The model has terlipressin but no norepinephrine, so the Norepinephrine button leaves the values where they were before the drug; it shows the rule, not a result. The model shows the rise in the MAP and the RPP and cannot show renal recovery.',
+      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous IV infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin constricts the splanchnic and systemic arteries, so the MAP rises; the albumin expands the circulating volume. HRS-AKI is not caused by blood loss, and no blood is given here: Baveno VIII 5.4 transfuses at a hemoglobin <7 g/dL, aiming for 7 to 8 g/dL, and the model\'s hemoglobin has not fallen that far (it falls over hours as the plasma refills). The tiles compare with the state before the hemorrhage. Carvedilol is held here, which is why the heart rate is slightly higher than on carvedilol. Baveno VIII 6.20: norepinephrine is the alternative if terlipressin is unavailable, contraindicated or not tolerated (LoE 1, strong). The model has terlipressin but no norepinephrine, so there is no norepinephrine button: the other button shows the same infusion without terlipressin, and the norepinephrine alternative is only on the card. AASLD 2021 gives it as a continuous infusion starting at 0.5 mg/h, up to 3 mg/h, usually in an intensive care unit. The model shows the rise in the MAP and the RPP and cannot show renal recovery.',
       ask: ['How is terlipressin given in HRS-AKI, and what is given with it?', 'Preferably as a continuous IV infusion, starting at 2 to 3 mg/24 h, with albumin.'],
+    },
+    {
+      id: 'confirm', cam: 'fit', tool: { kind: 'trial', id: 'confirm' }, data: 'tiles', tiles: TILES, key: ['rpp'],
+      kicker: 'HRS-AKI', site: 'sin', title: 'CONFIRM measured whether terlipressin reverses HRS-AKI',
+      line: 'The model shows the pressure rise. CONFIRM counted verified reversal of type 1 HRS in adults given terlipressin or placebo, albumin in both arms.',
+      notes: 'CONFIRM (Wong, N Engl J Med 2021) randomized 300 adults with type 1 hepatorenal syndrome 2 to 1 to terlipressin or placebo, with albumin recommended in both, for up to 14 days. Verified HRS reversal was 32% (63 of 199) with terlipressin against 17% (17 of 101) with placebo (P = 0.006). Deaths from respiratory disorders by day 90 were 11% (22 of 199) against 2% (2 of 101), so oxygenation and volume status are watched. More reversal did not establish a survival benefit. Baveno VIII 6.18: terlipressin and albumin should be considered. The model has no kidneys: the RPP tile is a pressure, not renal function.',
+      ask: ['What did CONFIRM show for terlipressin plus albumin, and what was its main risk?', 'More verified HRS reversal, 32% against 17%, with more deaths from respiratory disorders, 11% against 2%.'],
     },
     {
       id: 'staging', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'],
@@ -127,7 +134,7 @@ export const KIDNEY = {
     },
     {
       id: 'summary', visual: 'table', cols: ['map', 'hr', 'asc', 'rpp'], asc: false, vs: 'first', rowHead: 'State',
-      of: [{ id: 'arteries', kicker: 'Start', title: 'Ascites on diuretics' }, { id: 'tense', kicker: 'Tense ascites', title: 'Four months off diuretics' }, { id: 'tap', kicker: 'LVP', title: 'Paracentesis with albumin' }, { id: 'carv', kicker: 'Drug', title: 'Carvedilol' }, { id: 'hold', kicker: 'Hemorrhage', title: 'Large hemorrhage on carvedilol' }, { id: 'terli', kicker: 'HRS-AKI', title: 'Terlipressin, albumin, blood replaced' }],
+      of: [{ id: 'arteries', kicker: 'Start', title: 'Ascites on diuretics' }, { id: 'tense', kicker: 'Tense ascites', title: 'Four months off diuretics' }, { id: 'tap', kicker: 'LVP', title: 'Paracentesis with albumin' }, { id: 'carv', kicker: 'Drug', title: 'Carvedilol' }, { id: 'hold', kicker: 'Hemorrhage', title: 'Large hemorrhage on carvedilol' }, { id: 'terli', kicker: 'HRS-AKI', title: 'Terlipressin and albumin' }],
       kicker: 'Summary', title: 'What changes the renal perfusion pressure',
       line: 'The MAP and the IAP set the RPP. Large-volume paracentesis and terlipressin raise it; carvedilol and hemorrhage lower it.',
       notes: 'The RPP depends on two pressures: the MAP, which arterial vasodilation keeps low and carvedilol and hemorrhage lower further, and the IAP, which tense ascites raises and large-volume paracentesis restores. Terlipressin with albumin raises the MAP. Carvedilol is dose-reduced with a MAP <65 mmHg or HRS-AKI and restarted once these have resolved. Norepinephrine is the alternative to terlipressin, and chronic kidney disease is staged by eGFR before a TIPS. The tile is a pressure and does not measure renal function.',

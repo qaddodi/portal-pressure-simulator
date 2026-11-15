@@ -98,7 +98,7 @@
   "{ppg}"
  ],
  "hvpg/eus": [
-  "{ppg}",
+  "{eus}",
   "{hvpg}"
  ],
  "hvpg/heart": [
@@ -779,12 +779,13 @@
  ],
  "cause-treated/year2": [
   "{lsm}",
-  "{<10 kPa}",
-  "{plt}"
+  "{plt}",
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
  "cause-treated/path-stopcarv": [
-  "{lsm}",
-  "{<10 kPa}"
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
  "cause-treated/high": [
   "{hvpg}"

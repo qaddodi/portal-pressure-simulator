@@ -61,7 +61,7 @@ import { traceWhen } from './trace-labels.js';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
 import { clotWords } from './callout-math.js';
-import { citeText, focusOf, oneLadder } from './teach-extras.js';
+import { citeText, focusOf, oneLadder, sidesEl } from './teach-extras.js';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale, spansOf } from './tool-profile.js';
 import { causeFit } from './cause-fit.js';
 import { anchorsOf, roomFor } from './cam-room.js';
@@ -3079,7 +3079,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       panel.style.setProperty('--pz-tu', s.visual === 'table' ? String(tableUnits(s)) : '');   // (a table's own width in body-text em, so its card fits it: app.css .pz-panel[data-visual="table"])
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
-      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
+      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, sidesEl(s, h, (t) => rich(t, s, st?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
         visualOf(s, i));
       if (!ui.root.classList.contains('pz-prep')) cardIn(panel, 'pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
@@ -3091,7 +3091,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const rv = revealCount(s), line = s.line ? h('p', { class: 'pz-line' }, ...(rv ? revealLine(s, st?.fp, !!st?.params?.tips?.on, Math.min(beat, lastBeat(i)) + 1) : rich(s.line, s, st?.fp, !!st?.params?.tips?.on))) : null;
       if (bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
+          line, sidesEl(s, h, (t) => rich(t, s, st?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : isResponse(s.compare) ? 'Change how well the beta-blocker works on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.procedure ? eventGraph(s, i, st) : null,

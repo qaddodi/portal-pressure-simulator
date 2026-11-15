@@ -87,7 +87,7 @@ export const LANDMARK_TRIALS = {
     },
     {
       id: 'transfusion', preset: 'cirr-decomp', action: BLEED, cam: 'fit', data: 'tiles', tiles: ['pv', 'map'], key: ['pv'],
-      vignette: 'A 61-year-old man with cirrhosis presented with hematemesis this morning. At endoscopy a bleeding varix was banded, and octreotide is infusing. His hemoglobin is 7.5 g/dL.',
+      vignette: 'A 61-year-old man with cirrhosis presented with hematemesis this morning. At endoscopy a bleeding varix was banded, and octreotide is infusing. His hemoglobin is 6.5 g/dL.',
       kicker: 'Acute bleeding', site: 'sin', title: 'The transfusion trial enrolled adults with acute upper GI bleeding',
       line: 'The trial enrolled patients with acute upper gastrointestinal bleeding, with or without cirrhosis. Half were transfused at a hemoglobin {<7 g/dL}, half at {<9 g/dL}.',
       notes: 'The transfusion trial (Villanueva, N Engl J Med 2013) randomized 921 adults with acute upper gastrointestinal bleeding. One group was given red cells when the hemoglobin fell below 7 g/dL, with a target of 7 to 9 g/dL (restrictive); the other when it fell below 9 g/dL, with a target of 9 to 11 g/dL (liberal). The trial included patients with cirrhosis, which is why the guidelines apply it to variceal bleeding. In this case the bleeding has just been controlled and he has not yet been transfused.',

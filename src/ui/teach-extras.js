@@ -7,6 +7,16 @@
 export const citeText = (c) => (typeof c === 'string' ? c.trim() : '');
 export const citeOk = (c) => !!citeText(c) && !/\bBaveno\s+VII(?!I)\b/i.test(c);
 
+// ── F9: both guidelines where they part ways ───────────────────────────────
+// sides: [{ who: 'Baveno VIII', text }, { who: 'AASLD 2024', text }], two columns under the line on a slide where the two guidelines give
+// different answers (review F9, 15 Nov 2026). `text` takes the line's own tokens ({lsm}, {>=10 mmHg}); `rich` is the presenter's.
+export const sidesOf = (s) => (Array.isArray(s?.sides) ? s.sides.filter((x) => x && typeof x.who === 'string' && x.who.trim() && typeof x.text === 'string' && x.text.trim()) : []);
+export const sidesOk = (s) => s?.sides === undefined || (sidesOf(s).length === 2 && s.sides.length === 2);
+export function sidesEl(s, h, rich) {
+  const two = sidesOf(s);
+  return two.length === 2 ? h('div', { class: 'pz-sides', role: 'group', 'aria-label': 'What each guideline says' }, ...two.map((x) => h('div', { class: 'pz-side' }, h('b', { class: 'pz-side-who' }, x.who.trim()), h('p', { class: 'pz-side-p' }, rich(x.text))))) : null;
+}
+
 // ── V15: the summary table ──────────────────────────────────────────────────
 /** focusRow: '<slide id>' lights that row; the rest recede. */
 export const focusOf = (s) => (typeof s?.focusRow === 'string' && s.focusRow ? s.focusRow : null);

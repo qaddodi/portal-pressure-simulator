@@ -4,7 +4,7 @@
 // how improvement is judged, acute liver failure, and the cancer surveillance. The model has the clot, the anticoagulant, the stent and the
 // shunt; it has no bilirubin, creatinine, INR or liver failure, so the response, failure and surveillance slides are rule cards.
 //
-// Sources, checked 11 Nov 2026 against guidelines/baveno-viii-2026.pdf (EASL 2025 vascular liver disease is not in the folder yet):
+// Sources, checked 11 Nov 2026 against guidelines/baveno-viii-2026.pdf (EASL 2025 is in the folder now; its Budd-Chiari section has not yet been checked against this deck):
 // Baveno VIII (J Hepatol 2026) panel 8: 8.21 to 8.23 (obstruction from the small hepatic veins to the IVC entering the right atrium; BCS the
 // preferred name; primary or secondary), 8.24 to 8.27 (consider it in any acute, acute-on-chronic or chronic liver disease; diagnosed by the blocked
 // lumen or hepatic vein collaterals with no patent hepatic vein; no biopsy when imaging confirms; biopsy for small hepatic vein disease), 8.28 to
