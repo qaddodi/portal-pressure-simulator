@@ -1,3 +1,4 @@
+import './dom-shim.js';
 // The HVPG against PPG plane on Sites and causes' patients (Mohammad, 19 Oct): no key beside it on a Mac or an iPad, so
 // every zone keeps its words there (an iPhone keeps the key under the plot: a 0 to 5 mmHg column some 50 px wide holds no
 // zone's words); each name sits beside its own point, on the point's side of every cut-off line, and goes out on a thin
@@ -5,7 +6,6 @@
 // column), it sits right beside its point across the line, which breaks 4 px clear of it, rather than far out on a long line
 // ("They should be closer to the dots", Mohammad 19 Oct). Checked at the plot sizes the panel takes on a Mac, an iPad and an iPhone
 // (upright and sideways).
-import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
@@ -29,9 +29,6 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   const pl = planeOf('hvpg-ppg');
   assert.equal(pl.key, false, 'the zones name themselves: no key beside the plot');
   assert.equal(planeOf('csph').key, 'never', 'the stiffness plane names its zones on the drawing everywhere, no key');
-  const css = appCss();
-  assert.match(css, /\.pze-planewrap\.pze-nokey > \.pze-key \{ display: none; \}/, 'no key beside the plot');
-  assert.match(css, /\.pz\.stack \.pze-planewrap\.pze-nokey > \.pze-key \{ display: block; \}/, 'an iPhone keeps the key under it');
   for (const [W, H, fs, where, phone] of SIZES) {
     const fr = frame(W, H), { X, Y } = scaler(pl, fr);
     const pts = rows.map(([f, name, short]) => ({ x: X(f.hvpg), y: Y(f.ppg), name, short, f }));
@@ -156,7 +153,6 @@ test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light
     }
   }
   assert.deepEqual(PLANES['hvpg-ppg'].zones.map((z) => z.tone), ['ok', 'ppg', 'hvpg', 'both'], 'each of the four zones has its own colour');
-  assert.match(tok, /@media \(prefers-color-scheme: dark\) \{\n {2}:root:not\(\[data-theme="light"\]\):not\(\[data-theme="soft"\]\) \{[^}]*--pze-ok: color-mix\(in srgb, var\(--ok\) 42%, var\(--black\)\)/, 'the system dark theme matches');
   for (const k of ['ok', 'mid', 'hi', 'ppg', 'hvpg', 'both']) assert.ok(css.includes(`.pze-key li[data-tone="${k}"] i { background: var(--pze-${k}); }`) && css.includes(`.pze-ckey li[data-tone="${k}"] i { background: var(--pze-${k}); }`), `${k}: the keys' swatches are the plot's fills`);
 });
 

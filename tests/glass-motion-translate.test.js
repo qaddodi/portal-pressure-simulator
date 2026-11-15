@@ -3,7 +3,6 @@
 // glide's end, the inline value, and ran ahead of its card).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { compileKeyframes, motionAt, Motion } from '../src/ui/glass-motion.js';
 
 const at = (T, p) => { const m = new Motion(); m.at = p; return [motionAt(T, m), m]; };
@@ -37,9 +36,3 @@ test('a transform animation is not the property\'s, and one that mixes the two i
   assert.equal(miss.bad, true);
 });
 
-test('glass-gl lets the animated translate stand for the inline one, and keeps no end translation of it', () => {
-  const gl = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /if \(AM\.hasT\) \{ tx = AM\.tx; ty = AM\.ty; hasT = true; byProp = AM\.prop; \}/);
-  assert.match(gl, /if \(byProp\) \{[^}]*\} else if \(!inlineTranslate\(im, s\.translate\)\) flag\.bad = true; else \{ tx \+= im\.ux; ty \+= im\.uy; \}/);
-  assert.match(gl, /t: AM\.hasT && !AM\.prop \? \[AM\.tx, AM\.ty\] : was\.t \|\| null/);
-});

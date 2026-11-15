@@ -54,7 +54,6 @@ test('the number is white with a dark outline 1.9 wide; the words are lighter wi
 test('the builders name every piece and read no style', () => {
   for (const f of ['tool-fluid', 'tool-lumen']) {
     const src = readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /getComputedStyle/, f);
     for (const m of src.matchAll(/'data-look': [`']([a-z.${}]+)[`']/g)) {
       const k = m[1];
       if (k.includes('${')) { const [pre] = k.split('${'); assert.ok(mine.some((x) => x.startsWith(pre)), `${k}`); } else assert.ok(LOOKS[k], `${k} is in the table`);

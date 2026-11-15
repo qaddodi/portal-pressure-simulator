@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
-import { appCss } from './split-src.js';
 
 const ctx = (over = {}) => withCtx(makeCtx({ host: 'causes', layout: 'wide', scale: { sm: 12.5 } }), { theme: 'light', dark: false, palette: 'navy', ...over });
 const P = (k, st = {}, c = ctx(), params = { c: 'tr-pv' }) => resolveProps(LOOKS[k], c, st, params);
@@ -41,6 +40,4 @@ test('every piece the builder makes names a look that exists, and the sheet keep
   const names = [...src.matchAll(/'data-look': '([\w.]+)'/g)].map((m) => m[1]);
   assert.ok(names.length >= 12);
   for (const n of names) assert.ok(LOOKS[n], `look ${n}`);
-  assert.doesNotMatch(src, /getComputedStyle/, 'tool-causes reads no style');
-  assert.doesNotMatch(appCss(), /\.pcs-/, 'no .pcs-* rule is left');
 });

@@ -705,11 +705,25 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 // Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
 //   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
 //   { file, forbid: [pattern, why] } it must not.
+//   Options on either: between: [from, to] (judge one function's text), uncomment (drop // comments), uncss (drop /* */), exactly: [pattern, n, why] (a count), scan: (text) => messages (a loop).
 // A rule is a test's old source assertion, kept with its one-line reason; a pattern that no longer matches means the code it guarded changed.
 for (const name of readdirSync(join(ROOT, 'scripts/source-shapes')).filter((n) => n.endsWith('.mjs')).sort()) {
   const rules = (await import(pathToFileURL(join(ROOT, 'scripts/source-shapes', name)).href)).default;
   for (const r of rules) {
-    const src = [].concat(r.file).flatMap((f) => (f === 'styles/app-*.css' || familyOf(f) ? [f] : f.endsWith('*') ? stageFamily() : [f])).map(sourceText).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
+    let src = [].concat(r.file).flatMap((f) => (f === 'styles/app-*.css' || familyOf(f) ? [f] : f.endsWith('*') ? stageFamily() : [f])).map(sourceText).join('\n');
+    // between: [from, to]  judge only the text from the first `from` to the next `to` (one function's body); uncomment: leave // comments out first.
+    if (r.between) {
+      const a = src.indexOf(r.between[0]), b = a < 0 ? -1 : src.indexOf(r.between[1], a + 1);
+      if (b < 0) { errors.push(`${r.file}: the markers ${JSON.stringify(r.between)} are gone, so the rule below cannot look: move it with the code [source-shapes/${name}]`); continue; }
+      src = src.slice(a, b);
+    }
+    if (r.uncomment) src = src.replace(/\/\/[^\n]*/g, '');
+    if (r.uncss) src = src.replace(/\/\*[\s\S]*?\*\//g, '');
+    // scan: (text) => [messages]  a rule that needs a loop over the text (every CSS rule, every line); each message is one error.
+    if (r.scan) { for (const m of r.scan(src)) errors.push(`${r.file}: ${m} [source-shapes/${name}]`); continue; }
+    // exactly: [pattern, n, why]  the (global) pattern matches n times, no more and no fewer.
+    if (r.exactly) { const [xre, n, xwhy] = r.exactly, got = [...src.matchAll(new RegExp(xre.source, xre.flags.includes('g') ? xre.flags : xre.flags + 'g'))].length; if (got !== n) errors.push(`${r.file}: ${xwhy} (${xre} matches ${got} times, not ${n}) [source-shapes/${name}]`); continue; }
+    const [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
     if (r.need && !has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
     if (r.forbid && has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
   }

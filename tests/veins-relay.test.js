@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { binVeins, ENT_W } from '../src/ui/veins-bin.js';
@@ -103,11 +102,3 @@ test('a random walk of vessels, reaches and joins always matches a fresh binning
   assert.ok(relays >= 5, `written in place ${relays} times`);
 });
 
-test('the figure opts in, and the renderer draws the written cells again whole', async () => {
-  const { readFileSync } = await import('node:fs');
-  const stage = stageSource();
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(stage, /binMemo\.relay = true;/);
-  assert.match(gl, /for \(const c of bins\.patchCells\) if \(!patchMark\[c\]\) \{ patchMark\[c\] = 1; patchK\+\+; \}\n\s+rowCells = null;/);
-  assert.match(gl, /if \(bins\.patchBlood\) uploadBlood\(bins\);/);
-});

@@ -210,12 +210,6 @@ test("a lit vessel's glow counts as the vessel, and a changed glow draws the gri
   assert.equal(organTest(wr)(inside, { pad: 0 }), false, 'the glow gone');
 });
 
-test('the credit falls back to the screen grid in the lobule, with Lite graphics, and where a grid would be over the cap', () => {
-  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  assert.match(src, /export function organTest\(wr, ring = null, spread = null\) \{\n\s+if \(!ring\) \{ const t = worldTest\(wr, spread\); if \(t\) return t; \}\n\s+return screenTest\(wr, ring\);/);
-  assert.match(src, /if \(!world\.closest\('\.stage-view'\)\?\.classList\.contains\('gl-on'\)\) \{ artDirty = true; artJob = null; return null; \}/);
-  assert.match(src, /const reg = regionFor\(view, cellFor\(sc\), pad\);\n\s+if \(!reg\) return null;/);
-});
 
 test('spread over frames, the look answers PENDING, draws a slice a frame, and lands on the same grid one frame draws', async () => {
   const { PENDING } = await import('../src/ui/credit.js');

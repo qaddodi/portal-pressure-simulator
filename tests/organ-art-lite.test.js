@@ -64,8 +64,6 @@ test(`every thinned line stays within ${TOL} units of the drawn one, with its en
 
 test('off, nothing of it is in the first load, the offline copy or the stage’s work', () => {
   // Reached only through import() inside syncArtLite, which runs only when the switch is on or turned.
-  assert.doesNotMatch(read('src/ui/main.js') + stage.replace(/import\('\.\/organ-art-lite\.js'\)/, ''), /organ-art-lite\.js\?/);
-  assert.match(stage, /onFigLab\(\(k\) => \{ if \(k === 'lightArt'\) syncArtLite\(\); \}\);\n {2}if \(figLab\('lightArt'\)\) syncArtLite\(\);/);
   const build = read('scripts/build.mjs');
   assert.match(build, /const liteChunks = .*src\/ui\/organ-art-lite\.js/);
   assert.match(build, /const cached = files\.filter\(\(f\) => .* && !liteChunks\.includes\(f\)\);/);

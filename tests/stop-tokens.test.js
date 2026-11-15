@@ -43,7 +43,6 @@ test('organ-paint reads a stop from the table and never asks the browser for its
   const g = paint.slice(paint.indexOf('function readGradient('), paint.indexOf('function readPaintValue('));
   assert.ok(g.includes('stopRow(s, g)'), 'readGradient takes each stop from the table');
   assert.ok(!/readStyle|getComputedStyle|stopColor|stopOpacity/.test(g), 'readGradient has no style read');
-  assert.match(paint, /import \{ STOPS, STOPS_CMAP, STOP_LOOK \} from '\.\/stop-tokens\.js';/);
 });
 
 test('the stop rules and custom properties are found whatever they sit under', () => {

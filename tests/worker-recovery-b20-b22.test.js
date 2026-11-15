@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // B20 (a failed sweep worker is dropped and replaced or bypassed), B21 (a clear leaves no elapsed-time debt) and B22 (a failed dye
 // worker is terminated and its running injections go on locally). Fake workers, so the message order is driven by hand.
 import { test } from 'node:test';
@@ -68,11 +67,6 @@ test('B20: a request the worker never answers times out, drops the worker and re
   assert.equal(c.alive, true, 'an error for one request is not a dead worker');
 });
 
-test('B20: stage.js uses the client, not a retained worker', () => {
-  const src = stageSource();
-  assert.match(src, /createSweepClient\(/);
-  assert.doesNotMatch(src, /mt\.worker/);
-});
 
 const EDGES = [{ id: 'a', from: 'n0', to: 'n1', kind: 'vein' }, { id: 'b', from: 'n1', to: 'n2', kind: 'vein' }];
 const NODES = [{ id: 'n0' }, { id: 'n1' }, { id: 'n2' }];

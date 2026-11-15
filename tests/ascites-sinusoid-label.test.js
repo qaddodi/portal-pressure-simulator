@@ -2,11 +2,10 @@
 // beside the Sinusoidal pressure tile (the same node, SIN_R, to one decimal). Without the glow entry the presenter fades it out.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { ASCITES } from '../src/ui/decks/ascites.js';
 
 test('ascites slide 2 lights the sinusoid callout', () => {
-  const src = readFileSync(new URL('../src/ui/decks/ascites.js', import.meta.url), 'utf8');
-  const start = src.match(/id: 'start'[^\n]*/)[0];
-  assert.match(start, /glow: \[[^\]]*'sinusoid:lumen'/);
-  assert.match(start, /tiles: \['sin'/);
+  const start = ASCITES.slides.find((s) => s.id === 'start');
+  assert.ok(start.glow.includes('sinusoid:lumen'));
+  assert.ok(start.tiles.includes('sin'));
 });
