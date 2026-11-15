@@ -180,3 +180,9 @@
 .tf-hit { position: absolute; left: 0; right: 0; padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer; }
 #app.thumb .tr-hd .tr-t { font-size: 16px; }
 #app.thumb .tr-rs { font-size: 18px; }
+
+/* ---- Readouts: copy as text (the readings past a cut-off as one sentence; the sentence shown is the one copied) ---- */
+.rp-quote { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font: 400 14px/1.5 var(--font-ui); color: var(--text); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.rp-copy-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+.rp-copied { font: 600 var(--fs-12) var(--font-ui); color: var(--ok-ink); }
+@media (pointer: coarse) { .rp-copy-btn { min-height: 44px; } }

@@ -214,7 +214,7 @@ async function main() {
     onSpeed: (v, lapse) => setSpeed(v, lapse),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
     onRestart: () => restartPatient(),
-    scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
+    scenarioLabel: () => patientLabel(store.get()),
     // (The play bar's clock opens the same History card as the top bar on a Mac or iPad, menu recs C8; a phone keeps the menu.)
     onHistory: () => { if (isPhone()) return false; if (historyOpen()) closeHistory({ focus: true }); else openHistory(); return true; },
   });
@@ -1921,6 +1921,7 @@ import { EMBED } from './embed.js';
 import { darkMQ } from './look.js';
 import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
+import { patientLabel } from './readouts-text.js';
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,
 // in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
