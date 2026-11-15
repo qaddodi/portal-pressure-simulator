@@ -40,7 +40,7 @@ export const ALBUMIN_DECK = {
     {
       id: 'ind', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'],
       tool: { kind: 'criteria', title: 'Short-term albumin', short: 'Albumin', ticks: false, lead: 'Any one of these.',
-        rows: ['**Spontaneous bacterial peritonitis**: 1.5 g/kg on day 1, 1 g/kg on day 3', '**AKI** >stage 1A: 1 g/kg a day for 2 days', { text: '**Large-volume paracentesis**: 6 to 8 g per liter removed', lit: true }, '**HRS-AKI**, together with terlipressin: 1 g/kg, then 40 to 50 g a day'], rule: 'Baveno VIII Table 3; doses AASLD 2021', verdict: 'He is about to need the third: large-volume paracentesis.' },
+        rows: ['**Spontaneous bacterial peritonitis**: 1.5 g/kg on day 1, 1 g/kg on day 3', '**AKI** >stage 1A: 1 g/kg a day for 2 days', { text: '**Large-volume paracentesis**: 6 to 8 g per liter removed', lit: true }, '**HRS-AKI**, together with terlipressin: 1 g/kg, then 40 to 50 g a day'], verdict: 'He needs the third: large-volume paracentesis. Doses: AASLD 2021.' },
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. He has tense ascites, and his serum albumin is 2.4 g/dL.',
       kicker: 'Four indications', site: 'sin', title: 'Short-term albumin has four indications',
       line: 'Baveno VIII indicates albumin for SBP, AKI >stage 1A, large-volume paracentesis (LVP) and HRS-AKI with terlipressin. He has {asc} of ascites, so LVP comes first.',
