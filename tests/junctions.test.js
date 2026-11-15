@@ -229,3 +229,22 @@ test('blood runs downhill through every piece of a cut vein, whichever way it ru
     }
   }
 });
+
+// Cutting a vein into pieces moves no flow of the model (15 Nov 2026, Mohammad saw the left portal vein teal beside a TIPS and asked whether the cut had
+// changed it: it had not; measured against the build before the cut, every vessel that existed before carries the same mean flow, so the same reversal).
+// What the cut adds is the stretches' own flows: the right portal vein beyond the stent runs backwards while the part before it runs on.
+test('a TIPS in decompensated cirrhosis: the left portal vein\'s mean flow runs backwards (barely at 8 mm, plainly at 10 mm), and the right portal vein reverses from the stent outward', () => {
+  const shown = (d) => {
+    const e = run('cirr-decomp', { tips: { on: true, d } });
+    for (let i = 0; i < 400; i++) e.step(0.05);   // (the shown means: one breath and one beat)
+    return (id) => e.Qf[e.ei[id]];
+  };
+  const q8 = shown(8), q10 = shown(10);
+  assert.ok(q8('PVH_L') < 0, `left portal vein at 8 mm ${q8('PVH_L').toFixed(3)}`);
+  assert.ok(q10('PVH_L') < -0.5, `left portal vein at 10 mm ${q10('PVH_L').toFixed(3)}`);
+  for (const q of [q8, q10]) {
+    assert.ok(q('PVH_R') > 5, 'the right portal vein runs on toward the stent');
+    assert.ok(q('PVH_R_1') < -0.5, 'and backwards from the stent outward, where the sinusoids empty into it');
+    assert.ok(Math.abs(q('PVH_R_1') - (q('PVH_R') - q('TIPS'))) < 1e-6 && Math.abs(q('RHV_IVC') - (q('RHV_IVC_1') + q('TIPS'))) < 1e-6, 'the pieces add up to the model\'s own flows');
+  }
+});
