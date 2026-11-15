@@ -168,7 +168,7 @@ test('the change keeps the labels up: solved at the tap, ridden on the morph\'s 
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
   assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
   assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);
-  assert.match(stage, /writeVT\(u >= 1 \? \{ \.\.\.viewXf\.to \} : lerpVT\((?:live\.)?viewXf\.from, (?:live\.)?viewXf\.to, u\)\);/);   // (u: the camera's share of the change, view-xf.js viewXfCamU: a framing asked for mid-change retargets it)
+  assert.match(stage, /writeVT\(u >= 1 \? \{ \.\.\.viewXf\.to \} : viewXfCameraInto\((?:live\.)?viewXf, u, /);   // (u: the camera's share of the change, view-xf.js viewXfCamU: a framing asked for mid-change retargets it; worked out on the screen against the view box as it stands, camera-replay.test.js)
   // (From the change's progress and the share at which the new labels were whole (view-xf.js viewXfMix): the ghosts ride at full until then, never a timer.)
   assert.match(stage, /const m = viewXfMix\(p, x\.landAt, XF_MIX\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/);
   assert.doesNotMatch(stage, /XF_FADE_MS|xfRamp/);
