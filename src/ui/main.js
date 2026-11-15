@@ -36,7 +36,7 @@ import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFai
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
-import { releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, EASE_ARRIVE } from './ease.js';
+import { releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { morphKey, crossfadeText } from './legend-morph.js';
 import { glideNow } from './seg-glide.js';
 import './focus-ring.js';
@@ -1451,7 +1451,7 @@ const canCrossfade = () => !!document.startViewTransition && !document.hidden &&
 // The Appearance tiles show a ring on the tapped tile until then, look-chooser.js.)
 const pumpLease = createLease(() => setFramePump(true), () => setFramePump(false));
 function switchTheme(t, clear) {
-  if (!canCrossfade()) { applyTheme(t, clear); return Promise.resolve(); }
+  if (!canCrossfade()) return document.hidden ? (applyTheme(t, clear), Promise.resolve()) : dipTheme(t, clear);
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
   // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
@@ -1463,6 +1463,22 @@ function switchTheme(t, clear) {
       await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => appScope.timer(r, 900))]);
     } finally { pumpOff(); }
   });
+}
+// Where the crossfade cannot run (no View Transitions, a context over its memory budget), the look still never changes in one frame,
+// surface by surface (owner, 15 Nov 2026: nothing pops; his 7 Nov reports): the page dips to the ground's colour over D_SMALL, takes the
+// new look unseen once every surface has drawn it (capped as the crossfade's wait is), and comes back over D_SURFACE. Opacity only.
+let dipGen = 0;
+async function dipTheme(t, clear) {
+  const me = ++dipGen, root = document.documentElement;
+  root.classList.add('look-dip-on');
+  root.classList.add('look-dip');
+  await new Promise((r) => appScope.timer(r, D_SMALL + 20));
+  if (me !== dipGen) return;
+  applyTheme(t, clear);
+  await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => appScope.timer(r, 900))]);
+  if (me !== dipGen) return;
+  root.classList.remove('look-dip');
+  appScope.timer(() => { if (me === dipGen) root.classList.remove('look-dip-on'); }, D_SURFACE + 40);
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
 // open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.

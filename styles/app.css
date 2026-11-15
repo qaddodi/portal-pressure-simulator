@@ -1075,6 +1075,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
+/* Where the crossfade cannot run, a new look dips the page to the ground and back (main.js dipTheme): out over a small step, in over a surface step. */
+html.look-dip-on body { background: var(--stage-bg); }
+html.look-dip-on body > * { transition: opacity var(--d-surface) var(--ease); }
+html.look-dip body > * { opacity: 0; transition-duration: var(--d-small); }
 /* (The veil over the figure is the dialog's own outer shadow, as the search palette's is: its frost is drawn in the figure's canvas, UNDER this layer, so a full-page background veil on .modal-back dimmed the glass with the scene. A shadow is never painted under its own box.) */
 .modal { --modal-veil: 0 0 0 100vmax var(--scrim); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--modal-veil); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: none; }

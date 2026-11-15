@@ -406,7 +406,8 @@ test('a far move round the gate or in distance fades the probe rather than flyin
 
 test('stage: a probe shown afresh starts at its place, and a jump fades out and in', () => {
   const src = stageSource();
-  assert.match(src, /if \(!dpr\.on \|\| !dpr\.has \|\| reduceMotion\.matches\) \{\s*dpr\.oP = reduceMotion\.matches \? 0 : 1; dpr\.has = true;\s*c\.ang = n\.ang; c\.d = n\.d; c\.k = n\.k; c\.o = 0;/);
+  // (15 Nov 2026: Reduce Motion fades it in too, from out, with no swing: never at once.)
+  assert.match(src, /if \(!dpr\.on \|\| !dpr\.has \|\| reduceMotion\.matches\) \{\s*if \(!dpr\.on \|\| !dpr\.has\) dpr\.oP = 1;[^\n]*\n\s*dpr\.has = true;\s*c\.ang = n\.ang; c\.d = n\.d; c\.k = n\.k; c\.o = 0;/);
   assert.match(src, /if \(act === 'jump'\) \{\s*dprLeave\(\);[^}]*dpr\.swap = stageScope\.timer/);
   assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.has || reduceMotion.matches) {'));
   // (the jump itself is decided in dop-probe.js, from where the probe is drawn and where it would stand)
@@ -750,10 +751,10 @@ test('the gate bars and flow axis close up about the target as it swings, and op
 test('stage: every way the probe goes swings it out round the target (place and size untouched) and every way it shows swings it in', () => {
   const leave = stage.slice(stage.indexOf('function dprLeave('), stage.indexOf('const dprHide ='));
   assert.match(leave, /dpr\.on = false;/);
-  assert.match(leave, /if \(reduceMotion\.matches \|\| !dpr\.has \|\| !dpr\.gate\) dpr\.oP = 1; else dpr\.leaving = true;\s*dprShape\(\);/);
+  assert.match(leave, /if \(!dpr\.has \|\| !dpr\.gate\) dpr\.oP = 1; else dpr\.leaving = true;\s*dprShape\(\);/);   // (Reduce Motion fades it too, no swing: dprShape, 15 Nov 2026)
   // Nothing in a leave moves the gate, turns the probe or changes the pose it stands at.
   assert.doesNotMatch(leave, /draw\.x|draw\.y|dpr\.cur|dpr\.tgt|dpr\.gateA|\.ang\b/);
-  assert.match(stage, /dw\.ang = probeTurn\(c\.ang, t\.sw, c\.o\);/);
+  assert.match(stage, /dw\.ang = probeTurn\(c\.ang, reduceMotion\.matches \? 0 : t\.sw, c\.o\);/);
   assert.match(stage, /n\.sw = probeSwing\(pose\.side, O\.away === pose\.rev\);/);
   const shape = stage.slice(stage.indexOf('function dprShape('), stage.indexOf('// The station dot under the gate'));
   // While it goes, the step moves only the draw-back (the angle, distance and size stay as they were).

@@ -1,7 +1,7 @@
 // The vessels on the GPU: coil and varix-spread ease, the morph frame, colours, radii, colour pass, syncVeins and drawVeins.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { TIERS_ON, TIER_TOP, motionK, sharpMoving, tierK } from './adapt-tier.js';
-import { CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
+import { ANAT_HIDDEN, CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
 import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
@@ -747,6 +747,9 @@ export function createVessels(st, live) {
       }
       let alpha = x.isArt ? (x.e.shunt === 'ap' ? 0.55 : 0.85) : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       // (A vessel that comes or goes where nothing may draw on (Reduce Motion, imaging) fades in or out whole: owner, 15 Nov 2026, nothing pops.)
+      // (A vessel the Anatomy does not draw (ANAT_HIDDEN) comes in as the circuit takes over, as the circuit's own rows do, never whole at the
+      // switch's midpoint.)
+      if (kind === 'v' && ANAT_HIDDEN.has(id)) alpha *= clamp(2 * T0 - 1, 0, 1);
       if (x.reveal?.fade) { const u = easeInOut(clamp((now - x.reveal.t0) / x.reveal.dur, 0, 1)); alpha *= x.reveal.out ? 1 - u : u; }
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
       const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);

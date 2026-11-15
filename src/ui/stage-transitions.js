@@ -57,7 +57,8 @@ export function createTransitions(st, live) {
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
   // open with the paraumbilical route) draw on when they appear and retract when they leave.
-  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
+  // (The caudate's own lane too: it comes and goes with a slide about the caudate, and popped in and out in the Circuit. Owner, 15 Nov 2026.)
+  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id) || x.e.id === 'CAUD');
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
     setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true, quietFx()));

@@ -921,12 +921,17 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function showCommit(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     endPick();
+    // (The pane it leaves fades out over the new one, as a tapped tab's does (pickCommit): opened from the menu, Search or a slide, the
+    // old pane was hidden in the same frame. Owner, 15 Nov 2026: nothing pops.)
+    const was = open.length === 1 && isVisible() && state !== 'peek' ? byId[open[0]].el : null, top = readMetric(was, 'scrollTop') || 0;
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
     if (reveal) onReveal?.(reveal);
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
+    const now = byId[open[0]]?.el;
+    if (was && now && now !== was && !was.classList.contains('active') && was.animate) paneOut(was, top);
     queueRefresh();
   }
   function close() {
