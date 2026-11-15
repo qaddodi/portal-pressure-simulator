@@ -18,7 +18,6 @@ import { fix1 } from './num.js';
 import { dataSoon, attrSoon } from './class-soon.js';
 import { fibroscanLabel } from './instrument-aria.js';
 import { RATE } from './table-marks.js';
-import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { onTheme } from './theme-epoch.js';
 import { createStiffBar } from './stiff-bar.js';
 const nextFrame = frameFor('fibroscan');
@@ -128,13 +127,11 @@ function rrect(ctx, x, y, w, h2, r) {
 // shakes at 50 Hz, the spleen's dedicated probe at 100 Hz), the map's two colours (dark and bright ends: the liver's orange, the spleen's
 // violet, so the two never read as one), the widest reading its number is fitted to (the spleen probe reads up to 100 kPa), and the
 // key under the map: each row a meaning and its cut-off, bold (Baveno VIII 1.3, 1.15, 1.16, 1.19, 7.19; ssm-cuts.js).
-const C = SSM_CUTS;
 const ORGAN = {
   liver: { key: 'lsm', aria: 'Simulated FibroScan elastography panel, liver, live', name: 'LIVER · 50 Hz', widest: '88.8', lo: [20, 10, 8], hi: [220, 126, 64],
     rows: [] },   // (the liver's cut-offs are the stiffness bar's, stiff-bar.js: Baveno VIII's rule of five and the platelet 150 line, from lsm-cuts.js)
   spleen: { key: 'ssm', aria: 'Simulated FibroScan elastography panel, spleen, live', name: 'SPLEEN · 100 Hz', widest: '100.0', lo: [16, 8, 26], hi: [168, 104, 220],
-    rows: [['Normal (model value)', `~${C.normal} kPa`], ['EGD can be avoided', `<${C.spareScope}`], ['Indeterminate zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
-      [`No CSPH, recompensated, with LSM <${C.resolvedLsm}`, `<${C.resolved}`]] },
+    rows: [] },   // (the spleen's two guideline lines, <40 and >55, are the stiffness bar's, stiff-bar.js; no row stands in the key, so a switch of organ shows or hides nothing)
 };
 const ORGAN_WORDS = [['liver', 'Liver'], ['spleen', 'Spleen']];
 
@@ -160,12 +157,12 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   const seg = switcher ? h('div', { class: 'pressure-switch fs-organ', role: 'group', 'aria-label': 'Organ', style: { position: 'relative', zIndex: '2', flex: 'none', minHeight: '30px' } }, organBtns) : null;
   // (The switch is the pane's own row above this view, as the Scope view / Wall switch is: dock.js puts it there, so the view's rules
   // that give the map the height left never squeeze it under the map.)
-  // (The liver's cut-offs are a bar under the map, the rule of five with the patient's mark and, with the platelets, what the two say about CSPH
+  // (The cut-offs are a bar under the map for both organs, the liver's rule of five and the spleen's two lines, the rule of five with the patient's mark and, with the platelets, what the two say about CSPH
   // (review F5): in the Tests card in place of the key's rows, on a slide's card under the map. The spleen keeps its key's rows.)
   const bar = createStiffBar({ note: switcher });
   bar.el.style.cssText = 'flex:none;width:100%;min-width:0;margin-top:10px';
   let barOn = true, pltOnSlide = false;
-  const barShown = () => barOn && organ === 'liver';
+  const barShown = () => barOn;
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, switcher ? key : null, bar.el);   // (a slide's card has its own words: no key)
   fillKey(); showBar();
   // (The platelet count the bar reads: the Tests card's live one; a slide's, only when its own tiles show the platelets, its settled one.)
@@ -232,7 +229,7 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     const { c } = fr;
     const th = colors();
     const reading = fix1(shown), txt = none ? '–' : reading; dataSoon(cv, 'reading', txt);
-    if (barShown()) bar.set(none ? null : shown, pltNow());   // (drawn again only when the reading, to a tenth, or the count changes)   // (txt: a dash with no spleen to read)
+    if (barShown()) bar.set(none ? null : shown, organ === 'liver' ? pltNow() : null, organ);   // (drawn again only when the reading, to a tenth, or the count changes)   // (txt: a dash with no spleen to read)
     fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt);   // (the figure's probe, on the organ this card reads)
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom

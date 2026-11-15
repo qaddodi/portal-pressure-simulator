@@ -37,5 +37,9 @@ export function ssmOf(pulpTm, lengthCm) {
   return Math.min(SSM_CUTS.max, k.base + k.perMmHg * dP + k.perMmHg2 * dP * dP + k.perCm * dL);
 }
 
+/** The ticks the spleen stiffness bar prints (fibroscan's bar, stiff-bar.js): the guideline's own two lines, nothing between them (Baveno VIII gives no SSM grey-zone
+ *  number of its own; AASLD 2024 gives none). */
+export const SSM_STEPS = Object.freeze([SSM_CUTS.spareScope, SSM_CUTS.ruleIn]);
+
 /** A reading's zone against the cut-offs: 'in' (CSPH ruled in), 'gray', or 'spare' (scope spared, under spareScope). */
 export const ssmZone = (v) => (v == null ? null : v > SSM_CUTS.ruleIn ? 'in' : v < SSM_CUTS.spareScope ? 'spare' : 'gray');

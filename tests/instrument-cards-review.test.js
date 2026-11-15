@@ -9,7 +9,8 @@ import './dom-shim.js';
 import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../src/engine/lsm-cuts.js';
 import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../src/engine/ascites-cuts.js';
 import { TRANSFUSE, transfuseBand, TRANSFUSE_WORDS } from '../src/engine/transfusion-cuts.js';
-import { stiffLayout, stiffWords, verdictOf, plateletWords } from '../src/ui/stiff-bar.js';
+import { stiffLayout, stiffWords, verdictOf, plateletWords, spleenVerdictOf, BARS } from '../src/ui/stiff-bar.js';
+import { SSM_CUTS, SSM_STEPS } from '../src/engine/ssm-cuts.js';
 import { saagLayout, pointsOf, readingOf, saagWords } from '../src/ui/tool-saag.js';
 import { riForms, pulsatility } from '../src/ui/doppler-marks.js';
 import { HB_LO, HB_HI, hbAt } from '../src/ui/vitals-monitor.js';
@@ -82,6 +83,53 @@ test('the stiffness bar stays inside its card at every width and type size, and 
   assert.match(stiffWords(12, 128), /Platelets 128/);
   assert.match(stiffWords(12, 200), /CSPH ruled out/);
   assert.match(stiffWords(NaN, null), /no reading/);
+});
+
+// Spleen stiffness bar (Mohammad, 15 Nov 2026): the liver bar's component on the 100 Hz probe's axis, drawn at the guideline's two lines only.
+test('the spleen bar: Baveno VIII\'s two lines, 40 and 55, are its only ticks and its zones end there, from ssm-cuts.js', () => {
+  assert.deepEqual([...SSM_STEPS], [40, 55]);
+  assert.deepEqual([...BARS.spleen.steps], [SSM_CUTS.spareScope, SSM_CUTS.ruleIn]);
+  assert.deepEqual(BARS.spleen.zones.map((z) => z.to), [40, 55, 100]);
+  const L = stiffLayout(320, 12, meas, { lsm: 48, organ: 'spleen', note: true });
+  assert.deepEqual(L.texts.filter((t) => t.look === 'stiff.tk').map((t) => t.t), ['40', '55']);
+  assert.equal(L.rects.filter((r) => /^stiff\.z/.test(r.look)).length, 3);
+  // the mark stands at 48 of 100 across the bar (the bar's pad is ceil(0.3 f))
+  const pad = Math.ceil(12 * 0.3), mark = L.rects.find((r) => r.look === 'stiff.mk'), want = pad + (48 / 100) * (320 - 2 * pad);
+  assert.ok(Math.abs(mark.x + 1 - want) < 0.01, `mark at ${mark.x + 1}, want ${want}`);
+});
+
+test('the spleen bar says what the guidelines say: ruled in above 55 (not at 55), no rule-out, endoscopy spared under 40', () => {
+  assert.equal(spleenVerdictOf(55.1)[0], 'CSPH ruled in');
+  assert.equal(spleenVerdictOf(55)[0], 'CSPH not ruled in');
+  assert.equal(spleenVerdictOf(20)[0], 'CSPH not ruled in', 'Baveno VIII has no SSM rule-out');
+  assert.equal(spleenVerdictOf(null), null);
+  assert.deepEqual(BARS.spleen.zoneOf(39.9).words, ['Spares', 'EGD']);
+  assert.deepEqual(BARS.spleen.zoneOf(40).words, ['CSPH', 'unclear']);
+  assert.deepEqual(BARS.spleen.zoneOf(55).words, ['CSPH', 'unclear']);
+  assert.deepEqual(BARS.spleen.zoneOf(55.1).words, ['CSPH']);
+  assert.match(stiffWords(48, null, 'spleen'), /Spleen stiffness 48\.0 kPa on the 100 Hz probe: CSPH unclear\. CSPH not ruled in\./);
+  assert.match(stiffWords(NaN, null, 'spleen'), /no reading/);
+  // a platelet count never reaches the spleen's bar
+  assert.ok(!stiffLayout(320, 12, meas, { lsm: 48, plt: 90, organ: 'spleen' }).texts.some((t) => /Platelets/.test(t.t)));
+});
+
+test('the spleen bar stays inside its card at every width and type size', async () => {
+  const { TYPE } = await import('../src/ui/chart-looks/stiff.js');
+  for (const W of [240, 280, 320, 400, 480, 600]) for (const f of [12, 13, 14, 16]) for (const ssm of [null, 0, 17, 39.9, 40, 48, 55, 55.1, 100]) {
+    const L = stiffLayout(W, f, meas, { lsm: ssm, organ: 'spleen', note: true }), tag = `W ${W} f ${f} ssm ${ssm}`;
+    for (const r of L.rects) assert.ok(r.x >= -0.01 && r.x + r.w <= W + 0.01 && r.y >= 0 && r.y + r.h <= L.H + 0.01, `rect inside, ${tag}`);
+    for (const t of L.texts) {
+      const w = meas(t.t, `400 ${sizeOf(t.look, TYPE, f)}px Inter`), x0 = t.anchor === 'middle' ? t.x - w / 2 : t.anchor === 'end' ? t.x - w : t.x;
+      assert.ok(x0 >= -0.5 && x0 + w <= W + 0.5, `"${t.t}" inside the card, ${tag}`);
+      assert.ok(t.y <= L.H + 0.5, `"${t.t}" above the box's bottom, ${tag}`);
+    }
+    // (the zone words of neighbouring zones never overlap each other on a line)
+    const zl = L.texts.filter((t) => t.look === 'stiff.zl');
+    for (const a of zl) for (const b of zl) if (a !== b && Math.abs(a.y - b.y) < 1) {
+      const wa = meas(a.t, `600 ${sizeOf('stiff.zl', TYPE, f)}px Inter`), wb = meas(b.t, `600 ${sizeOf('stiff.zl', TYPE, f)}px Inter`);
+      assert.ok(Math.abs(a.x - b.x) >= (wa + wb) / 2 - 0.5, `"${a.t}" and "${b.t}" do not overlap, ${tag}`);
+    }
+  }
 });
 
 test('the SAAG plane: points come only from patients with fluid, and every word stays inside the card', async () => {
