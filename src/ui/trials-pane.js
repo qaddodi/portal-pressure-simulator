@@ -25,7 +25,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { caught } from './caught.js';
 import { TRIAL_IDS, trialOf, trialSource } from './trials.js';
-import { fitTrial, failedRows, openRows, groupOf, possiblyWords, whyNot, lcFirst, stillNeeded, FITS_HEAD, FITS_WORDS, NOT_IN_MODEL } from './trial-fit.js';
+import { fitTrial, failedRows, openDefining, groupOf, countWords, possiblyWords, whyNot, lcFirst, stillNeeded, FITS_HEAD, FITS_WORDS, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, armsLayout, layoutTree, ratiosOf, ratioText } from './trial-forest.js';
 import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 
@@ -72,8 +72,9 @@ export function reasonOf(t, fit) {
   if (fit.verdict === 'no') return failedRows(fit).map((r) => `${r.rule} (${r.value === NOT_IN_MODEL ? 'not in the model' : lcFirst(r.value)})`).join('; ');
   if (fit.verdict === 'unknown') {
     if (!fit.rows.length) return 'Its entry rules are not listed yet';
-    const open = `Not in the model: ${openRows(fit).map((r) => lcFirst(r.rule)).join(', ')}`;
-    return fit.met > 0 ? `${possiblyWords(fit)}. ${open}` : open;
+    // (The group heading already says "Possibly fits": the row gives the count and the defining rules still open; fine print waits for the open trial.)
+    const open = `Not in the model: ${openDefining(fit).map((r) => lcFirst(r.rule)).join(', ')}`;
+    return groupOf(fit) === 'possible' ? `${countWords(fit)}. ${open}` : open;
   }
   // (A full match is not eligibility: the line says so and names the rules still open, R01.)
   return [FITS_WORDS, stillNeeded(fit) && `${stillNeeded(fit)}.`].filter(Boolean).join(' ');
@@ -233,7 +234,7 @@ export function createTrialsPane() {
     if (t.followUp) kv.append(h('span', { class: 'k' }, 'Followed'), h('span', { class: 'v' }, t.followUp));
     armsT = t; armsW = 0;
     const rs = ratiosOf(t);
-    const eff = rs.length ? rs.map((r) => `${ratioText(r)}${r.of ? ` for ${r.of}` : ''}`).join(' · ') : t.effect;
+    const eff = rs.length ? rs.map((r) => `${ratioText(r)}${r.of ? ` for ${lcFirst(r.of)}` : ''}`).join(' · ') : t.effect;
     const box = h('div', { class: 'tr-exp', id: `tr-x-${t.id}` }, kv, armsEl,
       eff ? h('div', { class: 'tr-eff' }, eff) : null,
       t.km ? h('div', { class: 'tr-note' }, 'The rates are Kaplan–Meier estimates.') : null,
@@ -243,6 +244,14 @@ export function createTrialsPane() {
       t.status && t.status !== 'checked' ? h('div', { class: 'tr-warn' }, 'Not yet checked against the paper') : null);
     restPass(drawArms);
     return box;
+  }
+  /** The Model line's starting values: the ones the card shows (the head line's HVPG, the live frame's PPG, MAP and heart rate), each falling back
+   *  to the settled copy's where the card has none. */
+  function liveBase(settled) {
+    const m = frame?.metrics || {}, out = { ...settled };
+    const live = { hvpg: built?.facts.hvpg, ppg: m.ppg, map: m.map, hr: m.hr };
+    for (const k in live) if (Number.isFinite(live[k])) out[k] = live[k];
+    return out;
   }
   // The Model line: the model's own numbers for this patient, settled with the trial's treatment (the engine's worker, on a copy: whatIf).
   function modelEl(t) {
@@ -262,8 +271,11 @@ export function createTrialsPane() {
       // (A TIPS lowers the portal pressure gradient, which the HVPG does not see: its line leads with the PPG.)
       const tips = !!rx.patch.tips, sev = tips ? ppgSev : hvpgSev, k0 = tips ? 'ppg' : 'hvpg';
       const num = (x) => h('b', { 'data-sev': sev(x) }, fmt(x, 1));
-      const more = tips ? ` · HVPG ${fmt(r.base.hvpg, 1)} → ${fmt(r.rx.hvpg, 1)}` : rx.patch.drugs?.terlipressin ? ` · MAP ${fmt(r.base.map, 0)} → ${fmt(r.rx.map, 0)} mmHg` : ` · heart rate ${fmt(r.base.hr, 0)} → ${fmt(r.rx.hr, 0)}/min`;
-      v.replaceChildren(tips ? 'PPG ' : 'HVPG ', num(r.base[k0]), h('s', {}, ' → '), num(r.rx[k0]), ` mmHg${more}`);
+      // (TC-F4: the line starts from the value the card shows, the live frame's, and takes only the change from the settled copies, so its first
+      // number is the head line's and the rules', never the settled copy's 11.5 beside a card that reads 11.1.)
+      const B = liveBase(r.base), at = (k) => B[k] + (r.rx[k] - r.base[k]);
+      const more = tips ? ` · HVPG ${fmt(B.hvpg, 1)} → ${fmt(at('hvpg'), 1)}` : rx.patch.drugs?.terlipressin ? ` · MAP ${fmt(B.map, 0)} → ${fmt(at('map'), 0)} mmHg` : ` · heart rate ${fmt(B.hr, 0)} → ${fmt(at('hr'), 0)}/min`;
+      v.replaceChildren(tips ? 'PPG ' : 'HVPG ', num(B[k0]), h('s', {}, ' → '), num(at(k0)), ` mmHg${more}`);
     };
     // (One question per treatment and patient: a card built again while the answer is on its way waits for the same answer.)
     let q = models.get(key);
@@ -282,8 +294,6 @@ export function createTrialsPane() {
     id: 'trials', label: 'Trials', el,
     update,
     clear() {},
-    /** The card's peek line. */
-    summary: () => (built ? `${built.groups.fits.length} of ${TRIAL_IDS.length} fit` : 'Trials'),
     dispose() { forest.dispose(); armsGL.dispose?.(); hvWords?.dispose(); },
   };
 }

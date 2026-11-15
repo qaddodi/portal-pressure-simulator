@@ -20,7 +20,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { trialOf, trialSource } from './trials.js';
 import { TYPE } from './chart-looks/trial.js';
-import { fitTrial, metricsOfFp, lcFirst, possiblyWords, fitsWords } from './trial-fit.js';
+import { fitTrial, metricsOfFp, lcFirst, possiblyWords, fitsWords, groupOf } from './trial-fit.js';
 
 export const TRIAL_LINES = 2;   // (the most lines a field's words take; more are cut with an ellipsis)
 export const NOTE_LINES = 3;
@@ -68,13 +68,16 @@ export function fitWords(fit) {
     const v = typeof r.value === 'string' || Number.isFinite(r.value) ? ` (this patient: ${r.value})` : '';
     return `Does not fit: ${lcFirst(String(r.rule))}${v}`;
   }
-  return fit.met > 0 ? possiblyWords(fit) : 'Cannot tell from the model';
+  return groupOf(fit) === 'possible' ? possiblyWords(fit) : 'Cannot tell from the model';
 }
 
 /** The card's drawing for trial t at width W, base type size f: the words [{ x, y, t, look, anchor }], the rectangles [{ x, y, w, h, r, look, tone? }]
  *  (a disc is a rectangle rounded to a circle), the strokes [{ d, look, tone? }] and the height H. meas(text, font) → px (glyph-measure.js).
  *  fit: fitTrial's answer for the slide's patient, or null for no fit line. Pure: the same trial, width, size and fit always give the same drawing. */
-export function trialLayout(t, W, f, meas, fit = null) {
+// opts.head false: no name or source line (the Tests card's open trial, whose row already names it). opts.zero: every bar drawn at no width, the
+// drawing a grow starts from (createTrial's grow: the bars then glide to their shares, svg-morph.js).
+const NO_OPTS = Object.freeze({});
+export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = false } = NO_OPTS) {
   const texts = [], rects = [], paths = [];
   const px = (look) => TYPE[look][1] * f, font = (look) => `${TYPE[look][0]} ${px(look)}px Inter`, lh = (look) => px(look) * 1.32;
   const say = (x, y, s, look, anchor = 'start') => texts.push({ x, y, t: s, look, anchor });
@@ -86,10 +89,12 @@ export function trialLayout(t, W, f, meas, fit = null) {
     y += L.length * lh(look);
     return L;
   };
-  lines(t.name, 'trial.name', TRIAL_LINES);
-  y += f * 0.15;
-  lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', TRIAL_LINES);
-  y += f * 0.35;
+  if (head) {
+    lines(t.name, 'trial.name', TRIAL_LINES);
+    y += f * 0.15;
+    lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', TRIAL_LINES);
+    y += f * 0.35;
+  }
   lines(endpointOf(t), 'trial.v', TRIAL_LINES);
   y += f * 0.9;
   // The arms' numbers: side by side where every arm's name, share and people fit their column, else one under another.
@@ -97,8 +102,8 @@ export function trialLayout(t, W, f, meas, fit = null) {
   const ks = Math.round(L * 0.62), kx = ks + f * 0.45, bh = Math.max(6, Math.round(f * 0.55)), pct = (a) => `${a.rate}%`;
   const bar = (a, by) => {
     rects.push({ x: 0, y: by, w: W, h: bh, r: bh / 2, look: 'trial.track' });
-    const w = (W * a.rate) / 100;
-    if (w > 0) rects.push({ x: 0, y: by, w, h: bh, r: Math.min(bh, w) / 2, look: 'trial.bar', tone: TONE[a.side] || 'text-3' });
+    const w = zero ? 0 : (W * a.rate) / 100;
+    if (w > 0 || (zero && a.rate > 0)) rects.push({ x: 0, y: by, w, h: bh, r: Math.min(bh, w) / 2, look: 'trial.bar', tone: TONE[a.side] || 'text-3' });
   };
   const side = n <= 3 && arms.every((a) => meas(a.label, font('trial.lab')) + kx <= cw && meas(pct(a), font('trial.pct')) <= cw && (!a.n || meas(`n = ${a.n}`, font('trial.n')) <= cw));
   if (side) {
@@ -165,24 +170,34 @@ export function fitOf(t, st, facts = null) {
 const sv = svgModel;
 const textW = (s, font) => measure(s, font);
 /** The card, in the instrument card's slot: its words at the host's own type size (chart-looks/index.js HOSTS.trial). */
-export function createTrial() {
+// opts.head false: the drawing has no name or source line (trialLayout). grow(): the next drawing starts with its bars at no width and they glide to
+// their shares (svg-morph.js, the same glide every chart uses; under Reduce Motion it fades in instead), the Tests card's open trial (TC-M5).
+export function createTrial({ head = true } = NO_OPTS) {
   const el = h('div', { class: 'pz-trial', role: 'group' });
   const gl = createSvgGL(el, { host: 'trial' });
-  let trial = null, fit = null, drawnW = 0, drawnF = 0;
+  let trial = null, fit = null, drawnW = 0, drawnF = 0, growing = false;
   function draw() {
     const W = Math.round(readMetric(el, 'clientWidth') || 0);
     if (!trial || !W || !el.isConnected) return;
     const f = fittedType(el, gl, 12);
     if (W === drawnW && f === drawnF) return;
     drawnW = W; drawnF = f;
-    const L = trialLayout(trial, W, f, textW, fit);
+    if (growing) {
+      growing = false;
+      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head, zero: true }), W), false);
+      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head }), W), true);
+      return;
+    }
+    gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head }), W), false);
+  }
+  function treeOf(L, W) {
+    el.style.height = `${L.H}px`;   // (the picture's box: its height follows its width only, so the card never changes size with the slide)
     const kids = [
       ...L.rects.map((r) => sv('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: r.r, 'data-look': r.look, ...(r.tone ? { 'data-p-tone': r.tone } : {}) })),
       ...L.paths.map((p) => sv('path', { d: p.d, 'data-look': p.look, ...(p.tone ? { 'data-p-tone': p.tone } : {}) })),
       ...L.texts.map((s) => sv('text', { x: s.x, y: s.y, 'text-anchor': s.anchor, 'data-look': s.look }, s.t)),
     ];
-    gl.show(sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': trialWords(trial, fit) }, ...kids), false);
-    el.style.height = `${L.H}px`;   // (the picture's box: its height follows its width only, so the card never changes size with the slide)
+    return sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': trialWords(trial, fit) }, ...kids);
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
   ro?.observe(el);
@@ -202,6 +217,8 @@ export function createTrial() {
       fit = next; drawnW = 0;
       if (trial) { el.setAttribute('aria-label', trialWords(trial, fit)); draw(); }
     },
+    /** The next drawing grows its bars from nothing (a trial just opened). */
+    grow() { growing = true; drawnW = 0; if (trial) draw(); },
     clear() {},
     dispose() { ro?.disconnect(); gl.dispose?.(); },
   };

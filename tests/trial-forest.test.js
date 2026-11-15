@@ -54,7 +54,7 @@ test('HR, OR and RR are grouped by kind, in that order, each under its name, and
     assert.ok(v.y > ys(kind) && (!next.length || v.y < Math.min(...next)), `${v.t} sits in its own group`);
   }
   assert.equal(L.texts.filter((s) => s.look === 'forest.ref').length, 0);
-  assert.equal(L.lines.filter((l) => l.look === 'forest.ref').length, 3, 'a line at 1 in each group');
+  assert.equal(L.lines.filter((l) => l.look === 'forest.ref').length, 4, 'a short line at 1 through each row\'s interval (TC-V2)');
   const ref = L.lines.find((l) => l.look === 'forest.ref');
   assert.equal(ref.x1, ref.x2);
   for (const s of FAVORS) assert.ok(L.texts.some((t) => t.t === s), s);
@@ -159,7 +159,7 @@ test('a ratio keeps the decimals the paper gave: two, or three (CAVARLY 0.192–
 
 test('F14: a fixed 0.1 to 2 scale, an arrowhead on an interval that runs past it, and "Not pooled" under each group', () => {
   const real = Object.values(TRIALS);
-  const L = forestLayout(real, 360, 13, measure);
+  const L = forestLayout(real, 360, 13, measure, { all: true });   // (every ratio: the transfusion subgroup is the one past 2)
   assert.deepEqual([...FOREST_SCALE], [0.1, 2]);
   assert.deepEqual(L.texts.filter((s) => s.look === 'forest.tick').map((s) => s.t), ['0.1', '0.25', '0.5', '1', '2'], 'the same ticks whatever the trials');
   // Transfusion's Child–Pugh C interval (1.04, 0.45–2.37) is the one that runs past 2: two strokes meet at the scale's right end.
@@ -175,7 +175,7 @@ test('F14: a fixed 0.1 to 2 scale, an arrowhead on an interval that runs past it
   assert.ok(groups >= 2);
   assert.equal(L.texts.filter((s) => s.t === NOT_POOLED).length, groups, 'one "Not pooled" line under each group');
   // A scale wide enough takes the same interval in, so it gets no arrowhead.
-  const wide = forestLayout(real, 360, 13, measure, { scale: [0.1, 4] });
+  const wide = forestLayout(real, 360, 13, measure, { scale: [0.1, 4], all: true });
   assert.equal(wide.lines.filter((l) => /^forest\.ci/.test(l.look) && l.y1 !== l.y2).length, 0);
 });
 
@@ -185,9 +185,31 @@ test('F4: the picked trial\'s first row carries a second line under its interval
   const L = forestLayout(real, 360, 13, measure, { selected: 'predesci', why: { predesci: 'Not this patient: HVPG 8.2, needs ≥10', sort: 'ignored: not picked' } });
   assert.equal(plain.texts.filter((s) => s.look === 'forest.why').length, 0);
   const why = L.texts.filter((s) => s.look === 'forest.why');
-  assert.deepEqual(why.map((s) => s.t), ['Not this patient: HVPG 8.2, needs ≥10'], 'once, though PREDESCI has two rows, and not for a trial that is not picked');
+  assert.deepEqual(why.map((s) => s.t), ['Not this patient: HVPG 8.2, needs ≥10'], 'once, and not for a trial that is not picked');
   const hit = L.hits.find((q) => q.id === 'predesci'), hit0 = plain.hits.find((q) => q.id === 'predesci');
   assert.ok(hit.h > hit0.h && L.H > plain.H);
   const mk = L.rects.filter((r) => /^forest\.mk/.test(r.look)).find((r) => r.y > hit.y && r.y < hit.y + hit.h);
   assert.ok(why[0].y - 13 > mk.y + mk.h - 1 && why[0].y < hit.y + hit.h, 'the line sits under the marker and inside the row');
+});
+
+// TC-V2 / TC-V3 (trials card review, 15 Nov 2026): on a phone the line at 1 ran through every row's "HR 0.51 (…)" words, two CAVARLY rows and two
+// transfusion rows read the same once cut, and subgroups sat beside primary results.
+test('TC-V2, V3: one row per trial (its primary ratio), the line at 1 never crosses a word, and no two rows read the same', () => {
+  const real = Object.values(TRIALS);
+  for (const w of [300, 343, 460]) {
+    const L = forestLayout(real, w, 13, measure, { selected: 'predesci', why: { predesci: 'Possibly fits: 2 of 3 key rules met' } });
+    const ids = L.hits.map((q) => q.id), withRatio = real.filter((t) => ratiosOf(t).length).map((t) => t.id);
+    for (const id of withRatio) assert.equal(ids.filter((x) => x === id).length, 1, `${w}: ${id} has one row`);
+    const vals = L.texts.filter((s) => /^forest\.val/.test(s.look)).map((s) => s.t);
+    for (const t of real.filter((x) => ratiosOf(x).length)) assert.ok(vals.includes(ratioText(ratiosOf(t)[0])), `${w}: ${t.id} shows its primary ratio`);
+    // (A word's box: from its baseline up a type size, across its measured width.)
+    const boxes = L.texts.map((s) => { const wd = measure(s.t, `500 13px Inter`), x0 = s.anchor === 'end' ? s.x - wd : s.anchor === 'middle' ? s.x - wd / 2 : s.x; return { x0, x1: x0 + wd, y0: s.y - 13, y1: s.y + 2, t: s.t }; });
+    for (const l of L.lines.filter((q) => q.look === 'forest.ref')) {
+      const y0 = Math.min(l.y1, l.y2), y1 = Math.max(l.y1, l.y2);
+      for (const b of boxes) assert.ok(!(l.x1 > b.x0 && l.x1 < b.x1 && y1 > b.y0 && y0 < b.y1), `${w}: the line at 1 crosses "${b.t}"`);
+    }
+    const rowWords = L.texts.filter((s) => /^forest\.(nm|of)/.test(s.look));
+    const labels = L.hits.filter((q) => withRatio.includes(q.id)).map((q) => rowWords.filter((s) => s.y > q.y && s.y < q.y + q.h).map((s) => s.t).join(' '));
+    assert.equal(new Set(labels).size, labels.length, `${w}: every row reads differently (${labels.join(' | ')})`);
+  }
 });

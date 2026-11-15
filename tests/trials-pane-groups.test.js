@@ -19,7 +19,8 @@ test('every preset: each trial sits in exactly one group, and each group\'s reas
     for (const { t, fit } of g.fits) assert.ok(fit.rows.filter((r) => r.defining).every((r) => r.state === 'yes'), `${pr.id} × ${t.id}`);
     for (const { t, fit } of g.possible) {
       assert.ok(fit.met > 0 && fit.met < fit.of, `${pr.id} × ${t.id}`);
-      assert.match(reasonOf(t, fit), new RegExp(`^Possibly fits: ${fit.met} of ${fit.of} entry rules? checked\\. Not in the model: `));
+      assert.match(reasonOf(t, fit), new RegExp(`^${fit.met} of ${fit.of} key rules? met\\. Not in the model: `), 'the row gives the count; the group heading says "Possibly fits"');
+      assert.ok(fit.rows.some((r) => r.state === 'yes' && r.defining && !r.context), `${pr.id} × ${t.id}: "possibly" rests on a rule that is not context (TC-F2)`);
     }
     for (const { t, fit } of g.no) assert.ok(reasonOf(t, fit).length > 0 && fit.rows.some((r) => r.state === 'no'), `${pr.id} × ${t.id}`);
     for (const { t, fit } of g.unknown) assert.match(reasonOf(t, fit), /^(Not in the model: |Its entry rules)/, `${pr.id} × ${t.id}`);

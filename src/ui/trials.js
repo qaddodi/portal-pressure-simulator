@@ -34,6 +34,10 @@
 //              (src/ui/trial-fit.js) when the model can check the rule, or null when it cannot:
 //                'cirrhosis' 'hvpg_ge' (value mmHg) 'compensated' (no ascites) 'ascites' 'varices_not_high_risk' (no or small varices)
 //                'varices_medium_large' 'gastric_varices' 'acute_bleed' (acute variceal or GI bleeding) 'tips' (a TIPS in place) 'no_tips'
+//                'varices_high_risk' (≥5 mm or red wale signs) 'varices_present' 'albumin_lt' (value g/dL) 'platelets_ge' (value ×1000/µL)
+//                'ascitic_protein_lt' (value g/dL) 'diuretics' 'decompensated' (ascites or a bleed now, or a case author's history)
+//              A rule whose fact the model holds must use its test, never null (tests/trial-fit-checkable.test.js, TC-F1). Cirrhosis and no TIPS are
+//              context (trial-fit.js CONTEXT_TESTS): they can exclude but are not counted as evidence of a likeness.
 //   note       one caveat a learner should keep, or null
 //   verified   the reviewer's verification level for the trial, short
 //   status     'checked' (numbers from the audited file) | 'unchecked'
@@ -85,7 +89,7 @@ export const TRIALS = {
     followUp: 'Mean 13.3 months (range 1–50)', endpoint: 'First variceal bleed', better: 'lower',
     arms: [{ label: 'Carvedilol', rate: 6.9, n: 82, side: 'treat' }, { label: 'Band ligation', rate: 8.5, n: 86, side: 'control' }],
     km: false, effect: null, ratios: [], bav: ['3.15', '3.19'],
-    entry: [CIRRHOSIS, { rule: 'Esophageal varices that have never bled', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Esophageal varices', test: 'varices_present' }, { rule: 'No previous variceal bleeding', test: null }],
     note: 'The authors state the trial was underpowered; no effect size or P value in the abstract.', verified: ABSTRACT, status: 'checked',
   },
   calibre: {
@@ -123,9 +127,9 @@ export const TRIALS = {
       { kind: 'HR', est: 0.31, lo: 0.163, hi: 0.578, of: 'First variceal bleed', vs: 'Combination vs carvedilol' },
     ],
     bav: [],
-    entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Varices >5 mm, or smaller with red signs', test: null }, { rule: 'No previous variceal bleeding', test: null },
+    entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Varices >5 mm, or smaller with red signs', test: 'varices_high_risk' }, { rule: 'No previous variceal bleeding', test: null },
       { rule: 'Age 18 to 75 years', test: null, minor: true }, { rule: 'No previous band ligation, TIPS or surgical shunt', test: null }, { rule: 'No HCC or portal vein thrombosis', test: null },
-      { rule: 'Platelets ≥30,000/µL', test: null, minor: true }],
+      { rule: 'Platelets ≥30,000/µL', test: 'platelets_ge', value: 30, minor: true }],
     note: 'Single center, open label, Child–Pugh B and C with a high HVPG: not for low-risk compensated patients.',
     verified: 'Full PDF; Table 1, Figure 2 and Table 2 verified', status: 'checked',
   },
@@ -204,7 +208,8 @@ export const TRIALS = {
     km: true, effect: 'HR for death 0.62 (0.40–0.95)',
     ratios: [{ kind: 'HR', est: 0.62, lo: 0.4, hi: 0.95, of: 'Death within 18 months' }],
     bav: ['6.10'],
-    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'Uncomplicated ascites on an aldosterone antagonist ≥200 mg/day and furosemide ≥25 mg/day', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'On diuretics', test: 'diuretics' },
+      { rule: 'Uncomplicated ascites on an aldosterone antagonist ≥200 mg/day and furosemide ≥25 mg/day', test: null }],
     note: 'Open label. Crude deaths 38 of 218 against 46 of 213. Baveno VIII is narrower: recurrent or refractory ascites when TIPS is not an option.',
     verified: ABSTRACT, status: 'checked',
   },
@@ -220,7 +225,7 @@ export const TRIALS = {
       { kind: 'HR', est: 1.04, lo: 0.81, hi: 1.35, of: 'Infection, renal dysfunction or death (time to event)' },
     ],
     bav: [],
-    entry: [{ rule: 'Hospitalized with decompensated cirrhosis', test: null }, { rule: 'Serum albumin <3.0 g/dL', test: null }],
+    entry: [{ rule: 'Decompensated cirrhosis', test: 'decompensated' }, { rule: 'In hospital', test: null }, { rule: 'Serum albumin <3.0 g/dL', test: 'albumin_lt', value: 3 }],
     note: 'No benefit, and more fluid overload with albumin: pulmonary edema or fluid overload in 23 against 8 events.',
     verified: 'NEJM Results and Table 3 verified; baseline and protocol pending', status: 'checked',
   },
@@ -254,7 +259,7 @@ export const TRIALS = {
     followUp: '1 year', endpoint: 'Alive at 3 months', better: 'higher',
     arms: [{ label: 'Norfloxacin', rate: 94, n: 35, side: 'treat' }, { label: 'Placebo', rate: 62, n: 33, side: 'control' }],
     km: true, effect: 'P = 0.003', ratios: [], bav: ['4.12'],
-    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'Ascitic fluid protein <1.5 g/dL', test: null },
+    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'Ascitic fluid protein <1.5 g/dL', test: 'ascitic_protein_lt', value: 1.5 },
       { rule: 'Child–Pugh ≥9 with bilirubin ≥3 mg/dL, or creatinine ≥1.2 mg/dL, BUN ≥25 mg/dL or sodium ≤130 mEq/L', test: null }],
     note: '1-year survival 60% against 48% (P = 0.05). Baveno VIII now advises against long-term primary antibiotic prophylaxis after a first decompensation to prevent further decompensation.',
     verified: ABSTRACT, status: 'checked',
@@ -327,6 +332,62 @@ export const TRIALS = {
     note: 'Open label; 125 of the 140 enrolled were analyzed.', verified: ABSTRACT, status: 'checked',
   },
 };
+
+// ---- The teaching words (TC-L2, TC-T1, trials card review, 15 Nov 2026). Not from the audit and never a number: what a row's rate counts, in a word
+// or two ("bled", "alive"), and what the trial taught, in one plain sentence, shown first when a trial is opened. The lessons were drafted on
+// 15 Nov 2026 for Mohammad's review (lessonStatus 'draft' until he approves a line). response: the trial's own rule for a drug response, where the
+// audit gives one, shown beside the model's fall in the HVPG (TC-T3).
+//   outcome   at most 16 characters, lower case, read after the rates: "16% vs 27% decompensated"
+//   lesson    one sentence, at most 160 characters, no number the record does not hold
+const TEACH = {
+  predesci: { outcome: 'decompensated', lesson: 'In compensated cirrhosis with CSPH, a beta-blocker lowered decompensation or death, mostly by preventing ascites.',
+    response: 'PREDESCI counted a fall of 10% or more on IV propranolol as a response.' },
+  tripathi: { outcome: 'bled', lesson: 'Carvedilol prevented a first variceal bleed better than band ligation, though the per-protocol analysis found no difference.' },
+  shah: { outcome: 'bled', lesson: 'Carvedilol and band ligation prevented a first bleed about equally; the trial was too small to show a difference.' },
+  calibre: { outcome: 'bled', lesson: 'Stopped at a tenth of its planned size, it could not show carvedilol better or worse than band ligation.' },
+  cavarly: { outcome: 'bled', lesson: 'In Child–Pugh B and C with high-risk varices, carvedilol plus band ligation prevented a first bleed better than either alone.' },
+  earlytips: { outcome: 'alive', lesson: 'In high-risk patients after a variceal bleed, an early covered TIPS improved one-year survival over drugs and band ligation.' },
+  lvtips: { outcome: 'alive, no LT', lesson: 'In Child–Pugh B and C, an early covered TIPS again improved transplant-free survival, in a broader group than the first trial.' },
+  transfusion: { outcome: 'alive', lesson: 'Transfusing only below a hemoglobin of 7 g/dL improved survival over a threshold of 9; in cirrhosis the gain was in Child–Pugh A and B.' },
+  gavaprosec: { outcome: 'event-free', lesson: 'After fundal variceal bleeding controlled with glue, a preemptive TIPS cut death or significant rebleeding over glue and a beta-blocker.' },
+  covered: { outcome: 'alive, no LT', lesson: 'In recurrent ascites, a covered TIPS improved transplant-free survival over repeated large-volume paracentesis.' },
+  answer: { outcome: 'alive', lesson: 'Long-term albumin added to diuretics improved 18-month survival in uncomplicated ascites, in an open-label trial.' },
+  attire: { outcome: 'had an event', lesson: 'Raising albumin to 3.0 g/dL in hospital did not prevent infection, kidney injury or death, and caused more fluid overload.' },
+  macht: { outcome: 'no difference', lesson: 'Midodrine with albumin did not reduce complications or death in patients waiting for a transplant.' },
+  confirm: { outcome: 'HRS reversed', lesson: 'Terlipressin reversed hepatorenal syndrome more often than placebo, with more deaths from respiratory failure.' },
+  fernandez2007: { outcome: 'alive', lesson: 'In advanced cirrhosis with low ascitic protein, primary norfloxacin prophylaxis improved 3-month survival.' },
+  gines: { outcome: 'SBP again', lesson: 'After a first SBP, daily norfloxacin cut its recurrence.' },
+  fernandez2006: { outcome: 'infected', lesson: 'In advanced cirrhosis with GI bleeding, IV ceftriaxone prevented infection better than oral norfloxacin.' },
+  sort: { outcome: 'kidney failure', lesson: 'Albumin given with antibiotics for SBP prevented kidney failure and lowered deaths in hospital.' },
+  rifaximin: { outcome: 'overt HE', lesson: 'Rifaximin started two weeks before an elective TIPS lowered overt HE after it.' },
+  bass: { outcome: 'overt HE', lesson: 'Rifaximin, mostly on top of lactulose, halved breakthrough HE in patients in remission.' },
+  sharma: { outcome: 'overt HE again', lesson: 'Lactulose after recovery from overt HE lowered its recurrence.' },
+};
+for (const [id, w] of Object.entries(TEACH)) Object.assign(TRIALS[id], w, { lessonStatus: 'draft' });
+
+/** The Baveno VIII statements the trials cite, each in one short line, from guidelines/baveno-viii-2026.pdf (TC-T2): a learner reads what the
+ *  statement says, not its number alone. Shortened, never strengthened; the PDF's own words where they fit. */
+export const BAVENO_VIII = Object.freeze({
+  '3.15': 'NSBBs, particularly carvedilol, are recommended in compensated cirrhosis with CSPH to prevent decompensation and improve survival.',
+  '3.16': 'Without CSPH, NSBBs should not be used to prevent decompensation or death.',
+  '3.19': 'When NSBBs are contraindicated or not tolerated and large varices are found, band ligation is recommended to prevent a first bleed.',
+  '4.12': 'After a first decompensation, long-term primary antibiotic prophylaxis is not recommended to prevent further decompensation.',
+  '5.4': 'Transfuse red cells restrictively, to a hemoglobin of 7 to 8 g/dL, individualized to the patient.',
+  '5.10': 'Preventive antibiotics are recommended at presentation with acute variceal bleeding.',
+  '5.11': 'Third-generation cephalosporins are generally preferred, with local resistance in mind.',
+  '5.31': 'Preemptive covered TIPS within 72 h (ideally under 24 h) for Child–Pugh C 10–13, Child–Pugh B over 7 with active bleeding at endoscopy, or HVPG ≥20 mmHg at the bleed.',
+  '5.32': 'Past the 72-hour window, a TIPS within 2 weeks (Child–Pugh C 10–13) or 1 week (B over 7 with active bleeding) may still help.',
+  '5.39': 'Bleeding from GOV2 or IGV1 is high risk: stop the bleeding first, then treat definitively, with as short a gap as possible.',
+  '5.40': 'Glue injection or EUS-guided therapy can stop bleeding from GOV2 or IGV1.',
+  '5.41': 'TIPS, with or without embolization, as soon as possible is the preferred definitive treatment for GOV2 or IGV1 bleeding.',
+  '6.3': 'Patients with recurrent or refractory ascites should be considered for TIPS.',
+  '6.10': 'In recurrent or refractory ascites without the option of TIPS, long-term albumin may be considered.',
+  '6.16': 'Rifaximin should be considered to prevent HE in candidates for elective TIPS.',
+  '6.18': 'In HRS-AKI, terlipressin with albumin should be considered.',
+  '6.21': 'After SBP, antibiotic prophylaxis should be considered to prevent its recurrence.',
+});
+/** "Baveno VIII 5.31: Preemptive covered TIPS …", or the bare number where the table has no line. */
+export const bavenoLine = (k) => (BAVENO_VIII[k] ? `${k}. ${BAVENO_VIII[k]}` : k);
 
 /** The trial ids, in the order above. */
 export const TRIAL_IDS = Object.keys(TRIALS);

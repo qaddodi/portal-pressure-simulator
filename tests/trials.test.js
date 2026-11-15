@@ -14,6 +14,7 @@ import teaching from '../src/ui/ext-teaching.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
+import { FIT_TESTS, VALUE_TESTS } from '../src/ui/trial-fit.js';
 
 const md = readFileSync(new URL('../guidelines/trials.md', import.meta.url), 'utf8');
 /** guidelines/trials.md read into { id: { status, text } }: a section is "## <id>" to the next heading. */
@@ -56,7 +57,6 @@ test('every trial is listed in guidelines/trials.md with the same status, and th
 // Trials that reported no result per arm, so the card has no bars (MACHT: the audit says not to show efficacy counts until they are verified).
 const NO_ARMS = new Set(['macht']);
 const GROUPS = ['decomp', 'bleed', 'ascites', 'kidney', 'infection', 'he'];
-const FIT_TESTS = ['cirrhosis', 'hvpg_ge', 'compensated', 'ascites', 'varices_not_high_risk', 'varices_medium_large', 'gastric_varices', 'acute_bleed', 'tips', 'no_tips'];
 
 test('a trial is two or three arms of percents from 0 to 100 (at most one decimal), the treated arm first, with the words a card needs', () => {
   const shorts = new Set();
@@ -104,7 +104,7 @@ test('a trial is two or three arms of percents from 0 to 100 (at most one decima
     for (const e of t.entry) {
       assert.ok(typeof e.rule === 'string' && /^[A-Z0-9]/.test(e.rule) && !/\.$/.test(e.rule), `${id}: rule "${e.rule}" is sentence case with no full stop`);
       assert.ok(e.test === null || FIT_TESTS.includes(e.test), `${id}: test ${e.test} is in the vocabulary or null`);
-      if (e.test === 'hvpg_ge') assert.ok(Number.isFinite(e.value) && e.value > 0, `${id}: hvpg_ge has a value`);
+      if (VALUE_TESTS.has(e.test)) assert.ok(Number.isFinite(e.value) && e.value > 0, `${id}: ${e.test} has a value`);
       else assert.equal(e.value, undefined, `${id}: only a comparing test has a value`);
     }
     for (const k of ['setting', 'followUp', 'endpoint', 'effect', 'note']) assert.ok(t[k] == null || !/\b(utilize|leverage|crucial|important to note)\b/i.test(t[k]), `${id}: ${k} is plain`);

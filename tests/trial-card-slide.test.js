@@ -107,7 +107,7 @@ test('the fit line: one quiet ring for every verdict (a check mark only inside i
   assert.equal(fitWords({ verdict: 'fits', rows: [] }), 'Matches the modeled criteria. Eligibility is incomplete.');
   assert.equal(fitWords({ verdict: 'fits', rows: [{ rule: 'Randomized within 24 hours', state: 'na', defining: false }] }), 'Matches the modeled criteria. Eligibility is incomplete. Still needed: randomized within 24 hours.');
   assert.equal(fitWords({ verdict: 'unknown', rows: [] }), 'Cannot tell from the model');
-  assert.equal(fitWords({ verdict: 'unknown', rows: [], met: 2, of: 5 }), 'Possibly fits: 2 of 5 entry rules checked');
+  assert.equal(fitWords({ verdict: 'unknown', rows: [{ state: 'yes' }], met: 2, of: 5 }), 'Possibly fits: 2 of 5 key rules met');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'HVPG 10 mmHg or more', state: 'no', value: '8.2 mmHg' }] }), 'Does not fit: HVPG 10 mmHg or more (this patient: 8.2 mmHg)');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'Never decompensated', state: 'no' }] }), 'Does not fit: never decompensated');
   const t = TRIALS.predesci, looks = new Set();

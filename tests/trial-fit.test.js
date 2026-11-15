@@ -33,7 +33,7 @@ const CASE = { decompensated: false };
 const fit = (id, o, facts = null) => { const { m, p } = patient(o); return fitTrial(FIXTURES[id], m, p, facts); };
 
 test('the test vocabulary is the one the trials use', () => {
-  assert.deepEqual([...FIT_TESTS].sort(), ['acute_bleed', 'ascites', 'cirrhosis', 'compensated', 'gastric_varices', 'hvpg_ge', 'no_tips', 'tips', 'varices_medium_large', 'varices_not_high_risk']);
+  assert.deepEqual([...FIT_TESTS].sort(), ['acute_bleed', 'albumin_lt', 'ascites', 'ascitic_protein_lt', 'cirrhosis', 'compensated', 'decompensated', 'diuretics', 'gastric_varices', 'hvpg_ge', 'no_tips', 'platelets_ge', 'tips', 'varices_high_risk', 'varices_medium_large', 'varices_not_high_risk', 'varices_present']);
 });
 
 test('a patient with CSPH, small varices and no ascites does not "fit" PREDESCI while a defining rule stays open, and matches it once every rule was checked', () => {
@@ -109,16 +109,16 @@ test('TR-5: cirrhosis alone, or any one rule the model can check, never reads "f
 });
 
 test('F18: a trial with some defining rules checked and met is "possibly fits", with the count; none checked is "cannot tell"', () => {
-  const r = fit('predesci', {}, CASE);   // four rules checked and met, the fifth (no earlier bleed or encephalopathy) not in the model
-  assert.deepEqual([r.verdict, r.met, r.of, groupOf(r)], ['unknown', 4, 5, 'possible']);
-  assert.equal(possiblyWords(r), 'Possibly fits: 4 of 5 entry rules checked');
+  const r = fit('predesci', {}, CASE);   // four rules checked and met, the fifth (no earlier bleed or encephalopathy) not in the model; cirrhosis is context
+  assert.deepEqual([r.verdict, r.met, r.of, groupOf(r)], ['unknown', 3, 4, 'possible']);
+  assert.equal(possiblyWords(r), 'Possibly fits: 3 of 4 key rules met');
   assert.deepEqual(openRows(r).map((x) => x.rule), ['No earlier bleed or encephalopathy']);
   assert.equal(groupOf(fit('predesci4', {}, CASE)), 'fits');
   assert.equal(groupOf(fit('predesci4')), 'possible', 'without the case history the rule "never decompensated" is open');
   assert.equal(groupOf(fit('predesci', { asc: 1000 })), 'no');
   const none = fit('confirm');
   assert.deepEqual([none.met, none.of, groupOf(none)], [0, 2, 'unknown']);
-  assert.equal(possiblyWords({ met: 1, of: 1 }), 'Possibly fits: 1 of 1 entry rule checked');
+  assert.equal(possiblyWords({ met: 1, of: 1 }), 'Possibly fits: 1 of 1 key rule met');
   assert.equal(groupOf({ verdict: 'unknown', rows: [] }), 'unknown', 'a trial with no rules listed is not "possibly"');
 });
 
@@ -185,9 +185,50 @@ test('R01: a full match reads "Matches the modeled criteria. Eligibility is inco
 });
 
 test('R01: a passing rule plus an unknown one never gives a favorable headline', () => {
-  const one = fitTrial({ entry: [{ rule: 'Cirrhosis', test: 'cirrhosis' }, { rule: 'Creatinine below 1.5', test: null }] }, patient().m, patient().p);
+  const one = fitTrial({ entry: [{ rule: 'Ascites', test: 'ascites' }, { rule: 'Creatinine below 1.5', test: null }] }, patient({ asc: 1500 }).m, patient().p);
   assert.equal(one.verdict, 'unknown');
   assert.equal(groupOf(one), 'possible');
-  assert.equal(possiblyWords(one), 'Possibly fits: 1 of 2 entry rules checked');
+  assert.equal(possiblyWords(one), 'Possibly fits: 1 of 2 key rules met');
   assert.equal(stillNeeded(one), 'Still needed: creatinine below 1.5');
+});
+
+// ---- TC-F2 (trials card review, 15 Nov 2026): cirrhosis and "no TIPS" are true of nearly every patient; they were lifting trials into "Possibly fits"
+test('TC-F2: context rules (cirrhosis, no TIPS) can exclude but never make a trial "possibly fits"', () => {
+  const ctx = fitTrial({ entry: [{ rule: 'Cirrhosis', test: 'cirrhosis' }, { rule: 'No TIPS in place', test: 'no_tips' }, { rule: 'Recovered from overt HE', test: null }] }, patient().m, patient().p);
+  assert.deepEqual([ctx.verdict, ctx.met, ctx.of, groupOf(ctx)], ['unknown', 0, 1, 'unknown'], 'met on context alone: cannot tell');
+  assert.deepEqual(ctx.rows.map((r) => r.context), [true, true, false]);
+  const out = fitTrial({ entry: [{ rule: 'Cirrhosis', test: 'cirrhosis' }, { rule: 'Recovered from overt HE', test: null }] }, patient({ cirrhosis: 0 }).m, patient({ cirrhosis: 0 }).p);
+  assert.equal(out.verdict, 'no', 'a context rule still excludes');
+  const marked = fitTrial({ entry: [{ rule: 'Chronic liver disease', test: 'cirrhosis', context: false }, { rule: 'Open', test: null }] }, patient().m, patient().p);
+  assert.equal(groupOf(marked), 'possible', 'a record may say a rule is evidence after all');
+});
+
+// ---- TC-F1: rules whose fact the model holds are checked, never "not in the model"
+test('TC-F1: high-risk varices, varices at all, albumin, platelets, ascitic protein, diuretics and decompensation are read from the model', () => {
+  const T = (test, value) => ({ entry: [{ rule: 'R', test, ...(value != null ? { value } : {}) }] });
+  const st = (t, o = {}, extra = {}) => { const { m, p } = patient(o); return fitTrial(t, { ...m, ...extra.m }, { ...p, ...extra.p }, extra.facts).rows[0].state; };
+  assert.equal(st(T('varices_high_risk'), { varix: 3.8, rw: false }), 'no', 'small, no red wale signs');
+  assert.equal(st(T('varices_high_risk'), { varix: 3.8, rw: true }), 'yes');
+  assert.equal(st(T('varices_high_risk'), { varix: 6 }), 'yes', 'large');
+  assert.equal(st(T('varices_high_risk'), { varix: 3.8, rw: null }), 'na', 'signs not recorded');
+  assert.equal(st(T('varices_high_risk'), { varix: 1 }), 'no', 'no varix');
+  assert.equal(st(T('varices_present'), { varix: 3.8 }), 'yes');
+  assert.equal(st(T('varices_present'), { varix: 1 }), 'no');
+  assert.equal(st(T('albumin_lt', 3), {}, { p: { albumin: 2.8 } }), 'yes');
+  assert.equal(st(T('albumin_lt', 3), {}, { p: { albumin: 4 } }), 'no');
+  assert.equal(st(T('albumin_lt', 3)), 'na', 'no albumin in the params');
+  assert.equal(st(T('platelets_ge', 30), {}, { m: { spleen: { platelets: 25 } } }), 'no');
+  assert.equal(st(T('platelets_ge', 30), {}, { m: { spleen: { platelets: 120 } } }), 'yes');
+  assert.equal(st(T('ascitic_protein_lt', 1.5), { asc: 3000 }, { m: { ascites: { volume: 3000, ...ascitesGrade(3000), totalProtein: 1.1 } } }), 'yes');
+  assert.equal(st(T('ascitic_protein_lt', 1.5), { asc: 3000 }, { m: { ascites: { volume: 3000, ...ascitesGrade(3000), totalProtein: 2.4 } } }), 'no');
+  assert.equal(st(T('ascitic_protein_lt', 1.5)), 'na', 'no ascites to tap');
+  assert.equal(st(T('diuretics'), {}, { p: { diuretics: true } }), 'yes');
+  assert.equal(st(T('diuretics'), {}, { p: { diuretics: false } }), 'no');
+  assert.equal(st(T('decompensated'), { asc: 2000 }), 'yes');
+  assert.equal(st(T('decompensated'), { bleed: true }), 'yes');
+  assert.equal(st(T('decompensated')), 'na', 'no ascites says nothing of the past');
+  assert.equal(st(T('decompensated'), {}, { facts: { decompensated: false } }), 'no');
+  assert.equal(st(T('decompensated'), {}, { facts: { decompensated: true } }), 'yes');
+  const { m, p } = patient();
+  assert.equal(whyNot(fitTrial(T('albumin_lt', 3), m, { ...p, albumin: 4 })), 'Albumin 4.0 g/dL, needs <3.0');
 });
