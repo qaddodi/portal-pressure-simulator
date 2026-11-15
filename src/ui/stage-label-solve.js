@@ -13,7 +13,7 @@ import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
-import { spreadDots } from './label-dots.js';
+import { spreadDots } from './label-dots.js'; import { labelCourse } from './label-course.js';
 
 const STEP_LEAD_GAP = 10;   // (how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)
 export function createLabelSolve(st, live) {
@@ -694,7 +694,7 @@ export function createLabelSolve(st, live) {
       } else {
         // Inline: dots on the anatomy, labels nearby with short leaders, most important first.
         buildLines();
-        if (solve) spreadDots(items, (it) => (it.key.startsWith('n:') && it.vw > 0 && geo[LABEL_VESSEL[it.node]]?.cur?.length > 1 ? geo[LABEL_VESSEL[it.node]].cur : null), (P, u) => { const m = arcMid(P, u); return worldToLocal(m[0], m[1]); });
+        if (solve) spreadDots(items, (it) => (it.key.startsWith('n:') && it.vw > 0 && labelCourse(geo, LABEL_VESSEL[it.node])?.length > 1 ? labelCourse(geo, LABEL_VESSEL[it.node]) : null), (P, u) => { const m = arcMid(P, u); return worldToLocal(m[0], m[1]); });
         for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           if (solve && sliceOver()) yield;
@@ -1002,7 +1002,7 @@ export function createLabelSolve(st, live) {
           placed.splice(placed.indexOf(old), 1);
           const dotAt = it.mid ? placed.find((p) => p.dot && p.x0 === it.ax - 4 && p.y1 === it.ay + 4 && p.x1 === it.ax + 4) : null;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           if (dotAt) placed.splice(placed.indexOf(dotAt), 1);
-          const eid = it.mid ? LABEL_VESSEL[it.node] : null, P = eid && geo[eid]?.cur;
+          const eid = it.mid ? LABEL_VESSEL[it.node] : null, P = eid && labelCourse(geo, eid);
           const anchors = P?.length > 1 ? SLIDE.map((u) => { if (u === 0.5) return [it.ax, it.ay, 0, it.au ?? 0.5]; const m = arcMid(P, u), [x, y] = worldToLocal(m[0], m[1]); return [x, y, Math.abs(u - 0.5) * 50, u]; }) : [[it.ax, it.ay, 0, it.au ?? 0.5]];   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
           let best = null;
           for (const [ax, ay, slide, au] of anchors) {

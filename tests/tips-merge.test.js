@@ -33,7 +33,7 @@ function course(d) {   // the path's text as N points along it
   return out;
 }
 const VEINS = [   // [id, from node, to node, radius at each sample]
-  ['PVH_R', 'PVH', 'RPV_T', () => 11.4], ['PVH_R_1', 'RPV_T', 'RPV', () => 11.4], ['PRE_R', 'RPV', 'SIN_R', () => 2], ['POST_R_RHV', 'CV_R', 'RHV', () => 3.9],
+  ['PVH_R', 'PVH', 'RPV_A', () => 11.4], ['PVH_R_1', 'RPV_A', 'RPV_T', () => 11.4], ['PVH_R_2', 'RPV_T', 'RPV', () => 11.4], ['PRE_R', 'RPV', 'SIN_R', () => 2], ['POST_R_RHV', 'CV_R', 'RHV', () => 3.9],
   ['RHV_IVC_1', 'RHV', 'RHV_T', () => 2.7], ['RHV_IVC', 'RHV_T', 'IVCS', () => 2.7],
   ['POST_R_MHV', 'CV_R', 'MHV', () => 3.9], ['MHV_IVC', 'MHV', 'IVCS', () => 2.7],
 ];
@@ -55,10 +55,10 @@ for (const r0 of [4, 6]) {
     const mine = J.filter((j) => j.members.includes(ROW.TIPS));
     assert.equal(mine.length, 4, `joins with the TIPS: ${mine.map((j) => j.members.join('+') + '@' + Math.round(j.x) + ',' + Math.round(j.y)).join(' ')}`);
     const at = (row) => mine.find((j) => j.members.includes(row));
-    const p = at(ROW.PVH_R), h = at(ROW.RHV_IVC);
+    const p = at(ROW.PVH_R_1), h = at(ROW.RHV_IVC);
     assert.ok(p && h, 'one join on each of the two veins');
-    for (const id of ['PVH_R', 'PVH_R_1', 'RHV_IVC_1', 'RHV_IVC']) assert.ok(at(ROW[id]).fork && at(ROW[id]).trunk === ROW[id], `${id} is the trunk of its join with the TIPS`);
-    assert.ok(at(ROW.PVH_R_1).x === p.x && at(ROW.RHV_IVC_1).x === h.x, 'the two stretches of a vein meet the TIPS at one place');
+    for (const id of ['PVH_R_1', 'PVH_R_2', 'RHV_IVC_1', 'RHV_IVC']) assert.ok(at(ROW[id]).fork && at(ROW[id]).trunk === ROW[id], `${id} is the trunk of its join with the TIPS`);
+    assert.ok(at(ROW.PVH_R_2).x === p.x && at(ROW.RHV_IVC_1).x === h.x, 'the two stretches of a vein meet the TIPS at one place');
     assert.ok(Math.hypot(p.x - 560.8, p.y - 424.6) < 1 && Math.hypot(h.x - 578.4, h.y - 230.5) < 1, 'the joins lie at the two ends of the tract');
     for (const j of mine) assert.equal(j.members.length, 2, 'a plain side join: the TIPS and its trunk, no third vessel');
   });

@@ -85,12 +85,13 @@ test('ROUTE_LEN is what the routes measure on the figure’s outlines', () => {
   within(travel(EUS_ROUTE), ROUTE_LEN.eus, 0.03, 'EUS scope');
   within(travel(EUS_GLUE_ROUTE), ROUTE_LEN.eusglue, 0.03, 'EUS glue');
   // The HVPG catheter's: the neck, the SVC, the IVC, the right hepatic vein, to the tip's reading place (stage-cath.js cathRoute).
-  const top = geo.SVC_RA.cur[0], pts = [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], marks = [0];
-  const add = (id, rev) => { const P = rev ? geo[id].cur.slice().reverse() : geo[id].cur; marks.push(pts.length); for (let i = 1; i < P.length; i++) pts.push(P[i]); };
-  add('SVC_RA', false); add('IVCS_RA', true);
+  const whole = (...ids) => ids.flatMap((id, i) => geo[id].cur.slice(i ? 1 : 0)), top = geo.SVC_RA_1.cur[0], pts = [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], marks = [0];
+  const add = (id, rev, P0 = geo[id]?.cur) => { const P = rev ? P0.slice().reverse() : P0; marks.push(pts.length); for (let i = 1; i < P.length; i++) pts.push(P[i]); };
+  add('SVC', false, [geo.SVC_RA_1.cur[0], geo.SVC_RA.cur.at(-1)]);   // (a straight vein, cut where the epigastric veins join it: its two pieces end to end, topology.js JUNCTIONS)
+  add('IVCS_RA', true);
   const ost = geo.RHV_IVC.cur.at(-1), I = geo.IVC_IS.cur.slice().reverse();
   for (let i = 1; i < I.length && I[i][1] < ost[1] - 4; i++) pts.push(I[i]);
-  add('RHV_IVC', true); add('POST_R_RHV', true);
+  add('RHV_IVC', true, whole('RHV_IVC_1', 'RHV_IVC')); add('POST_R_RHV', true);
   const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const L = (i) => cum[Math.min(marks[i], cum.length - 1)], free = L(3) + (L(4) - L(3)) * 0.62;
   within(free - L(1) * 0.55, ROUTE_LEN.hvpg, 0.03, 'HVPG');

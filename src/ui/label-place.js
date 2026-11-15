@@ -1,3 +1,4 @@
+import { labelCourse } from './label-course.js';
 // The placement rules every label layer shares (Mohammad, 3 Nov 2026: "Same engine for labels everywhere"): the boxes a label may not
 // overlap, may not leave, and the lines that may not cross it. Boxes are { x0, y0, x1, y1 } in the layer's px. Circuit's and Anatomy's layout
 // (stage.js layoutLabels) and the lobule's and sinusoid's (lobule-zoom.js) ask these, so one rule decides a clash on every figure.
@@ -86,7 +87,7 @@ const VIS_STEPS = 100, VIS_INSET = 18;
 export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL }) {
   const P0 = [0, 0];
   return function slideInView(it, id, view) {
-    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && geo[eid]?.cur;
+    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && labelCourse(geo, eid);
     if (!(P?.length > 1)) return;
     const inside = (x, y) => x >= view.x0 + VIS_INSET && x <= view.x1 - VIS_INSET && y >= view.y0 + VIS_INSET && y <= view.y1 - VIS_INSET;
     if (inside(it.ax, it.ay)) return;

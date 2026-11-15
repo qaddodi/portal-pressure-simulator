@@ -32,7 +32,7 @@ test('chronic PVT, anatomy: the cavernoma joins the portal trunk at its two ends
     const rows = e.slice(4).filter((v) => v >= 0).map((v) => Math.floor(v + 0.001));
     if (!rows.some((r) => edge[r] === 'C8')) continue;
     const others = new Set(rows.filter((r) => edge[r] !== 'C8').map((r) => edge[r]));
-    for (const o of others) assert.equal(o, 'PV_TRUNK', `the cavernoma is joined to ${o}, at ${e[0].toFixed(0)},${e[1].toFixed(0)} (only the portal trunk's inflow and hilum may be)`);
+    for (const o of others) assert.ok(o === 'PV_TRUNK' || o === 'PV_TRUNK_1', `the cavernoma is joined to ${o}, at ${e[0].toFixed(0)},${e[1].toFixed(0)} (only the portal trunk's inflow and hilum may be)`);
     seen.add(`${e[0].toFixed(0)},${e[1].toFixed(0)}`);
     for (const r of rows) if (ends.has(r)) {
       const row = cav.find((c) => c.id === r), d = (i) => Math.hypot(e[0] - row.P[2 * i], e[1] - row.P[2 * i + 1]);

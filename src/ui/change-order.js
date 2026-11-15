@@ -14,6 +14,7 @@
 // most). tests/change-order.test.js holds the order and the times to it.
 
 import { EDGES, JUNCTION_PIECES } from '../engine/topology.js';
+import { piecesOf } from './part-names.js';
 
 /** The steps, in the order they start. */
 export const CHANGE_STEPS = Object.freeze(['name', 'cause', 'pressure', 'collaterals', 'numbers']);
@@ -43,7 +44,8 @@ export function atMost(p, ms) {
 // sinusoids, the heart). It is found from the parameters before and after, so every way in (a patient, a treatment, a slide's state,
 // a shared link) gets the same answer without saying it. Nodes are topology.js's.
 const SPLANCHNIC = ['INT', 'SPL', 'STO', 'COL'];   // (the gut and spleen beds the splanchnic arterioles feed: tone, a meal, a drug)
-const ends = (id, out) => { const e = EDGES.find((x) => x.id === id); if (e) out.add(e.from).add(e.to); };
+// (A vein cut where a shunt joins it (topology.js JUNCTIONS) is one vein: its cause is at its two ends, not at the junctions between its pieces.)
+const ends = (id, out) => { const ps = piecesOf(id), a = EDGES.find((x) => x.id === ps[0]), b = EDGES.find((x) => x.id === ps.at(-1)); if (a && b) out.add(a.from).add(b.to); };
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const keysChanged = (a = {}, b = {}) => [...new Set([...Object.keys(a || {}), ...Object.keys(b || {})])].filter((k) => !same(a?.[k], b?.[k]));
 

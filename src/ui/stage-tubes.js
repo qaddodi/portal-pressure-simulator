@@ -364,7 +364,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
     flag.dataLayer = mode !== 'pressure' && mode !== 'neutral';
     // Colored by oxygen: each vessel's saturation at its two ends (the sinusoids darken toward the central vein).
-    const oxy = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f).edge : null;
+    const oxyF = mode === 'oxygen' ? oxygenFor(EDGES, NODES, f) : null;
 
     // The varices' size now, held in steps (varix-look.js): their channels, strands and opacity are drawn as big as the varix is.
     varixHeld.VAR.now = varixHeld.GV.now = nowW;   // (the held size follows the beat's mean, varix-look.js)
@@ -444,13 +444,13 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       }
       widthWrites(x, w, t, f, k);
       if (x.isArt) continue;
-      let c1, c2;
+      let c1, c2; x.oxRamp = 0;
       if (mode === 'pressure') { c1 = pressureColor(qHold(mode, k, 0, P1)); c2 = pressureColor(qHold(mode, k, 1, P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = live.reversedShown(e); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'var(--lens-neutral)' : velColorOf(f, k, store.get().healthy); }
-      else if (mode === 'oxygen') { c1 = oxygenColor(oxy[2 * k]); c2 = oxygenColor(oxy[2 * k + 1]); }
+      else if (mode === 'oxygen') { x.oxRamp = oxyF.ramp[k]; c1 = oxygenColor(oxyF.far[2 * k]); c2 = oxygenColor(oxyF.far[2 * k + 1]); }   // (a vein ends in its junction's blend, eased in over its last stretch: blood.js `far`, alongOf)
       else if (mode === 'heat') { c1 = heatColor(ref ? qHold(mode, k, 0, P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qHold(mode, k, 1, P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'system') { c1 = c2 = SYSTEM_COLOR[systemOf(e, PORTAL_TERRITORY)]; }   // (a slide's vein system, deck visuals V7: the same on every patient)
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }

@@ -33,8 +33,8 @@ test('with the TIPS in, both its ends lie inside the wall of the vein they join,
   const tips = by.TIPS;
   assert.ok(tips?.length > 4, 'the stent is drawn');
   const a = [tips[0][0], tips[0][1]], b = [tips.at(-1)[2], tips.at(-1)[3]];
-  // the portal end lies on the right portal vein (its two stretches), the hepatic end on the right hepatic vein
-  const rpv = [...(by.PVH_R || []), ...(by.PRE_R || [])], rhv = [...(by.POST_R_RHV || []), ...(by.RHV_IVC || [])];
+  // the portal end lies on the right portal vein (its stretches), the hepatic end on the right hepatic vein
+  const rpv = [...(by.PVH_R || []), ...(by.PVH_R_1 || []), ...(by.PVH_R_2 || []), ...(by.PRE_R || [])], rhv = [...(by.POST_R_RHV || []), ...(by.RHV_IVC || [])];
   const [dp, hp] = nearest(rpv, a[0], a[1]), [dh, hh] = nearest(rhv, b[0], b[1]);
   assert.ok(dp <= hp, `the portal end is ${dp.toFixed(1)} off the right portal vein's course, its half width ${hp.toFixed(1)}`);
   assert.ok(dh <= hh, `the hepatic end is ${dh.toFixed(1)} off the right hepatic vein's course, its half width ${hh.toFixed(1)}`);

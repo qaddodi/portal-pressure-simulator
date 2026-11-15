@@ -14,7 +14,7 @@ import { firstPiece } from './part-names.js';
 import { LIGHT } from './light.js';
 import { lookChanged, newLookSig } from './look-sig.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
-import { alongCurve } from './pressure-along.js';
+import { alongCurve, oxRampOf, oxygenAlong } from './pressure-along.js';
 import { sinceInput } from './quiet.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
 const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while the EUS-PPG scope is in front of them (a faint ghost of them stays)
@@ -505,7 +505,7 @@ export function createVessels(st, live) {
     const { x, kind } = it, o = it.obj;
     let c, k1, k2 = 0, k3 = 0;
     if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeVer | 0; k2 = it.ra.shadeVer | 0; k3 = Math.round(it.f * 1e4); }
-    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; k2 = frontKey(x, performance.now()); }   // (a collateral's front of width runs with the clock: collateral-front.js)
+    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; k2 = frontKey(x, performance.now()); k3 = oxKeyOf(it); }   // (k3: the oxygen lens's ramp)   // (a collateral's front of width runs with the clock: collateral-front.js)
     else {
       // (As itemRadii: the esophageal balloon squeezes the varices' strands, a varix strand is beaded, a sinusoid strand narrows.)
       const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * o.k) / 2 : o.w / 2) * (kind === 's' && x.e.id === 'C1a' ? live.balloonSqueeze : 1);
@@ -543,10 +543,10 @@ export function createVessels(st, live) {
   const SMOOTH = (u) => u * u * (3 - 2 * u);
   const plainRow = (row) => { const it = rowIt[row]; return !!it && it.kind !== 's' && !it.ra && !!it.obj.glR0; };
   // Where a stenosed vessel's colour stands along it (pressure-along.js; combined plan V1): by the resistance its narrowing adds,
-  // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk,
-  // a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
+  // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk, a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
   const alongK = new Float64Array(N_SAMPLES), alongBuf = new Float32Array(N_SAMPLES);
-  function alongOf(it) {
+  const oxKeyOf = (it) => (it.kind === 'v' && it.x.oxRamp && !it.ra ? it.x.oxRamp * (1 + Math.round(oxRampOf(geo[it.x.e.id]?.len || 0) * 1e3)) : 0);   // (the oxygen lens's ramp into a junction, x.oxRamp: its key, 0 for none; pressure-along.js oxygenAlong)
+  function alongStenosis(it) {
     if (it.kind !== 'v') return null;
     const fa = it.x.stenF, fb = it.ra?.stenF, f = it.f;
     if (!fa && !fb) return null;
@@ -556,6 +556,7 @@ export function createVessels(st, live) {
     }
     return alongCurve(alongK, alongBuf);
   }
+  const alongOf = (it) => (oxKeyOf(it) ? oxygenAlong(it.x.oxRamp, geo[it.x.e.id]?.len || 0, alongBuf) : alongStenosis(it));
   function sendRadii(items) {
     for (let q = 0; q < items.length; q++) {
       const it = items[q];
@@ -677,11 +678,13 @@ export function createVessels(st, live) {
       // (A change under a third of a device pixel at every sample is not sent: the vessels' caliber follows the model's pressures, and
       // each tiny step redrew the whole vessel layer at the model's rate (Mohammad's photo, 4 Nov: 14 whole draws a second, 10 fps). The
       // difference is kept, so the steps add up and one is sent once it is a third of a pixel; the lobule's radii work the same way.)
-      if (sent && sent.length === R.length) { let d = 0; for (let j = 0; j < R.length; j++) { const x = Math.abs(sent[j] - R[j]); if (x > d) d = x; } if (d <= radTol) continue; }
+      const oxKey = oxKeyOf(it);   // (the oxygen ramp is sent with the radii: a change of it is sent though the radii stand)
+      if (sent && sent.length === R.length && (o.glOxKey || 0) === oxKey) { let d = 0; for (let j = 0; j < R.length; j++) { const x = Math.abs(sent[j] - R[j]); if (x > d) d = x; } if (d <= radTol) continue; }
       let mx = -Infinity;
       for (let j = 0; j < R.length; j++) if (R[j] > mx) mx = R[j];
       // (The copy is refilled in place when it is the same size: no new array per changed vessel per frame of an ease. It is the
       // figure's glR, what the GPU draws: its version glRv moves with each change, for a reader that follows it, cathLive.)
+      o.glOxKey = oxKey;
       if (sent && sent.length === R.length) sent.set(R); else o.glRSent = Float64Array.from(R);
       o.glR = o.glRSent; o.glMaxR = mx; o.glRv = (o.glRv || 0) + 1;
       // (A vessel's new radii change only its own cells: drawn again as a colour change is, see drawVeins.)

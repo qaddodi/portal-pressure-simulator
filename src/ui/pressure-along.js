@@ -35,3 +35,20 @@ export function alongCurve(k, out) {
 }
 // One sample's weight, (1 / k)⁴ with k held to ALONG_K_MIN … 1.
 const alongW = (kv) => 1 / Math.max(ALONG_K_MIN, Math.min(1, kv)) ** 4;
+
+// The oxygen lens's vein (15 Nov 2026): flat at its own saturation, then easing into the blend of the junction it runs into over its last OXY_RAMP_LEN
+// (world units), so the colours are continuous through every junction, as the origin lens's are. `dir` is 1 when that junction is at the vessel's far end,
+// -1 at its near end (stage-tubes.js x.oxRamp; blood.js `far` holds the two end colours).
+/** How far from its downstream end (world units) a vein's oxygen colour eases into its junction's blend (the origin lens's ramp is about three times 12 units). */
+const OXY_RAMP_LEN = 36;
+/** The ramp's share of a vessel `len` long (at most half). */
+export const oxRampOf = (len) => (len > 0 ? Math.min(0.5, OXY_RAMP_LEN / len) : 0.5);
+/** The oxygen lens's along curve for a vessel `len` long, written into `out` (smoothstep: no slope at the join). */
+export function oxygenAlong(dir, len, out) {
+  const n = out.length, r = oxRampOf(len);
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1), w = dir > 0 ? (u - (1 - r)) / r : u / r, t = w < 0 ? 0 : w > 1 ? 1 : w;
+    out[i] = t * t * (3 - 2 * t);
+  }
+  return out;
+}

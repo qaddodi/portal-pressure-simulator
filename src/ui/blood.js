@@ -294,13 +294,46 @@ export const FLOW_FLOOR = FLOW_CUTS.stillQ;
 /** Whether a flow runs from a vessel's `from` end to its `to` end for the passes (a flow too small to have a direction does). */
 const isFwd = (q) => q > -FLOW_FLOOR;
 const EF = [], ET = [], FLOW_TO = [], IN_AT = [], IN_LIST = [], ORDER = [];   // (edge ends, the node each flow enters, the inflow lists: start, edges; the nodes by pressure)
-/** The nodes' indexes from high pressure to low (stable), the order blood flows in. */
-function byPressure(nn, P) {
-  for (let i = 0; i < nn; i++) {
-    const v = i;
-    let j = i - 1;
-    while (j >= 0 && P[ORDER[j]] < P[v]) { ORDER[j + 1] = ORDER[j]; j--; }
-    ORDER[j + 1] = v;
+/**
+ * The nodes' indexes in the order blood reaches them (ORDER), worked from the flows: a node comes after every node a flow into it leaves, and among the nodes that
+ * are ready the one at the higher pressure first. Ordering by pressure alone was the flicker of 15 Nov 2026 (Mohammad's recording, the whole portal trunk and the SMV
+ * turning from one colour to another for a frame or two): the page gets its pressures as Float32 numbers, where the hair that keeps the pieces of a cut vein in
+ * order (1e-6) is under the last bit, so two pieces tied or swapped by a bit from one frame to the next, and a node was visited before the node that feeds it. A
+ * ring of flows (a few collaterals at rest) has no first node: the highest pressure left goes first, as before. Needs inflowLists (FLOW_TO) and the edge ends.
+ */
+const F_IN = [], F_OUT_AT = [], F_OUT = [], F_DONE = [];
+function byFlow(nn, ne, P) {
+  for (let n = 0; n <= nn; n++) { F_IN[n] = 0; F_OUT_AT[n] = 0; }
+  for (let k = 0; k < ne; k++) {
+    const t = FLOW_TO[k];
+    if (t < 0) continue;
+    const src = t === ET[k] ? EF[k] : ET[k];
+    if (src < 0 || src === t) continue;
+    F_IN[t]++; F_OUT_AT[src + 1]++;
+  }
+  for (let n = 0; n < nn; n++) F_OUT_AT[n + 1] += F_OUT_AT[n];
+  for (let i = F_OUT.length; i < F_OUT_AT[nn]; i++) F_OUT[i] = 0;
+  for (let k = 0; k < ne; k++) {
+    const t = FLOW_TO[k];
+    if (t < 0) continue;
+    const src = t === ET[k] ? EF[k] : ET[k];
+    if (src < 0 || src === t) continue;
+    F_OUT[F_OUT_AT[src]++] = t;
+  }
+  for (let n = nn; n > 0; n--) F_OUT_AT[n] = F_OUT_AT[n - 1];
+  F_OUT_AT[0] = 0;
+  for (let n = 0; n < nn; n++) F_DONE[n] = 0;
+  for (let x = 0; x < nn; x++) {
+    // (The ready node at the highest pressure, the lowest index on a tie; else, in a ring, the highest pressure left.)
+    let best = -1, ring = -1;
+    for (let n = 0; n < nn; n++) {
+      if (F_DONE[n]) continue;
+      if (F_IN[n] === 0) { if (best < 0 || P[n] > P[best]) best = n; }
+      else if (ring < 0 || P[n] > P[ring]) ring = n;
+    }
+    const n = best >= 0 ? best : ring;
+    ORDER[x] = n; F_DONE[n] = 1;
+    for (let i = F_OUT_AT[n]; i < F_OUT_AT[n + 1]; i++) F_IN[F_OUT[i]]--;
   }
 }
 /** Each non-wedge edge with flow, listed under the node its flow enters (IN_AT[n] .. IN_AT[n + 1] in IN_LIST, edges in order). */
@@ -344,7 +377,7 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends, pass = false)
   inflowLists(edges, nn, Q);
   for (let i = 0; i < nn * N; i++) O_NODE[i] = 0;
   const node = O_NODE, c = O_C, sum = O_SUM;
-  byPressure(nn, P);
+  byFlow(nn, ne, P);
   for (let x = 0; x < nn; x++) {
     const n = ORDER[x];
     let w = 0;
@@ -431,6 +464,8 @@ export function originFractions(edges, nodes, Q, P, pass = false) {
 // fill with brighter arterial blood.
 export const SAT = { artery: 0.98, gut: 0.85, systemic: 0.75 };
 export const LIVER_EXTRACTION = 0.25;
+/** A vein's end is drawn as a ramp into its junction's blend when that differs from the vein's own by more than this (a saturation, 0–1: under it the two are one colour). */
+export const OXY_RAMP_MIN = 0.002;
 const consumes = (e) => e.kind === 'liver' && e.zone === 'sin';
 const isArterial = (e) => e.kind === 'artery' || e.kind === 'arteriole';
 
@@ -439,7 +474,7 @@ const BED_HAS = [], BED_SAT = [];
 const oxOut = (node, edges, k, upNode) => node[upNode] * (consumes(edges[k]) ? 1 - LIVER_EXTRACTION : 1);
 /**
  * Oxygen saturation (0–1) per node, and per edge at its `from` and `to` ends (2 × edges: from, to), written into
- * res = { node, edge } (arrays, or Float32Arrays; the numbers stored are the Float32 ones either way). Beds fed straight from the aorta
+ * res = { node, edge, far, ramp } (arrays, or Float32Arrays; `far` is `edge` with a vein's downstream end set to the junction's blend, for the drawing; the numbers stored are the Float32 ones either way). Beds fed straight from the aorta
  * return their own venous saturation; the hepatic artery's node mixes as any other. Nodes are visited from high pressure to
  * low, as in originFractions. Allocates nothing.
  */
@@ -455,7 +490,7 @@ function oxygenInto(res, edges, nodes, Q, P) {
   for (let n = 0; n < nn; n++) node[n] = Math.fround(SAT.systemic);
   const ao = NI.get('AO');
   if (ao != null) node[ao] = Math.fround(SAT.artery);
-  byPressure(nn, P);
+  byFlow(nn, ne, P);
   for (let x = 0; x < nn; x++) {
     const n = ORDER[x];
     if (n === ao) continue;
@@ -470,10 +505,22 @@ function oxygenInto(res, edges, nodes, Q, P) {
     const lo = isArterial(edges[k]) ? a : b;
     if (isFwd(Q[k])) { edge[2 * k] = Math.fround(a); edge[2 * k + 1] = Math.fround(lo); } else { edge[2 * k] = Math.fround(lo); edge[2 * k + 1] = Math.fround(a); }
   }
+  // What the drawing shows at each end (`far`, as `edge`): the same, except that a vein that does not consume ends in the blend of the junction it
+  // runs into, so the colour is continuous through every junction (the origin lens does the same, originEnds). The shape it takes along the vessel
+  // (flat, then easing into that blend over its last stretch) is the vessel's along curve, stage-vessels.js alongOf.
+  const far = res.far, ramp = res.ramp;
+  if (far) for (let k = 0; k < ne; k++) {
+    const fwd = isFwd(Q[k]), e = edges[k], own = !consumes(e) && !isArterial(e) && e.kind !== 'wedge';
+    far[2 * k] = edge[2 * k]; far[2 * k + 1] = edge[2 * k + 1]; ramp[k] = 0;
+    if (!own) continue;
+    if (fwd) far[2 * k + 1] = Math.fround(node[ET[k]]); else far[2 * k] = Math.fround(node[EF[k]]);
+    // (`ramp`: 1 when the vein eases into the blend at its far end, -1 at its near end, 0 when the blend is its own colour.)
+    if (Math.abs(far[2 * k + 1] - edge[2 * k + 1]) > OXY_RAMP_MIN) ramp[k] = 1; else if (Math.abs(far[2 * k] - edge[2 * k]) > OXY_RAMP_MIN) ramp[k] = -1;
+  }
 }
 /** { node, edge } as Float32Arrays, new each call (for a caller that keeps it; the figure reads oxygenFor's). */
 export function oxygenSat(edges, nodes, Q, P) {
-  const res = { node: new Float32Array(nodes.length), edge: new Float32Array(edges.length * 2) };
+  const res = { node: new Float32Array(nodes.length), edge: new Float32Array(edges.length * 2), far: new Float32Array(edges.length * 2), ramp: new Int8Array(edges.length) };
   oxygenInto(res, edges, nodes, Q, P);
   return res;
 }
@@ -482,7 +529,7 @@ export function oxygenSat(edges, nodes, Q, P) {
 // model frame is worked out once, however many read it, and none is made. Read it where it is asked for; a held answer is written over
 // after OXY_SLOTS other flow arrays. The arrays are plain ones (numbers as Float32 holds them), read by index.
 const OXY_SLOTS = 8, OXY_MEMO = [];
-for (let i = 0; i < OXY_SLOTS; i++) OXY_MEMO.push({ Q: null, node: [], edge: [] });
+for (let i = 0; i < OXY_SLOTS; i++) OXY_MEMO.push({ Q: null, node: [], edge: [], far: [], ramp: [] });
 let oxyAt = 0;
 /** oxygenSat for model frame `f` (its beat-filtered flows), computed once per flow array: the figure, the lobule
  *  and the vessel card all read the same frame. */

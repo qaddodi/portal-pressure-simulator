@@ -3,7 +3,7 @@
 import { LABEL_VESSEL } from './anatomy.js';
 import { gpuProbe } from './gpu-probe.js';
 import { createLabelGL } from './label-gl.js';
-import { cams } from './scene-cam.js';
+import { cams } from './scene-cam.js'; import { labelCourse } from './label-course.js';
 
 // A pinned point under the cameras over the stage's own (scene-cam.js, card ∘ dive ∘ base): the dive's record (p' = k p + (x, y), stage px, the one
 // veins-gl draws the figure under), then a card's zoom. Only the point is carried (the label keeps its size and offset): it rides the dive with the figure.
@@ -26,7 +26,7 @@ export function createLabelHost(st, live) {
   const PIN_P = [0, 0];
   // (A point slid along its vessel by the tidy (au, 0.5 its middle): where it stands on that vessel now, stage px, into PIN_P; false if none.)
   function pinVesselAt(id, au) {
-    const eid = LABEL_VESSEL[id], x = eid && E[eid], P = x && x.vis && !x.ghost ? geo[eid]?.cur : null;
+    const eid = LABEL_VESSEL[id], x = eid && E[eid], P = x && x.vis && !x.ghost ? labelCourse(geo, eid) : null;
     if (!(P?.length > 1)) return false;
     const m = arcMid(P, au); worldToLocalInto(PIN_P, m[0], m[1]);
     return true;

@@ -44,7 +44,7 @@ test('with the TIPS whole, its stent runs the whole tract and ends in crowns ins
   const w = (list) => list.map(([x0, y0, x1, y1, hw]) => [x0 / sc, y0 / sc, x1 / sc, y1 / sc, hw / sc]);
   const ox = T[0][0] / sc - 560.8, oy = T[0][1] / sc - 424.6;
   const shift = (list) => list.map(([x0, y0, x1, y1, hw]) => [x0 - ox, y0 - oy, x1 - ox, y1 - oy, hw]);
-  const portal = shift(w([...(by.PVH_R || []), ...(by.PRE_R || [])])), hepatic = shift(w([...(by.POST_R_RHV || []), ...(by.RHV_IVC || [])]));
+  const portal = shift(w([...(by.PVH_R || []), ...(by.PVH_R_1 || []), ...(by.PVH_R_2 || []), ...(by.PRE_R || [])])), hepatic = shift(w([...(by.POST_R_RHV || []), ...(by.RHV_IVC || [])]));
   const tipsWorld = shift(w(T));
   const nearest = (list, x, y) => dist(list, x, y);
   // its two tips: the cover's points nearest each end of the tract lie at that end (within 3 units) and so inside the vein's lumen, on its centre line

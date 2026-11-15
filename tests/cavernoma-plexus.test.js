@@ -41,7 +41,8 @@ function sample(d) {
 // (A polyline 'M x y L x y …' path, the hepatic artery's.)
 const poly = (d) => { const v = d.match(/-?[\d.]+/g).map(Number), o = []; for (let i = 0; i + 1 < v.length; i += 2) o.push([v[i], v[i + 1]]); return o; };
 const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
-const base = sample(EDGE_PATH.C8), pv = meander(sample(EDGE_PATH.PV_TRUNK), 'PV_TRUNK'), ha = poly(EDGE_PATH.A_HEP);
+const base = sample(EDGE_PATH.C8), pv = [...meander(sample(EDGE_PATH.PV_TRUNK_1), 'PV_TRUNK_1'), ...meander(sample(EDGE_PATH.PV_TRUNK), 'PV_TRUNK')],   // (the trunk is cut where the coronary vein joins it: its two pieces end to end)
+   ha = poly(EDGE_PATH.A_HEP);
 // The strands as strandAt draws them, with the main channel's serpentine at its widest (WIG_CAP).
 const main = wiggle(base, WIG_CAP.C8, 'C8'.length);
 const strandOf = (off, ride, [wv, wc, wp, wa] = [0, 0, 0]) => {
@@ -119,7 +120,7 @@ test('the plexus leaves and rejoins the trunk\'s open stumps, on its centreline,
     assert.ok(Math.abs(sideOf(pv, p)) < 0.6, `an end lies ${sideOf(pv, p).toFixed(2)} off the trunk's centreline`);
     for (const n of ['CONF', 'PVH']) assert.ok(Math.hypot(p[0] - NODE_POS[n][0][0], p[1] - NODE_POS[n][0][1]) > 21, `an end lies within the join reach of ${n}`);
   }
-  assert.deepEqual(END_HOSTS.C8, ['PV_TRUNK'], 'the plexus may join only the trunk (its upper end lies over the IVC in the picture)');
+  assert.deepEqual(END_HOSTS.C8, ['PV_TRUNK_1', 'PV_TRUNK'], 'the plexus may join only the trunk (its upper end lies over the IVC in the picture)');
 });
 
 test('no channel kinks where it is seen (outside the trunk\'s wall)', () => {

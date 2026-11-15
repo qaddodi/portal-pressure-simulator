@@ -14,7 +14,7 @@ import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
 import { clamp, fmt, fmtFlow, fp } from './util.js';
-import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js';
+import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js'; import { labelCourse } from './label-course.js';
 
 // The vessels whose reversed flow a station's label tells with ⟲: the one the velocity layer reads there, the one its label is anchored on, and, for the
 // Circuit's stations that stand at a vein's end, that vein (the splenic vein and its middle, the jejunal and ileal vein, the gastric vein).
@@ -393,7 +393,7 @@ export function createLabelItems(st, live) {
     const eid = LABEL_VESSEL[id], x = eid && E[eid], a = ANCHOR;
     if (x && x.vis && !x.ghost && geo[eid]?.cur?.length > 1) {
       // The middle of the vessel along its course (the sinusoids too: the middle of their bed, not their venous half).
-      const m = arcMid(geo[eid].cur), wx = m[0], wy = m[1], tx = m[2], ty = m[3];
+      const m = arcMid(labelCourse(geo, eid)), wx = m[0], wy = m[1], tx = m[2], ty = m[3];
       worldToLocalInto(ANCHOR_P, wx, wy); worldToLocalInto(ANCHOR_Q, wx + tx, wy + ty);
       const ax = ANCHOR_P[0], ay = ANCHOR_P[1], bx = ANCHOR_Q[0], by = ANCHOR_Q[1];
       const n = Math.hypot(bx - ax, by - ay) || 1;

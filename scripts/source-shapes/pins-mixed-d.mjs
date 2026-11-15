@@ -455,7 +455,7 @@ export default [
   { file: 'src/ui/main.js', need: [/oxygen: \['Oxygen', /, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (a Colored by choice)'] },
   { file: 'src/ui/main.js', need: [/oxygen: 'Oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the menu label)'] },
   { file: 'src/ui/main.js', need: [/m === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (its own legend)'] },
-  { file: 'src/ui/stage*', need: [/mode === 'oxygen'\) \{ c1 = oxygenColor\(oxy\[2 \* k\]\); c2 = oxygenColor\(oxy\[2 \* k \+ 1\]\)/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the figure colors each lumen end)'] },
+  { file: 'src/ui/stage*', need: [/mode === 'oxygen'\) \{[\s\S]*?c1 = oxygenColor\(oxyF\.far\[2 \* k\]\); c2 = oxygenColor\(oxyF\.far\[2 \* k \+ 1\]\)/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the figure colors each lumen end)'] },
   { file: 'src/ui/lobule-zoom*', need: [/M === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the lobule colors its vessels)'] },
   { file: 'src/ui/lobule-model.js', need: [/m\.mode === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct):'] },
   { file: 'src/ui/actions.js', need: [/lens === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the vessel card reads the saturation)'] },

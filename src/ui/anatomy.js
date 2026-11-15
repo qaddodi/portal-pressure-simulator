@@ -135,7 +135,7 @@ export const EDGE_PATH = {
   // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
   // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
   // with a square elbow, 6 Nov.)
-  AP_R: 'M583.4 422.3 C 580 426 586 430 582.3 433.8',   // (a short bridge from the right hepatic artery to the right portal vein beside it, where the artery lies 11 units above it: JUNCTIONS RPV_A, 0.2 along the vein, before the TIPS leaves it)
+  AP_R: 'M583.4 422.3 C 576 426 590 430 582.3 433.8',   // (a short bridge from the right hepatic artery to the right portal vein beside it, where the artery lies 11 units above it: JUNCTIONS RPV_A, 0.2 along the vein, before the TIPS leaves it)
   AP_L: 'M642.4 424.7 C 654 426 640 400 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
@@ -417,8 +417,8 @@ export const CIRCUIT_PATH = {
   A_HL: 'M774 345 L 786 357 L 800 357',
   // The arterioportal shunts leave the artery's run and rise (or drop) into the first portal venules, beside the inflow stubs.
   // (Rounded at their bends as every other line of the map is: route(), not bare square corners.)
-  AP_R: route([[700, 345], [700, 325], [640, 325], [640, 303]], 10),   // (ends on the right portal vein's junction, JUNCTION_CIRCUIT RPV_A)
-  AP_L: route([[700, 345], [700, 365], [650, 365], [650, 387]], 10),   // (ends on the left portal vein's junction, JUNCTION_CIRCUIT LPV_A)
+  AP_R: route([[700, 345], [700, 325], [662, 325], [640, 303]], 10),   // (ends on the right portal vein's junction, JUNCTION_CIRCUIT RPV_A)
+  AP_L: route([[700, 345], [700, 365], [672, 365], [650, 387]], 10),   // (ends on the left portal vein's junction, JUNCTION_CIRCUIT LPV_A)
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.

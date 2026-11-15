@@ -141,7 +141,7 @@ import { createLzGlassSeq } from './lobule-glass-seq.js';
 import { viewMovingOf } from './view-moving.js';
 import { createGeoHold } from './stage-geohold.js';
 import { createAscites } from './stage-ascites.js';
-import { createLobuleLoad } from './stage-lobload.js';
+import { createLobuleLoad } from './stage-lobload.js'; import { labelCourse } from './label-course.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -3276,7 +3276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const b of pool.values()) if (b.g.hasAttribute('tabindex')) b.g.setAttribute('tabindex', keyStops && !b.hid ? '0' : '-1');
     },
     /** Where a station's callout attaches, in client px (for the checks). */
-    labelOnFigure: (id, x, y) => { const r = stageBox(), px = x - r.left, py = y - r.top, eid = LABEL_VESSEL[id], P = eid && geo[eid]?.cur; let best = Infinity; if (P?.length > 1) for (let i = 1; i < P.length; i++) { const a = worldToLocal(P[i - 1][0], P[i - 1][1]), b = worldToLocal(P[i][0], P[i][1]), dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / L)) : 0; best = Math.min(best, Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy)); } const n = nodePos(id, easeInOut(morph)), q = worldToLocal(n[0], n[1]); return Math.min(best, Math.hypot(px - q[0], py - q[1])); },   // (how far a point is from the vessel a station names, or the station itself: the browser check's test that a label is pinned to the figure)
+    labelOnFigure: (id, x, y) => { const r = stageBox(), px = x - r.left, py = y - r.top, eid = LABEL_VESSEL[id], P = eid && labelCourse(geo, eid); let best = Infinity; if (P?.length > 1) for (let i = 1; i < P.length; i++) { const a = worldToLocal(P[i - 1][0], P[i - 1][1]), b = worldToLocal(P[i][0], P[i][1]), dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / L)) : 0; best = Math.min(best, Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy)); } const n = nodePos(id, easeInOut(morph)), q = worldToLocal(n[0], n[1]); return Math.min(best, Math.hypot(px - q[0], py - q[1])); },   // (how far a point is from the vessel a station names, or the station itself: the browser check's test that a label is pinned to the figure)
     labelNodeOf: (id) => { const p = nodePos(id, easeInOut(morph)), q = worldToLocal(p[0], p[1]), r = stageBox(); return { x: q[0] + r.left, y: q[1] + r.top }; },   // (the station's own point, client px: the browser check's other place a label may be pinned)
     labelAnchorOf: (id) => { const a = labelAnchor(id, easeInOut(morph)), r = wrap.getBoundingClientRect(); return { x: a.ax + r.left, y: a.ay + r.top, mid: a.mid }; },
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
