@@ -66,3 +66,77 @@ test('the copy onto the canvas calls copied() after it (the ?perf frame-end step
   end();
   assert.equal(n, 1);
 });
+
+// App review R1-1 (15 Nov 2026): a restored context is handed back as the same object, and the stage makes a new renderer in it. The
+// screen was wrapped over the first wrapper: the new copy's bind of the canvas came out as the OLD screen, so the frame-end blit went into
+// a texture nobody shows and the figure stayed blank. One wrapper per context; the new renderer takes the screen over.
+function fakeCanvas(w = 300, h = 200) {
+  const ls = {};
+  return { width: w, height: h, ls,
+    addEventListener(t, f) { (ls[t] ||= []).push(f); },
+    fire(t) { for (const f of ls[t] || []) f(); } };
+}
+
+test('a second renderer in the same context (a restore) gets the screen, its frame end blits onto the real canvas, and nothing is wrapped twice', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = fakeCanvas();
+  let lostNow = false;
+  const alive = new Set();
+  gl.isContextLost = () => lostNow;
+  const rawCreate = gl.createFramebuffer;
+  gl.createFramebuffer = (...a) => { const f = rawCreate(...a); alive.add(f); return f; };
+  gl.isFramebuffer = (f) => alive.has(f);
+  const hooks = () => { const h = { end: null, asked: 0, copied: 0 }; h.opts = { onEnd: (f) => { h.end = f; return () => { h.end = null; }; }, ask: () => { h.asked++; }, copied: () => { h.copied++; } }; return h; };
+  const bindFn = gl.bindFramebuffer;
+  const a = hooks();
+  const first = keepScreen(gl, canvas, a.opts);
+  const wrapped = gl.bindFramebuffer, drew = gl.drawArrays;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const fb1 = first.fb;
+  assert.ok(fb1);
+  // The loss and the restore: the browser's own events, ahead of the stage's, then the stage disposes the old renderer and builds a new one.
+  lostNow = true; alive.clear(); canvas.fire('webglcontextlost');
+  lostNow = false; canvas.fire('webglcontextrestored');
+  first.dispose();
+  const b = hooks();
+  const second = keepScreen(gl, canvas, b.opts);
+  assert.equal(gl.bindFramebuffer, wrapped, 'the context\'s bind was not wrapped again');
+  assert.equal(gl.drawArrays, drew, 'nor its draws');
+  assert.equal(canvas.ls.webglcontextlost.length, 1, 'one listener on the canvas for the whole context');
+  assert.equal(a.end, null, 'the old renderer\'s frame-end hook is gone');
+  assert.ok(typeof b.end === 'function', 'the new one has its own');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  assert.ok(second.fb && second.fb !== fb1, 'a screen made again in the restored context');
+  assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], second.fb, 'the canvas binds the NEW screen');
+  gl.drawArrays(5, 0, 4);
+  assert.equal(b.asked, 1, 'the new renderer is asked for the frame, the old one is not'); assert.equal(a.asked, 0);
+  const n0 = calls.length;
+  b.end();
+  const after = calls.slice(n0);
+  assert.equal(after.filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the frame end blits the screen');
+  assert.ok(after.some((c) => c[0] === 'bindFramebuffer' && c[1] === gl.DRAW_FRAMEBUFFER && c[2] === null), 'onto the real canvas (null reaches the context, not a screen)');
+  assert.ok(after.some((c) => c[0] === 'bindFramebuffer' && c[1] === gl.READ_FRAMEBUFFER && c[2] === second.fb), 'read from the new screen');
+  assert.equal(b.copied, 1);
+  // An old handle's late dispose does not take the new renderer's hook away.
+  first.dispose();
+  assert.ok(typeof b.end === 'function');
+  assert.ok(bindFn !== wrapped);
+});
+
+test('a renderer that arrives before the restore event has run still gets a screen made in the new generation', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = fakeCanvas();
+  const alive = new Set();
+  gl.isContextLost = () => false;
+  const rawCreate = gl.createFramebuffer;
+  gl.createFramebuffer = (...a) => { const f = rawCreate(...a); alive.add(f); return f; };
+  gl.isFramebuffer = (f) => alive.has(f);
+  const first = keepScreen(gl, canvas, { onEnd: () => () => {} });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  const fb1 = first.fb;
+  alive.clear();   // (the generation ended; no event has reached the screen yet)
+  const second = keepScreen(gl, canvas, { onEnd: () => () => {} });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  assert.ok(second.fb && second.fb !== fb1);
+  assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], second.fb);
+});

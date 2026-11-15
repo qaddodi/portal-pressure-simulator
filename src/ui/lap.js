@@ -22,7 +22,7 @@ import { currentLook } from './looks.js';
 import { heldGL } from './gl-state.js';
 
 /** The route: name, what it does (sync or async; a failure is written down and the lap goes on), and how long to hold still after it (ms). */
-export const HOLD = { lead: 5000, rest: 8000, view: 5000, patient: 6000, card: 5000, slide: 5000, tail: 3000 };
+export const HOLD = { lead: 5000, rest: 8000, view: 5000, patient: 6000, card: 5000, slide: 5000, tail: 3000, drill: 3000 };
 
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (+b || 0), 0);
 const pad = (s, n) => String(s).padEnd(n);
@@ -167,6 +167,27 @@ export async function runSteps(steps, { sleep, now, read = readCounts, newRecord
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const timeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} took over ${ms / 1000} s`)), ms))]);
 
+/** The restore drill (app review R1-1, 15 Nov 2026): the figure's WebGL context is given up and handed back, as Safari does in the background,
+ *  and the step passes only when the figure's own frame-end copy runs again afterwards (stage.figureShows: the count of screen copies onto the
+ *  canvas, which is the one write the shown canvas gets). A blank figure after a restore is a step that failed, written in the report. */
+const GL2 = 'webgl2';   // (asked of the canvas that has one: the same context comes back)
+export async function restoreDrill(pps, { sleep = wait, canvas = typeof document !== 'undefined' ? document.getElementById('veins') : null } = {}) {
+  if (!canvas) throw new Error('no figure canvas');
+  const ext = canvas.getContext?.(GL2)?.getExtension('WEBGL_lose_context');
+  if (!ext) throw new Error('no WEBGL_lose_context');
+  const read = () => pps?.stage?.figureShows?.() || { gl: false, lost: false, shows: 0 };
+  ext.loseContext();
+  await sleep(1200);
+  const base = read().shows;
+  ext.restoreContext();
+  for (let t = 0; t < 10000; t += 250) {
+    await sleep(250);
+    const r = read();
+    if (r.gl && !r.lost && r.shows > base) return;
+  }
+  throw new Error('the figure did not draw again 10 s after its context was restored');
+}
+
 /** The route, built against the live app (window.pps). `back` is what to put back at the end. */
 export function buildRoute(pps, back) {
   const tests = () => document.getElementById('tabInstruments')?.click();
@@ -178,6 +199,7 @@ export function buildRoute(pps, back) {
     { name: 'Circuit to Anatomy', run: () => setViewKey('anatomy'), hold: HOLD.view },
     { name: 'Anatomy to Lobule', run: () => setViewKey('lobule'), hold: HOLD.view },
     { name: 'Lobule to Anatomy', run: () => setViewKey('anatomy'), hold: HOLD.tail },
+    { name: 'figure context lost and restored', run: () => restoreDrill(pps), hold: HOLD.drill },
     { name: 'patient change', run: () => timeout(pps.loadPreset('cirr-decomp'), 15000, 'the patient'), hold: HOLD.patient },
     { name: 'Tests open', run: () => { if (!testsOpen()) tests(); }, hold: HOLD.card },
     { name: 'Tests closed', run: () => { if (testsOpen()) tests(); }, hold: HOLD.tail },
