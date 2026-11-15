@@ -93,3 +93,13 @@ test('gl-words: the picture shows only while both its canvases are in the page, 
   // Landing into a box someone emptied puts both canvases back with the words.
   assert.match(g, /\[S\.gl\.cv, S\.gl\.gpu\?\.canvas\]\.filter\(Boolean\)/);
 });
+
+test('gl-words: a number that never holds still still reaches the page\'s own words within a second (WORDS-2: a screen reader reads those)', () => {
+  const g = strip(src('gl-words.js'));
+  assert.match(g, /export const MIRROR_MAX = 1000;/);
+  assert.match(g, /if \(!S\.mirrorT\) S\.mirrorT = setTimeout\(S\.mirrorFn, MIRROR_MAX\);/, 'armed by the first change not yet landed, not re-armed by each one');
+  assert.match(g, /S\.mirrorNow = \(\) => \{ if \(S\.dead \|\| S\.keep \|\| !S\.txt \|\| S\.txt\.parentNode !== el \|\| S\.at\?\.inl \|\| S\.txt\.data === S\.want\.t\) return; S\.txt\.data = S\.want\.t; \};/, 'only the readout\'s own text node, never an inline box that changes width');
+  const land = g.slice(g.indexOf('function land(S)'), g.indexOf('const askLand'));
+  assert.match(land, /clearTimeout\(S\.mirrorT\)/, 'landing is the real write and ends the wait');
+  assert.match(g.slice(g.indexOf('const dispose'), g.indexOf('const dispose') + 900), /clearTimeout\(S\.mirrorT\)/, 'a disposed readout leaves no timer');
+});

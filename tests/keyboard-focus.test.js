@@ -36,7 +36,7 @@ test('the talk\'s key handler asks the rule, and leaves Esc to an open menu', ()
 test('a menu: named, focused from the keyboard, focus handed back; a dialog traps the page and returns to its first opener', () => {
   const u = read('src/ui/util.js');
   const pop = u.slice(u.indexOf('export function popover('), u.indexOf('export function fadeWhileMore'));
-  assert.match(pop, /role: 'dialog', 'aria-label': anchor\.getAttribute\?\.\('aria-label'\)/);
+  assert.match(pop, /role: 'dialog', 'aria-modal': asSheet \? 'true' : null, 'aria-label': anchor\.getAttribute\?\.\('aria-label'\)/);   // (a phone's sheet is modal for a screen reader: SHELL-7)
   assert.match(pop, /if \(anchor\.matches\?\.\(':focus-visible'\)\) setTimeout\(/);
   const close = u.slice(u.indexOf('export function closePopover'), u.indexOf('/** Over the thumb dock'));
   assert.match(close, /el\.contains\(document\.activeElement\) && openMenu\.anchor\.isConnected\) openMenu\.anchor\.focus/);
@@ -47,9 +47,10 @@ test('a menu: named, focused from the keyboard, focus handed back; a dialog trap
   assert.match(open, /appEl\.inert = false/);
 });
 
-test('a toast with buttons stays 9 s and while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
+test('a toast with buttons stays until it is dismissed or pressed (SHELL-9), a plain one stays while the pointer or focus is on it; the Speed button names its value; the slide list shows its focus', () => {
   const u = read('src/ui/util.js');
-  assert.match(u, /const life = actions\?\.length \? 9000 : sub \? 5200 : 4200/);
+  assert.match(u, /const keep = sticky \|\| !!actions\?\.length, life = sub \? 5200 : 4200/);
+  assert.doesNotMatch(u, /actions\?\.length \? 9000/);
   assert.match(u, /t\.addEventListener\('focusin', \(\) => clearTimeout\(timer\)\)/);
   assert.match(read('src/ui/timeline.js'), /speedBtn\.setAttribute\('aria-label', `Playback speed, \$\{speedBtn\.textContent\}`\)/);
   assert.match(read('styles/app.css'), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);

@@ -1051,7 +1051,7 @@ function injectDye({ hold = false } = {}) {
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
   let on = !!checked;
-  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
+  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on) },
     svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null, h('span', { class: 'mt-sw', 'aria-hidden': 'true' }));
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
@@ -1108,13 +1108,13 @@ function openLayers(anchor) {
   const cur = store.get().colorMode;
   const lens = (v) => {
     const [title, desc, sw] = LENSES[v];
-    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'menuitemradio', 'aria-checked': String(cur === v), onclick: (e) => { store.set({ colorMode: v }); const g = e.currentTarget.parentElement; g.querySelectorAll('.lens').forEach((x) => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); }); } },
+    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'radio', 'aria-checked': String(cur === v), onclick: (e) => { store.set({ colorMode: v }); const g = e.currentTarget.parentElement; g.querySelectorAll('.lens').forEach((x) => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); }); } },
       h('span', { class: 'lens-sw', style: { background: sw() } }),
       h('span', { class: 'lens-t' }, title), h('span', { class: 'lens-d' }, desc));
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'lens-grid' }, lensKeys().map(lens)),
+    h('div', { class: 'lens-grid', role: 'radiogroup', 'aria-label': 'Color the vessels by' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
@@ -1332,7 +1332,8 @@ function openSettings(anchor, withSearch = false) {
       }),
       h('div', { class: 'menu-title' }, 'Figure detail'),
       figureMpControl(),
-      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Keep the figure at full detail when you pan or zoom, even if it runs slower', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
+      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Keep the figure at full detail when you pan or zoom, even if it runs slower', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); }),
+      menuToggle(keysOn(), 'grid', 'Keyboard shortcuts', 'Single keys such as Space, A, L and 1 to 9. Off leaves Esc and Ctrl or Cmd with a key', (on) => { setKeysOn(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }))]),
@@ -1920,8 +1921,10 @@ import { keepAwake } from './wake-lock.js';
 import { EMBED } from './embed.js';
 import { darkMQ } from './look.js';
 import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
-// ── The thumb dock (15 Oct) ─────────────────────────
 import { patientLabel } from './readouts-text.js';
+import { keysOn, setKeysOn, keyHeldBack } from './keys-pref.js';
+import { tableRoles } from './table-roles.js';
+// ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,
 // in reach of a thumb. The sheets open above the dock, so the tab row and HVPG and PPG never move or hide.
@@ -2183,6 +2186,7 @@ function wireKeyboard() {
     // A talk owns the keyboard (presenter.js onKey takes its own keys): undo, speed, view, lens, dye, settle and the rest would change the
     // slide's scripted model under it, and nothing puts it back. Search (/) and the guide (?) stay.
     if (presenter.active() && e.key !== '/' && e.key !== '?') return;
+    if (keyHeldBack(e)) return;   // (Settings › Keyboard shortcuts off: only Esc and Ctrl or Cmd with a key are the page's, keys-pref.js)
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     // (A held key is one press: Space does not flicker play and pause, a number does not run its verb twenty times. J has its own rule below.)
@@ -2334,10 +2338,10 @@ function openAbout(section) {
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
     h('p', { class: 'sub' }, 'Every readout’s bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Amber is borderline; red means a threshold has been crossed.'),
-    h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
+    tableRoles(h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
-      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c))))))),
+      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. 12 mmHg is the usual post-TIPS target for the directly measured portosystemic gradient.'),
     h('h3', {}, 'Reference review'),
     h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),

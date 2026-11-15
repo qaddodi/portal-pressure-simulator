@@ -253,8 +253,9 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   wrap.append(t);
   TOASTS.push(t);
   restPass(() => toastFit(wrap, t, msg, actions, sub));
-  // A toast with buttons stays longer, and stays while the pointer or the keyboard is on it, so its button can be reached.
-  const life = actions?.length ? 9000 : sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!sticky && !gone) timer = setTimeout(close, life); };
+  // A toast with buttons stays until it is dismissed or its button is pressed (WCAG 2.2.1: a keyboard or switch user needs more than 9 s to tab down to it,
+  // and a missed update offer never comes back); one without lasts a few seconds, and stays while the pointer or the keyboard is on it.
+  const keep = sticky || !!actions?.length, life = sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!keep && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();
@@ -432,7 +433,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
-  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-modal': asSheet ? 'true' : null, 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
   // (A sheet's head, menu recs P2: its title and a close button, as the cards have. A heading of the menu's own that says the same goes.)
   if (asSheet) {
     if (title) { const t = el.querySelector(':scope > .menu-title'); if (t && t.textContent.trim() === title) t.remove(); }
@@ -1124,7 +1125,9 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   // A toggle with an icon keeps its icon (so every row in a group has one) and shows its state
   // as a trailing check.
   const toggle = checked != null && ic;
-  const b = h('button', { class: 'menu-item', role: toggle ? 'menuitemcheckbox' : checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
+  // (A menu here is a dialog of buttons, so its rows are no `menuitem` (that role is valid only inside a `menu`): a plain button, a switch for a toggle,
+  // and a radio, in a radiogroup (menuSection), for a choice. SHELL-7.)
+  const b = h('button', { class: 'menu-item', type: 'button', role: toggle ? 'switch' : checked != null ? 'radio' : null, 'aria-checked': checked != null ? String(!!checked) : null },
     toggle ? svgIcon(ic, 'mi-ic') : checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null,
     toggle ? svgIcon('check', 'mi-check mi-trail') : null);
   b.addEventListener('click', (e) => { onClick?.(e); });
@@ -1135,7 +1138,9 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
 let sectionN = 0;
 export function menuSection(title, ...rows) {
   const id = title ? 'mg-' + (++sectionN) : null;   // alloc-rare: a menu opens
-  return h('div', { class: 'menu-group', role: 'group', 'aria-labelledby': id }, title ? h('div', { class: 'menu-title', id }, title) : null, rows);
+  // (Rows that are all choices are one radio group, the one the radios need as a parent.)
+  const kids = rows.flat(Infinity).filter(Boolean), choice = kids.length > 0 && kids.every((r) => r.getAttribute?.('role') === 'radio');
+  return h('div', { class: 'menu-group', role: choice ? 'radiogroup' : 'group', 'aria-labelledby': id }, title ? h('div', { class: 'menu-title', id }, title) : null, rows);
 }
 export function svgIcon(id, cls = '') {
   const el = icon(id);

@@ -16,7 +16,8 @@ import { createTraceGL, fitPen } from './trace-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { measure } from './glyph-measure.js';
 import { glWords } from './gl-words.js';
-import { textSoon, dataSoon } from './class-soon.js';
+import { textSoon, dataSoon, attrSoon } from './class-soon.js';
+import { profileLabel } from './instrument-aria.js';
 import { hvpgSev, ppgSev, HVPG_WORDS, PPG_WORDS, NOT_SHOWN } from '../engine/pressure-cuts.js';
 const nextFrame = frameFor('charts');
 
@@ -200,7 +201,7 @@ export function createProfile() {
     }
   }
   el.append(box, side, strip);
-  let pathId = 'main';
+  let pathId = 'main', spokeAt = -1e9;
   const curPath = () => { for (let i = 0; i < PROFILE_PATHS.length; i++) if (PROFILE_PATHS[i].id === pathId) return PROFILE_PATHS[i]; return PROFILE_PATHS[0]; };
   const nm = (n) => curPath().names?.[n] || SHORT[n] || n;
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
@@ -240,6 +241,16 @@ export function createProfile() {
     for (const n of [...path.nodes, ...STRIP]) if (!ARTERIAL.has(n) && NI[n] != null) m[NI[n]] = 1;
     return m;
   };
+  // The picture's values for a screen reader (A11-1): the stations of the selected path and their pressures, once a second (a label is not a readout) and at once on a new path.
+  // A slide that withholds the portal pressures gives none of them.
+  function speak(f, now) {
+    const t = performance.now(), src = f && (f.Pf || f.P);
+    if (!src || (!now && t - spokeAt < 1000)) return;
+    spokeAt = t;
+    const path = curPath(), items = [];
+    for (const n of path.nodes) if (!ARTERIAL.has(n) && NI[n] != null && Number.isFinite(src[NI[n]])) items.push({ name: nm(n), v: src[NI[n]] });
+    attrSoon(cv, 'aria-label', profileLabel(items, !!hiddenNow()?.has('pv')));
+  }
   function ease() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
@@ -806,9 +817,9 @@ export function createProfile() {
 
   return {
     id: 'profile', label: 'Pressure profile', el,
-    update(f) { Fraw = f; ease(); readStrip(f); },
+    update(f) { Fraw = f; ease(); readStrip(f); speak(f, false); },
     redraw: draw,
-    setPath(id) { pathId = id; draw(); },
+    setPath(id) { pathId = id; draw(); speak(Fraw, true); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },
     endPredict(reveal = true) { if (predict) { predict.on = false; predict.reveal = reveal; } draw(); return predict; },
     clearPredict() { predict = null; draw(); },

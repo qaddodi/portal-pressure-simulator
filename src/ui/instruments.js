@@ -19,6 +19,7 @@ import { poolFill } from './blood.js';
 import { FONT } from './charts.js';
 import { store, updateParams, varicesPresent } from './store.js';
 import { classSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
+import { endoscopyLabel } from './instrument-aria.js';
 import { balanceHold, balanceLine } from './balance-hold.js';
 import { lateFrameFor, cancelFrame, framePhase, easeNow } from './frame.js';
 import { restPass } from './rest-pass.js';
@@ -102,12 +103,14 @@ export function createEndoscopy({ onAction }) {
     // The size seen: the size at rest (the slide's own number when there is one) at the air's pressure (airRatio, the beat-averaged table).
     // The grade above stays the size at rest.
     const pinTo = view === 'eso' && pinned, rest = pinTo && Number.isFinite(pinned.d) ? pinned.d : vx.d, inV = pinTo && Number.isFinite(pinned.ptm) ? pinned.ptm : vx.ptm;
-    set(diam, shownNum(cDiam, rest * airRatio(mv?.air ?? vx.air, opt.air), 1, ' mm')); set(wall, shownNum(cWall, vx.w, 1, ' mm'));
+    const diamTxt = shownNum(cDiam, rest * airRatio(mv?.air ?? vx.air, opt.air), 1, ' mm');
+    set(diam, diamTxt); set(wall, shownNum(cWall, vx.w, 1, ' mm'));
     if (opt.readings) { set(pIn, shownNum(cIn, inV, 1, ' mmHg')); set(pLum, shownNum(cLum, opt.air, 1, ' mmHg')); set(pAcross, shownNum(cAcross, inV - opt.air, 1, ' mmHg')); }
     const redV = !vx.present ? 'None' : (opt.red ?? vx.redWale) ? 'Red wale, cherry spots' : 'None';
     set(redWord, redV === 'None' ? redV : 'Red wale'); set(redMore, redV === 'None' ? '' : ', cherry spots'); dataSoon(red, 'long', redV === 'None' ? null : ''); dataSoon(red.parentNode, 'on', redV !== 'None');
     const nb = Math.round(f.bands || 0);
     set(bands, intTxt(nb)); dataSoon(bands.parentNode, 'on', nb !== 0);
+    attrSoon(cv, 'aria-label', endoscopyLabel({ present: vx.present, grade: vx.grade.label, diam: diamTxt, red: redV !== 'None', bands: nb }));   // (the picture's values, for a screen reader: A11-1)
     // A model frame taken in at the start of a frame is drawn by the field's own late callback of that frame (one already asked
     // for by an ease, or one asked now): the field is drawn once a frame, with the newest state. Anywhere else, at once.
     if (framePhase() === 'early') { last = lastS; lastS.f = f; lastS.vx = vx; if (!raf) raf = drawFrame(redraw); return; }

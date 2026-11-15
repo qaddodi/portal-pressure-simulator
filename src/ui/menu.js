@@ -569,7 +569,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (left > 0 && !reduce.matches) { renderT = setTimeout(render, left); return; }
     const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
     const next = build(lib);
-    if (sheet) next.classList.add('sheet');
+    if (sheet) { next.classList.add('sheet'); next.setAttribute('aria-modal', 'true'); }
     next.classList.add('still');
     // A first open before the presentations had arrived: the frame and the Patients list were already up; the presentations now rise into place (the tab change's own 4 px fade-rise) instead of replacing the note at once.
     if (coldOpen && lib) { coldOpen = false; if (!reduce.matches) next.querySelector('.um-col[data-col="present"]')?.classList.add('um-in'); }
@@ -613,7 +613,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         el = sp && sp.key === spareKey(lib) ? sp.el : null;
         if (!el) el = build(lib); coldOpen = !lib;
         // (In the one sheet layer, cut on the dock's top line, with its scrim: sheet-layer.js.)
-        if (sheet) { el.classList.add('sheet'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
+        if (sheet) { el.classList.add('sheet'); el.setAttribute('aria-modal', 'true'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
         sheetLayer().append(el);
         plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);

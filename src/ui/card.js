@@ -345,7 +345,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function paintShown(input, x) {
     const v = input._acV;
     input._acShown = x;
-    input._acVal.textContent = v.format(x); paintRange(input, (x - v.min) / (v.max - v.min));
+    const vt = v.format(x); input._acVal.textContent = vt; attrSoon(input, 'aria-valuetext', vt);   // (a screen reader says "60%", not the thumb's 0.6: SHELL-13)
+    paintRange(input, (x - v.min) / (v.max - v.min));
     input._acRow.classList.toggle('changed', v.def != null && Math.abs(x - v.def) > 1e-9);
   }
   // A value the model gives (a preset, an undo, a step of the timeline): the input's own value follows it between frames (propSoon).

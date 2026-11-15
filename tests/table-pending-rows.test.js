@@ -23,7 +23,7 @@ test('no table cell is ever drawn as "…": a pending cell is empty and told to 
 
 test('a table asks for its own rows to be filled in, as it is built, and lets go once it has left the page', () => {
   const table = body('  function summaryTable(', '  // (A visual a deck visuals package registers');
-  assert.match(table, /watchRows\(el, s\);\s*return el;/, 'the table starts watching its rows before it is returned');
+  assert.match(table, /watchRows\(el, s\);\s*return tableRoles\(el\);/, 'the table starts watching its rows before it is returned');
   const fn = body('  function watchRows(', '  const fpOf = ');
   assert.match(fn, /rowIdx\(s\)\.filter\(\(x\) => !states\[x\]\)/, 'every row whose patient is not in yet');
   assert.match(fn, /stateReady\(k\)\.then/);

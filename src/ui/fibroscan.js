@@ -15,7 +15,9 @@ import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
 import { fix1 } from './num.js';
-import { dataSoon } from './class-soon.js';
+import { dataSoon, attrSoon } from './class-soon.js';
+import { fibroscanLabel } from './instrument-aria.js';
+import { RATE } from './table-marks.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { onTheme } from './theme-epoch.js';
 const nextFrame = frameFor('fibroscan');
@@ -325,6 +327,8 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     const v = pinned ?? f.metrics[ORGAN[organ].key];
     none = v == null; if (!none) model = v;   // (no spleen after a splenectomy: the reading is a dash, the map holds its last slope)
     fed = true;
+    // (The picture's values, for a screen reader, with the tile's own band word: A11-1.)
+    attrSoon(cv, 'aria-label', fibroscanLabel(organ, none ? null : v, none ? '' : RATE[ORGAN[organ].key](v)[1]));
     if (onScreen()) start();
   }
   /** A slide's tool: { kind: 'fibroscan', organ: 'spleen' } reads the spleen (presenter-tools.js). */

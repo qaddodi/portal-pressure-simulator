@@ -172,7 +172,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const sCell = newCell(), tCell = newCell();   // (the thumb's value and the words beside it, made once per value the slider shows)
     const paint = (v) => {
       const vs = cachedText(sCell, v, strMake, v), vt = cachedText(tCell, v, fnMake, v, format);
-      propSoon(input, 'value', vs); if (val.textContent !== vt) val.textContent = vt;
+      propSoon(input, 'value', vs); if (val.textContent !== vt) { val.textContent = vt; attrSoon(input, 'aria-valuetext', vt); }   // (a screen reader says the words beside the thumb, not its raw number: SHELL-13)
       paintRange(input, (v - min) / (max - min));
       wrap.classList.toggle('changed', def != null && Math.abs(v - def) > 1e-9);
     };

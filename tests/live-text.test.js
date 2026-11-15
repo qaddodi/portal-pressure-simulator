@@ -59,7 +59,7 @@ test('a card\'s fit reads its words without the live ones: a digit never fits th
 
 test('the what-if value and the time-lapse counter are live boxes as wide as their widest words', () => {
   assert.match(js, /const out = liveText\('output', 'pzi-v', \[w\.min, \(w\.min \+ w\.max\) \/ 2, w\.max, v0\]\.map\(fmtV\)\);/);
-  assert.match(js, /const paint = \(x\) => \{ paintRange\(input, frac\(x\)\); out\.set\(fmtV\(x\)\); \};/);
+  assert.match(js, /const paint = \(x\) => \{ paintRange\(input, frac\(x\)\); out\.set\(fmtV\(x\)\); if \(w\.unit\) attrSoon\(input, 'aria-valuetext', fmtV\(x\)\); \};/);   // (and the slider says its words, not its number: SHELL-13)
   assert.match(js, /w\.unit \? out\.el : null\);/);
   assert.doesNotMatch(js, /out\.textContent/, 'the value is never written to the box itself');
   assert.match(js, /liveText\('span', 'pzl-t', \[lapseText\(s, 0, s\.days, false\), lapseText\(s, s\.days, s\.days, false\), lapseText\(s, s\.days, s\.days, true\)\]/);

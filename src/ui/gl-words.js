@@ -36,6 +36,9 @@ import { labelWritten } from './label-theme.js';
 
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
+// (The longest the page's own words may lag a number that keeps changing: the picture draws every change, but the page's text, which a screen reader reads, is written only once the
+// number holds still, QUIET. A readout that never held still, the dock's values while the model runs, left the page's words at the value from before the run: WORDS-2.)
+export const MIRROR_MAX = 1000;
 // Words that land in a box already measured keep its measure: their box's size, type and alignment hold, so the next words are set from the
 // same edge (start, end or middle) without reading the page again. A box that changes size is measured again by its ResizeObserver. A
 // readout that ticks with the model measured itself each time it landed, some 30 layout and style reads each, 2,000 in an 8 s pinch
@@ -343,7 +346,7 @@ function release(S) {
   S.gl.paint();
 }
 function land(S) {
-  S.landAsk = 0;
+  S.landAsk = 0; clearTimeout(S.mirrorT); S.mirrorT = 0;
   if (S.dead) return;
   const { el, want, shown } = S;
   // (Words written into the element by someone else, or none yet: its content is taken over here, between frames, as its words and unit.)
@@ -376,9 +379,11 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
   const S = { el, host, after, unitClass, onLand, keep, halo, retries: 0, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
-    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handN: 0, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
+    at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handN: 0, handT: 0, stale: false, landT: 0, mirrorT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   // (The two functions a change hands to a timer or a rest pass, made once with the readout: asking makes no closure.)
-  S.landFn = () => land(S); S.quietFn = () => askLand(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+  S.landFn = () => land(S); S.quietFn = () => askLand(S);
+  S.mirrorNow = () => { if (S.dead || S.keep || !S.txt || S.txt.parentNode !== el || S.at?.inl || S.txt.data === S.want.t) return; S.txt.data = S.want.t; };   // (clear under the picture, so nothing shows; an inline box would change width with its words, so it waits for land)
+  S.mirrorFn = () => { S.mirrorT = 0; restPass(S.mirrorNow); }; // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   if (!only && t0) askLand(S);
   const ask = S.ask = () => askMeasure(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   if (typeof ResizeObserver === 'function') (S.ro = new ResizeObserver(ask)).observe(el);
@@ -391,7 +396,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     S.dead = true; S.asleep = false;
     S.ro?.disconnect(); S.ro = null;
     ALL.delete(ask); measureQ.delete(S); live.delete(S);
-    clearTimeout(S.landT); S.landT = 0; clearTimeout(S.handT); S.handT = 0; S.handOver = false;
+    clearTimeout(S.landT); S.landT = 0; clearTimeout(S.mirrorT); S.mirrorT = 0; clearTimeout(S.handT); S.handT = 0; S.handOver = false;
     if (S.landAsk) { cancelRest(S.landAsk); S.landAsk = 0; }
     // (The drawing and the flags that hide the page's own words leave together, in one rest pass: the words are never uncovered with
     // the drawing gone, nor left hidden once it has.)
@@ -426,6 +431,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       clearTimeout(S.landT);
       if (S.keep) { askLand(S); return; }   // (kept words: the page's own are written between frames and stay clear under the picture)
       S.landT = setTimeout(S.quietFn, QUIET);
+      if (!S.mirrorT) S.mirrorT = setTimeout(S.mirrorFn, MIRROR_MAX);   // (a change that never holds still still reaches the page's words within a second)
     },
     /** Kept words: measure the look again (colour, size, place) and draw them again, for a state that changes their colour (hover, pressed). */
     look() { if (S.dead || !S.keep) return; wake(S); askMeasure(S); },

@@ -31,7 +31,8 @@ import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale, scaleCentre } from './scale-switch.js';
 // The spot of the liver the windows are taken from: the open right lobe, between the portal branches and the hepatic veins (fractions of the liver's box in the figure's units).
 import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
-import { runSoon } from './class-soon.js';
+import { runSoon, attrSoon } from './class-soon.js';
+import { tableRoles } from './table-roles.js';
 import { NODE_POS } from './anatomy.js';
 import { DISEASE_SRC, diseasePieces } from './diseases.js';
 import { nb, listCase, plateletText } from './glue.js';
@@ -1759,7 +1760,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // drags, so the distance moved shows (Mohammad's pick B, 17 Oct).
     const frac = (x) => (x - w.min) / (w.max - w.min);
     const track = h('div', { class: 'range-wrap', style: { '--s': String(clamp(frac(v0), 0, 1)) } }, h('span', { class: 'sl-start', 'aria-hidden': 'true' }), input);
-    const paint = (x) => { paintRange(input, frac(x)); out.set(fmtV(x)); };
+    const paint = (x) => { paintRange(input, frac(x)); out.set(fmtV(x)); if (w.unit) attrSoon(input, 'aria-valuetext', fmtV(x)); };   // (a screen reader says "24 weeks", not 24: SHELL-13)
     let raf = 0;
     // (The frame's step and the task after it, made once with the slider: a drag's inputs ask for them and make no closure.)
     const sliderLive = () => liveSet(s, i, patchOf(+input.value));
@@ -1843,7 +1844,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
   // The counter under the words: its box is as wide as the widest it says (the last day, or the words after it), so the bar beside it keeps one width
   // as the days run and the words change (live-text.js).
-  const lapseRow = (s) => h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')),
+  const lapseRow = (s) => h('div', { class: 'pz-lapse' }, h('span', { class: 'pzl-bar' }, h('i')),
     liveText('span', 'pzl-t', [lapseText(s, 0, s.days, false), lapseText(s, s.days, s.days, false), lapseText(s, s.days, s.days, true)], lapseText(s, 0, s.days, false)).el);
   // ── The time graph on the teaching card (lapse-graph.js) ──
   // A time-lapse slide with no time chart of its own carries one over its bar: the slide's two tiles drawn day by day by the same flow-time
@@ -3487,7 +3488,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
         ascCols ? [cutTh('saag', h('abbr', { title: 'Serum-ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascitic fluid total protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
-      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : {}),
+      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-description': 'Press Enter to go to this slide' } : {}),
           class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'pzv-focus' : '', sameHead(rows[n - 1], r) ? 'pz-cont' : ''].filter(Boolean).join(' ') || null,
           'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? vsRow(r)?.k : rows[0].k) === arrived) ? '' : null },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, headOf(r)), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
@@ -3497,7 +3498,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         notes.map((_, j) => h('td', { class: 'note' }, [r.note].flat()[j] || '')))))),
     h('p', { class: 'pz-foot' }, withArrows(legend), cutLine));
     watchRows(el, s);
-    return el;
+    return tableRoles(el);   // (a phone's CSS makes its parts block and grid boxes: the roles are written out, PC-4)
   }
   // (A visual a deck visuals package registers (slide-ext.js visuals) is called with the slide and its context; the app's own win.)
   const visualOf = (s, i) => (VISUALS[s.visual] ? VISUALS[s.visual](s) : safe(() => EXT.visuals[s.visual](s, ctxOf(s, i)), null, `visuals.${s.visual}`));

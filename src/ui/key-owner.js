@@ -2,7 +2,7 @@
 // Tab (the pill's buttons, a Settings row, a summary-table row) keeps those two keys for itself; after a mouse click the control
 // is focused but its focus ring is off (:focus-visible does not match), so a clicker's Space still moves on.
 
-export const KEY_OWNERS = 'button, a[href], [role="button"], [role^="menuitem"], [role="tab"], [role="switch"], [tabindex="0"]';
+export const KEY_OWNERS = 'button, a[href], [role="button"], [role="radio"], [role="tab"], [role="switch"], [tabindex="0"]';
 
 // Whether the person is using the keyboard to move about: a press, touch or click turns it off, a Tab turns it on. (A browser may switch a
 // clicked control to :focus-visible on the next key it sees, before this runs, so :focus-visible alone cannot tell a clicker from a Tab.)
