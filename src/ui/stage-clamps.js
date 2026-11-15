@@ -1,6 +1,7 @@
 // The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { isOccluded } from '../engine/topology.js';
+import { firstPiece } from './part-names.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
 import { bandRing } from './band-ring.js';
@@ -282,7 +283,7 @@ export function createClamps(st, live) {
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
     // (A side-to-side portocaval shunt divides nothing: the trunk stays whole and untied.)
-    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === 'PV_TRUNK' && p.portocavalSide)) ligature(vein, shunt);
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === firstPiece('PV_TRUNK') && p.portocavalSide)) ligature(vein, shunt);
     // The Warren shunt also ties off the coronary vein (the engine closes it too): two ties and the plug's cross, three quarters of the way to the portal vein.
     if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {

@@ -40,8 +40,8 @@ test('growing a box takes in what the slide points at with the 8 % room the came
 test('names resolve as the glow resolves them: a term target, an organ, a station, a named set, else a vessel', () => {
   const o = camOn(['PV_TRUNK', 'spleen', 'varix', 'CONF', 'AO', '@hepatic-veins']);
   assert.deepEqual(o.organs, ['spleen']);
-  // varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
-  assert.deepEqual(o.edges, ['PV_TRUNK', 'C1a', 'C1b', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
+  // the portal vein is two pieces where the coronary vein joins it; varix → C1a, C1b; CONF is the portal vein's station and frames its vessel, not a point; the set brings the three hepatic veins
+  assert.deepEqual(o.edges, ['PV_TRUNK', 'PV_TRUNK_1', 'C1a', 'C1b', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
   assert.equal(o.points.length, 1, 'AO has no term target: it frames where the station stands');
   assert.deepEqual(o.unknown, []);
   assert.deepEqual(camOn(['liver', 'liver', 'C5', 'C5']), { organs: ['liver'], edges: ['C5'], points: [], unknown: [] }, 'a name twice counts once');

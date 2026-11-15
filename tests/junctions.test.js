@@ -74,10 +74,11 @@ test('the engine solves the lumped graph it always did: the lead piece is its ve
   // own, and blood runs downhill through it whichever way it runs (the order every blend and dye pass visits nodes in).
   for (const c of JUNCTION_CHAINS) {
     const [a, b] = JUNCTION_HOST_ENDS[c.host], end = c.end === 'to' ? b : a, adj = c.ids[c.end === 'to' ? c.ids.length - 1 : 0], q = e.Q[e.ei[adj]];
-    c.nodes.forEach((node) => {
+    c.nodes.forEach((node, i) => {
       const Pj = e.P[e.ni[node]], Pe = e.P[e.ni[end]];
       assert.ok(Math.abs(Pj - Pe) < 1e-4, `${node} reads ${Pj}, the model's ${end} reads ${Pe}`);
-      if (Math.abs(q) > 1e-6) assert.ok((c.end === 'to' ? Pj - Pe : Pe - Pj) * Math.sign(q) > 0, `${node}: blood runs downhill through ${adj}`);
+      // (the junction beside the end: the stretch between them has the one hair; the others are walked in from it, tested piece by piece below)
+      if (Math.abs(q) > 1e-6 && i === (c.end === 'to' ? c.nodes.length - 1 : 0)) assert.ok((c.end === 'to' ? Pj - Pe : Pe - Pj) * Math.sign(q) > 0, `${node}: blood runs downhill through ${adj}`);
     });
   }
   for (const k of [edge('TIPS'), edge('DIPS'), edge('C6'), edge('S_DSR'), edge('C7')]) assert.ok(k.mfrom && k.mto, `${k.id} keeps the model ends the engine reads`);
@@ -89,8 +90,9 @@ test('blood is conserved at a junction: the TIPS leaves the right portal vein wh
   const tips = Q('TIPS');
   assert.ok(tips > 5, `the TIPS carries blood (${tips.toFixed(2)} mL/s)`);
   // the portal vein before the stent carries what goes on to the liver plus what goes down the stent; past it, only what goes on
-  assert.ok(Math.abs(Q('PVH_R') - (Q('PVH_R_1') + tips)) < 1e-6, `PVH_R ${Q('PVH_R')} = PVH_R_1 ${Q('PVH_R_1')} + TIPS ${tips}`);
-  assert.ok(Q('PVH_R') > 0.5 * tips && Q('PVH_R_1') < Q('PVH_R') * 0.2, 'past the stent the right portal vein carries almost nothing, or runs back toward it: the stent has taken the flow');
+  // (the arterioportal shunt joins it first, 0.2 along: PVH_R, then PVH_R_1 with the shunt's blood, then PVH_R_2 past the stent)
+  assert.ok(Math.abs(Q('PVH_R_2') - (Q('PVH_R') + Q('AP_R') - tips)) < 1e-6, `PVH_R_2 ${Q('PVH_R_2')} = PVH_R ${Q('PVH_R')} + AP_R ${Q('AP_R')} - TIPS ${tips}`);
+  assert.ok(Q('PVH_R') > 0.5 * tips && Q('PVH_R_2') < Q('PVH_R') * 0.2, 'past the stent the right portal vein carries almost nothing, or runs back toward it: the stent has taken the flow');
   // the hepatic vein before the stent carries only the liver's blood; past it, the liver's plus the stent's
   assert.ok(Math.abs(Q('RHV_IVC') - (Q('RHV_IVC_1') + tips)) < 1e-6, `RHV_IVC ${Q('RHV_IVC')} = RHV_IVC_1 ${Q('RHV_IVC_1')} + TIPS ${tips}`);
   assert.ok(Q('RHV_IVC_1') < Q('RHV_IVC') * 0.5, 'the hepatic vein upstream of the stent carries only the liver\'s own blood');
@@ -165,13 +167,9 @@ test('splitPathAt cuts a course at a share of its length: the two parts add up t
 // Every such end in the anatomy is either given a junction (JUNCTIONS) or listed here with the reason it stays at the node. A new shunt or collateral drawn onto
 // the middle of a vein fails this until it is given a junction.
 const STAYS = {
-  'LGV_CONF.end': 'the coronary vein enters the portal trunk 0.43 along it; the trunk is the vessel every clot, ligation and Doppler reading names, and the vein carries 1.6 mL/s: not split yet',
-  'AP_L.end': 'the left arterioportal shunt (a tenth of a mL/s) joins the left portal vein 0.64 along it: arterial, intrahepatic, not split yet',
-  'AP_R.end': 'the right arterioportal shunt lands 0.51 along the right portal vein, 0.09 of it past the TIPS junction, in the last piece: arterial, a few tenths of a mL/s',
   'CAUD.end': 'the caudate veins are not drawn in the anatomy (ANAT_HIDDEN); in the circuit they end at the cava\'s top, where the model puts them',
   'AP_R.start': 'the arterioportal shunt leaves the right hepatic artery (the arterioles\' own lobar branch; engine.js velocity reads the artery before it): arterial, not split',
   'AP_L.start': 'the same, on the left',
-  'EPI_SVC.end': 'the epigastric vein joins the short SVC a little below its node',
   'SIN_RL.end': 'the interlobar sinusoidal link is modeled, not drawn (HIDDEN_EDGES)',
 };
 test('no other vessel is drawn onto the middle of a vein it is not joined to: each is split, or listed here with the reason it is not', () => {
@@ -207,7 +205,7 @@ test('each piece carries the flow that is physically in that stretch: the shunts
   const e = run('cirr-decomp', { tips: { on: true, d: 8 }, spontaneous: { C6: true, C7: true }, dips: { on: true, d: 8 } });
   const Q = (id) => e.Q[e.ei[id]];
   // the portal vein: all of it before the stent leaves, what is left after
-  assert.ok(Math.abs(Q('PVH_R_1') - (Q('PVH_R') - Q('TIPS'))) < 1e-9 && Q('TIPS') > 0.1);
+  assert.ok(Math.abs(Q('PVH_R_2') - (Q('PVH_R') + Q('AP_R') - Q('TIPS'))) < 1e-9 && Q('TIPS') > 0.1);
   // the hepatic vein: its own flow before the stent joins, the sum after (the model's flow there)
   assert.ok(Math.abs(Q('RHV_IVC') - (Q('RHV_IVC_1') + Q('TIPS'))) < 1e-9);
   // the left renal vein: the kidney's before the shunt joins, kidney plus shunt after
@@ -216,6 +214,8 @@ test('each piece carries the flow that is physically in that stretch: the shunts
   assert.ok(Math.abs(Q('IVC_IS') - (Q('IVC_IS_1') + Q('DIPS'))) < 1e-9);
   // the bowel's veins and the iliac veins: the retroperitoneal veins leave one and join the other
   assert.ok(Math.abs(Q('V_INT_1') - (Q('V_INT') - Q('C7'))) < 1e-9 && Math.abs(Q('ILI_IVC_1') - (Q('ILI_IVC') + Q('C7'))) < 1e-9);
+  // the coronary vein joins the portal trunk 0.43 along it, the epigastric veins the SVC, the arterioportal shunt the left portal vein
+  assert.ok(Math.abs(Q('PV_TRUNK') - (Q('PV_TRUNK_1') + Q('LGV_CONF'))) < 1e-9 && Math.abs(Q('SVC_RA') - (Q('SVC_RA_1') + Q('EPI_SVC'))) < 1e-9 && Math.abs(Q('PVH_L_1') - (Q('PVH_L') + Q('AP_L'))) < 1e-9);
   for (const c of JUNCTION_CHAINS) assert.equal(c.lead, c.end === 'to' ? 0 : c.ids.length - 1, `${c.host}: the engine's piece is on the side of the model's end`);
 });
 
@@ -244,8 +244,8 @@ test('a TIPS in decompensated cirrhosis: the left portal vein\'s mean flow runs 
   assert.ok(q10('PVH_L') < -0.5, `left portal vein at 10 mm ${q10('PVH_L').toFixed(3)}`);
   for (const q of [q8, q10]) {
     assert.ok(q('PVH_R') > 5, 'the right portal vein runs on toward the stent');
-    assert.ok(q('PVH_R_1') < -0.5, 'and backwards from the stent outward, where the sinusoids empty into it');
-    assert.ok(Math.abs(q('PVH_R_1') - (q('PVH_R') - q('TIPS'))) < 1e-6 && Math.abs(q('RHV_IVC') - (q('RHV_IVC_1') + q('TIPS'))) < 1e-6, 'the pieces add up to the model\'s own flows');
+    assert.ok(q('PVH_R_2') < -0.5, 'and backwards from the stent outward, where the sinusoids empty into it');
+    assert.ok(Math.abs(q('PVH_R_2') - (q('PVH_R') + q('AP_R') - q('TIPS'))) < 1e-6 && Math.abs(q('RHV_IVC') - (q('RHV_IVC_1') + q('TIPS'))) < 1e-6, 'the pieces add up to the model\'s own flows');
   }
 });
 
@@ -257,9 +257,9 @@ test('a stretch of a cut vein that is all but still is stagnant, not reversed: t
   const e8 = at(8), e10 = at(10);
   assert.ok(e8.Qf[e8.ei.RHV_IVC_1] < -0.12, 'its mean does run backwards at 8 mm (a quarter of a mL/s)');
   assert.equal(reversed(e8, 'RHV_IVC_1'), false, 'but beside the stent\'s 25 mL/s it is stagnant');
-  assert.equal(reversed(e8, 'PVH_R_1'), true);
+  assert.equal(reversed(e8, 'PVH_R_2'), true);
   assert.equal(reversed(e10, 'RHV_IVC_1'), true, 'at 10 mm it runs backwards for real');
-  assert.equal(throughFlow('PV_TRUNK', e8.Qf, e8.ei), 0, 'a vein that is whole has no pieces to compare');
+  assert.equal(throughFlow('SV_CONF', e8.Qf, e8.ei), 0, 'a vein that is whole has no pieces to compare');
   // the shown pressure beside a junction agrees with the shown flow's direction (the lenses visit nodes by pressure, and the shown flow decides each vessel's direction)
   for (const e of [e8, e10]) for (const c of JUNCTION_CHAINS) {
     const toEnd = c.end === 'to', q = e.Qf[e.ei[c.ids[toEnd ? c.ids.length - 1 : 0]]];

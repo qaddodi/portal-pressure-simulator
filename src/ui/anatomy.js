@@ -135,7 +135,7 @@ export const EDGE_PATH = {
   // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
   // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
   // with a square elbow, 6 Nov.)
-  AP_R: 'M583.4 422.3 C 576 412 560 432 552 420.8',
+  AP_R: 'M583.4 422.3 C 580 426 586 430 582.3 433.8',   // (a short bridge from the right hepatic artery to the right portal vein beside it, where the artery lies 11 units above it: JUNCTIONS RPV_A, 0.2 along the vein, before the TIPS leaves it)
   AP_L: 'M642.4 424.7 C 654 426 640 400 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
@@ -325,7 +325,7 @@ export const STRAND_WAVE = { C8: [[0, 0, 0]] };
 // The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
 // lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
 // there, a torn gap beside the stump: 13 Nov 2026).
-export const END_HOSTS = { C8: ['PV_TRUNK'] };
+export const END_HOSTS = { C8: ['PV_TRUNK_1', 'PV_TRUNK'] };   // (the trunk is cut where the coronary vein joins it: topology.js JUNCTIONS)
 // The vessels no other vessel's end may join: they are passed over and passed under, never opened into. The cavernoma's channels run beside the coronary vein's last stretch
 // and the vein's end lay within the join reach of them, so it was joined to a channel (a fillet, a shared lumen: "the cavernoma connects to the coronary vein", 13 Nov 2026).
 // The cavernoma's own ends join the trunk, as END_HOSTS says; and that is all that joins it.
@@ -417,8 +417,8 @@ export const CIRCUIT_PATH = {
   A_HL: 'M774 345 L 786 357 L 800 357',
   // The arterioportal shunts leave the artery's run and rise (or drop) into the first portal venules, beside the inflow stubs.
   // (Rounded at their bends as every other line of the map is: route(), not bare square corners.)
-  AP_R: route([[700, 345], [700, 321], [682, 303]], 10),
-  AP_L: route([[700, 345], [700, 369], [682, 387]], 10),
+  AP_R: route([[700, 345], [700, 325], [640, 325], [640, 303]], 10),   // (ends on the right portal vein's junction, JUNCTION_CIRCUIT RPV_A)
+  AP_L: route([[700, 345], [700, 365], [650, 365], [650, 387]], 10),   // (ends on the left portal vein's junction, JUNCTION_CIRCUIT LPV_A)
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
@@ -433,7 +433,7 @@ export const CIRCUIT_PATH = {
   PVH_L: route([[580, 345], [622, 387], [680, 387]], 12),
   // The left gastric vein drops into the confluence from above, clear of the splenic vein's
   // diagonal (a plain 45° route would run on top of it for its last stretch).
-  LGV_CONF: route([[320, 191], [446, 191], [480, 225], [480, 345]], 14),
+  LGV_CONF: route([[320, 191], [486, 191], [520, 225], [520, 345]], 14),   // (joins the portal trunk 0.43 along it, JUNCTION_CIRCUIT PVT_L)
   POST_R_RHV: route([[900, 303], [921, 282], [1000, 282]], 10),
   POST_L_LHV: route([[900, 387], [921, 408], [1000, 408]], 10),
   // esophageal and gastric route, above the spine
@@ -462,7 +462,7 @@ export const CIRCUIT_PATH = {
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
   C5: route([[240, 121], [70, 121], [70, 700], [1000, 700], [1000, 540]]),
-  EPI_SVC: route([[960, 640], [960, 730], [1330, 730], [1330, 205], [1250, 205]]),
+  EPI_SVC: route([[960, 640], [960, 730], [1330, 730], [1330, 265], [1250, 265]]),   // (joins the superior vena cava 0.43 along it, JUNCTION_CIRCUIT SVC_E)
   C9: route([[1120, 478], [1175, 478], [1175, 250], [1130, 205], [1120, 205]]),
 };
 
@@ -510,7 +510,7 @@ export function metroPath([x1, y1], [x2, y2]) {
 // A junction is a node on the vein, so the vein is two vessels in series (three where two things join it) and each is drawn from the host's own
 // course cut at the junction: the same line, the same look, only now a node sits where the stent leaves or joins it, and the blood of each piece is its own.
 // In the Circuit the junction is a point on the host's course too (JUNCTION_CIRCUIT: where the lanes that join it were drawn to).
-export const JUNCTION_CIRCUIT = { RPV_T: [660, 303], RHV_T: [1020, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600] };
+export const JUNCTION_CIRCUIT = { RPV_T: [660, 303], RHV_T: [1020, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600], SVC_E: [1250, 265], PVT_L: [520, 345], LPV_A: [650, 387], RPV_A: [640, 303] };
 const NUM = (n) => String(Math.round(n * 100) / 100);
 function pathSegs(d) {
   const t = d.match(/[MLQC]|-?[\d.]+/g), segs = [];

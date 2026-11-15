@@ -106,7 +106,7 @@ const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // What a word in a line can point at on the figure (a term pill, M1): the station's label (node), the vessels that
 // glow (edges) or the organ outlined, in the station's colour (tone: --tr-<tone>), and the words that name it.
 export const TARGETS = {
-  pv: { node: 'CONF', edges: ['PV_TRUNK'], tone: 'pv', words: 'portal vein' },
+  pv: { node: 'CONF', edges: ['PV_TRUNK_1', 'PV_TRUNK'], tone: 'pv', words: 'portal vein' },
   sv: { node: 'SV', edges: ['SV_CONF', 'SV_MID', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
   imv: { node: 'IMV', edges: ['V_IMV'], tone: 'imv', words: 'inferior mesenteric veins?|inferior mesenteric' },
   smv: { node: 'SMV', edges: ['SMV_CONF', 'V_INT', 'V_INT_1'], tone: 'smv', words: 'superior mesenteric veins?|superior mesenteric' },
@@ -128,7 +128,7 @@ export const TARGETS = {
   rGut: { res: 'rGut', site: 'rGut', tone: 'smv', words: 'splanchnic arterioles|gut arterioles' },
   // The hepatic artery (both views): one word lights it, in the artery's colour, as the lobule's arterioles are.
   ha: { node: 'HA', edges: ['A_HEP', 'A_HR', 'A_HL'], tone: '--artery', words: 'hepatic arter(?:y|ies)' },
-  lpv: { node: 'LPV', edges: ['PVH_L'], tone: 'pv', words: 'left portal vein' },
+  lpv: { node: 'LPV', edges: ['PVH_L', 'PVH_L_1'], tone: 'pv', words: 'left portal vein' },
   lrv: { node: 'LRV', edges: ['LRV_IVC', 'V_KID_L', 'V_KID_L_1'], tone: 'ivc', words: 'left renal vein' },
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
   liver: { organ: 'liver', tone: 'wedge', words: 'liver' },

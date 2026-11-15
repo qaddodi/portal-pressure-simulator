@@ -6,12 +6,12 @@ import { geomInto, viewInto } from './cam-arc.js';
 
 /** The vessel paths a glide may follow, each a chain of vessels in the order the blood (or the catheter) runs. */
 export const ROUTES = Object.freeze({
-  portal: ['V_INT', 'V_INT_1', 'SMV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_R_1'],
-  splenic: ['V_SPL', 'SV_MID', 'SV_CONF', 'PV_TRUNK', 'PVH_R'],
-  coronary: ['PVH_R', 'PV_TRUNK', 'LGV_CONF', 'C1a', 'C1b', 'AZY_SVC'],
-  gastric: ['PV_TRUNK', 'SV_CONF', 'C2', 'C5', 'LRV_IVC'],
-  umbilical: ['PV_TRUNK', 'PVH_L', 'C3', 'EPI_ILI'],
-  tips: ['PV_TRUNK', 'PVH_R', 'TIPS', 'RHV_IVC', 'IVCS_RA'],
+  portal: ['V_INT', 'V_INT_1', 'SMV_CONF', 'PV_TRUNK_1', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_R_2'],
+  splenic: ['V_SPL', 'SV_MID', 'SV_CONF', 'PV_TRUNK_1', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_R_2'],
+  coronary: ['PVH_R_2', 'PVH_R_1', 'PVH_R', 'PV_TRUNK', 'LGV_CONF', 'C1a', 'C1b', 'AZY_SVC'],
+  gastric: ['PV_TRUNK', 'PV_TRUNK_1', 'SV_CONF', 'C2', 'C5', 'LRV_IVC'],
+  umbilical: ['PV_TRUNK_1', 'PV_TRUNK', 'PVH_L', 'PVH_L_1', 'C3', 'EPI_ILI'],
+  tips: ['PV_TRUNK_1', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'TIPS', 'RHV_IVC', 'IVCS_RA'],
 });
 
 /** How near the middle of each framing the path must run (a share of the framing's width) for the glide to follow it. */

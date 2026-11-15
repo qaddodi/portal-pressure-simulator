@@ -13,7 +13,8 @@ import { cathFadeAlpha } from './hvpg-clock.js';
 import { planStack } from './cath-leads.js';
 import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
-import { legSubs, pieceAt, procSpecs, wholeOf } from './proc-routes.js';
+import { headOf, legSubs, pieceAt, procSpecs, wholeOf } from './proc-routes.js';
+import { expandPieces } from './part-names.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
 import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } from './eus-scope.js';
@@ -21,7 +22,7 @@ import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } fro
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
-  const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
+  const CATH_IDS = expandPieces(['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV']);   // (and down the IVC_IS to the hepatic vein)
   // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in: 0.3, of the feeder's 247 units about 74 each way, up to its fundal end.)
   const GLUE_SPREAD = 0.3;
   // (World units per device pixel now, for the pixel floors of the finest parts and the edge: the stage's pixels per world unit and the canvas's per CSS pixel. 0 before the view is known.)
@@ -91,7 +92,7 @@ export function createCath(st, live) {
     if (live.morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
     if (cath.route?.kind === 'hvpg') return cath.route;
     const radOf = cathRadOf;
-    const svc = geo.SVC_RA.cur, top = svc[0], pts = [], rad = [], src = [], marks = [];
+    const top = headOf(geo, 'SVC_RA'), pts = [], rad = [], src = [], marks = [];
     const at = (id, f) => { src.push([id, f]); return radOf(id, f); };
     const add = (id, rev) => {
       const w = wholeOf(geo, id), base = w ? w.P : geo[id].cur, P = rev ? base.slice().reverse() : base, c = lenTo(P), n = c[c.length - 1] || 1;

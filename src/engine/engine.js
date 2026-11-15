@@ -636,8 +636,14 @@ export class Engine {
   fillJunctionPressures(P = this.P, Q = this.Q) {
     for (const c of this.jx) {
       const toEnd = c.end === 'to', k = c.ks[c.lead], at = toEnd ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
-      const q = Q[c.ks[toEnd ? c.ks.length - 1 : 0]], dir = q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0;   // (the stretch next to that end: its flow runs from the vein's from to its to)
-      for (let i = 0; i < n; i++) P[c.nodes[i]] = P[at] + (toEnd ? 1 : -1) * dir * JUNCTION_HAIR * (toEnd ? n - i : i + 1);
+      // Walk in from the model's end: each stretch's two ends differ by a hair on the side its flow runs from (a stretch's flow runs from its `from` end to its `to` end when positive).
+      if (toEnd) {
+        let p = P[at];
+        for (let i = n - 1; i >= 0; i--) { const q = Q[c.ks[i + 1]]; p += (q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0) * JUNCTION_HAIR; P[c.nodes[i]] = p; }
+      } else {
+        let p = P[at];
+        for (let i = 0; i < n; i++) { const q = Q[c.ks[i]]; p -= (q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0) * JUNCTION_HAIR; P[c.nodes[i]] = p; }
+      }
     }
   }
   /** The same for the shown pressures (Pf) from the shown flows (Qf): a junction's shown pressure is set from the sign of the shown flow beside it, not

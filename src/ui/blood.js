@@ -226,7 +226,7 @@ export function createReversalHold(n, breath = 4) {
 
 // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
 // inflow, the liver's beds, the hepatic veins, any open collateral or shunt); the rest fade.
-const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_L', 'V_INT_1', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
+const KEY_CHEV_IDS = new Set(['V_INT', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK_1', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_R_2', 'PVH_L', 'PVH_L_1', 'V_INT_1', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC']);
 // A vein that carries an open collateral's blood on: the ascending lumbar collateral (C9) empties into the azygos
 // arch, so the azygos (AZY_SVC) beside it keeps its chevrons while the collateral is open.
 export const KEY_CHEV_LANES = { AZY_SVC: ['C9'] };

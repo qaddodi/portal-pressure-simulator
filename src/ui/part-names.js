@@ -11,6 +11,10 @@ export function piecesOf(id) {
   for (const ids of Object.values(JUNCTION_PIECES)) if (ids.includes(id)) return ids;
   return [id];
 }
+/** The vessel at the start of a vein (its first piece when the vein is cut where a shunt joins it, the vein itself when whole). */
+export const firstPiece = (id) => piecesOf(id)[0];
+/** Every piece of every vein named in a list of vessel ids (a list of ids written for whole veins), in order, each once. */
+export const expandPieces = (ids) => [...new Set(ids.flatMap(piecesOf))];
 /** The flow through the vein a vessel is a piece of: the largest of its pieces' flows (mL/s, magnitude) in `Q`, or 0 for a vein that is whole. */
 export function throughFlow(id, Q, ei) {
   const ids = piecesOf(id);

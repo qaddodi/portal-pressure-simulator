@@ -10,6 +10,7 @@
 //   part, the way the catheter travels it.
 import { lerp } from './num.js';
 import { JUNCTION_PIECES } from '../engine/topology.js';
+import { expandPieces } from './part-names.js';
 
 const TIPS_IDS = ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'];
 /** How far up the coronary vein the TIPS catheter goes to coil it, of the vein from where it joins the portal trunk (0..1 of its length). */
@@ -18,7 +19,7 @@ export function procSpecs(geo, radOf) {
   // The TIPS's way in, shared with the TIPS that coils: the neck, the SVC, the IVC and the right hepatic vein to where the tract leaves it, the tract (as wide
   // as the stent will be) through the liver, and the right portal vein.
   const tipsLegs = (B) => {
-    const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+    const top = headOf(geo, 'SVC_RA'), ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
     B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
     B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
     B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
@@ -28,7 +29,7 @@ export function procSpecs(geo, radOf) {
     B.vessel('TIPS', { rev: true, name: 'tract', r: radOf('PVH_R', 0.5) * 0.8 });
     B.vessel('PVH_R', { rev: true, from: geo.TIPS.cur[0], name: 'rpv' });   // (on from where the tract meets the portal vein, mid-run: not from the vein's far end)
   };
-  return {
+  const specs = {
     tips: { ids: TIPS_IDS, start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
       build(B) { tipsLegs(B); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' }); } },
     // TIPS with the coronary vein coiled (Baveno VIII 5.41: "TIPS ± variceal embolisation"): the same way in, the tract and the right portal vein,
@@ -63,7 +64,7 @@ export function procSpecs(geo, radOf) {
     // atrium and the IVC down to the level where the right hepatic vein opens into it, the tip's reading place.
     ivcread: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC'], start: 0.55, tip: ['ivc', 1], focus: ['ivc', 'ivc'],
       build(B) {
-        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+        const top = headOf(geo, 'SVC_RA'), ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
         B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
         B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
         B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4, name: 'ivc' });
@@ -84,6 +85,9 @@ export function procSpecs(geo, radOf) {
         B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
       } },
   };
+  // (the vessels a route touches: every piece of each vein it names, topology.js JUNCTIONS)
+  for (const sp of Object.values(specs)) sp.ids = expandPieces(sp.ids);
+  return specs;
 }
 
 /**
@@ -131,7 +135,7 @@ export function legSubs(w, rev, a, b, d0, d1) {
   return out;
 }
 /** Where a vein starts and ends on the figure, the whole course of one a shunt splits (its own piece alone stops at the join). */
-const headOf = (geo, id) => (wholeOf(geo, id)?.P || geo[id].cur)[0];
+export const headOf = (geo, id) => (wholeOf(geo, id)?.P || geo[id].cur)[0];
 const tailOf = (geo, id) => { const P = wholeOf(geo, id)?.P || geo[id].cur; return P[P.length - 1]; };
 const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
 /** The part of a polyline from length a to length b (cumulative lengths in cum). */

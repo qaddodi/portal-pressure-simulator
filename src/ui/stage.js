@@ -78,7 +78,7 @@ const vesselPx = (D) => CALIBER * Math.max(2.6, 2.0 * Math.pow(Math.max(0.1, D),
 const ALL_EDGES = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_R_1', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'V_INT_1', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
+const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PV_TRUNK_1', 'PVH_R', 'PVH_R_1', 'PVH_R_2', 'PVH_L', 'PVH_L_1', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'V_INT_1', 'RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
 import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS, fadeStep } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
@@ -975,7 +975,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const setReveal = (x, r) => { if (!x.reveal !== !r) revealN += r ? 1 : -1; x.reveal = r; };
   const anyReveal = () => revealN > 0;
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
-  for (const x of EV) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) x.front = true;
+  for (const x of EV) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PV_TRUNK_1', 'PVH_R', 'PVH_R_1', 'PVH_R_2', 'PVH_L', 'PVH_L_1', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) x.front = true;
   for (const id of BACK_EDGES) if (E[id]) E[id].back = true;
   // The stents through the liver (TIPS, DIPS) are drawn with the portal tree, in front of the network: they cross the hepatic veins (the middle one went through the TIPS
   // when both were one tier: a crossing in one tier is a union, the wider lumen wins), and they end on the portal vein, whose tier a lower-tier stent's end cannot match (the

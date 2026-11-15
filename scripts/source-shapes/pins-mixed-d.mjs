@@ -296,7 +296,7 @@ export default [
   { file: 'src/ui/scroll-edges.js', forbid: [/pal-list/, 'Soft edges on lists that scroll (1 Nov 2026):'] },
   // splenorenal-route
   { file: 'src/ui/stage*', need: [/\['S_DSR', 'SV_MID'\]/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },
-  { file: 'src/ui/stage*', need: [/\['S_PC', 'PV_TRUNK'\]/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },
+  { file: 'src/ui/stage*', need: [/\['S_PC', PV_START\]/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },
   { file: 'src/ui/stage*', need: [/const ligatedAt = \(id\) => \{ for \(let q = 0; q < LIGATED\.length; q\+\+\) if \(LIGATED\[q\]\[1\] === id\) return true; return false; \};/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },
   { file: 'src/ui/stage*', need: [/ligatedAt\(id\)\) lo = Math\.max\(lo, divideLen\(id\)/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },
   { file: 'src/ui/stage*', need: [/function ligature\(id, shunt, at\) \{\s*const x = E\[id\], c = at != null \? geo\[id\]\.len \* at : Math\.min\(divideLen\(id\) \+ 5/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },

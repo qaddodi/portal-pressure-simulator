@@ -170,7 +170,7 @@ test('dye bolus: concentration is conserved along a vessel and mixes flow-weight
     const bb = createBolus(EDGES, NODES);
     for (const k of ks) bb.inject(k, 0, { seconds: 30 });
     for (let i = 0; i < 20 * 10; i++) bb.step(1 / 10, net);
-    bb.field(EI.PV_TRUNK, net, field);
+    bb.field(EI.PV_TRUNK_1, net, field);   // (the portal vein is cut where the coronary vein joins it: its first piece is the one the confluence feeds)
     return field[Math.floor(DYE_BINS / 2)];
   };
   const one = run([EI.SMV_CONF]), two = run([EI.SMV_CONF, EI.SV_CONF]);
