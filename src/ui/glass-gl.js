@@ -532,6 +532,16 @@ function texOf(gl, filter) {
 // (A card's own edge and drop shadows drawn with its glass on the GPU (--gl-line, --gl-drop), and its size eased there when the page asks
 // (data-gl-morph): Mohammad, 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov (the glass stays up through a slide change and
 // changes size in view).)
+const POLL_FIRST_MS = 1000, POLL_MAX_MS = 30000;   // (the sleeping glass's safety-net look: first 1 s after a real wake, doubling to 30 s)
+const GLW_ON = /(?:^|\s)glw-on(?=\s|$)/g;
+const noGlw = (c) => (c || '').replace(GLW_ON, ' ').trim().split(/\s+/).join(' ');
+/** GLASS-1: a class record whose only difference is gl-words.js's `glw-on` mark (a GPU readout's picture handed over or back). It is written on
+ *  the readout's own element in the frame its number is drawn and taken off 260 ms later, so with the model running it came every few
+ *  frames, and each one made the glass read the page again (computed style of every glass, boxes, animations of every ancestor). */
+export function wordsMark(r) {
+  if (!r || r.type !== 'attributes' || r.attributeName !== 'class' || !r.target) return false;
+  return noGlw(r.oldValue) === noGlw(r.target.getAttribute?.('class'));
+}
 /** A --gl-drop value ("x y blur spread colour, ..." as written, var() substituted) as [{ x, y, blur, spread, c }] (CSS px), at most two. */
 export function dropsOf(v) {
   const out = [];
@@ -576,7 +586,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (shown: the glass drew the last time it looked; drawnKey: everything that picture was drawn from, so a frame that would draw it the
   // same is skipped; quiet: the frames in a row that changed nothing; liveUntil: a callout's transition or animation runs until then;
   // poll: the slow look while it sleeps; gen: a copy asked for before the glass was let go is never put in.)
-  let shown = false, quiet = 0, liveUntil = 0, poll = 0, gen = 0;
+  let shown = false, quiet = 0, liveUntil = 0, poll = 0, gen = 0, pollMs = POLL_FIRST_MS;
   const maskTex = new Set(), maskFb = new Set(), marked = new Set();
   // Any CSS colour as straight [r, g, b, a] (0–1). A colour the page gives as written (a custom property that is not registered: a
   // color-mix(), a name, oklab) is resolved in script once, when the page is read (resolveColour, from measureGeo, outside
@@ -1846,6 +1856,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (2 Nov 2026: an observer that fires in the read phase fired after a write made there, so a read in it laid the page out in that
   // microtask: it is read in the next frame's read phase too.)
   function measureEarly() {
+    pollReset();
     if (!earlyAsk) earlyAsk = readFrame(measureEarlyNow);
   }
   /** The page read again just after this frame (or now, outside a frame), once however often asked. */
@@ -1936,7 +1947,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     return false;
   }
   const MOVERS = [anims, panims];   // (the elements' animations and their panes' pseudo-elements')
-  const pollFn = () => { poll = 0; measureGeo(); };
+  // (GLASS-2, app review 15 Nov 2026: the look while asleep was a full page read every second for as long as any glass was on the page, the
+  // dock and the top bar's pills among them, so the page never rested. Every path that moves a glass already wakes it (the observers, the resize
+  // observer, scroll, fonts, transition and animation events), so this is only a safety net: it backs off 1, 2, 4 ... 30 s while nothing happens
+  // and starts at 1 s again at any real wake (a write the observers see, a transition or animation, a page read someone asked for).)
+  const pollFn = () => { poll = 0; pollMs = Math.min(POLL_MAX_MS, pollMs * 2); measureGeo(); };
+  const pollReset = () => { pollMs = POLL_FIRST_MS; };
   function settle(r) {
     shown = !!r;
     clearTimeout(poll); poll = 0;
@@ -1947,12 +1963,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     // Either way, never asleep while something in the layers is still animating: a script's fade sends no event.)
     if ((r ? r === true || quiet < 2 : false) || running || moving()) { ask(); return; }
     // (Asleep: a slow look while any glass is on the page; none, and only a new callout (a write to the layers) wakes it.)
-    if (glassesNow().length) poll = setTimeout(pollFn, 1000);
+    if (glassesNow().length) poll = setTimeout(pollFn, pollMs);
   }
   // (Whether these writes change more than the motion puts back: anything but a style that changed only in a translation or an opacity
   // already written there (glass-motion.js movesOnly) on an element inside the glasses' layers.)
   function changed(recs) {
     for (const r of recs) {
+      if (wordsMark(r)) continue;
       if (r.type !== 'attributes' || r.attributeName !== 'style') return true;
       const e = r.target;
       if (e.contains?.(stop) || !movesOnly(r.oldValue || '', e.getAttribute('style') || '')) return true;
@@ -1983,6 +2000,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     return true;
   }
   const mo = new MutationObserver((recs) => {
+    if (recs?.length && recs.every(wordsMark)) return;   // (GLASS-1: only the GPU readouts' "page words are clear" mark came and went: nothing a glass shows or sits on moved)
+    pollReset();
     const moves = !!recs?.length && !changed(recs);
     if (moves && innerOnly(recs)) return;
     if (!recs?.length || !moves) measureEarly();
@@ -2011,13 +2030,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   document.fonts?.addEventListener?.('loadingdone', again);
   // (A CSS transition or animation starting anywhere: followed if it moves a glass or what holds it (its keyframes taken now, once); one
   // ending, anywhere: the page read again for where it ended.)
-  const docStart = (e) => { trackSoon(e?.target); wake(); };
+  const docStart = (e) => { pollReset(); trackSoon(e?.target); wake(); };
   const docEnd = () => measureEarly();
   const DOC_START = ['transitionrun', 'animationstart'], DOC_END = ['transitionend', 'transitioncancel', 'animationend', 'animationcancel'];
   for (const t of DOC_START) document.addEventListener?.(t, docStart, true);
   for (const t of DOC_END) document.addEventListener?.(t, docEnd, true);
   // A callout's fade, glide or hover moves its glass with no write to wake it: it is followed while it runs.
   const held = (e) => {
+    pollReset();
     liveUntil = performance.now() + 800;
     if (/(end|cancel)$/.test(e?.type || '')) { measureEarly(); return; }   // (ended: read where it ended)
     if (e?.target && /^(transition|animation)/.test(e.type)) trackSoon(e.target);

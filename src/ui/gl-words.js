@@ -189,7 +189,7 @@ function measureWrite(S, { at, pad, L, U }) {
   const { host } = S;
   if (S.dead) return;
   if (!S.gl) {
-    S.gl = createSvgGL(host);
+    S.gl = createSvgGL(host, { still: true });   // (WORDS-1: no observer on the readout's own element: its writes are the page's words and the glw-on mark)
     S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
     S.gl.cv.classList.add('glw-cv');
     host.classList.add('glw');

@@ -336,6 +336,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
+  // Readouts and the glass at rest (15 Nov 2026, app review WORDS-1): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
+  need('src/ui/svg-gl.js', [[/if \(!opts\?\.still && typeof MutationObserver === 'function'\) g\.mo = new MutationObserver\(g\.relook\);/, 'a still picture (a readout) makes no observer of its looks']]);
+
   // Link previews, ?embed and the wake lock (13 Nov 2026, A23/A24/O1): source shapes moved out of tests (PR-02), each with its reason.
   need('index.html', [
     [/setAttribute\('data-embed',''\)/, '?embed marks <html> before the first paint, so the top bar never shows in an iframe'],

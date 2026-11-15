@@ -1016,7 +1016,10 @@ export function createSvgGL(box, opts = null) {
   g.fadeEl = (el, ms, easing = 'ease', delay = 0) => { EASES.set(el, { from: 0, to: 1, t0: easeNow() + delay, ms, ease: cssCurve(easing) }); g.wake(delay + ms + 20); };
   // (A class or a piece changed on a model after it was placed (a value turned on, a word's pieces rebuilt): its looks are read again
   // between frames, and any ease the stylesheet gives the change is run by the picture.)
-  if (typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
+  // (opts.still, WORDS-1, app review 15 Nov 2026: a picture with no stylesheet looks to follow, a GPU readout (gl-words.js: its fills are set from the page's own
+  // looks when it is measured). Its box is the readout's own element, which gl-words writes to for every new number (the page's words landing, the `glw-on` mark
+  // handed over and back), and each such write made the picture read its looks and draw again: three draws and three hand-overs per number instead of one.)
+  if (!opts?.still && typeof MutationObserver === 'function') g.mo = new MutationObserver(g.relook);
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.mo?.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-rate'] });
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
