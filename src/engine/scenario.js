@@ -162,6 +162,27 @@ export const PRESETS = [
     note: 'Pericardial constriction raises RA pressure. Congestive hepatopathy without a rise in HVPG.' },
 ];
 
+/**
+ * A patient made at run time ("Yours", from Work backward), as a PRESETS entry: a params patch, the disease days and the volume a failing heart keeps.
+ * Read from storage or a link, so the patch is sanitized as it is applied: a value no control can reach never gets into the model.
+ */
+export function presetFromPatch({ id, label = '', group = 'Yours', patch = {}, days = 0, volume = 0, now, summary = '', note = '' }) {
+  const d = Math.min(1500, Math.max(0, Number.isFinite(days) ? days : 0)), v = Math.min(3000, Math.max(0, Number.isFinite(volume) ? volume : 0));
+  return { id, group, label, apply: (p) => sanitizeParams(deepMerge(p, patch)), days: d, volume: v, ...(now ? { now } : {}), summary, note };
+}
+/** Put a run-time patient in the list the menu, the worker and a deck read (the same id replaces its older entry); forgetPreset takes one out. Never a built-in. */
+export function registerPreset(def) {
+  const pr = presetFromPatch(def), i = PRESETS.findIndex((x) => x.id === pr.id);
+  if (i >= 0 && PRESETS[i].group !== 'Yours') return null;
+  if (i >= 0) PRESETS[i] = pr; else PRESETS.push(pr);
+  return pr;
+}
+export function forgetPreset(id) {
+  const i = PRESETS.findIndex((x) => x.id === id && x.group === 'Yours');
+  if (i >= 0) PRESETS.splice(i, 1);
+  return i >= 0;
+}
+
 // Allowed range of each numeric parameter (the controls' own ranges). Hand-edited links and console calls
 // are clamped to these, so a value no control can reach never turns the model into NaN.
 const RANGES = {

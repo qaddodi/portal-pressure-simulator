@@ -309,16 +309,16 @@ export class Engine {
     if (done) this._ease = null;
   }
 
-  /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
-  loadPreset(id, /** @type {{ days?: number }} */ { days } = {}) {
-    const steps = this.loadPresetSteps(id, { days });
+  /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. `preset` is a patient made at run time (scenario.js presetFromPatch) in place of the one `id` names. */
+  loadPreset(id, /** @type {{ days?: number, preset?: object }} */ { days, preset } = {}) {
+    const steps = this.loadPresetSteps(id, { days, preset });
     let next;
     do { next = steps.next(); } while (!next.done);
     return next.value;
   }
 
-  *loadPresetSteps(id, /** @type {{ days?: number }} */ { days } = {}) {
-    const pr = PRESETS.find((x) => x.id === id) || PRESETS[0];
+  *loadPresetSteps(id, /** @type {{ days?: number, preset?: object }} */ { days, preset } = {}) {
+    const pr = preset || PRESETS.find((x) => x.id === id) || PRESETS[0];
     const params = pr.apply(defaultParams());
     params.seed = this.params.seed;
     this.params = defaultParams();

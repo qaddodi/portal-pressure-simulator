@@ -81,6 +81,9 @@ const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.end
 // 1c. The dye bolus's worker (dye-worker.js: the slugs' advance), the same way.
 const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
 const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
+// 1d. Work backward's refinement worker (inverse-worker.js: the engine run near the best fits), the same way.
+const inverse = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/inverse-worker.js')], outdir: ASSETS, entryNames: 'inverse-[hash]', write: true, metafile: true });
+const inverseFile = basename(Object.keys(inverse.metafile.outputs).find((f) => f.endsWith('.js')));
 
 // 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
 // the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
@@ -91,6 +94,7 @@ const WORKER_SRC = [
   [/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${workerFile}', import.meta.url)`],
   [/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${sweepFile}', import.meta.url)`],
   [/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${dyeFile}', import.meta.url)`],
+  [/new URL\('\.\/inverse-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${inverseFile}', import.meta.url)`],
 ];
 const workerHolders = new Set(readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'src/ui', f))
   .filter((f) => WORKER_SRC.some(([re]) => { re.lastIndex = 0; return re.test(readFileSync(f, 'utf8')); })));
@@ -181,7 +185,7 @@ if (process.env.PPS_META) writeFileSync(process.env.PPS_META, JSON.stringify(app
 // (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
 // callers fall back to the main thread without a word. Always refused, preview builds too.)
 for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
-  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker)\.js/);
+  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker|\.\/inverse-worker)\.js/);
   if (left) throw new Error(`Build refused: ${basename(f)} still starts a worker from its source address (${left[0]}): add its module to the worker-url plugin`);
 }
 // A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export

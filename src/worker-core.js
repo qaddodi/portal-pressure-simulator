@@ -8,6 +8,7 @@ import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
+import { setYours } from './engine/yours.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -666,6 +667,9 @@ export function createCore(post) {
       w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
     },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, note, days }) => ({ id, label, group, summary, note, days })) }); },
+    // The patients Work backward made ("Yours", src/engine/yours.js): the page sends the whole saved list, and the engine knows exactly those.
+    // The answer is the patient list, as 'presets' gives it, so the menu is made from one answer.
+    yours({ list, reqId }) { setYours(list); handlers.presets({ reqId }); },
   };
 
   // Serialize commands while a long job yields. Timer ticks must not advance
@@ -673,7 +677,7 @@ export function createCore(post) {
   const queue = [];
   let busy = false;
   // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
-  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf'];
+  const NO_STATE = ['snapshot', 'presets', 'yours', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats', 'whatIf'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -698,7 +702,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'yours', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats', 'whatIf'].includes(msg.type)) {
           // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
           if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
           else {

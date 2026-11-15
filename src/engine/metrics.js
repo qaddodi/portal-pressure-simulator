@@ -27,12 +27,13 @@ const tenth = (v) => tenths(v) / 10;
 // A varix is graded by its size alone: None under 2.5 mm, Small under 5 mm, Large from 5 mm. There are no F-codes: they
 // describe shape and red signs as well as size, and the model reads size only.
 export const VARIX_NONE_MM = 2.5;
+export const VARIX_LARGE_MM = 5;
 // (The grades are three shared, frozen records: nothing writes to one, and each reader copies what it keeps.)
 const VARIX_NONE = Object.freeze({ label: 'None' }), VARIX_SMALL = Object.freeze({ label: 'Small' }), VARIX_LARGE = Object.freeze({ label: 'Large' });
 export function varixGrade(d0) {
   const d = Number.isFinite(d0) ? tenth(d0) : d0;
   if (d < VARIX_NONE_MM) return VARIX_NONE;
-  if (d < 5) return VARIX_SMALL;
+  if (d < VARIX_LARGE_MM) return VARIX_SMALL;
   return VARIX_LARGE;
 }
 // Whether there are varices to look at: the diameter reaches the "none" cut-off, or banded columns are still on the wall
@@ -41,11 +42,13 @@ const varixPresent = (d, banded) => d >= VARIX_NONE_MM || banded;
 
 const ASC_0 = Object.freeze({ grade: 0, label: 'None' }), ASC_1 = Object.freeze({ grade: 1, label: 'Grade 1 (ultrasound only)' });
 const ASC_2 = Object.freeze({ grade: 2, label: 'Grade 2 (moderate)' }), ASC_3 = Object.freeze({ grade: 3, label: 'Grade 3 (tense)' });
+// (The grades' volume cut-offs in mL, one list: Grade 1 from 150, Grade 2 from 1,500, Grade 3 from 5,000; the Work-backward search reads the same ones.)
+export const ASCITES_CUTS = Object.freeze([150, 1500, 5000]);
 export function ascitesGrade(V0) {
   const V = Number.isFinite(V0) ? tenths(V0 / 1000) * 100 : V0;
-  if (V < 150) return ASC_0;
-  if (V < 1500) return ASC_1;
-  if (V < 5000) return ASC_2;
+  if (V < ASCITES_CUTS[0]) return ASC_0;
+  if (V < ASCITES_CUTS[1]) return ASC_1;
+  if (V < ASCITES_CUTS[2]) return ASC_2;
   return ASC_3;
 }
 
