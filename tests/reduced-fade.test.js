@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { countIn } from '../scripts/reduced-fade-scan.mjs';
 import { killedFades } from '../scripts/reduced-css-scan.mjs';
+import { countIn as bareHidden } from '../scripts/bare-hidden-scan.mjs';
 import { fadeMs, fadeStep, reducedMs, D_SMALL, D_SURFACE } from '../src/ui/motion.js';
 
 // Owner, 15 Nov 2026: "Nothing can pop in or out. Every in transitions." Under Reduce Motion nothing travels, but a fade is not motion: a thing
@@ -43,4 +44,13 @@ test('the stylesheet scan sees a Reduce Motion rule that kills a fade, and lets 
 @media (prefers-reduced-motion: reduce) { .menu-btn .chev { transition: none; } .x { transition-property: opacity; } }
 @media (prefers-reduced-motion: reduce) { .y { animation: none; } @keyframes fade-rise { from { opacity: 0; } } }`;
   assert.deepEqual(killedFades(css), ['#labels .lb { transition: none; }', '.y { animation: none; }']);
+});
+
+test('the show/hide scan counts a write of hidden or display, and not a fade helper, a comparison or a line marked off-screen', () => {
+  assert.equal(bareHidden('el.hidden = true;'), 1);
+  assert.equal(bareHidden("el.style.display = 'none';"), 1);
+  assert.equal(bareHidden("el.toggleAttribute('hidden', on);"), 1);
+  assert.equal(bareHidden('fadeShown(el, on);'), 0);
+  assert.equal(bareHidden('if (el.hidden === true) go();'), 0);
+  assert.equal(bareHidden('el.hidden = true;   // off-screen: measured, never drawn'), 0);
 });

@@ -20,7 +20,7 @@ import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
 import { startChange } from './change-order.js';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged, fadeShown, swapText } from './util.js';
 import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -105,7 +105,8 @@ const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').the
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of its own to ask)
-import { reduceMotionMQ as reduce, easeMove, COUNT_MS, fadeMs as fadeLen } from './motion.js';
+import { reduceMotionMQ as reduce, easeMove, COUNT_MS, fadeMs as fadeLen, afterMs } from './motion.js';
+let panelGoTok = null;   // (the visual panel's fade out to a words slide: the token of the timer that empties it)
 import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
 import { procNavPlan } from './proc-nav.js';
@@ -815,14 +816,14 @@ function bigTiles() {
         if (!on) { ts.drop('map.s'); ts.drop('map.d'); }
       }
       putNum(p, p.sv);
-      p.u.hidden = none || !p.T.u;
+      fadeShown(p.u, !(none || !p.T.u));   // (a tile's parts fade in and out with its reading: nothing pops)
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
       if (p.hi) {
         // (putNum sets the header's number: always .set, never .now, even while the tiles glide in. A kept GPU number is redrawn by set alone; now writes only
         // the page's text, which stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start
         // on a time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
-        p.hu.hidden = none || !p.T.u;
+        fadeShown(p.hu, !(none || !p.T.u));
         if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
         setA(p.hi, 'data-rate', cls || (none ? 'none' : 'plain'));
       }
@@ -832,8 +833,8 @@ function bigTiles() {
         if (p.d.textContent !== t) p.d.textContent = t;
       }
       if (p.S) {
-        p.now.hidden = !on;
-        if (p.was) p.was.hidden = p.link.hidden = !ok;
+        fadeShown(p.now, on);
+        if (p.was) { fadeShown(p.was, ok); fadeShown(p.link, ok); }
         putBar(p, p.sv, p.sr);
       }
       if (r0 == null || f[p.k] == null) return;
@@ -3065,12 +3066,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A slide with a level rail names its level on the rail, which a phone held upright hides: there the tab names it instead.)
     const railLvl = !s.visual && s.rail && s.rail !== 'all' && SITE_TAGS[s.site] ? { site: s.site === 'pvt' ? 'pre' : s.site, name: SITE_TAGS[s.site] } : null;
     const lvl = s.visual ? null : siteTag(deck, s) || railLvl, stab = ui.shade.querySelector('.pz-sitetab');
-    if (stab) { stab.hidden = !lvl?.site; stab.toggleAttribute('data-rail', !!lvl && lvl === railLvl); if (lvl?.site) { stab.dataset.site = lvl.site; stab.textContent = lvl.name; } }
+    if (stab) { fadeShown(stab, !!lvl?.site); stab.toggleAttribute('data-rail', !!lvl && lvl === railLvl); if (lvl?.site) { const site = lvl.site; if (stab.textContent === lvl.name) stab.dataset.site = site; else swapText(stab, lvl.name, () => { stab.dataset.site = site; }); } }   // (a new level's name and colour cross-fade in place)
     // (the panel's own is let go once its new content is in, so it never fades back in with the old; behind a case card the words
     // stay out, never shown for a moment while they are fitted, until the card is lifted: cardsIn)
     // (Thrown in, the words stay out until cardsIn throws them in: let go here, they faded in at rest first and then jumped to the side.)
     if (!caseCard && !bare && !(throwDir && !s.visual)) text.classList.remove('pz-leave');
     if (s.visual) {
+      panelGoTok = null;   // (a panel still fading out from the last visual slide is taken back, not emptied)
       dropCharts(text); dropCharts(panel);
       text.hidden = true; text.replaceChildren(); paintKey(null);
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
@@ -3085,8 +3087,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (!ui.root.classList.contains('pz-prep')) cardIn(panel, 'pz-leave');   // (else once fitted: settle)
       ui.veil.classList.add('on');
     } else {
-      dropCharts(panel); dropCharts(text);
-      panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
+      dropCharts(text);
+      // (A visual panel leaving for a words slide fades out first, as it faded in, then is emptied: it vanished in one frame. Owner, 15 Nov 2026.)
+      if (!panel.hidden && panel.firstChild) {
+        panel.classList.add('pz-leave');
+        const tok = panelGoTok = {};
+        setTimeout(() => { if (panelGoTok !== tok) return; panelGoTok = null; dropCharts(panel); panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); }, afterMs(D_SMALL));   // (a visual slide meanwhile takes it back: panelGoTok)
+      } else { dropCharts(panel); panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); }
+      ui.veil.classList.remove('on');
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
       const rv = revealCount(s), line = s.line ? h('p', { class: 'pz-line' }, ...(rv ? revealLine(s, st?.fp, !!st?.params?.tips?.on, Math.min(beat, lastBeat(i)) + 1) : rich(s.line, s, st?.fp, !!st?.params?.tips?.on))) : null;

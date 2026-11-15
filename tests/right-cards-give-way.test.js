@@ -30,7 +30,7 @@ test('Tests has one fixed width on a Mac and an iPad held sideways (500 px, no d
   // (Three cards side by side still leave the vessel card its 316 px strip at every width the side card grows: Details 380, Tests, Treat 400, four 12 px gaps.)
   for (let W = 1667; W <= 3000; W += 7) assert.ok(W - 380 - Math.min(600, Math.max(500, Math.round(W * 0.3))) - 400 - 4 * 12 >= 316, `${W}`);
   assert.match(dock, /: Math\.min\(sideFixed\(W\), Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
-  assert.match(dock, /divider\.hidden = state !== 'open' \|\| fixedSide\(\);/);
+  assert.match(dock, /fadeShown\(divider, !\(state !== 'open' \|\| fixedSide\(\)\)\);/);   // (it fades, 15 Nov 2026)
   assert.match(read('src/ui/main.js'), /\|\| Math\.min\(500, Math\.max\(360, innerWidth \* 0\.62\)\)/);
 });
 

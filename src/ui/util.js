@@ -852,6 +852,33 @@ function rollStep(now) {
 /** An element that has just been shown comes up from nothing over a small step (Reduce Motion too: a fade is not motion). */
 export function fadeIn(el) { if (el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
 const fadeNum = fadeIn;
+/** The one way a piece of the page is shown or hidden without a pop (owner, 15 Nov 2026: nothing pops in or out). show: `hidden` comes off and it
+ *  fades in over D_SMALL; hide: it fades out over D_FLIP (exit curve) and only then takes `hidden`. `hidden` stays the source of truth for CSS
+ *  and tests. Opacity only, on the compositor: no layout read, no height fold (fold() and foldHidden() are for a piece whose height should glide).
+ *  Reduce Motion fades too. A piece with nothing drawn (not in the page, under a hidden parent) is set at once: no one sees it. A turn part-way
+ *  carries on from where the fade stands. */
+const shownJobs = new WeakMap(), FADE_ONE = [{ opacity: 1 }], FADE_ZERO = [{ opacity: 0 }], FLIP_OUT = { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' };
+export function fadeShown(el, show) {
+  if (!el) return;
+  const job = shownJobs.get(el);
+  if (job ? job.show === show : el.hidden === !show) return;
+  if (job) { job.anim.cancel(); shownJobs.delete(el); }
+  if (!el.animate || !el.isConnected || !(show ? !el.parentElement?.closest?.('[hidden]') : hasBox(el))) { el.hidden = !show; return; }
+  if (show) {
+    el.hidden = false;
+    // alloc-rare: a fade starts only when the shown state changes (the early return above otherwise)
+    const anim = el.animate(job ? [{ opacity: 0 }, ...FADE_ONE] : FADE_IN, SMALL_ARRIVE);
+    const me = { show, anim };
+    shownJobs.set(el, me);
+    anim.finished.then(() => { if (shownJobs.get(el) === me) shownJobs.delete(el); }, () => {});
+    return;
+  }
+  const anim = el.animate(FADE_ZERO, FLIP_OUT);
+  const me = { show, anim };
+  shownJobs.set(el, me);
+  anim.finished.then(() => { if (shownJobs.get(el) !== me) return; shownJobs.delete(el); el.hidden = true; anim.cancel(); }, () => {});
+}
+
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a roll no longer rewrites the number's text on every
 // frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
 // digits between the old one and the new one moved by a transform the compositor eases on the GPU (app.css .odo), and the text is

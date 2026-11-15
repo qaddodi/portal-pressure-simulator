@@ -4,7 +4,7 @@ import { EDGES, NODES, dMinOf } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js';
 import { store, updateParams, hiddenNow } from './store.js';
-import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange, putText, releaseWords } from './util.js';
+import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange, putText, releaseWords, fadeShown } from './util.js';
 import { liveBalance } from './balance-hold.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { runSoon, propSoon, attrSoon } from './class-soon.js';
@@ -199,7 +199,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     });
     paint(get(store.get().params));
     wrap._sync = (pp) => { if (document.activeElement !== input) paint(get(pp)); if (c.showIf) propSoon(wrap, 'hidden', !c.showIf(pp)); };
-    if (c.showIf) wrap.hidden = !c.showIf(store.get().params);
+    if (c.showIf) fadeShown(wrap, !!c.showIf(store.get().params));   // (a row that depends on another fades in and out: nothing pops)
     return wrap;
   }
   function toggle({ label, get, set, info, sub }) {

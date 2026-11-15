@@ -31,7 +31,7 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
   const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\) \|\| railLvl, stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
-  assert.match(src, /stab\.dataset\.site = lvl\.site; stab\.textContent = lvl\.name;/);
+  assert.match(src, /if \(stab\.textContent === lvl\.name\) stab\.dataset\.site = site; else swapText\(stab, lvl\.name, \(\) => \{ stab\.dataset\.site = site; \}\);/);   // (a new level cross-fades, 15 Nov 2026)
   // (the title first, in one place)
   assert.match(src, /head = h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
   assert.match(src, /text\.replaceChildren\(\.\.\.\[head, /);

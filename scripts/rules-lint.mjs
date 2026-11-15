@@ -615,6 +615,17 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   for (const [f, n] of Object.entries(allow)) if ((seen[f] || 0) < n) errors.push(`${f}: ${seen[f] || 0} "at once" answers under Reduce Motion, under its allowance of ${n}: lower it (node scripts/reduced-fade-scan.mjs --write)`);
 }
 
+// (3) No file shows or hides a piece of the page in one frame (a write of .hidden or style.display) more often than
+// scripts/bare-hidden-allowance.json, or less: lower it (node scripts/bare-hidden-scan.mjs --write). New code uses util.js fadeShown, fold()
+// or swapFade, or says `// off-screen: <why>` on the line.
+{
+  const { scan } = await import(pathToFileURL(join(ROOT, 'scripts/bare-hidden-scan.mjs')).href);
+  const allow = JSON.parse(readFileSync(join(ROOT, 'scripts/bare-hidden-allowance.json'), 'utf8')), now = scan(join(ROOT, 'src/ui'));
+  const seen = Object.fromEntries(Object.entries(now).map(([f, n]) => [f.slice(ROOT.length + 1).replace(/\\/g, '/'), n]));
+  for (const [f, n] of Object.entries(seen)) if (n > (allow[f] || 0)) errors.push(`${f} shows or hides a piece at once ${n} times (allowed ${allow[f] || 0}): use fadeShown / fold / swapFade from src/ui/util.js, or mark the line // off-screen: <why>`);
+  for (const [f, n] of Object.entries(allow)) if ((seen[f] || 0) < n) errors.push(`${f}: ${seen[f] || 0} instant show/hide writes, under its allowance of ${n}: lower it (node scripts/bare-hidden-scan.mjs --write)`);
+}
+
 // Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
 //   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
 //   { file, forbid: [pattern, why] } it must not.

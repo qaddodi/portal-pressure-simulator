@@ -32,7 +32,7 @@ import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -864,7 +864,7 @@ function buildHud() {
   document.documentElement.classList.add('model-contain');
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
   $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
-  store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
+  store.on('lobule', (on) => { fadeShown($('#btnLobuleLayers'), on); if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
   enhanceRanges();

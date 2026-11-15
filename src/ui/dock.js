@@ -3,7 +3,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText } from './util.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown } from './util.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
 import { createPressureTime } from './pressure-time.js';
@@ -723,7 +723,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.classList.toggle('side', side);
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
-    divider.hidden = state !== 'open' || fixedSide();
+    fadeShown(divider, !(state !== 'open' || fixedSide()));
     if (side) putWidth(readMetric(stageWrap, 'clientWidth'));
     // (Over the thumb dock the card's height is the dock sheet's alone (dock-sheet.js, Menu system plan W3): no --instrument-h is written there.)
     else if (!app.classList.contains('thumb')) putHeight(readMetric(stageWrap, 'clientHeight'), sheetMax(readMetric(stageWrap, 'clientHeight')));
@@ -769,7 +769,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     state = next;
     workspace.dataset.state = state;
     app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
-    divider.hidden = state !== 'open' || fixedSide();
+    fadeShown(divider, !(state !== 'open' || fixedSide()));
     body.hidden = state === 'peek';
     tabsBox.hidden = state === 'peek';
     endPick();
