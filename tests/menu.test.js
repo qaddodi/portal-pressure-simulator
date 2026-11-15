@@ -20,8 +20,8 @@ test('the five topics list only the eleven core talks, in teaching order; "More 
   assert.deepEqual([...main].sort(), [...CORE].sort());
   assert.equal(TOPICS.at(-1)[0], 'more');
   assert.equal(TOPICS.at(-1)[1], 'More talks');
-  assert.equal(TOPICS.at(-1)[2].length, 29);
-  assert.equal(DECKS.length, 40);
+  assert.equal(TOPICS.at(-1)[2].length, 30);
+  assert.equal(DECKS.length, 41);
 });
 
 test('every presentation has a short deck name of 20 characters or fewer, distinct from the others', () => {

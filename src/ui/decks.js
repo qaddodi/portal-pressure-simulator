@@ -158,6 +158,7 @@ import { BUDD_CHIARI } from './decks/budd-chiari.js';
 import { GRADIENTS } from './decks/gradients.js';
 import { SAME_GRADIENT } from './decks/same-gradient.js';
 import { TWO_LESIONS } from './decks/two-lesions.js';
+import { TIPS_CANDIDACY } from './decks/tips-candidacy.js';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -243,6 +244,7 @@ DECKS.push(BUDD_CHIARI);
 DECKS.push(GRADIENTS);
 DECKS.push(SAME_GRADIENT);
 DECKS.push(TWO_LESIONS);
+DECKS.push(TIPS_CANDIDACY);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
@@ -271,6 +273,7 @@ export const TOPICS = [
     ['landmark-trials', 'Landmark trials replayed', 'Landmark trials'],
     ['gradients', 'HVPG, PPG and EUS-PPG compared', 'Compare gradients'],
     ['same-gradient', 'Same gradient, different patient', 'Same gradient'],
-    ['two-lesions', 'Two lesions, one circulation', 'Two lesions']]],
+    ['two-lesions', 'Two lesions, one circulation', 'Two lesions'],
+    ['tips-candidacy', 'Who should get a TIPS', 'TIPS candidacy']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
