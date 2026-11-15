@@ -24,6 +24,8 @@ jobs:
       lint: false
       static: false
 
+  # Style and static checks. A red one reports; it no longer hides the build and the smoke (PROD-1: the lint failed at its first step on every run for
+  # five weeks, so the only browser check never ran on main).
   quick:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -42,7 +44,20 @@ jobs:
         run: npm run typecheck
         continue-on-error: true
       - name: Static checks (conflict markers; the app and the worker bundle)
+        if: success() || failure()
         run: npm run check:static
+
+  # The strict build, on its own: it needs neither the lint nor the unit tests, and the smoke needs only it.
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Production build
         env:
           BUILD_STRICT: '1'
@@ -57,7 +72,7 @@ jobs:
           retention-days: 1
 
   smoke:
-    needs: [quick, tests]
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -74,7 +89,7 @@ jobs:
   # so no graphics card is needed. Split over nine jobs by deck (scripts/card-fit.mjs). Known cases: scripts/card-fit-allowance.json.
   card-fit:
     name: Cards fit ${{ matrix.shard }}/9
-    needs: quick
+    needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:

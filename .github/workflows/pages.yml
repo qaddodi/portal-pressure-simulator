@@ -5,8 +5,11 @@ name: Pages (live site + preview)
 #   /preview/  the preview branch's head. A push to it deploys that commit. A main run (slow: it waits for lint and the unit tests) deploys the branch's head too while the
 #              branch has commits main does not, so a main deploy that lands after a newer branch deploy never puts an older build over it (Mohammad, 13 Nov 2026: "Keep preview
 #              on the branch head"); once the branch is merged, /preview/ is main, badged "PREVIEW · main <commit>".
-# On main, lint and unit tests (validate) still run and report, but a red result no longer blocks the deploy (7 Nov, Mohammad); the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
-# On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
+# On main the deploy waits for the GATE: the strict build (BUILD_STRICT: a chunk over the size limit, the first-load ceilings) and the smoke
+# (scripts/smoke-lite.mjs on that build: boots, the three views, slide 1 of every deck) must both pass, so a build that does not start never goes live
+# (PROD-1/PROD-2, 15 Nov 2026). Lint and unit tests (validate) still run and report, but a red result does not block the deploy (7 Nov, Mohammad).
+# tests/deploy-gate.test.js fails if a deploy job can ever run on main without the gate's success.
+# On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml (the gate is main's only).
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
 # On main nothing is cancelled. Browser checks are not part of the deploy.
 # Every deploy also force-pushes the built site as ONE fresh commit (no history) to the gh-pages branch. While Settings > Pages > Source is "GitHub Actions" the
@@ -40,13 +43,36 @@ jobs:
       lint: true
       static: false
 
+  # Gates main's deploy: the strict build and the smoke on it, in one job (a failed build never reaches the smoke, and a smoke that does not pass
+  # keeps main's build off the live site). About 10 to 15 minutes. It builds exactly what the deploy builds (the same commit, BUILD_STRICT).
+  gate:
+    if: github.ref_name == 'main'
+    name: Gate (strict build, smoke)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: gate-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+      - uses: ./.github/actions/setup-browser
+      - name: Strict build
+        env:
+          BUILD_STRICT: '1'
+        run: npm run build
+      - name: Smoke (boot, views, every deck opens)
+        run: npm run smoke:lite -- dist
+
   deploy:
-    needs: validate
-    # On main validate may be red (it reports, it does not gate); on the preview branch it is skipped and the deploy goes at once.
+    needs: [validate, gate]
+    # On main the gate must have passed (success, nothing less); validate may be red (it reports, it does not gate).
+    # On the preview branch both are skipped and the deploy goes at once. Any other ref deploys nothing.
     if: >-
       !cancelled() &&
-      ((github.ref_name == 'main' && (needs.validate.result == 'success' || needs.validate.result == 'failure')) ||
-       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped'))
+      ((github.ref_name == 'main' && needs.gate.result == 'success' && (needs.validate.result == 'success' || needs.validate.result == 'failure')) ||
+       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped' && needs.gate.result == 'skipped'))
     runs-on: ubuntu-24.04
     concurrency:
       group: pages
