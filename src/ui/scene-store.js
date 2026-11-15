@@ -17,6 +17,7 @@
 // It loads with no page too (node unit tests): rulesFromText reads a style sheet's text into the same rules.
 import { parseCssColor } from './css-color.js';
 import { readStyle } from './layout-snap.js';
+import { listMatrix } from './transform-read.js';
 
 // ── The properties the painters read: initial value, and whether it inherits ──
 const INITIAL = {
@@ -556,11 +557,12 @@ export function createSceneStyle(rules, env = {}) {
     begin() { memo = new Map(); },
   };
 }
+const TM = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // (one matrix kept for transformAttr: read at once, never kept)
 /** The transform attribute as the page's computed transform holds it (matrix(…)), or 'none'. */
 function transformAttr(el) {
   const t = el.transform?.baseVal;
   if (!t || !t.numberOfItems) return 'none';
-  const k = t.consolidate().matrix;
+  const k = listMatrix(t, TM);
   return `matrix(${k.a}, ${k.b}, ${k.c}, ${k.d}, ${k.e}, ${k.f})`;
 }
 

@@ -70,7 +70,7 @@ test('a batch of changes that came to nothing (the marks\' data-gl taken off and
 });
 
 // A stand-in element with the transform attribute's matrix (matOf reads transform.baseVal).
-const elWith = (m) => ({ transform: { baseVal: m ? { numberOfItems: 1, consolidate: () => ({ matrix: { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] } }) } : { numberOfItems: 0 } } });
+const elWith = (m) => ({ transform: { baseVal: m ? { numberOfItems: 1, getItem: () => ({ matrix: { a: m[0], b: m[1], c: m[2], d: m[3], e: m[4], f: m[5] } }) } : { numberOfItems: 0 } } });
 const cs0 = { animationName: 'none', translate: 'none', rotate: 'none', scale: 'none', transform: 'none', vectorEffect: 'none', markerStart: 'none', markerMid: 'none', markerEnd: 'none', paintOrder: 'normal', shapeRendering: 'auto' };
 
 test('a strict reading refuses what the painter would paint otherwise than the browser', () => {

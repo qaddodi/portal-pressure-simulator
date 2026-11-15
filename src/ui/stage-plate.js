@@ -18,6 +18,7 @@ import { chainMat, elBoxInto } from './shape-gl.js';
 import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
+import { listMatrix } from './transform-read.js';
 export function createPlate(st, live) {
   const { EBOX, LAYER_SPENT, LENS_FADE, LIVE_LAYERS, LIVE_ORDER, PLATE_BASE, PLATE_RECT, bakeStep, bowelDy, defs, drawVeins, dropViewKeep, easeInOut, flag, flank, fullOk, gBackdrop, gOrgans, ghost, glWanted, gpuOrgansOn, gutKids, hidePlate, lensNow, liveOn, liverTint, lv, nextFrame, organEls, organG, plateOn, readFluidInk, readFrame, refreshCTM, setG, spleenMoving, spleenMv, spot, spotOn, stageBox, stageWrap, svg, themeKey, vCanvas, wrap, wrapCS, wrapCls } = st;
   // (An element's style from the scene store (worked out from the page's rules, scene-store.js), from the page now; the browser only where it cannot say.)
@@ -237,10 +238,11 @@ export function createPlate(st, live) {
   // The live organs' specs (organ-paint readGroup) read again whenever what they draw may have changed (liveKey), for the next
   // render of the stack. Their outlines are read from the page at the render itself.
   const matBuf = [1, 0, 0, 1, 0, 0];   // (one frame matrix kept, written over at each read; every reader multiplies it at once, none keeps it: a baked group takes a copy)
+  const matK = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };   // (the list's matrix, read at once)
   const matOfEl = (el) => {
     const t = el?.transform?.baseVal, o = matBuf;
     if (!t || !t.numberOfItems) { o[0] = 1; o[1] = 0; o[2] = 0; o[3] = 1; o[4] = 0; o[5] = 0; return o; }
-    const k = t.consolidate().matrix;
+    const k = listMatrix(t, matK);
     o[0] = k.a; o[1] = k.b; o[2] = k.c; o[3] = k.d; o[4] = k.e; o[5] = k.f;
     return o;
   };

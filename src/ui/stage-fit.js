@@ -14,6 +14,7 @@ import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
 
 import { stageScope } from './stage-scope.js';
+import { listMatrix } from './transform-read.js';
 export function createFit(st, live) {
   const { CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap } = st;
    // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
@@ -241,7 +242,7 @@ export function createFit(st, live) {
   // part cut to its clip path's box.
   // (The boxes are folded into acc [x0, y0, x1, y1] as they are worked out, none kept: the one caller wants only their union. A group's parts
   // wait in one flat list of numbers (x, y, width, height each) for the group's matrix, which is read after them as it always was.)
-  const fitParts = [], fitWhole = [], fitBoxA = { x: 0, y: 0, width: 0, height: 0 }, fitBoxK = { x: 0, y: 0, width: 0, height: 0 }, fitBoxP = { x: 0, y: 0, width: 0, height: 0 };
+  const fitParts = [], fitWhole = [], fitBoxA = { x: 0, y: 0, width: 0, height: 0 }, fitBoxK = { x: 0, y: 0, width: 0, height: 0 }, fitBoxP = { x: 0, y: 0, width: 0, height: 0 }, fitM = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   function fitFold(acc, b) {
     if (!b.width || !b.height) return;
     acc[0] = Math.min(acc[0], b.x); acc[1] = Math.min(acc[1], b.y); acc[2] = Math.max(acc[2], b.x + b.width); acc[3] = Math.max(acc[3], b.y + b.height);
@@ -260,7 +261,7 @@ export function createFit(st, live) {
         const pb = k ? clipBox(b, k) : b;
         if (pb) parts.push(pb.x, pb.y, pb.width, pb.height);
       }
-      const m = g.transform?.baseVal?.consolidate()?.matrix, P = fitBoxP;
+      const m = g.transform?.baseVal ? listMatrix(g.transform.baseVal, fitM) : null, P = fitBoxP;
       for (let i = 0; i < parts.length; i += 4) {
         P.x = parts[i]; P.y = parts[i + 1]; P.width = parts[i + 2]; P.height = parts[i + 3];
         fitFold(acc, m ? mapBox(P, m) : P);

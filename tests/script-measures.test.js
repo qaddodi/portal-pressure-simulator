@@ -10,7 +10,7 @@ const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${
 const el = (name, at = {}, kids = [], m = null) => ({
   localName: name, children: kids, style: at.style || {},
   hasAttribute: (k) => k in at, getAttribute: (k) => (k in at ? String(at[k]) : null),
-  transform: { baseVal: { numberOfItems: m ? 1 : 0, consolidate: () => ({ matrix: m }) } },
+  transform: { baseVal: { numberOfItems: m ? 1 : 0, getItem: () => ({ matrix: m }) } },
 });
 
 test('elBox gives getBBox\'s box from the shapes\' own numbers: paths, circles, groups through their transforms, hidden left out', async () => {
