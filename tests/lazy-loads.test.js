@@ -60,7 +60,7 @@ test('the first dive is prepared ahead as before: the code is fetched as the fig
   const prep = stageFn('prepLobule');
   assert.match(prep, /if \((?:live\.)?(?:live\.)?figureShown && !(?:live\.)?(?:live\.)?lzLoad && !(?:live\.)?(?:live\.)?lzSoon\) \{ (?:live\.)?(?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
-  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(stage, /const lobuleCode = \(\) => \((?:live\.)?lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);
   assert.match(prep, /(?:live\.)?lz\.preparePieces\(\)/);
 });

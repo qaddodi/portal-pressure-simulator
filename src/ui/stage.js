@@ -5,7 +5,7 @@ import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
-import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
+import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
@@ -19,7 +19,7 @@ import { gpuProbe } from './gpu-probe.js';
 import { fading } from './res-fade.js';
 import { cssColor8 } from './css-color.js';
 import { readFail, mulTo, elMat } from './organ-paint.js';
-import { setLive, dropLive } from './live-style.js';
+import { dropLive } from './live-style.js';
 import { overUnits, overRun, needsReread, netChanges, OVER_CLASS, OVER_ALL } from './stage-over.js';
 import { elBoxInto } from './shape-gl.js';
 import { HOVER_LINK } from './hover-link.js';
@@ -139,6 +139,9 @@ import { stageScope } from './stage-scope.js';
 import { ringOnScreen as scopeRingOn, ringInto as scopeRingInto } from './scope-lens-rule.js';
 import { createLzGlassSeq } from './lobule-glass-seq.js';
 import { viewMovingOf } from './view-moving.js';
+import { createGeoHold } from './stage-geohold.js';
+import { createAscites } from './stage-ascites.js';
+import { createLobuleLoad } from './stage-lobload.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -604,6 +607,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get zoomLz() { return zoomLz; }, set zoomLz(v) { zoomLz = v; },
     get zoomM() { return zoomM; }, set zoomM(v) { zoomM = v; },
     get zShift() { return zShift; }, set zShift(v) { zShift = v; },
+    get geoHolding() { return geoHolding; },
+    get qP() { return qP; },
+    get lobuleBuilt() { return lobuleBuilt; },
+    get lzCode() { return lzCode; }, set lzCode(v) { lzCode = v; },
   };
   // </stage-split live>
   // (#30) The stage's styles, as the model's frames read them (colours, the plate's theme, whether the figure shows): read live, each
@@ -932,24 +939,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let spleenTimer = 0;
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
   const flank = s('path', { class: 'flank', d: '' });
-  const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
-  const ascitesLine = s('path', { class: 'ascites-line', d: '' });
+    let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
+  const { ascitesLine, ascitesPath, ascitesSvg } = createAscites({ gAscites }, live);
   gAscites.append(ascitesPath, ascitesLine);
   const ascEls = [ascitesPath, ascitesLine];
-  let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
   // (R05: the ascites surface's SVG copy, written only when read while the GPU draws it; see the ripple in syncAscites.)
   let ascStale = false, ascWroteH = NaN, ascWroteAmp = NaN, ascWroteAt = -1e9;
-  function ascitesSvg() {
-    if (!ascStale) return;
-    ascStale = false; ascWroteH = fluidH; ascWroteAmp = fluidAmp; ascWroteAt = performance.now();
-    const surf = fluidSurf;
-    if (!surf) return;
-    let line = '';
-    for (let x = 296; x <= 1128; x += 8) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
-    putA(ascitesLine, 'd', line);
-    if (gAscites.style.getPropertyValue('--fluid-fade') !== fluidFade().toFixed(3)) gAscites.style.setProperty('--fluid-fade', fluidFade().toFixed(3));
-    putA(ascitesPath, 'd', `${line} L 1128 ${CAVITY_LOW + 20} L 296 ${CAVITY_LOW + 20} Z`);   // down past the rounded pelvic floor; the clip shapes it
-  }
   gBackdrop.append(flank);
 
   // Edge groups: each vessel is a record (its course, widths, colours, fades and flags), drawn by the GPU (veins-gl.js) from those
@@ -1029,67 +1024,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The same, checked against the element itself, for attributes other code writes too: the organs' each model update, and every
   // frame of a liver's or the fluid's ease, were written again with the values they had, and Safari repainted them each time.)
   const putA = (el, k, v) => { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
-  // (2 Nov 2026, the iPhone trace of a slide change: every frame of a morph, a coil or a vessel's draw-on still rewrote the hidden SVG
-  // model's shapes, the hit paths, halos, strands, gradients and the draw-on dashes, and the browser restyled and laid out the whole tree
-  // each time, though none of it is painted while the GPU draws the vessels. Those writes are held while the GPU draws and written once,
-  // in a pass between frames, when the shapes have held still for GEO_QUIET ms (hit-testing and the corner credit take them first, flushGeo).)
-  const GEO_QUIET = 160;
-  const geoHeld = new Map();
-  let geoT = 0, geoPass = 0, geoAt = 0;
+  const { flushGeo, geoHeld, qHold, setG, styleProp } = createGeoHold({ putG }, live);
   const geoHolding = () => wrap.classList.contains('gl-on');
-  /** An attribute (v null: removed) or, as 'style:<prop>', a style of the SVG model, held while the GPU draws it. */
-  const styleProps = new Map();   // 'style:opacity' → 'opacity', and null for an attribute: cut once per name
-  function styleProp(k) {
-    let p = styleProps.get(k);
-    if (p === undefined) { p = k.startsWith('style:') ? k.slice(6) : null; styleProps.set(k, p); }
-    return p;
-  }
-  function setG(el, k, v, hold = geoHolding()) {
-    if (hold) {
-      let m = geoHeld.get(el);
-      if (!m) geoHeld.set(el, (m = {}));
-      m[k] = v;
-      if (k.startsWith('style:')) setLive(el, k.slice(6), v);   // (the painters read it from here, live-style.js)
-      // (One timer, kept: it looks at the time of the last held write when it fires and waits out what is left. A timer made again for each
-      // write was dozens of timers a frame through a change between the views.)
-      geoAt = performance.now();
-      if (!geoT) geoT = stageScope.timer(geoQuiet, GEO_QUIET);
-      return;
-    }
-    const m = geoHeld.get(el);
-    if (m) delete m[k];
-    putG(el, k, v);
-  }
   function putG(el, k, v) {
     const p = styleProp(k);
     if (p !== null) { dropLive(el, p); if (el.style[p] !== v) el.style[p] = v; } else if (v == null) el.removeAttribute(k); else el.setAttribute(k, v);
-  }
-  function geoQuiet() {
-    const left = GEO_QUIET - (performance.now() - geoAt);
-    if (left > 4) { geoT = stageScope.timer(geoQuiet, left); return; }   // (written again since: wait out the rest of the quiet)
-    geoT = 0;
-    if (!geoPass) geoPass = restPass(flushGeoPass);
-  }
-  function flushGeoPass() { geoPass = 0; flushGeo(); }
-  function flushGeo() {
-    if (geoT) { stageScope.clear(geoT); geoT = 0; }
-    for (const [el, m] of geoHeld) for (const k in m) putG(el, k, m[k]);
-    geoHeld.clear();
   }
   // Colors follow the beat-filtered mean pressure (the scale shows mean venous pressure) in
   // 0.5 mmHg steps, so a vessel's gradient is not rewritten on every heartbeat; widths move in
   // 0.5 px steps once settled (below, with hysteresis), so tubes are not rebuilt either.
   const qP = (v) => Math.round(v * 2) / 2;
-  // A vessel end's colour bin (0.5 mmHg) with hysteresis: it moves to a new bin only once the value is 0.4 mmHg from the one
-  // shown, so a value breathing across a bin's edge no longer flickers the colour with every breath (round 2 review, B7).
-  const colourBins = new Map();
-  const qHold = (lens, k, end, v) => {
-    let a = colourBins.get(lens);
-    if (!a) { a = new Float64Array(EDGES.length * 2).fill(NaN); colourBins.set(lens, a); }
-    const i = 2 * k + end, was = a[i];
-    if (!(Math.abs(v - was) < 0.4)) a[i] = qP(v);
-    return a[i];
-  };
 
   // Nodes (circuit view): each station's dot, a disc in the stage's colour under a ring in the text's (1.6 wide, as the SVG's stroke was),
   // drawn by the GPU over the vessels with the outlines (olStep; 2 Nov 2026, no element). on: a vessel is drawn at it (updateNodesCircuit),
@@ -1591,9 +1535,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // asked of it before then (lobuleAim) is kept for it.
   const lzAnchor = document.createComment('lobule');
   wrap.append(lzAnchor);
-  // (The code is fetched as soon as the figure is shown; the layer is built a moment later, when the page is quiet, or at once for a dive.)
-  const lobuleCodeLost = (err) => { lzCode = null; throw err; };
-  const lobuleCode = () => (lzCode ||= import('./lobule-zoom.js').catch(lobuleCodeLost));
+  const { lobuleCode, lobuleReady: lobuleReady$ } = createLobuleLoad({  }, live);
+  function lobuleReady(...a) { return lobuleReady$(...a); }   // <stage-split stub>
   const lzBinAway = (tubes, joins) => sweepBin({ kind: 'bin', tubes, joins });
   const lzOptions = { host: wrap, styles: wrapCS, before: lzAnchor, binAway: lzBinAway, figure: () => (veins && !veins.lost ? veins.top : null) };   // (figure: the lobule is drawn in this renderer's context, lobule-zoom.js ensureGL)
   const lobuleBuilt = ({ createLobuleZoom }) => {
@@ -1602,10 +1545,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) lz.update(F);
     return lz;
   };
-  const lobuleLoadLost = (err) => { lzLoad = null; throw err; };
-  function lobuleReady() {
-    return (lzLoad ||= lobuleCode().then(lobuleBuilt, lobuleLoadLost));
-  }
 
   // ── Detail ────────────────────────────────────────
   // Detail: the moving blood is drawn on every frame the screen offers (fps 0: 60, 120 or more a second; a frame of it
