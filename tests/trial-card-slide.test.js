@@ -30,7 +30,7 @@ const inside = (L, W) => {
 test('the trial card is an instrument card: a slide keeps it as its tool, in the instrument card\'s slot on every device, never inside the teaching card', () => {
   const pres = read('src/ui/presenter.js'), tt = read('src/ui/tool-trial.js');
   assert.doesNotMatch(pres, /trialBelow|trialUnder|trialNow|s\.trial\b|tool-trial\.js/, 'the presenter builds no trial card of its own: the words\' card holds none');
-  assert.match(pres, /\.map\(oneLadder\)\.map\(zoneCam\);/, 'a deck\'s slides keep their tool as written');
+  assert.match(pres, /\.map\(oneLadder\)\.map\(zoneCam\)\.map\(instrumentOf\);/, 'a deck\'s slides keep their tool as written');
   assert.doesNotMatch(tt, /export function trial(Below|Under)/);
   assert.doesNotMatch(read('index.html'), /trial-card\.css/, 'no plate of its own: the instrument card\'s glass');
   // (Every trial slide of every deck names it as its tool, so the presenter's one instrument path shows it: presenter-tools.js make, EXT.tools.)

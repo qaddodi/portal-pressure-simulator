@@ -1,6 +1,6 @@
 // The graph of what a procedure does, drawn live as it happens (Mohammad, 7 Nov 2026: "after deploying the TIPS we see a graph of HVPG and
 // sinusoidal flow changing in real time after the TIPS gets placed; think about it make sure it's perfect"). A slide that plays a procedure
-// which changes the model (a TIPS, BRTO, BATO, a Meso-Rex bypass) carries it on its teaching card over its steps: the same chart as the
+// which changes the model (a TIPS, BRTO, BATO, a Meso-Rex bypass) carries it as its instrument card (tool { kind: 'evgraph' }, never in the teaching card; slide-instrument.js) over its steps: the same chart as the
 // time-lapse graph (flow-time.js, option A: the same plot, legend, lines, heads and looks), on a clock of its own.
 //
 // What it shows, and why:
@@ -105,7 +105,7 @@ const NO_BOXES = [];
 export function createEventGraph() {
   const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
-  el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: styles/app.css .pz-timegraph .pz-flowtime)
+  el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: the flow-time chart's, flow-time.js)
   const gl = createSvgGL(el, { host: 'flowtime' });
   let spec = null, before = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
   // (The points after the change: [t, lower, upper] in the printed units, n of them; on: the change has happened.)

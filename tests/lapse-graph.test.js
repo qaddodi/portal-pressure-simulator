@@ -7,7 +7,8 @@ import { createCore } from '../src/worker-core.js';
 import { readdirSync } from 'node:fs';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
 const { flowTimeSeries, modelLines } = await import('../src/ui/flow-time.js');
-const { graphLines, lapseGraphOf, graphTrail } = await import('../src/ui/lapse-graph.js');
+const { graphLines, lapseGraphOf } = await import('../src/ui/lapse-graph.js');
+const { instrumentOf } = await import('../src/ui/slide-instrument.js');
 
 const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`))))
   .flatMap((m) => Object.values(m)).filter((d) => d?.slides && d.id);
@@ -39,7 +40,7 @@ test('a slide with a chart of its own, or no time-lapse, carries no second graph
 test('each graph is drawn from the trail the worker keeps, one point a day', async () => {
   const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
   for (const dk of new Set(lapses.filter(({ s }) => graphLines(s)).map(({ d }) => d))) {
-    const steps = dk.slides.map((s) => (MODEL.some((k) => s[k]) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? modelLines(s.tool.lines || []) : graphTrail(s) } : {}));
+    const steps = dk.slides.map((s) => (MODEL.some((k) => s[k]) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: instrumentOf(s).tool?.kind === 'flowtime' ? modelLines(instrumentOf(s).tool.lines || []) : false } : {}));
     const trails = [], core = createCore((m) => { if (m.type === 'seqStep') trails[m.i] = m.trail; });
     core.handle({ type: 'run', running: false });
     await core.handle({ type: 'sequence', reqId: 1, steps });

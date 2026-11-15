@@ -149,6 +149,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/c\.classList\.contains\('pz-tiles'\) \? 0 :/, "the tiles' own scroll height is no overflow: their numbers' GPU pictures reach past a tile, and counted it zoomed the readings card down in a what-if drag (7 Nov 2026)"],
     [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
   ]);
+  // A chart is an instrument card, never part of the teaching card (14 Nov 2026 the trial card, 15 Nov 2026 the procedure's event graph and the time-lapse graph, PC-6).
+  // presenter-tools.js builds every instrument into the instrument card; slide-instrument.js gives a slide that names none its chart. The presenter builds none for the words.
+  forbid('src/ui/presenter.js', /\b(createFlowTime|createEventGraph|createDoppler|createFibroScan|createPressureTime|createVitalsMonitor|createHvpgCard|createEndoscopy|createAbdomen|createVarixWall|talkTrace|createTrial|createForest)\b/, 'an instrument is built by the instrument card (presenter-tools.js), never for the teaching card');
+  forbid('src/ui/presenter.js', /pz-timegraph|pz-evtime/, 'no chart box in the words');
+  forbid('styles/app.css', /\.pz-timegraph/, 'no style for a chart in the words');
+  need('src/ui/presenter-tools.js', [[/createFlowTime\(\)/, 'the flow-time chart is the instrument card\'s'], [/createEventGraph\(\)/, 'the procedure graph is the instrument card\'s']]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
