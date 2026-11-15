@@ -93,14 +93,14 @@ export const SITES = {
       ask: ['Why are varices rare in right heart failure despite a portal pressure of about 20 mmHg?', 'Varices require a portal pressure gradient; the systemic venous pressure is elevated as well, so the PPG is normal.'],
     },
     {
-      // (The PPG of each of the six patients split into its causes, as the Why? panel works them out: the cirrhosis patient is the slide's own, and a button eases to each of the others.)
-      id: 'steps', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'causes', metric: 'ppg' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
+      // (The pressure ladder of each of the six patients: the cirrhosis patient is the slide's own, and a button eases to each of the others.)
+      id: 'steps', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'profile' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
       compare: [{ label: 'Portal vein thrombosis', short: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true },
         { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' }, { label: 'Budd–Chiari syndrome', short: 'Budd–Chiari', preset: 'budd-chiari' }, { label: 'Right heart failure', short: 'Heart', preset: 'rhf' }],
-      kicker: 'How to tell them apart', title: 'Each site builds the PPG from its own steps',
-      line: 'The resistance is the largest step to the right, and collaterals offset part of it. In right heart failure the large steps go left.',
-      notes: 'Each bar is one cause of the patient\'s PPG, calculated by the model by removing that cause. Tap a patient to see the steps. In portal vein thrombosis it is the thrombus, in schistosomiasis the resistance in the portal venules, in cirrhosis the resistance in the sinusoids, in sinusoidal obstruction syndrome the resistance just downstream of them, and in Budd–Chiari the hepatic vein thrombosis. Collaterals offset part of the gradient in each. In right heart failure the IVC pressure that the PPG subtracts is elevated, so the steps go left and the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies. The sizes of the steps are the model\'s own, not published figures.',
-      ask: ['Which step is largest in cirrhosis, and which patient\'s steps go left?', 'The resistance in the sinusoids is the largest step to the right. In right heart failure the steps go left: the elevated pressure downstream of the liver is subtracted, so the PPG is normal.'],
+      kicker: 'How to tell them apart', title: 'Each site drops the pressure in its own place',
+      line: 'The pressure falls where the resistance lies. In right heart failure the raised IVC pressure is subtracted, so the PPG is normal.',
+      notes: 'Tap a patient to see the pressure from gut to heart. The line falls steeply where the resistance is: across the thrombus in portal vein thrombosis, in the portal venules in schistosomiasis, in the sinusoids in cirrhosis, just after them in sinusoidal obstruction, and in the hepatic veins in Budd–Chiari. In right heart failure the IVC pressure that the PPG subtracts is elevated, so the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies.',
+      ask: ['Where does the pressure fall in cirrhosis, and which patient will the PPG miss?', 'It falls in the sinusoids. In right heart failure the elevated pressure downstream of the liver is subtracted, so the PPG is normal.'],
     },
     {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX, question: 'Which of the six raised the HVPG?',

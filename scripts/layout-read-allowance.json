@@ -30,7 +30,6 @@
     "src/ui/fibroscan.js": 4,
     "src/ui/flow-time.js": 2,
     "src/ui/svg-morph.js": 4,
-    "src/ui/tool-causes.js": 2,
     "src/ui/tool-course.js": 2,
     "src/ui/tool-curve.js": 2,
     "src/ui/callout.js": 3,

@@ -6,7 +6,6 @@ import { CRIT } from './crit.js';
 import { CARD } from './card.js';
 import { INST } from './inst.js';
 import { SMALL } from './small.js';
-import { CAUSES } from './causes.js';
 import { PLANE } from './plane.js';
 import { FLUID } from './fluid.js';
 import { LUMEN } from './lumen.js';
@@ -28,7 +27,6 @@ export const LOOKS = {
   ...CARD,
   ...INST,
   ...SMALL,
-  ...CAUSES,
   ...PLANE,
   ...FLUID,
   ...LUMEN,
@@ -49,7 +47,6 @@ export const HOSTS = {
   curve: (c) => c.scale.sm ?? 12,   // (the curve and the course)
   talk: (c) => c.scale.sm ?? 12,   // app.css 6177 .pz-talk { font-size: var(--pz-sm, var(--pz-psm, 12px)) }; --pz-psm on a stacked card = its cap = scale.sm
   crit: (c) => Math.max(12, c.scale.sm ?? 14),   // app.css 7533 .pz-crit { font-size: max(12px, var(--bs, 14px)) }; --bs is the card's --pz-sm (a stacked or low card: its --pz-psm, = scale.sm)
-  causes: (c) => c.scale.sm ?? 12,   // app.css 7184 .pz-cbars { font-size: var(--pz-sm, var(--pz-psm, 12px)) }, the same rule
   plane: (c) => c.scale.cap ?? 12,   // app.css 7318 .pze-plot { font-size: var(--s-cap) }
   planecard: (c) => (c.in === 'cell' ? c.scale.chCap : c.scale.cap) ?? 12,   // 7320 .pze-plot.pze-incard { font-size: var(--ch-cap, var(--s-cap)) }; --ch-cap is set in a card's cell only (2266, 2628)
   fluid: (c) => Math.max(c.scale.fs12 ?? 12, 12),   // app.css .gf { font-size: var(--gs-fs) }; --gs-fs: var(--fs-12) = scale.fs12 (the strip is not zoomed by the card)

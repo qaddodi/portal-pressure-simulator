@@ -175,7 +175,6 @@ Full guide: section 7.2.
 | Portal blood bar | `tool: { kind: 'flows' }` | one centred bar split by where the portal blood goes, the healthy split a dashed bracket over it, small routes named in pills under it | collaterals, shunts or a TIPS taking blood past the liver |
 | Liver inflow bar | `tool: { kind: 'flows', of: 'inflow' }` | one centred bar: the liver's inflow split into portal vein and hepatic artery, the healthy split a dashed line over it | the arterial buffer, or a TIPS stealing portal flow |
 | Setting curve | `tool: { kind: 'curve', param: 'cirrhosis', from: 0, to: 1, lines: ['ppg'] }` | one reading across a setting's range, with a ring at the slide's value | dose or severity against pressure |
-| Causes waterfall | `tool: { kind: 'causes' }` | steps from the healthy PPG to the patient's, one per cause | splitting a pressure into what raised it |
 | Course after an event | `tool: { kind: 'course', from, event, then }` | one reading day by day after a paracentesis or a first treatment, a line for each treatment, on the reading's grade zones | what each treatment does to a reading over the weeks (the model's timing, not a patient's) |
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |
 | Cross-section | `tool: { kind: 'lumen' }` | the vessel cut across, with how much is open, clotted or stented | a clot, a web or a narrowed stent |

@@ -107,7 +107,7 @@
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,
 //                            mark { organ } and {tokens} in a mark's label, '@sets' in glow/spot/edges;
-//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'causes', 'course',
+//                            words: cite; card: tool kinds 'profile' (from, fromLabel), 'flows', 'curve', 'course',
 //                            'plane', 'lumen', 'fluid', Doppler mode/calipers/pair, bands on trace and flowtime;
 //                            panels: visual 'plane', table col 'wave', focusRow
 //

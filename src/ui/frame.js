@@ -288,7 +288,7 @@ const SHARE_OF = [1, SCRIPT_SHARE, 0.85, SCRIPT_SHARE];
 /** (The prep ledger's share of the frame: the same.) */
 export const WATCH_SHARE = SCRIPT_SHARE;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
-export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
+export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
 const PRIO = new Map([...[...SECONDARY].map((t) => /** @type {[string, number]} */ ([t, 2])), ...[...DEFERRABLE].map((t) => /** @type {[string, number]} */ ([t, 3]))]);
 /** A frame callback's priority by its tag (0, 2 or 3; the may tasks are 1). */
 export const priorityOf = (tag) => PRIO.get(tag) || 0;

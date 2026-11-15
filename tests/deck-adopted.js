@@ -95,7 +95,7 @@ export const ADOPTED = {
   'circuit/both': ['question', 'span'],
   'endoscopy/flat': ['question'],
   'circuit/parallel': ['kind:flows'],
-  'circuit/tips': ['kind:causes'],   // (the waterfall: the stent as the step back, beside its width slider)
+  'circuit/tips': ['kind:curve'],   // (the PPG and the liver's flow by stent width, beside its width slider)
   'cause-treated/year2-plane': ['kind:plane'],
   'cause-treated/year1': ['lens:since'],
   'prehepatic/carv': ['ripple'],
@@ -176,7 +176,7 @@ export const ADOPTED = {
   'gastric-varices/bato': ['procedure'],
   'gastric-varices/eusglue': ['procedure'],
   'hyperdynamic/loss': ['question'],
-  'hyperdynamic/forward': ['kind:causes'],   // (the gut arteries' share of the portal pressure)
+  'hyperdynamic/forward': ['kind:curve'],   // (the portal pressure and flow by splanchnic tone, beside its slider)
   'hyperdynamic/over': ['ripple'],   // (the pressure rising across the portal system as the units go in)
   'variceal-bleed/before': ['calipers'],
   'variceal-bleed/oct': ['ripple', 'kind:criteria'],
@@ -187,7 +187,7 @@ export const ADOPTED = {
   'sites/overview': ['lens:system', 'steps', 'glow:group'],
   'sites/healthy': ['kind:profile'],
   'sites/ladders': ['question'],
-  'sites/steps': ['kind:causes'],
+  'sites/steps': ['kind:profile'],
   'sites/pvt': ['kind:profile'],
   'sites/presin': ['kind:profile', 'scales'],
   'sites/sin': ['kind:profile', 'scales'],
@@ -293,7 +293,7 @@ export const ADOPTED = {
   'treatment/flowres': ['visual', 'plane', 'of'],
   'where-resistance/relation': ['visual', 'plane', 'of', 'question'],
   'where-resistance/ladders': ['question'],
-  'where-resistance/causes': ['kind:causes'],
+  'where-resistance/causes': ['kind:profile'],
   'where-resistance/summary': ['focusRow'],
   'circulation/relation': ['kind:curve'],
   'doppler/relation': ['kind:curve'],
@@ -323,7 +323,7 @@ export const ADOPTED = {
   'meso-rex/flows': ['kind:flows'],
   'meso-rex/alternative': ['kind:flows', 'cite'],
   'masld/under': ['kind:profile', 'caseQ', 'cite'],
-  'masld/parts': ['kind:causes', 'cite'],
+  'masld/parts': ['kind:curve', 'cite'],
   'masld/still': ['kind:plane', 'cite'],
   'masld/bmi': ['cite'],
   'masld/start': ['cite'],

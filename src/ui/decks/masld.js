@@ -7,7 +7,8 @@
 
 const SCAN = { kind: 'fibroscan' };
 const PROFILE = { kind: 'profile' };
-const CAUSES = { kind: 'causes', metric: 'ppg' };
+// (The PPG against the HVPG as the scarring grows, her liver beside the same liver with no presinusoidal fibrosis: the gap is the part the wedge leaves out.)
+const GAP = { kind: 'curve', x: 'hvpg', xCuts: [10], param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, lines: ['ppg'], against: { label: 'No presinusoidal fibrosis', params: { fibrosis: { R: { pre: 1 }, L: { pre: 1 } } }, own: 'Her liver' } };
 // (The two gradients on one plane, with the line where the wedge reads the portal pressure: a dot above it is the HVPG under-reading.)
 const PLANE = { kind: 'plane', plane: { base: 'hvpg-ppg', diag: { label: 'HVPG = PPG' } } };
 const GAPS = 'The two gradients', STIFF = 'Liver stiffness and weight', MORE = 'Drugs and alcohol';
@@ -39,11 +40,11 @@ export const MASLD = {
       ask: ['Her HVPG is 11 mmHg and the PPG, measured directly in the portal vein, is 14 mmHg. Why do they differ?', 'Part of the resistance is presinusoidal, which the WHVP does not reflect, so the HVPG underestimates the portal pressure gradient.'],
     },
     {
-      // (Her PPG split into its causes, as the Why? panel works them out: the step for resistance before the sinusoids is the part the wedge leaves out.)
-      id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: CAUSES, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
+      // (Her PPG against her HVPG: the gap above the line for a liver with no presinusoidal fibrosis is the part the wedge leaves out.)
+      id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: GAP, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
       kicker: GAPS, site: 'sin', title: 'Part of her PPG comes from resistance the WHVP does not capture', cite: 'Baveno VIII 2.5',
-      line: 'Most of her PPG of {ppg} comes from sinusoidal resistance. The presinusoidal component lies upstream of the sinusoids, so her HVPG of {hvpg} omits it.',
-      notes: 'Each bar is one contributor to her PPG, calculated by the model by removing that contributor. The largest is the cirrhosis, the sinusoidal resistance that the WHVP reflects. Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model represents that as presinusoidal fibrosis in the portal venules and periportal tissue: it adds to the PPG, and the WHVP does not reflect it. That component is small beside the cirrhosis, and its placement is the model\'s reading of the statement, not a proven mechanism. The sizes of the components are the model\'s own, not published figures.',
+      line: 'At the same HVPG her PPG sits higher. Presinusoidal resistance lies upstream of the sinusoids, so her HVPG of {hvpg} omits part of her PPG of {ppg}.',
+      notes: 'Each line is a liver with more or less fibrosis, the HVPG across and the PPG up. In the lower line there is no presinusoidal fibrosis, so the PPG rises with the HVPG. The upper line is her liver: Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient, and the model represents that as presinusoidal fibrosis in the portal venules and periportal tissue. It adds to the PPG and the WHVP does not reflect it, so the gap between the lines is the part the HVPG leaves out. The ring is her. That placement is the model\'s reading of the statement, not a proven mechanism, and the size of the gap is the model\'s own, not a published figure.',
       ask: ['Which component of her PPG does the HVPG omit?', 'The presinusoidal resistance, in the portal venules and periportal fibrosis. The WHVP reflects the sinusoids and everything downstream of them.'],
     },
     {

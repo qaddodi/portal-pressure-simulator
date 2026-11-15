@@ -702,6 +702,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   for (const [f, n] of Object.entries(allow)) if ((seen[f] || 0) < n) errors.push(`${f}: ${seen[f] || 0} instant show/hide writes, under its allowance of ${n}: lower it (node scripts/bare-hidden-scan.mjs --write)`);
 }
 
+// (4) No waterfall instrument card (Mohammad, 15 Nov 2026: "I hate the waterfall instrument card. Don't use it"). The "causes" tool (a step
+// per cause from the healthy reading to the case's) is gone: no deck sets `kind: 'causes'`, no module builds it, no stylesheet styles it.
+// A slide that needs "what raises the reading" uses the pressure ladder (profile), a curve over the setting or the time-lapse chart instead.
+// (The Why? popover's own contribution list is a popover, not an instrument card, and is not covered here.)
+{
+  const NO_WATERFALL = /kind:\s*['"]causes['"]|tool-causes|createCauses|\bcauseBars\b|\bpz-cbars\b|data-kind="causes"/;
+  const hit = [...files, ...appCssFiles().map((f) => (f.startsWith('/') ? f : join(ROOT, f)))].filter((f) => NO_WATERFALL.test(readFileSync(f, 'utf8')));
+  for (const f of hit) errors.push(`${relative(ROOT, f).split('\\').join('/')}: the waterfall instrument card (tool kind 'causes') is gone and must not come back; use the pressure ladder, a curve or the time-lapse chart`);
+}
+
 // Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
 //   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
 //   { file, forbid: [pattern, why] } it must not.

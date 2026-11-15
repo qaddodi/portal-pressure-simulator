@@ -10,7 +10,6 @@ export default [
   { file: 'src/ui/presenter*', need: [/later = glide && !ct && !!ui/, 'a catheter slide with a new patient changes the patient before its camera moves, the catheter then drives the view once the organs have settled'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/organsSettled: \(\) => plateOn\(\) \|\| !glWanted\(\),/, 'a catheter slide with a new patient changes the patient before its camera moves, the catheter then drives the view once the organs have settled'] },
   // causes-looks
-  { file: 'src/ui/tool-causes.js', forbid: [/getComputedStyle/, 'the causes chart reads no computed style and keeps no .pcs-* rule (chart looks in code, WP7) (tool-causes reads no style)'] },
   { file: 'styles/app-*.css', forbid: [/\.pcs-/, 'the causes chart reads no computed style and keeps no .pcs-* rule (chart looks in code, WP7) (no .pcs-* rule is left)'] },
   // cavity-spans
   { file: 'src/ui/stage*', need: [/const FLUID_R = \[284, 430, 856, 650\]/, 'the GPU fills the ascites from the cavity\'s half-width per row: FLUID_R is the ellipse the rows are cut from'] },

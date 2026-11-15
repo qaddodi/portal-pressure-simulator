@@ -56,11 +56,11 @@ export const HYPERDYNAMIC = {
       ask: ['Why does the blood volume rise in cirrhosis although the arteries seem underfilled?', 'The kidneys retain sodium and water in response to the low effective arterial blood volume, but the extra fluid sits in the dilated splanchnic circulation and the peritoneal cavity.'],
     },
     {
-      id: 'forward', cam: 'portal', terms: ['pv'], tool: { kind: 'causes', metric: 'pv' }, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
+      id: 'forward', cam: 'portal', terms: ['pv'], tool: { kind: 'curve', param: 'splanchnicTone', from: 0.6, to: 1.6, step: 0.1, lines: ['pv', 'pvFlow'] }, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
       whatIf: { label: 'Splanchnic arteriolar tone', param: 'splanchnicTone', min: 0.6, max: 1.6, step: 0.05, ends: ['Dilated', 'Constricted'] },
       kicker: 'Cirrhosis', site: 'sin', title: 'Splanchnic vasodilation keeps the portal pressure high',
       line: 'Dilated splanchnic arteries increase inflow into the [portal vein](pv) and keep its pressure at {pv}. Splanchnic vasoconstriction lowers it, as nonselective beta-blockers do.',
-      notes: 'The slider sets the splanchnic arteriolar tone: dilation adds portal inflow, constriction reduces it. Portal pressure is portal inflow × the resistance it meets. Intrahepatic resistance rises first, in the fibrotic liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow raises the pressure further (AASLD 2024, Figure 2). The waterfall starts at the normal portal pressure. Fibrosis is the largest step to the right, splanchnic vasodilation and the expanded blood volume add inflow, and the collaterals lower the pressure again, a step to the left. The last bar is the portal pressure in the tile.',
+      notes: 'The slider sets the splanchnic arteriolar tone: dilation adds portal inflow, constriction reduces it. Portal pressure is portal inflow × the resistance it meets. Intrahepatic resistance rises first, in the fibrotic liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow raises the pressure further (AASLD 2024, Figure 2). The chart sweeps the same tone: as the splanchnic arteries dilate, the portal flow and the portal pressure rise together, and the ring is this patient. Drag the slider and the ring follows.',
       ask: ['Two factors determine the portal pressure. Name them.', 'The resistance to portal flow (the liver and the collaterals) and the portal inflow from the splanchnic arteries.'],
     },
     {

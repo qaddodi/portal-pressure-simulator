@@ -83,7 +83,6 @@
 "tests/caudate-drainage.test.js": 0.2,
 "tests/caudate-redraw.test.js": 7.5,
 "tests/caudate.test.js": 0.2,
-"tests/causes-looks.test.js": 0.2,
 "tests/cavernoma-plexus.test.js": 0.3,
 "tests/cavity-spans.test.js": 5.4,
 "tests/cell-grid.test.js": 0.1,

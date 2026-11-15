@@ -59,7 +59,7 @@ test('Circuit: the meal plays on the bedside clock and leaves the slow organs wh
   assert.ok(prop.pvFlow < carv.pvFlow && prop.pvFlow < own.pvFlow - 0.1, 'propranolol cuts the flow most');
   assert.ok(carv.hvpg < prop.hvpg && prop.hvpg < own.hvpg, 'carvedilol lowers the HVPG further: it relaxes the resistance as well');
   const t = slide('circuit', 'tips');
-  assert.deepEqual([t.tool.kind, t.tool.metric, t.whatIf.param], ['causes', 'ppg', 'tips.d']);
+  assert.deepEqual([t.tool.kind, t.tool.param, t.whatIf.param], ['curve', 'tips.d', 'tips.d']);
 });
 
 test('The circulation in cirrhosis: the large-varices row is not called decompensated, and the eight units show where the hemoglobin and the volume end', async () => {

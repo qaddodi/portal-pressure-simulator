@@ -86,11 +86,11 @@ export const CIRCUIT = withPoints({
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, tool: { kind: 'causes', metric: 'ppg' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
       whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' },
       kicker: K, site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A covered stent in parallel with the sinusoids has far lower resistance than they or any collateral, so it carries most portal flow and the gradient halves.',
-      notes: 'A covered 8 to 10 mm stent has a far lower resistance than the sinusoids or any collateral, so most portal flow is diverted through it. The gradient falls to <12 mmHg; the cost is reduced hepatic portal perfusion and a risk of hepatic encephalopathy. An 8 mm stent balances the two. The waterfall reads left to right from the healthy gradient: each cause adds a step, and the stent is the step down. Drag Stent width to see a wider stent divert more flow.',
+      notes: 'A covered 8 to 10 mm stent has a far lower resistance than the sinusoids or any collateral, so most portal flow is diverted through it. The gradient falls to <12 mmHg; the cost is reduced hepatic portal perfusion and a risk of hepatic encephalopathy. An 8 mm stent balances the two. The chart draws the PPG and the sinusoidal flow at each stent width, and the ring is this stent: the wider the stent, the lower the PPG and the less blood the liver receives. Drag Stent width and the ring follows.',
       ask: ['What is the cost of TIPS to the liver?', 'Most of its portal perfusion; splanchnic blood and its ammonia now bypass hepatic clearance and reach the systemic circulation.'],
     },
     {

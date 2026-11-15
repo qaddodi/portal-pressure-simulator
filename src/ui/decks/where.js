@@ -91,14 +91,14 @@ export const WHERE = {
       ask: ['Cases 2 and 5 have the same HVPG and PPG. What does portal vein Doppler show in each?', 'Case 2: no flow in the trunk, thrombosis with a cavernoma. Case 5: a patent vein with flow, so the resistance lies in the portal venules.'],
     },
     {
-      // (The PPG of each case split into its causes, as the Why? panel works them out: patient buttons run through the six cases. The IVC web and the heart step left.)
-      id: 'causes', preset: 'csph', cam: 'fit', tool: { kind: 'causes' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
+      // (The pressure ladder of each case, one at a time: patient buttons run through the six cases. The IVC web and the heart raise the IVC pressure the PPG subtracts.)
+      id: 'causes', preset: 'csph', cam: 'fit', tool: { kind: 'profile' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
       compare: [{ label: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true }, { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' },
         { label: 'IVC web', preset: 'ivc-web' }, { label: 'Pericarditis', short: 'Heart', preset: 'constrictive' }],
-      kicker: 'Telling them apart', title: 'Each case builds its PPG from different steps',
-      line: 'Resistance adds to the PPG and collaterals offset part of it. In the IVC web and constrictive pericarditis the only large step goes left: the PPG misses them.',
-      notes: 'Each bar is one cause of the case\'s PPG, calculated by the model by removing that cause. Tap a case to see its steps. In cirrhosis and sinusoidal obstruction the resistance in or after the sinusoids is the largest step to the right. In schistosomiasis it is resistance in the portal venules, and in portal vein thrombosis it is the thrombus, with collaterals offsetting part of the gradient in both. The IVC web and constrictive pericarditis raise the IVC pressure that the PPG subtracts, so their steps go left and the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies. The sizes of the steps are the model\'s own, not published figures.',
-      ask: ['Which step is largest in cirrhosis, and which cases step left?', 'Resistance in the sinusoids is the largest step. The IVC web and constrictive pericarditis step left: the elevated pressure downstream of the liver is subtracted, so the PPG misses them.'],
+      kicker: 'Telling them apart', title: 'The pressure falls in a different place in each case',
+      line: 'The pressure falls where the resistance lies. In the IVC web and constrictive pericarditis the raised IVC pressure is subtracted, so the PPG misses them.',
+      notes: 'Tap a case to see its pressure from gut to heart. The line falls steeply where the resistance is: in the sinusoids in cirrhosis, just after them in sinusoidal obstruction, in the portal venules in schistosomiasis, and across the thrombus in portal vein thrombosis. The IVC web and constrictive pericarditis raise the IVC pressure that the PPG subtracts, so the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies.',
+      ask: ['Where does the pressure fall in cirrhosis, and which cases will the PPG miss?', 'It falls in the sinusoids. The PPG misses the IVC web and constrictive pericarditis: the elevated pressure downstream of the liver is subtracted from the portal pressure.'],
     },
     {
       // (The relation chart before the summary: each case's portal pressure across and its HVPG up. The portal pressure is high in

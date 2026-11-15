@@ -92,7 +92,7 @@ test('a GPU chart reads every look a piece can have: strokes, their widths and s
   }
   // (every slide chart is a model now: none builds SVG for the page to paint)
   const fs = await import('node:fs');
-  for (const f of ['talk-trace', 'tool-course', 'tool-curve', 'tool-causes', 'flow-time', 'tool-lumen', 'tool-fluid', 'tool-criteria', 'visual-plane', 'tool-flows', 'tool-profile'])
+  for (const f of ['talk-trace', 'tool-course', 'tool-curve', 'flow-time', 'tool-lumen', 'tool-fluid', 'tool-criteria', 'visual-plane', 'tool-flows', 'tool-profile'])
     assert.doesNotMatch(fs.readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8'), /createElementNS/, `${f}.js builds no SVG`);
 });
 
