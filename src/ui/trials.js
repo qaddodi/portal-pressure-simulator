@@ -28,7 +28,9 @@
 //              with a CI was reported. Numbers are as printed, so 0.50 is held as 0.5 and CAVARLY keeps its three decimals (0.192).
 //   bav        the Baveno VIII statement numbers that bear on the trial's question, each found in guidelines/baveno-viii-2026.pdf; [] when none
 //              corresponds. A statement can be a counterpoint (Fernández 2007: 4.12 advises against long-term primary prophylaxis); the note says so.
-//   entry      [{ rule, test, value? }] the entry rules the audit verified, in short clinical words. test is a key of the trial-fit vocabulary
+//   entry      [{ rule, test, value?, minor? }] the entry rules the audit verified, in short clinical words. minor: true marks fine print that does not
+//              define who was enrolled (an age band, a platelet floor, timing, the treatment given first); every other rule is a defining rule, and
+//              a trial reads "fits" only when each defining rule was checked and met (trial-fit.js, 15 Nov 2026). test is a key of the trial-fit vocabulary
 //              (src/ui/trial-fit.js) when the model can check the rule, or null when it cannot:
 //                'cirrhosis' 'hvpg_ge' (value mmHg) 'compensated' (no ascites) 'ascites' 'varices_not_high_risk' (no or small varices)
 //                'varices_medium_large' 'gastric_varices' 'acute_bleed' (acute variceal or GI bleeding) 'tips' (a TIPS in place) 'no_tips'
@@ -38,7 +40,7 @@
 
 /** @typedef {{ label: string, rate: number, n?: number, events?: number, side: 'treat' | 'control' }} TrialArm */
 /** @typedef {{ kind: 'HR' | 'OR' | 'RR', est: number, lo: number, hi: number, of: string, vs?: string }} TrialRatio */
-/** @typedef {{ rule: string, test: string | null, value?: number }} TrialEntry */
+/** @typedef {{ rule: string, test: string | null, value?: number, minor?: boolean }} TrialEntry */
 /** @typedef {{ id: string, name: string, short: string, group: 'decomp' | 'bleed' | 'ascites' | 'kidney' | 'infection' | 'he', journal: string,
  *   year: number, firstAuthor: string, pmid: string | null, doi: string | null, n: number, setting: string, followUp: string | null, endpoint: string,
  *   better: 'lower' | 'higher', arms: TrialArm[], km: boolean, effect: string | null, ratios: TrialRatio[], bav: string[], entry: TrialEntry[],
@@ -101,7 +103,7 @@ export const TRIALS = {
     ],
     bav: ['3.15', '3.19'],
     entry: [CIRRHOSIS, { rule: 'Medium or large esophageal varices (grade II or III)', test: 'varices_medium_large' }, { rule: 'No previous variceal bleeding', test: null },
-      { rule: 'Not already on a beta-blocker or band ligation for prophylaxis', test: null }],
+      { rule: 'Not already on a beta-blocker or band ligation for prophylaxis', test: null, minor: true }],
     note: 'Stopped early: 265 of 2630 planned (10%). Underpowered and open label; a result that is not significant is not proof of equivalence.',
     verified: 'Full text; Tables 1, 3 and 4 verified', status: 'checked',
   },
@@ -122,8 +124,8 @@ export const TRIALS = {
     ],
     bav: [],
     entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Varices >5 mm, or smaller with red signs', test: null }, { rule: 'No previous variceal bleeding', test: null },
-      { rule: 'Age 18 to 75 years', test: null }, { rule: 'No previous band ligation, TIPS or surgical shunt', test: null }, { rule: 'No HCC or portal vein thrombosis', test: null },
-      { rule: 'Platelets ≥30,000/µL', test: null }],
+      { rule: 'Age 18 to 75 years', test: null, minor: true }, { rule: 'No previous band ligation, TIPS or surgical shunt', test: null }, { rule: 'No HCC or portal vein thrombosis', test: null },
+      { rule: 'Platelets ≥30,000/µL', test: null, minor: true }],
     note: 'Single center, open label, Child–Pugh B and C with a high HVPG: not for low-risk compensated patients.',
     verified: 'Full PDF; Table 1, Figure 2 and Table 2 verified', status: 'checked',
   },
@@ -136,7 +138,7 @@ export const TRIALS = {
     arms: [{ label: 'Early TIPS', rate: 86, n: 32, side: 'treat' }, { label: 'Drugs plus EVL', rate: 61, n: 31, side: 'control' }],
     km: true, effect: 'Free of rebleeding or failure at 1 year: 97% vs 50%', ratios: [], bav: ['5.31', '5.32'],
     entry: [CIRRHOSIS, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'Child–Pugh C, or B with active bleeding at the first endoscopy', test: null },
-      { rule: 'Randomized within 24 hours of admission, after vasoactive drugs and endoscopic therapy', test: null }],
+      { rule: 'Randomized within 24 hours of admission, after vasoactive drugs and endoscopic therapy', test: null, minor: true }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'Rebleeding or failure to control bleeding, the primary endpoint, in 1 of 32 against 14 of 31.', verified: ABSTRACT, status: 'checked',
   },
   lvtips: {
@@ -148,7 +150,7 @@ export const TRIALS = {
     km: true, effect: 'HR 0.50 (0.25–0.98)',
     ratios: [{ kind: 'HR', est: 0.5, lo: 0.25, hi: 0.98, of: 'Death or liver transplant' }],
     bav: ['5.31', '5.32'],
-    entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'Treated first with vasoactive drugs and endoscopic therapy', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'Treated first with vasoactive drugs and endoscopic therapy', test: null, minor: true }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'Two patients assigned to TIPS for each control; 3 excluded after randomization. Wider than today\'s criteria for a preemptive TIPS.',
     verified: ABSTRACT, status: 'checked',
   },
@@ -178,7 +180,7 @@ export const TRIALS = {
     ratios: [{ kind: 'HR', est: 0.25, lo: 0.12, hi: 0.51, of: 'Death or clinically significant rebleeding' }],
     bav: ['5.39', '5.40', '5.41'],
     entry: [CIRRHOSIS, { rule: 'Fundal varices (GOV1 excluded)', test: 'gastric_varices' }, { rule: 'Acute bleeding from them', test: 'acute_bleed' },
-      { rule: 'Bleeding controlled with glue and vasoactive drugs, stable ≥12 hours', test: null }],
+      { rule: 'Bleeding controlled with glue and vasoactive drugs, stable ≥12 hours', test: null }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'Rescue TIPS in 20 of 54 controls. HE by 1 year 35% against 32%.',
     verified: 'Abstract verified; eligibility, baseline by arm and adverse events pending', status: 'checked',
   },
@@ -190,7 +192,7 @@ export const TRIALS = {
     followUp: '1 year', endpoint: 'Alive and not transplanted at 1 year', better: 'higher',
     arms: [{ label: 'Covered TIPS', rate: 93, n: 29, side: 'treat' }, { label: 'Large-volume paracentesis', rate: 52, n: 33, side: 'control' }],
     km: true, effect: 'P = .003', ratios: [], bav: ['6.3'],
-    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'At least 2 large-volume paracenteses over at least 3 weeks', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'At least 2 large-volume paracenteses over at least 3 weeks', test: null }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'A small, selected group with recurrent ascites, not all refractory ascites.', verified: ABSTRACT, status: 'checked',
   },
   answer: {
@@ -264,7 +266,7 @@ export const TRIALS = {
     followUp: 'Mean 6.4 months (range 1–19)', endpoint: 'SBP recurrence', better: 'lower',
     arms: [{ label: 'Norfloxacin', rate: 12.5, n: 40, events: 5, side: 'treat' }, { label: 'Placebo', rate: 35, n: 40, events: 14, side: 'control' }],
     km: false, effect: 'P = 0.014', ratios: [], bav: ['6.21'],
-    entry: [CIRRHOSIS, { rule: 'Recovered from an earlier SBP episode', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'Recovered from an earlier SBP episode', test: null }],
     note: 'Norfloxacin 400 mg daily. 1-year probability of recurrence 20% against 68%. Resistance patterns may differ from 1990.',
     verified: ABSTRACT, status: 'checked',
   },
@@ -286,7 +288,7 @@ export const TRIALS = {
     followUp: 'Hospital stay and 3 months', endpoint: 'Renal impairment that did not reverse, in hospital', better: 'lower',
     arms: [{ label: 'Cefotaxime plus albumin', rate: 10, n: 63, events: 6, side: 'treat' }, { label: 'Cefotaxime alone', rate: 33, n: 63, events: 21, side: 'control' }],
     km: false, effect: 'P = 0.002', ratios: [], bav: [],
-    entry: [CIRRHOSIS, { rule: 'Spontaneous bacterial peritonitis', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'Spontaneous bacterial peritonitis', test: null }],
     note: 'Albumin 1.5 g/kg at diagnosis and 1.0 g/kg on day 3. Deaths in hospital 6 of 63 against 18 of 63.', verified: ABSTRACT, status: 'checked',
   },
   // ---- Hepatic encephalopathy
@@ -299,7 +301,7 @@ export const TRIALS = {
     km: false, effect: 'OR 0.48 (0.27–0.87)',
     ratios: [{ kind: 'OR', est: 0.48, lo: 0.27, hi: 0.87, of: 'Overt HE within 168 days' }],
     bav: ['6.16'],
-    entry: [CIRRHOSIS, { rule: 'Elective TIPS planned, for intractable ascites or to prevent variceal rebleeding', test: null }],
+    entry: [CIRRHOSIS, { rule: 'Elective TIPS planned, for intractable ascites or to prevent variceal rebleeding', test: null }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'Rifaximin 600 mg twice daily, started 14 days before TIPS and continued 168 days after.', verified: ABSTRACT, status: 'checked',
   },
   bass: {

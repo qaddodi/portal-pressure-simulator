@@ -2,7 +2,7 @@
 // patient on screen. It loads after the first paint (main.js lazy(), lazy-pane.js), as the Doppler and the FibroScan do.
 //
 //   List    "Trials for this patient", the patient's own HVPG, varices and ascites, then the trials in three groups: Fits this patient, Not this
-//           patient (with the rule it fails) and Cannot tell from the model (no rule the model can check). A row names the trial, what it
+//           patient (with the rule it fails) and Cannot tell from the model (a defining entry rule it cannot check). A row names the trial, what it
 //           compared and counted, and the treated arm's rate against the control's; a tap opens it in place: who was enrolled (each entry rule
 //           against the model), how long they were followed, the arms as bars, the effect, a caveat, the Model line where the model runs the
 //           treatment, and the source.
@@ -24,7 +24,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { caught } from './caught.js';
 import { TRIAL_IDS, trialOf, trialSource } from './trials.js';
-import { fitTrial, failedRows, NOT_IN_MODEL } from './trial-fit.js';
+import { fitTrial, failedRows, openRows, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, armsLayout, layoutTree, ratiosOf, ratioText } from './trial-forest.js';
 import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 
@@ -69,7 +69,7 @@ export function sortTrials(ids, m, p, facts) {
 /** Why a trial is in its group, in a line: the rules it fails, or the rules the model cannot check. */
 export function reasonOf(t, fit) {
   if (fit.verdict === 'no') return failedRows(fit).map((r) => `${r.rule} (${r.value === NOT_IN_MODEL ? 'not in the model' : r.value.charAt(0).toLowerCase() + r.value.slice(1)})`).join('; ');
-  if (fit.verdict === 'unknown') return fit.rows.length ? `Not in the model: ${fit.rows.map((r) => r.rule.charAt(0).toLowerCase() + r.rule.slice(1)).join(', ')}` : 'Its entry rules are not listed yet';
+  if (fit.verdict === 'unknown') return fit.rows.length ? `Not in the model: ${openRows(fit).map((r) => r.rule.charAt(0).toLowerCase() + r.rule.slice(1)).join(', ')}` : 'Its entry rules are not listed yet';
   return fit.rows.filter((r) => r.state === 'yes').map((r) => r.value).join(', ');
 }
 

@@ -14,9 +14,12 @@
 //   gastric_varices        fundal varices present
 //   acute_bleed            bleeding now
 //   tips / no_tips         a TIPS in place, or none
+// A rule may also carry `minor: true`: fine print that does not define who was enrolled (an age band, a platelet floor, the timing of
+// randomization, the treatment given first). Every other rule is a defining rule: the population itself.
 // Each rule comes back with its state for this patient: 'yes' (met), 'no' (not met) or 'na' (the model cannot tell), and the model's value in
-// words. The verdict: 'no' when any rule the model can check fails; 'fits' when every rule it can check is met and it could check at least one;
-// 'unknown' when it could check none. 'unknown' is never shown as eligible.
+// words. The verdict: 'no' when any rule the model can check fails; 'fits' only when EVERY defining rule was checked and met (15 Nov 2026, TR-5:
+// "cirrhosis" alone used to make a compensated patient fit both early-TIPS trials); 'unknown' otherwise, that is when a defining rule is open
+// (the model cannot tell) or the trial lists no rules. 'unknown' is never shown as eligible.
 
 import { hvBlocked } from '../engine/pressure-cuts.js';
 import { varixGrade, ascitesGrade, VARIX_NONE_MM } from '../engine/metrics.js';
@@ -54,18 +57,24 @@ const TESTS = {
 /** The test names fitTrial knows. */
 export const FIT_TESTS = Object.freeze(Object.keys(TESTS));
 
-/** The trial's entry rules checked against the model: { verdict: 'fits' | 'no' | 'unknown', rows: [{ rule, state: 'yes' | 'no' | 'na', value }] }. */
+/** The trial's entry rules checked against the model: { verdict: 'fits' | 'no' | 'unknown', rows: [{ rule, state: 'yes' | 'no' | 'na', value,
+ *  defining }] }. 'fits' needs every defining rule checked and met; one rule that fails is 'no'; anything else is 'unknown'. */
 export function fitTrial(trial, metrics, params) {
   const rows = [];
-  let checked = 0, failed = 0;
+  let failed = 0, defining = 0, defined = 0;
   for (const e of trial?.entry ?? []) {
     const fn = e && typeof e.test === 'string' && Object.hasOwn(TESTS, e.test) ? TESTS[e.test] : null;
     const [state, value] = fn ? fn(e, metrics, params) : ['na', NOT_IN_MODEL];
-    if (state !== 'na') { checked++; if (state === 'no') failed++; }
-    rows.push({ rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL });
+    const isDefining = e?.minor !== true;
+    if (state === 'no') failed++;
+    if (isDefining) { defining++; if (state === 'yes') defined++; }
+    rows.push({ rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining });
   }
-  return { verdict: failed ? 'no' : checked ? 'fits' : 'unknown', rows };
+  return { verdict: failed ? 'no' : defining && defined === defining ? 'fits' : 'unknown', rows };
 }
+
+/** The rows that are open: a rule the model cannot check, defining rules first. */
+export const openRows = (fit) => fit.rows.filter((r) => r.state === 'na').sort((a, b) => Number(b.defining) - Number(a.defining));
 
 /** A slide's patient (its fingerprint, fingerprint.js: hvpg, varix and gv diameters in mm, asc in mL) in the shape fitTrial reads, so a deck's
  *  card and the Tests card ask the same tests. A fact the fingerprint does not carry (bleeding now) stays out, and its row answers 'na'. */
