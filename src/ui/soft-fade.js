@@ -6,9 +6,9 @@ const TAU = 0.22;   // s, each of the two follows
 
 /**
  * `write(text)` puts the opacity where it is read; `frame(cb)` asks for a frame (cb gets its time in ms) and `cancel(id)` takes it back;
- * `reduced()` says whether Reduce Motion is on; `now()` is the clock. Returns { to(v), shown() }.
+ * `now()` is the clock. (Reduce Motion fades it too: a fade is not motion, owner 15 Nov 2026; a `reduced` passed in is not read.) Returns { to(v), shown() }.
  */
-export function createSoftFade({ write, frame, cancel, reduced, now }) {
+export function createSoftFade({ write, frame, now }) {
   const e = { v1: 0, v2: 0, to: 0, last: 0, raf: 0 };
   const step = (t) => {
     e.raf = 0;
@@ -24,7 +24,6 @@ export function createSoftFade({ write, frame, cancel, reduced, now }) {
   return {
     to(v) {
       e.to = +v;
-      if (reduced()) { if (e.raf) cancel(e.raf); e.raf = 0; e.v1 = e.v2 = e.to; write(String(v)); return; }
       if (e.raf || (e.to === e.v2 && e.to === e.v1)) return;
       e.last = now();
       e.raf = frame(step);

@@ -600,6 +600,21 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
 }
 
+// Nothing pops in or out (owner, 15 Nov 2026): under Reduce Motion a fade keeps its length (motion.js fadeMs / fadeStep), only movement is
+// dropped. (1) No Reduce Motion rule in styles/ kills an opacity transition or a fade keyframe (scripts/reduced-css-scan.mjs, its movement-only
+// list with reasons). (2) No file answers "at once" under Reduce Motion more often than scripts/reduced-fade-allowance.json, or less: lower it
+// (node scripts/reduced-fade-scan.mjs --write). What is left in the allowance is movement, or still to move onto fadeMs.
+{
+  const { reducedCssProblems } = await import(pathToFileURL(join(ROOT, 'scripts/reduced-css-scan.mjs')).href);
+  for (const x of reducedCssProblems(ROOT)) errors.push(`${x}: a Reduce Motion rule turns a fade into an instant swap; write transition-property: opacity (or add a movement-only piece with its reason to scripts/reduced-css-scan.mjs)`);
+  const { scan } = await import(pathToFileURL(join(ROOT, 'scripts/reduced-fade-scan.mjs')).href);
+  const allow = JSON.parse(readFileSync(join(ROOT, 'scripts/reduced-fade-allowance.json'), 'utf8')), now = scan(join(ROOT, 'src/ui'));
+  const rel = (f) => f.slice(ROOT.length + 1).replace(/\\/g, '/');
+  const seen = Object.fromEntries(Object.entries(now).map(([f, n]) => [rel(f), n]));
+  for (const [f, n] of Object.entries(seen)) if (n > (allow[f] || 0)) errors.push(`${f} answers "at once" under Reduce Motion ${n} times (allowed ${allow[f] || 0}): use fadeMs / fadeStep from src/ui/motion.js, a fade is not motion`);
+  for (const [f, n] of Object.entries(allow)) if ((seen[f] || 0) < n) errors.push(`${f}: ${seen[f] || 0} "at once" answers under Reduce Motion, under its allowance of ${n}: lower it (node scripts/reduced-fade-scan.mjs --write)`);
+}
+
 // Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
 //   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
 //   { file, forbid: [pattern, why] } it must not.

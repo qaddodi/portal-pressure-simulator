@@ -27,7 +27,7 @@ test('the cards fade in only once the figure paints smoothly (after a new patien
 });
 
 test('with reduced motion the cards still fade (opacity only, no slide)', () => {
-  const rm = css.slice(css.indexOf('.pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }'));
+  const rm = css.slice(css.indexOf('.pz *, .pz, .app.presenting #stageView { transition-property: opacity, visibility !important; }'));   // (15 Nov 2026: fades kept, nothing pops)
   const block = rm.slice(0, rm.indexOf('\n}'));
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \*, \.pz-shade \{ transition: opacity var\(--d-small\) var\(--ease\) !important; \}/);
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \.pz-leave, \.pz-shade \{ transform: none !important; \}/);

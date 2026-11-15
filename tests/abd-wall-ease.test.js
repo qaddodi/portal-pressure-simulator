@@ -47,11 +47,14 @@ test('a frame that began before the fade did cannot move it backwards', () => {
   assert.ok(r.wrote.at(-1) >= 0 && r.wrote.at(-1) < 0.01, `${r.wrote.at(-1)}`);
 });
 
-test('a target that is already shown asks for no frame, and Reduce Motion shows it at once', () => {
+test('a target that is already shown asks for no frame, and Reduce Motion still fades it (nothing pops, 15 Nov 2026)', () => {
   const r = rig();
   r.to('0.00');
   assert.equal(r.queued.length, 0);
   const q = rig({ reduce: true });
   q.to('0.90');
-  assert.equal(q.wrote.at(-1), 0.9); assert.equal(q.queued.length, 0);
+  assert.equal(q.wrote.length, 0, 'nothing written at once');
+  assert.ok(q.play() > 10);
+  assert.ok(q.wrote[0] < 0.1, `it starts low: ${q.wrote[0]}`);
+  assert.equal(q.wrote.at(-1), 0.9);
 });

@@ -8,7 +8,6 @@ import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { heartPass } from './heart-label.js';
 import { HOVER_LINK } from './hover-link.js';
 import { RING_DIRS, RING_SPOTS, boxGap, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
@@ -1474,7 +1473,8 @@ export function createLabelSolve(st, live) {
       b.at = null; b.gl = null;
       b.box = '';   // (gone from the labels the credit avoids: labelBoxStamp)
       if (b.gone || b.g.style.display === 'none') continue;
-      if (reduceMotion.matches || live.camMove) { b.g.style.display = 'none'; live.labelGL?.dirty(b.g); continue; }
+      // (Always faded, during a camera move and under Reduce Motion too: hidden at once, every label the new layout left out blinked off
+      // mid-glide, on every slide change with a camera. Owner, 15 Nov 2026: nothing pops in or out.)
       if (!b.g.classList.contains('lb-off')) { b.g.classList.add('lb-off'); live.labelGL?.dirty(b.g); }
       labelStop(b, true);
       const tok = b.gone = {};
@@ -1492,7 +1492,7 @@ export function createLabelSolve(st, live) {
       const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - live.glowSetAt);
       if (!el || el.fxIn) continue;
       el.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' });
+      if (wait > 0) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' });
     }
     return true;
   }

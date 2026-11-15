@@ -58,8 +58,9 @@ test('in motion, the handle fades in after the card\'s glass has begun and is ou
 });
 
 test('with Reduce Motion the handle still fades with the cards, in after the glass and out before it, never popping', () => {
-  const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{\n {2}\.pz \*, \.pz,[\s\S]*?\n\}/)?.[0] ?? '';
-  assert.ok(block.includes('transition: none !important'), 'the block turns every transition off, the handle\'s included');
+  const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{\n(?: {2}\/\*[\s\S]*?\*\/\n)? {2}\.pz \*, \.pz,[\s\S]*?\n\}/)?.[0] ?? '';
+  // (Since 15 Nov 2026 the block keeps every transition's opacity, nothing else: nothing in a slide pops, owner's rule.)
+  assert.ok(block.includes('transition-property: opacity, visibility !important'), 'the block keeps only the fades, the handle\'s included');
   // (The cards' glass fades in .3 s from the start there: .pz > :is(.pz-data ...) { transition: opacity var(--d-small) }.)
   const [inDur, inDelay] = fade(rule('.pz > .pz-lip {', block));
   const [outDur, outDelay] = fade(rule('.pz > .pz-data.pz-hide + .pz-lip {', block));

@@ -849,8 +849,8 @@ function rollStep(now) {
 }
 // A number that appears where "?" was (a tile measured again), or "?" where a number was, fades in rather than popping: the roll
 // above moves a number between two numbers, and this is the step it cannot take.
-/** An element that has just been shown comes up from nothing over a small step (Reduce Motion: at once). */
-export function fadeIn(el) { if (!reduceMotionMQ.matches && el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
+/** An element that has just been shown comes up from nothing over a small step (Reduce Motion too: a fade is not motion). */
+export function fadeIn(el) { if (el.animate && el.isConnected && hasBox(el)) el.animate(FADE_IN, SMALL_ARRIVE); }
 const fadeNum = fadeIn;
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a roll no longer rewrites the number's text on every
 // frame, which laid its tile out again each frame of a slide change. Each digit that changes rolls in its own column, a strip of the
