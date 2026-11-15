@@ -98,6 +98,7 @@ test('the fit line: a filled accent disc and tick when the patient fits, a ring 
   assert.equal(fitWords(null), null);
   assert.equal(fitWords({ verdict: 'fits', rows: [] }), 'The patient on this slide fits');
   assert.equal(fitWords({ verdict: 'unknown', rows: [] }), 'Cannot tell from the model');
+  assert.equal(fitWords({ verdict: 'unknown', rows: [], met: 2, of: 5 }), 'Possibly fits: 2 of 5 entry rules checked');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'HVPG 10 mmHg or more', state: 'no', value: '8.2 mmHg' }] }), 'Does not fit: HVPG 10 mmHg or more (this patient: 8.2 mmHg)');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'Never decompensated', state: 'no' }] }), 'Does not fit: never decompensated');
   const t = TRIALS.predesci, looks = new Set();

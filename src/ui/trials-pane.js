@@ -1,8 +1,9 @@
 // The Trials tab of the Tests card (Mohammad, 14 Nov 2026, designs A and D of the trial-card mocks): the landmark trials (trials.js) against the
 // patient on screen. It loads after the first paint (main.js lazy(), lazy-pane.js), as the Doppler and the FibroScan do.
 //
-//   List    "Trials for this patient", the patient's own HVPG, varices and ascites, then the trials in three groups: Fits this patient, Not this
-//           patient (with the rule it fails) and Cannot tell from the model (a defining entry rule it cannot check). A row names the trial, what it
+//   List    "Trials for this patient", the patient's own HVPG, varices and ascites, then the trials in four groups: Fits this patient (every defining
+//           entry rule checked and met), Possibly fits ("2 of 5 entry rules checked"), Not this patient (with the rule it fails) and Cannot tell from
+//           the model (no defining rule it can check). A row names the trial, what it
 //           compared and counted, and the treated arm's rate against the control's; a tap opens it in place: who was enrolled (each entry rule
 //           against the model), how long they were followed, the arms as bars, the effect, a caveat, the Model line where the model runs the
 //           treatment, and the source.
@@ -24,11 +25,11 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { caught } from './caught.js';
 import { TRIAL_IDS, trialOf, trialSource } from './trials.js';
-import { fitTrial, failedRows, openRows, NOT_IN_MODEL } from './trial-fit.js';
+import { fitTrial, failedRows, openRows, groupOf, possiblyWords, whyNot, lcFirst, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, armsLayout, layoutTree, ratiosOf, ratioText } from './trial-forest.js';
 import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 
-export const GROUPS = Object.freeze([['fits', 'Fits this patient'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
+export const GROUPS = Object.freeze([['fits', 'Fits this patient'], ['possible', 'Possibly fits'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
 const STATE_WORD = { yes: 'Met', no: 'Not met', na: NOT_IN_MODEL };
 const PX = 13;   // (the card's words: the bars' type size, as the rows' 13 px)
 // (How often the card is built again for a value that drifts with no change of group or band: the disease clock moving the HVPG a tenth.)
@@ -58,18 +59,22 @@ export function patientFacts(m, p, st) {
   return { hvpg, blocked, varix, ascites: asc };
 }
 
-/** Each trial's fit for this patient, in the order of trials.js, then grouped: { fits: [], no: [], unknown: [] } of { t, fit }. */
+/** Each trial's fit for this patient, in the order of trials.js, then grouped: { fits: [], possible: [], no: [], unknown: [] } of { t, fit }. */
 export function sortTrials(ids, m, p, facts) {
   const view = { ...m, hvpg: facts.hvpg };
-  const out = { fits: [], no: [], unknown: [] };
-  for (const id of ids) { const t = trialOf(id); if (t) { const fit = fitTrial(t, view, p); out[fit.verdict].push({ t, fit }); } }
+  const out = { fits: [], possible: [], no: [], unknown: [] };
+  for (const id of ids) { const t = trialOf(id); if (t) { const fit = fitTrial(t, view, p); out[groupOf(fit)].push({ t, fit }); } }
   return out;
 }
 
 /** Why a trial is in its group, in a line: the rules it fails, or the rules the model cannot check. */
 export function reasonOf(t, fit) {
-  if (fit.verdict === 'no') return failedRows(fit).map((r) => `${r.rule} (${r.value === NOT_IN_MODEL ? 'not in the model' : r.value.charAt(0).toLowerCase() + r.value.slice(1)})`).join('; ');
-  if (fit.verdict === 'unknown') return fit.rows.length ? `Not in the model: ${openRows(fit).map((r) => r.rule.charAt(0).toLowerCase() + r.rule.slice(1)).join(', ')}` : 'Its entry rules are not listed yet';
+  if (fit.verdict === 'no') return failedRows(fit).map((r) => `${r.rule} (${r.value === NOT_IN_MODEL ? 'not in the model' : lcFirst(r.value)})`).join('; ');
+  if (fit.verdict === 'unknown') {
+    if (!fit.rows.length) return 'Its entry rules are not listed yet';
+    const open = `Not in the model: ${openRows(fit).map((r) => lcFirst(r.rule)).join(', ')}`;
+    return fit.met > 0 ? `${possiblyWords(fit)}. ${open}` : open;
+  }
   return fit.rows.filter((r) => r.state === 'yes').map((r) => r.value).join(', ');
 }
 
@@ -121,14 +126,15 @@ export function createTrialsPane() {
     if (built) configureForest(built);
   }
   function configureForest(b) {
-    const notes = {};
+    const notes = {}, whys = {};
     for (const [g] of GROUPS) for (const { t, fit } of b.groups[g]) {
-      const why = reasonOf(t, fit);
-      notes[t.id] = g === 'fits' ? 'Fits this patient.' : g === 'no' ? `Not this patient: ${why}.` : 'The model cannot tell whether this patient fits.';
+      notes[t.id] = g === 'fits' ? 'Fits this patient.' : g === 'no' ? 'Not this patient.' : g === 'possible' ? 'Some entry rules are not in the model.' : 'The model cannot tell whether this patient fits.';
+      if (g === 'no') whys[t.id] = `Not this patient: ${whyNot(fit)}`;
+      else if (g === 'possible') whys[t.id] = possiblyWords(fit);
     }
     const fits = new Set(b.groups.fits.map((q) => q.t.id));
     if (forestSel == null || !trialOf(forestSel)) forestSel = b.groups.fits[0]?.t.id ?? null;
-    if (mode === 'forest') forest.configure({ ids: TRIAL_IDS, highlight: fits, selected: forestSel, notes });
+    if (mode === 'forest') forest.configure({ ids: TRIAL_IDS, highlight: fits, selected: forestSel, notes, why: whys });
   }
 
   // ── Per frame: a few comparisons, nothing built ──

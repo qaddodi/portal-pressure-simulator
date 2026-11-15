@@ -20,7 +20,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { trialOf, trialSource } from './trials.js';
 import { TYPE } from './chart-looks/trial.js';
-import { fitTrial, metricsOfFp } from './trial-fit.js';
+import { fitTrial, metricsOfFp, lcFirst, possiblyWords } from './trial-fit.js';
 
 export const TRIAL_LINES = 2;   // (the most lines a field's words take; more are cut with an ellipsis)
 export const NOTE_LINES = 3;
@@ -49,7 +49,6 @@ export function wrapWords(text, w, f, wt, meas, max) {
   return out;
 }
 
-const lcFirst = (s) => (/^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
 const two = (x) => (Number.isFinite(x) ? x.toFixed(Math.max(2, Math.min(3, (String(x).split('.')[1] || '').length))) : '?');   // (three decimals where the paper gave three)
 /** The trial's effect as reported: its own words (effect), else its first ratio and interval (ratios), else null. */
 export function effectOf(t) {
@@ -69,7 +68,7 @@ export function fitWords(fit) {
     const v = typeof r.value === 'string' || Number.isFinite(r.value) ? ` (this patient: ${r.value})` : '';
     return `Does not fit: ${lcFirst(String(r.rule))}${v}`;
   }
-  return 'Cannot tell from the model';
+  return fit.met > 0 ? possiblyWords(fit) : 'Cannot tell from the model';
 }
 
 /** The card's drawing for trial t at width W, base type size f: the words [{ x, y, t, look, anchor }], the rectangles [{ x, y, w, h, r, look, tone? }]

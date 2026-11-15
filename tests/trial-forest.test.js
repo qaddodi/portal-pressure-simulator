@@ -6,7 +6,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { forestLayout, forestRange, armsLayout, ratiosOf, ratioText, ratesText, KIND_NAME, NO_RATIO, FAVORS } from '../src/ui/trial-forest.js';
+import { forestLayout, forestRange, armsLayout, FOREST_SCALE, NOT_POOLED, ratiosOf, ratioText, ratesText, KIND_NAME, NO_RATIO, FAVORS } from '../src/ui/trial-forest.js';
 import { measure } from '../src/ui/glyph-measure.js';
 import { LOOKS, HOSTS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
@@ -155,4 +155,39 @@ test('a ratio keeps the decimals the paper gave: two, or three (CAVARLY 0.192–
   assert.equal(ratioText({ kind: 'HR', est: 0.5, lo: 0.25, hi: 0.98 }), 'HR 0.50 (0.25–0.98)');
   assert.equal(ratioText({ kind: 'HR', est: 0.37, lo: 0.192, hi: 0.716 }), 'HR 0.37 (0.192–0.716)');
   for (const t of Object.values(TRIALS)) for (const r of t.ratios ?? []) for (const v of [r.est, r.lo, r.hi]) assert.equal(Number(ratioText({ kind: 'HR', est: v, lo: v, hi: v }).split(' ')[1]), v, `${t.id}: ${v} shown as given`);
+});
+
+test('F14: a fixed 0.1 to 2 scale, an arrowhead on an interval that runs past it, and "Not pooled" under each group', () => {
+  const real = Object.values(TRIALS);
+  const L = forestLayout(real, 360, 13, measure);
+  assert.deepEqual([...FOREST_SCALE], [0.1, 2]);
+  assert.deepEqual(L.texts.filter((s) => s.look === 'forest.tick').map((s) => s.t), ['0.1', '0.25', '0.5', '1', '2'], 'the same ticks whatever the trials');
+  // Transfusion's Child–Pugh C interval (1.04, 0.45–2.37) is the one that runs past 2: two strokes meet at the scale's right end.
+  const ci = L.lines.filter((l) => /^forest\.ci/.test(l.look));
+  const axis = L.lines.find((l) => l.look === 'forest.axis');
+  const tips = ci.filter((l) => Math.abs(l.x2 - axis.x2) < 1e-6 && l.x1 < l.x2 && l.y1 !== l.y2);
+  assert.equal(tips.length, 2, 'two strokes make one arrowhead');
+  assert.equal(tips[0].y2, tips[1].y2);
+  assert.ok(tips[0].y1 < tips[0].y2 && tips[1].y1 > tips[1].y2, 'one stroke from above, one from below');
+  assert.equal(ci.filter((l) => l.y1 !== l.y2).length, 2, 'no other interval gets an arrowhead');
+  assert.ok(ci.every((l) => l.x1 >= axis.x1 - 1e-6 && l.x2 <= axis.x2 + 1e-6), 'nothing is drawn past the scale');
+  const groups = L.texts.filter((s) => Object.values(KIND_NAME).includes(s.t)).length;
+  assert.ok(groups >= 2);
+  assert.equal(L.texts.filter((s) => s.t === NOT_POOLED).length, groups, 'one "Not pooled" line under each group');
+  // A scale wide enough takes the same interval in, so it gets no arrowhead.
+  const wide = forestLayout(real, 360, 13, measure, { scale: [0.1, 4] });
+  assert.equal(wide.lines.filter((l) => /^forest\.ci/.test(l.look) && l.y1 !== l.y2).length, 0);
+});
+
+test('F4: the picked trial\'s first row carries a second line under its interval, and the row grows to hold it', () => {
+  const real = Object.values(TRIALS);
+  const plain = forestLayout(real, 360, 13, measure, { selected: 'predesci' });
+  const L = forestLayout(real, 360, 13, measure, { selected: 'predesci', why: { predesci: 'Not this patient: HVPG 8.2, needs ≥10', sort: 'ignored: not picked' } });
+  assert.equal(plain.texts.filter((s) => s.look === 'forest.why').length, 0);
+  const why = L.texts.filter((s) => s.look === 'forest.why');
+  assert.deepEqual(why.map((s) => s.t), ['Not this patient: HVPG 8.2, needs ≥10'], 'once, though PREDESCI has two rows, and not for a trial that is not picked');
+  const hit = L.hits.find((q) => q.id === 'predesci'), hit0 = plain.hits.find((q) => q.id === 'predesci');
+  assert.ok(hit.h > hit0.h && L.H > plain.H);
+  const mk = L.rects.filter((r) => /^forest\.mk/.test(r.look)).find((r) => r.y > hit.y && r.y < hit.y + hit.h);
+  assert.ok(why[0].y - 13 > mk.y + mk.h - 1 && why[0].y < hit.y + hit.h, 'the line sits under the marker and inside the row');
 });

@@ -68,9 +68,26 @@ export function fitTrial(trial, metrics, params) {
     const isDefining = e?.minor !== true;
     if (state === 'no') failed++;
     if (isDefining) { defining++; if (state === 'yes') defined++; }
-    rows.push({ rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining });
+    const row = { rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining };
+    if (e?.test === 'hvpg_ge' && Number.isFinite(e.value)) row.need = `≥${e.value}`;
+    rows.push(row);
   }
-  return { verdict: failed ? 'no' : defining && defined === defining ? 'fits' : 'unknown', rows };
+  // met / of: the defining rules the model checked and found met, out of all the defining rules ("2 of 5 entry rules checked").
+  return { verdict: failed ? 'no' : defining && defined === defining ? 'fits' : 'unknown', rows, met: defined, of: defining };
+}
+
+/** The pane's group for a fit: 'fits', 'possible' (not every defining rule could be checked, but some were and all of those were met), 'no' or
+ *  'unknown' (nothing that defines the trial could be checked). */
+export const groupOf = (fit) => (fit.verdict === 'unknown' && fit.met > 0 ? 'possible' : fit.verdict);
+/** "Possibly fits: 2 of 5 entry rules checked". */
+export const possiblyWords = (fit) => `Possibly fits: ${fit.met} of ${fit.of} entry rule${fit.of === 1 ? '' : 's'} checked`;
+/** A rule's words with a lower-case start, except a name that starts with a capital for a reason (HVPG, Child–Pugh). */
+export const lcFirst = (s) => (/^[A-Z][a-z]*(?=[\s,.;:]|$)/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
+/** The one rule that keeps the patient out, as a line: "HVPG 8.2, needs ≥10" (the first rule that fails), or null when none fails. */
+export function whyNot(fit) {
+  const r = fit?.rows?.find((x) => x.state === 'no');
+  if (!r) return null;
+  return r.need ? `${r.value.replace(/ mmHg$/, '')}, needs ${r.need}` : `${r.value}, needs ${lcFirst(r.rule)}`;
 }
 
 /** The rows that are open: a rule the model cannot check, defining rules first. */

@@ -3,7 +3,7 @@
 // (the other fields as trials.js has them), so these tests do not wait on that file.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitTrial, failedRows, FIT_TESTS, NOT_IN_MODEL } from '../src/ui/trial-fit.js';
+import { fitTrial, failedRows, FIT_TESTS, NOT_IN_MODEL, groupOf, possiblyWords, whyNot, lcFirst, openRows } from '../src/ui/trial-fit.js';
 import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
 import { HV_BLOCKED } from '../src/engine/pressure-cuts.js';
 
@@ -103,4 +103,32 @@ test('TR-5: cirrhosis alone, or any one rule the model can check, never reads "f
   assert.deepEqual(fit('earlytipsCP', { bleed: true }).rows.map((x) => x.defining), [true, true, true, true]);
   assert.equal(fit('earlytips', { bleed: true }).rows[1].defining, false);
   assert.equal(fit('earlytipsCP').verdict, 'no', 'one rule that fails still wins: not bleeding');
+});
+
+test('F18: a trial with some defining rules checked and met is "possibly fits", with the count; none checked is "cannot tell"', () => {
+  const r = fit('predesci');   // four rules checked and met, the fifth (no earlier bleed or encephalopathy) not in the model
+  assert.deepEqual([r.verdict, r.met, r.of, groupOf(r)], ['unknown', 4, 5, 'possible']);
+  assert.equal(possiblyWords(r), 'Possibly fits: 4 of 5 entry rules checked');
+  assert.deepEqual(openRows(r).map((x) => x.rule), ['No earlier bleed or encephalopathy']);
+  assert.equal(groupOf(fit('predesci4')), 'fits');
+  assert.equal(groupOf(fit('predesci', { asc: 1000 })), 'no');
+  const none = fit('confirm');
+  assert.deepEqual([none.met, none.of, groupOf(none)], [0, 2, 'unknown']);
+  assert.equal(possiblyWords({ met: 1, of: 1 }), 'Possibly fits: 1 of 1 entry rule checked');
+  assert.equal(groupOf({ verdict: 'unknown', rows: [] }), 'unknown', 'a trial with no rules listed is not "possibly"');
+});
+
+test('F4: the one rule the patient fails, as a line: "HVPG 8.2, needs ≥10"', () => {
+  assert.equal(whyNot(fit('predesci', { hvpg: 8.2 })), 'HVPG 8.2, needs ≥10');
+  assert.equal(whyNot(fit('predesci', { asc: 1000 })), 'Ascites 1.0 L, needs never decompensated');
+  assert.equal(whyNot(fit('predesci', { varix: 7.2 })), 'Large, 7.2 mm, needs no high-risk varices');
+  assert.equal(whyNot(fit('predesci4')), null, 'a patient who fits has no rule to name');
+  assert.equal(whyNot(null), null);
+});
+
+test('a rule is lower-cased in a sentence unless it starts with a name (HVPG, Child–Pugh)', () => {
+  assert.equal(lcFirst('Cirrhosis'), 'cirrhosis');
+  assert.equal(lcFirst('Grade II or larger esophageal varices'), 'grade II or larger esophageal varices');
+  assert.equal(lcFirst('Child–Pugh B or C'), 'Child–Pugh B or C');
+  assert.equal(lcFirst('HVPG ≥10 mmHg'), 'HVPG ≥10 mmHg');
 });

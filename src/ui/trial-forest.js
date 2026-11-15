@@ -57,7 +57,14 @@ export function ratesText(t) {
   return rest.length ? `${tr.rate}% vs ${rest.join(' / ')}` : `${tr.rate}%`;
 }
 
-/** The scale's ends for these ratios: [lo, hi], 0.1 to 2 or wider. */
+/** The scale the plot is drawn on, as a journal's forest has one: fixed at 0.1 to 2, so the same value sits in the same place on every card; an
+ *  interval that runs past an end is cut there and ends in an arrowhead (forestLayout). */
+export const FOREST_SCALE = Object.freeze([0.1, 2]);
+/** Under each group: its trials counted different endpoints, so no summary diamond is drawn and none is implied. */
+export const NOT_POOLED = 'Not pooled: different endpoints';
+
+/** The scale's ends that would take every one of these ratios in: [lo, hi], 0.1 to 2 or wider (the plot itself uses FOREST_SCALE and
+ *  arrowheads). */
 export function forestRange(rows) {
   let lo = 0.1, hi = 2;
   for (const r of rows) { lo = Math.min(lo, r.lo); hi = Math.max(hi, r.hi); }
@@ -81,7 +88,7 @@ function clip(s, w, font, meas) {
  * its detail line under the axis. opts.notes: { id: words } added to that detail line.
  */
 export function forestLayout(trials, W, f, meas, opts = {}) {
-  const { highlight = null, selected = null, notes = null } = opts || {};
+  const { highlight = null, selected = null, notes = null, why = null } = opts || {};
   const texts = [], rects = [], lines = [], hits = [];
   const say = (x, y, t, look, anchor = 'start') => { if (t) texts.push({ x, y, t, look, anchor }); };
   const fs = f * SM, ip = Math.round(f * 0.5), lh = f * 1.35;
@@ -92,7 +99,7 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
   const order = (a, b) => (lit(b.t) - lit(a.t)) || (a.i - b.i);
   const rows = [];
   list.forEach((t, i) => { for (const r of ratiosOf(t)) rows.push({ t, r, i, kind: r.kind, lo: r.lo, hi: r.hi }); });
-  const [a, b] = forestRange(rows);
+  const [a, b] = opts.scale ?? FOREST_SCALE;
   const tk = TICKS.filter((v) => v >= a - 1e-9 && v <= b + 1e-9);
   const padL = meas(tickText(tk[0] ?? a), font(500, fs)) / 2 + 1, padR = meas(tickText(tk[tk.length - 1] ?? b), font(500, fs)) / 2 + 1;
   const x0 = ip + padL, x1 = Math.max(x0 + 40, W - ip - padR), la = Math.log(a), span = Math.log(b) - la;
@@ -104,8 +111,12 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     say(ip, y + fs, KIND_NAME[kind], 'forest.grp');
     y += lh + f * 0.2;
     const top = y;
+    const shownWhy = new Set();
     for (const { t, r } of group) {
-      const on = lit(t), rowH = Math.round(lh + f * 1.25);
+      // (The picked trial's first row here carries a second line: the one rule the patient fails, or how many rules were checked.)
+      const line = t.id === selected && !shownWhy.has(t.id) ? why?.[t.id] : null;
+      if (line) shownWhy.add(t.id);
+      const on = lit(t), rowH = Math.round(lh + f * 1.25) + (line ? Math.round(f * 0.95) : 0);
       if (t.id === selected) rects.push({ x: 0, y, w: W, h: rowH, r: Math.round(f * 0.6), look: 'forest.sel' });
       const name = t.short ?? t.name, val = ratioText(r), nw = meas(name, font(on ? 600 : 500)), vw = meas(val, font(500, fs));
       say(ip, y + f, name, on ? 'forest.nm' : 'forest.nm.dim');
@@ -115,11 +126,17 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
       const ty = Math.round(y + lh + f * 0.55), s = Math.round(f * 0.7);
       lines.push({ x1: X(r.lo), y1: ty, x2: X(r.hi), y2: ty, look: on ? 'forest.ci' : 'forest.ci.dim' });
       rects.push({ x: X(r.est) - s / 2, y: ty - s / 2, w: s, h: s, r: 1.5, look: on ? 'forest.mk' : 'forest.mk.dim' });
+      // An interval past either end of the scale ends in an arrowhead at that end (two strokes back from the tip), not a cut line.
+      const ah = f * 0.45, look = on ? 'forest.ci' : 'forest.ci.dim';
+      if (r.hi > b + 1e-9) { const x = X(b); lines.push({ x1: x - ah, y1: ty - ah * 0.8, x2: x, y2: ty, look }, { x1: x - ah, y1: ty + ah * 0.8, x2: x, y2: ty, look }); }
+      if (r.lo < a - 1e-9) { const x = X(a); lines.push({ x1: x + ah, y1: ty - ah * 0.8, x2: x, y2: ty, look }, { x1: x + ah, y1: ty + ah * 0.8, x2: x, y2: ty, look }); }
+      if (line) say(ip, y + lh + f * 0.9 + fs * 1.1, clip(line, W - 2 * ip, font(500, fs), meas), 'forest.why');
       hits.push({ id: t.id, y, h: rowH });
       y += rowH;
     }
     lines.push({ x1: X(1), y1: top + lh * 0.6, x2: X(1), y2: y - f * 0.2, look: 'forest.ref' });
-    y += f * 0.5;
+    say(ip, y + fs * 0.9, NOT_POOLED, 'forest.k');
+    y += fs * 0.9 + f * 0.7;
   }
   if (rows.length) {
     // The axis: its ticks and numbers, then which side favors which arm (beside the line at 1 when there is room, else at the ends).

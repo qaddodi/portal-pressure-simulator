@@ -32,6 +32,8 @@ export const FOREST = {
   // The row picked: a faint wash behind it
   'forest.sel': { base: { fill: mix('srgb', tok('text'), 7, 'transparent') } },
   // The picked trial's line (its two rates) and its detail
+  // The one rule that keeps the patient out of the picked trial (or how many rules were checked): under its interval
+  'forest.why': word(600, tok('text-2'), 0.92),
   'forest.dt': word(600, ink),
   'forest.dx': word(500, tok('text-2'), 0.92),
   // The name over the trials with no ratio
