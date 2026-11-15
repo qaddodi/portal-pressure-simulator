@@ -2,7 +2,7 @@
 //
 // The repository root stays a working, build-free site (GitHub Pages serves it as is, and
 // `npm start` runs it). This script writes an optimized copy to dist/ for hosts that can serve a
-// build output, and for the SCORM package:
+// build output:
 //
 //   - one module graph per entry (the app, the engine worker), split so the command palette
 //     and the presenter stay separate chunks loaded on first use;

@@ -52,7 +52,6 @@
     "check": "npm run lint && npm test && npm run build && npm run check:static",
     "check:static": "node scripts/check-static.mjs",
     "smoke:lite": "node scripts/smoke-lite.mjs",
-    "scorm": "node scripts/scorm.mjs",
     "visual": "node tests/e2e/visual.mjs",
     "smoke:order": "node tests/e2e/card-order.mjs",
     "smoke:credit": "node tests/e2e/credit-steady.mjs",

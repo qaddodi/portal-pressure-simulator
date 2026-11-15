@@ -126,8 +126,7 @@ devices slow down at rest to stay cool. See [docs/PERFORMANCE.md](docs/PERFORMAN
 
 ## For institutions
 
-- **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one script)
-  for the LMS. Deep links (`?script=sites`, `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
+- **Links.** Deep links (`?script=sites`, `?preset=csph`) open straight into an activity, for a syllabus or a class page. See [docs/LMS.md](docs/LMS.md). (No SCORM or LTI package: removed 15 Nov 2026, no plan to use it that way.)
 - **Accessibility.** Keyboard access to every structure, a live one-line description of the
   patient, reduced motion, color always paired with a second cue. See
   [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
@@ -146,7 +145,7 @@ devices slow down at rest to stay cool. See [docs/PERFORMANCE.md](docs/PERFORMAN
 | `src/ui/` | Stage (the GPU figure: Tube vessels, organs, moving blood, labels and glass; anatomy⇄circuit morph, lobule and sinusoid views), action card, timeline and history, Treat, Tests and its instruments (Doppler, FibroScan, HVPG, endoscopy, ascites), presenter, LMS bridge, accessibility |
 | `styles/` | Design tokens (the five looks) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
-| `scripts/` | The production build, the off-GPU scan and the lint rules, the shader compile check, screenshots (`shoot.mjs`), SCORM packaging, the preview badge, generated tables, local performance tools |
+| `scripts/` | The production build, the off-GPU scan and the lint rules, the shader compile check, screenshots (`shoot.mjs`), the preview badge, generated tables, local performance tools |
 | `tests/` | Unit and physiological acceptance tests; `tests/e2e/` browser checks; `tests/visual/` visual references |
 | `src/ui/decks/` | The presentation decks, one file each |
 | `docs/` | All documentation (see below) |
@@ -173,7 +172,7 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 | [docs/stage-map.md](docs/stage-map.md), [docs/test-classes.md](docs/test-classes.md) | Generated maps of `stage.js` and of the tests |
 | [docs/scheduling.md](docs/scheduling.md) | Who owns a timer |
 | [docs/recommendations/](docs/recommendations/) | Dated recommendation lists and build plans, each with a status line at its top |
-| [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
+| [docs/LMS.md](docs/LMS.md) | Deep links |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | WCAG 2.2 AA self-assessment |
 | [docs/PRIVACY.md](docs/PRIVACY.md) | What the app stores and sends (nothing off the device) |
 | [guides/](guides/) | The two beta tester start guides (PDF), served at `/guides/` |

@@ -14,10 +14,9 @@ Portal Pressure Simulator runs entirely in the browser. Updated 11 November 2026
 - **What leaves the device**, only by the user's action: shared links and script files (which
   contain the model state or a script). *Send feedback* (in Settings) opens a draft in the
   user's own email app, with the device, screen size, frame speed, recent errors and a link to
-  the view. Nothing is sent unless the user sends that email. Inside an LMS (SCORM) no score is
-  reported.
+  the view. Nothing is sent unless the user sends that email. No score is reported anywhere.
 - **Offline cache.** A service worker caches the app's own files so it works offline. It caches
   nothing else.
 
-For institutions this supports FERPA and GDPR compliance: the LMS remains the system of record,
-and no student data is processed by the publisher.
+For institutions this supports FERPA and GDPR compliance: no student data is processed by the publisher
+and none leaves the device unless the user sends it.

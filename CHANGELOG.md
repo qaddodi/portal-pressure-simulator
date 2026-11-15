@@ -2,6 +2,10 @@
 
 ## November 2026
 
+- **SCORM removed.** (15 Nov 2026, Mohammad: "No plans to use it like that for now.") `scripts/scorm.mjs` (`npm run scorm`), `src/ui/lms.js` (the client that finished a SCORM attempt on exit) and the README's LMS claim are gone, so nothing builds a 35 MB package. Deep links stay (`docs/LMS.md`). PROD-7 / SHELL-4 / SHELL-5 of the full app review.
+
+- **Main's deploy waits for a gate.** (15 Nov 2026, PROD-1, PROD-2.) `pages.yml` runs the strict build and the smoke (`scripts/smoke-lite.mjs`) on main before it deploys; the preview branch deploys at once as before. `ci.yml`'s build is its own job, so a failing lint no longer hides the smoke. The line budgets in `scripts/size-budget.json` are re-set at today's counts plus about 3%; the split plan lowers them. `tests/deploy-gate.test.js` fails if a deploy can run on main without the gate.
+
 - **New talk, "Two lesions, one circulation" (`two-lesions`), and a `retain` action.** (14 Nov 2026, item 5 of the external-review opinion, approved by Mohammad.)
   One man with cirrhosis and CSPH (HVPG 11.6, PPG 13.5 mmHg) gets a portal vein clot (PPG 18.6, HVPG 8.4), then constrictive pericarditis on top (right atrium about 20, HVPG 4.1, PPG 13.5, portal vein about 35 mmHg, ascites about 6.7 L), then loses the clot and the constriction in turn, and the talk ends on how they interact: the clot raises the PPG and lowers the HVPG, congestion lowers both gradients, and together the HVPG reads normal and the PPG sits where it began. Every number on a slide is a live pill; `tests/two-lesions.test.js` holds the claims and checks that the order of the two lesions does not change the readings. The action `{ kind: 'retain', mL }` (worker-core.js) keeps or gives up salt and water, as a preset's `volume` does on load, so a lesion that needs retained volume can be added to and taken off a patient already on screen. Guide 8.3.
 

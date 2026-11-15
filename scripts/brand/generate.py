@@ -83,7 +83,7 @@ def main():
     art = f'<path d="{LIVER}" fill="{TISSUE}"/>{vessels("url(#pv)")}'
     (OUT / 'mark-maskable.svg').write_text(svg('0 0 32 32', f'<rect width="32" height="32" fill="{INK}"/><g transform="translate(16 16) scale(.72) translate(-16 -16)">{art}</g>', defs=GRAD.format(id='pv')))
 
-    # Horizontal lockup: mark, then the name on one line (sales page, SCORM package).
+    # Horizontal lockup: mark, then the name on one line (sales page).
     name, w1 = text_path('Portal Pressure', 650, 22, 52, 31, -0.012)
     sub, w2 = text_path('Simulator', 430, 22, 52 + w1 + 7, 31, -0.008)
     W = round(52 + w1 + 7 + w2 + 2)

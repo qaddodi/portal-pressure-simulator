@@ -24,7 +24,6 @@ import { createCard } from './card.js';
 import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
 import { caption } from './a11y.js';
-import { startLMS } from './lms.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
@@ -161,7 +160,6 @@ async function main() {
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
   glassAtLoad(document.documentElement, { stored: storedGlassMode(readLS) });   // (Settings › Blur effect as stored; on where none was chosen, every device, 12 Nov 2026)
-  startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
   // Language selection was removed too (English only, to come back later): drop an old saved choice.
@@ -511,7 +509,7 @@ async function main() {
   const warmUnder = () => { if (!booting()) return; while (warmUp.length) holdCover(Promise.resolve().then(warmUp.shift()).catch(() => {})); };
   if (window.ppsFigureReady) warmUnder(); else addEventListener('pps:figure-ready', warmUnder, { once: true });
 }
-// Deep links, for an LMS or a syllabus: ?script=<id> (&slide=<n>), ?preset=<id>,
+// Deep links, for a syllabus or a class page: ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
