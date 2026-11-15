@@ -6,6 +6,10 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 const FLUID = { kind: 'fluid', window: true, forces: true };
 const BELLY = { kind: 'abdomen' };
+// The SAAG and protein plane (tool-saag.js, review F7): the three patients the slides above showed, and a peritoneal cause the model does not simulate (the numbers of the
+// quiz question on the slide, SAAG 0.6 and total protein 4.2 g/dL), as an open ring named so. The case slide's own patient is filled in full ink (own).
+const PLANE_OF = [{ id: 'fill', name: 'Cirrhosis' }, { id: 'hf', name: 'Heart failure' }, { id: 'bc', name: 'Budd–Chiari' }];
+const SAAG_PLANE = { kind: 'saag', extra: [{ name: 'Peritoneal carcinomatosis', saag: 0.6, tp: 4.2 }] };
 // The relation chart's course: the same patient as the Tense ascites and Large-volume paracentesis slides (tests/relation-ascites-chart.test.js
 // keeps them equal), day by day from the tap, two weeks with nothing done, then each treatment from that day for four weeks.
 const COURSE = {
@@ -91,7 +95,7 @@ export const ASCITES = {
       ask: ['Why is ascitic total protein high in heart failure and low in cirrhosis?', 'The congested sinusoid still has open fenestrae that let protein through; in cirrhosis, capillarization has closed them and laid down a basement membrane.'],
     },
     {
-      id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
+      id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', of: PLANE_OF, tool: { ...SAAG_PLANE, own: 'hf' }, data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'cardiac', title: 'Heart failure gives high-SAAG, high-protein ascites',
       vignette: 'A 74-year-old man with ischemic cardiomyopathy and severe TR has a swollen abdomen and leg edema. His JVP is elevated to the earlobes, and his liver tests are only mildly abnormal.',
       line: 'The sinusoid wall is still fenestrated, so congestion drives protein-rich lymph into the peritoneal cavity: SAAG {saag}, >1.1 g/dL, and total protein {tp}, >2.5 g/dL.',
@@ -107,7 +111,7 @@ export const ASCITES = {
       ask: ['High-SAAG, high-protein ascites and a normal JVP. Where do you look?', 'At the hepatic veins and the IVC, for Budd–Chiari syndrome (Doppler ultrasound).'],
     },
     {
-      id: 'map', visual: 'quadrant', of: [{ id: 'fill', name: 'Cirrhosis' }, { id: 'hf', name: 'Heart failure' }, { id: 'bc', name: 'Budd–Chiari' }],
+      id: 'map', cam: 'fit', of: PLANE_OF, tool: SAAG_PLANE,
       kicker: 'Telling them apart', title: 'SAAG and total protein locate the cause of ascites',
       line: 'The SAAG shows whether portal hypertension is the cause. The ascitic total protein shows whether the sinusoids are capillarized or still permeable.',
       notes: 'Read the SAAG first: ≥1.1 g/dL indicates portal hypertension. Then the total protein: <2.5 g/dL fits cirrhosis (capillarized sinusoids); ≥2.5 g/dL with a high SAAG fits heart failure or early Budd–Chiari syndrome (open, congested sinusoids). A low SAAG with a high protein means peritoneal disease: peritoneal carcinomatosis, tuberculous peritonitis, pancreatic ascites. A low SAAG with a low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites: the sinusoids lie downstream of the resistance at near-normal pressure (see Portal vein clots and Presinusoidal portal hypertension). The points are the model\'s patients.',

@@ -28,6 +28,7 @@
 //
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
+//                                                   hold: true adds the carvedilol hold rail under the pressure; rail: 'hb' the hemoglobin's, with the 7 to 8 g/dL target (vitals-monitor.js)
 //   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card, the catheter in the hepatic vein on the figure beside it (the slide's own camera; its balloon is
 //                                                   the tracing's, up for the wedge, down for the free; none on a slide in the lobule): it plays free, wedge and
 //                                                   result going forward onto the slide, then holds the result and eases with the model

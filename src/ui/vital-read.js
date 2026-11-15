@@ -3,6 +3,7 @@
 // 1.5 s before it changes, and clears only a little inside the cut-off (hysteresis), so a patient sitting on a cut-off
 // does not flicker red; a paused model takes its flag at once.
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
+import { TRANSFUSE } from '../engine/transfusion-cuts.js';
 
 export const VITAL_HOLD = 1500;
 
@@ -36,7 +37,7 @@ export const VITALS = [
   { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
   // (to: where the reading is heading, the hemoglobin once the plasma has refilled after a bleed or a unit's extra plasma has gone,
   // engine.js RED: the bar prints it beside the number while the two differ, so a bleed shows on the hemoglobin at once.)
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, to: (m) => m.blood.hbSettled, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, to: (m) => m.blood.hbSettled, d: 1, u: 'g/dL', cut: TRANSFUSE.lo, low: true, hys: 0.2 },
 ];
 
 // Where a vital is heading (its `to`), or null while it is there already: shown from TO_SHOW apart, kept until TO_HIDE, so a reading

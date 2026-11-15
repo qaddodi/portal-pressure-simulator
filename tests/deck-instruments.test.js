@@ -173,7 +173,7 @@ test('V20, V21, V29: the Doppler takes a slide\'s options, and a slide that name
   assert.match(DOP, /return \{ id: 'doppler'[^}]*configure, dispose \};/);
   assert.match(DOP, /const m = MODE_OF\[t\?\.mode\] \|\| 'spectrum';/);
   assert.match(DOP, /color: 'velocity'/);
-  assert.match(DOP, /calip = !!t\?\.calipers/);
+  assert.match(DOP, /calSlide = !!t\?\.calipers/);
   assert.match(DOP, /pair = !!t\?\.pair/);
   assert.equal(pairOf('portal'), 'RHV_IVC'); assert.equal(pairOf('hepatic'), 'PV_TRUNK'); assert.equal(pairOf('tips'), 'RHV_IVC');
   for (const hAll of [60, 100, 140, 200, 300]) {

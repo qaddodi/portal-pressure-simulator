@@ -38,6 +38,7 @@ import { DISEASE_SRC, diseasePieces } from './diseases.js';
 import { nb, listCase, plateletText } from './glue.js';
 import { DECKS, DECK_ALIAS, REGIONS, LEVELS, TOPICS, withOverview, siteTag, SITE_TAGS } from './decks.js';
 import { fingerprintOf } from '../engine/fingerprint.js';
+import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/ascites-cuts.js';
 import { hvpgSev, TOKEN_OF_RATE, NOT_MEASURABLE, VALUE_PENDING } from '../engine/pressure-cuts.js';
 import { createHvpgMonitor } from './hvpg-proc.js';
 import { createTools } from './presenter-tools.js';
@@ -2560,7 +2561,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return;
       if (rowIdx(s).some((x) => !states[x])) degrade('table-rows');   // (R15: shown with placeholders for the rows still computing, and said so)
     }
-    else if (s.visual) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
+    else if (s.visual || (s.tool && s.of)) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }   // (a tool that plots other slides' patients, the SAAG plane, waits for them as a visual does)
     // A new patient's case (s.vignette), going forward: a centred glass card covers the figure while the patient loads behind it
     // (it stays up while the camera glides, once, to the slide's own framing; Next lifts it, and the slide's cards then come in with no further move).
     const skipCase = noCase; noCase = false;
@@ -3458,10 +3459,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const ascCells = (r, n) => {
       if (!r.f) return [pendEl(), pendEl()];
       if (r.f.asc < NO_ASC) return [h('td', { class: 'num none', colspan: '2' }, 'None')];
-      const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
+      const hiS = saagPortal(r.f.saag), hiP = tpHigh(r.f.tp);
       if (isRef(r, n)) return [h('td', { class: 'num ref', 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), h('td', { class: 'num ref' }, fmt(r.f.tp, 1))];
-      return [h('td', { class: 'num dir', 'data-rate': hiS ? 'hi' : null, title: `SAAG ${fmt(r.f.saag, 1)} g/dL` }, arrowEl(hiS ? 1 : -1), h('span', { class: 'sr-only' }, `SAAG ${hiS ? '1.1 or more' : 'under 1.1'}, ${fmt(r.f.saag, 1)}`)),
-        h('td', { class: 'num dir', title: `Protein ${fmt(r.f.tp, 1)} g/dL` }, arrowEl(hiP ? 1 : -1), h('span', { class: 'sr-only' }, `protein ${hiP ? '2.5 or more' : 'under 2.5'}, ${fmt(r.f.tp, 1)} g/dL`))];
+      return [h('td', { class: 'num dir', 'data-rate': hiS ? 'hi' : null, title: `SAAG ${fmt(r.f.saag, 1)} g/dL` }, arrowEl(hiS ? 1 : -1), h('span', { class: 'sr-only' }, `SAAG ${hiS ? `${SAAG_PORTAL} or more` : `under ${SAAG_PORTAL}`}, ${fmt(r.f.saag, 1)}`)),
+        h('td', { class: 'num dir', title: `Protein ${fmt(r.f.tp, 1)} g/dL` }, arrowEl(hiP ? 1 : -1), h('span', { class: 'sr-only' }, `protein ${hiP ? `${TP_HIGH} or more` : `under ${TP_HIGH}`}, ${fmt(r.f.tp, 1)} g/dL`))];
     };
     // One legend, built from the table itself: what the arrows compare with, the reference row's units, the ring.
     const units = [...new Set(cols.map((k) => (PRESS.has(k) ? 'press' : k)).filter((k) => UNIT_WORDS[k]))].map((k) => UNIT_WORDS[k]);

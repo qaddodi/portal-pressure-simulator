@@ -29,6 +29,8 @@ export const ADOPTED = {
   'circulation/path-ladder': ['kind:path', 'tool.patient'],
   'ascites/path-asc': ['kind:path', 'tool.patient'],
   'ascites/frailty': ['cite'],
+  'ascites/map': ['kind:saag'],
+  'ascites/hf': ['kind:saag'],
   'ascites/path-hold': ['kind:path', 'tool.patient'],
   'stiffness/aasld': ['kind:path'],
   'shunts/path-asc': ['kind:path', 'tool.patient'],

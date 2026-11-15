@@ -30,6 +30,7 @@ import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { reduceMotionMQ } from './motion.js';
 import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
+import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
@@ -897,7 +898,7 @@ export function createAbdomen({ onAction }) {
       const ka = r1(p.albumin), kb = r1(a.albumin);   // (the two parts as the line prints them, to a tenth)
       if (!Object.is(cTip.a, ka) || !Object.is(cTip.b, kb)) {
         cTip.a = ka; cTip.b = kb;
-        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. SAAG ≥1.1 g/dL indicates portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
+        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. SAAG ≥${SAAG_PORTAL} g/dL indicates portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
       }
       tip = cTip.s;
     }

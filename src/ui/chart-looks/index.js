@@ -17,6 +17,8 @@ import { PATH } from './path.js';
 import { ALLP } from './allp.js';
 import { TRIAL } from './trial.js';
 import { FOREST } from './forest.js';
+import { STIFF } from './stiff.js';
+import { SAAG } from './saag.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -37,6 +39,8 @@ export const LOOKS = {
   ...ALLP,
   ...TRIAL,
   ...FOREST,
+  ...STIFF,
+  ...SAAG,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -57,5 +61,7 @@ export const HOSTS = {
   pstriph: (c) => c.scale.cap ?? 12,
   trial: (c) => c.scale.sm ?? 12,   // (the trial card: one type size, the card's small size, grown to 12 px at the least by fittedType)
   forest: (c) => c.scale.sm ?? 13,   // (the forest plot, trial-forest.js: the Tests card's 13 px, or the card's small size on a slide)
+  stiff: (c) => c.scale.sm ?? 12,   // (the stiffness bar under the FibroScan number, stiff-bar.js: the card's small size, grown to 12 px at the least by fittedType)
+  saag: (c) => c.scale.sm ?? 12,   // (the SAAG and protein plane, tool-saag.js)
   path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };

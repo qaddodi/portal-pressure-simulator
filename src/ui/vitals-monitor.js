@@ -6,6 +6,9 @@
 // at a systolic <90 or a mean <65 mmHg.
 // hold: true adds a rail under the numbers when the pressure is shown (features item 41): a scale from RAIL_LO to RAIL_HI mmHg with both carvedilol
 // hold lines of Baveno VIII 4.6, the mean's at 65 and the systolic's at 90, the patient's pressure as a bar from diastolic to systolic and a dot at the mean.
+// rail: 'hb' (Mohammad's review, 15 Nov 2026) puts a rail under a shown hemoglobin instead: a scale from HB_LO to HB_HI g/dL with Baveno VIII 5.4's target, 7 to 8, shaded
+// and marked at both ends, the patient's hemoglobin as a dot, a ring where it is heading once the plasma has refilled (when that differs), and one word that
+// follows the number printed: Below 7, In target, Above target (transfusion-cuts.js, the one copy). (hold wins where a slide sets both.)
 // The strip is a schematic rhythm, not a modelled ECG. A recording kind: a new patient starts its strip over (card-keep.js records).
 // While the model's own clock stands still (a disease time-lapse runs a year in ten seconds with the beat parked, and a state easing in
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
@@ -14,8 +17,9 @@
 import { h, fmt, canvasSize, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
-import { VITALS, vitalReading, bpText } from './vital-read.js';
+import { VITALS, vitalReading, bpText, TO_SHOW } from './vital-read.js';
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
+import { TRANSFUSE, TRANSFUSE_WORDS, transfuseBand } from '../engine/transfusion-cuts.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
 import { olderThan, inFront } from './backfill.js';
 import { dropFrontNums } from './drop-front.js';
@@ -28,6 +32,9 @@ export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
 export const RAIL_LO = 40, RAIL_HI = 150, RAIL_H = 26;   // (the hold rail's scale in mmHg, and the height it takes under the numbers)
 /** Where a MAP stands on the rail, 0 to 1. */
 export const railAt = (v) => clamp((v - RAIL_LO) / (RAIL_HI - RAIL_LO), 0, 1);
+export const HB_LO = 4, HB_HI = 14;   // (the hemoglobin rail's scale in g/dL: a bleed's 13 or so at the start to 4, with the 7 to 8 target a fifth of the way along)
+/** Where a hemoglobin stands on its rail, 0 to 1. */
+export const hbAt = (v) => clamp((v - HB_LO) / (HB_HI - HB_LO), 0, 1);
 // The monitor on the GPU (vitals-gl.js: rounded rectangles, the strip as a line of capsules, words and digits from one glyph atlas); no
 // 2D canvas is drawn while the strip scrolls.
 const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3, JUMP_S = 0.3, STEP_S = 0.004;   // (JUMP_S: more than this ahead of the last sample is a clock that was set, not the next frame)
@@ -39,8 +46,8 @@ export function vitalsShown(t) {
 }
 /** A slide's fingerprint as the metrics the vitals read (VITALS[].v falls back to the flat keys). */
 // (The metrics are one kept object written in place, read by the draw that asks: a pinned slide's frame draws many times a second.)
-const FP_METRICS = { map: 0, sbp: NaN, dbp: NaN, hr: 0, co: 0, ra: 0, blood: { hb: 0 } };
-export const metricsOfFp = (fp) => { const m = FP_METRICS; m.map = fp.map; m.sbp = fp.sbp ?? NaN; m.dbp = fp.dbp ?? NaN; m.hr = fp.hr; m.co = fp.co; m.ra = fp.ra; m.blood.hb = fp.hb; return m; };
+const FP_METRICS = { map: 0, sbp: NaN, dbp: NaN, hr: 0, co: 0, ra: 0, blood: { hb: 0, hbSettled: NaN } };
+export const metricsOfFp = (fp) => { const m = FP_METRICS; m.map = fp.map; m.sbp = fp.sbp ?? NaN; m.dbp = fp.dbp ?? NaN; m.hr = fp.hr; m.co = fp.co; m.ra = fp.ra; m.blood.hb = fp.hb; m.blood.hbSettled = fp.hbTo ?? NaN; return m; };
 /** The cells to print: each vital's short name, value, unit, decimals and whether it is past its cut-off (with the bottom bar's hold and hysteresis).
  *  The list and its cells are kept per monitor (its `xs`) and written in place: a frame makes none, and a caller reads them as they are returned. */
 const CELL_LISTS = new WeakMap();
@@ -73,7 +80,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   const clock = createBeatClock();
   const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
-  let ids = VITALS_DEFAULT, holdLine = false, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
+  let ids = VITALS_DEFAULT, holdLine = false, hbRail = false, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
   // (synth: the strip on its own clock while the model's stands still, { w: the beat walk, at: when it was last moved on }; off: the model's
   // time plus off is the strip's, which the walk moves on from; synthed: it has run since the strip was last cleared)
   let synth = null, off = 0, synthed = false;
@@ -101,7 +108,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   let lay = null, layW = -1, layH = -1, layN = -1, pts = new Float32Array(512);
   const layK = [], layU = [];   // (the cells' words the layout was found for)
   let layRail = false;
-  const railOn = (cells) => holdLine && cells.some((c) => c.id === 'map');
+  const railOn = (cells) => (holdLine && cells.some((c) => c.id === 'map')) || (hbRail && !holdLine && cells.some((c) => c.id === 'hb'));
   function layout(w, hh, cells) {
     const rail = railOn(cells);
     let same = lay && w === layW && hh === layH && cells.length === layN && rail === layRail;
@@ -146,20 +153,22 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   };
   // The version of the rectangles and words (DRAW.ver): bumped, by a compare field by field (no string is made), when anything they show differs from
   // the frame they were written for. stillNow answers whether it did, and keeps what this frame shows for the next to be compared with.
-  let ver = 0, kN = -1, kW = -1, kH = -1, kDpr = -1, kL = null;
+  let ver = 0, kN = -1, kW = -1, kH = -1, kDpr = -1, kL = null, kTo = NaN;
   const kC = [null, null, null, null, null, null, null], kId = [], kK = [], kU = [], kDec = [], kBad = [], kVal = [], valS = [];
-  function stillNow(cells, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art) {
+  function stillNow(cells, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art, to) {
     const n = cells ? cells.length : 0;
-    let same = n === kN && w === kW && hh === kH && dpr === kDpr && L === kL
+    let same = n === kN && w === kW && hh === kH && dpr === kDpr && L === kL && Object.is(to, kTo)
       && kC[0] === bg && kC[1] === text && kC[2] === bright && kC[3] === alarm && kC[4] === grid && kC[5] === ecg && kC[6] === art;
     for (let i = 0; same && i < n; i++) { const c = cells[i]; if (kId[i] !== c.id || kK[i] !== c.k || kU[i] !== c.u || kDec[i] !== c.d || kBad[i] !== c.bad || kVal[i] !== valS[i]) same = false; }
     if (same) return false;
-    kN = n; kW = w; kH = hh; kDpr = dpr; kL = L;
+    kN = n; kW = w; kH = hh; kDpr = dpr; kL = L; kTo = to;
     kC[0] = bg; kC[1] = text; kC[2] = bright; kC[3] = alarm; kC[4] = grid; kC[5] = ecg; kC[6] = art;
     for (let i = 0; i < n; i++) { const c = cells[i]; kId[i] = c.id; kK[i] = c.k; kU[i] = c.u; kDec[i] = c.d; kBad[i] = c.bad; kVal[i] = valS[i]; }
     ver++;
     return true;
   }
+  // (The target band's tint, the ECG green at a third: made when the rail's picture is, not in a frame.)
+  const ecgTint = (c) => [c[0] * 0.35, c[1] * 0.35, c[2] * 0.35, c[3] * 0.35];
   const inkOf = (id, ecg, art, bright) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
   // The cells with no metrics yet: the names, no numbers (kept, one per id).
   const BLANK = new Map(), BLANK_LIST = [];
@@ -245,7 +254,8 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     // The rectangles and words are written again only when something they show changed: the size and density, the colours, the layout, the
     // cells' words, a printed number or an alarm flag (stillNow, the stillKey/keyNow pattern of stage.js). A frame that scrolls only the strip
     // leaves the lists as they are, with the version they had, and vitals-gl.js keeps the instance data it built from them on the GPU.
-    if (stillNow(m ? cells : null, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art)) {
+    const toHb = hbRail && m ? m.blood?.hbSettled : NaN;   // (where the hemoglobin is heading, for the rail's ring)
+    if (stillNow(m ? cells : null, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art, toHb)) {
       rectAt(0, 0, 0, w, hh, 12, bg); rectAt(1, pad, Math.round(bot - 6), ew, 1, 0, grid);
       let nr = 2, nt = 0;
       textAt(nt++, 'EKG', 600, 12, pad, top + 11, text);
@@ -278,6 +288,27 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
           if (Number.isFinite(vm)) rectAt(nr++, pad + railAt(vm) * ew - 5, ry + 0.5, 10, 10, 5, bad ? alarm : art);
           textAt(nt++, `MAP <${MAP_BETA_CUT}`, 500, 12, cutX - textWidth(`MAP <${MAP_BETA_CUT}`, 500, 12) - 5, ry + 22, text);
           textAt(nt++, `Sys <${SBP_BETA_CUT}`, 500, 12, sbpX + 5, ry + 22, text);
+        }
+        // The hemoglobin rail: the scale, the target 7 to 8 shaded and named at both ends, the dot where the hemoglobin is (the printed number's place), a ring where it
+        // is heading, and the one word the number printed earns, at the right (review F4).
+        const hi = L.rail && hbRail && !holdLine ? cells.findIndex((c) => c.id === 'hb') : -1;
+        if (hi >= 0) {
+          const ry = L.rail, vh = parseFloat(valS[hi]), bad = cells[hi].bad, ink = bad ? alarm : bright, loX = pad + hbAt(TRANSFUSE.lo) * ew, hiX = pad + hbAt(TRANSFUSE.hi) * ew;
+          rectAt(nr++, pad, ry + 4, ew, 3, 1.5, grid);
+          rectAt(nr++, loX, ry + 1, hiX - loX, 9, 2, ecgTint(ecg));
+          rectAt(nr++, loX - 1, ry, 2, 11, 1, ecg);
+          rectAt(nr++, hiX - 1, ry, 2, 11, 1, ecg);
+          if (Number.isFinite(toHb) && Number.isFinite(vh) && Math.abs(toHb - vh) >= TO_SHOW) {
+            const cx = pad + hbAt(toHb) * ew; rectAt(nr++, cx - 5, ry + 0.5, 10, 10, 5, ink); rectAt(nr++, cx - 3.2, ry + 2.3, 6.4, 6.4, 3.2, bg);
+          }
+          if (Number.isFinite(vh)) rectAt(nr++, pad + hbAt(vh) * ew - 5, ry + 0.5, 10, 10, 5, ink);
+          const t7 = String(TRANSFUSE.lo), t8 = String(TRANSFUSE.hi);
+          textAt(nt++, t7, 500, 12, loX - textWidth(t7, 500, 12) - 4, ry + 22, text);
+          textAt(nt++, t8, 500, 12, hiX + 4, ry + 22, text);
+          if (Number.isFinite(vh)) {
+            const band = transfuseBand(vh), word = TRANSFUSE_WORDS[band];
+            textAt(nt++, word, 600, 12, pad + ew - textWidth(word, 600, 12), ry + 22, band === 'below' ? alarm : band === 'in' ? ecg : text);
+          }
         }
       }
       RECTS.length = nr; TEXTS.length = nt;
@@ -395,7 +426,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   }
   return {
     id: 'vitals', label: 'Vital signs', el,
-    configure(t) { ids = vitalsShown(t); holdLine = t?.hold === true; lay = null; },
+    configure(t) { ids = vitalsShown(t); holdLine = t?.hold === true; hbRail = t?.rail === 'hb'; lay = null; },
     update(f) { ingest(f); wake(); if (!ticking) draw(); },
     pin(fp) { pinned = fp || null; if (frame || pinned) draw(); },
     /** A new patient: the strip starts over, its numbers wait for the new state's own. */

@@ -14,14 +14,14 @@ import { readFrameFor, noteDraw, paceMs, restGapFor, restPark, cancelFrame, fram
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow, PROBE_NORMAL } from './velNormal.js';
 import { calloutCell } from './trace-callouts.js';
-import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility } from './doppler-marks.js';
+import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility, riForms } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
 import { lineBand } from './doppler-synth.js';
 import { surface } from './gpu-surfaces.js';
 import { olderThan } from './backfill.js';
 import { createFollow } from './display-state.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
-import { smooth01 } from './motion.js';
+import { smooth01, reduced } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
@@ -339,7 +339,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function ingest(f) {
     frame = f;
-    if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; calTap = false; calFresh = false; calReset(); if (probeSel.value !== probe) probeSel.value = probe; tapWire(); }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
     if (g !== gateNow) { gateNow = g; clearBuf(); wl = null; synth = null; scale = null; heldTo = null; steady.probe = null; }
@@ -730,10 +730,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); }
   }
   // (The canvas's spoken summary is made between frames from the last reading's kept values, once however many readings came.)
-  let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false;
+  let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false, calAria = '';
   function ariaWrite() {
     ariaDue = false;
-    attrSoon(cv, 'aria-label', `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.`);
+    attrSoon(cv, 'aria-label', `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.${calAria ? ` ${calAria}` : ''}${meta().kind === 'artery' && !calSlide ? ` Tap the spectrum to ${calTap ? 'clear' : 'mark'} the peak and the trough.` : ''}`);
   }
 
   // ── Display ───────────────────────────────────────
@@ -1060,7 +1060,18 @@ export function createDoppler({ onProbe, pickGate = true }) {
       ctx.font = FONT(700, 12); ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(pi, x0, yLab);
       x0 += textW(ctx, pi) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
     }
-    const room = w - padR - x0 - 6, settings = SETTINGS[mode === 'spectrum' ? 0 : 1][svMm()][sweepIndex];
+    const settings = SETTINGS[mode === 'spectrum' ? 0 : 1][svMm()][sweepIndex];
+    const form = calForm();
+    if (form) {
+      // (The artery's working, in the marks' colour, before the settings: the longest form that leaves the first setting its place.)
+      ctx.font = FONT(700, 12);
+      const spare = w - padR - x0 - 6 - textW(ctx, settings[0]) - 12;
+      let fi = 0; while (fi < 3 && textW(ctx, form.forms[fi]) > spare) fi++;
+      ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(form.forms[fi], x0, yLab);
+      x0 += textW(ctx, form.forms[fi]) + 12; ctx.font = FONT(500, 12); ctx.fillStyle = cssAlpha('--white', .5);
+      if (form.aria !== calAria) { calAria = form.aria; if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } }
+    } else if (calAria) { calAria = ''; if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } }
+    const room = w - padR - x0 - 6;
     let np = settings.length;
     while (np > 1 && textW(ctx, settings[np - 1]) > room) np--;
     if (textW(ctx, settings[np - 1]) <= room) ctx.fillText(settings[np - 1], x0, yLab);
@@ -1226,7 +1237,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // number the pattern is named from. Each frame takes one pick (caliperFrame) for the lines and the index alike. Nothing
   // jumps (Mohammad, 19 Oct): the upright stays at the left end, and when a new extreme arrives or the old one leaves the
   // window, its line and the upright's end tick ease to the new level (CAL_FADE). The index changes at once. ──
-  let calip = false, cal = null;
+  // (calSlide: the slide's own calipers, always on; calTap: the learner's tap on an artery's spectrum, Mohammad's review, 15 Nov 2026: the two marks snap to the
+  // systolic peak and the end-diastolic trough, and the resistive index is written out once, in the bottom strip.)
+  let calSlide = false, calTap = false, calFresh = false, cal = null;
+  const calOn = () => calSlide || (calTap && meta().kind === 'artery');
+  // The tap: on an artery's spectrum (the card is a button there, for the keyboard too), it marks the peak and the trough, and again clears them. A slide that
+  // asks for calipers has them always.
+  const tapOk = () => meta().kind === 'artery' && !calSlide;
+  function tapCal() {
+    if (!tapOk()) return;
+    calTap = !calTap; calFresh = calTap; if (!calTap) calReset();
+    logAction('calipers', 'doppler', calTap);
+    if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); }
+    redraw();
+  }
+  box.addEventListener('click', tapCal);
+  box.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === box && tapOk()) { e.preventDefault(); tapCal(); } });
+  const tapWire = () => { propSoon(box, 'tabIndex', tapOk() ? 0 : -1); if (!ariaDue) { ariaDue = true; runSoon(ariaWrite); } };
   // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
   const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
   // (The words of the bracket's two numbers, kept: rebuilt only when the number moves.)
@@ -1242,13 +1269,14 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const xAt = (t) => xPadL + (xRW - 1 - (xC - Math.floor(t * xCps))) / xDpr;
   function calNow(tNow, W) {
     // (On a portal vein, the calipers stand on the beat the reading's pulsatility and pattern come from, medianBeat: one number on screen.)
-    const mb = calip && meta().kind === 'portal' && READ.beatPi >= 0 ? READ : null;
-    cal = calip && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W, mb ? mb.beatB0 : NaN, mb ? mb.beatB1 : NaN) : null;
+    const on = calOn(), mb = on && meta().kind === 'portal' && READ.beatPi >= 0 ? READ : null;
+    cal = on && tNow != null && probe ? caliperFrame(buf, tNow, sweepSeconds, W, CAL_W, mb ? mb.beatB0 : NaN, mb ? mb.beatB1 : NaN) : null;
     if (cal) cal.gf = gateFactor(); else calReset();
   }
   // One level's easing, moved on to the pick's level (the pick is the monitor's own record of that mark: [time, level]).
   function calLevel(m, v, now) {
-    if (!m.on) { m.on = true; m.from = v; m.to = v; m.at = now; }
+    // (A tap on the artery brings the two marks out from the middle of the two levels to their places, the snap; reduced motion, and a slide's calipers, show them placed.)
+    if (!m.on) { m.on = true; m.from = calFresh && !reduced() && cal ? (cal.hi[1] + cal.lo[1]) / 2 : v; m.to = v; m.at = now; }
     else if (m.to !== v) { m.from = caliperLevel(m.from, m.to, (now - m.at) / 1000); m.to = v; m.at = now; }
     if ((now - m.at) / 1000 < CAL_FADE) labBusy = true;
     return Math.round(calY(caliperLevel(m.from, m.to, (now - m.at) / 1000))) + 0.5;
@@ -1260,6 +1288,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     cSgn = sgn; cK = k; cPx = pxPerV; cBase = baseY; cPadT = padT; cH = H;
     const xc = caliperX(padL, CAL_TICK), x1 = padL + W;
     lvHi = calLevel(calMk.hi, cal.hi[1], now); lvLo = calLevel(calMk.lo, cal.lo[1], now);
+    calFresh = false;
     ctx.save();
     // What the index measures is the gap in speed between the two levels: each runs dashed across the trace, and the upright
     // with end ticks spans the two.
@@ -1298,7 +1327,26 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
   // Its words come from a table of the hundredths, the index being at most 2.)
-  const calText = () => (cal ? PI_TEXT[Math.max(0, Math.min(PI_TEXT.length - 1, Math.round(cal.pi * 100)))] : '');
+  // (On an artery the index is the resistive index and is written out in full, calForm; the pulsatility's own words are for the veins.)
+  const calText = () => (cal && meta().kind !== 'artery' ? PI_TEXT[Math.max(0, Math.min(PI_TEXT.length - 1, Math.round(cal.pi * 100)))] : '');
+  // The artery's working, made again only when a number it shows changes: "RI = (PSV − EDV) / PSV = (62 − 20) / 62 = 0.68", then the same without the
+  // numbers' working, then the numbers alone, then "RI 0.68" for a card too narrow for any of them. The numbers are the marks' own, as they print.
+  // The strip takes the longest of them that leaves the settings their first word.
+  const FORM = { psv: NaN, edv: NaN, ri: NaN, forms: ['', '', '', ''], aria: '' };
+  function calForm() {
+    if (!cal || meta().kind !== 'artery') return null;
+    const sg0 = pol(), k0 = dopplerK(EDGES[EI[probe]]);   // (this frame's own: the marks' numbers are worked out the same way, calNum)
+    const a = Math.round(sg0 * cal.hi[1] * k0 * cal.gf), b = Math.round(sg0 * cal.lo[1] * k0 * cal.gf);
+    const flip = Math.abs(a) >= Math.abs(b) ? 1 : -1, psv = Math.abs(flip === 1 ? a : b), edv = flip === 1 ? b : a, sg = (flip === 1 ? a : b) < 0 ? -1 : 1;
+    const e = sg * edv, ri = Math.round(Math.max(0, cal.pi) * 100) / 100;
+    if (FORM.psv !== psv || FORM.edv !== e || FORM.ri !== ri) {
+      FORM.psv = psv; FORM.edv = e; FORM.ri = ri;
+      const r = fmt(ri, 2), f4 = riForms(psv, e, ri);
+      for (let i = 0; i < 4; i++) FORM.forms[i] = f4[i];
+      FORM.aria = `Resistive index ${r}: peak systolic ${num(psv)}, end diastolic ${num(e)}, centimeters per second.`;
+    }
+    return FORM;
+  }
 
   // ── A slide's paired trace (V29): the paired vessel's velocity over the same seconds as the main trace, beat for beat, as
   // the scanner would draw it (a hepatic vein's forward flow below its baseline), slim, in a band of its own under the main
@@ -1346,7 +1394,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function configure(t = {}) {
     const m = MODE_OF[t?.mode] || 'spectrum';
     if (m !== mode) { mode = m; sync(); }
-    calip = !!t?.calipers; cal = null; calReset();   // (a new slide's calipers pick from its own trace)
+    calSlide = !!t?.calipers; calTap = false; calFresh = false; cal = null; calReset(); tapWire();   // (a new slide's calipers pick from its own trace)
     if (pair !== !!t?.pair) { pair = !!t?.pair; pairSc = null; }
     // (scale: the velocity scale fixed at ± that many cm/s, the Nyquist limit, so faster flow aliases; baseline: where the
     // baseline sits, 0 at the top of the trace to 1 at the bottom, 0.5 when not given. Without scale the display fits itself.)

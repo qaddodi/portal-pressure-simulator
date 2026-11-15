@@ -20,6 +20,7 @@ import { fibroscanLabel } from './instrument-aria.js';
 import { RATE } from './table-marks.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { onTheme } from './theme-epoch.js';
+import { createStiffBar } from './stiff-bar.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -130,7 +131,7 @@ function rrect(ctx, x, y, w, h2, r) {
 const C = SSM_CUTS;
 const ORGAN = {
   liver: { key: 'lsm', aria: 'Simulated FibroScan elastography panel, liver, live', name: 'LIVER · 50 Hz', widest: '88.8', lo: [20, 10, 8], hi: [220, 126, 64],
-    rows: [['Normal', '~5 kPa'], ['cACLD unlikely', '<10'], ['cACLD suggested · likely', '10–15 · >15'], ['No CSPH, with platelets ≥150,000', '≤15'], ['CSPH (BMI <30)', '≥25']] },
+    rows: [] },   // (the liver's cut-offs are the stiffness bar's, stiff-bar.js: Baveno VIII's rule of five and the platelet 150 line, from lsm-cuts.js)
   spleen: { key: 'ssm', aria: 'Simulated FibroScan elastography panel, spleen, live', name: 'SPLEEN · 100 Hz', widest: '100.0', lo: [16, 8, 26], hi: [168, 104, 220],
     rows: [['Normal (model value)', `~${C.normal} kPa`], ['EGD can be avoided', `<${C.spareScope}`], ['Indeterminate zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
       [`No CSPH, recompensated, with LSM <${C.resolvedLsm}`, `<${C.resolved}`]] },
@@ -147,7 +148,8 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   // (The key under the map: the open exam's cut-offs, its rows made again only when the organ changes.)
   const key = h('dl', { class: 'kv compact fs-key', style: { flex: 'none' }, 'aria-label': 'Cut-offs, kPa' });
-  const fillKey = () => key.replaceChildren(...ORGAN[organ].rows.flatMap(([t, v]) => [h('dt', {}, t), h('dd', {}, v)]));
+  const fillKey = () => { key.replaceChildren(...ORGAN[organ].rows.flatMap(([t, v]) => [h('dt', {}, t), h('dd', {}, v)])); key.hidden = !ORGAN[organ].rows.length; };
+  const showBar = () => { if (bar.el.hidden === barShown()) bar.el.hidden = !barShown(); };
   let organ = ORGAN[organ0] ? organ0 : 'liver', lastF = null;
   // (The switch, on a tap only: the organ's metric, the words under the map and the canvas's name change; the map's slope and the
   // reading follow at the next frame. The Tests card tells main.js, which takes the liver probe off the figure for the spleen.)
@@ -158,13 +160,21 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   const seg = switcher ? h('div', { class: 'pressure-switch fs-organ', role: 'group', 'aria-label': 'Organ', style: { position: 'relative', zIndex: '2', flex: 'none', minHeight: '30px' } }, organBtns) : null;
   // (The switch is the pane's own row above this view, as the Scope view / Wall switch is: dock.js puts it there, so the view's rules
   // that give the map the height left never squeeze it under the map.)
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, switcher ? key : null);   // (a slide's card has its own words: no key)
-  fillKey();
+  // (The liver's cut-offs are a bar under the map, the rule of five with the patient's mark and, with the platelets, what the two say about CSPH
+  // (review F5): in the Tests card in place of the key's rows, on a slide's card under the map. The spleen keeps its key's rows.)
+  const bar = createStiffBar({ note: switcher });
+  bar.el.style.cssText = 'flex:none;width:100%;min-width:0;margin-top:10px';
+  let barOn = true, pltOnSlide = false;
+  const barShown = () => barOn && organ === 'liver';
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, switcher ? key : null, bar.el);   // (a slide's card has its own words: no key)
+  fillKey(); showBar();
+  // (The platelet count the bar reads: the Tests card's live one; a slide's, only when its own tiles show the platelets, its settled one.)
+  const pltNow = () => (switcher || pltOnSlide ? (pinFp?.plt ?? lastF?.metrics?.spleen?.platelets) : null) ?? null;
   function setOrgan(id, tapped = false) {
     if (!ORGAN[id] || id === organ) return;
     organ = id; pinned = pinFp ? pinFp[ORGAN[organ].key] ?? null : null;   // (a slide's pinned state, read again for this organ)
     for (const b of organBtns) b.setAttribute('aria-pressed', String(b.dataset.organ === organ));
-    fillKey(); cv.setAttribute('aria-label', ORGAN[organ].aria);
+    fillKey(); showBar(); cv.setAttribute('aria-label', ORGAN[organ].aria);
     if (switcher) { fibroReading.organ = organ; if (tapped) fibroReading.onOrgan?.(organ); }
     if (lastF) update(lastF);
     kShown.snap(model);   // (the other organ's number is shown at once, never eased across from this one's)
@@ -221,7 +231,8 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     if (w < 80 || hh < 80) return;
     const { c } = fr;
     const th = colors();
-    const reading = fix1(shown), txt = none ? '–' : reading; dataSoon(cv, 'reading', txt);   // (txt: a dash with no spleen to read)
+    const reading = fix1(shown), txt = none ? '–' : reading; dataSoon(cv, 'reading', txt);
+    if (barShown()) bar.set(none ? null : shown, pltNow());   // (drawn again only when the reading, to a tenth, or the count changes)   // (txt: a dash with no spleen to read)
     fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt);   // (the figure's probe, on the organ this card reads)
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
@@ -332,7 +343,10 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     if (onScreen()) start();
   }
   /** A slide's tool: { kind: 'fibroscan', organ: 'spleen' } reads the spleen (presenter-tools.js). */
-  function configure(t) { setOrgan(t?.organ === 'spleen' ? 'spleen' : 'liver'); }
+  function configure(t, ctx = null) {
+    barOn = t?.bar !== false; pltOnSlide = !!ctx?.slide?.tiles?.includes('plt');
+    setOrgan(t?.organ === 'spleen' ? 'spleen' : 'liver'); showBar();
+  }
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
@@ -340,5 +354,5 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
   if (switcher) fibroReading.organ = organ;
   return { id: 'fibroscan', label: 'FibroScan', el, head: seg, update, configure, organ: () => organ,
-    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } fibroReading.pinned = pinned; fibroReading.pinnedOrgan = organ; }, dispose() { dispose(); offSurface(); } };
+    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } fibroReading.pinned = pinned; fibroReading.pinnedOrgan = organ; }, dispose() { dispose(); bar.dispose(); offSurface(); } };
 }

@@ -36,7 +36,7 @@ test('a table shows its numbers when it lands where it can, waiting only a momen
   const at = src.indexOf("await Promise.race([Promise.all(rowIdx(s).map(stateReady)), wait(TABLE_WAIT_MS)]); if (cut()) return;");
   assert.ok(at > 0, 'a table waits for its patients, but not for long');
   assert.match(src, /const TABLE_WAIT_MS = 1500;/);
-  assert.match(src, /else if \(s\.visual\) \{ await Promise\.all\(rowIdx\(s\)\.map\(stateReady\)\); if \(cut\(\)\) return; \}/, 'the other visuals wait for every patient, as before');
+  assert.match(src, /else if \(s\.visual \|\| \(s\.tool && s\.of\)\) \{ await Promise\.all\(rowIdx\(s\)\.map\(stateReady\)\); if \(cut\(\)\) return; \}/, 'the other visuals wait for every patient, as before');
 });
 
 test('a Doppler column cell is as tall waiting as it is drawn, and its trace keeps clear of the row rules', () => {
