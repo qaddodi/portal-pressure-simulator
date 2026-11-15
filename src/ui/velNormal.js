@@ -66,7 +66,9 @@ export const velPos = (v, [lo, hi]) => {
 };
 
 // Whether a flow (mL/s, signed) runs backward, past a small dead band: a flow hovering at zero is not "reversed". `ref` is the vessel's healthy flow.
-export const flowReversed = (q, ref = 0) => q < -Math.max(FLOW_CUTS.reversedQ, FLOW_CUTS.reversedRel * Math.abs(ref));
+// `through` is, for a stretch of a vein cut where a shunt joins it, the flow through the vein (throughFlow, part-names.js): a stretch beside a TIPS that is
+// all but still (the peripheral hepatic vein, a quarter of a mL/s against the stent's 25) is stagnant, not reversed (Mohammad, 15 Nov 2026).
+export const flowReversed = (q, ref = 0, through = 0) => q < -Math.max(FLOW_CUTS.reversedQ, FLOW_CUTS.reversedRel * Math.abs(ref), FLOW_CUTS.reversedThrough * through);
 
 // One reading of a vein's flow, for every place that puts it in words (flow-cuts.js lists them). `v` is the signed velocity (cm/s, as the Doppler
 // reads it; null when the caller has only a flow); `q` the signed flow (mL/s; null when only the velocity's sign is known, as for a Doppler

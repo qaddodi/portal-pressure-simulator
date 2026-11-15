@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, originFractionsInto, ORIGIN_PE_FADE, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, originFractionsInto, ORIGIN_PE_FADE, ORIGIN_RAMP, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -100,11 +100,13 @@ function originMix(preset, params) {
   return { up: (id) => at(up, id), down: (id) => at(ends.down, id), pe: (id) => ends.pe[EI[id]] };
 }
 
-test('origin: a vessel whose flow only runs one way is one blood end to end', () => {
+// (A vessel whose flow only runs one way carries its upstream junction's blend all along and eases into its downstream junction's over its last stretch, ORIGIN_RAMP: no step at a
+// junction. The ramp is the one-way profile (a Pe from the ramp's own range, never the slosh's), and what it eases into is the blend the vessels leaving that junction start with.)
+test('origin: a vessel whose flow only runs one way is one blood, easing into its downstream junction\'s blend over its last stretch', () => {
   const m = originMix('healthy', {});
   for (const id of ['SV_CONF', 'SMV_CONF', 'PV_TRUNK', 'V_IMV', 'V_SPL', 'RHV_IVC']) {
-    assert.equal(m.pe(id), 0, `${id}: no mix along it`);
-    assert.deepEqual(m.down(id), m.up(id));
+    const pe = Math.abs(m.pe(id));
+    assert.ok(pe === 0 || (pe >= ORIGIN_RAMP[0] - 1e-6 && pe <= ORIGIN_RAMP[1] + 1e-6), `${id}: a ramp or none (Pe ${pe})`);
   }
   assert.ok(ORIGIN_PE_FADE[0] < ORIGIN_PE_FADE[1]);
 });
@@ -126,8 +128,8 @@ test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV
 // gastric collateral steadily, past the mix's fade, so it reads one blood end to end and no longer flips between IMV and SMV.)
 test('origin: after a Warren shunt the proximal splenic vein is one blood end to end, not flipping between IMV and SMV', () => {
   const m = originMix('cirr-decomp', { dsrs: true });
-  assert.equal(m.pe('SV_CONF'), 0);
-  assert.deepEqual(m.down('SV_CONF'), m.up('SV_CONF'));
+  const pe = Math.abs(m.pe('SV_CONF'));
+  assert.ok(pe === 0 || pe >= ORIGIN_RAMP[0] - 1e-6, `one way, not the to-and-fro mix (Pe ${pe})`);
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {

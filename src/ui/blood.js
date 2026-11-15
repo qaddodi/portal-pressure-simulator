@@ -15,6 +15,7 @@
 // and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
 // only at junctions.
 
+import { FLOW_CUTS } from '../engine/flow-cuts.js';
 import { lumenSurface, lumenAt } from './stomach-lumen.js';
 import { D_SURFACE, smooth01 } from './motion.js';
 
@@ -286,6 +287,12 @@ function nodeIndex(nodes) {
   }
   return NODE_IX;
 }
+// A flow under this (mL/s) is no flow to the passes below: they never see a sign for it. A vessel whose mean hovers at zero (the left portal vein beside a TIPS, the
+// peripheral hepatic vein) swung across zero with the breath and the beat and turned its blood, and its neighbours', from one end's blend to the other's from one frame to the
+// next: the origin, first-pass and oxygen colours flickered (15 Nov 2026). It takes its upstream end's blend, always the same end.
+export const FLOW_FLOOR = FLOW_CUTS.stillQ;
+/** Whether a flow runs from a vessel's `from` end to its `to` end for the passes (a flow too small to have a direction does). */
+const isFwd = (q) => q > -FLOW_FLOOR;
 const EF = [], ET = [], FLOW_TO = [], IN_AT = [], IN_LIST = [], ORDER = [];   // (edge ends, the node each flow enters, the inflow lists: start, edges; the nodes by pressure)
 /** The nodes' indexes from high pressure to low (stable), the order blood flows in. */
 function byPressure(nn, P) {
@@ -301,7 +308,7 @@ function inflowLists(edges, nn, Q) {
   const ne = edges.length;
   for (let n = 0; n <= nn + 1; n++) IN_AT[n] = 0;
   for (let k = 0; k < ne; k++) {
-    if (edges[k].kind === 'wedge' || !Q[k]) { FLOW_TO[k] = -1; continue; }
+    if (edges[k].kind === 'wedge' || !(Math.abs(Q[k]) >= FLOW_FLOOR)) { FLOW_TO[k] = -1; continue; }
     const n = Q[k] > 0 ? ET[k] : EF[k];
     if (!(n >= 0)) { FLOW_TO[k] = -1; continue; }
     FLOW_TO[k] = n;
@@ -319,7 +326,7 @@ for (let i = 0; i < ORIGIN_N; i++) { O_C.push(0); O_SUM.push(0); }
 function blendOf(edges, Q, k) {
   const N = ORIGIN_N, s = SRC[edges[k].id];
   if (s != null) { for (let i = 0; i < N; i++) O_C[i] = i === s ? 1 : 0; return; }
-  const n = Q[k] >= 0 ? EF[k] : ET[k];
+  const n = isFwd(Q[k]) ? EF[k] : ET[k];
   for (let i = 0; i < N; i++) O_C[i] = O_NODE[n * N + i];
 }
 
@@ -368,8 +375,11 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends, pass = false)
 // (Pe at which the downstream blend starts to fade out, and is gone: the vessel is one blood. Below 2 more blood runs to and fro than
 // passes; by 6 a vessel is one-way but for a beat's reflux, as the hepatic veins' a wave (Pe 6–9 in cirrhosis), which stays one blood.)
 export const ORIGIN_PE_FADE = [2, 6];
+// The ramp into a junction's blend: the Péclet number of the ramp is the vessel's length over RAMP_E (the profile's e-fold: about three of them make the ramp, so it spans about
+// 3 × 12 = 36 world units before the junction), kept within [3, 9.9] (the shader reads 10 and over as a step part-way, the older junction hand-off).
+export const ORIGIN_RAMP = [3, 9.9], ORIGIN_RAMP_E = 12, ORIGIN_LEN = 120;
 function originEnds(edges, Q, ends, out) {
-  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe } = ends, [p0, p1] = ORIGIN_PE_FADE;
+  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe, len } = ends, [p0, p1] = ORIGIN_PE_FADE;
   for (let k = 0; k < ne; k++) {
     pe[k] = 0;
     for (let i = 0; i < N; i++) down[k * N + i] = out[k * N + i];
@@ -377,13 +387,25 @@ function originEnds(edges, Q, ends, out) {
     if (PASS && cleans(edges[k])) {
       // (A sinusoid cleans its gut blood along its length: raw at the inlet, cleared at the outlet, a straight blend between (a Pe near 0).)
       const raw = out[k * N];
-      if (raw > 1e-4) { down[k * N + 1] = Math.fround(out[k * N + 1] + raw); down[k * N] = 0; pe[k] = Q[k] >= 0 ? 0.01 : -0.01; }
+      if (raw > 1e-4) { down[k * N + 1] = Math.fround(out[k * N + 1] + raw); down[k * N] = 0; pe[k] = isFwd(Q[k]) ? 0.01 : -0.01; }
       continue;
     }
-    const fwd = Q[k] >= 0, u = fwd ? EF[k] : ET[k], d = fwd ? ET[k] : EF[k];
+    const fwd = isFwd(Q[k]), u = fwd ? EF[k] : ET[k], d = fwd ? ET[k] : EF[k];
     if (!(u >= 0) || !(d >= 0) || !(O_W[u] > 0) || !(O_W[d] > 0)) continue;
     const P = Math.abs(Q[k]) / (Math.max(0, slosh[k] || 0) + 1e-3);
-    if (P >= p1) continue;
+    if (P >= p1) {
+      // One-way blood: its blend is its upstream junction's all along, and at the downstream junction it is mixed with the other inflows' into the blend the
+      // vessels that leave start with. Stepping there is the sharp edge at every junction (15 Nov 2026, Mohammad: "nothing sharp"), so the vessel eases into the downstream
+      // junction's blend over its last stretch, the way a vessel that sloshes eases along its length (the same two blends and exponential profile; the shader's originAt):
+      // every vessel then starts at its junction's blend and ends at its junction's blend, and the colours are continuous through every junction.
+      let step = 0;
+      for (let i = 0; i < N; i++) step += Math.abs(O_NODE[d * N + i] - out[k * N + i]);
+      if (step > 1e-4) {
+        for (let i = 0; i < N; i++) down[k * N + i] = O_NODE[d * N + i];
+        pe[k] = Math.fround((fwd ? 1 : -1) * Math.min(ORIGIN_RAMP[1], Math.max(ORIGIN_RAMP[0], (len ? len[k] || ORIGIN_LEN : ORIGIN_LEN) / ORIGIN_RAMP_E)));
+      }
+      continue;
+    }
     const t = P <= p0 ? 0 : (P - p0) / (p1 - p0), keep = 1 - t * t * (3 - 2 * t);
     let diff = 0;
     for (let i = 0; i < N; i++) {
@@ -439,14 +461,14 @@ function oxygenInto(res, edges, nodes, Q, P) {
     if (n === ao) continue;
     if (BED_HAS[n]) { node[n] = Math.fround(BED_SAT[n]); continue; }
     let w = 0, s = 0;
-    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); w += q; s += q * oxOut(node, edges, k, Q[k] >= 0 ? EF[k] : ET[k]); }
+    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); w += q; s += q * oxOut(node, edges, k, isFwd(Q[k]) ? EF[k] : ET[k]); }
     if (w > 0) node[n] = Math.fround(s / w);
   }
   for (let k = 0; k < ne; k++) {
-    const u = Q[k] >= 0 ? EF[k] : ET[k], a = node[u], b = oxOut(node, edges, k, u);
+    const u = isFwd(Q[k]) ? EF[k] : ET[k], a = node[u], b = oxOut(node, edges, k, u);
     // An arteriole into a bed is arterial along its length (the bed's own venous blood starts after it).
     const lo = isArterial(edges[k]) ? a : b;
-    if (Q[k] >= 0) { edge[2 * k] = Math.fround(a); edge[2 * k + 1] = Math.fround(lo); } else { edge[2 * k] = Math.fround(lo); edge[2 * k + 1] = Math.fround(a); }
+    if (isFwd(Q[k])) { edge[2 * k] = Math.fround(a); edge[2 * k + 1] = Math.fround(lo); } else { edge[2 * k] = Math.fround(lo); edge[2 * k + 1] = Math.fround(a); }
   }
 }
 /** { node, edge } as Float32Arrays, new each call (for a caller that keeps it; the figure reads oxygenFor's). */

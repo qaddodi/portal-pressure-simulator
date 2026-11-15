@@ -90,7 +90,7 @@ export function createBlood(st, live) {
   // blood that runs to and fro. One pass over the vessels a frame, a few sums each; the blends themselves are worked out once a model frame.
   const ORIGIN_TAU = 3;
   const oFwd = new Float64Array(EDGES.length), oBack = new Float64Array(EDGES.length), oMean = new Float64Array(EDGES.length);
-  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
+  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length), len: new Float64Array(EDGES.length) };
   let oSeeded = false;
   function stepOriginFlow(dt) {
     const Q = live.F.Q, Qf = live.F.Qf || Q;
@@ -99,7 +99,9 @@ export function createBlood(st, live) {
       const a = -Math.expm1(-dt / ORIGIN_TAU);
       for (let k = 0; k < EDGES.length; k++) { const q = Q[k]; oFwd[k] += ((q > 0 ? q : 0) - oFwd[k]) * a; oBack[k] += ((q < 0 ? -q : 0) - oBack[k]) * a; }
     }
-    for (let k = 0; k < EDGES.length; k++) { oMean[k] = oFwd[k] - oBack[k]; oEnds.slosh[k] = Math.min(oFwd[k], oBack[k]); }
+    // (The mean the passes read is the shown mean, one breath and one beat of the model's own, which is steady at rest: the slower filter of the instants swung a
+    // near-zero flow across zero and turned the blood in its vessel and its neighbours between two frames. Only the to-and-fro still comes from the filter.)
+    for (let k = 0; k < EDGES.length; k++) { oMean[k] = Qf[k]; oEnds.slosh[k] = Math.min(oFwd[k], oBack[k]); }
   }
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
   function velOf(k, q) {
@@ -439,6 +441,7 @@ export function createBlood(st, live) {
     stepOriginFlow(moving ? dt * live.restK : 0);
     if (originOn()) oPass = layerMode() === 'firstpass';
     if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) {
+      for (let k = 0; k < EDGES.length; k++) oEnds.len[k] = geo[EDGES[k].id]?.len || 0;   // (the drawn length: the ramp into a junction's blend is a length of the vessel, blood.js ORIGIN_RAMP)
       live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds, oPass);
       live.originsF = live.F; oPassed = oPass;
     }

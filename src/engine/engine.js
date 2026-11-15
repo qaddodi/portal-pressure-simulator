@@ -633,14 +633,17 @@ export class Engine {
   /** The pressure at each junction node: the model's pressure at the end of the vein its shunts are joined at, a hair off it on the side the stretch between
    *  the two runs downhill (above it where blood runs from the junction to the end, below it where it runs from the end to the junction), so the stretch has no drop
    *  of its own and blood runs downhill through it whichever way it runs: the order every blend and dye pass visits nodes in (blood.js byPressure). */
-  fillJunctionPressures() {
-    const P = this.P, Q = this.Q;
+  fillJunctionPressures(P = this.P, Q = this.Q) {
     for (const c of this.jx) {
       const toEnd = c.end === 'to', k = c.ks[c.lead], at = toEnd ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
       const q = Q[c.ks[toEnd ? c.ks.length - 1 : 0]], dir = q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0;   // (the stretch next to that end: its flow runs from the vein's from to its to)
       for (let i = 0; i < n; i++) P[c.nodes[i]] = P[at] + (toEnd ? 1 : -1) * dir * JUNCTION_HAIR * (toEnd ? n - i : i + 1);
     }
   }
+  /** The same for the shown pressures (Pf) from the shown flows (Qf): a junction's shown pressure is set from the sign of the shown flow beside it, not
+   *  averaged from the instants' hairs (a stretch whose flow swings across zero with the beat averaged them to noise, so the order the lenses visit the
+   *  nodes in, by pressure, flipped from frame to frame against the shown flow's direction: the origin and first-pass colours flickered, 15 Nov 2026). */
+  fillShownJunctionPressures() { if (this.Pf && this.Qf) this.fillJunctionPressures(this.Pf, this.Qf); }
 
   // ───────────────────────── integration ─────────────────────────
   /** One implicit (backward-Euler, Picard-linearized) step of dt seconds. */
@@ -894,6 +897,7 @@ export class Engine {
       this.iapf = o[n - 2];
       this._pvVshown = o[n - 1];
     }
+    this.fillShownJunctionPressures();
     this._dmP.set(Pf); this._dmQ.set(Qf);
   }
 
@@ -925,6 +929,7 @@ export class Engine {
       for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
       if (this.extf?.length !== this.N) this.extf = new Float64Array(this.N);
       this.extf.set(this.ext); this.iapf = this.iap;
+      this.fillShownJunctionPressures();
     } else this.shownMean(dt);
     // Portal flow and velocity averaged over a few breaths, so the readout's status does not
     // flicker as breathing swings the instantaneous velocity across a cut-off.

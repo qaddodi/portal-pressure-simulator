@@ -8,6 +8,7 @@
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
+import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
 import { fmt, fmtFlow, clamp } from './util.js';
@@ -252,7 +253,7 @@ function buildEdgeCard(e) {
       const refQ = store.get().healthy?.Q?.[k] ?? 1;
       if (Math.abs(q) < 0.05) return ST_STASIS;
       if (isShunt) return ST_PATENT;
-      const back = q < -Math.max(0.12, 0.02 * Math.abs(refQ));
+      const back = flowReversed(q, refQ, throughFlow(e.id, f.Qf || f.Q, EI));
       // A collateral carries portal blood away from the liver; a link between two portal veins has no physiological direction (the pressure picks it).
       if (isColl) return back ? ST_PETAL : ST_FUGAL;
       if (e.portal) return null;

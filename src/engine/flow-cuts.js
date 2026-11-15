@@ -9,6 +9,7 @@ export const FLOW_CUTS = Object.freeze({
   stasisOff: 12,    // cm/s: the stasis event clears only above it, so a value hovering at 9 does not flicker it
   reversedQ: 0.12,  // mL/s: a backward flow smaller than this (or than reversedRel of the vessel's healthy flow, if that is more) is not reversal
   reversedRel: 0.02,
+  reversedThrough: 0.03,   // a stretch of a cut vein (topology.js JUNCTIONS) is not reversed while its backward flow is under this share of the flow through the vein (the vein's busiest stretch): near-stagnant beside a TIPS that carries 25 mL/s
   stillQ: 0.05,     // mL/s: a vessel that normally carries more than stillRef has "almost stopped" under it
   stillRef: 0.3,
 });

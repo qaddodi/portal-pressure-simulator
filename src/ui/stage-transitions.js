@@ -3,6 +3,8 @@
 import { EDGES, isCoveredStent } from '../engine/topology.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
+import { throughFlow } from './part-names.js';
+import { flowReversed } from './velNormal.js';
 import { FRONT_MS } from './collateral-front.js';
 import { stepLeft } from './change-order.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
@@ -114,7 +116,7 @@ export function createTransitions(st, live) {
   function isReversed(e, f) {
     const q = f.Qf[EI[e.id]];
     const ref = st0Ref(e.id);
-    return q < -Math.max(0.12, 0.02 * Math.abs(ref));
+    return flowReversed(q, ref, throughFlow(e.id, f.Qf, EI));
   }
   const st0Ref = (id) => store.get().healthy?.Q?.[EI[id]] ?? 1;
   function updateNodesCircuit(f) {

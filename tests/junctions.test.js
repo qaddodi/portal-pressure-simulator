@@ -248,3 +248,22 @@ test('a TIPS in decompensated cirrhosis: the left portal vein\'s mean flow runs 
     assert.ok(Math.abs(q('PVH_R_1') - (q('PVH_R') - q('TIPS'))) < 1e-6 && Math.abs(q('RHV_IVC') - (q('RHV_IVC_1') + q('TIPS'))) < 1e-6, 'the pieces add up to the model\'s own flows');
   }
 });
+
+test('a stretch of a cut vein that is all but still is stagnant, not reversed: the peripheral hepatic vein beside a TIPS reads teal, the portal vein beyond the stent still reverses', async () => {
+  const { flowReversed } = await import('../src/ui/velNormal.js');
+  const { throughFlow } = await import('../src/ui/part-names.js');
+  const reversed = (e, id) => flowReversed(e.Qf[e.ei[id]], 1, throughFlow(id, e.Qf, e.ei));
+  const at = (d) => { const e = run('cirr-decomp', { tips: { on: true, d } }); for (let i = 0; i < 400; i++) e.step(0.05); return e; };
+  const e8 = at(8), e10 = at(10);
+  assert.ok(e8.Qf[e8.ei.RHV_IVC_1] < -0.12, 'its mean does run backwards at 8 mm (a quarter of a mL/s)');
+  assert.equal(reversed(e8, 'RHV_IVC_1'), false, 'but beside the stent\'s 25 mL/s it is stagnant');
+  assert.equal(reversed(e8, 'PVH_R_1'), true);
+  assert.equal(reversed(e10, 'RHV_IVC_1'), true, 'at 10 mm it runs backwards for real');
+  assert.equal(throughFlow('PV_TRUNK', e8.Qf, e8.ei), 0, 'a vein that is whole has no pieces to compare');
+  // the shown pressure beside a junction agrees with the shown flow's direction (the lenses visit nodes by pressure, and the shown flow decides each vessel's direction)
+  for (const e of [e8, e10]) for (const c of JUNCTION_CHAINS) {
+    const toEnd = c.end === 'to', q = e.Qf[e.ei[c.ids[toEnd ? c.ids.length - 1 : 0]]];
+    const at = e.Pf[toEnd ? e.ni[edge(c.ids[c.lead]).mto] : e.ni[edge(c.ids[c.lead]).mfrom]], j = e.Pf[e.ni[c.nodes[toEnd ? c.nodes.length - 1 : 0]]];
+    if (Math.abs(q) > 1e-6) assert.ok((toEnd ? 1 : -1) * Math.sign(q) * (j - at) > 0, `${c.host}: the junction's shown pressure lies on the side the shown flow runs from (flow ${q.toFixed(3)}, junction ${(j - at).toExponential(1)})`);
+  }
+});

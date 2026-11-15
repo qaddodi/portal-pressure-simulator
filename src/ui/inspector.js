@@ -1,7 +1,8 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js';
-import { dopplerVel } from './velNormal.js';
+import { throughFlow } from './part-names.js';
+import { dopplerVel, flowReversed } from './velNormal.js';
 import { DRUGS, PREGNANCY_INFO } from '../engine/scenario.js';
 import { store, updateParams, hiddenNow } from './store.js';
 import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, svgIcon, paintRange, putText, releaseWords, fadeShown } from './util.js';
@@ -264,7 +265,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     live.push([dirEl, (f) => {   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
       const q = f.Qf[k];
       const ref = store.get().healthy?.Q?.[k] ?? 1;
-      const cls = Math.abs(q) < 0.05 ? DIR_WARN : q < -Math.max(0.12, 0.02 * Math.abs(ref)) ? DIR_REV : DIR_OK;
+      const cls = Math.abs(q) < 0.05 ? DIR_WARN : flowReversed(q, ref, throughFlow(e.id, f.Qf, EI)) ? DIR_REV : DIR_OK;
       if (dirEl._c !== cls[1]) { dirEl.replaceChildren(h('span', { class: 'st-word ' + cls[0] }, cls[1])); dirEl._c = cls[1]; }   // alloc-rare: only on the frame the direction's word changes
       return null;
     }, newCell()]);
