@@ -529,7 +529,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // On a Mac and on an iPad held sideways the card on the right has one width, the same on both, and it cannot be dragged wider or narrower
   // (Mohammad 6 Nov 2026: "a unified fixed width; i don't like we can make it bigger"). 500 px: the FibroScan map 460 px wide, the Scope's
   // five readings in one row (they need 450 px of pane), every tab's short name under its icon. Only a phone held sideways keeps its divider.
-  const SIDE_W = 500;
+  const SIDE_W = 500, SIDE_W_WIDE = 600;
   const fixedSide = () => isSide() && !sidewaysMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
@@ -732,7 +732,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // The card's size from the stage's (W wide, H high): worked out with no read of the page, so a drag can size it from the stage
   // it measured as it began.
   // (The fixed width gives way only in a window too narrow for it, so the card never takes more than 62% of the stage.)
-  const sideWidth = (W) => (sidewaysMQ.matches ? clamp(widthPx ?? Math.max(340, W * 0.45), 320, Math.max(360, W * 0.62)) : Math.min(SIDE_W, Math.max(360, W * 0.62)));
+  // (Mac density, review ST section, owner 15 Nov 2026: above a 1,600 px stage the fixed side card grows with it, from 500 px at 1,667 to 600 px at 2,000 (the cards beside it still leave the vessel card its strip: main.js rightShort), so a 27-inch window is not a phone-sized card on a large sheet.)
+  const sideFixed = (W) => Math.min(SIDE_W_WIDE, Math.max(SIDE_W, Math.round(W * 0.3)));
+  const sideWidth = (W) => (sidewaysMQ.matches ? clamp(widthPx ?? Math.max(340, W * 0.45), 320, Math.max(360, W * 0.62)) : Math.min(sideFixed(W), Math.max(360, W * 0.62)));
   // The sheet rises from above the vitals dock, at most to just under the top bar.
   const sheetMax = (H) => H - css('--top-safe') - css('--vdock-h') - 40;
   const sheetRatio = () => {

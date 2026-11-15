@@ -127,7 +127,7 @@ test('Reduce Motion: the piece is faded out first (--go 0), not travelled', asyn
 test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button\'s own fill is only turned off under it, and high contrast keeps Highlight', () => {
   const css = read('styles/app.css');
   const pieces = css.match(/[^{}\n]*::before\s*\{[^}]*var\(--gx\)[^}]*\}/g) || [];
-  assert.ok(pieces.length >= 4, 'the piece is drawn for segments, tabs, the menu\'s underline and the desktop underline');
+  assert.ok(pieces.length >= 2, 'the piece is drawn for segments and tabs (the menu\'s and the desktop tab rows show the chosen tab by weight, not an underline: review ST-14)');
   for (const p of pieces) assert.match(p, /\.seg-glide/, `a piece rule without the class: ${p.slice(0, 80)}`);
   assert.match(css, /@media \(forced-colors: none\) \{\s*\.seg\.seg-glide button\[aria-pressed="true"\]/);
   assert.match(css, /@media \(forced-colors\) \{ \.seg-glide::before \{ display: none; \} \}/);
@@ -135,7 +135,10 @@ test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button
   // the originals are untouched: the plain selected rules still carry their fill
   assert.match(css, /\.seg button\[aria-pressed="true"\], \.seg button\[aria-selected="true"\] \{ background: var\(--surface\); color: var\(--text\); box-shadow: var\(--shadow-1\); \}/);
   assert.match(css, /\.instr-tab\[aria-selected="true"\] \{ background: var\(--surface\); color: var\(--text\); box-shadow: 0 1px 2px/);
-  assert.match(css, /\.um-tab\[aria-selected="true"\]::after \{ opacity: 1; transform: none; \}/);
+  assert.match(css, /\.um-tab\[aria-selected="true"\] \{ color: var\(--text\); font-weight: 600; \}/);
+  assert.match(css, /\.um-tabs\.seg-glide::before \{ display: none; \}/, 'no underline piece on the menu tabs');
+  assert.match(css, /\.instr-tabs\.seg-glide::before \{ display: none; \}/, 'none on the desktop instrument tabs either');
+  assert.doesNotMatch(css, /\.(um-tab|instr-tab)[^{}\n]*\{[^}]*height: 2px[^}]*var\(--accent\)/, 'no accent underline on a tab');
 });
 
 test('the view pill: a glide whose row moved in its centred home (Sinusoid to Lobule) starts where the piece was drawn on the screen, not a tab or two off', async () => {

@@ -25,8 +25,11 @@ test('every way a right-hand card opens asks the others to give way when the ves
 
 test('Tests has one fixed width on a Mac and an iPad held sideways (500 px, no divider), which the give-way arithmetic assumes', () => {
   const dock = read('src/ui/dock.js');
-  assert.match(dock, /const SIDE_W = 500;/);
-  assert.match(dock, /: Math\.min\(SIDE_W, Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
+  assert.match(dock, /const SIDE_W = 500, SIDE_W_WIDE = 600;/);
+  assert.match(dock, /const sideFixed = \(W\) => Math\.min\(SIDE_W_WIDE, Math\.max\(SIDE_W, Math\.round\(W \* 0\.3\)\)\);/, '500 px up to a 1,667 px stage, then growing to 600 (review ST section, Mac density)');
+  // (Three cards side by side still leave the vessel card its 316 px strip at every width the side card grows: Details 380, Tests, Treat 400, four 12 px gaps.)
+  for (let W = 1667; W <= 3000; W += 7) assert.ok(W - 380 - Math.min(600, Math.max(500, Math.round(W * 0.3))) - 400 - 4 * 12 >= 316, `${W}`);
+  assert.match(dock, /: Math\.min\(sideFixed\(W\), Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
   assert.match(dock, /divider\.hidden = state !== 'open' \|\| fixedSide\(\);/);
   assert.match(read('src/ui/main.js'), /\|\| Math\.min\(500, Math\.max\(360, innerWidth \* 0\.62\)\)/);
 });

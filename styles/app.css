@@ -58,7 +58,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
    readouts, the patient chart, the Treat card, the instruments), and the figure's Fit frames the
    anatomy in the part they leave free (see safeInsets in stage.js). */
 .app {
-  --panel-w: 360px; --top-h: 56px; --gap: 12px; --top-safe: 64px; --vdock-h: 120px;
+  --panel-w: 360px; --card-head-pad: 12px 8px 8px 16px; --top-h: 56px; --gap: 12px; --top-safe: 64px; --vdock-h: 120px;
   /* Fixed to the viewport, like the start screen: iOS 26 keeps a fixed header sharp under the
      status bar but blurs ordinary page content that sits there. */
   position: fixed; inset: 0;
@@ -3433,7 +3433,7 @@ button.finding { cursor: pointer; }
 @media (max-width: 600px) { .cath-label.site.split b, .app.presenting .cath-label.site.split b { font-size: 14px; } .cath-label.site.split .sp-cap { font-size: 12px; } .cath-label.site.split .sp-bar { height: 7px; margin: 5px 0 3px; } }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
 .cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
-  translate: -50% calc(-100% - 12px); text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg), 0 0 10px var(--stage-bg); }
+  translate: -50% calc(-100% - 12px); }   /* (no CSS halo: the figure's words are outlined one way, by the GPU label path; review CSS-16, owner 15 Nov 2026) */
 .app .cath-label.site.res.coll { translate: -50% calc(-200% - 18px + var(--pre, 0px)); }
 .app .cath-label.site.res.gut { translate: -50% calc(-300% - 24px + var(--pre, 0px)); }
 /* Under an upright circuit (a phone) the two readings share one line, without the unit, so both clear the data card. */
@@ -3926,13 +3926,10 @@ button.finding { cursor: pointer; }
 .um-tabs { display: flex; gap: 4px; padding: 6px 10px 0; border-bottom: 1px solid var(--hairline); }
 .um-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 500; cursor: pointer; border-radius: var(--r-control) var(--r-control) 0 0; transition: none; }
 @media (hover: hover) { .um-tab:hover { color: var(--text); } }
-.um-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); opacity: 0; transform: scaleX(.6); transition: opacity var(--d-flip) var(--ease), transform var(--d-flip) var(--ease); }
 .um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
-.um-tab[aria-selected="true"]::after { opacity: 1; transform: none; }
-/* The underline is one piece that glides between the tabs (seg-glide.js; the box is the tab's, the line sits 10 px in, 1 px under). */
-.um-tabs.seg-glide::before { left: calc(var(--gx) + 10px); width: calc(var(--gw) - 20px); top: calc(var(--gy) + var(--gh) - 1px); height: 2px; border-radius: 2px; background: var(--accent); box-shadow: none; }
-@media (forced-colors: none) { .um-tabs.seg-glide .um-tab::after { content: none; } }
-@media (forced-colors) { .um-tabs.seg-glide .um-tab[aria-selected="true"]::after { content: ''; } }
+/* (Review ST-14, owner 15 Nov 2026: the selected tab is shown by weight and full ink, not by an accent underline. Forced colours have no ink to go by, so they keep a bar.) */
+@media (forced-colors) { .um-tab[aria-selected="true"]::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: Highlight; } }
+.um-tabs.seg-glide::before { display: none; }
 .um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 @media (pointer: coarse) {
   .um-tab { height: 44px; }   /* (36 px was the mouse size) */
@@ -4191,7 +4188,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace.side .workspace-divider:focus-visible span { opacity: 1; }
 @media (hover: hover) { .instrument-workspace.side:hover .workspace-divider span { opacity: 1; } }
 .app.instrument-focus .instrument-workspace.float-ui { left: calc(env(safe-area-inset-left) + var(--gap)) !important; right: calc(env(safe-area-inset-right) + var(--gap)) !important; width: auto; top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); height: auto; }
-.instrument-workspace .dock-head { flex-direction: column; align-items: stretch; height: auto !important; padding: 10px 10px 2px 16px !important; gap: 0; flex-wrap: nowrap !important; }
+.instrument-workspace .dock-head { flex-direction: column; align-items: stretch; height: auto !important; padding: var(--card-head-pad) !important; gap: 0; flex-wrap: nowrap !important; }
 .instrument-workspace .dock-title { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; min-width: 0; font: 600 var(--fs-16)/1.2 var(--font-ui); color: var(--text); cursor: default; flex: 0 1 auto; }
 .instrument-workspace .dock-title .dt-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: none; }
 .instrument-workspace .dock-head .ib { width: 32px; height: 32px; }
@@ -4517,7 +4514,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 /* ── Findings, Treat and Measure: one card ───────────
    The same head (icon, name, a quiet status, close) and the same way in and out: a short slide
    from the right on wider screens, up from the bottom edge as a phone sheet; closing reverses it. */
-.card-head.card-head { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: none; height: auto !important; min-height: 52px; padding: 8px 8px 4px 16px !important; border: 0; background: transparent; flex-wrap: nowrap !important; }
+.card-head.card-head { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: none; height: auto !important; min-height: 52px; padding: var(--card-head-pad) !important; border: 0; background: transparent; flex-wrap: nowrap !important; }
 .card-head .card-title { margin: 0; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; font: 600 var(--fs-16)/1.2 var(--font-ui) !important; color: var(--text); white-space: nowrap; overflow: hidden; cursor: default; padding: 0 !important; }
 .card-head .card-title .dt-l { font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
 .card-title .dt-l:empty { display: none; }
@@ -4763,15 +4760,12 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .instr-tab > :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); }
   @media (hover: hover) { .instr-tab:hover { color: var(--text); } }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
-  .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
-  /* (One underline that glides between the tabs, seg-glide.js: the tab's box, the line 8 px in and 1 px under, as above.) */
-  .instr-tabs.seg-glide::before { left: calc(var(--gx) + 8px); width: calc(var(--gw) - 16px); top: calc(var(--gy) + var(--gh) - 1px); height: 2px; border-radius: 2px; background: var(--accent); box-shadow: none; }
-  .ws-tabs.compact.seg-glide::before { left: calc(var(--gx) + 4px); width: calc(var(--gw) - 8px); }
-  @media (forced-colors: none) { .instr-tabs.seg-glide .instr-tab[aria-selected="true"]::before { content: none; } }
+  /* (Review ST-14, owner 15 Nov 2026: the selected tab is shown by weight and full ink, not by an accent underline; the glide plate is not drawn on this row. Forced colours fill the selected tab, below.) */
+  .instr-tabs.seg-glide::before { display: none; }
   /* The 1 / 2 slot number sits after the name, in the row, so it never covers a neighbour. */
   .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
-  .instrument-workspace .dock-head { padding: 10px 8px 2px 16px !important; }
+  .instrument-workspace .dock-head { padding: var(--card-head-pad) !important; }
   .instrument-workspace .dock-pane { padding-left: 16px; padding-right: 16px; }
 }
 
@@ -4877,7 +4871,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .ws-tabs.compact .it-short { display: inline; }
 .ws-tabs.compact { gap: 2px; }
 .ws-tabs.compact .instr-tab, .ws-tabs.compact .instr-tab[aria-selected="true"] { gap: 4px; padding: 0 4px; }
-.ws-tabs.compact .instr-tab[aria-selected="true"]::before { left: 4px; right: 4px; }
 /* (Side by side, icon then name, each tab starts from its own name's width and the spare room is shared evenly, so a
    long name (Readouts) shows whole beside a short one (HVPG) instead of every tab taking an equal, too-narrow share.) */
 .ws-tabs.compact:not(.narrow) .instr-tab { flex: 1 1 auto; }
@@ -6369,7 +6362,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .instrument-workspace .dock-head .ws-tabs.tight.bare .instr-tab[aria-selected="true"] .it-t { max-width: 0; margin-left: 0; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-head .ws-tabs.tight .it-t { transition: none; } }
 @media (min-width: 1024px) and (pointer: fine) {
-  .instrument-workspace .dock-head.tabbed.card-head { padding: 8px 8px 2px 16px !important; }
+  .instrument-workspace .dock-head.tabbed.card-head { padding: var(--card-head-pad) !important; }
 }
 
 /* ── The thumb dock (15 Oct) ───────────────────────────────────────
@@ -6960,7 +6953,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .ab-belly-fill, .ab-iap-fill, .dop-band, .dop-band-caps > i, .dop-mark, .dop-ticks > span, .stage-fit, .stage-rotate, .stage-clock { transition: none; }
   input[type=range]::-webkit-slider-thumb { transition: none; }
   input[type=range]::-moz-range-thumb { transition: none; }
-  .zoom-pill, .app.figure-focus .zoom-pill, .zoom-pill .ib:not(.stage-rotate):not(:disabled), .um-tab::after { transition-property: opacity; }
+  .zoom-pill, .app.figure-focus .zoom-pill, .zoom-pill .ib:not(.stage-rotate):not(:disabled) { transition-property: opacity; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7140,12 +7133,10 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 /* ── Package E: end ── */
 
 /* ── Package F, figure callouts: start ── */
-/* V9, calipers (stage.js fxSync): a thin flat dimension line with end ticks, on a halo of the stage's colour so it reads over
-   the organ's art; it eases in and out. Its reading is a plain pill (below). */
+/* V9, calipers (stage.js fxSync): a thin flat dimension line with end ticks, no halo behind it (owner 15 Nov 2026); it eases in and out. Its reading is a plain pill (below). */
 .fx-cal-line, .fx-span-line { opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .fx-cal-line.on, .fx-span-line.on { opacity: 1; }
 .fx-cal-line path, .fx-span-line path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
-.fx-cal-line .fx-halo, .fx-span-line .fx-halo { stroke: var(--label-halo); stroke-width: 4.5px; }
 .fx-cal-line .fx-ink { stroke: var(--text); stroke-width: 1.6px; }
 /* V25, the circuit's bracket under a span of stations (a zone band lit softly is drawn by the GPU: stage.js MAP.fx). */
 .fx-span-line .fx-ink { stroke: var(--text-2); stroke-width: 1.6px; }
@@ -7320,6 +7311,9 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    so optical sizing is left on explicitly: a display size gets the display cut. Kerning is set on rather than left to `auto`. */
 body { font-optical-sizing: auto; font-kerning: normal; }
 :is(.p-title h2, .modal h2) { text-wrap: balance; }
+/* (Review ST section, owner 15 Nov 2026: one balance for every title and one pretty for a card's paragraphs, so none ends on one orphaned word on an iPhone; a rule that wraps on purpose, such as the phone's slide title, is more specific and wins.) */
+:is(h1, h2, h3, .card-title, .tr-t, .toast-msg) { text-wrap: balance; }   /* (not .pz-h: a slide's title fills its line, owner 19 Oct 2026) */
+:is(.pz-panel, .instrument-workspace, .menu, .modal) p { text-wrap: pretty; }
 :is(.pz-h, .pz-panel .pz-dtitle, .modal h2, .p-title h2) { hanging-punctuation: first; }
 :is(.pz-check, .pz-outline :is(ol, ul), .pzc-row, .ac-about) { text-wrap: pretty; }
 
@@ -7363,16 +7357,13 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    layout runs in the glide. The insets the tab rows' underlines keep are its left and top, the tab's box its translate. */
 .seg-glide.glide-gpu::before { left: 0; top: 0; translate: var(--gx) var(--gy); scale: var(--gsx, 1) var(--gsy, 1); transform-origin: 0 0;
   transition: translate var(--d-small) var(--ease-move), scale var(--d-small) var(--ease-move); }
-.um-tabs.seg-glide.glide-gpu::before { left: 10px; top: calc(var(--gh) - 1px); }
 @media (min-width: 1024px) and (pointer: fine) {
-  .instr-tabs.seg-glide.glide-gpu::before { left: 8px; top: calc(var(--gh) - 1px); }
-  .ws-tabs.compact.seg-glide.glide-gpu::before { left: 4px; }
 }
 .seg-glide.glide-gpu.glide-follow::before { transition-duration: var(--d-flip); }
 .seg-glide.glide-gpu.glide-still::before { transition: none; }
 /* While the pill folds (pill-motion.js), the highlight moves on the fold's own clock and curve, from where it was drawn to its new
    button, landing with it and inside the face throughout (2 Nov, Mohammad: it went to Anatomy first, outside the pill). */
-.nb-views #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-arrive); }
+.nb-views #viewSeg.vp-fold.seg-glide.glide-gpu:not(.glide-still)::before { transition-duration: var(--d-surface); transition-timing-function: var(--ease-move); }
 
 /* A menu's scroll-edge veils on the compositor (scroll-edges.js): the variables step and the
    veil's own opacity eases over the same --d-small on --ease-move. */
