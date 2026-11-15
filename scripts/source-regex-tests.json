@@ -303,7 +303,6 @@
  "press-fx.test.js",
  "pressure-along.test.js",
  "proc-anim.test.js",
- "quality-cheap-locked.test.js",
  "quiet.test.js",
  "reading-cards-width.test.js",
  "readouts-tab.test.js",
@@ -405,9 +404,7 @@
  "varix-look.test.js",
  "veins-bin-memo.test.js",
  "veins-gl-frame-allocs.test.js",
- "veins-own-buffer.test.js",
  "veins-relay.test.js",
- "veins-simple.test.js",
  "veins-tint.test.js",
  "veins-upscale.test.js",
  "veins-wrap.test.js",
@@ -430,7 +427,6 @@
  "wide-gl.test.js",
  "width-step.test.js",
  "will-change-layers.test.js",
- "worker-recovery-b20-b22.test.js",
- "zoom-one-pass.test.js"
+ "worker-recovery-b20-b22.test.js"
  ]
 }

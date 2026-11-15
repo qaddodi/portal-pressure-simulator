@@ -51,7 +51,6 @@ export default [
   // ── perf-gpu-present: A2 ──
   { file: ORGANS, need: [/gl\.useProgram\(moveP\.p\);\n\s+setM\(U\.toS/, "A2: the organ stack's camera move says so before it writes the whole target (program in use)"] },
   { file: ORGANS, need: [/gl\.disable\(gl\.SCISSOR_TEST\); gl\.disable\(gl\.BLEND\);\n\s+INVC\[0\] = gl\.COLOR_ATTACHMENT0; gl\.invalidateFramebuffer\(gl\.FRAMEBUFFER, INVC\);[^\n]*\n\s+gl\.useProgram\(moveP\.p\);/, "A2: the organ stack's camera move invalidates its target before it writes the whole target"] },
-  { file: VEINS, need: [/gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);\n\s+if \(!own \|\| \(own\.w === rz\.w && own\.h === rz\.h\)\) noLoad\(gl\.DRAW_FRAMEBUFFER, false\);[^\n]*\n\s+gl\.blitFramebuffer\(0, 0, rz\.w, rz\.h/, 'A2: the reuse target says so before it writes the whole target'] },
 
   // ── A3 ──
   { file: STAGE, forbid: [/if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);/, 'A3: no present of the overlays ahead of the draw'] },
@@ -66,10 +65,8 @@ export default [
   { file: VEINS, need: [/if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/, 'A5: under a camera the overlay lay is cut to its bounds, and the scissor is switched off after'] },
 
   // ── D1 ──
-  { file: VEINS, need: [/lowFree\(\);\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/, "D1: the streaks' half-size target is shrunk to a texel by a trim"] },
-  { file: STAGE, need: [/if \(veinsTrimmed\) \{ veinsTrimmed = false; lowWarm\(\); \}/, 'D1: the stage warms up again after a trim: shown again in the frame loop'] },
-  { file: STAGE, need: [/set veinsTrimmed\(v\) \{ if \(veinsTrimmed && !v\) lowWarm\(\); veinsTrimmed = v; \}/, "D1: or by the dive's draw ahead"] },
-  { file: STAGE, need: [/const \{ autoNow, easeRes, lowWarm, moveGaps,/, 'D1: the stage takes lowWarm from its parts'] },
+  { file: VEINS, need: [/\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/, "D1: the streaks' half-size target is shrunk to a texel by a trim"] },
+  { file: STAGE, need: [/if \(veinsTrimmed\) veinsTrimmed = false;/, 'D1: shown again in the frame loop, the stage takes the trim off (the next draw makes what it gave back)'] },
 
   // ── stent-mesh ──
   { file: CSS, need: [/\.stent-graft \{[^}]*var\(--dev-graft\)/, 'the ePTFE graft, a device material token (look T2)'] },

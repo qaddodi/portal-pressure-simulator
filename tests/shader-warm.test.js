@@ -70,9 +70,9 @@ test('the figure starts every helper program at setup, and its present variants 
   assert.match(src, /prestartOrganStack\(gl\)/);
   assert.match(src, /auxStart\('lay'\)/);
   assert.match(src, /warmFade\(gl\)/);
-  // (upscale and pinch reuse fall back to the plain copy / shading while compiling)
+  // (the upscale falls back to the plain copy while compiling; the overlays' lay is waited on, as dropping the overlays would blink)
   assert.match(src, /auxTake\('up', false\)/);
-  assert.match(src, /auxTake\('reuse', false\)/);
+  assert.match(src, /auxTake\('lay', true\)/);
   const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
   assert.match(glass, /h\.warmIn\?\.\(warmTask\(h\.gl\)\)/);
   const field = readFileSync(new URL('../src/ui/field-gl.js', import.meta.url), 'utf8');

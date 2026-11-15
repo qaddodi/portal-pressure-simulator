@@ -11,10 +11,9 @@ scheduler, layout reads through `layout-snap.js`) are in `AGENTS.md`. Related fi
 - **The figure is drawn on the GPU.** The vessels (the Tube renderer, `docs/tube-renderer.md`), the
   organs, the moving blood, the glows, the glass behind callouts and cards (`glass-gl.js`), the
   labels (`label-gl.js`), the Doppler, the pressure traces and the vitals strip are all drawn by
-  WebGL or the canvas, not by layout. The Tube is the only vessel renderer. A hidden classic pass
-  draws only while the Tube cannot (its programs still compiling, a failed shader, software GL, no
-  depth and stencil target), so the figure never shows nothing. `?perf` names which in its
-  `vessel renderer` gauge.
+  WebGL or the canvas, not by layout. The Tube is the only vessel renderer. The classic pass was
+  deleted (15 Nov 2026): where the Tube cannot draw, the renderer is not made or is given up and the
+  stage keeps the SVG tubes.
 - **Moving blood** (`src/ui/veins-gl.js`, `src/ui/blood.js`): the vessel pass runs only when the
   vessels change (a model frame, a pan or zoom). Each animation frame then draws the blood over just
   the vessel tiles. The renderer keeps its picture in a texture of its own and lays it whole on the

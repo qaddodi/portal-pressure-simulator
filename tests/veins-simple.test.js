@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { binVeins, simpleCells, splitCells } from '../src/ui/veins-bin.js';
-import { readFileSync } from 'node:fs';
 
 // The one-vessel vessel program (veins-gl.js vesselFS(true), addendum §4 Pilot A): cells whose list holds one vessel and no
 // join are drawn by a build of the vessel shader with one slot and no join code; every other cell by the general build.
@@ -99,29 +98,6 @@ test('splitCells puts every cell in exactly one list, in order, and only the mar
   assert.deepEqual(Array.from(off.gen), Array.from(b.cells));
 });
 
-test('the one-vessel build is the same shader text with one slot and the join gathering left out', async () => {
-  const { vesselFS } = await import('../src/ui/veins-gl.js');
-  const gen = vesselFS(false), one = vesselFS(true);
-  const DEF = /^#define (SIMPLE|MAXS|MAXJ) .*$/gm;
-  assert.deepEqual(gen.match(DEF), ['#define SIMPLE 0', '#define MAXS 8', '#define MAXJ 6']);
-  assert.deepEqual(one.match(DEF), ['#define SIMPLE 1', '#define MAXS 1', '#define MAXJ 1']);
-  assert.equal(gen.replace(DEF, ''), one.replace(DEF, ''), 'nothing else differs');
-  // The one block the simple build leaves out reads joins alone: it loops over the cell's join entries (vR.w, zero in
-  // every simple cell), so in such a cell the general build runs it zero times.
-  const blocks = gen.split('#if SIMPLE == 0\n');
-  assert.equal(blocks.length, 3);
-  // The first: the second-lumen target is no output of the simple build (a plain variable, its writes dropped).
-  assert.match(blocks[1], /^layout\(location=2\) out uvec4 outFlow2;[^\n]*\n#else\nuvec4 outFlow2; [^\n]*\n#endif\n/);
-  const block = blocks[2].slice(0, blocks[2].indexOf('#endif'));
-  assert.match(block, /^ {2}for \(int k = 0; k < min\(vR\.w, 64\); k\+\+\) \{/);
-  assert.equal((gen.match(/vR\.w/g) || []).length, 1, 'vR.w is read nowhere else');
-  assert.ok(!/\bjn\s*=(?!=)/.test(gen.replace(block, '').replace('int jn = 0;', '')), 'nothing outside it sets jn');
-  // Every loop over the slots is bounded by MAXS, so one slot leaves no other iteration; the slot-eviction branch is reached
-  // only by a second vessel.
-  assert.match(gen, /if \(n == MAXS\) \{/);
-  assert.ok(!/\b[0-7]\b\s*\]/.test(gen.replace(/\[(?:MAXS|MAXJ|\$\{[^}]*\}|\d+)\]/g, '')), 'no slot named by a fixed index');
-});
-
 // ── The renderer on a recording stand-in for WebGL2 ──
 function fakeGL({ failSimple = false, pcx = null, stencil = false } = {}) {
   const calls = [], enums = new Map(), src = new Map(), att = new Map();
@@ -140,6 +116,7 @@ function fakeGL({ failSimple = false, pcx = null, stencil = false } = {}) {
         if (k === 'getActiveUniform') return { name: UNIFORMS[a[1]] };
         if (k === 'getUniformLocation') return { uniform: a[1] };
         if (k === 'getExtension') return pcx && a[0] === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91b1 } : null;
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;
         if (k === 'getParameter') return 'stand-in';
         if (k === 'getContextAttributes') return { stencil };
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };
@@ -155,16 +132,6 @@ function fakeGL({ failSimple = false, pcx = null, stencil = false } = {}) {
   const isPlain = (p) => compBuild(p) === 'plain';
   const fusedSimple = (p) => isFused(p) && (att.get(p) || []).some((sh) => /#define SIMPLE 1/.test(src.get(sh) || ''));
   return { gl, calls, isSimple, isVessel, isFused, fusedSimple, compBuild, isPlain, src, att };
-}
-// The vessel program's instanced draws since `from`: { simple, count }.
-function vesselDraws(f, from) {
-  let prog = null;
-  const out = [];
-  for (const c of f.calls.slice(from)) {
-    if (c[0] === 'useProgram') prog = c[1];
-    if (c[0] === 'drawArraysInstanced' && f.isVessel(prog)) out.push({ simple: f.isSimple(prog), count: c[4] });
-  }
-  return out;
 }
 async function renderer(f, url = '../src/ui/veins-gl.js', who = 'stage') {
   const { createVeinsGL, MAX_TIERS, TUBE_TEXELS } = await import(url);
@@ -184,82 +151,6 @@ async function renderer(f, url = '../src/ui/veins-gl.js', who = 'stage') {
   };
   return { g, bins, look, data, TUBE_TEXELS };
 }
-
-test('a whole draw draws each simple cell with the one-vessel build and every other cell with the general one', async () => {
-  const f = fakeGL();
-  const { g, bins, look } = await renderer(f);
-  const n0 = f.calls.length;
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
-  const d = vesselDraws(f, n0);
-  assert.deepEqual(d.map((x) => x.simple).sort(), [false, true], 'one draw per program');
-  // Around the simple build's draw, the second-lumen target is left out of the draw buffers, then put back.
-  const seq = f.calls.slice(n0).filter((c) => c[0] === 'drawBuffers' || c[0] === 'drawArraysInstanced');
-  const at = seq.findIndex((c, i) => c[0] === 'drawArraysInstanced' && seq[i - 1]?.[0] === 'drawBuffers' && seq[i - 1][1][2] === f.gl.NONE);
-  assert.ok(at > 0, 'the simple draw follows draw buffers without the second-lumen target');
-  assert.deepEqual(seq[at - 1][1], [f.gl.COLOR_ATTACHMENT0, f.gl.COLOR_ATTACHMENT1, f.gl.NONE, f.gl.COLOR_ATTACHMENT3]);
-  assert.deepEqual(seq[at + 1][1], [f.gl.COLOR_ATTACHMENT0, f.gl.COLOR_ATTACHMENT1, f.gl.COLOR_ATTACHMENT2, f.gl.COLOR_ATTACHMENT3], 'and put back');
-  assert.equal(seq.filter((c) => c[0] === 'drawBuffers' && c[1][2] === f.gl.NONE).length, 1, 'only around that draw');
-  assert.equal(d.find((x) => x.simple).count, want);
-  assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
-  // A pan by whole pixels along an axis where the figure is smaller than the picture: the layer's window follows it, and nothing
-  // is drawn.
-  const fol = g.layerLayout.follows;
-  assert.ok(fol[0] || fol[1], 'the figure smaller than the picture on an axis');
-  let n1 = f.calls.length;
-  g.draw(fol[0] ? [1, 0, 0, 1, 9, 0] : [1, 0, 0, 1, 0, -4], look, { on: false });
-  assert.equal(vesselDraws(f, n1).length, 0, 'the figure fits: no strip');
-  // Zoomed in until it is larger than the picture: the uncovered strips are drawn by both programs, over the same split.
-  g.draw([6, 0, 0, 6, 0, 0], look, { on: false });
-  n1 = f.calls.length;
-  g.draw([6, 0, 0, 6, 9, -4], look, { on: false });
-  const strips = vesselDraws(f, n1);
-  assert.ok(strips.length >= 2 && strips.every((x) => x.count === (x.simple ? want : bins.nCells - want)));
-});
-
-test('a partial redraw splits its cells by the same classes', async () => {
-  const f = fakeGL();
-  const { g, bins, look, data, TUBE_TEXELS } = await renderer(f);
-  const m = [1, 0, 0, 1, 0, 0];
-  g.draw(m, look, { on: false });
-  const flags = simpleCells(bins.cells, bins.nCells, bins.ent);
-  data[0 * TUBE_TEXELS * 4 + 7] = 0.6;   // vessel 0 fades: its cells drawn again whole
-  g.setTubes(data);
-  const p0 = g.partCells, n0 = f.calls.length;
-  assert.equal(g.drawRows(m, look, { on: false }, [0]), true);
-  const d = vesselDraws(f, n0), k = g.partCells - p0;
-  assert.equal(d.reduce((a, x) => a + x.count, 0), k);
-  // Vessel 0's cells: those with only it are simple, those under the far join are not.
-  const rowCells = [];
-  for (let c = 0; c < bins.nCells; c++) { const s0 = bins.cells[c * 6 + 2], n = bins.cells[c * 6 + 3]; for (let e = s0; e < s0 + n; e++) if (bins.ent[e * 8 + 4] === 0) { rowCells.push(c); break; } }
-  assert.equal(k, rowCells.length);
-  assert.equal(d.filter((x) => x.simple).reduce((a, x) => a + x.count, 0), rowCells.filter((c) => flags[c]).length);
-});
-
-test('if the one-vessel build fails to compile, every cell is drawn by the general program', async () => {
-  const f = fakeGL({ failSimple: true });
-  const warn = console.warn; console.warn = () => {};
-  try {
-    const { g, bins, look } = await renderer(f);
-    const n0 = f.calls.length;
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    const d = vesselDraws(f, n0);
-    assert.deepEqual(d, [{ simple: false, count: bins.nCells }]);
-    assert.ok(f.calls.some((c) => c[0] === 'deleteProgram'), 'the failed program is given back');
-  } finally { console.warn = warn; }
-});
-
-test('the one-vessel build is always compiled, its cells drawn by it: no address switch keeps them on the general program', async () => {
-  const f = fakeGL();
-  const { g, bins, look } = await renderer(f);
-  const n0 = f.calls.length;
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
-  assert.ok(want > 0);
-  assert.deepEqual(vesselDraws(f, n0).sort((a, b) => a.simple - b.simple), [{ simple: false, count: bins.nCells - want }, { simple: true, count: want }]);
-  assert.ok(f.calls.some((c) => c[0] === 'shaderSource' && /#define SIMPLE 1/.test(c[2])), 'the one-vessel build is compiled');
-  assert.doesNotMatch(readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8'), /veins=generic/);
-});
 
 // ── The composite's two builds (addendum §9): full, and plain for frames with no dye, no origin colours and no bleed ──
 test('the plain composite is the same text with those three switches as constants 0', async () => {
@@ -316,39 +207,31 @@ test('the composite takes the plain build only when its dye, origin and bleed un
 test('with parallel compile the optional builds are never waited on, and are published, warmed, once the driver is done', async () => {
   const pcx = { done: false };
   const f = fakeGL({ pcx });
-  const { g, bins, look } = await renderer(f);
-  // Nothing of the one-vessel build or the plain composite was read at construction: no compile or link status.
-  const optional = (sh) => /#define (SIMPLE|PLAIN) 1/.test(f.src.get(sh) || '');
+  const { g, look } = await renderer(f);
+  // Nothing of the plain composite was read at construction: no compile or link status.
+  const optional = (sh) => /#define PLAIN 1/.test(f.src.get(sh) || '');
   const optProg = (p) => (f.att.get(p) || []).some(optional);
   const statusReads = (from) => f.calls.slice(from).filter((c) => (c[0] === 'getShaderParameter' && optional(c[1])) || (c[0] === 'getProgramParameter' && optProg(c[1]) && c[2] === f.gl.LINK_STATUS));
   assert.equal(statusReads(0).length, 0);
-  // While compiling: every cell and every frame on the general builds; only the completion flag is asked.
+  // While compiling: the full composite draws; only the completion flag is asked. The first draw finishes the Tube (nothing else draws the vessels).
   let n = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  assert.deepEqual(vesselDraws(f, n), [{ simple: false, count: bins.nCells }]);
   assert.ok(f.calls.slice(n).some((c) => c[0] === 'getProgramParameter' && c[2] === 0x91b1));
   assert.equal(statusReads(n).length, 0);
   assert.ok(!f.calls.slice(n).some((c) => c[0] === 'useProgram' && f.isPlain(c[1])), 'the full composite draws');
   const held = new Set([...f.att].filter(([p]) => optProg(p)).flatMap(([, sh]) => sh));
   assert.ok(!f.calls.some((c) => c[0] === 'deleteShader' && held.has(c[1])), 'no shader of theirs freed while they are still to be finished');
-  // Done: the next composite finishes both, warms each with a draw into a 1 × 1 target, and frees the shaders.
+  // Done: the next composite finishes it, warms it with a draw into a 1 × 1 target, and frees the shaders.
   pcx.done = true;
   n = f.calls.length;
   g.composite(look, { on: true });
   const c = f.calls.slice(n);
   assert.ok(statusReads(n).length > 0);
   assert.ok(c.some((x) => x[0] === 'viewport' && x[3] === 1 && x[4] === 1), 'warmed in a 1 × 1 target');
-  const warmDraws = vesselDraws(f, n).filter((d) => d.simple);
-  assert.deepEqual(warmDraws, [{ simple: true, count: 1 }], 'the one-vessel build drawn once to warm it');
   assert.ok([...held].every((sh) => c.some((x) => x[0] === 'deleteShader' && x[1] === sh)), 'their shaders freed after');
-  // Then: the cells split as without the extension, from a whole vessel draw (the layer is drawn again in full once).
+  // Then: the plain composite draws.
   n = f.calls.length;
-  assert.equal(g.drawRows([1, 0, 0, 1, 0, 0], look, { on: true }, [0]), false, 'a partial redraw gives way to one whole draw');
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
-  const d = vesselDraws(f, n);
-  assert.equal(d.find((x) => x.simple).count, want);
-  assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
   assert.ok(f.calls.slice(n).some((x) => x[0] === 'useProgram' && f.isPlain(x[1])), 'and the plain composite draws');
 });
 
@@ -357,53 +240,7 @@ test('without parallel compile the optional builds are finished at construction,
   const { g, bins, look } = await renderer(f);
   const n = f.calls.length;
   g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  assert.equal(vesselDraws(f, n).length, 2);
   assert.ok(f.calls.slice(0, n).some((c) => c[0] === 'deleteShader'));
   assert.ok(!f.calls.slice(n).some((c) => c[0] === 'getProgramParameter' && c[2] === 0x91b1));
   assert.ok(bins.nCells > 0);
-});
-
-// ── One-pass zoom frames ──
-test('a zoom frame draws the vessel cells with the one-pass builds over a stencil and the rest with the plain composite; a still frame after it draws the layer whole', async () => {
-  const f = fakeGL({ stencil: true });
-  const { g, bins, look } = await renderer(f);
-  const want = simpleCells(bins.cells, bins.nCells, bins.ent).reduce((a, v) => a + v, 0);
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  let n = f.calls.length;
-  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
-  assert.deepEqual(vesselDraws(f, n), [], 'no vessel pass on a zoom frame');
-  const c = f.calls.slice(n);
-  let prog = null;
-  const fused = [];
-  for (const x of c) { if (x[0] === 'useProgram') prog = x[1]; if (x[0] === 'drawArraysInstanced' && f.isFused(prog)) fused.push({ simple: f.fusedSimple(prog), count: x[4] }); }
-  assert.deepEqual(fused.sort((a, b) => a.simple - b.simple), [{ simple: false, count: bins.nCells - want }, { simple: true, count: want }], 'every cell once, by the one-pass build of its class');
-  const on = c.findIndex((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST), eq = c.findIndex((x) => x[0] === 'stencilFunc' && x[1] === f.gl.EQUAL), off = c.findIndex((x) => x[0] === 'disable' && x[1] === f.gl.STENCIL_TEST);
-  assert.ok(on >= 0 && on < eq && eq < off, 'the cells mark the stencil, then the rest is drawn where it is unmarked');
-  const plainAt = c.findIndex((x, i) => i > eq && x[0] === 'drawArrays');
-  assert.ok(plainAt > eq && plainAt < off);
-  const progAt = (i) => { for (let k = i; k >= 0; k--) if (c[k][0] === 'useProgram') return c[k][1]; return null; };
-  assert.ok(f.isPlain(progAt(plainAt)), 'by the plain composite');
-  // The view held still: the layer drawn whole again (both programs, every cell) before the picture.
-  n = f.calls.length;
-  g.composite(look, { on: true });
-  const d = vesselDraws(f, n);
-  assert.equal(d.find((x) => x.simple).count, want);
-  assert.equal(d.find((x) => !x.simple).count, bins.nCells - want);
-  // A zoom frame with origin colours (not plain) keeps the two passes.
-  n = f.calls.length;
-  g.draw([2, 0, 0, 2, 0, 0], look, { on: true, origin: true });
-  assert.equal(vesselDraws(f, n).length, 2);
-});
-
-test('without a stencil a zoom frame keeps the two passes', async () => {
-  const f = fakeGL();
-  // (A canvas that keeps its own picture, a renderer neither the stage's nor the lobule's: the stencil is the context's. The kept picture brings a stencil of
-  // its own, so by default a context without one still draws zoom frames in one pass: veins-own-buffer.test.js.)
-  const r = await renderer(f, '../src/ui/veins-gl.js', 'apart');
-  const { g, look } = r;
-  g.draw([1, 0, 0, 1, 0, 0], look, { on: true });
-  const n = f.calls.length;
-  g.draw([1.5, 0, 0, 1.5, 0, 0], look, { on: true });
-  assert.equal(vesselDraws(f, n).length, 2);
-  assert.ok(!f.calls.slice(n).some((x) => x[0] === 'enable' && x[1] === f.gl.STENCIL_TEST));
 });

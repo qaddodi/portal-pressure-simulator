@@ -29,6 +29,7 @@ function fakeGL() {
         calls.push([k, ...a]);
         if (k === 'getShaderParameter') return true;
         if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;   // (the Tube's targets are made: no other renderer to fall back on)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k.startsWith('create')) return { obj: nextObj++, kind: k };

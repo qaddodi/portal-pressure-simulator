@@ -11,9 +11,9 @@ not renamed: `meshUse()` (a geometry pass can draw), `meshTargets`, `meshGeo`, `
 **The stage follows which programs are ready, and nothing else** (`tubeStage(ready, ready3)` in `tube-stage2.js`): 1 (patches) until the stage 2 programs are finished, 2 (webs) then, 3 (the
 lumen pass) when its programs are finished too. A failed stage 3 program leaves stage 2, a failed stage 2 program leaves stage 1.
 
-**The hidden classic safety net.** The classic vessel pass (`vesselFS(false)` / `vesselFS(true)`, the program `prog` / `simple`) has no setting and no flag. It draws only while `meshUse()` is
-false: the Tube's programs still compiling, a Tube shader failed (`tubeWhy` `shader failed`), software GL (`software GL`), no depth and stencil target (`no depth and stencil`), or no lay program.
-`?perf` says which (gauge `vessel renderer`, `classic: tube <why>`). A device that draws it shows the old flat shading, not the Tube's look; it is there so the figure never shows nothing, not as a choice.
+**No classic safety net (15 Nov 2026).** The classic vessel pass (`vesselFS(false)` / `vesselFS(true)`, the programs `prog` / `simple`), its one-pass zoom builds (`veins-fuse.js`), Pinch frame reuse and Vessels lower while pinching were deleted. Where the Tube cannot draw, nothing else does:
+its programs still compiling at the first draw are finished there (`tubeReady()`, a wait with nothing yet on the screen to hold up); a failed Tube shader makes the renderer null at creation (the stage keeps the SVG tubes) or, found later, gives it up as a lost context is
+(`tubeGiveUp`: `lost` is true, `tubeWhy` says why); a refused depth and stencil target does the same (`no depth and stencil`). Software GL draws the Tube too. The shader text of the classic builds is still in `vesselFS` (the Tube builds are its `tube` variants); `tests/vessel-fs-old-builds.test.js` pins it until it is cut out of the template.
 
 **Why a tube** (the idea of the 10 Nov brief, `docs/recommendations/tube-renderer-plan.md`). A vessel is drawn as a half tube whose vertices carry a real depth, so the depth buffer joins vessels
 (the nearer surface wins a pixel) in place of key prepasses, a stencil and join patches; the blood is drawn in the tube's own shader. Changing `gl.drawBuffers` inside a draw splits a Metal render
@@ -27,11 +27,10 @@ D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js
 
 ## The seam
 
-- `veins-gl.js`: `meshUse()` is "the geometry renderer draws": it needs `tubeS`, `tubePt` and `meshL` (otherwise false, and `tubeWhy` says why), not software GL, and the targets.
-  So every `meshUse()` branch in `draw` (no `lowPass`, no `fuse`, no `rowParts` tint, `meshCellsPass` for partial redraws) does the right thing for the Tube.
-- `pieceFn`: `meshUse() && tubePass(...)`. Tube not ready means `meshUse()` is false and the classic pass draws. `scripts/rules-lint.mjs` holds that line.
-- `?perf`: gauge `vessel renderer` says `tube: N passes, N strips, N patches drawn`, or `classic: tube compiling` / `shader failed` /
-  `software GL` / `no depth and stencil` / `no lay program`. The probe note is `vessels: tube`.
+- `veins-gl.js`: `meshUse()` is "the geometry renderer draws": it needs `tubeS`, `tubePt` and `meshL` (otherwise false, and `tubeWhy` says why), and the targets (software GL draws the Tube too; there is no other renderer).
+  `draw` waits for it (`tubeReady()`), and `meshCellsPass` does the partial redraws.
+- `pieceFn`: `tubePass(...)` alone. `draw` returns, drawing nothing, until `tubeReady()` says the Tube can. `scripts/rules-lint.mjs` holds both lines.
+- `?perf`: gauge `vessel renderer` says `tube: N passes, N strips, N patches drawn`. The probe note is `vessels: tube`.
 - The blood style uniform is 3 (`STYLE_P`) while `meshUse()` (the condition `pieceFn` uses), else exactly as before.
 - Programs: `tubeStrip` (`tubeStripVS` over `vesselFS(true, 1, 1)`), `tubePatch` (`meshPatchVS` over `vesselFS(false, 2, 1)`) and the lay program `meshL`, started at the figure's
   creation (and the lobule's right after it, `startLobuleTube`), in their own `try`, finished together into `tubeS`, `tubePt` and `meshL` (`later` key `'tube'`, `startsOf`, the deletion list).
@@ -90,8 +89,7 @@ program of the same names as the strip's vertex uniforms, set together: the figu
 
 ## The lobule on the Tube (brief L-D)
 
-The lobule's renderer instance (`who: 'lobule'`) makes the Tube's strip and patch programs and the lay program at its creation (`startLobuleTube`, veins-gl.js, right after the figure's). Until they
-are finished, and on software GL, its vessels are the classic pass (`meshUse()` false, gauge `lobule vessel renderer`). It has one tier, so what is in front
+The lobule's renderer instance (`who: 'lobule'`) makes the Tube's strip and patch programs and the lay program at its creation (`startLobuleTube`, veins-gl.js, right after the figure's). If they fail the lobule renderer is not made (its vessels are not drawn on the GPU); they are finished at its creation. It has one tier, so what is in front
 is each row's `z`: `zK` 1, `hK` 0.008, `hRef` 22 (the largest radius, 21.42, `node scripts/lobule-joins.mjs`) in `tube-pass.js` (`E.lobule`).
 `?perf`: `vessels: tube` and the gauge `lobule vessel renderer`. `tests/tube-lobule-programs.test.js`.
 Under Tube the lobule's paths: a whole draw is the Tube pass; `drawRows` (the pulse and every recolour) draws the changed rows' cells by `meshCellsPass` (most cells: a whole draw); the pinch's
@@ -338,8 +336,8 @@ them (they keep caps and webs).
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).
 - The outline is 1.6 times the casing width and still grows with zoom (the "weight that holds when zoomed" rule was planned for stage 2 and is not built). Its colour is
   near-black on the light looks and the look's own line colour on the dark ones (`celShade`).
-- Blood is particles in the Tube and streaks in the classic safety-net pass.
-- Software GL keeps the classic pass (the Tube needs a GPU); the lobule's vessels are the Tube whenever its own Tube programs are finished (they were classic while the Mesh was the default).
+- Blood is particles in the Tube.
+- Software GL draws the Tube too (slowly: the stage drops to 8 frames a second there); the lobule's vessels are the Tube.
 
 ## What stage 1 leaves out
 

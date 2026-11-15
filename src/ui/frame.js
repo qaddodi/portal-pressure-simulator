@@ -712,17 +712,13 @@ export function setFigOpt(k, v) {
 // glassCache: the callouts' GPU glass keeps each callout's box, fade and shadow until something says they changed (glass-gl.js).
 // creditLean: in Present, the corner credit's once-a-second look runs only when the layout may have changed (credit.js). ON by default since
 //   31 Oct (laptop heat H7): the look measures every card and label, and in Present it ran every second whatever had happened.
-// pinchReuse: while a hand zooms, all but one in 2 (2) or in 3 (3) of the one-pass zoom frames lay the last shaded picture again,
-//   moved and scaled to the view now (veins-gl.js reuseDraw); a zoom out, which uncovers the edges, is shaded every frame.
 // upscale: under Full, the anatomy's canvas stays at Full and the figure, drawn at its share into the renderer's own buffer, is upscaled
 //   onto it by a sharper filter than the browser's (veins-gl.js UP_FS). The lobule and the sinusoid are not included.
 // lymphBoxes: in the lobule with the GPU's vessels, the lymph's layer is cleared and drawn again only in the tiles its drops left or
 //   reached, while nothing else on it changed (lobule-zoom.js lyKey).
 // lightArt: the colon's and small bowel's lines with about half their points, none more than 0.05 units off (stage.js syncArtLite).
-// pinchLow: a zoom frame under a hand draws the vessel layer at PINCH_LOW_K of its width and height and stretches it; the view a
-//   pinch stops at is drawn at Full (veins-gl.js lowPass). Pinch frame reuse, when on, takes those frames instead.
 // (The first of a switch's values is its default.)
-export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], pinchReuse: [0, 2, 3], upscale: [false, true], lightArt: [false, true], pinchLow: [false, true] };
+export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], upscale: [false, true], lightArt: [false, true] };
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }
@@ -743,8 +739,6 @@ try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
-/** Vessels lower while pinching: the share of the layer's width and height (0.71: half its pixels). */
-export const PINCH_LOW_K = 0.71;
 /** The least time between two drawn frames of steady motion: 0 (every frame) unless Battery saver or Motion at 60 is on. */
 export const paceMs = () => frameGapFor('glide');
 

@@ -1,12 +1,12 @@
 // The vessels on the GPU: coil and varix-spread ease, the morph frame, colours, radii, colour pass, syncVeins and drawVeins.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { TIERS_ON, TIER_TOP, motionK, sharpMoving, tierK } from './adapt-tier.js';
+import { sharpMoving } from './adapt-tier.js';
 import { ANAT_HIDDEN, CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
 import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { PEEL_GLOW, peelGlow } from './flow-peel.js';
-import { PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
+import { easeNow, figOpt, inMotion } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liftEnd, nearPath } from './highlight-math.js';
@@ -1082,29 +1082,7 @@ export function createVessels(st, live) {
     live.veinsDirty = false; live.veinsDrawKey = key; viewKeep.set(viewNext); rowsShown();
     glMBuf[0] = S * m.a; glMBuf[1] = S * m.b; glMBuf[2] = S * m.c; glMBuf[3] = S * m.d; glMBuf[4] = S * (m.e - live.wrapRect.left) + tx; glMBuf[5] = S * (m.f - live.wrapRect.top) + ty;
     live.glM = glMBuf;
-    // (Settings › Figure performance › Pinch frame reuse (frame.js): only while a hand zooms; a frame that laid the last picture again
-    // leaves the layer to be drawn whole, so the view a pinch stops at is always shaded afresh.)
-    const reuse = figLab('pinchReuse');
-    live.veins.setReuse?.(reuse, !!reuse && live.gestureOn());
-    // (Vessels lower while pinching: likewise only while a hand zooms, and a frame drawn lower leaves the layer to be drawn whole.)
-    const low = figLab('pinchLow');
-    // (Quality tiers, adapt-tier.js (R07): under deadline pressure every zoom frame of a move, a hand's or a glide's, draws the layer at
-    // the tier's share inside targets made once at the top tier's size; the view a move stops at is drawn at Full. ?tiers=0: off.)
-    // (Not through the change between the views: its frames drawn lower and the landing at Full read as a flicker, soft then sharp, on the figure.)
-    // (B3, pure-gpu-plan: while the camera glides, a hand or wheel zooms, or the figure morphs between the views, the vessels, blood and organs are drawn at
-    // MOTION_K of the layer's width and height and stretched in the present; labels, lines and glass are on their own layers, at Full. The frame that
-    // lands (morph at its target, the gesture over) draws the layer whole, and `soft` keeps the page awake until it has. Not in a dive, the lobule or a card's zoom.)
-    // (A hand's move only (4 Nov 2026, Mohammad: "the slide figure flickers intermittently"). A glide the app runs steps its camera at 60 Hz
-    // (the governor), so on a 120 Hz screen every other frame has the same camera: those skip the lower pass and the beat's radius patches
-    // draw the layer whole, so the figure went soft, sharp, soft at 60 Hz through every slide change, and popped sharp as it landed. A morph
-    // between the views is left whole for the same reason as the tiers above.)
-    const morphing = live.morph !== live.morphTarget;
-    const moving = TIERS_ON && !morphing && live.gestureOn() && !(live.diveT > 0) && !live.lobuleOn && !live.drawCam && !live.lz?.isOpen();
-    const tk = TIERS_ON && !morphing ? tierK() : 0, mk = moving ? motionK() : 0;
-    const lk = tk && mk ? Math.min(tk, mk) : tk || mk;
-    live.veins.setLow?.(lk || (low ? PINCH_LOW_K : 0), lk ? true : low && live.gestureOn(), TIERS_ON ? TIER_TOP : 0, false);
     live.veins.draw(T, live.vLook, live.bloodLook(), rows);
-    if (live.veins.reused || live.veins.soft) live.veinsDirty = true;
     return true;
   }
   return { JUMP_MMHG, LENS_FADE, NO_LIST, cavaAsOne, cssNum, drawVeins, et, glItems, glWanted, glowOnlyOk, itemRadii, lenOfArc, lensNow, mix3, sendRadii, smoothRunOn, sweepBin, syncGlowOnly, syncVeins, toRGB, veinJoins, veinsRows };

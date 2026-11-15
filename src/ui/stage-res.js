@@ -1,6 +1,5 @@
 // The figure's resolution and size: the canvas share (Auto, Adapt, While moving, Size cap), its eased changes, its resize and the density watch.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { TIERS_ON, TIER_TOP, onTierWarm } from './adapt-tier.js';
 import { figLab, figOpt, inMotion, renderScale, renderSetting } from './frame.js';
 import { capDensity } from './pixel-budget.js';
 import { leftAlone } from './quiet.js';
@@ -168,11 +167,5 @@ export function createRes(st, live) {
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)
   // (Auto's step is taken at once for the view as it stands, so a change goes in one eased step, not by Full and back.)
-  if (TIERS_ON) onTierWarm(() => { if (live.veins && !live.veins.lost) live.veins.prepLow?.(TIER_TOP); });   // (the tiers' targets, made between frames)
-    // (B3: the lower targets, made between frames a moment after the canvas was sized, so the first moving frame allocates nothing.)
-  let lowWarmT = 0;
-  const lowWarm = () => { stageScope.clear(lowWarmT); lowWarmT = stageScope.timer(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
-  lowWarm();
-new ResizeObserver(lowWarm).observe(wrap);
-  return { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
+  return { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
 }

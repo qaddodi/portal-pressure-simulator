@@ -58,7 +58,7 @@ test('Joins are webs (the Tube): no patch texture is made for a morph set', () =
   assert.equal(patchTexUploads(f), before, 'no patch built or uploaded where the joins are webs');
 });
 
-test('tubeStage() is a number the Tube\'s stage fills in: 0 before the vessel layer is drawn and while the classic pass draws it', () => {
+test('tubeStage() is a number the Tube\'s stage fills in: 0 before the vessel layer is drawn and while the Tube cannot draw it', () => {
   const { g } = lobule();
   assert.equal(g.tubeStage(), 0);
   g.draw([1, 0, 0, 1, 0, 0], { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierGroup: new Array(24).fill(0), tierAlpha: new Array(24).fill(1) }, { on: false });

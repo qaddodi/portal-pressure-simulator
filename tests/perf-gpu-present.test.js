@@ -25,6 +25,7 @@ function fakeGL() {
         calls.push([k, ...a.map((x) => (Array.isArray(x) ? [...x] : x))]);
         if (k === 'getShaderParameter') return true;
         if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'checkFramebufferStatus') return gl.FRAMEBUFFER_COMPLETE;   // (the Tube's targets are made: no other renderer to fall back on)
         if (k === 'getExtension') return null;
         if (k === 'getParameter') return 'stand-in';
         if (k === 'getContextAttributes') return { stencil: true };
@@ -58,7 +59,8 @@ test('A2: a whole picture drawn straight onto the canvas invalidates the canvas 
   const { g, f, look } = renderer();
   const n0 = f.calls.length;
   g.draw(M1, look, { on: false });
-  const inv = invals(f, n0);
+  // (The Tube's own pass into the vessel layer lets go of its depth and stencil there: the canvas's is the one this is about.)
+  const inv = invals(f, n0).filter(([, i]) => boundAt(f, i, f.gl.FRAMEBUFFER) === null);
   assert.equal(inv.length, 1);
   const [c, at] = inv[0];
   assert.deepEqual(c.slice(1), [f.gl.FRAMEBUFFER, [f.gl.COLOR]]);
@@ -190,23 +192,6 @@ test('A5: under a camera the overlay lay is cut to its bounds, and nothing is la
 });
 
 // ── D1 ──
-test('D1: trim() gives back the quality tiers\' targets, and prepLow makes them again', () => {
-  const { g, f } = renderer();
-  g.prepLow(0.7);
-  const made = g.lowMade;
-  assert.ok(made >= 1);
-  let n0 = f.calls.length;
-  g.trim();
-  const c = f.calls.slice(n0);
-  assert.equal(c.filter((x) => x[0] === 'deleteFramebuffer').length, 1, 'the tiers\' framebuffer');
-  assert.ok(c.filter((x) => x[0] === 'deleteTexture').length >= 3, 'and their textures');
-  n0 = f.calls.length;
-  g.trim();
-  assert.ok(!f.calls.slice(n0).some((x) => x[0] === 'deleteFramebuffer' || x[0] === 'deleteTexture'), 'a second trim has nothing more to give');
-  g.prepLow(0.7);
-  assert.equal(g.lowMade, made + 1, 'made again between frames, not at the first move');
-});
-
 test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the host to a texel', () => {
   const host = renderer();
   const f = host.f;

@@ -166,7 +166,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const gl = text('src/ui/veins-gl.js');
   const comp = gl.slice(gl.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'));
   const compRules = [
-    [/if \(headP && blood\.chev && !bleeding && !fused && axisN > 0\) \{/, 'heads as quads never on a one-pass (zoom) frame: it writes no layer for them to read'],
+    [/if \(headP && blood\.chev && !bleeding && axisN > 0\) \{/, 'heads as quads when the arrowheads\' program is ready and nothing bleeds'],
     [/const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/, 'still lumens kept only when that is exact'],
   ];
   for (const [re, why] of compRules) if (!re.test(comp)) errors.push(`src/ui/veins-gl.js composite(): ${why} (${re})`);
@@ -174,7 +174,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
   // The Tube vessel renderer (10 Nov 2026, docs/tube-renderer.md): no hybrid, and the draw buffers set once.
   need('src/ui/veins-gl.js', [
-    ['if ((pMode === 0 || pMode >= 3) && meshUse() && tubePass(pM, pLook)) return;', 'the Tube pass is the only geometry pass (no Mesh: when it is not ready, meshUse() is false and the classic pass draws)'],
+    ['tubePass(pM, pLook);\n  };', 'the Tube pass is the only geometry pass (no Mesh, no classic pass: draw() draws nothing until meshUse() says the Tube can)'],
+    ['if (!tubeReady()) return;', 'draw() waits for the Tube (tubeReady) and draws nothing without it'],
   ]);
   {
     const tp = text('src/ui/tube-pass.js');
@@ -189,7 +190,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
-    if (!meshUseBody || /tube2|tubeLean|stage2/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 2 program (a Tube frame that stage 1 can draw is never drawn by the Mesh or the classic because a stage 2 program failed)');
+    if (!meshUseBody || /tube2|tubeLean|stage2/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 2 program (a Tube frame that stage 1 can draw is never refused because a stage 2 program failed)');
     const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
     if (!finishTubeBody || /tube2/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 2 to finishTube2 (a failed stage 2 program must not take stage 1 down with it)');
     const draw2Body = slice(tp, 'function draw2(', '// A pass and its prepass for tier t');
@@ -283,7 +284,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
     const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
-    if (!meshUseBody || /tube3|tubeLumen|stage3/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 3 program (a Tube frame that stage 2 can draw is never drawn by the Mesh or the classic because a stage 3 program failed)');
+    if (!meshUseBody || /tube3|tubeLumen|stage3/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 3 program (a Tube frame that stage 2 can draw is never refused because a stage 3 program failed)');
     const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
     if (!finishTubeBody || /tube3/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 3 to finishTube3');
     if (/tubeStrip|tubePatch|tubeLean|tube2/.test(slice(vg, 'const finishTube3 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube3: finishes the six stage 3 programs only');

@@ -43,10 +43,6 @@ const mods = new Map();
 // ---- the list ---------------------------------------------------------------------------------------------------------------------
 // Programs that already run on devices come first, so the check is proven on known-good text before a new program is judged by it.
 
-// The classic vessel programs. Their vertex shader (`VS` in veins-gl.js) is not exported: the fragment shaders compile alone for now.
-const vesNote = (g) => (g.VESSEL_VS ? '' : 'fragment only: veins-gl.js does not export its vessel vertex shader (VS)');
-add('classic vessel (general) vesselFS(false)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(false), note: vesNote(g) }));
-add('classic vessel (one vessel) vesselFS(true)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(true), note: vesNote(g) }));
 add('upscale pass (a picture smaller than the canvas: edge steepen, dither, pan rest)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'UP_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.UP_FS }));
 add('catheter (EUS scope under the vessels)', { '../src/ui/veins-gl.js': ['CATH_VS', 'CATH_FS'] }, (g) => ({ vs: g.CATH_VS, fs: g.CATH_FS }));
 

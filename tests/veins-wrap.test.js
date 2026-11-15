@@ -18,7 +18,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { wrapPieces, boxOfCells, createVeinsGL, binVeins, N_SAMPLES, MAX_TIERS } = await import('../src/ui/veins-gl.js');
+const { wrapPieces, boxOfCells, createVeinsGL, binVeins, N_SAMPLES, MAX_TIERS, TUBE_TEXELS } = await import('../src/ui/veins-gl.js');
 const { CELL } = await import('../src/ui/veins-bin.js');
 
 test('wrapPieces: every pixel of the rectangle once, each in the texel (s + o) mod size, shifted by that', () => {
@@ -85,6 +85,7 @@ function emulator(W, H) {
           case 'getUniformLocation': return { p: a[0], name: a[1] };
           case 'getContextAttributes': return { stencil: true };
           case 'getExtension': return null;
+          case 'checkFramebufferStatus': return E('FRAMEBUFFER_COMPLETE');
           case 'getParameter': return 'stand-in';
           case 'useProgram': prog = a[0]; return undefined;
           case 'bindFramebuffer':
@@ -109,8 +110,9 @@ function emulator(W, H) {
             for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) if (!scissorOn || inBox(i, j, scissor)) m[i + j * tw] = null;
             return undefined;
           }
-          case 'drawArraysInstanced': case 'drawArrays': {
+          case 'drawArraysInstanced': case 'drawArrays': case 'drawElementsInstanced': case 'drawElements': {   // (the Tube's strips are indexed; the model treats each draw as covering the figure's cells, the same texel mapping)
             const fs = fsOf(prog);
+            if (process.env.DBGW && !/uniform ivec2 lA, lWrap, lSize;/.test(fs)) console.log('DRAW', k, /uniform vec2 lOff;/.test(fs), /outFlow/.test(fs), Object.keys(uni.get(prog) || {}).join(',').slice(0,300), 'tgt', !!model.get(target()));
             if (/uniform vec2 lOff;/.test(fs) && /outFlow/.test(fs)) {
               // A vessel pass: each texel it covers (inside the viewport, the scissor and the cells' quads, moved by lOff) holds the
               // spot of the figure the fragment shader works out for it.
@@ -175,6 +177,8 @@ function scene(W, H) {
   const bins = binVeins([{ id: 0, pts: line(10), reach: 6 }, { id: 1, pts: line(40), reach: 6 }], []);
   for (let c = 0; c < bins.nCells; c++) st.cells.add(`${bins.cells[c * 6]},${bins.cells[c * 6 + 1]}`);
   g.setGeometry(bins);
+  [0, 1].forEach((id) => g.setRadii(id, Array(N_SAMPLES).fill(8)));
+  { const data = new Float32Array(4 * TUBE_TEXELS * 4); for (let i = 0; i < 2; i++) { data.set([0.3, 0.4, 0.8, 3, 0.3, 0.4, 0.8, 1, 1, 0.1 * i, 6, 0], i * TUBE_TEXELS * 4); data.set([0, 1, 500, 0], i * TUBE_TEXELS * 4 + 20); } g.setTubes(data); }
   const look = { shOff: [0, 0], light: [0, -1], reach: 3, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1) };
   return { g, st, look, bins };
 }
@@ -301,8 +305,9 @@ test('cells drawn again or recoloured on a wrapped layer land in their own texel
   g.draw([1, 0, 0, 1, 7, -5], look, { on: false });
   const v0 = st.vessel;
   // A colour change alone: drawRows, on the wrapped layer.
-  put(0, [0.9, 0.9, 0.2]); g.setTubes(data);
-  assert.equal(g.drawRows([1, 0, 0, 1, 7, -5], look, { on: false }, [0]), true);
+  // (The shorter vessel, row 1: the Tube draws a colour change as its cells drawn again, so a row that holds most of the cells is refused, 'most cells'.)
+  put(1, [0.9, 0.9, 0.2]); g.setTubes(data);
+  assert.equal(g.drawRows([1, 0, 0, 1, 7, -5], look, { on: false }, [1]), true);
   // And one with a pan: the strips, then the changed rows' cells.
   put(1, [0.1, 0.9, 0.3]); g.setTubes(data);
   st.expect = [-4, 6];
@@ -311,12 +316,15 @@ test('cells drawn again or recoloured on a wrapped layer land in their own texel
   assert.deepEqual(st.failures, []);
 });
 
-test('the vessel cells\' quads are moved by the same lOff the fragment shader takes off', async () => {
+test('the Tube\'s strips and patches are moved by the same lOff the fragment shader takes off', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  const vs = src.slice(src.indexOf('const VS = `'), src.indexOf('// Tube attributes'));
-  assert.match(vs, /uniform vec2 lOff;[^\n]*\n[\s\S]*vec3 d = world \* vec3\(w, 1\.0\);\n {2}d\.xy \+= lOff;\n {2}gl_Position = vec4\(d\.x \/ size\.x \* 2\.0 - 1\.0, 1\.0 - d\.y \/ size\.y \* 2\.0, 0\.0, 1\.0\);/);
+  const strip = readFileSync(new URL('../src/ui/tube-geo.js', import.meta.url), 'utf8');
+  const patch = readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');
+  const place = /d\.xy \+= lOff;\n {2}gl_Position = vec4\(d\.x \/ size\.x \* 2\.0 - 1\.0, 1\.0 - d\.y \/ size\.y \* 2\.0, /;
+  assert.match(strip, place);
+  assert.match(patch, place);
   assert.match(src, /vec2 q = vec2\(gl_FragCoord\.x, sizeF\.y - gl_FragCoord\.y\) - lOff - tOff;/);
-  // (Zero outside the pieces: a one-pass frame, the lower layer, the warm-up and every whole draw read the layer as it shows.)
+  // (Zero outside the pieces: the lower layer, the warm-up and every whole draw read the layer as it shows.)
   assert.match(src, /lOffNow\[1\] = AXY\[j \* 3 \+ 2\];\n\s+\}\n\s+pieceFn\(\);\n\s+\}\n\s+\}\n\s+lOffNow\[0\] = 0; lOffNow\[1\] = 0;/);
 });

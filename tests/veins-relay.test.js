@@ -108,6 +108,6 @@ test('the figure opts in, and the renderer draws the written cells again whole',
   const stage = stageSource();
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(stage, /binMemo\.relay = true;/);
-  assert.match(gl, /for \(const c of bins\.patchCells\) if \(!patchMark\[c\]\) \{ patchMark\[c\] = 1; patchK\+\+; \}\n\s+rowCells = null;\n\s+uploadCells\(\);/);
+  assert.match(gl, /for \(const c of bins\.patchCells\) if \(!patchMark\[c\]\) \{ patchMark\[c\] = 1; patchK\+\+; \}\n\s+rowCells = null;/);
   assert.match(gl, /if \(bins\.patchBlood\) uploadBlood\(bins\);/);
 });
