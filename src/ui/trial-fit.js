@@ -33,7 +33,9 @@
 // Facts the model does not have (a past bleed, a prior decompensation, the Child–Pugh class) come in as the fourth argument of fitTrial, `facts`, from a
 // case author (a slide's trial tool: `facts: { decompensated: false }`), never from the model: { decompensated?: boolean }. A fact the author did not
 // supply stays unknown, and a row that rests on one says so in its value ("case history") and in `source: 'case'`; a row that rests on the model's own
-// numbers has `source: 'model'`. Only real booleans count as a fact.
+// numbers has `source: 'model'`. Only real booleans count as a fact. A preset carries the same fact as its case history (scenario.js `facts`), and the
+// Tests card adds the session's own: once this patient has shown ascites or a bleed, `{ decompensated: true, source: 'session' }`, whose rows read
+// "Decompensated earlier in this session" and carry `source: 'session'` (TC-F3). Each row also names its test (`test`, null when unchecked).
 // A rule may also carry `minor: true`: fine print that does not define who was enrolled (an age band, a platelet floor, the timing of
 // randomization, the treatment given first). Every other rule is a defining rule: the population itself.
 // Each rule comes back with its state for this patient: 'yes' (met), 'no' (not met) or 'na' (the model cannot tell), and the model's value in
@@ -58,6 +60,8 @@ const varixLabel = (vx) => vx?.grade?.label ?? (Number.isFinite(vx?.d) ? varixGr
 const ascitesGradeOf = (a) => (a && Number.isFinite(a.grade) ? a.grade : null);
 const ascitesWords = (a) => (ascitesGradeOf(a) ? `Ascites ${one((a.volume || 0) / 1000)} L` : 'No ascites');
 const isBool = (v) => v === true || v === false;
+// (Where a past decompensation is known from: the case author's history, or this session, which saw ascites or a bleed earlier (TC-F3).)
+const before = (facts) => (facts?.source === 'session' ? 'Decompensated earlier in this session' : 'Decompensated before (case history)');
 
 // Each test: (rule, metrics, params) → [state, value]. A fact the record does not carry answers 'na'.
 const TESTS = {
@@ -73,7 +77,7 @@ const TESTS = {
     const g = ascitesGradeOf(m?.ascites);
     if (g >= 1) return ['no', ascitesWords(m.ascites)];
     if (m?.bleeding) return ['no', 'Bleeding now'];
-    if (facts?.decompensated === true) return ['no', 'Decompensated before (case history)'];
+    if (facts?.decompensated === true) return ['no', before(facts)];
     if (facts?.decompensated === false && g === 0) return ['yes', 'No decompensation (case history)'];
     return ['na', g === 0 ? 'No ascites; earlier decompensation not in the model' : NOT_IN_MODEL];
   },
@@ -112,7 +116,7 @@ const TESTS = {
     const g = ascitesGradeOf(m?.ascites);
     if (g >= 1) return ['yes', ascitesWords(m.ascites)];
     if (m?.bleeding) return ['yes', 'Bleeding now'];
-    if (facts?.decompensated === true) return ['yes', 'Decompensated before (case history)'];
+    if (facts?.decompensated === true) return ['yes', before(facts)];
     if (facts?.decompensated === false && g === 0) return ['no', 'Never decompensated (case history)'];
     return ['na', g === 0 ? 'No ascites; earlier decompensation not in the model' : NOT_IN_MODEL];
   },
@@ -140,7 +144,7 @@ export function fitTrial(trial, metrics, params, facts = null) {
     if (state === 'no') failed++;
     if (isDefining) { defining++; if (state === 'yes') defined++; }
     if (isDefining && !context) { key++; if (state === 'yes') keyMet++; }
-    const row = { rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining, context, source: /\(case history\)/.test(value ?? '') ? 'case' : fn && state !== 'na' ? 'model' : null };
+    const row = { rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining, context, source: /\(case history\)/.test(value ?? '') ? 'case' : /earlier in this session/.test(value ?? '') ? 'session' : fn && state !== 'na' ? 'model' : null, test: fn ? e.test : null };
     if (e?.test === 'hvpg_ge' && Number.isFinite(e.value)) row.need = `≥${e.value}`;
     if (e?.test === 'albumin_lt' && Number.isFinite(e.value)) row.need = `<${e.value.toFixed(1)}`;
     if (e?.test === 'ascitic_protein_lt' && Number.isFinite(e.value)) row.need = `<${e.value}`;

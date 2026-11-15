@@ -217,6 +217,12 @@ export function createTrial({ head = true } = NO_OPTS) {
       fit = next; drawnW = 0;
       if (trial) { el.setAttribute('aria-label', trialWords(trial, fit)); draw(); }
     },
+    /** Gives the box the height its drawing will have at width W before it is in the page, so what is under it is laid out once, in its
+     *  place (TC-M5: the Tests card's open trial grew after it had come in). The drawing itself comes once the box is in the page. */
+    prime(W) {
+      if (!trial || !(W > 0)) return;
+      el.style.height = `${trialLayout(trial, W, fittedType(el, gl, 12), textW, fit, { head }).H}px`;
+    },
     /** The next drawing grows its bars from nothing (a trial just opened). */
     grow() { growing = true; drawnW = 0; if (trial) draw(); },
     clear() {},
