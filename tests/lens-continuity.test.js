@@ -118,3 +118,29 @@ test('the colours do not depend on the pressures: the same with every pressure e
     for (const seed of [1, 2, 3]) same(ref, ox(jitter(e.Pf, seed)), `${label}: oxygen with the pressures nudged`);
   }
 });
+
+// Mohammad, 15 Nov 2026 (iPhone, "Cirrhosis with reversed portal flow", Origin lens): "Why is the RPV systemic?" The right portal vein's peripheral stretch carries almost no flow with the flow
+// reversed (under the passes' floor), the passes took such a flow for none, so the node it runs into had no inflow at all and read as systemic blood. A flow under the floor now carries its blood
+// on (its own weight: beside a real inflow it counts for nothing). Nothing on the portal side is systemic blood unless a vessel from outside it feeds it.
+test('origin and first pass: no portal-side vein or branch reads as systemic blood in any preset (a stagnant stretch carries its neighbours\' blood on)', async () => {
+  const { PRESETS } = await import('../src/engine/scenario.js');
+  const { PORTAL_TERRITORY } = await import('../src/engine/topology.js');
+  const sets = PRESETS.map((p) => [p.id, null]).concat([['cirr-hepatofugal', { tips: { on: true, d: 8 } }], ['cirr-decomp', { dips: { on: true, d: 8 } }]]);
+  let seen = 0;
+  for (const [preset, params] of sets) {
+    const e = state(preset, params);
+    for (let i = 0; i < 200; i++) e.step(0.05);
+    const Q = Float32Array.from(e.Qf), P = Float32Array.from(e.Pf);
+    for (const pass of [false, true]) {
+      const g = { origins: new Float32Array(E * N), down: new Float32Array(E * N), pe: new Float32Array(E), slosh: new Float64Array(E), len: new Float64Array(E).fill(120) };
+      originFractionsInto(EDGES, NODES, Q, P, g.origins, g, pass);
+      EDGES.forEach((ed, k) => {
+        if ((ed.kind !== 'vein' && ed.kind !== 'liver') || ed.zone === 'sin' || !PORTAL_TERRITORY.has(ed.from) || Math.abs(Q[k]) < 1e-9) return;
+        let s = 0; for (let c = 0; c < N; c++) s += g.origins[k * N + c];
+        seen++;
+        assert.ok(1 - s < 0.05, `${preset} ${JSON.stringify(params ?? {})}${pass ? ' first pass' : ''}: ${ed.id} (flow ${Q[k].toFixed(3)}) reads ${(100 * (1 - s)).toFixed(0)} % systemic`);
+      });
+    }
+  }
+  assert.ok(seen > 200, `the portal side was looked at (${seen} vessels)`);
+});

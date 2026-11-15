@@ -296,53 +296,62 @@ const isFwd = (q) => q > -FLOW_FLOOR;
 const EF = [], ET = [], FLOW_TO = [], IN_AT = [], IN_LIST = [], ORDER = [];   // (edge ends, the node each flow enters, the inflow lists: start, edges; the nodes by pressure)
 /**
  * The nodes' indexes in the order blood reaches them (ORDER), worked from the flows: a node comes after every node a flow into it leaves, and among the nodes that
- * are ready the one at the higher pressure first. Ordering by pressure alone was the flicker of 15 Nov 2026 (Mohammad's recording, the whole portal trunk and the SMV
+ * are ready the lowest index first. Ordering by pressure alone was the flicker of 15 Nov 2026 (Mohammad's recording, the whole portal trunk and the SMV
  * turning from one colour to another for a frame or two): the page gets its pressures as Float32 numbers, where the hair that keeps the pieces of a cut vein in
  * order (1e-6) is under the last bit, so two pieces tied or swapped by a bit from one frame to the next, and a node was visited before the node that feeds it. A
- * ring of flows (a few collaterals at rest) has no first node: the highest pressure left goes first, as before. Needs inflowLists (FLOW_TO) and the edge ends.
+ * ring of flows (only ones under the floor, taken forward) has no first node: a fixed choice, see below. Needs inflowLists (FLOW_TO) and the edge ends.
  */
-const F_IN = [], F_OUT_AT = [], F_OUT = [], F_DONE = [];
+const F_IN = [], F_SOFT = [], F_OUT_AT = [], F_OUT = [], F_OUT_SOFT = [], F_DONE = [];
+let Q_NOW = null;   // (the flows inflowLists last read)
 function byFlow(nn, ne, P) {
-  for (let n = 0; n <= nn; n++) { F_IN[n] = 0; F_OUT_AT[n] = 0; }
+  for (let n = 0; n <= nn; n++) { F_IN[n] = 0; F_SOFT[n] = 0; F_OUT_AT[n] = 0; }
+  // (A flow under the floor is a soft dependency: it orders the nodes when it can, a stagnant stretch carrying its blood on, but it never decides a ring.)
   for (let k = 0; k < ne; k++) {
     const t = FLOW_TO[k];
     if (t < 0) continue;
     const src = t === ET[k] ? EF[k] : ET[k];
     if (src < 0 || src === t) continue;
-    F_IN[t]++; F_OUT_AT[src + 1]++;
+    if (Math.abs(Q_NOW[k]) >= FLOW_FLOOR) F_IN[t]++; else F_SOFT[t]++;
+    F_OUT_AT[src + 1]++;
   }
   for (let n = 0; n < nn; n++) F_OUT_AT[n + 1] += F_OUT_AT[n];
-  for (let i = F_OUT.length; i < F_OUT_AT[nn]; i++) F_OUT[i] = 0;
+  for (let i = F_OUT.length; i < F_OUT_AT[nn]; i++) { F_OUT[i] = 0; F_OUT_SOFT[i] = 0; }
   for (let k = 0; k < ne; k++) {
     const t = FLOW_TO[k];
     if (t < 0) continue;
     const src = t === ET[k] ? EF[k] : ET[k];
     if (src < 0 || src === t) continue;
+    F_OUT_SOFT[F_OUT_AT[src]] = Math.abs(Q_NOW[k]) >= FLOW_FLOOR ? 0 : 1;
     F_OUT[F_OUT_AT[src]++] = t;
   }
   for (let n = nn; n > 0; n--) F_OUT_AT[n] = F_OUT_AT[n - 1];
   F_OUT_AT[0] = 0;
   for (let n = 0; n < nn; n++) F_DONE[n] = 0;
   for (let x = 0; x < nn; x++) {
-    // (The ready node at the highest pressure, the lowest index on a tie; else, in a ring, the highest pressure left.)
-    let best = -1, ring = -1;
+    // (The first node with nothing still to come, by index: such nodes do not depend on one another, so their order changes nothing, and no pressure, rounded or not, is read. None: a ring
+    // of soft flows only, the first node by index with no real inflow to come; a ring of real flows (the to-and-fro of a vessel), the highest pressure left, as before.)
+    let best = -1, soft = -1, ring = -1;
     for (let n = 0; n < nn; n++) {
       if (F_DONE[n]) continue;
-      if (F_IN[n] === 0) { if (best < 0 || P[n] > P[best]) best = n; }
+      if (F_IN[n] === 0) { if (F_SOFT[n] === 0) { best = n; break; } if (soft < 0) soft = n; }
       else if (ring < 0 || P[n] > P[ring]) ring = n;
     }
-    const n = best >= 0 ? best : ring;
+    const n = best >= 0 ? best : soft >= 0 ? soft : ring;
     ORDER[x] = n; F_DONE[n] = 1;
-    for (let i = F_OUT_AT[n]; i < F_OUT_AT[n + 1]; i++) F_IN[F_OUT[i]]--;
+    for (let i = F_OUT_AT[n]; i < F_OUT_AT[n + 1]; i++) { if (F_OUT_SOFT[i]) F_SOFT[F_OUT[i]]--; else F_IN[F_OUT[i]]--; }
   }
 }
 /** Each non-wedge edge with flow, listed under the node its flow enters (IN_AT[n] .. IN_AT[n + 1] in IN_LIST, edges in order). */
 function inflowLists(edges, nn, Q) {
   const ne = edges.length;
+  Q_NOW = Q;
   for (let n = 0; n <= nn + 1; n++) IN_AT[n] = 0;
   for (let k = 0; k < ne; k++) {
-    if (edges[k].kind === 'wedge' || !(Math.abs(Q[k]) >= FLOW_FLOOR)) { FLOW_TO[k] = -1; continue; }
-    const n = Q[k] > 0 ? ET[k] : EF[k];
+    // (A flow under the floor still carries its blood on, in the direction the passes give it (isFwd: always forward, so it never turns with the breath): a stagnant stretch
+    // that fed nothing left the nodes after it with no blood at all, and they read as systemic (the right portal vein with reversed flow, Mohammad 15 Nov 2026). Its weight is its
+    // own, so beside a real inflow it counts for nothing, and by itself it is the whole of the blend.)
+    if (edges[k].kind === 'wedge' || !(Math.abs(Q[k]) > 1e-9)) { FLOW_TO[k] = -1; continue; }
+    const n = isFwd(Q[k]) ? ET[k] : EF[k];
     if (!(n >= 0)) { FLOW_TO[k] = -1; continue; }
     FLOW_TO[k] = n;
     IN_AT[n + 1]++;
@@ -410,6 +419,8 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends, pass = false)
 export const ORIGIN_PE_FADE = [2, 6];
 // The ramp into a junction's blend: the Péclet number of the ramp is the vessel's length over RAMP_E (the profile's e-fold: about three of them make the ramp, so it spans about
 // 3 × 12 = 36 world units before the junction), kept within [3, 9.9] (the shader reads 10 and over as a step part-way, the older junction hand-off).
+/** A one-way vessel eases into its junction's blend only when the two differ by more than this (a share of the blood: under it the step is not to be seen). */
+export const ORIGIN_STEP_MIN = 0.01;
 export const ORIGIN_RAMP = [3, 9.9], ORIGIN_RAMP_E = 12, ORIGIN_LEN = 120;
 function originEnds(edges, Q, ends, out) {
   const N = ORIGIN_N, ne = edges.length, { slosh, down, pe, len } = ends, [p0, p1] = ORIGIN_PE_FADE;
@@ -433,7 +444,7 @@ function originEnds(edges, Q, ends, out) {
       // every vessel then starts at its junction's blend and ends at its junction's blend, and the colours are continuous through every junction.
       let step = 0;
       for (let i = 0; i < N; i++) step += Math.abs(O_NODE[d * N + i] - out[k * N + i]);
-      if (step > 1e-4) {
+      if (step > ORIGIN_STEP_MIN) {
         for (let i = 0; i < N; i++) down[k * N + i] = O_NODE[d * N + i];
         pe[k] = Math.fround((fwd ? 1 : -1) * Math.min(ORIGIN_RAMP[1], Math.max(ORIGIN_RAMP[0], (len ? len[k] || ORIGIN_LEN : ORIGIN_LEN) / ORIGIN_RAMP_E)));
       }
