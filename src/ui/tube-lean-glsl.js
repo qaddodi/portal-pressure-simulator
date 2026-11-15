@@ -18,7 +18,7 @@
 //   MAX_TIERS   the tier arrays' length
 //   S_OFF       the arc length's offset (packFlow)
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
-import { shadeGLSL, MP } from './veins-mesh-glsl.js';
+import { shadeGLSL, MP, F_RING } from './veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, CEL } from './tube-cel-glsl.js';
 import { tubeJoinFS, joinRampGLSL, joinToneJS, JOIN_IN_GLSL, JOIN_F_NOFADE, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
 export { END_SEGS, trunkGapJS };
@@ -209,7 +209,7 @@ void main() {
   bool sel = (flags & ${F_SEL}) != 0;
   float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
   // (Where a branch joins this row's side its wall line is left open across the branch's width: the line under the branch's faded end showed through it as a seam, tube-data.js mouthCode.)
-  if (D > -2.0 * px && vMouthA.x + vMouthA.y + vMouthA.z + vMouthA.w + vMouthB.x + vMouthB.y + vMouthB.z + vMouthB.w > 1.5) cA *= 1.0 - mouthOpen(p, R, px);
+  if (D > -2.0 * px && vMouthA.x + vMouthA.y + vMouthA.z + vMouthA.w + vMouthB.x + vMouthB.y + vMouthB.z + vMouthB.w > 1.5 && (flags & ${F_RING}) == 0) cA *= 1.0 - mouthOpen(p, R, px);   // (a disc cut across opens its outline by the mask all round: celShade)
   vec2 g = joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je, clamp((R + D) / max(R, 1e-3), 0.0, 1.0));   // (one tone field over a join: tube-join-glsl.js)
   float aa = px * ${EDGE};
   float aL = clamp(0.5 - D / aa, 0.0, 1.0);

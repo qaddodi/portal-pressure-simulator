@@ -51,12 +51,16 @@ vec3 celRing(vec3 lum, float D, float R, float aa) {
   return mix(lum, vec3(1.0), 0.144 * ringBand * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
 }
 
-// The wall line a disc draws between the vessels that join it, as wide as theirs (rj: their mean radius, tube texel 3's w; the line's rule, LINE_R of the radius held between
-// LINE_MIN and LINE_MAX device px), so its wall and theirs are one line, not a thick bar between thin ones (15 Nov 2026, the central vein's black ticks). A disc with an
-// outline colour of its own (edge: the portal venule's blue, the arteriole's red) has that outline all round already, as wide as theirs: no second line inside it (0, the
-// portal venule's ring was a bar twice the width of the inlets' walls). 0 for rj (nothing joins it: the ductule): its own, 0.8 of the outline's wl.
-float discLine(float rj, float wl, float px, bool edge) {
-  return rj > 0.0 ? (edge ? 0.0 : clamp(${lit(CEL.LINE_R)} * rj, ${lit(CEL.LINE_MIN)} * px, ${lit(CEL.LINE_MAX)} * px)) : 0.8 * wl;
+// The wall line of a disc cut across. A disc that vessels join (rj: their mean radius, tube texel 3's w) has ONE wall line, the outline outside its fill, as wide as theirs
+// (the line's rule, LINE_R of the radius held between LINE_MIN and LINE_MAX device px: discWall), left out across each mouth by the same mask as the pale band
+// (celShade); so its wall and theirs are one line. 15 Nov 2026, Mohammad (the central vein's black ragged rim, iPhone): the outline outside the fill was cut by the branch
+// geometry (mouthOpen, 8 at most, the unflared radius) and the ink line inside it by the mask: two lines, two shapes, nearly three times a sinusoid's wall, with chewed ends.
+// A disc nothing joins (the ductule) keeps its outline and, inside it, its own line 0.8 of the outline's width (discLine).
+float discWall(float rj, float wl, float px) {
+  return rj > 0.0 ? clamp(${lit(CEL.LINE_R)} * rj, ${lit(CEL.LINE_MIN)} * px, ${lit(CEL.LINE_MAX)} * px) : wl;
+}
+float discLine(float rj, float wl) {
+  return rj > 0.0 ? 0.0 : 0.8 * wl;
 }
 
 // A disc cut across, outlined (flag F_RING; Mohammad, 10 Nov 2026: "outline it, where it's not connecting to a vessel"): inside the wall, an ink line wl wide (the
@@ -79,7 +83,10 @@ ${celToneGLSL()}const vec3 CEL_INK = vec3(${CEL.INK.map(lit).join(', ')});
 // shadow); D, R, wall, col, g, aL as in tubeShade.
 vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flags, bool sel, float cA, int grp, int id, float vAt, float hov,
               vec3 edge, float kn, float kcas, float aa, float aL) {
-  float wl = clamp(${lit(CEL.LINE_R)} * R, ${lit(CEL.LINE_MIN)} * px, ${lit(CEL.LINE_MAX)} * px);
+  float rj = (flags & ${F_RING}) != 0 ? T(id, 3).w : 0.0;   // (a disc that vessels join: their mean radius)
+  float wl = discWall(rj, clamp(${lit(CEL.LINE_R)} * R, ${lit(CEL.LINE_MIN)} * px, ${lit(CEL.LINE_MAX)} * px), px);
+  float dOpen = rj > 0.0 ? smoothstep(0.15, 0.85, ringOpen(T(id, 3).xyz, g)) : 0.0;   // (the mask's 5 degree bins are soft; a short stretch of wall between two mouths stays a whole line, not a fading dot)
+  cA *= 1.0 - dOpen;
   float aC = clamp(0.5 - (D - wl) / aa, 0.0, 1.0);
   vec4 c = vec4(0.0);
   if (sel) { float ar = ring.a * clamp(0.5 - (D - wl - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
@@ -87,10 +94,10 @@ vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flag
   if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
   float lumY = dot(col, vec3(0.299, 0.587, 0.114));
   vec3 ink = casing.rgb;   // one ink for every vessel, the look's own (--casing-rgb: a warm sepia on the light looks, the ground's near-black on the dark ones; Mohammad, 13 Nov 2026, outlines A)
-  c = (flags & ${F_EDGE}) != 0 ? over(vec4(edge, 1.0) * (0.92 * aC), c) : over(vec4(ink, 1.0) * (cA * aC), c);
+  c = (flags & ${F_EDGE}) != 0 ? over(vec4(edge, 1.0) * (0.92 * aC * (1.0 - dOpen)), c) : over(vec4(ink, 1.0) * (cA * aC), c);
   vec3 lum = col;
   if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) lum = celTones(lum, D, R, g, aa);
-  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) lum = celDisc(lum, T(id, 4).rgb, D, R, discLine(T(id, 3).w, wl, px, (flags & ${F_EDGE}) != 0), aa, ringOpen(T(id, 3).xyz, g));
+  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) lum = celDisc(lum, T(id, 4).rgb, D, R, discLine(rj, wl), aa, dOpen);
   // A dark lumen (the sickest vessels, on the dark looks, where the outline is no darker than the ground) gets a light edge 1 device px wide just
   // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
   lum = mix(lum, rimInk.rgb, rimInk.a * (1.0 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
@@ -136,8 +143,10 @@ export function celRingJS(lum, D, R, aa) {
   return mix3(lum, [1, 1, 1], 0.144 * band * (1 - 0.6 * smoothstep(0.72, 0.9, lumY)));
 }
 
-/** `discLine` for one row: rj the joining vessels' mean radius (0: none), wl the outline's width, px a device pixel in world units, edge whether the row has an outline colour of its own. */
-export const discLineJS = (rj, wl, px, edge = false) => (rj > 0 ? (edge ? 0 : clamp(CEL.LINE_R * rj, CEL.LINE_MIN * px, CEL.LINE_MAX * px)) : 0.8 * wl);
+/** `discWall` for one row: rj the joining vessels' mean radius (0: none), wl the outline's width by the row's own radius, px a device pixel in world units. */
+export const discWallJS = (rj, wl, px) => (rj > 0 ? clamp(CEL.LINE_R * rj, CEL.LINE_MIN * px, CEL.LINE_MAX * px) : wl);
+/** `discLine` for one row: the ink line inside the outline, only on a disc nothing joins. */
+export const discLineJS = (rj, wl) => (rj > 0 ? 0 : 0.8 * wl);
 
 /** `celDisc` for one pixel: lum [r, g, b] the fill, ink [r, g, b] the line, D, R, wl (the line's width), aa, open 0 .. 1 (ringOpenJS). */
 export function celDiscJS(lum, ink, D, R, wl, aa, open) {
@@ -165,17 +174,20 @@ export function celShadeJS(o) {
   const fx = o.fx ?? 1, he = o.he ?? [0, 0], Lh0 = o.Lh ?? 1;
   const casing = o.casing ?? [0, 0, 0, 0], ring = o.ring ?? [0, 0, 0, 0], rimInk = o.rimInk ?? [0, 0, 0, 0], paperInk = o.paperInk ?? [1, 1, 1, 1];
   let cA = o.cA;
-  const wl = clamp(CEL.LINE_R * R, CEL.LINE_MIN * px, CEL.LINE_MAX * px);
+  const rj = (flags & F_RING) !== 0 ? o.rowW ?? 0 : 0;
+  const wl = discWallJS(rj, clamp(CEL.LINE_R * R, CEL.LINE_MIN * px, CEL.LINE_MAX * px), px);
+  const dOpen = rj > 0 ? smoothstep(0.15, 0.85, ringOpenJS(o.mask ?? [0, 0, 0], g)) : 0;
+  cA *= 1 - dOpen;
   const aC = clamp(0.5 - (D - wl) / aa, 0, 1);
   let c = [0, 0, 0, 0];
   if (sel) { const ar = ring[3] * clamp(0.5 - (D - wl - 4) / aa, 0, 1); c = over([ring[0] * ar, ring[1] * ar, ring[2] * ar, ar], c); }
   if ((flags & F_VEIL) !== 0) cA *= 0.5;
   const lumY = col[0] * 0.299 + col[1] * 0.587 + col[2] * 0.114;
   const ink = casing.slice(0, 3);
-  c = (flags & F_EDGE) !== 0 ? over([...edge.map((v) => v * (0.92 * aC)), 0.92 * aC], c) : over([...ink.map((v) => v * (cA * aC)), cA * aC], c);
+  c = (flags & F_EDGE) !== 0 ? over([...edge.map((v) => v * (0.92 * aC * (1 - dOpen))), 0.92 * aC * (1 - dOpen)], c) : over([...ink.map((v) => v * (cA * aC)), cA * aC], c);
   let lum = col.slice();
   if (fx === 1 && (flags & F_DIFFUSE) !== 0 && aL > 0) lum = celTonesJS(lum, D, R, g, aa);
-  if (fx === 1 && (flags & F_RING) !== 0 && aL > 0) lum = celDiscJS(lum, o.rowInk ?? ink, D, R, discLineJS(o.rowW ?? 0, wl, px, (flags & F_EDGE) !== 0), aa, ringOpenJS(o.mask ?? [0, 0, 0], g));
+  if (fx === 1 && (flags & F_RING) !== 0 && aL > 0) lum = celDiscJS(lum, o.rowInk ?? ink, D, R, discLineJS(rj, wl), aa, dOpen);
   lum = mix3(lum, rimInk.slice(0, 3), rimInk[3] * (1 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
   if (sel && grp === 2) lum = lum.map((v) => Math.min(v * 1.12, 1));
   if (hov > 0) {
