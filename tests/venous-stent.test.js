@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { EDGES, isStent } from '../src/engine/topology.js';
 import { hasStent } from '../src/ui/tool-lumen.js';
+import { presenterSource } from './split-src.js';
 
 const marksOf = (s) => s.marks || (s.mark ? [s.mark] : []);
 
@@ -65,7 +66,7 @@ test('the Budd–Chiari stent slide stents the right hepatic vein, and its cross
 
 test('the figure brings a stent in whole and takes it out whole on its own clock, and the presenter hands each slide its veins', () => {
   const stage = stageSource();
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1, ends = true, bare = 0\)/, 'one mesh for the TIPS and the veins');
   // (2 Nov 2026: the mesh is built once; 13 Nov 2026, Mohammad: "the stent TIPS doesn't expend all at once.. it expands in two fragments... WRONG":
   // the whole stent comes in at once, every piece at the same strength, with no front, clip or marker sweeping along it.)

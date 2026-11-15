@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { rateShown, tileShown, tipsGoal, RATE } from '../src/ui/table-marks.js';
 import { TOKEN_OF_RATE } from '../src/engine/pressure-cuts.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const SRC = presenterSource();
 const CSS = appCss();
 const line = (re) => SRC.match(re)[0];
 const code = [line(/const VAL_TONE = .*/), line(/const BY_RATE = .*/), line(/const PILL_TONE = .*/), line(/const pillRate = .*/), line(/const valTone = .*/)].join('\n');

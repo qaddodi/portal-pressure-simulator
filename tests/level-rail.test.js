@@ -3,9 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = presenterSource();
 const css = appCss();
 
 test('rail names carry no vessel text or soft hyphens', () => {

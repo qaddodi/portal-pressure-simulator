@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => unsnap(readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
 const css = appCss(), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
@@ -38,7 +38,7 @@ test('a Tests pane swiped into place does not play its entrance again', () => {
   assert.match(dock, /querySelectorAll\('\.dock-pane\.landed:not\(\.active\)'\)/);
 });
 
-const main = read('src/ui/main.js'), timeline = read('src/ui/timeline.js'), presenter = read('src/ui/presenter.js');
+const main = read('src/ui/main.js'), timeline = read('src/ui/timeline.js'), presenter = unsnap(presenterSource());
 
 test('swapFade fades the old content out, fills, and fades the new in; a hidden or unchanged one fills at once', () => {
   const f = util.slice(util.indexOf('export function swapFade'), util.indexOf('export const popoverOpen'));

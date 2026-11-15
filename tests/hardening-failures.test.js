@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource } from './split-src.js';
 
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#ffffff' });
 globalThis.document.styleSheets = [{ cssRules: [{ style: ['--white'] }] }];   // (the tokens the page declares, util.js readVars)
@@ -70,7 +71,7 @@ test('a still layer gives its bitmap back; a presenter worker that never said he
   const sl = read('src/ui/still-layer.js');
   assert.match(sl, /drop\(\) \{\}/);
   assert.doesNotMatch(sl, /getContext|createElement/);
-  const p = read('src/ui/presenter.js') + read('src/ui/presenter-visuals.js');
+  const p = presenterSource() + read('src/ui/presenter-visuals.js');
   assert.match(p, /let w = null;\n\s+try \{\n\s+w = new Worker\(/);
   assert.match(p, /if \(w\) \{ w\.onmessage = w\.onerror = null; w\.terminate\(\); \}/);
 });

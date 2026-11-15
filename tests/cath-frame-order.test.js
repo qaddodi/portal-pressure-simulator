@@ -6,6 +6,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = stageSource(), gl = read('src/ui/veins-gl.js');
@@ -49,7 +50,7 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.ok(paint.indexOf('if (st.follow) cathFollow();') > paint.indexOf('cathGL(st, r, tipD, rc)'));
   assert.ok(paint.indexOf('cathLabelsSoon();') > paint.indexOf('if (st.follow) cathFollow();'));
   assert.doesNotMatch(paint, /cathLabels\(\)/);
-  assert.match(read('src/ui/presenter.js'), /st\.follow = cath\.follow;\n\s*stage\.setCatheter\(st\);/);
+  assert.match(presenterSource(), /st\.follow = cath\.follow;\n\s*stage\.setCatheter\(st\);/);
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
   assert.equal((hv.match(/cath[AB]\.follow = follow;/g) || []).length, 2);   // (both the measurement's catheter and the blocked vein's pass the follow)
   assert.equal((hv.match(/sg\.setCatheter\(cath[AB]\);/g) || []).length, 2);
@@ -57,7 +58,7 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   // EUS-PPG, its work from one station to the next as well, his ask 6 Nov 2026)
   assert.match(pa, /ring: null, clock: 0, opacity: 0, labels: \[\], keep: true, follow: false \};/);
   assert.match(pa, /cat\.follow = f\.shot === shot && \(shot === 'way' \|\| shot === 'fill' \|\| \(P\.measure && shot === 'tip'\)\) && !stage\.gliding\?\.\(\) \? shot : false;\n {4}stage\.setCatheter\(cat\);/);
-  for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
+  for (const src of [hv, pa, presenterSource()]) assert.doesNotMatch(src, /cathFollow/);
 });
 
 test('the shaft is sampled once per route and width, and the GPU gets it once', () => {
@@ -94,7 +95,7 @@ test("his pick (26 Oct): the route's framing zooms in once and the follow only p
   assert.match(stage, /const FOLLOW_ZOOM = 1\.25;/);
   assert.match(stage, /if \(near\) \{ const k1 = k \* FOLLOW_ZOOM; cy = y0 \+ \(cy - y0\) \* \(k \/ k1\); k = k1; \}/);
   // every catheter whose view follows it asks for that framing
-  assert.match(read('src/ui/presenter.js'), /stage\.cathFocus\('route', ms\(1200\), \{ near: true \}\)/);
+  assert.match(presenterSource(), /stage\.cathFocus\('route', ms\(1200\), \{ near: true \}\)/);
   assert.equal((read('src/ui/hvpg-proc.js').match(/want === 'route' \? SHOT_NEAR : SHOT_FAR/g) || []).length, 2);
   assert.match(read('src/ui/hvpg-proc.js'), /SHOT_NEAR = \{ near: true \}, SHOT_FAR = \{ near: false \}/);
 });

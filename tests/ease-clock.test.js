@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 // The eases' clock (frame.js easeNow): one time per frame (tests/honest-clock.test.js checks that a long
 // frame is not held back). And holdMotion keeps the work that can wait out of a slide's cards fading in.
@@ -45,7 +46,7 @@ test('holdMotion: the longest hold wins, and afterMotion runs once it is over', 
 });
 
 test('the zooms, the lobule crossfades and the cards use it', () => {
-  const stage = stageSource(), lz = read('src/ui/lobule-zoom.js'), pz = read('src/ui/presenter.js'), fr = read('src/ui/frame.js');
+  const stage = stageSource(), lz = read('src/ui/lobule-zoom.js'), pz = presenterSource(), fr = read('src/ui/frame.js');
   assert.doesNotMatch(fr, /PACED/, 'the dead switch is gone (the clock rule is written in motion.js)');
   assert.match(stage, /const t0 = easeNow\(\);\s*(?:live\.)?(?:live\.)?lobOn = on;/);
   assert.match(stage, /function lobuleStep\(now, end = false\)/);

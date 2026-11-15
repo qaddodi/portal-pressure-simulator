@@ -16,6 +16,7 @@ import { ORGANS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { beatCount, beatView } from '../src/ui/slide-beats.js';
 import { anchorsOf, missed, roomFor, vesselRun, middleOf, stationAnchor, ROOM, INSET } from '../src/ui/cam-room.js';
+import { presenterSource } from './split-src.js';
 
 const MAX_GROWTH = 1.75;   // (a frame may grow to this many times the region's width or height, no more)
 
@@ -131,7 +132,7 @@ test('anchors sit where the stage hangs them: a label on the middle of its vesse
 });
 
 test('the presenter frames every slide through the room (camBox grows the frame by the room for every anchor)', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /import \{ anchorsOf, roomFor \} from '\.\/cam-room\.js/);
   assert.match(src, /return roomFor\(growBox\(r \|\| REGIONS\.route, f\), anchorsOf\(s, tg\)\);/);
   // slideTargets keeps handing over the groups of vessels each term and glow lights, which the room reads

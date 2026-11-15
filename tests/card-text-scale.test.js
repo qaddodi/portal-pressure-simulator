@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // The cards' text levels stay close together on every layout (audit/card-layout-recs.md).
 const css = appCss();
@@ -37,7 +37,7 @@ test('phone slide words at 1.45, upright iPad at 1.39, one line spacing with sli
 // A tight phone slide (upright or on its side): the whole card at Compact, title, words and buttons together, never the title alone
 // (Mohammad, 19 Oct: "Two fixed sizes"; tests/card-type.test.js checks the sizes' order).
 test('a tight phone slide steps the whole card to Compact, never its title alone', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   assert.match(js, /const mins = \[lowFloor \|\| floor\];/);
   assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\);/, 'the whole card steps to Compact first');
   assert.doesNotMatch(js, /--pz-ptk/, 'no title step of its own');
@@ -48,7 +48,7 @@ test('a phone\'s captions under the words read smaller than the words, never und
 });
 
 test('a sideways phone: figure terms are coloured text with no underline, and the data card never zooms its lettering under 12 px', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   const term = css.match(/\.pz-term:not\(\.pz-lens-t\) \{[^}]*\}/)[0];
   assert.match(term, /background: none;/);
   assert.doesNotMatch(term, /text-decoration/, 'terms carry no underline (Mohammad, 17 Oct)');

@@ -15,6 +15,7 @@ import A from '../src/ui/ext-highlights.js';
 import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, liftEnd, nearPath, LIFT_EASE_SHARE, LIFT_EASE_MAX, bandRing, dashRings, normalShown, NORMAL_ON, NORMAL_OFF, rippleList, RIPPLE_MAX, systemOf, SYSTEM_COLOR } from '../src/ui/highlight-math.js';
 import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
+import { presenterSource } from './split-src.js';
 
 const VESSELS = new Set(EDGES.map((e) => e.id));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -196,7 +197,7 @@ test('a lapse glow eases the named organs in when the time-lapse starts and stay
   calls.length = 0;
   h.show(ctx(2)); h.lapse(deck.slides[2]); h.lapse(null);
   assert.deepEqual(calls, [], 'a lapse without lapseGlow leaves the figure alone');
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.match(pres, /figureHooks\('lapse', s\); {3}\/\/ \(a deck visuals package's glow from the days' start/);
   assert.match(pres, /else if \(s\.lapse\) figureHooks\('lapse', s\);/);
   assert.match(STAGE, /glowOrgans\(list\) \{ pinOrgans\(null, list \|\| \[\]\); \}/);
@@ -238,7 +239,7 @@ test('Circulation 4/13 numbers each bed\'s vessels as a group, in a frame that h
 });
 
 test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own live loops', () => {
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   // The leaving slide's pins go first (the glow's own fade carries it out), and every pin not asked for again goes off.
   assert.match(pres, /stage\.setGlow\(null\); stage\.pinOrgans\(null\);\s*\n\s*figureHooks\('clear'\)/);
   assert.match(STAGE, /if \(o\.kind === 'pin' && !want\.has\(o\.id\)\) o\.on = false;/);

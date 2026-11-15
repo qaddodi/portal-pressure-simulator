@@ -84,8 +84,9 @@ test('a card thrown out whose frames stop is out of sight, and the one waiting f
 // A move that ends any way but landing must still give the figure back (the dimmed figure stood behind a stopped card).
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { presenterSource } from './split-src.js';
 test('presenter: a finished move that is the current one gives the figure back, whatever ended it', () => {
-  const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+  const presenter = unsnap(presenterSource());
   const fin = presenter.slice(presenter.indexOf('try { await transitionRun(to); } finally {'), presenter.indexOf('async function transitionRun(to)'));
   assert.match(fin, /if \(mine && want === to && view\.classList\.contains\('pz-out'\)\) figureIn\(\);/);
   assert.ok(fin.indexOf('figureIn()') < fin.indexOf('tx.end()'), 'before the move is ended');

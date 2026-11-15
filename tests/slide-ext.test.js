@@ -10,9 +10,10 @@ import { COLS } from '../src/ui/table-marks.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { createCore } from '../src/worker-core.js';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
-const PRESENTER = read('ui/presenter.js'), TOOLS = read('ui/presenter-tools.js');
+const PRESENTER = presenterSource(), TOOLS = read('ui/presenter-tools.js');
 const block = (src, open, close) => { const i = src.indexOf(open); assert.ok(i >= 0, open); return src.slice(i, src.indexOf(close, i)); };
 const keys = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
 

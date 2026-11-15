@@ -8,6 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { abChoice } from '../src/ui/presenter.js';
 import { readFileSync } from 'node:fs';
 import { runSteps, deckStates } from './deck-states.js';
+import { presenterSource } from './split-src.js';
 
 const slide = (deck, id) => DECKS.find((d) => d.id === deck).slides.find((s) => s.id === id);
 const patchOf = (w, x) => {
@@ -95,7 +96,7 @@ test('Ten years: the HVPG rises over the first two years, the catheter two weeks
 });
 
 test('the presenter eases a time-point button to that slide\'s state, and a catheter slide\'s callouts follow the live model', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]/);
   assert.match(src, /const slideAt = \(id\) => slides\.findIndex\(\(x\) => x\.id === id\)/);
   assert.match(src, /if \(s\.cath && cath\.on && cath\.fp\) \{ cath\.fp = f;/);

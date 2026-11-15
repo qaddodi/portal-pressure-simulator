@@ -6,10 +6,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const css = appCss();
-const src = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const src = unsnap(presenterSource());
 
 // (The rule's body, from its selector at the start of a line to the closing brace.)
 const rule = (sel) => { const at = css.indexOf('\n' + sel + ' {'); assert.ok(at >= 0, sel); return css.slice(at, css.indexOf('}', at)); };

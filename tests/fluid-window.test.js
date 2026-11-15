@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fluidDay, dayWords, gaugeParts, tugParts, GAUGE_GAP, GAUGE_MARK } from '../src/ui/tool-fluid.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -112,7 +112,7 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   const deck = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.doesNotMatch(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'no tiles stand beside any instrument now (7 Nov 2026)');
   const css = appCss();
   assert.match(css, /\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
@@ -152,7 +152,7 @@ test('a unit in a card title is split out, so the style leaves its case alone', 
   for (const t of [ext.title({ window: true }), ext.short({ window: true })]) assert.equal(titleParts(t)[1], 'mL/day', `"${t}": the unit is split out, long title and short`);
 });
 test('the data card sets its title and the footer\'s copy of it through the unit split, and the style keeps the unit as typed', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\); unitSpans\(ui\.dhT\);/, 'the card header');
   assert.doesNotMatch(js, /pz-tfold/, 'no copy of the title under the words is left (the folded ladder\'s, gone with the ladder on 21 Oct)');
   assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);

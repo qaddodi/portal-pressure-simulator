@@ -4,8 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource } from './split-src.js';
 
-const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pres = presenterSource();
 const lib = readFileSync(new URL('../src/ui/script-library.js', import.meta.url), 'utf8');   // (the saved scripts' storage moved out of presenter.js)
 const okScript = vm.runInNewContext(lib.slice(lib.indexOf('const okScript ='), lib.indexOf('export const readMine =')) + '; okScript');
 

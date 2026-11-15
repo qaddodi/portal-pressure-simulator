@@ -7,9 +7,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const st = stageSource();
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = presenterSource();
 const prep = st.match(/function prepRise\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 

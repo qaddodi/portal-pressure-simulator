@@ -6,6 +6,7 @@ import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { velNormal, dopplerVel, velPos } from '../src/ui/velNormal.js';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
+import { presenterSource } from './split-src.js';
 
 const frame = (e) => ({ Q: e.Q, D: e.edges.map((x) => e.diameter(x.id)) });
 const band = (e, id, healthy) => {
@@ -52,6 +53,6 @@ test('the velocity keys name only the two ends, Slow and Fast, so they fit a pho
   const legend = read('main.js').split('\n').find((l) => l.includes('velocity: lgScaleSpec('));
   assert.match(legend, /\[\[0, 'Slow'\], \[100, 'Fast'\]\]/);
   assert.doesNotMatch(legend, /Normal/);
-  const key = read('presenter.js').split('\n').find((l) => l.trim().startsWith("velocity: ['velocity'"));
+  const key = presenterSource().split('\n').find((l) => l.trim().startsWith("velocity: ['velocity'"));
   assert.match(key, /'Slow'/); assert.match(key, /'Fast'/); assert.doesNotMatch(key, /Normal/);
 });

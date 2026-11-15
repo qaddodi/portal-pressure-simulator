@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Mac and iPad landscape get the phone's stacked data card (Mohammad, 22 Oct: "is there a way to build something similar for mac and
 // ipad, stacked card to show the main card and the stacked card behind it"; "make so I open the stacked card untuck it to the TOP not to the
 // bottom. Cuz that's easier to pull up and the teaching card goes up"): the instrument's card in front, the readings' card behind it.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = appCss();
-const js = read('../src/ui/presenter.js');
+const js = unsnap(presenterSource());
 
 test('a wide screen stacks every instrument card with readings under the words as two cards, the Gut to heart chart too', () => {
   assert.match(js, /const wide = cardOn && !low;\n\s*ui\.root\.classList\.toggle\('pz-wide', wide\);/);

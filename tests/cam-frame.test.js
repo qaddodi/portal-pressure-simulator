@@ -10,6 +10,7 @@ import { CIRC_REGIONS } from '../src/ui/cam-frame.js';
 import { isCamOn, unionBox, regionBox, growBox, camNames, camProblems } from '../src/ui/cam-frame.js';
 import { camOn } from '../src/ui/presenter.js';
 import { scaleViews } from '../src/ui/scale-switch.js';
+import { presenterSource } from './split-src.js';
 
 const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 
@@ -95,7 +96,7 @@ test('the examples in the authoring guides name things the camera knows', () => 
 });
 
 test('the presenter frames by name through camBox, and the older forms through the same sums', () => {
-  const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pz = presenterSource();
   const body = /function camBox\(cam, s\) \{([\s\S]*?)\n {2}\}\n/.exec(pz)?.[1];
   assert.ok(body, 'camBox is where the framing is worked out');
   assert.match(body, /regionBox\(isCamOn\(cam\) \? cam\.near : cam, REGIONS\)/, 'a region, a box or a list of regions, or the region the names grow from');

@@ -16,6 +16,7 @@ import { EXT, warmOf } from '../src/ui/slide-ext.js';
 import { LANDMARK_TRIALS } from '../src/ui/decks/landmark-trials.js';
 import { createForest, forestLayout } from '../src/ui/trial-forest.js';
 import { fitTrial, metricsOfFp } from '../src/ui/trial-fit.js';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const inside = (L, W) => {
@@ -28,7 +29,7 @@ const inside = (L, W) => {
 };
 
 test('the trial card is an instrument card: a slide keeps it as its tool, in the instrument card\'s slot on every device, never inside the teaching card', () => {
-  const pres = read('src/ui/presenter.js'), tt = read('src/ui/tool-trial.js');
+  const pres = presenterSource(), tt = read('src/ui/tool-trial.js');
   assert.doesNotMatch(pres, /trialBelow|trialUnder|trialNow|s\.trial\b|tool-trial\.js/, 'the presenter builds no trial card of its own: the words\' card holds none');
   assert.match(pres, /\.map\(oneLadder\)\.map\(zoneCam\)\.map\(instrumentOf\);/, 'a deck\'s slides keep their tool as written');
   assert.doesNotMatch(tt, /export function trial(Below|Under)/);
@@ -44,7 +45,7 @@ test('the trial card is an instrument card: a slide keeps it as its tool, in the
 });
 
 test('the instrument card asks its fit line of the slide\'s own patient (configure(tool, ctx): ctx.fp, ctx.params, the presenter\'s ctxOf)', () => {
-  const tt = read('src/ui/tool-trial.js'), pres = read('src/ui/presenter.js');
+  const tt = read('src/ui/tool-trial.js'), pres = presenterSource();
   assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx\)/, 'configure asks the fit of the context it is given');
   assert.match(read('src/ui/presenter-tools.js'), /inst\.configure\?\.\(t, ctx\)/, 'the instrument path hands every instrument its slide\'s context');
   assert.match(pres, /params: st\?\.params \?\? null, fp: st\?\.fp \?\? null/, 'a context carries the slide\'s own patient');

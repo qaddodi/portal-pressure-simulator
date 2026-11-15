@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { wheelFinger, wheelGesture, ownsWheel, wheelScrollers, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
+import { presenterSource } from './split-src.js';
 
-const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const pz = unsnap(presenterSource());
 
 // Feeds a run of finger movements, 16 ms apart, and gives every action it took.
 function run(steps, t0 = 1000, g = null) {

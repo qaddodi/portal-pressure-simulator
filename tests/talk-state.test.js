@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
-const main = read('src/ui/main.js'), pres = read('src/ui/presenter.js');
+const main = read('src/ui/main.js'), pres = presenterSource();
 
 function rig(viewTransitions) {
   const src = main.slice(main.indexOf('let projWant = false;'), main.indexOf('function flipProjector()'));

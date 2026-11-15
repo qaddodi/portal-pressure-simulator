@@ -3,9 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { nb, listCase, plateletText } from '../src/ui/glue.js';
+import { presenterSource } from './split-src.js';
 
 const NB = ' ';
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const SRC = presenterSource();
 
 test('a number never breaks from its unit, and a range keeps its ends and unit together', () => {
   assert.equal(nb('An HVPG of 6 to 9 mmHg is subclinical'), `An HVPG of 6${NB}to${NB}9${NB}mmHg is subclinical`);

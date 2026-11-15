@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import './dom-shim.js';
 import { swipeHeld } from '../src/ui/card-page.js';
+import { presenterSource } from './split-src.js';
 
 let T = 0, q = [];
 globalThis.requestAnimationFrame = (f) => { q.push(f); return q.length; };
@@ -19,7 +20,7 @@ const { pictureQueue, scopeKey } = await import('../src/ui/scope-tile.js');
 const tick = (ms) => { T += ms; const f = q; q = []; f.forEach((x) => x(T)); };
 const mk = (...cls) => { const s = new Map(), c = new Set(cls); return { style: { setProperty: (k, v) => s.set(k, v), removeProperty: (k) => s.delete(k), get transform() { return s.get('transform') || ''; }, get opacity() { return s.get('opacity') || ''; } }, classList: { contains: (x) => c.has(x), add: (x) => c.add(x), remove: (x) => c.delete(x) }, isConnected: true, hidden: false }; };
 
-const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const presenter = unsnap(presenterSource());
 
 test('swipe let go: held for the slide\'s leave while a change is on its way (running, or waiting in prepHold), eased back only when nothing changes', () => {
   assert.equal(swipeHeld({ gone: true, changing: true, out: false }), true, 'on its way: held');

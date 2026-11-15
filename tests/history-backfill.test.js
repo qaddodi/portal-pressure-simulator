@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 import { createBeatClock, ekgRate, ekgSeries } from '../src/ui/ekg.js';
 import { olderThan, inFront } from '../src/ui/backfill.js';
+import { presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -130,7 +131,7 @@ test('the history goes in front of what an instrument has recorded, and what it 
 
 test('every recording instrument takes the history, and the presenter lets its instruments go at the landing, not at the end', () => {
   const pt = read('../src/ui/pressure-time.js'), vm = read('../src/ui/vitals-monitor.js'), dop = read('../src/ui/doppler.js');
-  const tools = read('../src/ui/presenter-tools.js'), pres = read('../src/ui/presenter.js'), main = read('../src/ui/main.js'), dock = read('../src/ui/dock.js');
+  const tools = read('../src/ui/presenter-tools.js'), pres = presenterSource(), main = read('../src/ui/main.js'), dock = read('../src/ui/dock.js');
   for (const [name, src] of [['pressure-time', pt], ['vitals-monitor', vm], ['doppler', dop]]) {
     assert.match(src, /function backfill\(hs\)/, `${name} takes a history`);
     assert.match(src, /historySecs/, `${name} says how long its window is`);

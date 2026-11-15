@@ -4,6 +4,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createTxns } from '../src/ui/slide-txn.js';
+import { presenterSource } from './split-src.js';
 
 const keepUp = setInterval(() => {}, 1000);
 after(() => clearInterval(keepUp));
@@ -11,7 +12,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (f, ms = 2000) => { const t = performance.now(); while (!f() && performance.now() - t < ms) await sleep(5); };
 const prepUrl = new URL('../src/ui/slide-prep.js', import.meta.url);
 const { createSlidePrep } = await import(prepUrl.href);
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 
 test('a new transaction supersedes the one before: it is no longer live, its signal aborts, its releases run newest first', () => {
   const txns = createTxns();

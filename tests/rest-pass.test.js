@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 let rafs = 0;
 globalThis.requestAnimationFrame = () => { rafs++; return rafs; };
@@ -43,7 +43,7 @@ test('a cancelled rest pass never runs; one asked for while passes run waits for
   assert.deepEqual(ran, ['b', 'c']);
 });
 
-const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const pz = unsnap(presenterSource());
 test('presenter: a dock glide\'s and a drag\'s frames write from what was read at rest', () => {
   const paint = pz.slice(pz.indexOf('const dockPaint = () => {'), pz.indexOf('const DOCK_FADE'));
   assert.match(paint, /const vec = dock\.vec \|\| DOCK_ZERO, x = vec\[0\], y = vec\[1\];/);

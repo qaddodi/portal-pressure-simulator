@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // A small fake DOM: just what h() and the live box touch.
 class Node {
@@ -21,7 +21,7 @@ globalThis.document.createElement = (tag) => new Node(tag);
 globalThis.document.createTextNode = (data) => ({ nodeType: 3, data: String(data) });
 const { widest, liveText, wordsOf } = await import('../src/ui/live-text.js');
 
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = presenterSource();
 const css = appCss();
 
 test('the widest words are the longest, the first of equals', () => {

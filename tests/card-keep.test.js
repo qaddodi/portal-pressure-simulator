@@ -6,8 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dataPlan, textPlan, keepData, keepText, eases, cardSnap, cardChanged, cardBack } from '../src/ui/card-keep.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('const reFit = '));
 const O = { keys: ['hvpg'], ref: false, title: 'Endoscopy', ghost: null, under: false, sin: false };
 

@@ -9,10 +9,10 @@ import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { endoGrow, airRatio, airFlat } from '../src/ui/endo-size.js';
 import { abChoice } from '../src/ui/presenter.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const instruments = read('../src/ui/instruments.js'), presenter = read('../src/ui/presenter.js'), tools = read('../src/ui/presenter-tools.js'), css = appCss();
+const instruments = read('../src/ui/instruments.js'), presenter = presenterSource(), tools = read('../src/ui/presenter-tools.js'), css = appCss();
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 const table = (() => { const e = new Engine(); run(e.loadPresetSteps('cirr-decomp', {})); e.settle(); return computeMetrics(e).varix.air; })();
 

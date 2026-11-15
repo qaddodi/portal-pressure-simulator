@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { TILE } from '../src/ui/table-marks.js';
+import { presenterSource } from './split-src.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const decks = [];
@@ -29,7 +30,7 @@ test('every live token in the words names a reading, and every @slide a slide of
 });
 
 test('a number written into the words is drawn as an outlined rule pill, never as the patient', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   assert.match(src, /else if \(mk\) out\.push\(pill\(mk, mkStop, ' cut'\)\)/, 'a typed {6 to 8 g} is outlined');
   assert.match(src, /else if \(val\) out\.push\(pill\(val, valStop, ' cut'\)\)/, 'the automatic pill (first number with a unit) is outlined');
 });

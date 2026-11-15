@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // An upright iPad takes the phone's layout (Mohammad, 17 Oct: "replicate the phone cards and behavior of the bottom bar and cards
 // to the upright iPad"): its cards, sheets, bottom bar, menus and the Tests card's one column. Its decks' instrument cards open
@@ -10,7 +10,7 @@ import { appCss } from './split-src.js';
 // the Doppler. It should.").
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = appCss();
-const js = read('../src/ui/presenter.js');
+const js = unsnap(presenterSource());
 const UP = '(max-width: 1100px) and (orientation: portrait)';
 
 test('every phone block in the stylesheet takes in the upright tablet, and every wide one leaves it out', () => {

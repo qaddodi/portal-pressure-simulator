@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const src = readFileSync(new URL('../src/ui/ink-gl.js', import.meta.url), 'utf8');
 
@@ -32,7 +33,7 @@ test('the pass draws through the host\'s present into the figure\'s own framebuf
 
 test('the stage hands the presenter the figure\'s top, and the presenter passes it on', () => {
   const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.match(stage, /figureTop: \(\) => \(veins && !veins\.lost \? veins\.top : null\)/);
   assert.match(pres, /top: \(\) => stage\.figureTop\?\.\(\) \?\? null/);
 });

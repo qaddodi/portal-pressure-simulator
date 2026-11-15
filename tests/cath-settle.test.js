@@ -7,8 +7,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { HVPG } from '../src/ui/decks/hvpg.js';
+import { presenterSource } from './split-src.js';
 
-const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pres = presenterSource();
 const stage = stageSource();
 
 test('the HVPG deck has a catheter slide that brings a new patient', () => {

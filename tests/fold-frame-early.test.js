@@ -8,9 +8,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const presenter = read('src/ui/presenter.js'), stage = stageSource();
+const presenter = presenterSource(), stage = stageSource();
 const between = (src, a, b) => { const i = src.indexOf(a); assert.ok(i >= 0, a); const j = src.indexOf(b, i); assert.ok(j > i, b); return src.slice(i, j); };
 
 test('a stacked card that folds frames the camera as it starts to move, between its layout and its slide', () => {

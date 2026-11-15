@@ -12,6 +12,7 @@ import { detectEvents } from '../src/engine/events.js';
 import { PRESETS } from '../src/engine/scenario.js';
 import { meanVel, dopplerVel } from '../src/ui/velNormal.js';
 import { vitalReading } from '../src/ui/vital-read.js';
+import { presenterSource } from './split-src.js';
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const src = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
@@ -135,7 +136,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   assert.match(stageSource(), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
   // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)
   assert.match(src('../engine/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
-  assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
+  assert.match(presenterSource(), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
   assert.match(readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8'), /fingerprintOf\(m,/, 'and so are the slide states');
   assert.match(src('vital-read.js'), /m\.vitals\?\.ra \?\? m\.ra/, 'the bar reads RA over two breaths');
 });

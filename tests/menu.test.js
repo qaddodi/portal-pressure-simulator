@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS, TOPICS } from '../src/ui/decks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 test('the unified menu lists every presentation under exactly one topic, with a short title', () => {
   const listed = TOPICS.flatMap(([, , list]) => list.map(([id]) => id));
@@ -32,7 +32,7 @@ test('every presentation has a short deck name of 20 characters or fewer, distin
 });
 
 test('the teaching card and the visual slides carry the deck name in a corner tab; the outline slide names the talk in full instead', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const css = appCss();
   assert.match(src, /const deckTab = [^\n]*deck\?\.head \|\| \(deck\?\.title\?\.length <= 24/);
   assert.match(src, /h\('div', \{ class: 'pz-shade' \}, deckTab\(\)/);

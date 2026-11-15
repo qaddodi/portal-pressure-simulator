@@ -3,6 +3,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const keepUp = setInterval(() => {}, 1000);
 after(() => clearInterval(keepUp));
@@ -13,7 +14,7 @@ const prepUrl = new URL('../src/ui/slide-prep.js', import.meta.url);
 const { createSlidePrep } = await import(prepUrl.href);
 const spec = /from '(\.\/prep-budget\.js[^']*)'/.exec(readFileSync(prepUrl, 'utf8'))[1];
 const { prepJob, prepReset, prepStats } = await import(new URL(spec, prepUrl).href);
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 const ok = { state: () => Promise.resolve({}), glyphs: () => Promise.resolve({}), tool: () => {}, shaders: () => 0 };
 
 // ── B17 ──

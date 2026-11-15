@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { driftEase } from '../src/ui/cam-arc.js';
 import { lapseCamProblems, beatProblems, beatView, beatCount, BEAT_KEYS } from '../src/ui/slide-beats.js';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, `${head} is there`); return src.slice(i, src.indexOf('\n  }\n', i)); };
 
 test('the push eases in, moves evenly and eases out, never past its ends or backwards', () => {

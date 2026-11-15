@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 
 test('a pending cell is a bar of a value\'s width, hidden from the screen reader, beside its spoken "calculating"', () => {
   const line = PZ.slice(PZ.indexOf('  const pendEl = '), PZ.indexOf('\n', PZ.indexOf('  const pendEl = ')));

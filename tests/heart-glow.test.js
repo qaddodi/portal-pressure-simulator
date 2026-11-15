@@ -5,9 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 const stage = stageSource();
 const css = appCss();
 

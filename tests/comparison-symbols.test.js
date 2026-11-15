@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { CUT, RATE, cutText } from '../src/ui/table-marks.js';
 import { ZONES, keyLine } from '../src/ui/tool-criteria.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const WORDS = /\b(more|less|fewer|greater|higher|lower) than [\d{]|\d[\d,.]*(?:\/µL|%)?\+(?![\w])|(?:[\d}%)*]|mmHg|kPa|mm|cm\/s|g\/dL|mg\/dL|µL|points?|months?|weeks?|days?|hours?|minutes?|liters?|L) or (more|less|fewer|higher|lower|greater|above|below|over|under)\b|\b(one|two|three|four|five|six) or (more|fewer)\b|\bat (least|most) [\d{]|\b(over|under|above|below) [\d{]|\bat or (above|below)\b|\bjust (above|below)\b|\b(age|aged) \d+ or (over|more|older)\b/i;
 // What stays, with its reason: a range's edge ("above 10 to 12" is not one cut-off) and a duration in a case story.
@@ -42,7 +42,7 @@ test('a cut-off in the words keeps its sign: {>=10 mmHg} reads "≥10 mmHg"', ()
   assert.equal(cutText('> 5 mm'), '>5 mm');
   assert.equal(cutText('≥25 kPa'), '≥25 kPa');
   assert.equal(cutText('6 to 8 g'), '6 to 8 g');
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   assert.match(pres, /out\.push\(pill\(cutText\(mk\), mkStop, ' cut'\)\)/, 'the pill shows the sign');
   assert.match(pres, /const VAL = String\.raw`\(\?:\[<>≥≤\]\\s\?\)\?/, 'a value with a unit and a sign before it is one pill, "<10 kPa"');
   const hand = readFileSync(new URL('../src/ui/handout.js', import.meta.url), 'utf8');

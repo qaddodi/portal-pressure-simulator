@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 const line = (start) => { const at = PZ.indexOf(start); assert.ok(at > 0, start); return PZ.slice(at, PZ.indexOf('\n', at)); };
 
 test('cardsEntering counts a throw coming in or back (the words, their glass, the panel, the data card), with the same left-to-run rule', () => {

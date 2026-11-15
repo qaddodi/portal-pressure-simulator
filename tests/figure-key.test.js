@@ -3,10 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const css = appCss();
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 
 // Mohammad, 15 Oct: "on mac, put the legend on top of the zoom pill" (the nav pill at the lower right).
 test('on a wider screen the key stands right on top of the nav pill, right-aligned with it', () => {

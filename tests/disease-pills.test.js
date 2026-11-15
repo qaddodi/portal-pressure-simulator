@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { diseasePieces, DISEASE_SRC } from '../src/ui/diseases.js';
 import { DECKS } from '../src/ui/decks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const marked = (t) => diseasePieces(t).filter(([, d]) => d).map(([x]) => x);
 
@@ -46,7 +46,7 @@ test('every disease a deck title or line names is in the list and gets a pill', 
 // value that starts inside a disease name used to win the place and drop the pill ("portal vein" in "portal vein
 // thrombosis"): the disease group comes right after the link and marked value, and the loop reads it as group 5.
 test('in a line, a disease name keeps its pill over a term, bold word or value that starts in it', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const fn = src.slice(src.indexOf('function lineRe('), src.indexOf('function rich('));
   assert.ok(fn.includes('|\\{([^}]+)\\}([,.;:]?)|\\b(${DISEASE_SRC})\\b` + (tw.length'),'the disease name is the third kind, before terms, values and key words');
   assert.match(src, /const \[all, lw, lk, mk, mkStop, dz, tword, val, valStop, key, term, lensBy, lensW\] = m/);

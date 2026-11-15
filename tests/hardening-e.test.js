@@ -46,7 +46,7 @@ test('a dive into or out of the sinusoid stops when a newer one has begun', () =
 });
 
 test('stopping a talk moves the slide generation on, so a move still in flight is cut', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const fn = p.slice(p.indexOf('function stopNow(restore = true)'), p.indexOf('function stopNow(restore = true)') + 900);
   assert.match(fn, /deck = null; shown = null; entering = null; want = 0; gen\+\+;/);
 });
@@ -92,7 +92,7 @@ test('a slider or switch left focused keeps only its own keys; text fields keep 
   assert.equal(letterOf({ key: 'Enter', code: 'Enter' }), 'enter');
   // The same imported module as the talk's, or the two would each keep their own "keyboard or mouse" state.
   assert.match(m, /from '\.\/key-owner\.js'/);
-  assert.match(read('src/ui/presenter.js'), /from '\.\/key-owner\.js'/);
+  assert.match(presenterSource(), /from '\.\/key-owner\.js'/);
   for (const f of ['src/ui/palette.js', 'src/ui/menu.js']) assert.match(read(f), /if \(e\.isComposing \|\| e\.keyCode === 229\) return;/, f);
 });
 
@@ -173,7 +173,7 @@ test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 
 });
 
 import { createCore } from '../src/worker-core.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 test('a bedside time-lapse does not run on while the page is hidden: it carries on from where it was', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   let now = 0;
@@ -264,7 +264,7 @@ test('a question over the menu: its letters stay in the dialog, Tab stays in it,
   assert.match(u, /appEl\.inert = false;\n {2}behindDialog\(false\);\n {2}const back0/, 'undone before focus goes back');
   const m = read('src/ui/main.js');
   assert.match(m, /if \(tag === 'input' && isModalOpen\(\) && e\.target\.closest\?\.\('#modalBack'\)\) \{ e\.preventDefault\(\); closeModal\(\); \} else e\.target\.blur\(\);/);
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   assert.match(p, /const named = await askText\(\{ title: 'Add this state as a slide'[^\n]*\n\s*if \(!named\) return;/);
   assert.ok(!/\)\) \|\| step\.title;/.test(p), 'a cancelled name no longer falls back to the default title and adds the slide');
 });

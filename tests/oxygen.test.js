@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { oxygenSat, oxygenFor, SAT, LIVER_EXTRACTION } from '../src/ui/blood.js';
+import { presenterSource } from './split-src.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -68,7 +69,7 @@ test('oxygen: a view in the Colored by menu, the legend, the lobule, the vessel 
   assert.match(src('src/ui/lobule-zoom.js'), /M === 'oxygen'/, 'the lobule colors its vessels');
   assert.match(src('src/ui/lobule-model.js'), /m\.mode === 'oxygen'/);
   assert.match(src('src/ui/actions.js'), /lens === 'oxygen'/, 'the vessel card reads the saturation');
-  const pres = src('src/ui/presenter.js');
+  const pres = presenterSource();
   assert.match(pres, /oxygen: 'oxygen' \}/, '"colored by oxygen" is a pill');
   assert.match(pres, /oxygen: '--lens-oxygen' \}/);
 });

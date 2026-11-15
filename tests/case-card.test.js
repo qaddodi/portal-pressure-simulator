@@ -7,9 +7,9 @@ import { unsnap } from './unsnap.js';
 import { SITES } from '../src/ui/decks/sites.js';
 import { withOverview } from '../src/ui/decks.js';
 import { createCore } from '../src/worker-core.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const src = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const src = unsnap(presenterSource());
 const css = appCss();
 
 test('Sites and causes gives each site slide (and only those) a case', () => {

@@ -11,10 +11,10 @@ import { PROCS as PROC_TABLE, MEASURES, GRAFTS, ENDO, PLUGS, procKindOf } from '
 // (A measuring procedure, the EUS-PPG, steps like the others: its Next plays its steps before the slide moves on.)
 const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS, ...ENDO, ...PLUGS };
 import { pageOn, followOf, pageIn, FOLLOW } from '../src/ui/card-page.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const presenter = read('../src/ui/presenter.js');
+const presenter = presenterSource();
 const css = appCss();
 const body = (name) => { const i = presenter.indexOf(`function ${name}(`); assert.ok(i >= 0, name); return presenter.slice(i, presenter.indexOf('\n  }\n', i)); };
 const procKind = (s) => procKindOf(s.procedure);

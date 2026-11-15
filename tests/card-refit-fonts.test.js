@@ -4,10 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { presenterSource } from './split-src.js';
 
 const SRC = new URL('../src/ui/', import.meta.url);
 const read = (rel) => readFileSync(new URL(rel, SRC), 'utf8');
-const PZ = read('presenter.js');
+const PZ = presenterSource();
 
 test('font-arrival: the counter moves and every subscriber hears each batch of faces, one that throws stops none, and a stopped one is silent', async () => {
   const fonts = new EventTarget();

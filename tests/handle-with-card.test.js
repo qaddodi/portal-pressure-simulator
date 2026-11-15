@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // The stacked card's handle (.pz-lip, the bar on the readings' card) comes in with the card and never ahead of it (Mohammad, 25 Oct: "the handle
 // of the stacked cards appears before the cards"). The bar is a crisp mark on glass that is nearly clear while it fades, so it fades in once the
 // glass is in and out before it; with Reduce Motion every transition was off for it, so it came up at once while the cards were still fading in.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = appCss();
-const js = read('../src/ui/presenter.js');
+const js = unsnap(presenterSource());
 
 // (A time in seconds: a number, or a step of the motion scale, tokens.css --d-flip, --d-small, --d-surface.)
 const STEPS = { 'var(--d-flip)': 0.12, 'var(--d-small)': 0.24, 'var(--d-surface)': 0.42 };

@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const { createScope } = await import('../src/ui/slide-txn.js');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -31,7 +32,7 @@ test('onDispose functions run newest first, once, also when added after disposal
 });
 
 test('presenter: its delayed work goes through the talk\'s scope, disposed by stopNow, and the loading timer is cleared in a finally', () => {
-  const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const PZ = presenterSource();
   for (const t of ['colT', 'refitT', 'reframeT', 'turnT', 'glassT']) {
     assert.match(PZ, new RegExp(`\\b${t} = stimer\\(`), `${t} is a scoped timer`);
     assert.doesNotMatch(PZ, new RegExp(`\\b${t} = setTimeout\\(`), `${t} is not a bare timer`);

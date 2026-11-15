@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { wrapBalanced, layoutToast } from '../src/ui/toast-gl.js';
 import { measure } from '../src/ui/glyph-measure.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -112,7 +112,7 @@ test('index.html has one toast wrap, the foot card, and no stylesheet rule docks
 });
 
 test('the presenter\'s toasts raised inside a talk carry present: true (a pop-up block, a typed slide number, a copied link)', () => {
-  const p = src('src/ui/presenter.js');
+  const p = presenterSource();
   const util = src('src/ui/util.js');
   assert.match(util, /!present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)/, 'toast() drops a message without present while presenting');
   for (const re of [/onBlocked: \(\) => toast\('Allow pop-ups to open the presenter view', '', \{ present: true \}\)/, /toast\(`Slide \$\{digits\}: press Enter`, '', \{ present: true \}\)/, /toast\(msg, '', \{ present: true \}\)/]) assert.match(p, re);

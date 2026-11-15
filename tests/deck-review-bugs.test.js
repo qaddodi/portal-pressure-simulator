@@ -6,11 +6,12 @@ import { COLS, CUT, effOf, dirAbs, liveSettled, shownSig, LIVE_MIN, LIVE_STEADY,
 import { stepBleedFade, fadeBleedShapes, BLEED_FADE, bleedShapes } from '../src/ui/blood.js';
 import './dom-shim.js';
 import { EXT } from '../src/ui/slide-ext.js';
+import { presenterSource } from './split-src.js';
 
 
 // Three bugs from the external deck review (18 Oct): what-if tiles froze 7 s after a tap, a bleed's jets vanished in one
 // frame, and the variceal bleed summary headed a column with the raw key "hb".
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 const stage = stageSource();
 
 test('a what-if follows the model until its readings hold still, not for a fixed 7 s', () => {

@@ -6,9 +6,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const wave = readFileSync(new URL('../src/ui/col-wave.js', import.meta.url), 'utf8');
 const css = appCss();
 const body = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a); assert.ok(a > 0 && b > a, from); return src.slice(a, b); };

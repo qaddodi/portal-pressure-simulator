@@ -2,7 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Mac and iPad landscape: every data card lays its tiles on one grid across its full inner width, every row full.
 const css = appCss();
@@ -35,7 +35,7 @@ test('the FibroScan reads the model median, the number in the tile and words', (
 });
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   const tiles = readFileSync(new URL('../src/ui/card-tiles.js', import.meta.url), 'utf8');
   assert.match(tiles, /export const ownKeys = \(s, onPhone\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !onPhone && !s\.tool\.keepTiles\) && !shownBy\(s\)\.includes\(k\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
   assert.match(pres, /const tileKeys = \(s\) => cardKeys\(s, phone\(\)\);/, 'the card reads them for the screen it is on');
@@ -62,7 +62,7 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   assert.ok(css.includes(`${B} > .pz-tool { grid-column: 1 / 2; grid-row: 2;`));
   assert.ok(css.includes(`${B} > .pz-tiles:not([data-n="0"]) { grid-column: 2 / 3; grid-row: 2;`));
   assert.doesNotMatch(css, /pz-data[^{]*:has\(> \.pz-tiles/, 'no :has() on the data card (it made every layout of the page slow)');
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   // (All but the portal blood bar, which needs the card's full width for its segments' names, and the fluid balance's capacity
   // window, whose rows of numbers need it too, and the criteria card, whose rules are sentences: their tiles go under them.)
   assert.match(pres, /data\.classList\.remove\('pz-beside'\); data\.removeAttribute\('data-beside'\);/, 'no instrument has its tiles beside it now (7 Nov 2026): they are its header\'s readings, tests/card-readings-head.test.js');

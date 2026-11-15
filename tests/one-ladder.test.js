@@ -9,12 +9,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { parseDeckSource } from '../src/ui/deck-source.js';
 import { DECKS } from '../src/ui/decks.js';
 import { oneLadder } from '../src/ui/teach-extras.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const slides = readdirSync(DIR).filter((f) => f.endsWith('.js'))
   .flatMap((f) => parseDeckSource(readFileSync(new URL(f, DIR), 'utf8')).slides.map((s) => ({ ...s, f })));
-const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pres = presenterSource();
 const css = appCss();
 const at = (f, id) => slides.find((x) => x.f === f && x.id === id);
 

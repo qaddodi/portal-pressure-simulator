@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TOKENS } from '../src/ui/theme-tokens.js';
 import { GATE_FRAC, gateFrac, AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = stageSource(), doppler = read('src/ui/doppler.js'), css = appCss(), tokens = read('styles/tokens.css');
@@ -122,7 +122,7 @@ test('every mark and the probe are white-lined on a black rim, with no θ on the
   assert.match(css, /\.dpr-gate \{ fill: none; stroke: var\(--dop-mark\); stroke-width: 3;/);
   assert.match(tokens, /--dop-mark: #FFFFFF; --dop-rim: #000000;/);
   assert.match(stage, /dopGlow = \{ id: null, col: 'var\(--dop-glow\)'/);   // (the Doppler's glow object, written in place: setGlowSrc('dop', id ? dopGlowList : noGlows))
-  assert.match(read('src/ui/presenter.js'), /glow\.set\(v, '--dop-glow'\)/);
+  assert.match(presenterSource(), /glow\.set\(v, '--dop-glow'\)/);
   // White on both dark blocks (the system's dark and the chosen dark), ink on the light themes.
   // (Both dark blocks, the system's and the chosen one, are printed from the one TOKENS.dark.)
   assert.deepEqual([TOKENS.dark.doppler, TOKENS.dark['dop-glow']], ['#3EE0A5', '#F4F6FF']);
@@ -635,11 +635,11 @@ test('stage: a stacked card tucking or bringing out its readings leaves its moni
   assert.match(mon, /if \(cv\.closest\('\[data-folding\]:not\(\.pz-sheet\)'\)\) continue;/);
   assert.doesNotMatch(mon, /\.vd-out, \[data-folding\]/);
   // (The sheet's fold moves the readings: presenter.js setFold and foldTouch set data-folding on the card for both a sheet and a plain fold.)
-  assert.match(read('src/ui/presenter.js'), /data\.dataset\.folding = '';\n\s*slideUnder\(u0, open \? 1 : 0\);/);
+  assert.match(presenterSource(), /data\.dataset\.folding = '';\n\s*slideUnder\(u0, open \? 1 : 0\);/);
 });
 
 test('stage: a glide that only refits the figure to cards that changed does not hide a probe that shows; a slide\'s framing still does', () => {
-  const pres = read('src/ui/presenter.js');
+  const pres = presenterSource();
   // The presenter's refit (reframe: a card changed size or place) says so just before it asks for the glide; a slide's framing does not.
   const re = pres.slice(pres.indexOf('function reframe(ms) {'), pres.indexOf('function fitAround('));
   assert.ok(re.indexOf('stage.carryProbe?.();') > 0 && re.indexOf('stage.carryProbe?.();') < re.indexOf('fitAround(s, cam'));
@@ -653,7 +653,7 @@ test('stage: a glide that only refits the figure to cards that changed does not 
 });
 
 test('stage: while the readings slide, the probe is placed on every frame against the cards read as the slide starts and as it rests', () => {
-  const pres = read('src/ui/presenter.js');
+  const pres = presenterSource();
   // The presenter tells the stage when a slide of the readings starts: a tap or a settle (slideUnder), a pull (take).
   assert.match(pres, /const slideTell = \(\) => dispatchEvent\(new Event\('pps:slide'\)\);/);
   assert.match(pres, /d\.classList\.add\('pz-sliding'\); d\.style\.setProperty\('--pz-u', from\.toFixed\(4\)\); liftTo\(from\); slideTell\(\);/);

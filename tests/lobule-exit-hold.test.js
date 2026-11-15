@@ -5,9 +5,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-const pr = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pr = presenterSource();
 const st = stageSource();
 
 test('the lobule frames itself in the held space while a way out is under way', () => {

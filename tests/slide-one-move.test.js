@@ -6,8 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
 import { createGlow } from '../src/ui/stage-glow.js';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const stage = stageSource();
 const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('function paintOverlays('));
 const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const cardsEntering ='));

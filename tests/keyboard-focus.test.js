@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { controlOwnsKey, KEY_OWNERS } from '../src/ui/key-owner.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const el = (sel, visible) => ({ matches: (q) => q === ':focus-visible' ? visible : q === KEY_OWNERS ? sel : false });
@@ -27,7 +27,7 @@ test('the arrows, Esc and the other keys are never a control\'s, and a half-type
 });
 
 test('the talk\'s key handler asks the rule, and leaves Esc to an open menu', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const fn = p.slice(p.indexOf('function onKey(e)'), p.indexOf("addEventListener('keydown', onKey, true)"));
   assert.match(fn, /if \(controlOwnsKey\(e\.target, k, digits\)\) return;/);
   assert.match(fn, /if \(k === 'Escape' && popoverOpen\(\)\) return;/);

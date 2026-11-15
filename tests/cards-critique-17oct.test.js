@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { SCALE, bandsOf } from '../src/ui/table-marks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Titles, labels and data cards from the design critique Mohammad answered on 17 Oct.
 const css = appCss();
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
-const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
+const js = unsnap(presenterSource());
 
 test('slide titles: weight 540, no rule under them, the rule\'s room kept as space (T5, T6)', () => {
   assert.match(css, /\n\.pz-h \{ margin: 0; font: 540 /);

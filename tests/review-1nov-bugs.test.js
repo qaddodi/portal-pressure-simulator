@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { badgeHtml, BADGE_H } from '../scripts/preview-badge.mjs';
+import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const STAGE = stageSource(), PZ = read('src/ui/presenter.js'), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
+const STAGE = stageSource(), PZ = presenterSource(), MAIN = read('src/ui/main.js'), PROC = read('src/ui/hvpg-proc.js');
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); let d = 0, k = src.indexOf('{', i); for (let j = k; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}' && --d === 0) return src.slice(i, j + 1); } return src.slice(i); };
 
 // ── A1: no WebGL2 ──

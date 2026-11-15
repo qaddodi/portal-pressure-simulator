@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -43,7 +44,7 @@ test('a presentation\'s Doppler monitor disposes its frames, observers and WebGL
 });
 
 test('the preview\'s test deck is not in the live site\'s bundle', () => {
-  const p = src('src/ui/presenter.js');
+  const p = presenterSource();
   assert.doesNotMatch(p, /^import [^\n]*test-decks/m);
   assert.match(p, /const testingLoad = PREVIEW \? import\('\.\/test-decks\/demo-all-new-visuals\.js'\)/);
   assert.match(p, /if \(!d && typeof id === 'string' && id\.startsWith\('test-'\) && !TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);   // (waits once: a missing test deck is \"not found\", not a loop)

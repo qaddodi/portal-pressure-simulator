@@ -6,7 +6,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const css = appCss();
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
@@ -77,7 +77,7 @@ test('every floating piece of the chrome is also a stage blocker: the labels, th
   const missing = [];
   for (const m of html.matchAll(/class="([^"]*\bfloat-ui\b[^"]*)"/g)) if (!/\bstage-blocker\b/.test(m[1])) missing.push(m[1]);
   assert.deepEqual(missing, []);
-  const src = [readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'), stage];
+  const src = [readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), presenterSource(), stage];
   for (const t of src) for (const m of t.matchAll(/class:\s*'([^']*\bfloat-ui\b[^']*)'/g)) assert.match(m[1], /\bstage-blocker\b/, m[1]);
 });
 

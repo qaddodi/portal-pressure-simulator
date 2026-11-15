@@ -13,6 +13,7 @@ import { parseLive, liveRuns, valueText, valueTone, widest, widestRuns, runsText
   acrossVessel, caliperOf, caliperText, stepPlan, stepGroups, zoneIndex, zoneBand, spanOf, spanPath, SPAN_Y, insideBy, clearOf, besideLine } from '../src/ui/callout-math.js';
 import F from '../src/ui/ext-callouts.js';
 import { expandIds } from '../src/ui/slide-ext.js';
+import { presenterSource } from './split-src.js';
 
 const VESSELS = new Set(EDGES.map((e) => e.id));
 const FP = { varix: 8.06, spleen: 14.83, ppg: 13.24, hvpg: 12.0, asc: 4980, plt: 88, pv: 16.1, at: { D: Float32Array.from(EDGES, () => 6.25) } };
@@ -120,7 +121,7 @@ test('a list in a numbered glow is one step: its vessels light together and its 
   const slide = { glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], 'SIN_RR'], glowSeq: 550, steps: true };
   F.figure[0].show({ slide, stage: { callouts: (sp) => got.push(sp) }, fp: FP, params: {}, shown: () => true });
   assert.deepEqual(got.at(-1).steps.map((p) => [p.n, p.at, p.ids, !!p.group]), [[1, 0, ['V_INT', 'V_SPL', 'V_IMV'], true], [2, 550, ['PVH_R', 'PVH_L'], true], [3, 1100, ['SIN_RR'], false]]);
-  const P = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const P = presenterSource();
   assert.match(P, /forEach\(\(g0, i\) => \{ for \(const g of Array\.isArray\(g0\) \? expandIds\(g0\) : \[g0\]\)/, 'the presenter lights a group at its entry\'s moment');
   const S = stageSource();
   assert.match(S, /if \(g\.group && mids\.length > 1\) \{ fans = mids;/, 'a group\'s number stands between its vessels');

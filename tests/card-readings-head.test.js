@@ -8,7 +8,7 @@ import { DECKS, withOverview } from '../src/ui/decks.js';
 import { tileKeys, toolOnly, headKeys, shownBy } from '../src/ui/card-tiles.js';
 import { tileOf } from '../src/ui/table-marks.js';
 import { scopeLensFor } from '../src/ui/scope-lens-rule.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const css = appCss();
@@ -18,7 +18,7 @@ test('every slide with an instrument is an instrument card, on every screen: not
   assert.ok(cards.length > 100);
   for (const { s } of cards) assert.equal(toolOnly(s), true);
   assert.equal(toolOnly({ data: 'tiles', tiles: ['hvpg'] }), false, 'no instrument: a tiles card, as before');
-  assert.match(src('presenter.js'), /data\.classList\.toggle\('tool-only', toolOnly\(s\)\);/);
+  assert.match(presenterSource(), /data\.classList\.toggle\('tool-only', toolOnly\(s\)\);/);
 });
 
 test('Varices 3: the chart\'s tiles are its own two lines, so a laptop or tablet shows none beside the name, a phone shows both, and the endoscopic view is the scope ring on the figure', () => {
@@ -48,7 +48,7 @@ test('its readings stand in the header row: the tiles but for the endoscopic vie
 });
 
 test('the tiles build the header readings from the same values, numbers as GPU words, and the card has no handle, fold key or wheel pull', () => {
-  const js = src('presenter.js');
+  const js = presenterSource();
   assert.match(js, /const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/);
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
   assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true, keep: true \}\) : null;/, 'the number is GPU words with the label outline, kept (never handed to the page text)');

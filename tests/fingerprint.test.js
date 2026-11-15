@@ -11,6 +11,7 @@ import { fingerprintOf, liverRes } from '../src/engine/fingerprint.js';
 import { createCore } from '../src/worker-core.js';
 import { fluidOf } from '../src/ui/tool-fluid.js';
 import { TILE } from '../src/ui/table-marks.js';
+import { presenterSource } from './split-src.js';
 
 const FLUID_ONLY = ['lymphOver', 'lymphBack', 'lymphNet'];   // (needs the engine's starling())
 const engineSide = (e) => fingerprintOf(computeMetrics(e), {
@@ -78,7 +79,7 @@ test('the worker\'s slide states carry the same fingerprint (the clot included)'
 test('neither the presenter nor the worker keeps a key list of its own', () => {
   const src = (f) => readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
   assert.match(src('worker-core.js'), /fingerprintOf\(m,/);
-  assert.match(src('ui/presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/);
+  assert.match(presenterSource(), /const liveFp = \(fr\) => fingerprintOf\(/);
   assert.doesNotMatch(src('worker-core.js'), /pvFlow: m\.pvFlowMean/);
-  assert.doesNotMatch(src('ui/presenter.js'), /pvFlow: m\.pvFlowMean/);
+  assert.doesNotMatch(presenterSource(), /pvFlow: m\.pvFlowMean/);
 });

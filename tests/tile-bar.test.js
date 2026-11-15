@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SCALE, TILE, tileOf, RATE, bandsOf, rateOf, rateShown, dirAbs } from '../src/ui/table-marks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Each data card tile's scale bar (layout A): its bands take the tile's own rating, so the bar and the status word agree.
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
@@ -84,7 +84,7 @@ test('the Tests › HVPG readings carry their tile\'s colour too, and ease into 
 
 test('every tile is one height on every slide: its bar, rating and change lines always keep their room (2 Nov 2026)', () => {
   const css = appCss();
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   assert.match(css, /\.pz-tile:has\(\.pzb-was:not\(\[hidden\]\)\) \.pzt-d \{ visibility: hidden; \}/, 'the ring\'s change line folds out of sight, not out of the layout');
   assert.ok(css.includes(".pz-tile :is(.pzt-r, .pzt-d):empty::before { content: '\\00a0'; }"), 'an empty rating or change keeps its line');
   assert.ok(css.includes('.pz-tiles { grid-auto-rows: 1fr; }'), 'rows of a grid share one height');
@@ -96,7 +96,7 @@ test('every tile is one height on every slide: its bar, rating and change lines 
 
 test('the now dot and the start ring stay whole inside the track, even past either end of the scale (sweep, 16 Oct)', () => {
   const css = appCss();
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   const size = (cls) => +css.match(new RegExp(`\\.${cls}::before \\{[^}]*width: ([\\d.]+)px`))[1];
   // (Platelets of 380 on a bar that stops at 300 put the dot half off the end, its halo on the card's border.)
   const r = size('pzb-now') / 2, r0 = size('pzb-was') / 2;
@@ -105,7 +105,7 @@ test('the now dot and the start ring stay whole inside the track, even past eith
 });
 
 test('a tile\'s number and unit always fit inside it, shrinking together, the unit never below 12 px (pregnancy deck, 17 Oct)', () => {
-  const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const js = presenterSource();
   const body = js.slice(js.indexOf('function bigTiles()'), js.indexOf('// The six levels along the route'));
   const fit = body.slice(body.indexOf('function fit()'), body.indexOf('function buildTiles('));
   assert.ok(fit.length > 0, 'bigTiles has a fit');

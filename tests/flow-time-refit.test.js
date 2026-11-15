@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 // (a word in a chart: what the GPU picture's look reader needs of it, svg-gl.js)
 const Txt = (text) => ({ text, children: [], attributes: [], getAttribute: () => null });
@@ -55,7 +56,7 @@ test('a chart is drawn at 12 px whatever the card zoom, and a refit with the sam
 });
 
 test('the card tells every chart it has fitted: after a fit pass of the data card, the tools refit', () => {
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pres = presenterSource();
   const tools = readFileSync(new URL('../src/ui/presenter-tools.js', import.meta.url), 'utf8');
   assert.match(pres, /if \(el === ui\.data\) refit = true;/);
   assert.match(pres, /if \(refit\) ui\.tools\?\.refit\(\);/);

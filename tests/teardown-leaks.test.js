@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';
+import { presenterSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const strip = (t) => t.replace(/\/\/.*$/gm, '');
@@ -61,7 +62,7 @@ test('B03: putText wrappers are released with their view, and a sweep frees thos
 });
 
 test('B04: tiles and the scope picture are disposed, and stopNow does it', () => {
-  const p = strip(src('presenter.js'));
+  const p = strip(presenterSource());
   const k = p.slice(p.indexOf('function bigTiles()'), p.indexOf('// The six levels along the route'));
   assert.match(k, /dispose\(\) \{\s*if \(dead\) return;/);
   assert.match(k, /p\.vw\?\.dispose\(\); p\.hw\?\.dispose\(\); p\.pic\?\.dispose\(\)/);

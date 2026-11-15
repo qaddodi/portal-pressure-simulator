@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Variceal bleed 3 to 4 froze the app (25 Oct). The stacked data card measures how far its readings travel (measureUnder) and writes it as
 // --pz-d on the card; the card's watcher (lipMO, on its style) measures again. The bleed clock's row is a second .pz-tiles part, and the
 // sheet's rule gave every part the travel in its margin (14px - (1 - u) * d): the measured travel then held minus the last one, so each
 // write gave a new value, the watcher fired again, and the loop never settled. Only the first part travels; later parts ride under it.
 const css = appCss();
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = presenterSource();
 
 test('the bleed clock row, the second readings part that froze it, is gone (his 30 Oct)', () => {
   assert.doesNotMatch(js, /pz-clockrow/);

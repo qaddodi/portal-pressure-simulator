@@ -2,8 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 const between = (a, b) => PZ.slice(PZ.indexOf(a), PZ.indexOf(b, PZ.indexOf(a)));
 
 test('transition: its holds are leases given back always; shared visible state only while it is the current change of the same talk', () => {

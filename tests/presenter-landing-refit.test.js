@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const PZ = presenterSource();
 
 test('onFonts, the card size observers and the fit pass queue one refit for the landing while a throw runs', () => {
   assert.match(PZ, /const onFonts = \(\) => \{\n\s+if \(!ui\) return;\n[^\n]*\n[^\n]*\n\s+if \(thrown\(\)\) layoutAtLanding\(\); else layout\(\);\n\s+\};/);

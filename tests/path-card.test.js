@@ -9,6 +9,7 @@ import { slots, flat, edgesOf, ortho, treeBoxes, treePlace, mapPlace, wideFor, m
 import { loadMetrics, textCovers } from '../src/ui/text-gl.js';
 import { LOOKS, HOSTS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
+import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const ids = (t) => flat(t).map((x) => x.n.id);
@@ -159,7 +160,7 @@ test('the card is wired: a tool kind, a stylesheet in the page and the build, th
   assert.equal(ext.tools.path.title({ title: 'Mine' }), 'Mine');
   assert.match(read('index.html'), /styles\/path\.css/);
   assert.match(read('scripts/build.mjs'), /\.\.\.appCssFiles\(ROOT\), 'styles\/path\.css'/);
-  assert.match(read('src/ui/presenter.js'), /RIDES_MODEL = new Set\(\[[^\]]*'path'/);
+  assert.match(presenterSource(), /RIDES_MODEL = new Set\(\[[^\]]*'path'/);
   const { STIFFNESS } = await import('../src/ui/decks/stiffness.js');
   const { BLEED: BLEED_DECK } = await import('../src/ui/decks/variceal-bleed.js');
   const { DECKS } = await import('../src/ui/decks.js');

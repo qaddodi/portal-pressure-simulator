@@ -10,6 +10,7 @@ import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
+import { presenterSource } from './split-src.js';
 
 const times = (T) => Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
 
@@ -332,7 +333,7 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
 // then it steps through them one by one as i click next", and there was no catheter to see.
 test('presented, Next drives it: the first Next starts it, each Next plays a step, then the slide moves on; the steps are progress only', async () => {
 
-  const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const pz = presenterSource();
   const st = stageSource();
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');

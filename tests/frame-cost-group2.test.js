@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { presenterSource } from './split-src.js';
 
 // Codebase review 22 Oct, group 2: per-frame work in the lobule, the sinusoid, the data-card plane and the charts that
 // gave the same pixels every time is done once and kept. Each test pins one item.
@@ -126,7 +127,7 @@ test("item 18: +, − and Fit wait for the dive into the lobule to land", () => 
 });
 
 test('item 51: the presenter announces "Slide N of M: title" once, its cards carry no live region, an empty key is hidden', () => {
-  const pz = read('../src/ui/presenter.js'), fk = read('../src/ui/figure-key.js');
+  const pz = unsnap(presenterSource()), fk = read('../src/ui/figure-key.js');
   assert.equal((pz.match(/'aria-live'/g) || []).length, 1, 'one live region');
   assert.match(pz, /const say = h\('p', \{ class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' \}\);/);
   assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{slides\.length\}\$\{slides\[i\]\?\.title \? `: \$\{slides\[i\]\.title\}` : ''\}`/);   // (written by announce(), once the slide is on screen)
@@ -136,7 +137,7 @@ test('item 51: the presenter announces "Slide N of M: title" once, its cards car
 });
 
 test('item 37: fitCards reads the tiles and scale-bar numbers in one layout, then writes, and probes --pz-sm once per look', () => {
-  const pz = read('../src/ui/presenter.js');
+  const pz = unsnap(presenterSource());
   const fc = pz.slice(pz.indexOf('function fitCards(...els)'), pz.indexOf('fitHeads(el);', pz.indexOf('function fitCards(...els)')));
   // Short tile names: every class taken off, then every room read, then the short ones set.
   assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+(?:\/\/ alloc-rare[^\n]*\s+)*const shorts = names\.filter/);

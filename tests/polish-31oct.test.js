@@ -5,12 +5,12 @@ import { readFileSync } from 'node:fs';
 import { cutDp, SCALE } from '../src/ui/table-marks.js';
 import { removedLabel } from '../src/ui/removed-label.js';
 import './dom-shim.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 const { fmt } = await import('../src/ui/util.js');
 
 // Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = appCss(), presenter = src('src/ui/presenter.js'), menu = src('src/ui/menu.js'), dock = src('src/ui/dock.js');
+const css = appCss(), presenter = presenterSource(), menu = src('src/ui/menu.js'), dock = src('src/ui/dock.js');
 
 test('a scale bar prints every cut-off with the decimals it has', () => {
   assert.equal(fmt(0.15, cutDp(0.15)), '0.15');
@@ -146,7 +146,7 @@ test('a percentage is "75%" everywhere a person reads it: the cards, the Why bar
   assert.match(src('src/ui/actions.js'), /const pct = \(v\) => `\$\{Math\.round\(v \* 100\)\}%`;/);
   assert.match(src('src/ui/inspector.js'), /sub: '40% compensated · 60% CSPH · 85% decompensated'/);
   // (a unit phrase keeps its space: "hepatic blood flow in % of normal")
-  assert.match(src('src/ui/presenter.js'), /hepatic blood flow in % of normal/);
+  assert.match(presenterSource(), /hepatic blood flow in % of normal/);
 });
 
 test('the drug class is "beta-blocker" on the Treat card, the Why card and the slides alike', () => {

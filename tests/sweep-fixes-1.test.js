@@ -4,11 +4,11 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const css = appCss();
 const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 const rule = (sel) => { const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, `${sel} is missing`); return css.slice(i, css.indexOf('}', i)); };
 
 test('a press or drag on the figure leaves no ring round the whole view', () => {

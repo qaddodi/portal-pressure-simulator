@@ -8,10 +8,10 @@ import { DECKS, withOverview } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { keepData, keepText } from '../src/ui/card-keep.js';
 import { handoutHTML } from '../src/ui/handout.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const presenter = read('../src/ui/presenter.js');
+const presenter = presenterSource();
 const css = appCss();
 const asked = DECKS.flatMap((d) => withOverview(d).slides.map((s, i, all) => ({ d, s, i, all }))).filter(({ s }) => s.question !== undefined);
 

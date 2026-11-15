@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createInsetHold, INSET_KEYS } from '../src/ui/inset-hold.js';
+import { presenterSource } from './split-src.js';
 
 function fakes() {
   const props = new Map(), q = new Map();
@@ -43,7 +44,7 @@ test('the talk ending while a room is held: nothing is written back after it', (
   assert.equal(F.props.get('--pz-l'), '5px', 'the next talk writes at once');
 });
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const stopNow = src.slice(src.indexOf('  function stopNow('), src.indexOf('  let healthyGen'));
 
 test('stopNow resets the held room and stops the timers that would act after the talk', () => {

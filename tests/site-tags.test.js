@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS, SITE_TAGS, siteTag, withOverview } from '../src/ui/decks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const LEVELS = ['pre', 'presin', 'sin', 'postsin', 'post', 'cardiac'];
 const NAMES = new Set(['Pre-hepatic', 'Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Post-hepatic', 'Cardiac']);
@@ -29,7 +29,7 @@ test('decks that teach more than one level tag their slides; cirrhosis-only deck
 });
 
 test('the teaching card shows the tag as a corner tab in the level\'s colour, the title first in the words', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const css = appCss();
   assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\) \|\| railLvl, stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
   assert.match(src, /if \(stab\.textContent === lvl\.name\) stab\.dataset\.site = site; else swapText\(stab, lvl\.name, \(\) => \{ stab\.dataset\.site = site; \}\);/);   // (a new level cross-fades, 15 Nov 2026)
@@ -62,7 +62,7 @@ test('the teaching card shows the tag as a corner tab in the level\'s colour, th
 });
 
 test('a slide with a level rail names its level in the corner tab where the rail is hidden (phone or iPad held upright)', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src = presenterSource();
   const css = appCss();
   assert.match(src, /const railLvl = !s\.visual && s\.rail && s\.rail !== 'all' && SITE_TAGS\[s\.site\]/);
   assert.match(src, /stab\.toggleAttribute\('data-rail', !!lvl && lvl === railLvl\)/);

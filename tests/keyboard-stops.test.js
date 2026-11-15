@@ -5,7 +5,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -35,7 +35,7 @@ test('a hidden label leaves the Tab order and the screen reader, and one with fo
 });
 
 test('a talk turns the figure\'s stops off before it takes the stage and back on as it ends', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const on = p.indexOf('stage.setKeyStops?.(false)'), pres = p.indexOf('store.set({ presenting: true', on);
   assert.ok(on > 0 && pres > on && pres - on < 400, 'off first, then presenting');
   const back = p.indexOf('stage.setKeyStops?.(true)');

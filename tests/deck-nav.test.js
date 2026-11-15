@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { noteResume, resumeFor, forgetResume } from '../src/ui/resume.js';
+import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const presenter = read('presenter.js'), main = read('main.js'), palette = read('palette.js'), menu = read('menu.js'), tools = read('presenter-tools.js');
+const presenter = presenterSource(), main = read('main.js'), palette = read('palette.js'), menu = read('menu.js'), tools = read('presenter-tools.js');
 
 // A localStorage for node: the resume records live there.
 const mem = new Map();

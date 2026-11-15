@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
 import { lineText } from '../src/ui/handout.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const markers = (line) => [...(line || '').matchAll(/\{#(\d+)\}/g)].map((m) => +m[1]);
@@ -38,7 +38,7 @@ test('the line reads in order: the markers stand in the order of their numbers, 
 });
 
 test('the presenter draws a marker as the figure\'s circle, ahead of the typed values, and it keeps a typed number its pill', () => {
-  const src = read('../src/ui/presenter.js');
+  const src = presenterSource();
   const fn = src.slice(src.indexOf('function rich('), src.indexOf('function wedgeColumn('));
   assert.match(fn, /const marked = \/\\\{\(\?!#\\d\+\\\}\)\[\^\}\]\+\\\}\/\.test\(t\)/, '{#1} is no typed value: a number with a unit keeps its automatic pill');
   assert.match(fn, /else if \(mk && \/\^#\\d\+\$\/\.test\(mk\)\) out\.push\(stepMark\(\+mk\.slice\(1\), mkStop\)\)/);

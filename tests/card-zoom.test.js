@@ -5,13 +5,13 @@ import { unsnap } from './unsnap.js';
 import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
 import { zoomRide } from '../src/ui/scene-cam.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = appCss();
+const zoomSrc = read('../src/ui/card-zoom.js'), js = unsnap(presenterSource()), css = appCss();
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };

@@ -8,9 +8,10 @@ import { createCore } from '../src/worker-core.js';
 import { OUTFLOW } from '../src/ui/decks/outflow.js';
 import { PRESETS } from '../src/engine/scenario.js';
 import { deckStates } from './deck-states.js';
+import { presenterSource } from './split-src.js';
 
 const fmt = (v) => v.toFixed(1);
-const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const presenter = presenterSource();
 
 test('the recovery slide eases the central veins over its days instead of setting them before the counter starts', () => {
   const s = OUTFLOW.slides.find((x) => x.id === 'recover');

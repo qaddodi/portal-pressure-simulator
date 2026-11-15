@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const between = (a, b) => { const i = src.indexOf(a); assert.ok(i >= 0, a); return src.slice(i, src.indexOf(b, i + a.length)); };
 
 test('B13: the whole preparation job is inside a try, and a failure settles every waiter and ends the talk', () => {

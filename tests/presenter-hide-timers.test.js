@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = presenterSource();
 const between = (a, b) => { const i = src.indexOf(a); assert.ok(i > 0, a); const j = src.indexOf(b, i); assert.ok(j > i, b); return src.slice(i, j); };
 
 test('two quick panel-width changes bring the words back', () => {

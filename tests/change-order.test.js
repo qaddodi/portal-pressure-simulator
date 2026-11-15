@@ -8,6 +8,7 @@ import { CHANGE_STEPS, STEP_AT, NAME_LEAD_MS, frontDelay, FRONT_MAX_MS, causeOf,
 import { defaultParams, deepMerge } from '../src/engine/scenario.js';
 import { EDGES } from '../src/engine/topology.js';
 import { routeLine, alongPath, ROUTES, ALONG_STRETCH } from '../src/ui/cam-routes.js';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -80,7 +81,7 @@ test('the figure keeps the order: the colour front, and collaterals after it', (
 });
 
 test('a slide\'s colours come with its scene, never onto the leaving one (T1)', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const run = p.slice(p.indexOf('async function transitionRun('), p.indexOf('function paintOverlays('));
   const lens = run.indexOf('const lensGo = ');
   assert.ok(lens > 0);
@@ -93,7 +94,7 @@ test('a slide\'s colours come with its scene, never onto the leaving one (T1)', 
 });
 
 test('the slide number never goes blank (T2)', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   const chrome = p.slice(p.indexOf('function paintChrome()'), p.indexOf('const gear = () =>'));
   assert.doesNotMatch(chrome, /swapText\(k\.count/, 'no fade through nothing');
   assert.match(chrome, /k\.count\.textContent = countTxt/);
@@ -171,7 +172,7 @@ test('any path glide is calm: the centre only moves forward, stays near its chor
 });
 
 test('the presenter asks for it between neighbouring slides only', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   assert.match(p, /alongOk = Math\.abs\(to - lastAt\) === 1;/);
   assert.match(p, /frameTo\(cam, s, gl\);\n\s*alongOk = false;/);
   assert.match(p, /alongOk && !opt\.drift && !opt\.steady \? \{ \.\.\.opt, along: true \} : opt/);

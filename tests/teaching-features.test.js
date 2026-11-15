@@ -10,7 +10,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX, ZONES, keyLine } from '../src/ui/tool-criteria.js';
 import teaching from '../src/ui/ext-teaching.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const css = appCss();
@@ -29,7 +29,7 @@ test('hold: only adopted question slides use it, each a true flag on a slide wit
 });
 
 test('hold: the presenter sets it out of sight and lets the answer slide ease it in once it has landed', () => {
-  const p = src('presenter.js');
+  const p = presenterSource();
   assert.match(p, /function holdAnswer\(on, instant = false\)/);
   assert.match(p, /holdAnswer\(!s\.visual && \(!!s\.hold \|\| holdEase/);
   assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
@@ -85,7 +85,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
     assert.ok(!s.causes, `${d.id}/${s.id}: the rules live in the card, not in the causes line a phone drops`);
     for (const r of rows) assert.ok(r.text.length <= 70, `${d.id}/${s.id}: "${r.text}" fits a row`);
   }
-  const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  const src2 = presenterSource();
   assert.doesNotMatch(src2, /s\.tool\?\.kind !== 'criteria'/, 'no tiles stand beside any instrument now: they are the header\'s readings');
 });
 
@@ -169,7 +169,7 @@ test('case-card question: only adopted case slides end on one, a question, the c
     assert.ok(/^[A-Z].*\?$/.test(s.caseQ) && !s.caseQ.slice(0, -1).includes('?'), `${at}: one question`);
     assert.ok(`${s.vignette} ${s.caseQ}`.length < 220, `${at}: case and question under 220 characters (${`${s.vignette} ${s.caseQ}`.length})`);
   }
-  assert.match(src('presenter.js'), /s\.caseQ \? h\('p', \{ class: 'pz-case-p pz-case-q' \}, nb\(s\.caseQ\)\) : null/, 'its own line on the card, fitted with the case');
+  assert.match(presenterSource(), /s\.caseQ \? h\('p', \{ class: 'pz-case-p pz-case-q' \}, nb\(s\.caseQ\)\) : null/, 'its own line on the card, fitted with the case');
 });
 
 test('every content slide of a built-in deck has a question for the handout', () => {
@@ -193,7 +193,7 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
     assert.ok(s.data === 'tiles', `${at}: a tiles slide`);
     assert.ok(s.hvpgResp === true || d.slides.findIndex((x) => x.id === s.hvpgResp) >= 0 && d.slides.findIndex((x) => x.id === s.hvpgResp) < d.slides.indexOf(s), `${at}: counted from an earlier slide`);
   }
-  const p = src('presenter.js');
+  const p = presenterSource();
   assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.scopeTile \? \['scope'\] : \[\]\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
   assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
   assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\)/);
@@ -202,12 +202,12 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
 
 test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed tile and it should go"): no slide sets clock, the card has no clock row', () => {
   assert.deepEqual(slidesUsing('clock').map(([d, s]) => `${d.id}/${s.id}`), []);
-  assert.doesNotMatch(src('presenter.js'), /Since the bleed|pz-clockrow|bleedClock/);
+  assert.doesNotMatch(presenterSource(), /Since the bleed|pz-clockrow|bleedClock/);
   assert.doesNotMatch(css, /\.pz-clock/);
 });
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {
-  const p = src('presenter.js');
+  const p = presenterSource();
   assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land\$\{phaseNote\(\)\}`\); break; \}/, 'the move loop gives up on a slide after two tries');
   const vb = DECKS.find((d) => d.id === 'variceal-bleed').slides.find((s) => s.id === 'minutes');
   assert.equal(vb.predict, undefined, 'Predict is gone: Variceal bleed 4 never had a choice question');

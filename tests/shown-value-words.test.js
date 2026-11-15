@@ -8,7 +8,7 @@ import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
 import { Engine } from '../src/engine/engine.js';
 import { explain } from '../src/engine/explain.js';
 import { stentSegments } from '../src/engine/topology.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -55,7 +55,7 @@ test('#13: the engine grades judge the printed diameter and volume (Endoscopy, A
   for (const f of ['dock.js', 'readouts-pane.js']) assert.match(read(`../src/ui/${f}`), /^import \{[^}]*\bshownOf\b[^}]*\} from '\.\/util\.js/m, f);
   assert.match(read('../src/ui/dock.js'), /x\.vsOut = shownOf\(v, t\.d\)[\s\S]*?const vs = x\.vsOut, sf = [^\n]*\n[^\n]*sf\(vs, f, st0\) : sf\(vs, m\);\n\s*sev = lz \? t\.st\(vs, f, st0\) : t\.st\(vs, m\);/);
   assert.match(read('../src/ui/readouts-pane.js'), /t\.s\(vs, m\);\n\s*sev = t\.st\(vs, m\);/);
-  assert.match(read('../src/ui/presenter.js'), /ratedShown\(p\.k, f\)/);
+  assert.match(presenterSource(), /ratedShown\(p\.k, f\)/);
 });
 
 test('#15: a stent sampled at a 90% narrowing reads its jet, judged there, not "No flow"', () => {

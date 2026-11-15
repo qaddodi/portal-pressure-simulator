@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { glideClock, STEP_MAX } from '../src/ui/glide-clock.js';
+import { presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 // (A function's text from its head to its closing brace, the braces of its default parameters passed over.)
@@ -50,7 +51,7 @@ test('a clock that goes back (a timestamp from before the glide began) never run
 });
 
 // ── Where it is used ──
-const stage = stageSource(), presenter = read('src/ui/presenter.js'), lobule = read('src/ui/lobule-zoom.js'), proc = read('src/ui/proc-anim.js');
+const stage = stageSource(), presenter = presenterSource(), lobule = read('src/ui/lobule-zoom.js'), proc = read('src/ui/proc-anim.js');
 
 test('the stage times a steady glide by the clock, and never a drift or a move on an arc', () => {
   const a = fn(stage, 'function animateVT(');

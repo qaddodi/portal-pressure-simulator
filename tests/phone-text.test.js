@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ROLES } from '../src/ui/type-scale.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const css = appCss(), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
@@ -47,7 +47,7 @@ test('a phone held sideways shows the short clock in its play row', () => {
 });
 
 test('a phone\'s six site lines share one row of names over them and letter at their own size', () => {
-  const js = read('../src/ui/presenter.js');
+  const js = presenterSource();
   assert.match(js, /h\('div', \{ class: 'pz-grid-head', 'aria-hidden': 'true' \}/);
   assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-grid \{ --pk: 1\.15;/);
 });

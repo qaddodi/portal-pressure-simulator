@@ -4,10 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const src = read('../src/ui/presenter.js'), css = appCss();
+const src = presenterSource(), css = appCss();
 
 test('the ring is an outline in the accent a hair outside the circle, nothing animated, and the row starts a ring in so the card\'s clip never cuts it', () => {
   assert.match(css, /\n\.pz-proc\.at \.pz-step \{ outline: 1\.5px solid var\(--accent\); outline-offset: 1px; \}/);

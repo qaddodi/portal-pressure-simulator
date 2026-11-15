@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = presenterSource();
 
 test('the dock glide is written by the frames: the card and its handle take one translate each frame, no animation', () => {
   assert.match(pz, /get lvl\(\) \{ return glide \? glideLvl\(\) : lvlSet; \}, set lvl\(v\) \{ if \(glide\) dockHalt\(\); lvlSet = v; \}/);

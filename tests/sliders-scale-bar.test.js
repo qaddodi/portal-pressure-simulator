@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct).
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -47,7 +47,7 @@ test('a finger on the track lands the thumb\'s centre there, whatever the thumb\
 });
 
 test('a slide\'s what-if: a ring where the slide started, no box, the track on its own line with its end words under its ends', () => {
-  const p = read('src/ui/presenter.js');
+  const p = presenterSource();
   assert.match(p, /h\('div', \{ class: 'range-wrap', style: \{ '--s': String\(clamp\(frac\(v0\), 0, 1\)\) \} \}, h\('span', \{ class: 'sl-start', 'aria-hidden': 'true' \}\), input\)/);
   assert.match(rule('.range-wrap .sl-start {'), /left: calc\(var\(--tw\) \/ 2 \+ \(100% - var\(--tw\)\) \* var\(--s, 0\)\); width: 12px; height: 12px;[^}]*z-index: 1;/);
   assert.match(rule('input[type=range] {'), /z-index: 2;/, 'the dot passes over the ring');

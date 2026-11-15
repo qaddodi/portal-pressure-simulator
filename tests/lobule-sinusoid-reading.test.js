@@ -4,9 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const SRC = presenterSource();
 const CSS = appCss();
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The lobule targets a slide's line lights (presenter.js slideTargets, for { words: target } terms).

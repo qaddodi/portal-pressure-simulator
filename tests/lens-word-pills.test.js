@@ -5,8 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
+import { presenterSource } from './split-src.js';
 
-const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const SRC = presenterSource();
 const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 const obj = (name) => {
   const body = SRC.match(new RegExp(`export const ${name} = \\{([^}]+)\\}`))[1];

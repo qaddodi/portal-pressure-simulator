@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, CAM_MS_MIN } from '../src/ui/ease.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 import { appCssFiles } from '../scripts/app-css.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -345,7 +345,7 @@ test('item 20: what was on screen and is displaced travels on the move curve, an
   assert.match(src('menu.js'), /el\._lift = el\.animate\(\[[^\]]*\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\);/);
   assert.doesNotMatch(src('menu.js'), /el\._lift\?\.cancel\(\)/);
   assert.match(src('dock.js'), /b\.animate\(\[\{ translate: `\$\{dx\}px 0` \}, \{ translate: '0 0' \}\], \{ duration: D_SMALL, easing: EASE_MOVE, composite: 'add' \}\)/);
-  assert.match(src('presenter.js'), /mon\.el\.animate\(\[\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: 'none' \}\], \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}\)/);
+  assert.match(presenterSource(), /mon\.el\.animate\(\[\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: 'none' \}\], \{ duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' \}\)/);
   const util = src('util.js');
   assert.match(util, /\{ duration: dur, easing: EASE_MOVE, composite: 'add' \}\)\.id = 'glide';/);
   assert.doesNotMatch(util, /a\.id === 'glide'\) \{ const m = new DOMMatrixReadOnly/, 'a running glide is not cancelled and re-read');
@@ -400,6 +400,6 @@ test('one roll speed: COUNT_MS is motion.js\'s alone, and the rolls (util.js cou
   }
   assert.deepEqual(bad, []);
   const importsCount = /import\s*\{[^}]*\bCOUNT_MS\b[^}]*\}\s*from\s*'\.\/motion\.js'/;
-  for (const f of ['src/ui/util.js', 'src/ui/count-roll.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
-  assert.doesNotMatch(read('src/ui/presenter.js'), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
+  for (const f of ['src/ui/util.js', 'src/ui/count-roll.js', 'src/ui/presenter-cards.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
+  assert.doesNotMatch(presenterSource(), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
 });

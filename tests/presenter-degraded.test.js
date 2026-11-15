@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { presenterSource } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
-const PZ = read('../src/ui/presenter.js'), TOOLS = read('../src/ui/presenter-tools.js');
+const PZ = presenterSource(), TOOLS = read('../src/ui/presenter-tools.js');
 
 test('tools.ready says false for an ask that timed out, failed, answered nothing or was let go, and follows a newer ask', () => {
   assert.match(TOOLS, /const ok = tok === primeTok && !held && made\[k\] === inst && !!m\?\.samples; if \(ok\) inst\.backfill/);

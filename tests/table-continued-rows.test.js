@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { sameHead } from '../src/ui/table-marks.js';
-import { appCss } from './split-src.js';
+import { appCss, presenterSource } from './split-src.js';
 
 // A summary table draws a repeated row heading once (the same words in the same site's colour on consecutive rows), over the first of them.
 const css = appCss();
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = presenterSource();
 
 test('a heading repeats only when the words and the site both match the row above', () => {
   const a = { kicker: 'Non-selective beta-blocker', site: undefined };
