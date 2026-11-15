@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { LIBRARY, LIBRARY_KEYS } from '../src/engine/inverse-library.js';
 import {
   modelText, numberText, rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText, costOf, reasonsFor, bandsOf, lsmBand, hvpgBand, LESION_COST,
-  READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
+  READINGS, READING_KEYS, logSigma, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
 } from '../src/engine/inverse.js';
 import { FAMILIES, FAMILY, LESION, keyOf, spanOf, settingText, settingsOf, patientOf } from '../src/engine/inverse-families.js';
 
@@ -15,7 +15,7 @@ const A = { whvp: 8.0, fhvp: 4.5, ppg: 14, spleen: 16, plt: 78, lsm: 6.5, ssm: 6
 // Cirrhosis: wedge well above the free pressure, stiff liver.
 const B = { whvp: 21, fhvp: 5, lsm: 28, plt: 70, spleen: 16 };
 // Right heart: both pressures high, RA high, tense fluid.
-const C = { whvp: 19.5, fhvp: 18.5, ra: 15, asc: 3, lsm: 30, plt: 210 };
+const C = { whvp: 20.5, fhvp: 19.5, ra: 18, asc: 3, lsm: 30, plt: 190 };
 const ids = (r, ...s) => r.families.filter((f) => s.includes(f.status)).map((f) => f.id);
 
 test('the library holds every reading key in the order the search reads', () => {
@@ -60,7 +60,10 @@ test('the HVPG and the PPG are dropped when the pressures they are made of are i
 test('residuals: absolute in allowed errors, log for stiffness and counts, a grade inside its range is perfect', () => {
   assert.equal(residual('whvp', 8, 8), 0);
   assert.ok(Math.abs(residual('whvp', 8, 9.5) - 1) < 1e-9);
-  assert.ok(Math.abs(residual('lsm', 10, 10 * Math.exp(0.18)) - 1) < 1e-9);
+  const lsmSigma = logSigma(READINGS.lsm, 10);
+  assert.ok(lsmSigma > READINGS.lsm.sigma, 'a reading of 10 kPa is not good to 18% of 10: the floor in kPa widens it');
+  assert.ok(Math.abs(residual('lsm', 10, 10 * Math.exp(lsmSigma)) - 1) < 1e-9);
+  assert.ok(Math.abs(logSigma(READINGS.lsm, 60) - READINGS.lsm.sigma) < 0.01, 'the floor is nothing on a large reading');
   assert.equal(residual('asc', 1, 600), 0);
   assert.equal(residual('asc', 0, 100), 0);
   assert.ok(residual('asc', 0, 3000) > 3, 'tense fluid is far from none');
@@ -187,9 +190,10 @@ test('a mix of lesions comes first only when the readings need it', () => {
 });
 
 test('every family is one to three real lesions, one to a slot, each charged for being there and for how far it is pushed', () => {
-  assert.equal(FAMILIES.length, 66);
+  assert.equal(FAMILIES.length, 67, '66 combinations of one to three lesions and the healthy one');
   assert.equal(new Set(FAMILIES.map((f) => f.id)).size, FAMILIES.length);
-  for (const f of FAMILIES) {
+  assert.deepEqual(FAMILY.none.axes, [], 'the healthy family has no lesion');
+  for (const f of FAMILIES.filter((x) => x.id !== 'none')) {
     assert.ok(f.axes.length >= 1 && f.axes.length <= 3, f.id);
     assert.equal(new Set(f.axes.map((k) => LESION[k].slot)).size, f.axes.length, f.id + ': one lesion to a slot (one heart, one venous block)');
     const { patch, days, volume } = patientOf(f.id, f.grid[0]);

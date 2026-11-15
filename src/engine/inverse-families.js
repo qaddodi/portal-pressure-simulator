@@ -53,37 +53,37 @@ const LESIONS = [
     ev: 'Baveno VIII 8.40 to 8.44 (PSVD without cirrhosis): in PSVD an SSM above 40 kPa is a specific sign of portal hypertension (8.44).',
     outside: 'Liver biopsy for obliterative portal venopathy and to exclude cirrhosis; history and imaging for the cause.' },
   { id: 'pvt', short: 'Portal clot', label: 'Portal vein thrombosis', sub: 'Clot in the trunk, collaterals formed (a cavernoma).', group: 'Pre-hepatic', slot: 'trunk', step: 0.1,
-    set: (u) => ({ clot: Math.round(40 + 60 * u) }),
+    set: (u) => ({ clot: Math.round(40 + 50 * u) }),
     patch: (u) => ({ thrombus: { PV_TRUNK: LES_SET.pvt(u).clot / 100 } }),
     settings: (u) => [kv('Clot in the trunk', `${LES_SET.pvt(u).clot}%`)],
     days: () => 240, volume: () => 0,
     limits: 'A clot of 65 to 75% still passes flow, so “no flow” only holds for a nearly complete clot. The model has no cavernoma image to show.', ev: '',
     outside: 'Doppler or contrast CT or MR of the portal vein: a cavernoma is a picture the model does not make.' },
   { id: 'rhf', short: 'Right heart failure', label: 'Right heart failure with TR', sub: 'High right atrial pressure carried back to the liver.', group: 'Cardiac', slot: 'heart', step: 0.1,
-    set: (u) => ({ contr: r2(0.7 - 0.5 * u), tr: r2(0.2 + 0.7 * u), vol: Math.round(900 + 900 * u) }),
+    set: (u) => ({ contr: r2(0.7 - 0.5 * u), tr: r2(0.2 + 0.7 * u), vol: Math.round(200 + 1600 * u) }),
     patch: (u) => { const s = LES_SET.rhf(u); return { contractility: s.contr, tr: s.tr }; },
-    settings: (u) => { const s = LES_SET.rhf(u); return [kv('Pump strength', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`, true)]; },
+    settings: (u) => { const s = LES_SET.rhf(u); return [kv('Pump strength', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`)]; },
     days: () => 60, volume: (u) => LES_SET.rhf(u).vol,
     limits: 'The model’s heart is a pump strength, a leak and the volume it holds; it cannot draw the waveform that tells failure from constriction.', ev: '',
     outside: 'Echocardiography with the RA waveform; the model cannot draw it.' },
   { id: 'constr', short: 'Constriction', label: 'Constrictive pericarditis', sub: 'The pericardium holds the right heart; RA pressure is high.', group: 'Cardiac', slot: 'heart', step: 0.1,
-    set: (u) => ({ peric: r2(0.5 + 0.5 * u), vol: Math.round(600 + 1200 * u) }),
+    set: (u) => ({ peric: r2(0.5 + 0.5 * u), vol: Math.round(200 + 1600 * u) }),
     patch: (u) => ({ pericardial: LES_SET.constr(u).peric }),
-    settings: (u) => { const s = LES_SET.constr(u); return [kv('Constriction', `${s.peric} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`, true)]; },
+    settings: (u) => { const s = LES_SET.constr(u); return [kv('Constriction', `${s.peric} (0 to 1)`)]; },
     days: () => 60, volume: (u) => LES_SET.constr(u).vol,
     limits: 'The model’s pericardium is one constriction number and the volume it holds. It cannot draw septal bounce or the filling pattern.', ev: '',
     outside: 'Echocardiography and cardiac MR or CT for septal bounce, filling pattern and a thick pericardium.' },
   { id: 'bcs', short: 'Hepatic veins', label: 'Hepatic vein outflow block', sub: 'Budd–Chiari: the hepatic veins are thrombosed.', group: 'Post-hepatic', slot: 'outflow', step: 0.1,
-    set: (u) => ({ veins: u < 0.4 ? 1 : u < 0.75 ? 2 : 3, occl: Math.round(50 + 50 * u) }),
+    set: (u) => (u < 0.3 ? { veins: 1, occl: 100 } : u < 0.5 ? { veins: 2, occl: 80 } : { veins: 3, occl: Math.round(50 + 70 * (u - 0.5)) }),
     patch: (u) => { const s = LES_SET.bcs(u); return hvPatch(s.veins, s.occl / 100); },
     settings: (u) => { const s = LES_SET.bcs(u); return [kv('Hepatic veins thrombosed', `${s.veins} of 3`), kv('How shut', `${s.occl}%`)]; },
     days: () => 60, volume: () => 0,
     limits: 'With the right hepatic vein shut the app prints no HVPG, so a wedged reading from this patient would not exist.', ev: '',
     outside: 'Doppler or MR venography of the hepatic veins and IVC.' },
   { id: 'ivcweb', short: 'IVC web', label: 'IVC web', sub: 'Suprahepatic IVC stenosis: the hepatic veins are high, the right atrium is not.', group: 'Post-hepatic', slot: 'outflow', step: 0.1,
-    set: (u) => ({ stenosis: Math.round(30 + 60 * u) }),
+    set: (u) => ({ stenosis: Math.round(30 + 55 * u) }),
     patch: (u) => ({ stenosis: { IVCS_RA: LES_SET.ivcweb(u).stenosis / 100 } }),
-    settings: (u) => [kv('IVC narrowing', `${LES_SET.ivcweb(u).stenosis}%`), kv('Extra volume held', '800 mL', true)],
+    settings: (u) => [kv('IVC narrowing', `${LES_SET.ivcweb(u).stenosis}%`)],
     days: () => 90, volume: () => 800,
     limits: 'Taken at three months with 800 mL of extra volume held; the model has one IVC narrowing and no image of it.', ev: '',
     outside: 'Cavography or MR venography of the IVC.' },
@@ -133,14 +133,20 @@ function familiesOf() {
       grid: cross(Object.fromEntries(axes.map((k) => [k, LEVELS[n]]))),
       patch: (p) => parts.reduce((acc, l) => merge(acc, l.patch(p[l.id])), {}),
       days: (p) => Math.max(...parts.map((l) => l.days(p[l.id]))), volume: (p) => Math.max(...parts.map((l) => l.volume(p[l.id]))),
-      settings: (p) => parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))),
+      settings: (p) => {
+        const vol = Math.max(...parts.map((l) => l.volume(p[l.id])));   // (the one volume the patient holds: the larger of the lesions', never one line for each)
+        return [...parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))), ...(vol > 0 ? [{ ...kv('Extra volume held', `${vol} mL`, true), lesion: parts.find((l) => l.volume(p[l.id]) === vol).id }] : [])];
+      },
       limits: [...new Set(parts.map((l) => l.limits))].join(' '), ev: [...new Set(parts.map((l) => l.ev).filter(Boolean))].join(' '),
       outside: [...new Set(parts.map((l) => l.outside))].join(' '),
     };
   });
 }
 
-export const FAMILIES = familiesOf();
+/** No lesion at all: the healthy patient, the answer for readings in the normal range (it costs nothing, and every other family costs for being there). */
+const NONE = { id: 'none', short: 'No lesion', label: 'No lesion', sub: 'Every setting healthy: the readings are in the model’s normal range.', group: 'Healthy', free: 0, axes: [], parts: [], lesions: 0, grid: [{}],
+  patch: () => ({}), days: () => 0, volume: () => 0, settings: () => [], limits: 'The model’s healthy patient is one set of readings; normal ranges in people are wider.', ev: '', outside: 'Nothing further is needed if the readings are normal.' };
+export const FAMILIES = [NONE, ...familiesOf()];
 export const AXES = AX;
 export const FAMILY = Object.freeze(Object.fromEntries(FAMILIES.map((f) => [f.id, f])));
 export const FAMILY_IDS = FAMILIES.map((f) => f.id);

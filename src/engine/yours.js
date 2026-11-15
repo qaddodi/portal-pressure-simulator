@@ -24,7 +24,7 @@ export function yoursId(f, p) {
 
 /** The patient's name in the menu: each lesion with how far it is pushed ("Cirrhosis 30% + Right heart failure marked"). */
 export function yoursLabel(f, p) {
-  return FAMILY[f].axes.map((k) => `${LESION[k].short} ${settingText(k, p[k])}`).join(' + ');
+  return FAMILY[f].axes.map((k) => `${LESION[k].short} ${settingText(k, p[k])}`).join(' + ') || FAMILY[f].short;
 }
 
 /** The readings as a short sentence for the patient's summary: the first few, then "and n more". */

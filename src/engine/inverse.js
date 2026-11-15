@@ -22,12 +22,13 @@ export const READINGS = Object.freeze({
   ppg: { label: 'Portal pressure gradient (PPG)', short: 'PPG', unit: 'mmHg', kind: 'abs', sigma: 2, min: -5, max: 50 },
   ra: { label: 'Right atrial pressure', short: 'RA', unit: 'mmHg', kind: 'abs', sigma: 2, min: -5, max: 40 },
   ivc: { label: 'IVC pressure', short: 'IVC', unit: 'mmHg', kind: 'abs', sigma: 2, min: -5, max: 40 },
-  lsm: { label: 'Liver stiffness (LSM)', short: 'LSM', unit: 'kPa', kind: 'log', sigma: 0.18, min: 1, max: 75 },
-  ssm: { label: 'Spleen stiffness (SSM)', short: 'SSM', unit: 'kPa', kind: 'log', sigma: 0.15, min: 5, max: 100 },
-  spleen: { label: 'Spleen length', short: 'Spleen', unit: 'cm', kind: 'abs', sigma: 1, min: 5, max: 30 },
-  plt: { label: 'Platelets', short: 'Platelets', unit: '×10⁹/L', kind: 'log', sigma: 0.18, min: 10, max: 600 },
+  lsm: { label: 'Liver stiffness (LSM)', short: 'LSM', unit: 'kPa', kind: 'log', sigma: 0.18, floor: 1, min: 1, max: 75 },
+  ssm: { label: 'Spleen stiffness (SSM)', short: 'SSM', unit: 'kPa', kind: 'log', sigma: 0.15, floor: 3, min: 5, max: 100 },
+  spleen: { label: 'Spleen length', short: 'Spleen', unit: 'cm', kind: 'abs', sigma: 1.5, min: 5, max: 30 },
+  plt: { label: 'Platelets', short: 'Platelets', unit: '×10⁹/L', kind: 'log', sigma: 0.18, floor: 10, min: 10, max: 600 },
   pvVel: { label: 'Portal vein velocity', short: 'PV velocity', unit: 'cm/s', kind: 'abs', sigma: 6, min: -40, max: 80, note: 'Zero if there is no flow; negative if it runs away from the liver.' },
   saag: { label: 'SAAG', short: 'SAAG', unit: 'g/dL', kind: 'abs', sigma: 0.3, min: 0, max: 5 },
+  asctp: { label: 'Ascitic total protein', short: 'Ascitic protein', unit: 'g/dL', kind: 'abs', sigma: 0.5, min: 0, max: 8 },
   asc: { label: 'Ascites', short: 'Ascites', unit: '', kind: 'grade', sigma: 0.35, grades: ['None', 'Grade 1', 'Grade 2', 'Grade 3'] },
   varix: { label: 'Esophageal varices', short: 'Varices', unit: '', kind: 'grade', sigma: 1, grades: ['None', 'Small', 'Large'] },
 });
@@ -46,14 +47,20 @@ export const MIN_READINGS = 2;
 /** Below this many readings the list is a short list of what is possible, not a ranking: most families still fit, and the screen says so. */
 export const FEW_READINGS = 4;
 /**
- * Occam's razor, as a cost in the same unit as a misfit (squared allowed errors): every lesion in a scenario costs LESION_COST, and every lesion costs
- * SEVERITY_COST times its severity squared (0 to 1), so a scenario with fewer lesions, and with each one closer to healthy, wins when the readings allow it.
- * A second lesion has to cut the misfit by more than its cost to come out ahead; a larger one by more than the extra it adds.
+ * Occam's razor, as a cost in the same unit as a misfit (squared allowed errors): every lesion in a scenario costs LESION_COST, and each costs a little more
+ * (SEVERITY_COST per unit of severity, 0 to 1) the further it is pushed, so fewer lesions win first and smaller ones second. A second lesion has to cut the
+ * misfit by more than LESION_COST to come out ahead. The severity part is small and linear on purpose: a squared one made two moderate lesions beat one severe one
+ * (review E3), and the scales of the lesions are not comparable. The no-lesion family costs nothing.
  */
 export const LESION_COST = 3;
-export const SEVERITY_COST = 3;
+export const SEVERITY_COST = 0.5;
 /** The Occam cost of family `f` at severities `p`. */
-export const costOf = (f, p) => FAMILY[f].axes.reduce((c, k) => c + LESION_COST + SEVERITY_COST * p[k] * p[k], 0);
+export const costOf = (f, p) => FAMILY[f].axes.reduce((c, k) => c + LESION_COST + SEVERITY_COST * p[k], 0);
+/** A heart lesion is a raised right atrial pressure: a heart lesion whose fit leaves the RA below this is only a way of holding fluid, and is not a scenario (review E7). */
+export const HEART_RA = 8;
+/** The fit is called poor when the best scenario misses by more than this many allowed errors per reading on average, or any one reading by more than WORST_MISS (review E1). */
+export const POOR_PER_READING = 2;
+export const WORST_MISS = 3;
 /** Scores within TIE of the best fit about equally; within POSSIBLE can still produce the readings; beyond it the family is ruled out. */
 export const TIE = 4;
 export const POSSIBLE = 12;
@@ -70,12 +77,15 @@ export const REFINE_PER_ROUND = 48;
 /** The size of a fit round's move in severity: coarse first, then finer, never below 0.01 (one setting step the engine cannot tell apart). */
 export const fitStep = (round) => Math.max(0.01, Math.round(0.2 * 0.55 ** (round - 1) * 1000) / 1000);
 
+/** The allowed error of a stiffness or a count in log units: its fraction, with a floor in the unit itself (a reading of 7 kPa is not good to 18% of 7). */
+export const logSigma = (r, entered) => Math.sqrt(r.sigma * r.sigma + (r.floor ? (r.floor / entered) ** 2 : 0));
+
 /** A reading's residual in allowed errors (signed: prediction minus entered). `entered` is the number, or a grade index for asc and varix. */
 export function residual(key, entered, predicted) {
   const r = READINGS[key];
   if (predicted == null || !Number.isFinite(predicted)) return MISS;
   if (r.kind === 'abs') return (predicted - entered) / r.sigma;
-  if (r.kind === 'log') return Math.log(Math.max(predicted, 1e-3) / entered) / r.sigma;
+  if (r.kind === 'log') return Math.log(Math.max(predicted, 1e-3) / entered) / logSigma(r, entered);
   const [lo, hi] = GRADE_RANGE[key][entered], p = scaleOf(key, predicted);
   if (predicted < lo) return (p - scaleOf(key, lo)) / r.sigma;
   if (predicted >= hi) return (p - scaleOf(key, hi)) / r.sigma;
@@ -85,10 +95,12 @@ export function residual(key, entered, predicted) {
 /**
  * Tidy what was typed: a reading that is blank, not a number or out of its range is dropped (and named, so the screen says so); the HVPG is
  * dropped when both pressures it is made of are entered (it would count one reading twice); the PPG when the portal vein and IVC pressures
- * are both entered. Returns { readings, dropped: [{ key, why }] }.
+ * are both entered. Returns { readings, dropped: [{ key, why }], warnings: [{ code, text, keys }] } (the warnings are physiology checks and do not drop anything).
  */
 export function normalise(raw = {}) {
-  const readings = {}, dropped = [];
+  /** @type {Record<string, number>} */
+  const readings = {};
+  const dropped = [], warnings = [];
   for (const key of READING_KEYS) {
     const v = raw[key];
     if (v == null || v === '' || (typeof v === 'number' && Number.isNaN(v))) continue;
@@ -99,16 +111,40 @@ export function normalise(raw = {}) {
     } else if (n < r.min || n > r.max) { dropped.push({ key, why: `outside ${r.min} to ${r.max} ${r.unit}` }); continue; }
     readings[key] = n;
   }
-  if ('hvpg' in readings && 'whvp' in readings && 'fhvp' in readings) { delete readings.hvpg; dropped.push({ key: 'hvpg', why: 'made from the two pressures above' }); }
-  if ('ppg' in readings && 'pv' in readings && 'ivc' in readings) { delete readings.ppg; dropped.push({ key: 'ppg', why: 'made from the two pressures above' }); }
-  return { readings, dropped };
+  const f1 = (v) => (Math.round(v * 10) / 10).toString(), warn = (code, text, keys) => warnings.push({ code, text, keys });
+  if ('hvpg' in readings && 'whvp' in readings && 'fhvp' in readings) {
+    const made = readings.whvp - readings.fhvp;
+    if (Math.abs(readings.hvpg - made) > 2 * READINGS.hvpg.sigma) warn('hvpg-mismatch', `The HVPG you entered (${f1(readings.hvpg)}) is not WHVP − FHVP (${f1(made)}); only the two pressures are used.`, ['hvpg', 'whvp', 'fhvp']);
+    delete readings.hvpg; dropped.push({ key: 'hvpg', why: 'made from the two pressures above' });
+  }
+  if ('ppg' in readings && 'pv' in readings && 'ivc' in readings) {
+    const made = readings.pv - readings.ivc;
+    if (Math.abs(readings.ppg - made) > 2 * READINGS.ppg.sigma) warn('ppg-mismatch', `The PPG you entered (${f1(readings.ppg)}) is not portal vein − IVC (${f1(made)}); only the two pressures are used.`, ['ppg', 'pv', 'ivc']);
+    delete readings.ppg; dropped.push({ key: 'ppg', why: 'made from the two pressures above' });
+  }
+  // Physiology checks (review E8): pressures that cannot all be true together are kept, and said, so a wrong zero level or a typing slip is not read as a disease.
+  if ('fhvp' in readings && 'ra' in readings && readings.fhvp < readings.ra - 2) warn('fhvp-below-ra', `FHVP (${f1(readings.fhvp)}) is below the right atrial pressure (${f1(readings.ra)}): the hepatic vein cannot sit lower than the atrium it drains into. Check the zero level.`, ['fhvp', 'ra']);
+  if ('whvp' in readings && 'fhvp' in readings && readings.whvp < readings.fhvp - 1) warn('whvp-below-fhvp', `WHVP (${f1(readings.whvp)}) is below FHVP (${f1(readings.fhvp)}): the wedged pressure is not lower than the free one. Check which is which.`, ['whvp', 'fhvp']);
+  if ('ivc' in readings && 'ra' in readings && readings.ivc < readings.ra - 2) warn('ivc-below-ra', `IVC pressure (${f1(readings.ivc)}) is below the right atrial pressure (${f1(readings.ra)}): the IVC drains into the atrium. Check the zero level.`, ['ivc', 'ra']);
+  if ('pv' in readings && 'whvp' in readings && readings.pv < readings.whvp - 3) warn('pv-below-whvp', `Portal vein pressure (${f1(readings.pv)}) is below the wedged pressure (${f1(readings.whvp)}): the wedge normally reads at or below the portal pressure.`, ['pv', 'whvp']);
+  return { readings, dropped, warnings };
+}
+
+/**
+ * A reading's residual in this set of readings. The model makes the platelet count from the spleen's length, so with both entered the platelets are
+ * not a second measurement of the same thing: they are judged with a wider error (PLT_WITH_SPLEEN, in place of the usual one).
+ */
+export const PLT_WITH_SPLEEN = 0.3;
+export function resid(key, readings, pred) {
+  const d = residual(key, readings[key], pred[key]);
+  return key === 'plt' && 'spleen' in readings ? (d * logSigma(READINGS.plt, readings.plt)) / Math.sqrt(PLT_WITH_SPLEEN ** 2 + (READINGS.plt.floor / readings.plt) ** 2) : d;
 }
 
 /** One virtual patient's score: { chi (sum of squared residuals), per (residual of each entered reading) }. */
 export function scorePoint(readings, pred) {
   let chi = 0;
   const per = {};
-  for (const key of Object.keys(readings)) { const d = residual(key, readings[key], pred[key]); per[key] = d; chi += d * d; }
+  for (const key of Object.keys(readings)) { const d = resid(key, readings, pred); per[key] = d; chi += d * d; }
   return { chi, per };
 }
 
@@ -122,8 +158,10 @@ export const statusOf = (delta) => (delta <= 0 ? 'best' : delta <= TIE ? 'tie' :
  * Rank the lesion families against the entered readings.
  *  raw     what was typed (normalise() tidies it).
  *  points  the virtual patients to score: [{ f: family id, p: its settings, r: its readings (key → number) }].
- * Returns { readings, dropped, n, ready, few, families, possible, play, next }:
+ * Returns { readings, dropped, warnings, n, ready, few, fit, healthy, families, possible, play, next, tieNotes }:
  *  ready     whether enough readings are in (MIN_READINGS) to show a ranking; below that the families are still scored, so a screen can say how many remain
+ *  fit       { ok, perReading, worst: [{ key, d }], conflict: [keys] }: whether the best scenario gives the readings at all (not ok: no ratings, no next reading)
+ *  healthy   the no-lesion family leads and fits
  *  few       ready with fewer than FEW_READINGS readings: the screen shows the scenarios as a short list and says it is not a ranking
  *  possible  how many families are not ruled out (the count a guided entry shows beside each reading)
  *  families  every family, best first: { id, label, sub, status, delta, rating (its share of all the likelihood, adds to 1), best: { p, chi, cost, score, per, pred }, free, ranges, predicts, gaps, marks, count }
@@ -131,11 +169,17 @@ export const statusOf = (delta) => (delta <= 0 ? 'best' : delta <= TIE ? 'tie' :
  *  next      the reading to take next, see nextReading()
  */
 export function rank(raw, points) {
-  const { readings, dropped } = normalise(raw);
+  const { readings, dropped, warnings } = normalise(raw);
   const keys = Object.keys(readings), n = keys.length;
-  if (n < 1) return { readings, dropped, n, ready: false, few: false, families: [], possible: FAMILIES.length, play: [], next: null };
+  if (n < 1) return { readings, dropped, warnings, n, ready: false, few: false, fit: { ok: true, perReading: 0, worst: [], conflict: [] }, healthy: false, families: [], possible: FAMILIES.length, play: [], next: null, tieNotes: [] };
   const by = new Map(FAMILIES.map((f) => [f.id, []]));
-  for (const pt of points) { const s = scorePoint(readings, pt.r); by.get(pt.f)?.push({ ...pt, ...s, score: s.chi + costOf(pt.f, pt.p) }); }
+  for (const pt of points) {
+    const fam = by.get(pt.f);
+    if (!fam) continue;
+    if (HEART_FAMILY.has(pt.f) && !(pt.r.ra >= HEART_RA)) continue;   // (a heart lesion that leaves the atrium normal is a way to hold fluid, not a lesion: review E7)
+    const s = scorePoint(readings, pt.r);
+    fam.push({ ...pt, ...s, score: s.chi + costOf(pt.f, pt.p) });
+  }
   const fams = [];
   for (const f of FAMILIES) {
     const pts = by.get(f.id);
@@ -159,16 +203,71 @@ export function rank(raw, points) {
       if (marks[k] === 'off') gaps.push({ key: k, entered: readings[k], predicted: best.r[k], d: best.per[k] });
     }
     gaps.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
-    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, cost, score: best.score, per: best.per, pred: best.r }, score: best.score, rating: 0, delta: 0, status: /** @type {'best' | 'tie' | 'possible' | 'out'} */ ('out'), ranges, predicts, marks, gaps, count: ok.length });
+    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, cost, score: best.score, per: best.per, pred: best.r }, score: best.score, rating: 0, delta: 0, status: /** @type {'best' | 'tie' | 'possible' | 'out'} */ ('out'), redundant: /** @type {string | null} */ (null), tieGroup: /** @type {string | null} */ (null), why: /** @type {{ key: string, entered: number, mine: number | null, theirs: number | null }[]} */ ([]), ranges, predicts, marks, gaps, count: ok.length });
   }
-  fams.sort((a, b) => a.score - b.score);
-  const top = fams[0].score;
+  // The nested rule (review E6): a mix that adds a lesion without cutting the misfit by more than the lesion costs is the smaller mix with a trace added, not a scenario.
+  const chiOf = new Map(fams.map((f) => [f.id, f.best.chi]));
+  for (const f of fams) {
+    const axes = FAMILY[f.id].axes;
+    for (const k of axes) {
+      const parent = axes.length === 1 ? 'none' : axes.filter((x) => x !== k).join('+');
+      if (chiOf.has(parent) && chiOf.get(parent) <= f.best.chi + LESION_COST) { f.redundant = parent; break; }
+    }
+  }
+  fams.sort((a, b) => (a.redundant ? 1 : 0) - (b.redundant ? 1 : 0) || a.score - b.score);
+  const live = fams.filter((f) => !f.redundant), top = (live[0] || fams[0]).score;
   let wsum = 0;
-  for (const f of fams) { f.delta = f.score - top; f.status = statusOf(f.delta); f.rating = Math.exp(-f.delta / 2); wsum += f.rating; }
+  for (const f of fams) {
+    f.delta = f.score - top;
+    f.status = f.redundant ? 'out' : statusOf(f.delta);
+    f.rating = f.redundant ? 0 : Math.exp(-f.delta / 2); wsum += f.rating;
+  }
   for (const f of fams) f.rating /= wsum;
+  // Whether the best scenario gives the readings at all (review E1): the rating is a share between scenarios, so it says nothing about a fit that is bad everywhere.
+  const lead = live[0] || fams[0], worst = keys.map((k) => ({ key: k, d: lead.best.per[k] })).filter((x) => Math.abs(x.d) > WORST_MISS).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const perReading = lead.best.chi / n, fit = { ok: perReading <= POOR_PER_READING && !worst.length, perReading, worst, conflict: keys.filter((k) => Math.abs(lead.best.per[k]) > 2) };
   const ready = n >= MIN_READINGS, few = ready && n < FEW_READINGS, possible = fams.filter((f) => f.status !== 'out').length;
-  const play = ready ? fams.filter((f) => f.status === 'best' || f.status === 'tie') : [];
-  return { readings, dropped, n, ready, few, families: fams, possible, play, next: ready ? nextReading(readings, play) : null };
+  const play = ready && fit.ok ? fams.filter((f) => f.status === 'best' || f.status === 'tie') : [];
+  const tieNotes = tiesOf(play);
+  const liveList = fams.filter((f) => !f.redundant);
+  liveList.forEach((f, i) => { if (i < 3 && liveList[i + 1] && f.status !== 'out') f.why = whyBeats(readings, f, liveList[i + 1]); });
+  return { readings, dropped, warnings, n, ready, few, fit, healthy: lead.id === 'none' && fit.ok, families: fams, possible, play, next: ready && fit.ok ? nextReading(readings, play) : null, tieNotes };
+}
+
+/** The families whose heart lesion is checked against the atrial pressure (a heart lesion means a raised RA). */
+const HEART_FAMILY = new Set(FAMILIES.filter((f) => f.axes.includes('rhf') || f.axes.includes('constr')).map((f) => f.id));
+
+/**
+ * The readings that separate scenario `a` from the next one `b` (the "why this one beats the next" the screen teaches from): each entered reading
+ * where `a` misses by at least one allowed error less than `b` does, the largest gain first, with what each predicts. At most three.
+ */
+export function whyBeats(readings, a, b) {
+  return Object.keys(readings).map((key) => ({ key, gain: Math.abs(b.best.per[key]) - Math.abs(a.best.per[key]) }))
+    .filter((x) => x.gain >= 1).sort((x, y) => y.gain - x.gain).slice(0, 3)
+    .map((x) => ({ key: x.key, entered: readings[x.key], mine: a.best.pred[x.key] ?? null, theirs: b.best.pred[x.key] ?? null }));
+}
+
+/**
+ * Natural ties: scenarios the model cannot tell apart however many readings it is given, with the one sentence that says why and what would. A tie
+ * group is the same lesions with the heart lesion swapped (failure and constriction are one pump and one waveform the model does not draw), or the
+ * blocks before the sinusoids (presinusoidal, a clot, a clot on a scarred liver) which differ by imaging and biopsy. Returns [{ ids, text }] for the groups
+ * with two or more scenarios in `play`, and marks each family's `tieGroup`.
+ */
+export const NATURAL_TIES = Object.freeze([
+  { id: 'heart', text: 'Right heart failure and constriction look the same to this model; echocardiography with the atrial waveform, or cardiac MR, decides.', key: (id) => (FAMILY[id].axes.includes('rhf') || FAMILY[id].axes.includes('constr') ? id.replace('constr', 'rhf') : null) },
+  { id: 'pre', text: 'A presinusoidal block, a portal clot and a clot on a liver with a little fibrosis look alike here; Doppler or CT of the portal vein and a liver biopsy decide.', set: ['presin', 'pvt', 'sinus+pvt', 'presin+pvt'] },
+]);
+export function tiesOf(play) {
+  const out = [];
+  for (const rule of NATURAL_TIES) {
+    const groups = new Map();
+    for (const f of play) {
+      const g = rule.set ? (rule.set.includes(f.id) ? 'set' : null) : rule.key(f.id);
+      if (g != null) (groups.get(g) || groups.set(g, []).get(g)).push(f);
+    }
+    for (const [g, list] of groups) if (list.length >= 2) { for (const f of list) f.tieGroup = `${rule.id}:${g}`; out.push({ ids: list.map((f) => f.id), text: rule.text }); }
+  }
+  return out;
 }
 
 // Readings the model does not make (the picture, the biopsy, the heart's waveform): never scored, named so a person knows what else would help.
@@ -291,13 +390,13 @@ export function refinePoints(result, known, { families = 12, max = 40, round = 1
         .sort((a, b) => Math.abs(a.p[k] - base.p[k]) - Math.abs(b.p[k] - base.p[k]))[0];
       if (!near) { const d = base.p[k] + PROBE <= U_MAX + 1e-9 ? PROBE : -PROBE; missing.push({ ...base.p, [k]: Math.round((base.p[k] + d) * 1000) / 1000 }); return; }
       const dk = near.p[k] - base.p[k];
-      J[j] = keys.map((key) => (residual(key, result.readings[key], near.r[key]) - base.per[key]) / dk);
+      J[j] = keys.map((key) => (resid(key, result.readings, near.r) - base.per[key]) / dk);
     });
     if (missing.length) { for (const p of missing) push(p); lists.push(mine); continue; }
     const r0 = keys.map((key) => base.per[key]), u = fam.axes.map((k) => base.p[k]), trust = Math.max(0.03, 0.4 * 0.75 ** (round - 1));
     for (let tries = 0, lam = 0.3; tries < 4 && !mine.length; tries++, lam *= 4) {
-      const A = fam.axes.map((_, a) => fam.axes.map((__, b) => J[a].reduce((t, v, i) => t + v * J[b][i], 0) + (a === b ? SEVERITY_COST + lam : 0)));
-      const g = fam.axes.map((_, a) => -(J[a].reduce((t, v, i) => t + v * r0[i], 0)) - SEVERITY_COST * u[a]);
+      const A = fam.axes.map((_, a) => fam.axes.map((__, b) => J[a].reduce((t, v, i) => t + v * J[b][i], 0) + (a === b ? lam : 0)));
+      const g = fam.axes.map((_, a) => -(J[a].reduce((t, v, i) => t + v * r0[i], 0)) - SEVERITY_COST / 2);
       const sol = solve(A, g);
       if (!sol) break;
       const move = sol.map((v) => Math.max(-trust, Math.min(trust, v)));

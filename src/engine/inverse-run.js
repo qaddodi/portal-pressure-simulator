@@ -14,7 +14,7 @@ export function readingsOf(m) {
   return {
     whvp: r1(m.whvp), fhvp: r1(m.fhvp), hvpg: r1(m.hvpg), pv: r1(m.pv), ppg: r1(m.ppg), ra: r1(m.ra), ivc: r1(m.ivc),
     lsm: r1(m.lsm), ssm: m.ssm == null ? null : Math.round(m.ssm), spleen: r1(m.spleen.length), plt: Math.round(m.spleen.platelets),
-    asc: Math.round(m.ascites.volume), saag: r1(m.ascites.saag), pvVel: Math.round(m.pvVelMean), varix: r1(m.varix.d), co: r1(m.co),
+    asc: Math.round(m.ascites.volume), saag: r1(m.ascites.saag), asctp: m.ascites.totalProtein == null || !(m.ascites.volume >= 150) ? null : r1(m.ascites.totalProtein), pvVel: Math.round(m.pvVelMean), varix: r1(m.varix.d), co: r1(m.co),
   };
 }
 

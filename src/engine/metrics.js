@@ -56,7 +56,17 @@ export function ascitesGrade(V0) {
 const HV_NODE = { R: 'RHV', M: 'MHV', L: 'LHV' }, WEDGE_NODE = { R: 'W_R', M: 'W_M', L: 'W_L' };
 const qf = (eng, id) => (eng.Qf ? eng.Qf[eng.ei[id]] : eng.Q[eng.ei[id]]);
 
-const lsmOf = (hv) => 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6);
+// Liver stiffness (kPa): the larger of what the portal gradient would give and what the scarring itself gives, plus the congestion of the hepatic veins.
+// The stiffness follows the scar (the cirrhosis slider) and does not fall when a clot in the portal vein lowers the gradient (Work-backward review E5, 15 Nov 2026:
+// a cirrhotic liver with a portal clot kept the gradient's stiffness and read 17 kPa); for a liver with only sinusoidal scar the two agree up to 60 %, and
+// beyond it the scar goes on stiffening the liver to decompensation (the gradient formula alone stopped at 30 kPa). FIB_LSM: slider → kPa.
+const FIB_LSM = [[0, 5], [0.1, 5], [0.2, 5.9], [0.3, 8.4], [0.4, 12.4], [0.5, 18.3], [0.6, 23.7], [0.8, 36], [1, 48]];
+const fibLsm = (c) => {
+  if (!(c > 0)) return 5;
+  for (let i = 1; i < FIB_LSM.length; i++) if (c <= FIB_LSM[i][0]) { const [x0, y0] = FIB_LSM[i - 1], [x1, y1] = FIB_LSM[i]; return y0 + ((y1 - y0) * (c - x0)) / (x1 - x0); }
+  return FIB_LSM[FIB_LSM.length - 1][1];
+};
+const lsmOf = (hv, scar) => Math.max(5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12), fibLsm(scar)) + 2 * Math.max(0, hv.fhvp - 6);
 
 // (The tick's record: computeMetrics(eng, out) writes into the `out` it is given, and the records inside it, in place, so a frame makes none
 // of them; the frame is posted (cloned) before the next tick writes it again. With no `out` a call makes a record of its own, for the readers
@@ -159,7 +169,7 @@ export function computeMetrics(eng, out = null) {
   // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
   // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
   // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
-  r.lsm = hold(eng, 'lsm', lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv));
+  r.lsm = hold(eng, 'lsm', lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv, eng.params.cirrhosis));
   // Spleen stiffness (the 100 Hz spleen probe, kPa), an estimate from the model (ssm-cuts.js): the red pulp's transmural pressure
   // (its pressure less the abdomen's) and the spleen's size. Unlike the liver's, it follows the pressure as it stands, beta-blocker
   // and TIPS included. No spleen (splenectomy), no reading.

@@ -1,6 +1,6 @@
-// Work backward as the screen sees it: the search over the shipped library at once (ranking 186 patients is a fraction of a millisecond, so
+// Work backward as the screen sees it: the search over the shipped library at once (ranking the 537 library patients is a few milliseconds, so
 // it runs on the page at every reading typed) and the live refinement in its worker (inverse-worker.js) adding patients near the best fits,
-// round by round, until the numbers stop moving. The same calls whether or not a worker could be made:
+// round by round, until the best score stops moving. The same calls whether or not a worker could be made:
 //   peek(raw)      the ranking of these readings now, nothing started (a screen asks it at every key typed)
 //   set(raw)       the readings now entered: ranks at once and starts a refinement; returns the result
 //   result()       the latest ranking (library and everything refined so far)

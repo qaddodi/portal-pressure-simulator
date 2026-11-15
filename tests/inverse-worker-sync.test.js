@@ -3,6 +3,7 @@
 // at the start of the next request, and the page keeps any patient it is sent whichever request it answers.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LIBRARY } from '../src/engine/inverse-library.js';
 
 const got = [];
 globalThis.self = { postMessage: (m) => got.push(m) };
@@ -12,7 +13,7 @@ const until = (fn, ms = 120000) => new Promise((resolve, reject) => { const t0 =
 
 test('patients run before a cancel reach the page with the next request, so the two tables agree', { timeout: 200000 }, async () => {
   globalThis.self.onmessage({ data: { t: 'refine', seq: 1, readings: R } });
-  await new Promise((r) => setTimeout(r, 1800));   // (a few patients into round 1: it has not posted yet)
+  await new Promise((r) => setTimeout(r, 400));   // (a patient or two into round 1: it has not posted yet)
   globalThis.self.onmessage({ data: { t: 'cancel' } });
   assert.equal(got.filter((m) => m.t === 'points' && m.seq === 1).length, 0, 'nothing was sent before the cancel');
   globalThis.self.onmessage({ data: { t: 'refine', seq: 2, readings: R } });
@@ -24,5 +25,5 @@ test('patients run before a cancel reach the page with the next request, so the 
   assert.equal(st.unsent, 0, 'nothing is left unsent');
   const first = got.find((m) => m.seq === 2 && m.round === 0);
   assert.ok(first && first.rows.length >= 1, 'the cancelled request\'s patients came first');
-  assert.ok(page.size + 536 === st.held, `the page has every patient the worker holds (${page.size} + 536 against ${st.held})`);
+  assert.ok(page.size + LIBRARY.length === st.held, `the page has every patient the worker holds (${page.size} + ${LIBRARY.length} against ${st.held})`);
 });
