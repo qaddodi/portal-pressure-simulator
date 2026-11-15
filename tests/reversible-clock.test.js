@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createReversible, createStepClock, easeMove, settleAt, reducedMs, REDUCED_MOVE_MS, FIRST_FRAMES, FIRST_STEP_MAX, D_FLIP } from '../src/ui/motion.js';
+import { lobuleSource } from './split-src.js';
 
 // One curve and one reversible clock (animation recommendations 5, 6, 13, 19, and the view change of 22).
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -225,7 +226,7 @@ test('Reduce Motion: the change between the views takes the camera\'s short form
 });
 
 test('the view change, the turn, the dive and the sinusoid all run on a reversible clock, and the dead PACED switch is gone', () => {
-  const stage = read('src/ui/stage.js'), lz = read('src/ui/lobule-zoom.js');
+  const stage = read('src/ui/stage.js'), lz = lobuleSource();
   assert.match(stage, /viewClock\.sync\(morph\);/);
   assert.match(stage, /rotU = turnClock\.tick\(now\);/);
   assert.doesNotMatch(stage, /Math\.sign\(morphTarget - morph\)|Math\.sign\(rotTarget - rotU\)/, 'neither integrates the sign any more');

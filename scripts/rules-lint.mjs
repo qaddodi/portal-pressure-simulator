@@ -128,7 +128,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const tighten = process.argv.includes('--tighten');
   for (const [rel, max] of Object.entries(doc.files)) {
     const count = (f) => (readFileSync(join(ROOT, f), 'utf8').match(/\b(setTimeout|setInterval)\(/g) || []).length;
-    const n = rel.endsWith('*') ? stageFamily().reduce((a, f) => a + count(f), 0) : count(rel);
+    const fam = Object.entries(HOSTS).find(([, h]) => h.family === rel && rel !== 'src/ui/stage*')?.[0];   // (lobule: the file and the parts moved out of it)
+    const n = fam ? familyFiles(fam).reduce((a, f) => a + count('src/ui/' + f), 0) : rel.endsWith('*') ? stageFamily().reduce((a, f) => a + count(f), 0) : count(rel);
     if (n > max) errors.push(`${rel} has ${n} bare timers, over its budget of ${max} in scripts/timer-budget.json: give the new timer to a scope (src/ui/scope.js, docs/scheduling.md) (PR-10)`);
     else if (n < max && tighten) doc.files[rel] = n;
   }
@@ -167,7 +168,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
     [/t !== topOf \|\| t\.gl !== gl/, 'the laser rehosts on a new top'],
   ]);
-  need('src/ui/lobule-zoom.js', [[/sv\.rehost\(\)/, 'the lobule rehosts the sinusoid view when the figure comes back']]);
+  need('src/ui/lobule-zoom*', [[/sv\.rehost\(\)/, 'the lobule rehosts the sinusoid view when the figure comes back']]);
   need('src/ui/sinusoid-view.js', [[/if \(share && !ft\) return;/, 'a shared sinusoid view is not rebuilt by the rehost']]);
 
   const gl = text('src/ui/veins-gl.js');
@@ -325,14 +326,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
   if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: across the channel in world units');
   if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
-  need('src/ui/lobule-zoom.js', [
+  need('src/ui/lobule-zoom*', [
     [/const lyOn = lymphOn && !m\.hide;/, 'lymph rows only with the Lymph layer on'],
     [/blood\.on = \(bloodOn \|\| lyOn\) && flowA > 0\.002;/, 'the composite is on for lymph'],
     [/if \(t\.kind !== 'ly' && t\.kind !== 'lt'\) continue;\n\s*const mo = motionOf\(t\), o = t\.id \* FLOW_TEXELS \* 4;/, 'one flow row per lymph channel'],
     [/\(t\.kind === 'ly' \? -1 : 1\) \* dt \* lyVw/, 'out along the space of Disse, in along the terminal lymphatics'],
     [/flowData\[o \+ 6\] = 1;/, 'the lymph row is marked'],
   ]);
-  forbid('src/ui/lobule-zoom.js', /lyDrops|fxGLErase|lyRaw|lyNd/, 'nothing is built or drawn per frame for the lymph overlay any more');
+  forbid('src/ui/lobule-zoom*', /lyDrops|fxGLErase|lyRaw|lyNd/, 'nothing is built or drawn per frame for the lymph overlay any more');
 
   const sl = text('src/ui/scope-lens.js');
   const open = sl.slice(sl.indexOf('  function open()'), sl.indexOf('  function feed()'));
@@ -368,11 +369,11 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
 
   // The lobule's label search keeps to a deadline (15 Nov 2026, app review LZ2-1): source shapes moved out of tests (PR-02), each with its reason.
-  need('src/ui/lobule-zoom.js', [
+  need('src/ui/lobule-zoom*', [
     [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);/, "the order search begins its budget and checks it between solves, so a crowded layout is never 0.6 s in one frame"],
     [/if \(searchBudget\.over\(\)\) break;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its deadline"],
     [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = retryClash\(/, "the other-sinusoid retry (30 x 120 solves, 2 s) only starts inside the deadline"],
-    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \(geo && fade > 0\) \{ layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
+    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \((?:live\.)?geo && (?:live\.)?fade > 0\) \{ (?:live\.)?layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
     [/cands\.length = Math\.min\(cands\.length, 8\);/, "eight other sinusoids at most"],
     [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
   ]);
@@ -477,8 +478,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
   need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
-  need('src/ui/lobule-zoom.js', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
-  forbid('src/ui/lobule-zoom.js', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
+  need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
+  forbid('src/ui/lobule-zoom*', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
   need('src/ui/sinusoid-view.js', [[/diveAlong\(Z, g\)/, "the sinusoid view's centre is on the same straight line, at the same share, as the lobule's sinusoid"]]);
 }
 
@@ -492,7 +493,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
   };
   need('src/ui/stage.js', [[/const dt = Math\.min\(0\.1, \(now - lastT\) \/ 1000\);/, "the figure's blood steps by the time that passed, capped at 0.1 s: a talk's 20 Hz frame (50 ms) loses no time, so nothing slows"]]);
-  need('src/ui/lobule-zoom.js', [[/const dt = Math\.min\(0\.1, \(now - \(last \|\| now\)\) \/ 1000\);/, "the lobule's blood steps by the time that passed: its 20 Hz talk frame loses no time"]]);
+  need('src/ui/lobule-zoom*', [[/const dt = Math\.min\(0\.1, \(now - \(last \|\| now\)\) \/ 1000\);/, "the lobule's blood steps by the time that passed: its 20 Hz talk frame loses no time"]]);
   need('src/ui/main.js', [[/setRestTalk\(\(\) => presenter\.active\(\)\)/, "a talk's rest steps (30, then 20 after 30 s, never 15) follow the presenter"]]);
   need('src/ui/frame-hud.js', [['blood pacing (untouched): ${restRule}', '?perf names the rest rule in force']]);
   need('src/ui/doppler.js', [
@@ -537,7 +538,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   ]);
   const gest = text('src/ui/stage-gestures.js');
   if (!(gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') >= 0 && gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') < gest.indexOf('wheelGlide.push('))) errors.push('src/ui/stage-gestures.js: the trackpad pinch (ctrlKey) is handled before the notch glide, direct');
-  need('src/ui/lobule-zoom.js', [
+  need('src/ui/lobule-zoom*', [
     [/focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{/, 'focusOn: the ms it is given is a ceiling (the presenter gives 1500)'],
     [/glideTo\(to, ms, true, atFit \? null : \{ part, zoom, to \}, ease, false, true\);/, 'focusOn times itself by reach'],
     [/if \(reach && ease !== 'in'\) ms = Math\.min\(ms, lobuleMs\(from, to, Math\.max\(1, snap\.w\)\)\);/, "the lobule's glide takes the least of the ms given and its reach's (lobuleMs), the way out to the rise keeping its own"],
@@ -553,7 +554,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/wheelKind = ev\.ctrlKey \|\| ev\.metaKey \? 'pinch' : isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'the lobule tells a notch from a trackpad by the same isPadWheel'],
   ]);
   {
-    const lz = text('src/ui/lobule-zoom.js');
+    const lz = text('src/ui/lobule-zoom*');
     if (/glideTo\([^\n]*, 380\)/.test(lz)) errors.push('src/ui/lobule-zoom.js: a fixed 380 ms glide is back: time it by its reach (lobuleMs, item 12)');
     if (/animateVT\([^\n]*, (?:260|320|380|420)\)/.test(text('src/ui/stage-gestures.js') + text('src/ui/stage-fit.js') + text('src/ui/stage-camera.js'))) errors.push('src/ui/stage-*.js: a fixed 260/320/380/420 ms glide is back: time it by its reach (camMs, item 12)');
   }

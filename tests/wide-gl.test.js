@@ -6,8 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { lintGLSL } from './glsl-lint.js';
 import { WIDE_GL, wideShaders } from '../src/ui/wide-gl.js';
+import { lobuleSource } from './split-src.js';
 
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const wg = readFileSync(new URL('../src/ui/wide-gl.js', import.meta.url), 'utf8');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 

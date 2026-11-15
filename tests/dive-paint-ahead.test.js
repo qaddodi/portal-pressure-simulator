@@ -5,9 +5,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const st = stageSource();
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const set = st.match(/function setLobule\(on, painted = false\) \{[\s\S]*?\n {4}live\.lobuleOn = on;/)[0];
 
 test('a dive waits for the tissue painted ahead, and anything asked for meanwhile calls it off', () => {
@@ -32,12 +33,12 @@ test("the rise's first frame shows the sharper picture of the same state smaller
 // staged on the 2D canvas sent to the GPU there. It is sent at the end of stage(), while nothing of the lobule is seen.
 test('stage() leaves the staged bitmap\'s send to the landing frame, which names its upload and draw', () => {
   const stage = lz.match(/function stage\(\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.match(stage, /draw\(0\); diveDrawn = true;/);
+  assert.match(stage, /draw\(0\); (?:live\.)?diveDrawn = true;/);
   assert.doesNotMatch(stage, /stageUpload|\.upload\(/, 'no send in stage() (1 Nov: black lobule while zooming in)');
   assert.doesNotMatch(lz, /STAGE_UP|stageup/);
   const onGPU = lz.match(/function tissueOnGPU\([\s\S]*?\n {2}\}\n/)[0];
   assert.match(onGPU, /tisTg = tg;\n\s+framePart\('lz\.texUpload', tisUpload\);/);
-  assert.match(onGPU, /A\.wVer = worldCv\.ver \|\| 0/, 'the same version as draw sends, so draw finds it there');
+  assert.match(onGPU, /A\.wVer = (?:live\.)?worldCv\.ver \|\| 0/, 'the same version as draw sends, so draw finds it there');
   assert.match(onGPU, /framePart\('lz\.tissueGL', tisDraw\)/);
 });
 

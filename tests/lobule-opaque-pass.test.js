@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 
 test('L3: an opaque solo pass skips laying the figure\'s kept picture and leaves it stale, not lost', () => {
   const i = veins.indexOf('soloOn(t) && t.opaque?.()');

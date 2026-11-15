@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss, presenterSource } from './split-src.js';
+import { appCss, presenterSource, lobuleSource } from './split-src.js';
 
 const css = appCss();
 const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
@@ -65,7 +65,7 @@ test('the credit never wraps onto two lines', () => {
 
 test('in the lobule the credit keeps off the portal tracts and neighbouring central veins, not only the outline', () => {
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   assert.match(lz, /out\.discs = \[\]/);
   assert.match(lz, /for \(const c of l\.corners\)/);
   assert.match(credit, /for \(const \[x, y, rr\] of ring\.discs \|\| \[\]\)/);

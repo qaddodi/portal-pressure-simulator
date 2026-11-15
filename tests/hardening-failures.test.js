@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { presenterSource } from './split-src.js';
+import { presenterSource, lobuleSource } from './split-src.js';
 
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#ffffff' });
 globalThis.document.styleSheets = [{ cssRules: [{ style: ['--white'] }] }];   // (the tokens the page declares, util.js readVars)
@@ -61,7 +61,7 @@ test('GL: a restored sinusoid context draws a paused picture again; the lobule g
   assert.match(gl, /const onBack = \(\) => \{ if \(gone\) return; epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \};\s*evCv\.addEventListener\('webglcontextrestored', onBack\)/);
   assert.match(gl, /get epoch\(\) \{ return epoch; \}/);
   assert.match(read('src/ui/sinusoid-view.js'), /sigW === canvas\.width && sigH === canvas\.height && sigEpoch === gpu\.epoch/);
-  assert.match(read('src/ui/lobule-zoom.js'), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
+  assert.match(lobuleSource(), /glTried = false; gl\?\.dispose\?\.\(\); gl = null;/);
   const d = read('src/ui/doppler-gl.js');
   assert.doesNotMatch(d, /getContext\(/);   // (the Doppler's trace has no context of its own to leave unused: it draws in the chart drawer's)
 });

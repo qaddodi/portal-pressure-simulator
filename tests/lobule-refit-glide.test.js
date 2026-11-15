@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
-const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const js = lobuleSource();
 
 test('refit of a zoomed-in lobule glides to the clamped framing', () => {
   const refit = js.match(/function refit\(\) \{[\s\S]*?else reclamp\(\); \}\n/)?.[0];

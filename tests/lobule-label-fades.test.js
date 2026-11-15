@@ -4,11 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const js = lobuleSource();
 const css = appCss();
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
-import { appCss } from './split-src.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /(L\.line|L\.dotEl)\.style\.display\s*=/, 'a leader or dot is faded (.ld-gone), not display none');
@@ -40,6 +40,6 @@ test('the lobule\'s frame keeps its size, theme query and styles', () => {
   const draw = js.slice(js.indexOf('  function draw(dt) {'), js.indexOf('\n  }\n', js.indexOf('  function draw(dt) {')));
   assert.ok(draw.length > 100);
   assert.doesNotMatch(draw, /getBoundingClientRect|matchMedia|getComputedStyle/);
-  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = snap\.hostWH;\s*if \(readAll\(\) && fade > 0\) relayout\(\);/, 'the size is read again when the host resizes');
-  assert.match(js, /if \(said !== tissueSaid\)/, 'the tissue label is written only when its words change');
+  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = snap\.hostWH;\s*if \(readAll\(\) && (?:live\.)?fade > 0\) relayout\(\);/, 'the size is read again when the host resizes');
+  assert.match(js, /if \(said !== (?:live\.)?tissueSaid\)/, 'the tissue label is written only when its words change');
 });

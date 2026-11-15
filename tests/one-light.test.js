@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { LIGHT } from '../src/ui/light.js';
+import { lobuleSource } from './split-src.js';
 
 const dir = new URL('../src/ui/', import.meta.url);
 const read = (f) => readFileSync(new URL(f, dir), 'utf8');
@@ -19,7 +20,7 @@ test('the light is a unit vector from the top, slightly to the left (screen spac
 
 test('every renderer that lights a vessel takes the one light, and none writes a direction of its own', () => {
   for (const f of ['stage-vessels.js', 'veins-gl.js', 'lobule-zoom.js']) {
-    assert.match(read(f), /import \{ LIGHT \} from '\.\/light\.js';/, `${f} imports the light`);
+    assert.match(f === 'lobule-zoom.js' ? lobuleSource() : read(f), /import \{ LIGHT \} from '\.\/light\.js';/, `${f} imports the light`);
   }
   for (const f of readdirSync(dir).filter((n) => n.endsWith('.js') && n !== 'light.js' && !/-data\.js$/.test(n))) {
     assert.doesNotMatch(read(f), /-0\.42\b[^\n]{0,12}-0\.91\b|Math\.hypot\(-0\.42/, `${f} writes a light of its own`);

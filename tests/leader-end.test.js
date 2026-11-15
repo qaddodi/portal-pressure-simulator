@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { leaderEnd, leaderEndRects, runInside } from '../src/ui/leader-end.js';
+import { lobuleSource } from './split-src.js';
 
 const box = { x0: 100, y0: 50, x1: 160, y1: 70 };
 const onEdge = (p, b) => {
@@ -49,7 +50,7 @@ test('a label seen run by run: the leader stops on the first run of letters it m
 });
 
 test('the lobule and the anatomy both stop their leaders with leader-end.js', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const st = stageSource();
   assert.match(lz, /import \{[^}]*\bleaderEnd\b[^}]*\} from '\.\/leader-end\.js/);
   assert.match(st, /import \{[^}]*\bleaderEnd as edgeOf\b[^}]*\bleaderEndRects\b[^}]*\} from '\.\/leader-end\.js/);
@@ -61,7 +62,7 @@ test('the lobule and the anatomy both stop their leaders with leader-end.js', ()
 
 test('an optional lobule label gives way rather than take a leader across the lobule', () => {
   // (Batch 04, a phone: the Lymph label sat at the top right, its leader 420 px long over the whole lobule.)
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   // (LONG_LEAD is the shared leader length from label-place.js since the lobule took its lengths from there, 4 Nov.)
   const lp = readFileSync(new URL('../src/ui/label-place.js', import.meta.url), 'utf8');
   const m = /LONG_LEAD = (\d+)/.exec(lp);
@@ -74,7 +75,7 @@ test('an optional lobule label gives way rather than take a leader across the lo
 
 test('a zone name never sits on the slide\'s lesion ring', () => {
   // (CI #32, a phone: lobule slide 7, "Zone 3 centrilobular" 7 px from the ring's centre as the view settled.)
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   assert.match(lz, /placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/);
   assert.match(lz, /if \(!ringDepth\(lesion, zBox\)\) \{ at = j; break; \}/);
 });

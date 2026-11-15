@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { gapLine, gestureText } from '../src/ui/perf-readout.js';
 import { gpuProbe } from '../src/ui/gpu-probe.js';
+import { lobuleSource } from './split-src.js';
 
 // The ?perf readout (perf-readout.js): what blocks frames after a gesture, measured on the owner's own devices (21 Oct).
 // Without ?perf it must change nothing: never fetched, the probe off, no panel.
@@ -129,7 +130,7 @@ test('a whole draw and a target sized again name who asked, from a fixed list th
 
 test("the lobule's tissue bitmap counts why it was painted again, from a fixed list the readout totals", async () => {
   const { COUNTED, TISSUE_WHY } = await import('../src/ui/gpu-probe.js');
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   for (const w of TISSUE_WHY) assert.ok(lz.includes(`'${w}'`), w);
   assert.match(lz, /gpuProbe\.note\(COUNTED\.tissueWhy \+ /);

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { splitRows, TINT_FLOATS } from '../src/ui/veins-bin.js';
+import { lobuleSource } from './split-src.js';
 
 // Shape apart from colour in the vessel layer (veins-gl.js): a change of some vessels' lumen colours alone (the pulse,
 // the lymph's tint) no longer draws their cells again whole. Beside each pixel's colour the vessel shader marks whether
@@ -185,8 +186,8 @@ test('the stage keeps its changed rows through a refused partial draw and lets t
   const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
   assert.match(fn, /pendRows\.length = 0;\n\s+if \((?:live\.)?veinsRows\.size\) (?:live\.)?veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
   assert.doesNotMatch(fn, /(?:live\.)?veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
-  assert.match(fn, /if \((?:live\.)?(?:live\.)?veins\.drawRows\(T, (?:live\.)?(?:live\.)?vLook, (?:live\.)?(?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
+  assert.match(fn, /if \((?:live\.)?veins\.drawRows\(T, (?:live\.)?vLook, (?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
   assert.match(fn, /const rows = (?:live\.)?veinsDirty \? null : pending \|\| NO_ROWS;/);
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/);
 });

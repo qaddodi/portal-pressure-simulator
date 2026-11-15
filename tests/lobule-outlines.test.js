@@ -3,8 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const src = lobuleSource();
 
 test('sinusoid collagen line stops at the central vein', () => {
   // (The lining drawn by the GPU, the only painter since 1 Nov: fxGLLine's capsules, one either side of each sinusoid.)

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
-import { appCss } from './split-src.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 test('the lobule callout ring and leader are at least 4px thick, in every kind', () => {
   // (their looks are the chart-looks table's now: small.call, both pieces)
@@ -19,7 +19,7 @@ test('the lobule callout ring and leader are at least 4px thick, in every kind',
 });
 
 test('the lesion leader starts on the ring\'s edge, and labels keep clear of the ring', () => {
-  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const js = lobuleSource();
   assert.match(js, /setGeo\(callLine, 'x1', a\[0\] \+ \(bx - a\[0\]\) \* e0\)/, 'leader start is offset by the ring radius');
   assert.doesNotMatch(js, /callLine\.setAttribute\('x1', a\[0\]\); callLine/, 'leader no longer starts at the ring centre');
   assert.match(js, /const rd = ringDepth\(ring, cb\);[\s\S]*?\(rd > 0 \? 1e6 \+ rd \* 1e3 : 0\)/, 'labels pay the full clash cost for touching the ring');
@@ -27,7 +27,7 @@ test('the lesion leader starts on the ring\'s edge, and labels keep clear of the
 });
 
 test('the pointer pill prefers spots outside the lobule, falling back inside only when there is no room', () => {
-  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const js = lobuleSource();
   assert.match(js, /const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout');
   assert.match(js, /\+ hex\.share\(cBox\) \* INSIDE_COST \+ c4/, 'the pill prefers outside');
   const cost = Number(js.match(/INSIDE_COST = (\d+)/)?.[1]);

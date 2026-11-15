@@ -6,6 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
@@ -41,7 +42,7 @@ test('res-cover-gl.js: no context, canvas or canvas copy of its own: the figure 
 });
 
 test('lobule-zoom.js: the change waits for a still, whole lobule, and its GPU cover never touches the layers', () => {
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   assert.match(lz, /const resSteady = \(\) => fade > 0\.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && !!geo && !!model;/);
   assert.match(lz, /if \(lzWant != null && resSteady\(\)\) resSwap\(\);\n\s*const drew = draw\(moving \? dt : 0\);/, 'swapped in the loop, just before the frame is drawn');
   assert.match(lz, /if \(resCover\) resCoverStep\(now\);/);
@@ -80,7 +81,7 @@ test('the cover fades and follows the view in its own GPU draw: the canvas style
   const v0 = { k: 2, x: 10, y: 20 }, v = { k: 3, x: -5, y: 40 }, out = new Array(9);
   assert.equal(coverFollowInto(out, v0, v, 400, 300), out, 'written in place');
   assert.deepEqual(out, coverFollow(v0, v, 400, 300));
-  const lz = src('lobule-zoom.js'), step = lz.slice(lz.indexOf('function resCoverStep('), lz.indexOf('function resCoverEnd('));
+  const lz = lobuleSource(), step = lz.slice(lz.indexOf('function resCoverStep('), lz.indexOf('function resCoverEnd('));
   assert.ok(!/\.style\b/.test(step), 'no style write in the cover step');
   assert.match(step, /resGL\?\.show\(a, m\)/);
   assert.match(step, /if \(same\) return;/, 'a frame that changed neither the weight nor the place draws nothing');
@@ -113,7 +114,7 @@ test('res-cover-gl: a capture copies the figure inside its context, then the pas
 });
 
 test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, never by a style written to hide or show it", () => {
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   assert.ok(!/fxG\.style\.opacity/.test(lz), 'no opacity written to fxG');
   assert.ok(!/const fxG = h\('canvas'[^\n]*opacity/.test(lz), 'and none at its making');
   const show = lz.slice(lz.indexOf('function fxGLShow('), lz.indexOf('function fxGLOff('));
@@ -124,7 +125,7 @@ test("lobule-zoom.js: the overlay's GPU canvas is shown by what is drawn on it, 
 // it must stay whole until HANDOFF_MS has passed, or the hepatocytes flash the page's dark colour (black in a dark look). Run the real
 // showTissueGL against kept canvases and a fake clock.
 function tissueHandoff(rimDrawn = false) {
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   const body = lz.slice(lz.indexOf('function showTissueGL('), lz.indexOf('// The tissue on the GPU: the same picture as the 2D passes below'));
   const timers = [], cv = (name) => ({ name, width: 100, height: 80, style: {} });
   const env = { tissue: cv('tissue'), tissueG: cv('tissueG'), rimDrawn, HANDOFF_MS: 160, log: [] };
@@ -173,7 +174,7 @@ test('lobule-zoom.js showTissueGL: under the dive\'s rim the 2D canvas is given 
 });
 
 test('lobule-zoom.js: no style is written to hide or show the tissue canvases, and the hosted tissue is laid while it is on', () => {
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   assert.ok(!/tissue\.style\.opacity|tissueG\.style\.opacity/.test(lz));
   assert.match(lz, /const tisUnder = \(\) => !!tissueGL && tissueGL\.pictured && \(wideBuild \? tisWide : tissueOnGL && tissueG\.style\.visibility !== 'hidden'\);/);
 });

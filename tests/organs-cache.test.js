@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrganStack, cacheBudget } from '../src/ui/organs-gl.js';
+import { lobuleSource } from './split-src.js';
 
 // A live group that holds still while another eases beside it is kept as a picture and laid again, not painted from its shapes
 // (organs-gl, performance recs B6 item 2). A stand-in GL and painter count the work.
@@ -107,7 +108,7 @@ test('no picture is made past the budget', () => {
 // B3: the lobule's tissue bitmap is capped by what the screen can ask for (the zoom stops at KMAX × the fit), not only by 3600 px.
 test("the lobule's bitmap scale is capped by the deepest zoom the screen can reach", async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const src = lobuleSource();
   assert.match(src, /const worldCap = \(G, dpr\) => Math\.min\(3600 \/ \(2\.6 \* G\.R\), Math\.max\(dpr \* kFit \* KMAX, dpr \* V\.k\) \* Math\.SQRT2\);/);
   assert.equal((src.match(/worldCap\(/g) || []).length, 4, 'the four scale sites (paintAhead\'s too; the 2D one went 1 Nov)');
   assert.doesNotMatch(src, /3600 \/ \(2\.6 \* (geo|G)\.R\)\)/, 'no scale site keeps the bare constant');

@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 globalThis.window ??= globalThis;
 globalThis.Element ??= class {};
@@ -19,7 +20,7 @@ const { PaintRecorder, recordPaint, gpuPicture, isGpuPicture } = await import('.
 const { parseCssColor, cssColor, cssColor8 } = await import('../src/ui/css-color.js');
 const { cssAlpha, cssVar } = await import('../src/ui/util.js');
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const lz = read('../src/ui/lobule-zoom.js'), lp = read('../src/ui/lobule-paint.js');
+const lz = lobuleSource(), lp = read('../src/ui/lobule-paint.js');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
 // A lobule's painting values, as lobule-zoom.js worldInput gives them (a made-up shape, every disease drawn).

@@ -5,7 +5,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const main = src('main.js');
@@ -48,14 +48,14 @@ test('the anatomy canvas, the lobule and the sinusoid read it; the instruments a
   assert.match(stage, /onRenderScale\(\(\) => \{ (?:live\.)?autoK = autoNow\(\); (?:live\.)?moveLow = false; (?:live\.)?adaptK = 1; moveGaps\.length = 0; easeRes\(\); (?:live\.)?veinsDirty = true; (?:live\.)?forceDraw = true; (?:live\.)?stageWake\(\); settleRes\(\); \}\)/);
   // (The lobule's six readers: draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU; the card zoom's sharpen. Each reads
   // lzDensity, the scale held to the figure's pixel budget; none reads the scale bare, or the lobule would be drawn at a density the anatomy's canvas is not (14 Nov 2026).)
-  assert.equal(src('lobule-zoom.js').split('lzDensity(').length - 1, 6);
-  assert.ok(!/\blzK\b[^;\n]*devicePixelRatio|devicePixelRatio[^;\n]*\blzK\b/.test(src('lobule-zoom.js').replace(/\/\/.*$/gm, '').replace(/const lzDensity[^\n]*/, '')), 'the scale is read only through lzDensity');
+  assert.equal(lobuleSource().split('lzDensity(').length - 1, 6);
+  assert.ok(!/\blzK\b[^;\n]*devicePixelRatio|devicePixelRatio[^;\n]*\blzK\b/.test(lobuleSource().replace(/\/\/.*$/gm, '').replace(/const lzDensity[^\n]*/, '')), 'the scale is read only through lzDensity');
   assert.equal(src('sinusoid-view.js').split('svDensity(').length - 1, 2);
   for (const f of ['util.js', 'label-gl.js', 'glass-gl.js', 'instruments.js']) assert.ok(!src(f).includes('renderScale'), f);
 });
 
 test('the lobule and the sinusoid take a change up while hidden and as they open, and ease one made while they show', () => {
-  const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js');
+  const lz = lobuleSource(), sv = src('sinusoid-view.js');
   assert.match(lz, /if \(fade <= 0\) \{ lzK = k; lzCap = figOpt\('cap'\); lzWant = null; return; \}/, 'a change made while hidden is taken up at once');
   assert.match(lz, /lzWant = k === lzK && figOpt\('cap'\) === lzCap \? null : k;/, 'one made while it shows (the scale or the size cap) waits for resSwap (none when both are the same)');
   assert.match(lz, /if \(fade > 0 && was === 0\) \{ lzK = renderScale\(\); lzCap = figOpt\('cap'\); lzWant = null; \}/, 'and as it opens: never a share from before');

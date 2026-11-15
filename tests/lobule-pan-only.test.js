@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const src = lobuleSource();
 const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
 
 test('the surface pass waits, paused, for the model, the theme, the canvas size or the scale, and looks again every second', () => {
@@ -31,9 +32,9 @@ test('only the camera\'s own bumps of the version are left out of the model\'s: 
 });
 
 test('the flow is not worked out or sent again on a paused pan, but is with a new GL context or while its marks fade', () => {
-  assert.match(gl, /const flowSame = panOnly && g === flowG && flowA === flowAt;/);
-  assert.match(gl, /if \(!flowSame\) \{ g\.setFlow\(flowData\); flowG = g; flowAt = flowA; \}/);
-  assert.match(gl, /if \(!flowSame && \(bloodOn \|\| chev \|\| origin\)\) for \(const t of live\)/);
+  assert.match(gl, /const flowSame = panOnly && g === flowG && (?:live\.)?flowA === flowAt;/);
+  assert.match(gl, /if \(!flowSame\) \{ g\.setFlow\(flowData\); flowG = g; flowAt = (?:live\.)?flowA; \}/);
+  assert.match(gl, /if \(!flowSame && \(bloodOn \|\| chev \|\| origin\)\) for \(const t of tubeSet\)/);
 });
 
 test('the surface pass is still counted for the ?perf readout', () => {

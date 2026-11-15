@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { tissueFS } from '../src/ui/tissue-gl.js';
 import { DIVE_RIM } from '../src/ui/lobule-render-cache.js';
+import { lobuleSource } from './split-src.js';
 
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
 test('the shader draws the rim', () => {
@@ -35,11 +36,11 @@ test("the shader's rim is the 2D copy's: the tissue × the fade, plus the lobule
 
 test('the dive and the rise draw the rim on the GPU and make no 2D copy (none is left to make)', () => {
   const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y, out = false) {');
-  assert.match(sd, /if \(rim && !wide && !\(rimDrawn && tissueOnGL && rimSame\(\)\)\) rimOnGPU\(\);/);
-  assert.match(sd, /if \(!diveRim && rimDrawn\) \{ rimDrawn = false; tissueKey = ''; idleDrawn = ''; if \(fade > 0 && !wide\) rimOnGPU\(\); \}/, 'landed: drawn again without the rim before the scale goes');
+  assert.match(sd, /if \(rim && !(?:live\.)?wide && !\(rimDrawn && tissueOnGL && rimSame\(\)\)\) rimOnGPU\(\);/);
+  assert.match(sd, /if \(!(?:live\.)?diveRim && rimDrawn\) \{ rimDrawn = false; (?:live\.)?tissueKey = ''; (?:live\.)?idleDrawn = ''; if \((?:live\.)?fade > 0 && !(?:live\.)?wide\) rimOnGPU\(\); \}/, 'landed: drawn again without the rim before the scale goes');
   assert.doesNotMatch(lz, /paint2D|diveCopy|diveCv|rimCv|keep2D|wideChecked/, 'no 2D canvas or copy for the dive or the rise');
   assert.match(fn('function tissueOnGPU('), /A\.rim = rimArg\(tw, th\);/);
-  assert.match(fn('function stage() {'), /if \(!wd && !reduce\.matches && geo\) diveRim = rimOf\(sX\(geo\.cx\), sY\(geo\.cy\), geo\.R \* V\.k\);/, 'staged on the GPU, rim and all');
+  assert.match(fn('function stage() {'), /if \(!wd && !reduce\.matches && (?:live\.)?geo\) (?:live\.)?diveRim = (?:live\.)?rimOf\(sX\((?:live\.)?geo\.cx\), sY\((?:live\.)?geo\.cy\), (?:live\.)?geo\.R \* V\.k\);/, 'staged on the GPU, rim and all');
   assert.match(fn('function buildWide(W, H, box) {'), /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/, "the wide copy only on the GPU");
   assert.match(fn('function paintTissue('), /if \(same\) return gpu && keyGPU;/, 'a key the GPU did not draw is never reported as on the GPU');
 });

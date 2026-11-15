@@ -49,7 +49,8 @@ test('lerpInto equals the lobule glide step bit for bit', () => {
 
 // ── The lobule's records (push A): read from the source
 import { readFileSync } from 'node:fs';
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+import { lobuleSource } from './split-src.js';
+const lz = lobuleSource();
 test('the lobule keeps its view and its pan, dive and card cameras as scene-cam records', () => {
   assert.match(lz, /const V = cams\.lobule\.base = \{ k: 1, x: 0, y: 0 \};/);
   for (const gone of ['zK', 'zE', 'zF', 'diveK', 'diveE', 'diveF', 'panDX', 'panDY', 'zoomCam']) assert.doesNotMatch(lz, new RegExp(`\\b${gone}\\b`), gone);

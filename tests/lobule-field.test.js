@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TOKENS } from '../src/ui/theme-tokens.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
-const lz = read('../src/ui/lobule-zoom.js');
+const lz = lobuleSource();
 const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting)
 
 // Their count no longer costs anything: the field is one pattern (one shader pass on the GPU, field-gl.js), whatever the size of
@@ -22,7 +23,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
   assert.ok(Math.abs(rh / Math.exp(lc) - 6 / 5) < 0.15, `field lobules start at ${rh}px radius at the anatomy's ×${Math.exp(lc).toFixed(0)}`);
   // The whole zoom: the anatomy's share, then the field from RH to the landing lobule's radius (phone and Mac framings).
   for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
-  assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, (?:live\.)?(?:live\.)?diveLand\.r\) \/ RH\);/);
+  assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, (?:live\.)?diveLand\.r\) \/ RH\);/);
   // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
   assert.match(readFileSync(new URL('../src/ui/motion.js', import.meta.url), 'utf8'), /export const DIVE_MS = 2200, RISE_MS = 1300;/);   // (the named exceptions, motion.js)
   assert.match(lz, /fieldBlend\(rd \* 0\.55\)/);
@@ -71,18 +72,18 @@ test('in dark mode the field lobules\' capillarized sinusoids are dark (they rec
 });
 
 test('every zoom into the lobule draws it first, for where it lands, then zooms; the anatomy returns after landing', () => {
-  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \(fade > 0 \|\| !(?:live\.)?F\) return;\n\s+flowA = 0; flowT = 0; resetView\(\); staging = true; snapState\(\);/);
-  assert.match(lz, /idleDrawn = ''; draw\(0\); diveDrawn = true; staged = api\.viewKey\(\); relLater = true;/);
-  assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
+  assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);[^\n]*\n\s+if \((?:live\.)?fade > 0 \|\| !(?:live\.)?(?:live\.)?F\) return;\n\s+(?:live\.)?flowA = 0; (?:live\.)?flowT = 0; resetView\(\); (?:live\.)?staging = true; snapState\(\);/);
+  assert.match(lz, /(?:live\.)?idleDrawn = ''; draw\(0\); (?:live\.)?diveDrawn = true; (?:live\.)?staged = (?:live\.)?api\.viewKey\(\); (?:live\.)?relLater = true;/);
+  assert.match(lz, /if \((?:live\.)?fade <= 0 && !(?:live\.)?staging\) return;/, 'update fills in the model while staging');
   // The way in (a tap or slide; manual zoom never dives) draws it before the zoom's clock starts.
-  assert.match(stage, /(?:live\.)?(?:live\.)?lz\.prewarm\((?:live\.)?(?:live\.)?diveLand\.r\);\n\s+(?:live\.)?(?:live\.)?lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
+  assert.match(stage, /(?:live\.)?lz\.prewarm\((?:live\.)?diveLand\.r\);\n\s+(?:live\.)?lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
   assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = easeNow();\n    live.lobOn = on;'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
-  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ lzLoop\.want\(\); \} else \{ diveDrawn = false; snapState\(\); if \((?:live\.)?F\) update\((?:live\.)?F\); \}/);
+  assert.match(lz, /if \((?:live\.)?staged && (?:live\.)?staged === (?:live\.)?api\.viewKey\(\) && (?:live\.)?model\) \{ lzLoop\.want\(\); \} else \{ (?:live\.)?diveDrawn = false; snapState\(\); if \((?:live\.)?F\) (?:live\.)?update\((?:live\.)?F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
-  assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
-  assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);
-  assert.match(lz, /draw\(0\); release\(\); prepKey = key;/);
+  assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) (?:live\.)?relLater = true; else release\(\); \}/);
+  assert.match(lz, /if \(!diveScaled && (?:live\.)?fade <= 0\) \{ (?:live\.)?staged = ''; if \((?:live\.)?relLater\) \{ (?:live\.)?relLater = false; release\(\); \} \}/);
+  assert.match(lz, /draw\(0\); release\(\); (?:live\.)?prepKey = key;/);
   // Landed, the anatomy stays hidden under the lobule until it has settled; every other end shows it at once.
   assert.match(stage, /const landed = t >= 1 && !(?:live\.)?diveOut;\n\s+setDiveScale\(t >= 1 \? 1 : Math\.exp\(Math\.min\(z, LC \+ 0\.4\)\), landed\);/);
   assert.match(stage, /const diveUnhide = \(\) => \{ if \((?:live\.)?diveT >= 1 && (?:live\.)?lobuleOn\) \{ setDomHidden\(false\); setDiveHidden\(false, false\); setDiveFade\(null\); \} \};/);
@@ -90,7 +91,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
 });
 
 test('nothing is built during the zoom: the field\'s tiles and their quieted copies are ready before it starts', () => {
-  assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
+  assert.equal((lz.match(/fieldCopies\((?:live\.)?fieldTile\(cs, dark, r\), cs, dark, bg\);/g) || []).length, 2, 'idle preparation and prewarm both build the quieted copy');
   assert.match(lz, /if \(!fieldGLOn\(\)\) return; liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); fieldUp\(t\);/, 'on the GPU, which draws the field');
   assert.match(lz, /function stage\(\) \{\n\s+while \(warm\(\)\);/, 'whatever prewarm queued is done before the zoom starts');
 });

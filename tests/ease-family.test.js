@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { easeMove, easeArrive, easeOut3, cubicBezier, camMs, CAM_MS_MIN, CAM_MS_MAX } from '../src/ui/ease.js';
 import * as motion from '../src/ui/motion.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const quad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -54,7 +55,7 @@ test('camMs: 480 ms up to half a screen, then in proportion, at most 900 ms', ()
 });
 
 test('stage and lobule glides run on the quintic; scaled glides take their reach\'s time, never longer than asked', () => {
-  const stage = stageSource(), lob = read('src/ui/lobule-zoom.js');
+  const stage = stageSource(), lob = lobuleSource();
   assert.match(stage, /const camEase = easeMove;/);
   assert.match(stage, /const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/);
   assert.match(stage, /const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/);

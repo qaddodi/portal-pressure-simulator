@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fadeAt, FADE_MID } from '../src/ui/lobule-look.js';
 import { tissueFS } from '../src/ui/tissue-gl.js';
+import { lobuleSource } from './split-src.js';
 
 const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
 test('the shader lays the picture the 2D passes did: surround, the bitmap over it premultiplied, then the fade into the page', () => {

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { camNew, camSet, camId, camThen } from '../src/ui/scene-cam.js';
 import { JSDOM } from 'jsdom';
+import { lobuleSource } from './split-src.js';
 
 const dom = new JSDOM('<!doctype html><body></body>');
 globalThis.window = dom.window; globalThis.document = dom.window.document;
@@ -17,7 +18,7 @@ globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 const { composeView } = await import('../src/ui/label-captions.js');
 
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const at = (v, x, y) => [v[0] * x + v[1], v[0] * y + v[2]];
 
 test('composeView: identity, pan alone, dive alone, and both in a defined order', () => {
@@ -32,7 +33,7 @@ test('composeView: identity, pan alone, dive alone, and both in a defined order'
 test('unpan removes only the pan; bakeFollow without a pan leaves the dive in place', () => {
   const seen = [];
   const grab = (name) => { const i = lz.indexOf(name); assert.ok(i >= 0, name); return lz.slice(i, lz.indexOf('\n', i)); };
-  const src = `${grab('  let panOn = false')}\n${grab('  const VIEW = [1, 0, 0]')}
+  const src = `${grab('  let panOn = false')}\n    const live = { get panOn() { return panOn; }, set panOn(v) { panOn = v; } };   // (the records part reads the shared let off the live record)\n${grab('  const VIEW = [1, 0, 0]')}
     const PAN = camNew(), DIVE = camNew(), CARD = camNew();
     function applyView() { camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN)); VIEW[0] = VIEWC.k; VIEW[1] = VIEWC.x; VIEW[2] = VIEWC.y; seen.push(VIEW.slice()); }
     ${grab('  const unpan = ')}\n${grab('  const setDive = ')}
@@ -46,5 +47,5 @@ test('unpan removes only the pan; bakeFollow without a pan leaves the dive in pl
   seen.length = 0;
   R.unpan();
   assert.equal(seen.length, 0, 'with no pan, unpan changes nothing');
-  assert.match(lz, /function bakeFollow\(\) \{[\s\S]*?if \(!panOn\) return false;[\s\S]*?unpan\(\);/, 'bakeFollow checks it owns a pan before touching the view');
+  assert.match(lz, /function bakeFollow\(\) \{[\s\S]*?if \(!(?:live\.)?panOn\) return false;[\s\S]*?unpan\(\);/, 'bakeFollow checks it owns a pan before touching the view');
 });

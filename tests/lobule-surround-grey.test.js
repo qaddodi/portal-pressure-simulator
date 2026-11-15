@@ -10,10 +10,11 @@ import { surroundGrade, gradeSurround, greyStep } from '../src/ui/lobule-look.js
 import { LENS_GREY, isGreyLens, LUMA } from '../src/ui/organ-dim.js';
 import { greyOf } from '../src/ui/organ-grey.js';
 import { lensModeOf } from '../src/ui/lobule-model.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
-const lz = read('../src/ui/lobule-zoom.js');
+const lz = lobuleSource();
 const fgl = read('../src/ui/field-gl.js');
 const tgl = read('../src/ui/tissue-gl.js');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
@@ -85,8 +86,8 @@ test('the grey is the shaders\' alone: toward the luma, then toward the page (th
 
 test('it eases over the lens crossfade, there at once where nothing of the surround is seen, and keeps the loop going while it moves', () => {
   assert.match(lz, /const greyNow = \(now = performance\.now\(\)\) => greyStep\(grey, isGreyLens\(lensModeOf\(store\.get\(\)\)\) \? 1 : 0, easeNow\(\), LENS_FADE, !surroundSeen\(\) \|\| reduce\.matches\);/);
-  assert.match(lz, /const surroundSeen = \(\) => !unseen\(\) \|\| fieldOp > 0\.002;/);
-  assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;.*\n\s+if \(greyMoving\(\)\) drawVersion\+\+;/);
+  assert.match(lz, /const surroundSeen = \(\) => !unseen\(\) \|\| (?:live\.)?fieldOp > 0\.002;/);
+  assert.match(lz, /if \(rzMoving \|\| (?:live\.)?lensFrom \|\| tissueFading\(now\)\) (?:live\.)?drawVersion\+\+;.*\n\s+if \(greyMoving\(\)\) (?:live\.)?drawVersion\+\+;/);
   assert.match(lz, /const greyMoving = \(\) => \{ greyNow\(\); return grey\.k !== grey\.to; \};/);
   const s = { k: 0, from: 0, to: 0, t0: 0 };
   // Seen: a smooth ease to 1 over 300 ms, never a step.

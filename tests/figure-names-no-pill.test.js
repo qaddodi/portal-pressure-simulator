@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { presenterSource } from './split-src.js';
+import { presenterSource, lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const noComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -34,7 +34,7 @@ test('no ::before pill remains on .lz-lab, .lz-zone or .sv-region', () => {
 
 test('nothing reads a pill: no lz-pills.js, no leader stopping on a pill\'s outline', () => {
   assert.equal(existsSync(new URL('../src/ui/lz-pills.js', import.meta.url)), false);
-  const LZ = read('../src/ui/lobule-zoom.js'), SV = read('../src/ui/sinusoid-view.js'), PR = presenterSource();
+  const LZ = lobuleSource(), SV = read('../src/ui/sinusoid-view.js'), PR = presenterSource();
   assert.doesNotMatch(LZ, /pillQ|'::before'\)\.opacity|getComputedStyle\(L\.el, '::before'\)/);
   const letters = LZ.slice(LZ.indexOf('const lettersInto = '), LZ.indexOf('const dropCost = '));
   assert.match(letters, /o\.r = 0;/);

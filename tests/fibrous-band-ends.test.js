@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bandOutline, bandOutlineFlat } from '../src/ui/lobule-look.js';
+import { lobuleSource } from './split-src.js';
 
 // A context that records the outline as points (arcs sampled finely).
 function recorder() {
@@ -70,7 +71,7 @@ test('bandOutlineFlat (a band kept as flat numbers, made with no array) draws ex
 // collagen past the lobule's edge grew denser mid-fade and dropped back after, so it pulsed (Mohammad, 16 Oct).
 test('the tissue cross-fade is a true mix, (1 - u) old + u new, so see-through parts never pulse', () => {
   // (On the GPU, the only painter since 1 Nov: the shader mixes the two premultiplied pictures, tissue-gl.js uWMix.)
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
+  const lz = lobuleSource(), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
   assert.match(tgl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;/);
   assert.match(tgl, /UC\.f2\(U\.uWMix, old \? wMix : 1, old \? 1 - wMix : 0\);/, 'u new + (1 - u) old');
   assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/);

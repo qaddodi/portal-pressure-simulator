@@ -3,9 +3,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const stage = stageSource();
-const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lobule = lobuleSource();
 const body = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i)); };
 
 test('a wheel or trackpad zoom finds the point under the pointer by arithmetic, never by getScreenCTM', () => {
@@ -17,7 +18,7 @@ test('a wheel or trackpad zoom finds the point under the pointer by arithmetic, 
 });
 
 test('the lobule counts a wheel and a trackpad pinch as a hand, as a scroll', () => {
-  assert.match(lobule, /const handOn = \(\) => touches\.size > 0 \|\| !!cancelFlick \|\| \(!!wheelKind && !wheelQuiet\(250\)\);/);
+  assert.match(lobule, /const handOn = \(\) => touches\.size > 0 \|\| !!(?:live\.)?cancelFlick \|\| \(!!(?:live\.)?wheelKind && !wheelQuiet\(250\)\);/);
 });
 
 test('a trackpad pinch (Ctrl/⌘ + wheel) marks wheelAt, so the anatomy counts it as a hand like a wheel zoom or a pan', () => {

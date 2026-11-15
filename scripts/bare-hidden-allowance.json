@@ -10,7 +10,7 @@
   "src/ui/instruments.js": 2,
   "src/ui/ir-ppg.js": 1,
   "src/ui/lap.js": 8,
-  "src/ui/lobule-zoom.js": 3,
+  "src/ui/lobule-zoom-labels.js": 3,
   "src/ui/main.js": 7,
   "src/ui/menu.js": 5,
   "src/ui/monitor-takeover.js": 3,

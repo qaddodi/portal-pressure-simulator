@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FIELD_RS, fieldBlend, fadeAt, FADE_MID } from '../src/ui/lobule-look.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const lz = read('../src/ui/lobule-zoom.js');
+const lz = lobuleSource();
 const fgl = read('../src/ui/field-gl.js');
 
 test('the two blended tile sizes are never smaller than the size wanted, and the blend never steps', () => {
@@ -56,16 +57,16 @@ test('the GPU field takes its numbers from the same places as the 2D field', () 
 
 test('nothing is sent to the GPU or compiled during the zoom', () => {
   // Every tile the dive steps through, and the one size above the landing's that it blends in, uploaded ahead.
-  assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
+  assert.equal((lz.match(/fieldCopies\((?:live\.)?fieldTile\(cs, dark, r\), cs, dark, bg\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
   assert.match(lz, /const fieldCopies = \(t, cs, dark, bg\) => \{ if \(!fieldGLOn\(\)\) return; liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); fieldUp\(t\); \};/, 'each with both its copies, sent');
   assert.match(lz, /\(\) => fieldGLOn\(\), {3}\/\/ \(the field's GPU context, made here once/);
   assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\), \(\) => \{ if \(FX_GPU\) fxGLOn\(\); \}, \(\) => \{ if \(WIDE_GL\) wideGLOn\(\); \}\];/);   // (the ductules' overlay's programs too)
   // Kept when the lobule is left (the next dive's), and their GPU copies given back with them.
-  assert.match(lz, /FIELD_RS\[fieldBlend\(geo\.R \* k \* Math\.min\(1, devicePixelRatio \|\| 1\) \* 0\.8 \* 0\.55\)\.b\]/);
-  assert.match(lz, /fieldGL\?\.sweep\(\);/);
+  assert.match(lz, /FIELD_RS\[fieldBlend\((?:live\.)?geo\.R \* k \* Math\.min\(1, devicePixelRatio \|\| 1\) \* 0\.8 \* 0\.55\)\.b\]/);
+  assert.match(lz, /(?:live\.)?fieldGL\?\.sweep\(\);/);
 });
 
 test('the GPU field is the only field: a software renderer draws it too; without WebGL2, or while its context is lost, none is drawn', () => {
-  assert.match(lz, /return fieldGL && !fieldGL\.lost \? fieldGL : null;/);
+  assert.match(lz, /return (?:live\.)?fieldGL && !(?:live\.)?fieldGL\.lost \? (?:live\.)?fieldGL : null;/);
   assert.match(fgl, /LINEAR_MIPMAP_LINEAR/, 'mipmapped: a size shown below its own never shimmers');
 });

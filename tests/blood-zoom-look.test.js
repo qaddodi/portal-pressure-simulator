@@ -5,10 +5,11 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 const stage = stageSource();
-const lob = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lob = lobuleSource();
 // The shader's gain past a packed lane (x: the lane's occupancy before it is capped at 1).
 const gain = (x) => { const ov = Math.max(x, 1); return 1 + 0.35 * Math.min(1, Math.max(0, (2.885 * (ov - 1)) / (ov + 1))); };
 

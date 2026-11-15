@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 const css = appCss();
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
@@ -17,7 +17,7 @@ test('lobule, sinusoid and guide hold will-change only under their live class', 
 });
 
 test('the classes follow the motion, with no switch to keep them on', () => {
-  const lz = src('lobule-zoom.js'), sv = src('sinusoid-view.js'), dock = src('dock.js');
+  const lz = lobuleSource(), sv = src('sinusoid-view.js'), dock = src('dock.js');
   assert.match(lz, /classList\.toggle\('lz-live', fade > 0\)/);
   assert.match(lz, /class: 'lz', 'aria-hidden': 'true'/);
   assert.match(sv, /restClass\(el, 'sv-live', opacity > 0\)/);

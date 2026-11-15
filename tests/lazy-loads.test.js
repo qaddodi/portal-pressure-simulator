@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lobuleSource } from './split-src.js';
 
 const UI = fileURLToPath(new URL('../src/ui/', import.meta.url));
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
@@ -66,7 +67,7 @@ test('the first dive is prepared ahead as before: the code is fetched as the fig
 });
 
 test('a layer built after the store was set reads the slide\'s callout and a sinusoid already asked for', () => {
-  const lobule = read('lobule-zoom.js');
+  const lobule = lobuleSource();
   assert.match(lobule, /const onCallout = \(\) => \{/);
   assert.match(lobule, /store\.on\('lobuleCallout', onCallout\);/);
   assert.match(lobule, /\n {2}onCallout\(\);\n {2}if \(store\.get\(\)\.sinusoid\) diveSinusoid\(true\);\n {2}return api;\n\}/);

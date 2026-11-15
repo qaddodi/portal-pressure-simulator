@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const lz = read('lobule-zoom.js'), cap = read('label-captions.js'), svg = read('svg-gl.js');
+const lz = lobuleSource(), cap = read('label-captions.js'), svg = read('svg-gl.js');
 
 test('captions and the leaders both take a view, and draw their whole picture inside it', () => {
   assert.match(cap, /view\(k, e, f\) \{ if \(vk === k && ve === e && vf === f\) return; vk = k; ve = e; vf = f; api\.paint\(\); \}/);
@@ -15,10 +16,10 @@ test('captions and the leaders both take a view, and draw their whole picture in
 
 test('a hand pan and the dive hand the camera to both, and put no transform on the labels or the leaders box', () => {
   // (R08: the pan and the dive are two records composed by composeView, and both views take the composed one.)
-  assert.match(lz, /camSet\(PAN, 1, dx, dy\); panOn = true;\s*applyView\(\);/);
+  assert.match(lz, /camSet\(PAN, 1, dx, dy\); (?:live\.)?panOn = true;\s*applyView\(\);/);
   assert.match(lz, /if \(k >= 0\.9999\) setDive\(1, 0, 0\); else setDive\(k, tx - k \* x, ty - k \* y\);/);
   assert.match(lz, /cap\.view\(VIEW\[0\], VIEW\[1\], VIEW\[2\]\); leadGL\.view\(VIEW\[0\], VIEW\[1\], VIEW\[2\]\);/);
-  assert.match(lz, /const unpan = \(\) => \{ if \(!panOn\) return; panOn = false; camId\(PAN\); applyView\(\); \};/);
+  assert.match(lz, /const unpan = \(\) => \{ if \(!(?:live\.)?panOn\) return; (?:live\.)?panOn = false; camId\(PAN\); applyView\(\); \};/);
   assert.doesNotMatch(lz, /labels\.style\.transform/);
   assert.doesNotMatch(lz, /leadersBox\.style\.transform/);
 });
@@ -48,7 +49,7 @@ test('a gesture taking over a half-finished label glide carries its visible posi
   freeze();
   assert.deepEqual(spot.get(el), [60, 80], 'a second step keeps the same basis');
   assert.deepEqual(cancelled, [], 'no leader glide runs any more (lz-ease and glideLeaders are gone, 8 Nov 2026): nothing to cancel');
-  assert.match(lz, /\/\/ \(the pan carries them by the same translate a layout glides[^\n]*\n\s*freezeLabelGlides\(\);\s*rides = rideList/);
+  assert.match(lz, /\/\/ \(the pan carries them by the same translate a layout glides[^\n]*\n\s*freezeLabelGlides\(\);\s*(?:live\.)?rides = rideList/);
   assert.doesNotMatch(lz, /lz-ease|glideLeaders|glideUntil|easeT\b/, 'the lobule\'s label glide class, its timer and its leader loop are gone');
-  assert.match(lz, /if \(!panOn\) freezeLabelGlides\(\);/);
+  assert.match(lz, /if \(!(?:live\.)?panOn\) freezeLabelGlides\(\);/);
 });

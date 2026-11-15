@@ -5,11 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from '../src/ui/lobule-look.js';
-import { appCss } from './split-src.js';
+import { appCss, lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
-const lz = read('../src/ui/lobule-zoom.js');
+const lz = lobuleSource();
 const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting: lobule-paint.js paintLobule)
 const app = appCss();
 const tokens = read('../styles/tokens.css');
@@ -35,7 +35,7 @@ test('G20: a selected organ is outlined in its own deep tone with a soft glow; t
   assert.match(stage, /const OL_LOOK = \{ sel: \[2\.6, /, 'the selection line is 2.6 units');
   assert.match(stage, /getComputedStyle\(g\)\.getPropertyValue\('--o3'\)/, 'its colour is the organ\'s own --og-<tone>-3');
   assert.match(stage, /PASS_SEL = \[\[true, SEL_GLOW\.reach, SEL_GLOW\.alpha\]/, 'a soft glow under the line');
-  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?(?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
+  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
   assert.match(stage, /const SEL_DIM = 0\.6;/);
   assert.match(stage, /\(sel \? SEL_DIM : 1\) \* \(dataLayer \? 0\.72 : 1\)/, 'the GPU plate dims to SEL_DIM');
   assert.match(stage, /const on = !(?:live\.)?plateOn\(\) && \((?:live\.)?plateDim < 1 \|\| (?:live\.)?plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
@@ -142,17 +142,17 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   const fn = lz.match(/function snapState\(\) \{\n([^}]*)\}/);
   assert.ok(fn, 'snapState exists');
   for (const part of ['easeP = createEaser();', 'rz = null;', 'xfT0 = 0;', 'surOld = null;', 'surT0 = 0;', 'snapNext = true;']) assert.ok(fn[1].includes(part), part);
-  assert.match(lz, /const unseen = \(\) => fade <= 0 \|\| staging \|\| snapNext;/);
-  assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, [^\n]*\)\);\n\s+snapNext = false;/, 'one frame only');
+  assert.match(lz, /const unseen = \(\) => (?:live\.)?fade <= 0 \|\| (?:live\.)?staging \|\| snapNext;/);
+  assert.match(lz, /showTissueGL\((?:live\.)?paintTissue\(W, H, dpr, dark, cs, !g, [^\n]*\)\);\n\s+snapNext = false;/, 'one frame only');
   // Every way the lobule is drawn out of sight starts from the patient's state: the dive's staging, the idle preparation, a reopen.
-  assert.match(lz, /staging = true; snapState\(\);\n\s+try \{ update\(F\); \}/);
-  assert.match(lz, /snapState\(\);\n\s+model = lobuleStateInto\(modelBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
-  assert.match(lz, /diveDrawn = false; snapState\(\); if \(F\) update\(F\);/);
+  assert.match(lz, /(?:live\.)?staging = true; snapState\(\);\n\s+try \{ (?:live\.)?update\((?:live\.)?F\); \}/);
+  assert.match(lz, /snapState\(\);\n\s+(?:live\.)?model = lobuleStateInto\(modelBuf, (?:live\.)?F, st, undefined, (?:live\.)?F\.Pf \|\| (?:live\.)?F\.P\);/);
+  assert.match(lz, /(?:live\.)?diveDrawn = false; snapState\(\); if \((?:live\.)?F\) (?:live\.)?update\((?:live\.)?F\);/);
   // Out of sight, the surround's tiles are drawn for the new state at once, not left on the last state's.
-  assert.match(lz, /const ta = fieldTile\(cs, dark, FIELD_RS\[a\], !unseen\(\)\)/);
+  assert.match(lz, /const ta = (?:live\.)?fieldTile\(cs, dark, FIELD_RS\[a\], !unseen\(\)\)/);
   // And the dive's field follows the latest frame, not the model left from the last visit.
-  assert.match(lz, /const fieldState = \(\) => \{\s+const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
-  assert.match(lz, /fsM = lobuleStateInto\(fsBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
+  assert.match(lz, /const fieldState = \(\) => \{\s+const m = !unseen\(\) && (?:live\.)?model \? (?:live\.)?model : (?:live\.)?F \? closedModel\(\) : (?:live\.)?model;/);
+  assert.match(lz, /fsM = lobuleStateInto\(fsBuf, (?:live\.)?F, st, undefined, (?:live\.)?F\.Pf \|\| (?:live\.)?F\.P\);/);
 });
 
 test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glide stays smooth (Mohammad, 17 Oct)', async () => {
@@ -180,7 +180,7 @@ test('holding only the ductules, the lobule\'s overlay is not drawn again while 
 // each. The state carried the portal venule's ink, which the tissue bitmap never draws: the vessels are the GPU's, or the flat
 // strokes on the tissue canvas, keyed apart. A pressure gliding with the model moved it at each step.)
 test("the lobule's tissue bitmap is keyed only on what it paints: no vessel ink", () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const ws = lz.match(/const worldStateOf = [^\n]+/)[0];
   assert.doesNotMatch(ws, /ink/i);
   const i = lp.indexOf('export function paintLobule('), body = lp.slice(i, lp.indexOf('\n}\n', i));

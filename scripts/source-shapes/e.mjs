@@ -9,10 +9,10 @@ export default [
   ...['veins-gl.js', 'tube-pass.js', 'tube-geo.js'].map((f) => ({ file: `src/ui/${f}`, forbid: ['collateral-front', 'no shader and no renderer is touched by the collateral front'] })),
 
   // lobule-cut-vessels: the four end-on kinds (and only they) get the ring flag, the mouths and the ink; the lumen layer lays celDisc last
-  { file: 'src/ui/lobule-zoom.js', need: [/const endOn = t\.kind === 'cv' \|\| t\.kind === 'pv' \|\| t\.kind === 'ha' \|\| t\.kind === 'bd';/, 'the end-on kinds are the four cut-across vessels'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/\(endOn \? F_RING : 0\)/, 'F_RING is set on the end-on kinds only'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/if \(endOn\) \{[\s\S]*G\.mouths\.get\(t\.id\)[\s\S]*tubeData\[o \+ 16 \+ i\]/, 'the mouths go into the tube texel for the end-on kinds'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/akLook === lookSig/, 'a new look makes the attributes again (the ink follows the casing)'] },
+  { file: 'src/ui/lobule-zoom*', need: [/const endOn = t\.kind === 'cv' \|\| t\.kind === 'pv' \|\| t\.kind === 'ha' \|\| t\.kind === 'bd';/, 'the end-on kinds are the four cut-across vessels'] },
+  { file: 'src/ui/lobule-zoom*', need: [/\(endOn \? F_RING : 0\)/, 'F_RING is set on the end-on kinds only'] },
+  { file: 'src/ui/lobule-zoom*', need: [/if \(endOn\) \{[\s\S]*G\.mouths\.get\(t\.id\)[\s\S]*tubeData\[o \+ 16 \+ i\]/, 'the mouths go into the tube texel for the end-on kinds'] },
+  { file: 'src/ui/lobule-zoom*', need: [/akLook === lookSig/, 'a new look makes the attributes again (the ink follows the casing)'] },
   { file: 'src/ui/tube-lumen-glsl.js', need: [/col = celTones\([\s\S]*col = celDisc\([\s\S]*outColor = ditherOut\(/, 'the lumen layer lays celDisc after the tones and before the output'] },
   { file: 'src/ui/tube-lumen-glsl.js', need: [/ringOpen\(T\(id, 3\)\.xyz,/, 'celDisc takes the row\'s mouth mask'] },
   { file: 'src/ui/tube-lumen-glsl.js', need: [/T\(id, 4\)\.rgb/, 'celDisc takes the row\'s ink'] },

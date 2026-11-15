@@ -73,7 +73,7 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
   assert.equal(mod.lookOf, undefined);
   // The app asks for the streaks (main.js forces them; the lobule defaults to them).
   assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /blood\.look = 'shimmer';/);
-  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /blood\.look = b\.look \|\| 'shimmer'/);
+  assert.match(lobuleSource(), /blood\.look = b\.look \|\| 'shimmer'/);
 });
 
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
@@ -136,7 +136,7 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
   assert.match(glSrc, /uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
   assert.match(glSrc, /outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/);
   // Rows stay far below the bit (the anatomy's ~250, the lobule's 320).
-  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /const MAXT = 320;/);
+  assert.match(lobuleSource(), /const MAXT = 320;/);
   for (const k of Object.keys(R)) {
     const main = body(R[k], 'void main()');
     // Masked off before anything reads the row (the discard above it holds with or without the bit).
@@ -186,6 +186,7 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
 
 // ── Item 8: the blood's own pass draws the quarters of its cells a lumen can reach ──
 import { binVeins, CELL } from '../src/ui/veins-bin.js';
+import { lobuleSource } from './split-src.js';
 test('every point a lumen reaches lies in one of the blood quarters, and the quarters lie in the blood cells', () => {
   const N = 64;
   let seed = 7;

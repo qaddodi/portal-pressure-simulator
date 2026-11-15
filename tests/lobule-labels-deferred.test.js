@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
-const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const src = lobuleSource();
 const between = (a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
 
 test('the label layout, the ride and the captions\' frame write no class and read none from the page', () => {

@@ -8,6 +8,7 @@ import { retireRows, changedRows } from '../src/ui/flow-rows.js';
 import { createJunctionWidths } from '../src/ui/junction-widths.js';
 import { advanceStream } from '../src/ui/blood.js';
 import { COUNTED } from '../src/ui/gpu-probe.js';
+import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i) + 4); };
@@ -125,7 +126,7 @@ test('width step: junction widths reused, no per-node arrays or sorts; the sync 
 });
 
 test('Compare words on the dock tiles and the lobule label numbers are written only when they change', () => {
-  const dock = read('src/ui/dock.js'), lz = read('src/ui/lobule-zoom.js');
+  const dock = read('src/ui/dock.js'), lz = lobuleSource();
   // (2 Nov 2026: the words drawn on the GPU, gl-words.js, whose set() does nothing for the words it already shows; the colour class only on a change.)
   assert.match(dock, /if \(x\.cmpCls !== cc\)/);
   assert.match(dock, /else x\.cmpW\.set\(ct\);/);

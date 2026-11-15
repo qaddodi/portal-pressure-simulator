@@ -31,13 +31,13 @@ export default [
   { file: 'styles/app-*.css', need: [/:root:root \.pal\[data-gl\] \{ box-shadow: var\(--pal-veil\); \}/, 'the veil is kept when the GPU draws the glass'] },
 
   // --- view-key ---
-  { file: 'src/ui/lobule-zoom.js', need: [new RegExp(SIN_ASK + 'if \\(fade < 0\\.98 && sv\\.available && store\\.get\\(\\)\\.lobule\\) \\{ sinPending = true; return true; \\}'), 'bug (a): the stage keeps the sinusoid ask in the lobule while it fades in and returns true'] },
-  { file: 'src/ui/lobule-zoom.js', forbid: [new RegExp(SIN_ASK + 'store\\.set'), 'the ask writes no store field'] },
+  { file: 'src/ui/lobule-zoom*', need: [new RegExp(SIN_ASK + 'if \\(fade < 0\\.98 && sv\\.available && store\\.get\\(\\)\\.lobule\\) \\{ sinPending = true; return true; \\}'), 'bug (a): the stage keeps the sinusoid ask in the lobule while it fades in and returns true'] },
+  { file: 'src/ui/lobule-zoom*', forbid: [new RegExp(SIN_ASK + 'store\\.set'), 'the ask writes no store field'] },
   { file: 'src/ui/stage*', need: [/if \(!lz\?\.askSinusoid\(true\)\) setViewKey\('sinusoid'\);/, 'bug (a): the sinusoid is written once, at the landing'] },
   { file: 'src/ui/main.js', need: [/store\.get\(\)\.lobule \? stage\.askSinusoid\(\) : stage\.diveToSinusoid\(\)/, 'the view button asks, it does not write sinusoid: true'] },
   { file: 'src/ui/actions.js', need: [/run: \(\) => CTX\.askSinusoid\(\)/, 'bug (a): the sinusoid action asks, it does not write the store'] },
   { file: 'src/ui/main.js', forbid: [/store\.set\(\{ sinusoid: true \}\)/, 'bug (a): main.js never writes sinusoid: true directly'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/if \(quietSin \|\| \(!on && !store\.get\(\)\.lobule\)\) \{ sinTo = 0; cancelFrame\(sinRaf\); sinClock\.stop\(\); return; \}/, 'the lobule closing with the sinusoid open is quiet in one write as it was in two'] },
+  { file: 'src/ui/lobule-zoom*', need: [/if \(quietSin \|\| \(!on && !store\.get\(\)\.lobule\)\) \{ sinTo = 0; cancelFrame\(sinRaf\); sinClock\.stop\(\); return; \}/, 'the lobule closing with the sinusoid open is quiet in one write as it was in two'] },
   { file: 'src/ui/stage*', need: [/else if \(diveWait && morphTarget !== 0\) \{ diveWait = 0; diveGen\+\+; if \(store\.get\(\)\.lobule\) store\.setSoon\(LOBULE_OFF\); \}/, 'bug (b): a turn to the circuit during the dive paint wait ends the wait and the store stops saying lobule'] },
   { file: 'src/ui/stage*', need: [/live\.diveWait === gen && !live\.lobuleOn && live\.diveT === 0/, 'bug (b): the paint-ahead continuation re-checks diveWait === gen, so the called-off wait never dives'] },
   { file: 'src/ui/main.js', need: [/setViewKey\(b\.dataset\.view === 'circuit' \? 'circuit' : 'anatomy'\)/, 'the view buttons write the view through setViewKey'] },

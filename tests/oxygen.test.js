@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { oxygenSat, oxygenFor, SAT, LIVER_EXTRACTION } from '../src/ui/blood.js';
-import { presenterSource } from './split-src.js';
+import { presenterSource, lobuleSource } from './split-src.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -66,7 +66,7 @@ test('oxygen: a view in the Colored by menu, the legend, the lobule, the vessel 
   assert.match(main, /oxygen: 'Oxygen'/, 'the menu label');
   assert.match(main, /m === 'oxygen'/, 'its own legend');
   assert.match(stageSource(), /mode === 'oxygen'\) \{ c1 = oxygenColor\(oxy\[2 \* k\]\); c2 = oxygenColor\(oxy\[2 \* k \+ 1\]\)/, 'the figure colors each lumen end');
-  assert.match(src('src/ui/lobule-zoom.js'), /M === 'oxygen'/, 'the lobule colors its vessels');
+  assert.match(lobuleSource(), /M === 'oxygen'/, 'the lobule colors its vessels');
   assert.match(src('src/ui/lobule-model.js'), /m\.mode === 'oxygen'/);
   assert.match(src('src/ui/actions.js'), /lens === 'oxygen'/, 'the vessel card reads the saturation');
   const pres = presenterSource();
@@ -89,7 +89,7 @@ test('oxygen: its ramp runs blue to red and its pill colour is its own', () => {
 // Mohammad, 17 Oct: in the Oxygen lens the figure's labels read the oxygen saturation (% O₂), not pressure, from the same
 // saturation the lens colours by: the anatomy's station labels and the lobule's Portal venule, Sinusoids and Central vein.
 test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens colours by', () => {
-  const stage = stageSource(), lz = src('src/ui/lobule-zoom.js');
+  const stage = stageSource(), lz = lobuleSource();
   const runs = stage.slice(stage.indexOf('function layerRuns('), stage.indexOf('function shortenItem('));
   assert.match(runs, /lm !== 'oxygen'/, 'the oxygen lens has its own label runs');
   assert.match(runs, /oxygenFor\(EDGES, NODES, f\)\.node\[NI\[id\]\]/, 'anatomy labels read the station node\'s saturation');

@@ -29,9 +29,9 @@ export default [
   { file: 'styles/tokens.css', forbid: [/--endo-red-wale/, 'one token for the figure and the scope'] },
 
   // lobule-callout-leader-gap
-  { file: 'src/ui/lobule-zoom.js', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
-  { file: 'src/ui/lobule-zoom.js', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
+  { file: 'src/ui/lobule-zoom*', need: [/const le = leaderEnd\(ink, a\[0\], a\[1\]\);/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', need: [/setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/, 'lobule-zoom ends the pointer leader on the letters box grown by a gap'] },
+  { file: 'src/ui/lobule-zoom*', forbid: [/setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle'] },
 
   // menu-preview-one-card
   { file: 'src/ui/menu.js', need: [/for \(let i = olds\.length - 1; i >= 0; i--\)/, 'every card of words still in the preview leaves the flow at once, not only the first'] },

@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DIVE_RIM } from '../src/ui/lobule-render-cache.js';
+import { lobuleSource } from './split-src.js';
 
-const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lz = lobuleSource();
 const lp = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');   // (the tissue's painting)
 // A over B for premultiplied pixels.
 const over = (a, b) => a.map((x, i) => x + (1 - a[3]) * b[i]);

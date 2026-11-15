@@ -4,6 +4,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const main = src('main.js');
@@ -74,7 +75,7 @@ test('Lobule rec 6 (6 Nov 2026): a calm lobule draws its blood-only frames at 30
   assert.equal(f.calmFlowGapFor(), 0, 'Motion at 60 off lifts the cap');
   delete globalThis.localStorage;
   // The lobule's loop takes it only once calm: anything moving, a hand included, resets calmAt and the gap is the glide's.
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   assert.match(lz, /const pace = calmNow \? Math\.max\(paceMs\(\), calmFlowGapFor\(cheap\), restGapFor\(now, calmAt\)\) : paceMs\(\)/);
   assert.match(lz, /cheap = calmNow && gl\?\.tubeStage\?\.\(\) === 3/);
   assert.match(lz, /handOn\(\) \|\| fade < 0\.98[^\n]*\) calmAt = now;/);
@@ -143,7 +144,7 @@ test('Credit check in talks: off, Present looks every second as before; on, only
 test('Lymph is dashes the vessel composite lays from flow rows: no drops, beads or eraser are built on the CPU or drawn by the overlay', () => {
   // (6 Nov 2026, "dashes in the channel": the drops, their beads and the eraser that cut them away under the blood were ~16k instanced capsules
   // and two full-screen passes a frame for a drift of ~10 px/s. The overlay keeps only the collagen lining, which does not move.)
-  const lz = src('lobule-zoom.js');
+  const lz = lobuleSource();
   const fx = lz.slice(lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {'), lz.indexOf('\n  }\n', lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {')));
   assert.doesNotMatch(lz, /lyDrops|lyPut|fxGLErase|fxDI|fxBI/);
   assert.match(fx, /lymph\.drops = fxNone; lymph\.beadRings = fxNone; lymph\.erase = fxNone;/, 'nothing but the lining goes to the overlay');
@@ -166,7 +167,7 @@ test('H7: the credit looks again in a talk only when the layout may have changed
 });
 
 test('the lymph rows are written in place once a frame, and the overlay buffers still grow only when outgrown', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
   assert.match(lz, /mo\.ld = \(\(\(\(mo\.ld \?\? t\.id \* 0\.371 \* pitch\)/, 'the dashes\' phase kept in the tube\'s motion record');
   assert.match(lz, /flowData\[o\+ 4\] = -1|flowData\[o \+ 4\] = -1/, 'a lymph row is marked f1.x = -1');

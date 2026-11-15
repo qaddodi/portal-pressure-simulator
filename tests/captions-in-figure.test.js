@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
+import { lobuleSource } from './split-src.js';
 
 const dom = new JSDOM('<!doctype html><body></body>');
 globalThis.window = dom.window; globalThis.document = dom.window.document;
@@ -125,7 +126,7 @@ test('a lost host context shows as the drawer\'s: not active', () => {
 });
 
 test('the owners attach the captions to the figure, below the glass, and detach them with it', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const lz = lobuleSource();
   const sv = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
   assert.match(lz, /createCaptions\(labels, \{ deferred: true \}\)/);
   assert.match(lz, /cap\.attach\(\{ top: fig, order: LZ_UNDER_GLASS \+ 2,/);

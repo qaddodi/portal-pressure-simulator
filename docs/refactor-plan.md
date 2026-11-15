@@ -13,7 +13,7 @@ off the GPU.
 | UI modules (`src/ui/*.js`) | 314 files, about 96,500 lines | 456 files, about 120,000 lines |
 | `stage.js` | 15,286 lines in one closure | 3,368 lines, plus 47 `stage-*.js` modules |
 | `presenter.js` | 6,328 | 6,623 (with `presenter-tools.js`, `presenter-view*.js`, `presenter-visuals.js` beside it) |
-| `lobule-zoom.js`, `veins-gl.js` | 4,909 and 4,207 | 5,378 and 5,461 |
+| `lobule-zoom.js`, `veins-gl.js` | 4,909 and 4,207 | 5,378 and 5,461  (15 Nov 2026, B5: `lobule-zoom.js` 5,328 to 3,347, with `lobule-zoom-{field,records,labels}.js` beside it) |
 | `main.js` | about 2,500 | 2,457 |
 | `styles/app.css` | one 7,600-line file | 7,608 lines, with `tokens.css`, `icons.css`, `path.css`, `scope-card.css` split out |
 | `alloc-rare` annotations | 2,472 | 2,732 |

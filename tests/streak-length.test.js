@@ -6,6 +6,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { lobuleSource } from './split-src.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -20,7 +21,7 @@ const { COMP_FS } = await import('../src/ui/veins-gl.js');
 const { displaySpeed } = await import('../src/ui/blood.js');
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 const stage = stageSource();
-const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+const lobule = lobuleSource();
 
 // The shader's own preprocessor, as far as the composite uses it (as blood-shading-fast.test.js).
 function resolve(src) {
@@ -58,7 +59,7 @@ const factor = (vd, stasis = 0) => { const k = Math.min(1.6, Math.max(0.6, Math.
 
 test('the figure alone asks for it (the lobule draws as before)', () => {
   assert.match(stage, /originA: 0, streakLen: true, clock: 0,/);
-  assert.match(stage, /L\.clock = (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?bloodClock;/);
+  assert.match(stage, /L\.clock = (?:live\.)?(?:live\.)?bloodClock;/);
   assert.match(gl, /uniform int lenOn;/);
   assert.match(gl, /UC\.i1\(U\.lenOn, blood\.streakLen \? 1 : 0\);/);
   // (Changing it draws the picture again: it is in the still-lumen signature with the other blood switches.)
