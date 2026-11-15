@@ -79,7 +79,9 @@ test('every preset\'s summary and note agree with its settled readings', () => {
 test('the checker itself fails the old wording (review 15 Nov)', () => {
   const dec = settled('cirr-decomp'), comp = settled('cirr-comp'), healthy = settled('healthy'), pvt = settled('pvt-acute');
   assert.ok(check('HVPG ≥16 mmHg, large varices', dec, 'cirr-decomp').length > 0, 'HVPG ≥16 over a tile that reads 15.7');
-  assert.ok(check('HVPG 6 to 9 mmHg', comp, 'cirr-comp').length > 0, '6 to 9 over 5.8');
+  // (The old words were 6 to 9 over a tile the breath took to 5.8; since the readings are the breath's mean (15 Nov 2026, engine shownMean)
+  // the tile reads 6.1 to 6.2, so the checker is shown a range the tile is outside.)
+  assert.ok(check('HVPG 7 to 9 mmHg', comp, 'cirr-comp').length > 0, `7 to 9 over ${comp.lo.hvpg} to ${comp.hi.hvpg}`);
   assert.ok(check('HVPG ≈ 3 mmHg', healthy, 'healthy').length > 0, 'about 3 over 2.1 to 2.5 with the breath');
   assert.ok(check('Mesenteric congestion; no collaterals yet', pvt, 'pvt-acute').length > 0, 'no collaterals over a large shunt');
 });
