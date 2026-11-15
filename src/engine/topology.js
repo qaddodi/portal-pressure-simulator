@@ -12,6 +12,9 @@
 //   gas  – abdominal + gastric lumen (balloon)
 //   none – not affected
 
+/** A node of the network: id, label, resting pressure (mmHg), compliance, what presses on it from outside ('none', 'abd', 'thor', 'gas', 'eso', 'hep' ...) and its kind. */
+/** @typedef {{ id: string, label: string, P: number, C: number, ext: string, kind: string }} NetNode */
+/** @type {NetNode[]} */
 export const NODES = [
   // id, label, P, C, ext, kind
   ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],   // (arterial compliance, physiology.js ARTERY)
@@ -64,7 +67,7 @@ export const NODES = [
   ['KID_R', 'Right kidney', 14, 1, 'abd', 'bed'],
   ['LRV', 'Left renal vein', 6.0, 1, 'abd', 'vein'],
   ['RRV', 'Right renal vein', 6.0, 1, 'abd', 'vein'],
-].map(([id, label, P, C, ext, kind]) => ({ id, label, P, C, ext, kind }));
+].map((/** @type {[string, string, number, number, string, string]} */ [id, label, P, C, ext, kind]) => ({ id, label, P, C, ext, kind }));
 
 // Edge kinds:
 //   arteriole – fixed-geometry resistance with vasomotor tone (group)
@@ -77,6 +80,10 @@ export const NODES = [
 //   diode     – valved vein
 //
 // d = nominal diameter (mm) for velocity & drawing; Q = target baseline flow (mL/s).
+/** @typedef {{ id: string, from: string, to: string, kind: string, label?: string, Q?: number, tone?: string, d?: number, vd?: number, lobar?: string, R?: number, lobe?: string,
+ *   zone?: string, G?: number, role?: string, w?: string, route?: [string, string], dMax?: number, Ropen?: number, dMinRatio?: number, code?: string, open?: number,
+ *   variant?: boolean, spontaneous?: boolean, systemic?: boolean, shunt?: string, len?: number, portal?: boolean }} NetEdge */
+/** @type {NetEdge[]} */
 export const EDGES = [
   // Arterial supply
   { id: 'A_SMA', from: 'AO', to: 'INT', Q: 10.0, kind: 'arteriole', tone: 'splanchnic', d: 7, label: 'Superior mesenteric artery' },

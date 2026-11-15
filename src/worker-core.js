@@ -13,7 +13,7 @@ const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', '
 
 // A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
-  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameterShown(ed.id)), copy: true,
+  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (/** @type {{ id: string }} */ ed) => e.diameterShown(ed.id)), copy: true,
   params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
@@ -324,7 +324,7 @@ export function createCore(post) {
   let still = null;
   const HEARTBEAT_MS = 1000;
   const NEAR_P = [0.05, 0], NEAR_Q = [0.01, 0.01], NEAR_D = [1e-3, 0.005];
-  const near = (a, b, [abs, rel]) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > abs + rel * Math.abs(b[i])) return false; return true; };
+  const near = (a, b, /** @type {number[]} */ tol) => { const [abs, rel] = tol; if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > abs + rel * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
   // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
   function keepStill() {

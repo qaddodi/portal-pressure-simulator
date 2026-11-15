@@ -40,9 +40,8 @@ jobs:
         env:
           BUILD_STRICT: '1'   # (the size budget fails here; on the preview it only warns)
         run: npm run lint
-      - name: 'Types (advisory: the allow-list in jsconfig.json, PR-11)'
+      - name: 'Types (the allow-list in jsconfig.json; clean since 15 Nov 2026, so a new diagnostic fails here)'
         run: npm run typecheck
-        continue-on-error: true
       - name: Static checks (conflict markers; the app and the worker bundle)
         if: success() || failure()
         run: npm run check:static

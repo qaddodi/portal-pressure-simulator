@@ -15,6 +15,10 @@ const COLLATERAL_NAMES = {
 const Qf = (eng, id) => (eng.Qf ? eng.Qf[eng.ei[id]] : eng.Q[eng.ei[id]]);
 const occ = (eng, id) => eng.occlusion(id) >= 0.99;
 const caudRef = (eng) => (eng.refQ ? eng.refQ[eng.ei.CAUD] : 0.8);
+/** One event: when it starts (on) and ends (off) from the metrics, the engine and the splanchnic inflow ratio, and what it says. */
+/** @typedef {(m: any, e: any, splIn?: number) => boolean} EventTest */
+/** @typedef {{ id: string, on: EventTest, off: EventTest, severity: string, anchor: string, title: string, detail: string | null, coll?: any }} EventDef */
+/** @type {EventDef[]} */
 const DEFS = [
   { id: 'HEPATOFUGAL_PV', on: (m, e) => Qf(e, 'PV_TRUNK') < -0.3 && !occ(e, 'PV_TRUNK'), off: (m, e) => Qf(e, 'PV_TRUNK') > 0, severity: 'danger', anchor: 'PV_TRUNK',
     title: 'Hepatofugal flow in the portal vein', detail: 'Blood now leaves the liver through the portal vein toward the collaterals.' },
