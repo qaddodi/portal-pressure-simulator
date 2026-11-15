@@ -10,6 +10,7 @@ import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
 import { cathFadeAlpha } from './hvpg-clock.js';
+import { planStack } from './cath-leads.js';
 import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { procSpecs } from './proc-routes.js';
@@ -541,6 +542,8 @@ export function createCath(st, live) {
   const cathPreQ = [], cathTravelQ = [], cathPt = [0, 0], cathSideDef = { above: true, dx: 0 }, cathFrom = { tip: null, ahead: null };
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
+  const cathLP = [[0, 0], [0, 0]];   // (the two readings' points, by reading, for the stack's plan)
+  const cathLeadPts = (A, l) => { const a = A[l.rows[0].at], b = A[l.rows[1].at]; cathLP[0][0] = a[0]; cathLP[0][1] = a[1]; cathLP[1][0] = b[0]; cathLP[1][1] = b[1]; return cathLP; };
   const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, off: 0, blockers: NO_LIST, keep: cathKeep };
   const CATH_MID = { x: 0, y: 0 };
   function cathSumMid(ps) {
@@ -709,16 +712,7 @@ export function createCath(st, live) {
       cathFill(el._calc, l.calc);
       const A = cathA;
       { const pt = cathPinAt(at, 'tip'), pa = cathPinAt(at, 'ahead'); worldToLocalInto(A.tip, pt[0], pt[1]); worldToLocalInto(A.ahead, pa[0], pa[1]); }
-      // The stack follows its points (Mohammad, 13 Nov 2026: "the call out that's closer to whatever it's calling out goes below"): the reading whose
-      // point stands lower on the stage is the lower row, whatever the order the readings were made in (the wedged is below the free where the vein
-      // runs on down past the tip), so the leaders never cross each other. A near tie keeps the last order, so a reading never swaps back and forth.
-      // (Written as a class on the box, which the size key below reads: the rows' places are measured again after it changes.)
       const top = Math.max(70, sp.t + 6), off = 16;
-      if (rows.length === 2) {
-        const dy = A[l.rows[0].at][1] - A[l.rows[1].at][1];
-        const swap = dy > 4 ? true : dy < -4 ? false : box._swap === true;
-        if (box._swap !== swap) { box._swap = swap; box.classList.toggle('swap', swap); }
-      }
       // A short free band (a phone's, between the ladder card and the teaching card) takes the readings on one line each, so the stack fits beside the vein.
       const tight = !l.mid && lim - top < 300;
       if (box._tight !== tight) { box._tight = tight; box.classList.toggle('tight', tight); }
@@ -751,23 +745,20 @@ export function createCath(st, live) {
       if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }
       const sb = cathSumBoxes[cathSumN++ & 3];
       sb.x0 = x; sb.y0 = y; sb.x1 = x + bw; sb.y1 = y + bh; el._box = sb;
+      // The order of the two rows, chosen now that the place is known (cath-leads.js: the order that follows the points, unless its leaders cross
+      // and the other order's do not). It is written as a class on the box; the rows are measured again after it changes, and the plan below
+      // works from the rows' sizes, so it is the same on that frame as on the next.
+      const pl = planStack(cathLeadPts(A, l), R, x, y, bw, bh, box._swap, !!l.mid);
+      if (box._swap !== pl.swap) { box._swap = pl.swap; box.classList.toggle('swap', pl.swap); }
       // The bracket, from the middle of one reading to the middle of the other.
       const brace = box.querySelector('.cath-brace'), path = box.querySelector('.cath-brace path');
-      const m0 = R[0][1] + R[0][3] / 2, m1 = R[1][1] + R[1][3] / 2, ys0 = Math.min(m0, m1), ys1 = Math.max(m0, m1);   // (the rows may be swapped: top to bottom)
+      const ys0 = pl.m0, ys1 = pl.m1;
       if (brace._h !== bh) { brace._h = bh; brace.setAttribute('height', bh); }   // (written only when its numbers moved)
       if (path._y0 !== ys0 || path._y1 !== ys1) { path._y0 = ys0; path._y1 = ys1; path.setAttribute('d', `M2 ${ys0} H9 V${ys1} H2 M9 ${(ys0 + ys1) / 2} H20`); }
-      // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
-      // from its edge; the other leaves from its outer side and runs down (or up) beside the stack.
+      // Leaders: from each reading to its point on the vein, as planned (cath-leads.js: nothing crosses).
       const svg = el.querySelector('.cath-leads');
       if (svg._w !== W) { svg._w = W; svg.setAttribute('width', W); }
       if (svg._hh !== H) { svg._hh = H; svg.setAttribute('height', H); }
-      // (The rows' places, top to bottom: the first and the last row on the stack, whichever readings they are.)
-      let rTop = 0, rBot = 0;
-      for (let j = 1; j < rows.length; j++) { if (R[j][1] < R[rTop][1]) rTop = j; if (R[j][1] > R[rBot][1]) rBot = j; }
-      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rBot : rTop;
-      const c0 = R[rTop], c1 = R[rBot], colTop = y + c0[1], colBot = y + c1[1] + c1[3];
-      // The stack stands right of its points (the placer's short side): each row's own leader runs straight out of its left edge, short, crossing nothing.
-      const beside = !l.mid && x >= Math.max(A.tip[0], A.ahead[0]) + 4;
       // Updated in place (a path and a dot per reading), rebuilt only when the readings change.
       // (Made between frames, never in the frame that finds the readings changed (2 Nov 2026, "Move everything to GPU"): the leaders are
       // drawn from the next frame, which the build asks for.)
@@ -776,15 +767,9 @@ export function createCath(st, live) {
         if (!svg._kAsk) { cathLeadQ.push(svg); svg._kAsk = restPass(cathLeadRun); }
       }
       if (svg._k?.length === rows.length * 2) for (let j = 0; j < rows.length; j++) {
-        const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1];
-        const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
-        let d;
-        // (Midway between its points, l.mid: the top reading's leader leaves its top edge, the bottom one's its bottom edge, each straight
-        // to its own point, so they never cross: EUS-PPG's HV above, PV below.)
-        if (l.mid) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(j === 0 ? ry0 : ry1).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else if (beside) d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
-        else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
+        const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1], Lj = pl.lead[j];
+        let d = `M${Lj[0].toFixed(1)} ${Lj[1].toFixed(1)}`;
+        for (let k = 2; k < pl.n[j] * 2; k += 2) d += ` L${Lj[k].toFixed(1)} ${Lj[k + 1].toFixed(1)}`;
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
         if (lead._cls !== cls) { lead._cls = cls; lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }
         lead.setAttribute('d', d);
