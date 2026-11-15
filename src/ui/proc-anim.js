@@ -10,7 +10,7 @@
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
 import { COIL_B } from './proc-routes.js';
-import { easeMove, createReversible } from './motion.js';
+import { easeMove, createReversible, reduced } from './motion.js';
 import { NODES } from '../engine/topology.js';
 import { hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
 import { tenthGap } from '../engine/gap.js';
@@ -815,7 +815,11 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (t >= T.end) { finish(false); return; }
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
-    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : rushing ? 1 / RUSH_SPEED : 1); t = clock.step(dt); holdT = 0; }
+    if (!still && t !== goal) {
+      // (Reduced motion, review PROC-7: the catheter's way in and out is content but not worth seconds of crawl, so the travel legs run at the rush speed; the work steps (needle, balloon, fill) keep their own pace.)
+      const way = f.shot === 'way' && reduced() ? 1 / RUSH_SPEED : 1;
+      clock.aim(goal, (goal < t ? 1 / BACK_SPEED : rushing ? 1 / RUSH_SPEED : 1) * way); t = clock.step(dt); holdT = 0;
+    }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = stopAt(at); holdT = 0; } }
     else if (!still && !stepped && P.parkMs && goal < T.end) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { goal = T.end; holdT = 0; } }   // (autoplay: the scope parked at its last stop is shown for a hold, then fades out and the run ends; a presentation waits there for the slide to move on)
     // (Held at its last stop with the catheter in: the reading that goes on from here is asked for once, when this stop is reached and the camera has landed.)

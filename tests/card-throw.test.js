@@ -54,7 +54,8 @@ test('the rail\'s curve and spacing; no held copies: every card leaves on the ta
   const ct = await import('../src/ui/card-throw.js');
   assert.equal(ct.RAIL_MS, 560);
   assert.equal(ct.RAIL_GAP, 24);
-  assert.match(src, /const easeRail = cubicBezier\(0\.32, 0\.72, 0, 1\);/);
+  assert.match(src, /const e = easeArrive\(k\)/, 'the rail rides the arrive token (ANI-1)');
+  assert.doesNotMatch(src, /cubicBezier\(/, 'no curve of its own');
   assert.doesNotMatch(src, /INSTANT|railable|railIn|railHold|railWaits|railGhosts|railCopies|railAway/, 'the switch and its no-op stubs are gone');
 });
 

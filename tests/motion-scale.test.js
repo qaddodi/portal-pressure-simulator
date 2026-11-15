@@ -213,7 +213,7 @@ test('the sources: curves and durations of an animation come from ease.js (D_FLI
     read(rel).split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
       if (line.includes('motion-scale: own pace')) return;
-      if (/cubic-bezier\(/.test(code)) bad.push(`${rel}:${i + 1}: a curve written by hand`);
+      if (/cubic-bezier\(/.test(code) || /\bcubicBezier\(\s*-?[\d.]/.test(code)) bad.push(`${rel}:${i + 1}: a curve written by hand`);   // (ANI-1: the JS form too)
       if (/\beasing:\s*['"`]/.test(code)) bad.push(`${rel}:${i + 1}: an easing string`);
       if (/\bduration:\s*\d{2,}\b/.test(code)) bad.push(`${rel}:${i + 1}: a duration in milliseconds`);
       if (/style\.transition\s*=\s*[`'"][^'"`]*\b\d*\.?\d+m?s\b/.test(code) && !/\$\{D_/.test(code)) bad.push(`${rel}:${i + 1}: an inline transition with its own time`);

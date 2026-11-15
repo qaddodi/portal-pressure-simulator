@@ -419,3 +419,23 @@ test("a step's callout comes only once its step has happened", () => {
   const st = stageSource();
   assert.match(st, /const av = m\.pin \? pinAvoid\(m\.edges\[0\]\) : undefined;/);
 });
+
+// Review PROC-7 (15 Nov 2026): under reduced motion the catheter's way in is not crawled at the full leg time; its work steps keep their pace.
+test('reduced motion: the way in to the first stop takes a fraction of the time, and the stop is still reached', async () => {
+  const { reduceMotionMQ } = await import('../src/ui/motion.js');
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame }, was = reduceMotionMQ.matches;
+  try {
+    const arrive = (reduce) => {
+      reduceMotionMQ.matches = reduce;
+      const R = rig();
+      const play = playProcedure(R.stage, 'brto', { stepped: true });
+      let waited = 0;
+      while (!R.idle() || waited < 200) { R.run(50); waited += 50; if (waited > 40000) break; }
+      assert.equal(play.at, 0); assert.ok(R.idle(), `held at the first stop (reduce ${reduce})`);
+      play.stop();
+      return waited;
+    };
+    const full = arrive(false), quick = arrive(true);
+    assert.ok(quick * 2 < full, `reduced ${quick} ms against ${full} ms`);
+  } finally { reduceMotionMQ.matches = was; Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});

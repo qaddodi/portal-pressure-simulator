@@ -85,7 +85,7 @@ import { shownState as pageShown } from './shown.js';
 import { createTileShown, tileSmall } from './tile-shown.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, throwFade, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, throwFade, RAIL_GAP, RAIL_MS } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto, stageBox } from './layout-snap.js';
 import { caught } from './caught.js';
 import { fontGen, onFontsLoaded } from './font-arrival.js';
@@ -2092,8 +2092,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const dist = Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP);
     glideStop(c); c.style.removeProperty('transition'); c.style.removeProperty('transform');
     // (The card and its glass read these same frame-clock values, card-throw.js's way: they never part.)
-    glideTranslate(c, x, y, x - dist, y, RAIL_MS, easeRail);
-    glideOpacity(c, Number.isFinite(o) ? o : 1, 0, Math.round(RAIL_MS * 0.5), easeRail);
+    glideTranslate(c, x, y, x - dist, y, RAIL_MS, easeArrive);
+    glideOpacity(c, Number.isFinite(o) ? o : 1, 0, Math.round(RAIL_MS * 0.5), easeArrive);
     return RAIL_MS;
   }
   // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.

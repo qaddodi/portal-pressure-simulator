@@ -3,7 +3,7 @@
 import { gastricUp } from '../engine/scenario.js';
 import { BALLOON, BALLOON_MS, balloonShape, esoAt, smoothPath } from './balloon-eso.js';
 import { GAS, gasShape, pathAt, pullArrow, sheath, sheathArcs, tubePath, tubeTip, tubeTo } from './balloon-gas.js';
-import { easeMove } from './motion.js';
+import { easeMove, reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { s } from './util.js';
 
@@ -26,6 +26,16 @@ export function createBalloon(st, live) {
     const wantEso = !!p.balloonEso && anat, wantGas = gastricUp(p) && anat;
     if (wantGas !== bal.wantGas || wantEso !== bal.wantEso) { bal.wantGas = wantGas; bal.wantEso = wantEso; bal.dirty = true; }
     const was0 = bal.adv, was1 = bal.gas, was2 = bal.eso, out = dt / 0.6;   // (out quicker than in)
+    if (reduceMotion.matches) {
+      // (Reduced motion, review PROC-6: no sliding tube or swelling balloons. The goal state is drawn at once, in one step.)
+      bal.adv = wantGas ? 1 : 0; bal.gas = wantGas ? 1 : 0;
+      if (!wantEso) bal.eso = 0; else if (wantGas) bal.eso = 1;
+      if (bal.adv !== was0 || bal.gas !== was1 || bal.eso !== was2) bal.dirty = true;
+      bal.anat = anat;
+      live.balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
+      if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
+      return;
+    }
     if (wantEso) { if (bal.gas >= 1) bal.eso = Math.min(1, bal.eso + dt / BAL_ESO_MS); }
     else bal.eso = Math.max(0, bal.eso - out / BAL_ESO_MS * 1.5);
     if (wantGas) { if (bal.adv >= 1) bal.gas = Math.min(1, bal.gas + dt / BAL_INF_MS); }

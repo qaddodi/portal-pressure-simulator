@@ -94,7 +94,7 @@ test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s c
   // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
   assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
   assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +read('../src/ui/motion.js').match(/RISE_MS = (\d+)/)[1] / 2);
-  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-arrive: (cubic-bezier\([^)]*\))/)[1]);
+  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-move: (cubic-bezier\([^)]*\))/)[1]);   // (ANI-2: the move curve, as the top bar's displaced items)
   assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
   assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);

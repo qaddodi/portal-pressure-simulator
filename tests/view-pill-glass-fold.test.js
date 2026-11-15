@@ -45,7 +45,7 @@ test('morphFor: a read made part way through carries the same change on, never s
 
 test('the pill\'s fold hands a GPU-drawn face to the glass and keeps the CSS halves for a face the page draws', () => {
   const pm = read('../src/ui/pill-motion.js');
-  assert.match(pm, /morphEnd = morphGlass\(face, ms\);/);
+  assert.match(pm, /morphEnd = morphGlass\(face, ms, true\);/, 'on the move curve, as the buttons and the highlight (ANI-2)');
   assert.match(pm, /if \(!morphEnd\) \{\s*const sp = splitFace\(face,/, 'a face the page draws (no WebGL2, Blur effect off) keeps the halves');
   assert.equal(pm.match(/splitFace\(/g).length, 1, 'one call only, on the fallback: no second route that hides the face');
   // The mark is never left on: any end of a fold takes it off (it would ease every later layout move of the pill, trailing its words).

@@ -7,7 +7,7 @@
 // (Next pressed mid-entrance, a swipe let go): its next move starts from there, never from a jump.
 
 import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
-import { cubicBezier } from './ease.js';
+import { easeArrive } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
@@ -22,8 +22,7 @@ const nextFrame = frameFor('card-throw');
 // rail's curve.)
 // (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
-export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards)
-export const easeRail = cubicBezier(0.32, 0.72, 0, 1);
+export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards); its curve is easeArrive, the token every card arrival uses (review ANI-1: no fourth curve)
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
  *  whole by 40 % of its way. */
@@ -31,7 +30,7 @@ export function throwAt(kind, k, from, to) { return throwInto({ x: 0, o: 0 }, ki
 /** The same, written into out ({x, o}) in place: what the frame uses, so a moving card costs no object a frame. */
 export function throwInto(out, kind, k, from, to) {
   k = k <= 0 ? 0 : k >= 1 ? 1 : k;
-  const e = easeRail(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
+  const e = easeArrive(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
   out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
   return out;
 }

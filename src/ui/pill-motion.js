@@ -11,14 +11,14 @@
 // and one fold taking over from another starts from wherever the buttons and the face are drawn at that moment.
 
 // (The glide rides the camera's curve, the quintic of ease.js, and its CSS copy is --ease-move: one curve for a move, premium-feel R3.)
-import { easeMove, D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { easeMove, D_SURFACE, EASE_MOVE } from './ease.js';
 import { readStyle } from './layout-snap.js';
 import { splitFace } from './face-split.js';
 import { morphGlass } from './glass-morph.js';
 export const easeIO3 = easeMove;
 // The fold is quicker than the zoom it plays in (17 Oct, Mohammad: "should be faster and eased"), on the app's own ease
 // (tokens.css --ease: quick off the mark, settling gently), so the buttons have folded well before the pill lands.
-export const FOLD_MS = D_SURFACE, FOLD_EASE = EASE_ARRIVE;
+export const FOLD_MS = D_SURFACE, FOLD_EASE = EASE_MOVE;   // (15 Nov 2026, review ANI-2: the pill's buttons are displaced items like the top bar's, which travel on the move curve beside it; the face, the buttons and the highlight share it, so a label never drifts off its plate)
 
 /**
  * The fold, worked out. before / after: the buttons drawn then and at rest, each { key, l, r, o } (left and right edges in the
@@ -137,13 +137,13 @@ export function foldPill(seg, box, before, ms = FOLD_MS) {
   const plan = foldPlan(before.btns, after.btns, order);
   const moves = Math.abs(before.w - after.w) > 0.5 || [...plan.values()].some((p) => p.kind !== 'stay' || Math.abs(p.dx0) > 0.5 || p.o0 < 0.99);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   if (!moves) return;
-  folding = seg; seg.classList.add('vp-fold');   // (app.css gives the highlight --d-surface on --ease-arrive: FOLD_MS, FOLD_EASE)
+  folding = seg; seg.classList.add('vp-fold');   // (app.css gives the highlight --d-surface on --ease-move: FOLD_MS, FOLD_EASE)
   foldTimer = setTimeout(unmark, ms + 60);
   const opt = { duration: ms, easing: FOLD_EASE }, keep = (a) => { running.add(a); a.onfinish = a.oncancel = () => running.delete(a); return a; };   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
   // (The face's width eased on the compositor: two halves that only translate, face-split.js. The face is centred in the pill: its
   // edges are the pill's centre ± half its width. A face narrower than its two corners takes the new width at once: the pill never is.)
   const face = box.querySelector(':scope > .vp-face'), cx = box.clientWidth / 2;
-  morphEnd = morphGlass(face, ms);   // (the GPU draws this glass: it plays the change of size itself, see above; nothing of the page's is hidden or copied)
+  morphEnd = morphGlass(face, ms, true);   // (the GPU draws this glass: it plays the change of size itself, see above; nothing of the page's is hidden or copied)
   if (!morphEnd) {
     const sp = splitFace(face, { a0: cx - before.w / 2, b0: cx + before.w / 2, a1: cx - after.w / 2, b1: cx + after.w / 2 }, opt);   // alloc-rare: once per change of the view pill's buttons (a tap), not per frame: reads the pill, builds the fold's animations and the ghost of a going button
     if (sp) keep(sp);
