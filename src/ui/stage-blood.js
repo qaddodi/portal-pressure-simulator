@@ -451,6 +451,10 @@ export function createBlood(st, live) {
     // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
     // review, B4). The chevrons also stand aside while the figure changes between Anatomy and Circuit and come back as it lands (Mohammad,
     // 13 Nov 2026, "do 2"): a vessel sliding against its own flow carried its arrows backward on the screen.
+    // (The chevrons' rule, owner's calls of 13 to 15 Nov 2026: heads move with the flow at constant speed and never vanish, except (1) fading out and in across the
+    // Anatomy to Circuit change (live.morph, below), (2) hidden under a catheter, all of them while one is in (cath.st: Q7, yes), (3) hidden inside a figure reading's
+    // box and round a callout's dot (stage-label-solve.js noChevBoxes, chevHoles: Q7, yes), (4) none on a very thin vessel (blood-heads.js THIN_LO). A vessel
+    // whose blood stands shows a dimmed standing head, not none (blood-heads.js STILL_A).)
     const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st && live.morph === live.morphTarget ? 1 : 0, tO = originOn() ? 1 : 0;
     blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
     blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);

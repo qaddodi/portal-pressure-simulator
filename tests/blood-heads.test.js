@@ -13,7 +13,7 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { createHeadList, headKeep, headLevel, headVS, P_MIN } = await import('../src/ui/blood-heads.js');
+const { createHeadList, headKeep, headLevel, headVS, P_MIN, STILL_A, THIN_LO, THIN_HI } = await import('../src/ui/blood-heads.js');
 const { CHEV_PITCH } = await import('../src/ui/chevron-glsl.js');
 const { COMP_FS, FLOW_TEXELS, TUBE_TEXELS } = await import('../src/ui/veins-gl.js');
 
@@ -91,9 +91,10 @@ test('the quads keep the shape and fades chevOne has, and space the heads by the
     assert.ok(chevOne.includes(e), `chevOne: ${e}`);
     assert.ok(vs.includes(e), `quads: ${e}`);
   }
-  const fadeRe = /float fade = smoothstep\(0\.5, 3\.0, abs\(vd\)\) \* f1\.z \* texelFetch\(flow, ivec2\(3, id\), 0\)\.x \* keep \* endF \* smoothstep\(1\.3 \* pxW, 2\.4 \* pxW, R\);/;
-  assert.match(vs, fadeRe);
-  assert.match(chevOne, fadeRe);
+  // (The composite's own heads keep the old fade, for the frames that have no quads; the quads' differs on purpose: a standing head, dimmed, and none on a very thin vessel.)
+  assert.match(chevOne, /float fade = smoothstep\(0\.5, 3\.0, abs\(vd\)\) \* f1\.z \* texelFetch\(flow, ivec2\(3, id\), 0\)\.x \* keep \* endF \* smoothstep\(1\.3 \* pxW, 2\.4 \* pxW, R\);/);
+  assert.match(vs, /float fade = mix\(STILL_A, 1\.0, smoothstep\(0\.5, 3\.0, abs\(vd\)\)\) \* f1\.z \* texelFetch\(flow, ivec2\(3, id\), 0\)\.x \* keep \* endF \* smoothstep\(THIN_LO \* cssPx \* pxW, THIN_HI \* cssPx \* pxW, R\);/);
+  assert.match(vs, /if \(R < THIN_LO \* cssPx \* pxW\) return;/);
   // (The spacing: one CHEV_PITCH on screen, from the run's B, with no caliber in it; one run per vessel, handed over by headRuns.)
   for (const e of ['vec2 chevLevel(', 'float chevKeep(', `${CHEV_PITCH}.0 * cssPx * pxW`, 'chevLevel(pxW, cssPx, B, stillLv)', 'chevKeep(j, n0, lvAt)',
     'if (root != (cw > 0.0)) return;', 'texelFetch(axis, ivec2(N_LAST + 1, id), 0)']) assert.ok(vs.includes(e), `quads: ${e}`);
@@ -128,4 +129,15 @@ test('the quads colour their heads: forward black on a light lumen and cream on 
   assert.ok(inks.includes('rim = mix(vec3(0.2314, 0.1725, 0.1333), chevLight, dark);'), 'sepia on a light lumen, cream on a dark one');
   assert.equal(vs.split('void chevInks(').length, 2, 'one chevInks in the heads\' shader');
   assert.ok(full.includes('vec3 ink = mix(chevInk, vc * 0.3, 0.2);'), 'the composite keeps its own inks');
+});
+
+// F16 and the thin-vessel rule (15 Nov 2026): a standing head is dimmed, not gone, and points the way the flow goes; a very thin vessel has none.
+test('a head on a vessel whose blood stands is dimmed, not gone; a very thin vessel has no heads; neither touches the composite', () => {
+  assert.ok(STILL_A > 0.15 && STILL_A < 0.5, 'dimmed but seen');
+  assert.ok(THIN_LO < THIN_HI && THIN_LO >= 1, 'a ramp, in CSS px of radius');
+  assert.match(vs, new RegExp(`const float STILL_A = ${STILL_A.toFixed(2)}, THIN_LO = ${THIN_LO.toFixed(2)}, THIN_HI = ${THIN_HI.toFixed(2)};`));
+  // (At vd = 0 the way is the row's reversal flag and B's sign: a standing head never flips with the sign of nothing.)
+  assert.match(vs, /runDir = f0\.y == 0\.0 \? \(f1\.w > 0\.5 \? -1\.0 : 1\.0\) \* \(B < 0\.0 \? -1\.0 : 1\.0\)/);
+  assert.match(vs, /rv == 0\.0 \? \(texelFetch\(flow, ivec2\(1, rid\), 0\)\.w > 0\.5/);
+  assert.ok(!full.includes('STILL_A') && !full.includes('THIN_LO'), 'the composite is untouched');
 });

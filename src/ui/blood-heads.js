@@ -43,6 +43,11 @@ export function headKeep(j, n0, lv) {
  * along: ALONG_GLSL; rows: ROWS_GLSL (radAt, flowD, rootDD); orange: CHEV_ORANGE_GLSL; nSamples: N_SAMPLES; pitch: the text of
  * chevron-glsl.js chevLevel and chevKeep (CHEV_PITCH_GLSL).
  */
+// (15 Nov 2026, owner: F16 and the thin-vessel rule. A head on a vessel whose blood stands (shown speed under 0.5, where heads used to fade out) does not vanish:
+// it stands, pointing the way the flow goes, dimmed to STILL_A of its strength, so "no flow here" is drawn and the never-vanish rule holds. A very thin vessel has no
+// heads at all: none under THIN_LO CSS px of radius (3 px across), full from THIN_HI (5 px across), whatever the screen's density. Both live here, in the quads,
+// never in the composite's own heads, which only a frame without quads uses.)
+export const STILL_A = 0.3, THIN_LO = 1.5, THIN_HI = 2.5;
 export function headVS({ zoom, along, rows, orange, nSamples, pitch = CHEV_PITCH_GLSL }) {
   // alloc-rare: assembles the shader text once when the renderer's programs are made (veins-gl.js), never per frame
   return `#version 300 es
@@ -71,6 +76,7 @@ flat out vec4 hC;                      // the head's centre (world) and the way 
 flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row, its reversed flag (0 … 1)
 flat out vec3 hInk, hRim;              // the colours of its core and of its rim
 const int N_LAST = ${nSamples - 1};
+const float STILL_A = ${STILL_A.toFixed(2)}, THIN_LO = ${THIN_LO.toFixed(2)}, THIN_HI = ${THIN_HI.toFixed(2)};   // (blood-heads.js)
 void main() {
   zoomOut();
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // (no head: outside the clip box, nothing drawn)
@@ -82,7 +88,7 @@ void main() {
   // (chevAt: one size for the whole vessel, from its caliber midway; the spacing is the screen's, chevPitch.)
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
-  if (R < 1.3 * pxW) return;
+  if (R < THIN_LO * cssPx * pxW) return;   // (a very thin vessel has no heads at all: under 3 CSS px across, below)
   // (A stream carried on from another vessel: the root's heads while the vessel has any link (flow texel 4, w), its own otherwise; never the
   // two mixed: the streaks cross-fade through a link as it forms or lets go, the heads move onto the new stream where the old one stood
   // and ease from there (the axis texture's last column: the offset added to A, and B; stage-blood.js chainRows). Reduced motion: each its own.)
@@ -96,11 +102,13 @@ void main() {
     rid = int(ch4.x + 0.5) - 1;
     Dm = rootDD(rid, ch5.xy).x;
     A = ch4.y + ch8.x; B = ch8.y != 0.0 ? ch8.y : ch4.z;
-    runDir = texelFetch(flow, ivec2(0, rid), 0).y * B < 0.0 ? -1.0 : 1.0;   // (the root's speed over B: the stream carries the heads that way)
+    float rv = texelFetch(flow, ivec2(0, rid), 0).y;
+    // (A standing head, vd = 0, points the way the flow goes: reversed flags the root's row; B's sign is the stream's way along the arc.)
+    runDir = (rv == 0.0 ? (texelFetch(flow, ivec2(1, rid), 0).w > 0.5 ? -1.0 : 1.0) * (B < 0.0 ? -1.0 : 1.0) : rv * B < 0.0 ? -1.0 : 1.0);   // (the root's speed over B: the stream carries the heads that way)
   } else {
     Dm = flowD(id, f0.x, f0.y);
     A = ch8.x; B = ch8.y != 0.0 ? ch8.y : 1.0;
-    runDir = f0.y * B < 0.0 ? -1.0 : 1.0;
+    runDir = f0.y == 0.0 ? (f1.w > 0.5 ? -1.0 : 1.0) * (B < 0.0 ? -1.0 : 1.0) : f0.y * B < 0.0 ? -1.0 : 1.0;   // (a standing head: as the root's, above)
   }
   if (abs(B) < 1e-4) return;
   // (chevLevel: one spacing on screen for every vessel and run; reduced motion's still heads spaced by flow, 2.5 times its level's 28 units.)
@@ -154,7 +162,7 @@ void main() {
     if (endF <= 0.0) return;
   }
   float vd = f0.y, dir = runDir;   // (the heads point the way they travel: this stream's own speed, or the root's, over B)
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  float fade = mix(STILL_A, 1.0, smoothstep(0.5, 3.0, abs(vd))) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(THIN_LO * cssPx * pxW, THIN_HI * cssPx * pxW, R);
   // (Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.)
   fade *= smoothstep(0.85 * hw, 1.15 * hw, radAt(id, sc, len));
   if (fade <= 0.0) return;
