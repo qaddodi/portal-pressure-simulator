@@ -56,7 +56,7 @@ test('G9: a watched vessel that reverses marks its station with ⟲, and no band
   assert.match(STAGE, /const stationRev = \(id\) => \{ const a = revVessels\(id\);/, 'a station tells the reversal of any vessel it stands on, with or without a number');
   assert.match(STAGE, /const rev = stationRev\(id\);/);
   assert.match(STAGE, /\{ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 \}/);
-  assert.match(src('styles/app.css'), /\.lb-rev \{ fill: var\(--flow-reversed\); \}/);
+  assert.match(src('styles/app.css'), /\.lb-rev \{ fill: var\(--flow-reversed-ink\); \}/);
   assert.doesNotMatch(GL, /revInk/, 'no dashed band');
 });
 
@@ -121,7 +121,7 @@ test('G12 taken back: the pressure legend is as it was (its scale is absolute pr
   assert.doesNotMatch(src('src/ui/main.js'), /lg-mark|PRESSURE_MARKS/);
   // (The pressure ramp is per look since the visual-style C1/C2 work: Linen's pale end, Oat's old one, the dark looks' own. The cut-offs and ticks above are unchanged.)
   const pale = Object.fromEntries(LOOK_IDS.map((id) => [id, tokensOfLook(id)['ramp-pressure'].split(',')[0].trim()]));
-  assert.deepEqual(pale, { light: '#B8D5ED 0', soft: '#DCEBF7 0', dark: '#D7E7F4 0', navy: '#D7E7F4 0', black: '#D7E7F4 0' });
+  assert.deepEqual(pale, { light: '#B8D5ED 0', soft: '#8DB8E2 0', dark: '#D7E7F4 0', navy: '#D7E7F4 0', black: '#D7E7F4 0' });
   assert.deepEqual(src('styles/tokens.css').match(/--ramp-pressure: [^;]+;/g).length, 4, 'light, the system dark block, dark and soft print it; the palettes take Dark\'s');
 });
 
@@ -216,7 +216,7 @@ test('C1: on the dark looks every lens ramp keeps a floor (a 30 mmHg vessel was 
 
 test('C2: Linen pales its 0 and 5 mmHg stops against the paper; Soft keeps today\'s two', () => {
   assert.deepEqual(rampOf('light', 'ramp-pressure').slice(0, 2).map((x) => x[0]), ['#B8D5ED', '#85B6E9']);
-  assert.deepEqual(rampOf('soft', 'ramp-pressure').slice(0, 2).map((x) => x[0]), ['#DCEBF7', '#99C2ED']);
+  assert.deepEqual(rampOf('soft', 'ramp-pressure').slice(0, 2).map((x) => x[0]), ['#8DB8E2', '#6A9FDE']);
   assert.ok(contrast('#B8D5ED', '#F1EBE0') > 1.25, '0 mmHg on Linen');
   // The rest of the ramp is the same in both light looks.
   assert.deepEqual(rampOf('light', 'ramp-pressure').slice(2), rampOf('soft', 'ramp-pressure').slice(2));

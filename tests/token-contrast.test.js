@@ -62,6 +62,11 @@ test('the system dark theme uses the same text and surface colours as the chosen
 // Amber and the status text colours (production pass, 31 Oct): --caution is a fill and a stroke (2.95:1 on white); where amber is the
 // text itself the stylesheet uses --caution-ink, the colour 30 % toward the text colour. --on-status is the text on a danger fill.
 const mixRGB = (a, b, t) => a.map((v, i) => Math.round(v * t + b[i] * (1 - t)));
+// A look's own ink form of a colour: the share of the colour kept in its `--x-ink: color-mix(in srgb, var(--x) N%, var(--text))` where the look sets it (Soft and Dark's
+// critical red do, ST-5), else the shared 88 % of tokens.css.
+const inkShare = (t, k) => { const m = /color-mix\(in srgb, var\(--[\w-]+\) (\d+)%/.exec(t[`${k}-ink`] || ''); return m ? +m[1] / 100 : 0.88; };
+// The surfaces text sits on, the darkest card (--surface-3) included: the test left it out and Soft's inks were 4.3:1 there (ST-5).
+const INK_SURFACES = ['--bg', '--surface', '--surface-2', '--surface-3'];
 test('amber used as text (--caution-ink) is at least 4.5:1 on the surfaces text sits on, in every theme', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(tokens, /--caution-ink: color-mix\(in srgb, var\(--caution\) 70%, var\(--text\)\);/);
@@ -111,8 +116,8 @@ test('green and red used as text (--ok-ink, --danger-ink) are at least 4.5:1 on 
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
     for (const k of ['--ok', '--danger']) {
-      const ink = mixRGB(hex(t[k]), hex(t['--text']), 0.88);
-      for (const bg of ['--bg', '--surface', '--surface-2']) {
+      const ink = mixRGB(hex(t[k]), hex(t['--text']), inkShare(t, k));
+      for (const bg of INK_SURFACES) {
         const r = ratio(ink, hex(t[bg]));
         if (r < 4.5) fails.push(`${theme}: ${k} ink on ${bg} ${t[bg]} is ${r.toFixed(2)}:1`);
       }
@@ -148,8 +153,8 @@ test('critical red as text (--critical-ink) is at least 4.5:1 on the surfaces te
   assert.match(tokens, /--critical-ink: color-mix\(in srgb, var\(--critical\) 88%, var\(--text\)\);/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
-    const ink = mixRGB(hex(t['--critical']), hex(t['--text']), 0.88);
-    for (const bg of ['--bg', '--surface', '--surface-2']) {
+    const ink = mixRGB(hex(t['--critical']), hex(t['--text']), inkShare(t, '--critical'));
+    for (const bg of INK_SURFACES) {
       const r = ratio(ink, hex(t[bg]));
       if (r < 4.5) fails.push(`${theme}: critical ink on ${bg} ${t[bg]} is ${r.toFixed(2)}:1`);
     }
@@ -160,4 +165,43 @@ test('critical red as text (--critical-ink) is at least 4.5:1 on the surfaces te
   }
   assert.deepEqual(fails, []);
   assert.deepEqual(css.match(/(?<![-\w])color: var\(--critical\)/g) || [], []);
+});
+
+// ST-3, ST-5, COL-1 (full app review, 15 Nov 2026): reversed-flow label text, Soft's amber chip, the day counter, and Soft's low pressure stops.
+test('the reversed-flow label ink is 4.5:1 on the ground in every look, and the vessel orange itself is untouched', () => {
+  const fails = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    if (theme.includes('circuit')) continue;
+    const m = /color-mix\(in srgb, var\(--flow-reversed\) (\d+)%, var\(--text\)\)/.exec(t['--flow-reversed-ink'] || '');
+    const ink = m ? mixRGB(hex(t['--flow-reversed']), hex(t['--text']), +m[1] / 100) : hex(t['--flow-reversed']);   // (the dark looks keep the orange itself: 6.8:1)
+    for (const bg of ['--bg', '--surface']) {
+      const r = ratio(ink, hex(t[bg]));
+      if (r < 4.5) fails.push(`${theme}: reversed-flow ink on ${bg} is ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(fails, []);
+  assert.equal(light['--flow-reversed'], '#EC7424');
+  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.lb-rev \{ fill: var\(--flow-reversed-ink\); \}/);
+  assert.match(css, /\.lb-alert \{ fill: var\(--danger-ink\); \}/);
+});
+
+test('Soft: the ink on the amber fill and the day counter read 4.5:1, and the pressure scale\'s low end reads on its ground', () => {
+  const soft = THEMES.soft;
+  assert.ok(ratio(hex(soft['--on-caution']), hex(soft['--caution'])) >= 4.5, 'the amber chip\'s text');
+  for (const bg of ['--bg', '--surface', '--surface-2']) assert.ok(ratio(hex(soft['--lapse-ink']), hex(soft[bg])) >= 4.5, `the day counter on ${bg}`);
+  const stops = soft['--ramp-pressure'].split(',').slice(0, 2).map((x) => hex(x.trim().split(' ')[0]));
+  // (Light's own two low stops are 1.28:1 and 1.79:1 on Linen; Oat's were 1.25 and 1.22, so a healthy vein was carried by its casing alone: COL-1.)
+  assert.ok(ratio(stops[0], hex(soft['--bg'])) >= 1.3 && ratio(stops[1], hex(soft['--bg'])) >= 1.7, 'a normal-pressure vessel reads against Oat\'s ground as it does against Linen\'s');
+});
+
+// ST-4: amber is a fill and a stroke, not ink (2.95:1 on white): no style sheet sets text to the raw amber, green or red; the Pressure strip had.
+test('no style sheet paints text in raw amber, green or red', async () => {
+  const { readdirSync } = await import('node:fs');
+  const dir = new URL('../styles/', import.meta.url);
+  const bad = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.css'))) {
+    for (const m of readFileSync(new URL(f, dir), 'utf8').matchAll(/(?<![-\w])color: var\(--(caution|ok|danger|critical)\)/g)) bad.push(`${f}: ${m[0]}`);
+  }
+  assert.deepEqual(bad, []);
 });

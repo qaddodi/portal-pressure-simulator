@@ -265,8 +265,8 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
 .lb-explain { fill: var(--text); }   /* (a tapped label's own line, label-explain.js: the name's ink on the same halo, the term's colour on a lit one) */
 #labels .lb.term .lb-explain { fill: var(--term); }
 .lb-delta { fill: var(--text); }   /* (a change is in its reading's colour: 17 Oct design review) */
-.lb-alert { fill: var(--danger); }
-.lb-rev { fill: var(--flow-reversed); }
+.lb-alert { fill: var(--danger-ink); }   /* (text takes the ink form of its colour, 4.5:1 on the paper looks: tokens.css; the vessels' and the arrowheads' orange and red stay the strokes' colour) */
+.lb-rev { fill: var(--flow-reversed-ink); }
 .lb-organ { fill: var(--text-3); }
 /* On a phone the organ captions and the readings' names share the 12 px floor, so the captions step back in ink instead (looks review L8). */
 @media (max-width: 760px) { .lb-organ { fill: color-mix(in srgb, var(--text-3) 68%, var(--stage-bg)); } }

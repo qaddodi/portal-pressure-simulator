@@ -67,6 +67,8 @@ export const TOKENS = {
     // flow semantics
     'flow-normal': '#16988F',
     'flow-reversed': '#EC7424',
+    // (as text, a label's "⟲" and reversed reading: the orange mixed toward the ink, 4.5:1 on the paper; the vessel and arrowhead orange stays the stroke's. ST-3)
+    'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 62%, var(--text))',
     // lens ramps ("#colour position", interpolated in OKLab by colormap.js; pressure positions are mmHg, the others run 0 to 1)
     // (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue (round 2 review A7,
     // Mohammad 18 Oct). The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there,
@@ -211,11 +213,16 @@ export const TOKENS = {
   soft: {
     from: 'light',
     // (pressure keeps its pale end from before Linen's: Oat is darker than #DCEBF7, so that end reads lighter than the ground here, where Linen's #B8D5ED would sit at Oat's own lightness)
-    'ramp-pressure': '#DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
+    // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
+    'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
     // Oat (6 Nov, picked from the Soft mocks): a deeper, warmer cream, frosted cards, firmer organs, trace lines at 3:1 on the card
     'gut-a': '.80',
     'organ-a': '.52',
     'bg': '#DDD0B9',
+    'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
+    // (ST-5: Oat is the weakest look for coloured text. The ink forms take 20 % of the text colour, not 12, so they hold 4.5:1 on its darkest card, surface-3; white on the amber fill, 6.6:1, for the dark ink's 2.8:1; the day counter's amber a step deeper)
+    'ok-ink': 'color-mix(in srgb, var(--ok) 80%, var(--text))', 'danger-ink': 'color-mix(in srgb, var(--danger) 80%, var(--text))', 'critical-ink': 'color-mix(in srgb, var(--critical) 80%, var(--text))',
+    'on-caution': '#FFFFFF', 'lapse-ink': '#744500',
     'stage-bg': '#DDD0B9',
     'vg-keep': '80%', 'vg-tint': '#5A3C19',
     'surface': '#F0E9DC',
@@ -293,6 +300,8 @@ export const TOKENS = {
     'brand-bg': '#3A342E', 'accent': '#7C9BFF', 'accent-ink': '#A5BAFF', 'accent-soft': 'rgba(124, 155, 255, .13)', 'accent-line': 'rgba(124, 155, 255, .4)', 'focus': '#7C9BFF',
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
+    'flow-reversed-ink': 'var(--flow-reversed)',   // (6.8:1 on the dark ground already: the same orange)
+    'critical-ink': 'color-mix(in srgb, var(--critical) 75%, var(--text))',   // (ST-5: 4.2:1 on Dark's raised card, surface-3, at 12 %; 4.7 at 25)
     // lens ramps for a dark ground (visual-style C1): the light looks' ramps fall to dark ends that sink into the ground (a 30 mmHg vessel was 1.41:1).
     // Pressure keeps its hue path (ice, sky, cornflower, violet, magenta, wine) and keeps lightness falling at every stop (OKLab L .92 to .50); the flow,
     // velocity, heat and drop ramps keep their stops and lift only the dark end to about L .5 (hue and chroma kept). Navy and Black take these from Dark.
