@@ -16,6 +16,7 @@ import { TYPE } from './chart-looks/saag.js';
 import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/ascites-cuts.js';
 import { NO_ASC } from './table-marks.js';
 import { fmt } from './util.js';
+import { cardShow } from './card-show.js';
 
 export const SAAG_MAX = 3, TP_MAX = 5;   // (the axes' ends, g/dL)
 export const SOURCE = 'AASLD 2021 ascites guidance, Table 4.';
@@ -103,7 +104,7 @@ const sv = svgModel;
 /** The card: configure(t, ctx) reads the slide's patients from the context (ctx.fpOf, the slide's `of`) and draws; drawn again only when a point or the size changes. */
 export function createSaag() {
   const el = h('div', { class: 'pz-saag', role: 'group' });
-  const gl = createSvgGL(el, { host: 'saag' });
+  const gl = createSvgGL(el, { host: 'saag' }), put = cardShow(gl);
   let pts = [], read = null, drawn = '', dead = false, tool = null, ctx0 = null, poll = 0, tries = 0;
   const textW = (s, font) => measure(s, font);
   function draw() {
@@ -119,7 +120,8 @@ export function createSaag() {
       ...L.paths.map((p) => sv('path', { d: p.d, 'data-look': p.look })),
       ...L.texts.map((s) => sv('text', { x: s.x, y: s.y, 'text-anchor': s.anchor, 'data-look': s.look }, s.t)),
     ];
-    gl.show(sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': saagWords(pts) }, ...kids), false);
+    // (A patient's dot at its new place, or another slide's patients, glide there; a new width or type size is put down, card-show.js.)
+    put(sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': saagWords(pts) }, ...kids), `${W}|${f}`);
     el.style.height = `${L.H}px`;
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;

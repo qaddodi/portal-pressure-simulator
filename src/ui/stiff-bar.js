@@ -12,6 +12,7 @@ import { wrapWords } from './tool-trial.js';
 import { TYPE } from './chart-looks/stiff.js';
 import { LSM_CUTS, LSM_STEPS, csphVerdict } from '../engine/lsm-cuts.js';
 import { TILE } from './table-marks.js';
+import { cardShow } from './card-show.js';
 
 const AXIS = 30;   // (kPa at the bar's right end: the last zone, 25 and over, is five wide)
 const GAP = 1.5;   // (px between two zones)
@@ -101,7 +102,7 @@ const sv = svgModel;
 /** The bar in its own box. set(lsm, plt) puts a reading on it (null for none); the box is drawn again only when a thing it shows has changed. */
 export function createStiffBar({ note = false } = {}) {
   const el = h('div', { class: 'pz-stiff', role: 'group' });
-  const gl = createSvgGL(el, { host: 'stiff' });
+  const gl = createSvgGL(el, { host: 'stiff' }), put = cardShow(gl);
   let lsm = null, plt = null, drawn = '', dead = false;
   const textW = (s, font) => measure(s, font);
   function draw() {
@@ -117,7 +118,8 @@ export function createStiffBar({ note = false } = {}) {
       ...L.paths.map((p) => sv('path', { d: p.d, 'data-look': p.look })),
       ...L.texts.map((s) => sv('text', { x: s.x, y: s.y, 'text-anchor': s.anchor, 'data-look': s.look }, s.t)),
     ];
-    gl.show(sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': stiffWords(lsm, plt) }, ...kids), false);
+    // (A new reading at the same width and type size glides: the mark slides along the bar, the platelet words and the verdict fade across, card-show.js.)
+    put(sv('svg', { width: W, height: L.H, viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': stiffWords(lsm, plt) }, ...kids), `${W}|${f}`);
     el.style.height = `${L.H}px`;   // (the picture's box: its height follows its width and type size only)
   }
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => draw()) : null;
