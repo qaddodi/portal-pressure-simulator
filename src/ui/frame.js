@@ -312,9 +312,14 @@ export function setPageRest(on) { on = !!on; if (on === pageRestOn) return; page
 export function onPageWake(fn) { pageWake.add(fn); return () => pageWake.delete(fn); }
 /** A surface animating on screen (on) or still (off): its frames are never carried over while it animates. */
 export function frameAnimating(tag, on) {
-  const n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
+  const was = animatingTags.has(tag), n = (animatingTags.get(tag) || 0) + (on ? 1 : -1);
   if (n > 0) animatingTags.set(tag, n); else animatingTags.delete(tag);
+  if (was !== animatingTags.has(tag)) for (const fn of animWatch) fn(tag);
 }
+// (Told when a tag starts or stops animating: main.js tells the model's worker whether a trace that records its samples is scrolling.)
+const animWatch = new Set();
+export function watchAnimating(fn) { animWatch.add(fn); return () => animWatch.delete(fn); }
+export const isAnimating = (tag) => animatingTags.has(tag);
 /** True when the last frame's script went over the share: drop detail that can wait. */
 export const overBudget = () => overLast;
 /** The last frame's main-thread script time (ms), and how many callbacks have been carried over (and forced after CARRY_MAX) since the page opened. */

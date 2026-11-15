@@ -128,12 +128,13 @@ export const STIFFNESS = {
       ask: ['An LSM of 21 kPa with platelets of 99,000/µL: what does each guideline do?', 'Baveno VIII: indeterminate, so re-evaluate in 12 months or add ANTICIPATE or an SSM; endoscopy only if he cannot take a beta-blocker. AASLD 2024: presume CSPH and consider carvedilol, which spares the screening endoscopy.'],
     },
     {
-      id: 'a4', preset: 'csph', params: { cirrhosis: 0.7 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
+      // (Cirrhosis 0.75, not 0.7, since 15 Nov 2026 (C2b-5): at 0.7 the SSM read 55.9 against the >55 kPa rule; at 0.75 it reads 59.5.)
+      id: 'a4', preset: 'csph', params: { cirrhosis: 0.75 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 49-year-old man with MASH and type 2 diabetes has a BMI of 36 and no ascites or bleeding. He has had thrombocytopenia for two years, and ultrasound shows a nodular liver.',
       caseQ: 'Does his LSM rule CSPH in?',
       kicker: 'Case 4', site: 'sin', title: 'Case 4: the BMI decides, not the LSM',
       line: 'LSM is {lsm}, but the 25 kPa rule needs a BMI <30. At a BMI of 36, a BMI-based model decides, or an SSM >55 kPa ({ssm}).',
-      notes: 'The 25 kPa rule-in covers viral and alcohol-related cirrhosis and MASLD with a BMI <30. For MASLD with a BMI ≥30, Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI. The LSM here is as high as in case 2, but the etiology is MASH and the BMI is 36, so check the etiology and BMI before applying the zones. The BMI limit applies to LSM only: an SSM >55 kPa with the 100 Hz probe establishes CSPH at any BMI (1.16c), and his SSM, on the card, is close to that cut-off. If either test establishes CSPH, carvedilol starts, as in case 2. (Baveno VIII 1.14, 1.16.)',
+      notes: 'The 25 kPa rule-in covers viral and alcohol-related cirrhosis and MASLD with a BMI <30. For MASLD with a BMI ≥30, Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI. The LSM here is nearly as high as in case 2, but the etiology is MASH and the BMI is 36, so check the etiology and BMI before applying the zones. The BMI limit applies to LSM only: an SSM >55 kPa with the 100 Hz probe establishes CSPH at any BMI (1.16c), and his SSM, on the card, is just above that cut-off, so by itself it establishes CSPH. If either test establishes CSPH, carvedilol starts, as in case 2. (Baveno VIII 1.14, 1.16.)',
       ask: ['Why does an LSM ≥25 kPa rule CSPH in for case 2 but not for case 4?', 'The 25 kPa rule is for a BMI <30. At a BMI of 36, ANTICIPATE-NASH or an SSM >55 kPa decides.'],
     },
     {

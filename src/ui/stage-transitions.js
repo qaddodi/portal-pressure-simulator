@@ -126,8 +126,8 @@ export function createTransitions(st, live) {
     }
     for (const id in liverR) {
       const r = liverR[id], k = EI[id];
-      const q = f.Q[k];
-      const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
+      const q = (f.Qf || f.Q)[k], PF = f.Pf || f.P;   // (the shown readings: this instant's put the beat into the resistance)
+      const dp = PF[NI[EDGES[k].from]] - PF[NI[EDGES[k].to]];
       r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
     }
   }

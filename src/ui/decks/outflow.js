@@ -33,7 +33,7 @@ export const OUTFLOW = {
       ask: ['Why can the WHVP be measured here but not when the hepatic veins are thrombosed?', 'Here the veins are patent, so the catheter can wedge, and the resistance lies between the WHVP and the FHVP.'],
     },
     {
-      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
+      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [34, 1], 'fibrosis.L.post': [34, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
       kicker: 'Sinusoidal obstruction syndrome', site: 'postsin', title: 'Mild and moderate SOS usually resolves',
       line: 'As the endothelium heals, the central veins clear; over the following weeks the ascites resolves and the HVPG falls to {hvpg}.',
       notes: 'Mild and moderate SOS resolves with careful fluid management, diuretics and analgesia. Severe SOS, with renal or respiratory failure, carries high mortality, and defibrotide is the treatment. For prevention: reduced-intensity conditioning where possible, and ursodeoxycholic acid prophylaxis in many centers.',

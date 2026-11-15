@@ -101,7 +101,9 @@ test('paused, the bar repaints on a measurement or a new patient and takes a new
   const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) updateDock\(frame\); \}\)/);
   assert.ok(keys, 'the bar listens for the HVPG measurement');
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) assert.match(keys[1], new RegExp(`'${k}'`));
-  for (const s of [dock, pane]) assert.match(s, /if \(!x\.sev \|\| sev === 'none' \|\| !st0\.running \|\| now - x\.sevSince > 1500\)/);
+  // (Since 15 Nov 2026 (full app review A1) a band no longer holds 1.5 s while the model runs: it waits for its number to land, then changes
+  // (band-settle.js bandStep, tested in band-settle.test.js); paused, a measurement's number lands in its 0.4 s roll and its band with it.)
+  for (const s of [dock, pane]) { assert.match(s, /step = bandStep\(x\.sev, sev, /); assert.doesNotMatch(s, /sevSince > 1500/); }
 });
 
 test('every patient loads with its gradients agreeing', () => {
@@ -119,13 +121,16 @@ test('every patient loads with its gradients agreeing', () => {
 test('the right atrium is read over two breaths everywhere it is shown, and that reading holds still', () => {
   const e = new Engine(); e.loadPreset('ivc-web'); e.beat = true;
   for (let i = 0; i < 6000; i++) e.step(0.004);   // (24 s: the two-breath mean has settled)
-  let lo = Infinity, hi = -Infinity, vlo = Infinity, vhi = -Infinity;
+  // (The model's own beat-by-beat RA swings; since 15 Nov 2026 the readings are its means over one breath and one beat (engine shownMean),
+  // so metrics.ra holds still too, and the two-breath vital agrees with it.)
+  let lo = Infinity, hi = -Infinity, mlo = Infinity, mhi = -Infinity, vlo = Infinity, vhi = -Infinity;
   for (let f = 0; f < 120; f++) {
     for (let i = 0; i < 25; i++) e.step(0.004);
-    const m = computeMetrics(e);
-    lo = Math.min(lo, m.ra); hi = Math.max(hi, m.ra); vlo = Math.min(vlo, m.vitals.ra); vhi = Math.max(vhi, m.vitals.ra);
+    const m = computeMetrics(e), raw = e.P[e.ni.RA];
+    lo = Math.min(lo, raw); hi = Math.max(hi, raw); mlo = Math.min(mlo, m.ra); mhi = Math.max(mhi, m.ra); vlo = Math.min(vlo, m.vitals.ra); vhi = Math.max(vhi, m.vitals.ra);
   }
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
+  assert.ok(mhi - mlo < 0.1, `the RA reading holds within 0.1 mmHg (${mlo.toFixed(2)}–${mhi.toFixed(2)})`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
   assert.match(stageSource(), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
   // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)

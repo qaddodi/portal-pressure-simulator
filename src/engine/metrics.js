@@ -62,12 +62,17 @@ const copyInto = (o, src) => { for (const k in src) o[k] = src[k]; return o; };
 // (The records a field switches between, kept beside the metrics record that holds one of them: not fields of it, so the posted frame carries only the fields.)
 const spares = new WeakMap();
 const spareOf = (r) => spares.get(r) || (spares.set(r, { meas: {}, gOn: {}, gOff: {}, bleed: {} }), spares.get(r));   // alloc-rare: made once for a record
+// (A reading through the dead band at its printed precision, engine holdShown; an engine without it, a stand-in in a test, reads as it is.)
+const hold = (eng, k, v, step) => (eng.holdShown ? eng.holdShown(k, v, step) : v);
 const part = (r, k) => r[k] || (r[k] = {});   // alloc-rare: a record inside the metrics, made when the metrics record is (once for the tick's, per call for a reader that gave none)
 export function computeMetrics(eng, out = null) {
   const P = eng.Pf || eng.P, ni = eng.ni, ei = eng.ei, p = eng.params;
   if (!eng.baseHepFlow) eng.baseHepFlow = eng.refQ ? eng.refQ[ei.SIN_RR] + eng.refQ[ei.SIN_LL] : 25;
 
-  const hv = eng.hvpgTrue(P);
+  // (The wedged and free pressures through the dead band at one decimal, engine holdShown: a wedged pressure is a weighted mean of two
+  // sinusoid nodes, so it can rest on a rounding boundary even when each node does not, and the HVPG is their difference as printed.)
+  const hv = eng.hvpgTrue(P);   // (a record of its own each call, which this one writes in place)
+  hv.whvp = hold(eng, 'whvp', hv.whvp); hv.fhvp = hold(eng, 'fhvp', hv.fhvp); hv.hvpg = hv.whvp - hv.fhvp;
   let splIn = 0;
   for (let i = 0; i < SPLANCHNIC_ARTERIES.length; i++) splIn += qf(eng, SPLANCHNIC_ARTERIES[i]);
   const apIn = Math.max(0, qf(eng, 'AP_R')) + Math.max(0, qf(eng, 'AP_L'));
@@ -116,7 +121,7 @@ export function computeMetrics(eng, out = null) {
   let measured = null;
   if (cath.vein) {
     measured = spareOf(r).meas;
-    measured.vein = cath.vein; measured.fhvp = P[ni[HV_NODE[cath.vein]]]; measured.wedged = cath.wedged; measured.whvp = cath.wedged ? P[ni[WEDGE_NODE[cath.vein]]] : null;
+    measured.vein = cath.vein; measured.fhvp = hold(eng, 'mfhvp', P[ni[HV_NODE[cath.vein]]]); measured.wedged = cath.wedged; measured.whvp = cath.wedged ? hold(eng, 'mwhvp', P[ni[WEDGE_NODE[cath.vein]]]) : null;
   }
   const vx = part(r, 'varix'), gx = noGRS ? spareOf(r).gOff : spareOf(r).gOn;
   copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P); vx.grade = varixGrade(eng.varixGraded('VAR', 2 * varE.r)); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
@@ -124,7 +129,7 @@ export function computeMetrics(eng, out = null) {
   if (noGRS) { gx.d = 0; gx.grade = varixGrade(0); gx.present = false; gx.redWale = false; }
   else { gx.d = 2 * varG.r; gx.grade = varixGrade(eng.varixGraded('GV', 2 * varG.r)); gx.present = varixPresent(2 * varG.r, false); gx.redWale = varG.ratio > 0.7; }
   const ax = part(r, 'ascites');
-  ax.volume = eng.slow.ascites; ax.ratePerDay = st.net * 1440; ax.iap = eng.iap ?? 5; ax.grade = asc.grade; ax.label = asc.label;
+  ax.volume = eng.slow.ascites; ax.ratePerDay = st.net * 1440; ax.iap = eng.iapf ?? eng.iap ?? 5; ax.grade = asc.grade; ax.label = asc.label;
   ax.highProtein = st.highProtein; ax.totalProtein = st.ascTP; ax.albumin = st.ascAlb; ax.saag = st.saag; ax.lymphProt = st.prot.lymphProt; ax.lymphSigma = st.prot.sigma;
   ax.hepLymph = st.hep; ax.splLymph = st.spl; ax.lymphCap = eng.slow.lymphCap;
   const sp = part(r, 'spleen');
@@ -151,16 +156,20 @@ export function computeMetrics(eng, out = null) {
   // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
   // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
   // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
-  r.lsm = lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv);
+  r.lsm = hold(eng, 'lsm', lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv));
   // Spleen stiffness (the 100 Hz spleen probe, kPa), an estimate from the model (ssm-cuts.js): the red pulp's transmural pressure
   // (its pressure less the abdomen's) and the spleen's size. Unlike the liver's, it follows the pressure as it stands, beta-blocker
   // and TIPS included. No spleen (splenectomy), no reading.
-  r.ssm = eng.params.splenicRx === 2 ? null : ssmOf(P[ni.SPL] - (eng.ext ? eng.ext[ni.SPL] : 0), sp.length);
+  // (The spleen's outside pressure averaged as its pressure is, engine shownMean: this instant's would put the breath back in.)
+  const X = eng.extf || eng.ext;
+  r.ssm = eng.params.splenicRx === 2 ? null : hold(eng, 'ssm', ssmOf(P[ni.SPL] - (X ? X[ni.SPL] : 0), sp.length));
   r.measured = measured;
-  r.ppg = tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]);
-  r.pv = P[ni.CONF]; r.pvh = P[ni.PVH]; r.sv = P[ni.SV]; r.ra = ra; r.ivc = P[ni.IVCS];
+  // (The portal and IVC pressures through the dead band at one decimal, as the wedged and free ones: the PPG is their difference as printed.)
+  const pv = hold(eng, 'pv', P[ni.CONF]), ivc = hold(eng, 'ivc', P[ni.IVCS]);
+  r.ppg = tenthGap(pv, ivc, pv - ivc);
+  r.pv = pv; r.pvh = P[ni.PVH]; r.sv = P[ni.SV]; r.ra = hold(eng, 'ra', ra); r.ivc = ivc;
   r.pvFlow = qf(eng, 'PV_TRUNK') * 0.06; r.pvVel = eng.dopplerVelocity('PV_TRUNK');
-  r.pvFlowMean = (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06; r.pvVelMean = eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK');
+  r.pvFlowMean = (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06; r.pvVelMean = hold(eng, 'pvVel', eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'), 1);
   // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
   r.vitals = vt;
   r.pvPI = p.pulsatile || eng.beat ? eng.pi.value : null;
@@ -168,8 +177,9 @@ export function computeMetrics(eng, out = null) {
   r.portalIn = portalIn * 0.06; r.arterialIn = arterialIn * 0.06; r.splanchnicIn = splIn * 0.06;
   r.shuntFraction = shuntFraction; r.collateralFlows = collateralFlows;
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
-  // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.)
-  r.rpp = map - ax.iap;
+  // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.
+  // Both over the breath, as the bar's MAP and the IAP read (full app review ENG-3: this instant's IAP swung the RPP by 2 mmHg a breath).)
+  r.rpp = hold(eng, 'rpp', vt.map - ax.iap, 1);
   r.map = map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;

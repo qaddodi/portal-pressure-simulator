@@ -1,8 +1,9 @@
 // The Presenter's visuals over the dimmed figure (scale, quadrant, walls) and its calculator worker, moved out of presenter.js (size budget).
 import { h, fmt, clamp } from './util.js';
 import { noteLoop } from './svg-gl.js';
-import { NO_ASC, TILE } from './table-marks.js';
+import { NO_ASC, TILE, atShown } from './table-marks.js';
 import { SAAG_PORTAL, TP_HIGH } from '../engine/ascites-cuts.js';
+import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { restPass } from './rest-pass.js';
 import { EASE_ARRIVE, EASE_MOVE, cssCurve } from './ease.js';
 import { reduceMotionMQ as reduce } from './motion.js';
@@ -31,7 +32,10 @@ function scaleKey(sc, rows) {
   const cols = `grid-template-columns:${zones.map((z) => `minmax(0, ${z.b - z.a}fr)`).join(' ')}`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
   // (each patient takes the colour of the zone it sits in)
-  const rate = (r) => (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c;
+  // (A gradient's dot by its own rating, pressure-cuts.js, at the decimal it prints: an HVPG of 5.0 is normal, amber only past it. A zone
+  // found by `< z.b` put 5.0 in the amber zone (full app review PC-16). Other readings by the deck's marks, as before.)
+  const GRAD = { hvpg: hvpgRate, eus: hvpgRate, ppg: ppgRate }[sc.key];
+  const rate = (r) => (GRAD ? GRAD(atShown(sc.key, r.f[sc.key])) : (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c);
   // A second reading or several under each patient (sub: a tile key or a list), pressures in whole mmHg.
   const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG', pv: 'Portal vein', sin: 'Sinusoids', ra: 'Right atrium', ivc: 'IVC' };
   const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);

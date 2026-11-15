@@ -17,14 +17,15 @@ export function caption(f, { scenario = true } = {}) {
   const st = store.get(), m = f.metrics, hidden = hiddenNow(st);
   const scen = st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom patient';
   const parts = scenario ? [`${scen}.`] : [];
-  if (f.bleed?.active) parts.push(`Active variceal bleed, HR ${fmt(m.hr, 0)}, MAP ${fmt(m.map, 0)}.`);
+  if (f.bleed?.active) parts.push(`Active variceal bleed, HR ${fmt(m.vitals?.hr ?? m.hr, 0)}, MAP ${fmt(m.vitals?.map ?? m.map, 0)}.`);   // (the vitals as the bar reads them, over the breath)
   const p = [];
-  if (!hidden?.has('pv')) p.push(`Portal pressure ${fmt(m.pv, 0)} mmHg${m.pv <= 10 ? '' : m.pv < 15 ? ' (raised)' : ' (high)'}`);
-  if (!hidden?.has('trueHVPG')) p.push(`HVPG ${fmt(m.hvpg, 0)}`);
+  const pvS = Math.round(m.pv);   // (rated as it is read out, in whole mmHg: 10.3 is '10', not '10 (raised)')
+  if (!hidden?.has('pv')) p.push(`Portal pressure ${fmt(m.pv, 0)} mmHg${pvS <= 10 ? '' : pvS < 15 ? ' (raised)' : ' (high)'}`);
+  if (!hidden?.has('trueHVPG')) p.push(`HVPG ${fmt(m.hvpg, 1)}`);   // (at one decimal, as the tile prints and rates it: '10' for 9.6 read as past the CSPH line)
   if (p.length) parts.push(p.join(', ') + '.');
   const q = (f.Qf || f.Q)[EI.PV_TRUNK];
   // (The same cut-offs as the Doppler's reading and the figure's labels, velNormal.js judgeFlow: a screen-reader listener keeps the direction of a slow flow.)
-  const jf = judgeFlow(m.pvVel, q, null, { ref: st.healthy?.Q?.[EI.PV_TRUNK] });
+  const jf = judgeFlow(m.pvVelMean ?? m.pvVel, q, null, { ref: st.healthy?.Q?.[EI.PV_TRUNK] });
   const flow = jf.none ? 'no portal flow' : jf.stasis ? (jf.reversed ? 'sluggish, reversed portal flow' : 'sluggish portal flow')
     : jf.reversed ? 'flow reversed, away from the liver' : 'flow toward the liver';
   const e = [];

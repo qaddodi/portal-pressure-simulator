@@ -8,6 +8,7 @@ import {
 } from './physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
+import { DisplayMean, holdAt } from './display-mean.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -189,7 +190,7 @@ export class Engine {
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     // Display filters start over from the new state (a non-finite run must not leak into the next patient).
-    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
+    this.Pf = this.Qf = this.extf = null; this.iapf = undefined; this._held = null; this.COf = this.pvQm = this.pvVm = undefined; this.vitM = null; this.qpm = null;
     this._hiddenOn = false; this._carry = null; this._ease = null;
     this.hr = HR_REST;
     this.slow = {
@@ -443,7 +444,11 @@ export class Engine {
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
     let raExt = pplDev + 12 * p.pericardial;
-    if (this.pulsing()) raExt += raWave(this.phase());
+    const raW = this.pulsing() ? raWave(this.phase()) : 0;
+    raExt += raW;
+    // (The breath's and the beat's share of the outside pressures, so the shown readings can start from the calm ones: calmExt.)
+    this._swing = this._swing || { ppl: 0, iap: 0, ra: 0 };
+    this._swing.ppl = ppl; this._swing.iap = iapResp; this._swing.ra = raW;
     for (let i = 0; i < this.N; i++) {
       const ext = NODES[i].ext;
       this.ext[i] = ext === 'abd' ? iapDev
@@ -460,10 +465,20 @@ export class Engine {
     return this.cyc - Math.floor(this.cyc);
   }
 
-  extFor(kind) {
-    const iapDev = this.iap - 5;
-    return kind === 'abd' ? iapDev : kind === 'thor' ? this.ext[this.ni.SVC] : kind === 'eso' ? this.ext[this.ni.VAR]
-      : kind === 'gas' ? this.ext[this.ni.GV] : 0;
+  extFor(kind, ext = this.ext, iap = this.iap) {
+    const iapDev = iap - 5;
+    return kind === 'abd' ? iapDev : kind === 'thor' ? ext[this.ni.SVC] : kind === 'eso' ? ext[this.ni.VAR]
+      : kind === 'gas' ? ext[this.ni.GV] : 0;
+  }
+  /** The outside pressures without this moment's breath and beat (computeExt's swing taken off): where the shown readings start. */
+  calmExt(out) {
+    const w = this._swing || { ppl: 0, iap: 0, ra: 0 };
+    for (let i = 0; i < this.N; i++) {
+      const k = NODES[i].ext;
+      out[i] = this.ext[i] - (k === 'abd' || k === 'gas' ? w.iap : k === 'thor' || k === 'eso' ? w.ppl : 0);
+    }
+    out[this.ni.RA] = this.ext[this.ni.RA] - w.ppl - w.ra;
+    return out;
   }
 
   // ───────────────────────── conductances ─────────────────────────
@@ -805,21 +820,81 @@ export class Engine {
     return pulseOf(this.MAPf, q * 60 / this.hr, this.hr, C, G, ARTERY.Zc, out);
   }
 
+  /** One bedside step of the shown readings (display-mean.js): the pressures, flows, outside pressures and the abdomen's pressure, each
+   *  the mean over the last breath and beat, into Pf, Qf, extf and iapf. (The dead band is on the readings as they print, holdShown, not
+   *  on Pf: two neighbouring nodes held at one rounding edge read no gradient between them, and the figure reads gradients from Pf.) Whenever something else wrote Pf or Qf since (a restore, a hidden copy's relax, the quiet steps' filters), the means start
+   *  over from what they hold, so a change of patient or a slider's relax shows at once, as it did. */
+  shownMean(dt) {
+    const N = this.N, E = this.E, n = 2 * N + E + 2;   // (P, Q, ext, the IAP, and the portal vein's Doppler velocity: pvVm)
+    let dm = this._dm;
+    if (!dm || dm.n !== n) {
+      dm = this._dm = new DisplayMean(n);
+      this._dmIn = new Float64Array(n); this._dmP = new Float64Array(N); this._dmQ = new Float64Array(E);
+    }
+    const v = this._dmIn, Pf = this.Pf, Qf = this.Qf;
+    let same = dm.seeded && this.extf?.length === N;
+    for (let i = 0; same && i < N; i++) same = Pf[i] === this._dmP[i];
+    for (let k = 0; same && k < E; k++) same = Qf[k] === this._dmQ[k];
+    if (!same) {
+      v.set(Pf, 0); v.set(Qf, N);
+      this.calmExt(v.subarray(N + E, N + E + N));
+      v[n - 2] = this.iap - (this._swing?.iap || 0);
+      v[n - 1] = this.pvVm ?? this.dopplerVelocity('PV_TRUNK');
+      dm.seed(v);
+      this.extf = Float64Array.from(v.subarray(N + E, N + E + N)); this.iapf = v[n - 2]; this._pvVshown = v[n - 1];
+    }
+    v.set(this.P, 0); v.set(this.Q, N); v.set(this.ext, N + E); v[n - 2] = this.iap; v[n - 1] = this.dopplerVelocity('PV_TRUNK');
+    if (dm.add(v, dt, 60 / (this.hr || HR_REST))) {
+      const o = dm.out;
+      for (let i = 0; i < N; i++) Pf[i] = o[i];
+      for (let k = 0; k < E; k++) Qf[k] = o[N + k];
+      for (let i = 0; i < N; i++) this.extf[i] = o[N + E + i];
+      this.iapf = o[n - 2];
+      this._pvVshown = o[n - 1];
+    }
+    this._dmP.set(Pf); this._dmQ.set(Qf);
+  }
+
+  /** A reading as it prints, through the dead band at its precision (display-mean.js holdAt), kept by `key` between frames. Only while
+   *  the bedside means run (shownMean): a model settled in quiet steps, a scratch copy or a test reads the value as it is. */
+  holdShown(key, v, step = 0.1) {
+    if (!this._dm?.seeded || this.quiet) { if (this._held) this._held[key] = v; return v; }
+    const h = this._held ??= {};
+    return (h[key] = holdAt(h[key], v, step));
+  }
+
+  /** A vessel's diameter as the figure draws it: from the shown pressures (shownMean), not this instant's, so a vein does not
+   *  breathe on the screen. (diameter() itself, this instant's, is what the Doppler's velocity divides by.) */
+  diameterShown(id) {
+    return this.diameter(id, this.Pf || this.P, this.extf || this.ext, this.iapf ?? this.iap);
+  }
+
   controllers(dt) {
     const p = this.params;
-    const a = Math.min(1, dt / 1.5);
+    // The shown pressures and flows (Pf, Qf: every readout and the figure read them). At the bedside, the mean over exactly one breath
+    // and one beat (shownMean, display-mean.js); in the quiet steps of a settle, a relax or the disease
+    // clock, which have no breath or beat to average, the first-order filters they always had (2.5 s and 1.5 s), so the days the
+    // disease clock runs read the same as before.
     if (!this.Qf) this.Qf = Float64Array.from(this.Q);
-    for (let k = 0; k < this.E; k++) this.Qf[k] += (this.Q[k] - this.Qf[k]) * a;
+    if (!this.Pf) this.Pf = Float64Array.from(this.P);
+    if (this.quiet || !(dt > 0)) {
+      const a = Math.min(1, dt / 1.5), ap = Math.min(1, dt / 2.5);
+      for (let k = 0; k < this.E; k++) this.Qf[k] += (this.Q[k] - this.Qf[k]) * a;
+      for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
+      if (this.extf?.length !== this.N) this.extf = new Float64Array(this.N);
+      this.extf.set(this.ext); this.iapf = this.iap;
+    } else this.shownMean(dt);
     // Portal flow and velocity averaged over a few breaths, so the readout's status does not
     // flicker as breathing swings the instantaneous velocity across a cut-off.
+    // (At the bedside, the breath and beat means of shownMean, which take the breath out exactly; the 6 s filter let a 4 s breath through at
+    // a tenth of its size, ±1 to 2 cm/s on the velocity tile. The quiet steps keep the filter.)
     const av = Math.min(1, dt / 6), kPV = this.ei.PV_TRUNK;
-    this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
-    const vPV = this.dopplerVelocity('PV_TRUNK');
-    this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
-    // Display-filtered pressures (removes respiratory / cardiac ripple from readouts)
-    if (!this.Pf) this.Pf = Float64Array.from(this.P);
-    const ap = Math.min(1, dt / 2.5);
-    for (let i = 0; i < this.N; i++) this.Pf[i] += (this.P[i] - this.Pf[i]) * ap;
+    if (!this.quiet && dt > 0 && this._dm?.seeded && Number.isFinite(this._pvVshown)) { this.pvQm = this.Qf[kPV]; this.pvVm = this._pvVshown; }
+    else {
+      this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
+      const vPV = this.dopplerVelocity('PV_TRUNK');
+      this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
+    }
     this.COf = (this.COf ?? this.Qheart) + (this.Qheart - (this.COf ?? this.Qheart)) * Math.min(1, dt / 2);
     this.MAPf += (this.P[this.ni.AO] - this.MAPf) * (dt / (2 + dt));
     // The vitals as the bar and Readouts show them, averaged over two breaths at every step: breathing swings the
@@ -1323,11 +1398,11 @@ export class Engine {
   }
 
   // ───────────────────────── measurement helpers ─────────────────────────
-  diameter(id) {
+  diameter(id, P = this.P, ext = this.ext, iap = this.iap) {
     const k = this.ei[id], e = EDGES[k];
     if (e.kind === 'collateral') {
       const f = this.edgeF[k], t = this.edgeT[k];
-      const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
+      const a = 0.5 * (tubeArea(P[f] - ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(P[t] - ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
       return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
     }
@@ -1340,8 +1415,8 @@ export class Engine {
     const base = e.d || 3;
     if (e.kind !== 'vein' && e.kind !== 'diode') return base;
     const f = this.edgeF[k], t = this.edgeT[k];
-    const x = this.extFor(this.edgeExt[k]);
-    const a = 0.5 * (tubeArea(this.P[f] - x) / tubeArea(this.Pbase[f]) + tubeArea(this.P[t] - x) / tubeArea(this.Pbase[t]));
+    const x = this.extFor(this.edgeExt[k], ext, iap);
+    const a = 0.5 * (tubeArea(P[f] - x) / tubeArea(this.Pbase[f]) + tubeArea(P[t] - x) / tubeArea(this.Pbase[t]));
     return base * Math.sqrt(a) * Math.sqrt(1 - this.occlusion(id) * 0.9);
   }
 
@@ -1550,6 +1625,7 @@ export class Engine {
     this.slow.vRest ||= { VAR: null, GV: null };   // (one from before the varix's lag on its fall (VARIX.tauFall) starts it at the size the pressure gives)
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
+    this._held = null;   // (the readings' dead band, holdShown, starts over with the shown means)
     this.pvQm = this.pvVm = undefined; this.vitM = null;
     this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)
     this._hiddenOn = false; this._carry = null; this._ease = null;   // (a hidden copy being relaxed, and what it moved, belonged to the state before)

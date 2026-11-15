@@ -29,8 +29,8 @@ export function createPick(st, live) {
     const e = EI[item] != null ? EDGES[EI[item]] : E[item]?.e;
     if (!e) return '';
     if (!live.F || EI[item] == null) return `${e.label || item}. Press Enter for actions.`;
-    const q = live.F.Q[EI[item]];
-    return `${e.label}: ${fmt(live.F.P[NI[e.from]], 1)} to ${fmt(live.F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[item].rev ? ', reversed' : ''}. Press Enter for actions.`;
+    const F = live.F, P = F.Pf || F.P, q = (F.Qf || F.Q)[EI[item]];   // (the shown readings, as the figure and the cards read them)
+    return `${e.label}: ${fmt(P[NI[e.from]], 1)} to ${fmt(P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[item].rev ? ', reversed' : ''}. Press Enter for actions.`;
   }
   function figShow(item, say = true) {
     const was = figKeys.cur;

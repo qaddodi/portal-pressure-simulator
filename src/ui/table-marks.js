@@ -226,6 +226,10 @@ export const cutText = (c) => String(c).replace(/^>=\s*/, '≥').replace(/^<=\s*
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };
 export const UP_GOOD = new Set(['liver', 'plt', 'map', 'sbp', 'rpp', 'salb', 'hb', 'hbTo', 'pvVel']);   // (higher is better: a low one rates amber or red, an arrow down)
 export const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'eus', 'ppg', 'sin', 'map', 'sbp', 'rpp']);
+// The pressures print in whole mmHg in a table, but the three gradients print, and are rated, at one decimal, as their tiles print and rate
+// them: a whole number put an HVPG of 9.6 in the table as a red '10' beside an amber 9.6 tile (full app review PC-7, 15 Nov 2026).
+export const GRADIENTS = new Set(['hvpg', 'eus', 'ppg']);
+export const pressDp = (k) => (GRADIENTS.has(k) ? 1 : 0);
 export const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : k === 'res' ? f.rih ?? null : f[k]);
 // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dash within),
 // or against a reference patient's value ('rel': the treatments table's baseline, or the row a row names).
@@ -250,7 +254,7 @@ export function dirRel(k, f, ref) {
   return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
 }
 export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, ssm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, rpp: 0, hr: 0, he: 2, pvVel: 0 };
-export const atShown = (k, v) => { if (v == null) return v; if (k === 'asc') return Math.round(v / 100) * 100; const d = PRESS.has(k) ? 0 : DP[k] ?? 1, m = 10 ** d; return Math.round(v * m) / m; };
+export const atShown = (k, v) => { if (v == null) return v; if (k === 'asc') return Math.round(v / 100) * 100; const d = PRESS.has(k) ? pressDp(k) : DP[k] ?? 1, m = 10 ** d; return Math.round(v * m) / m; };
 
 // In the comparison table a change is coloured by what it means for the patient: green better, red worse.
 // Lower is better everywhere except blood flow to the liver, platelets, blood pressure, albumin and hemoglobin; portal flow is neither.

@@ -13,7 +13,7 @@ const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', '
 
 // A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
-  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameter(ed.id)), copy: true,
+  P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (ed) => e.diameterShown(ed.id)), copy: true,
   params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
@@ -124,6 +124,9 @@ export function createCore(post) {
   const MORPH_PARAMS_MS = 250;
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
+  // A trace that draws the samples as they come (the Doppler, the pressure trace, the vitals strip) runs a fraction of a second behind the
+  // newest one, so while the page says one scrolls the frames go out at every check, moved or not. Until a page says, as before.
+  let traces = true;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a sample set is begun when a history or a stretch of samples starts
 
@@ -240,7 +243,7 @@ export function createCore(post) {
     wstat.frames++; if (paramsDirty) wstat.params++;
     const m = detectEvents(eng);
     const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
-    for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
+    for (let k = 0; k < eng.E; k++) D[k] = eng.diameterShown(eng.edges[k].id);   // (the widths the figure draws: from the shown pressures, so a vein does not breathe)
     const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
       changed: frameDirty || held, gen,
@@ -260,6 +263,7 @@ export function createCore(post) {
       Q: Float32Array.from(eng.Q),
       Qf: Float32Array.from(eng.Qf || eng.Q),
       ext: Float32Array.from(eng.ext),
+      extf: Float32Array.from(eng.extf || eng.ext),   // (the outside pressures over the breath, as Pf: the readouts' transmural pressure)
       D,
       metrics: m,
       slow: eng.slow,
@@ -275,7 +279,7 @@ export function createCore(post) {
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
     unpainted = ackOn;
-    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
+    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.extf.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
     if (f.samples) xfer.push(f.samples.t.buffer);
     post(f, xfer);
   }
@@ -308,24 +312,32 @@ export function createCore(post) {
   // (Perf C5: a slider's change that waits for the page's paint: the frame it owes is built by painted(), once, however many inputs came meanwhile.)
   let held = false;
   const ACK_MAX_MS = 400;
-  // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
-  // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
-  // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
+  // A frame goes out only when what the screen shows moved since the last one posted, or once a second as a heartbeat (the samples taken
+  // meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets frameDirty/paramsDirty
+  // and posts at once, so nothing waits on the heartbeat.
+  // (What the screen shows is the breath and beat means, engine shownMean: at rest they hold still, so a settled patient posts only the
+  // heartbeat (full app review ENG-1: the 0.02% test passed at every check, as the old filters let the breath through, and the worker
+  // posted 10 frames a second forever). The bands are under what any reading prints or any colour or width shows: half a printed tenth of
+  // a mmHg, a percent of a flow, half a percent of a width. What is left at rest is smaller still or slower: the beat's length follows the
+  // breath by a fifth of a beat a minute, so a beat-locked flow keeps a jitter of about 0.4%, and the arterial pressure wanders by
+  // about 0.07 mmHg over 20 s as the baroreflex hunts.)
   let still = null;
-  const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
-  const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
+  const HEARTBEAT_MS = 1000;
+  const NEAR_P = [0.05, 0], NEAR_Q = [0.01, 0.01], NEAR_D = [1e-3, 0.005];
+  const near = (a, b, [abs, rel]) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > abs + rel * Math.abs(b[i])) return false; return true; };
   // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
   // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
   function keepStill() {
     const pf = eng.Pf || eng.P, qf = eng.Qf || eng.Q;
     if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the kept copy is made once and written in place after (reallocated only if the engine's size changes)
     still.Pf.set(pf); still.Qf.set(qf);
-    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameter(eng.edges[k].id);
+    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameterShown(eng.edges[k].id);
   }
   function movedSincePost() {
     if (!still) return true;
-    if (!near(eng.Pf || eng.P, still.Pf) || !near(eng.Qf || eng.Q, still.Qf)) return true;
-    for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
+    if (!near(eng.Pf || eng.P, still.Pf, NEAR_P) || !near(eng.Qf || eng.Q, still.Qf, NEAR_Q)) return true;
+    const [abs, rel] = NEAR_D;
+    for (let k = 0; k < eng.E; k++) { const d = eng.diameterShown(eng.edges[k].id); if (Math.abs(d - still.D[k]) > abs + rel * Math.abs(still.D[k])) return true; }
     return false;
   }
   // (The ?perf frame panel's physics row (frame-hud.js, 8 Nov 2026): what the clock really did since it last asked, 'perfStats'. A few
@@ -406,7 +418,7 @@ export function createCore(post) {
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
     owed = held || (running && !due && ackOn && unpainted && now - lastFrame > 95);
     if (owed) wstat.held++;
-    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
+    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || traces || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       keepStill();
     }
@@ -549,6 +561,8 @@ export function createCore(post) {
     // (The samples already taken belong to the old vessel: they go out under its name first, so the new one's record starts clean.)
     probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
+    // (Whether a trace drawing the samples scrolls on the page, main.js: while one does, a frame goes out at every 95 ms check.)
+    traces({ on }) { traces = !!on; },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
     // The steady state's last `secs` seconds, for an instrument whose window opens empty (see History above).
     history({ secs, reqId }) { startHistory(secs, reqId); },

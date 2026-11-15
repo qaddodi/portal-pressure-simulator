@@ -981,6 +981,8 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   rolling.add(el);
   if (!rollRaf) rollRaf = frame(rollStep, 'numbers');
 }
+/** Whether a number countTo writes is still rolling to its value (band-settle.js: a band changes once its number has landed). */
+export const numberMoving = (el) => rolling.has(el) || odos.has(el);
 export const popoverOpen = () => !!openMenu;
 /** Places the open menu again, after something it is anchored to has moved or resized. */
 export function repositionPopover() { if (openMenu) { openMenu.put(); } }

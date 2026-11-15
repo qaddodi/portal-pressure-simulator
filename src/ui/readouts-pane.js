@@ -5,7 +5,9 @@
 
 import { store, hiddenNow } from './store.js';
 import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './util.js';
+import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving } from './util.js';
+import { bandStep, BAND_RECHECK_MS } from './band-settle.js';
+import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js';
@@ -103,6 +105,9 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   };
   // (Followed only while the pane is being drawn: the dock draws it from each model frame only while it is open and on screen.)
   let lastF = null, lastAt = 0;
+  // (A band waiting for its number to land looks again on one timer for the pane, band-settle.js: a paused model sends no frame to look with.)
+  let bandAsk = 0;
+  const bandCheck = () => { bandAsk = 0; if (lastF && el.isConnected) update(lastF); };
   shownState.on(() => { if (lastF && el.isConnected && performance.now() - lastAt < 400) update(lastF, true); });
   function update(f, follow = false) {
     if (!follow) { lastF = f; lastAt = performance.now(); }
@@ -149,15 +154,15 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         if (x.cmp.className !== cc) x.cmp.className = cc;
         if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
-      // A new band must hold for a moment before the tile takes it, so a value on a cut-off does not flicker (paused: at once).
-      if (sev !== x.sev) {
-        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
-          if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
-          tileEl.dataset.sev = sev; x.sev = sev;
-        }
-      } else x.sevNext = null;
-      if (sev === x.sev) { const un = v == null; swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
+      // A reading crossing a cut-off rolls in its old colour; its colour and word change once the number has landed (A1, band-settle.js, as
+      // the bar's tiles). Reduce Motion: all three at once.
+      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + t.id), reduce);
+      if (step === 'wait') { if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else if (step !== 'same') {
+        if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
+        tileEl.dataset.sev = sev; x.sev = sev;
+      }
+      if (sev === x.sev) { const un = v == null; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; tileEl.setAttribute('aria-label', aria); }
     }
@@ -180,14 +185,13 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), x.v.s ? { sbp: x.r?.s } : {}), sev = SEV[cls] ?? 'none';
       const w = none ? 0 : fillQ(clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1));
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
-      if (sev !== x.sev) {
-        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
-          if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
-          x.el.dataset.sev = sev; x.sev = sev;
-        }
-      } else x.sevNext = null;
-      if (sev === x.sev) swapText(x.st, word, () => x.st.classList.toggle('unmeas', none));
+      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + x.v.id), reduce);
+      if (step === 'wait') { if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else if (step !== 'same') {
+        if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
+        x.el.dataset.sev = sev; x.sev = sev;
+      }
+      if (sev === x.sev) { if (step === 'now' && reduce) { putText(x.st, word); x.st.classList.toggle('unmeas', none); } else swapText(x.st, word, () => x.st.classList.toggle('unmeas', none)); }
       const aria = `${x.v.title}: ${none ? 'not measured' : `${x.v.s ? bpText(x.r?.s, x.r?.d, r.v) : fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; x.el.setAttribute('aria-label', aria); }
     }

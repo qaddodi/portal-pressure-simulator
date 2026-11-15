@@ -151,13 +151,13 @@ test('Encephalopathy: a wider stent lowers the PPG and takes liver flow; the HE 
   assert.ok(c.fp.he > 0.45 && c.fp.he < 1, `the HE index ${c.fp.he} is High and inside its 0 to 1 tile`);
 });
 
-test('TIPS Doppler: the PPG passes 12 mmHg at about a third narrowed, the portal vein drops under 30 cm/s at about half; the ring is 60%', async () => {
+test('TIPS Doppler: the PPG passes 12 mmHg at about 40% narrowed, the portal vein drops under 30 cm/s at about half; the ring is 65%', async () => {
   const c = await chartOf('tips-doppler');
   assert.equal(c.t.lines.join(), 'ppg,pvVel');
   const a = cross(c, 0, 12, 1), b = cross(c, 1, 30, -1);
-  assert.ok(a > 28 && a < 40, `the PPG passes 12 at ${a}% narrowed`);
+  assert.ok(a > 35 && a < 46, `the PPG passes 12 at ${a}% narrowed`);   // (about 40%: the 10 mm stent since 15 Nov 2026, C2b-5; 33% at 9 mm)
   assert.ok(b > 44 && b < 54, `the portal vein drops under 30 cm/s at ${b}% narrowed`);
-  near(c.ring.x, 60, 1e-6, 'the ring is the 60% narrowing');
-  near(c.ring.ys[0], at(c, 60, 0), 0.05, 'on the PPG line'); near(c.ring.ys[1], at(c, 60, 1), 0.05, 'and on the velocity line');
+  near(c.ring.x, 65, 1e-6, 'the ring is the 65% narrowing');
+  near(c.ring.ys[0], at(c, 65, 0), 0.05, 'on the PPG line'); near(c.ring.ys[1], at(c, 65, 1), 0.05, 'and on the velocity line');
   assert.ok(c.fp.pvVel < 30, 'the narrowed stent\'s portal vein reads under 30 cm/s, as the slides before say');
 });

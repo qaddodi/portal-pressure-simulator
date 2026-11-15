@@ -119,15 +119,18 @@ export const PRESETS = [
     note: 'HVPG ≥10 mmHg. Collaterals open and small varices appear.' },
   // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
   // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
-  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 10 to 11 and PPG about
-  // 14 mmHg (settled at rest: 10.3 to 10.9 and 13.6 to 14.3, the breath moving them), small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
+  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 10.5 and PPG about
+  // 14 mmHg (until 15 Nov 2026 the breath moved them, 10.3 to 10.9 and 13.6 to 14.3; the readings are now its means), small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
   { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
     summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance is presinusoidal, so the HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.',
     note: 'Obese MASLD cirrhosis. HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.' },
   { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥15 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
     note: 'HVPG ≥15 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
-  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
+  // (Cirrhosis 0.84, not 0.95: at 0.95 the PPG rested on the red line at 12, 11.8 at the bedside and 12.1 settled, so the tile and the
+  // slides' tables could rate it differently. At 0.84: HVPG 11.1 and PPG 11.2 at the bedside, 11.4 and 11.5 settled, and the portal flow
+  // stays reversed (no higher setting clears 12 at the bedside: 1.0 reads 12.0). ENG-5.)
+  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.84, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
     note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
   { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
@@ -138,7 +141,10 @@ export const PRESETS = [
   { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.',
     note: 'Compensated cirrhosis at 24 weeks. Higher blood volume and portal inflow enlarge small varices.' },
-  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 32 }, L: { post: 32 } } }), days: 21,
+  // (Central-vein resistance 34, not 32: at 32 SOS rested at HVPG 10.2 and PPG 12.1 at the bedside, on both red lines, and read amber or red with
+  // the last tenth (full app review ENG-5, 15 Nov 2026). At 34: about 10.4 and 12.4 at the bedside, 10.9 and 12.7 settled (the slides' states).
+  // No preset rests within 0.3 of a cut-off: tests/steady-readings.test.js.)
+  { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 34 }, L: { post: 34 } } }), days: 21,
     summary: 'Central-vein resistance: high WHVP and HVPG, hepatomegaly, ascites.',
     note: 'Resistance at the central veins. High WHVP and HVPG, hepatomegaly, ascites.' },
   { id: 'budd-chiari', group: 'Post-hepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,

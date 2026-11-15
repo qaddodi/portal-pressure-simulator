@@ -88,12 +88,15 @@ async function modelFrames(preset, ms) {
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const PATH = ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'];
 
-test('under a steady running model the Pressure chart rests, though the arterial pressures do not', async () => {
+test('under a steady running model the Pressure chart rests, and would though the arterial pressures moved', async () => {
   const fr = await modelFrames('cirr-decomp', 4500);
   assert.ok(fr.length > 25, `${fr.length} model frames`);
   const settled = fr.slice(10);
-  const arterial = settled.slice(1).filter((x, i) => Math.abs(x.f.Pf[NI.AO] - settled[i].f.Pf[NI.AO]) > 0.05).length;
-  assert.ok(arterial > settled.length / 2, 'the arterial pressure moves by more than the chart prints from frame to frame (what kept it going)');
+  // (Until 15 Nov 2026 the arterial pressure moved by more than the chart prints from frame to frame, which kept the glide going. The readings
+  // are now the breath and beat means (engine shownMean) and move far less; a wobble of the pressures the chart never draws, the aorta's and the
+  // hepatic artery's, is put back by hand to show the mask still keeps the glide at rest.)
+  let flip = 0;
+  const wobble = (pf) => { const a = Array.from(pf), d = (flip++ % 2 ? 0.3 : -0.3); a[NI.AO] += d; a[NI.HA] += d; return a; };
   const mask = new Uint8Array(NODES.length); for (const n of PATH) mask[NI[n]] = 1;
   const real = performance.now.bind(performance);
   let clock = 0; performance.now = () => clock;
@@ -104,11 +107,11 @@ test('under a steady running model the Pressure chart rests, though the arterial
       for (let t = settled[0].at; t < settled.at(-1).at; t += 1000 / 120) {
         clock = t;
         let fresh = null;
-        while (fi < settled.length && settled[fi].at <= t) fresh = settled[fi++].f.Pf;
+        while (fi < settled.length && settled[fi].at <= t) fresh = wobble(settled[fi++].f.Pf);
         if (!fresh && !was) { total++; continue; }
-        const r = e.step(fresh ? Array.from(fresh) : e.last, watch);
+        const r = e.step(fresh || e.last, watch);
         was = r.moving; if (r.moving) moving++; total++;
-        e.last = Array.from(fresh || e.last);
+        e.last = fresh || e.last;
       }
       return moving / total;
     };

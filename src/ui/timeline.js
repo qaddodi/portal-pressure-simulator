@@ -35,7 +35,7 @@ export function captureFrame(f, params) {
   return { // alloc-rare: once per pin or marker (a learner action), never per frame
     P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params), // alloc-rare: once per pin or marker (a learner action), never per frame
     frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D), // alloc-rare: once per pin or marker (a learner action), never per frame
-      ext: Array.from(f.ext), slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
+      ext: Array.from(f.ext), extf: f.extf ? Array.from(f.extf) : undefined, slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
   };
 }
 export const fmtClock = (t, day) => {

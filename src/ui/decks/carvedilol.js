@@ -47,7 +47,8 @@ export const CARVEDILOL = {
       ask: ['A woman with compensated cirrhosis has an LSM of 12 kPa and platelets of 160,000/µL. Does she need carvedilol?', 'No. CSPH is ruled out, and an NSBB does not prevent decompensation without CSPH. Repeat LSM in 12 months.'],
     },
     {
-      id: 'rise', days: 730, ramp: { cirrhosis: [0.4, 0.66] }, lapse: { seconds: 8, from: 'First visit', to: 'Two years on' }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'lsm'], keepTiles: true, title: 'HVPG and LSM over two years' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], graph: ['hvpg', 'lsm'], delta: 'first',
+      // (Year 2 ends at cirrhosis 0.68, not 0.66: as One patient, ten years, 15 Nov 2026, C2b-5: carvedilol's HVPG read 10.0, on the line.)
+      id: 'rise', days: 730, ramp: { cirrhosis: [0.4, 0.68] }, lapse: { seconds: 8, from: 'First visit', to: 'Two years on' }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'lsm'], keepTiles: true, title: 'HVPG and LSM over two years' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], graph: ['hvpg', 'lsm'], delta: 'first',
       kicker: 'First visit', site: 'sin', title: 'Two years later, LSM rules in CSPH',
       line: 'Her LSM is now {lsm}, which meets {>=25 kPa}, with platelets of {plt}. CSPH is ruled in without HVPG measurement, and carvedilol starts. The next slide shows the algorithm.',
       notes: 'Source: Baveno VIII 1.16. In non-obese MASLD, as here (BMI <30), an LSM ≥25 kPa rules in CSPH. With obesity the rule does not apply, and a model that includes BMI decides. Over two years the model\'s HVPG has risen above 12 mmHg. LSM and platelet count are inexpensive and repeatable, which is why they are used to follow patients between HVPG measurements.',
@@ -78,7 +79,7 @@ export const CARVEDILOL = {
       ask: ['A patient with CSPH cannot take an NSBB. His LSM is 18 kPa and his platelet count 170,000/µL. Does he need a screening endoscopy?', 'No. LSM <20 kPa with platelets ≥150,000/µL makes screening endoscopy unnecessary (Baveno VIII 1.19).'],
     },
     {
-      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'varix'], keepTiles: true, title: 'Ascites and varix over four years' }, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
+      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'varix'], keepTiles: true, title: 'Ascites and varix over four years' }, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
       kicker: 'Ascites and varices', site: 'sin', title: 'With ascites and large varices, carvedilol continues',
       line: 'Four years later she has {asc} of ascites and varices of {varix}. Baveno VIII keeps carvedilol to prevent a first bleed and lower the risk of ascites-related complications.',
       notes: 'Source: Baveno VIII 4.4; AASLD 2024. In patients with ascites and varices carvedilol is recommended to prevent a first bleed and to lower the risk of ascites-related complications, and it is preferred over the other nonselective beta-blockers. AASLD 2024 adds that these drugs are safe and probably beneficial in ascites, but a systolic blood pressure <90 mmHg may abolish the survival benefit, so blood pressure is checked at every visit. Ascites is her first decompensation, and from here she should also be considered for liver transplantation (Baveno VIII 4.3).',

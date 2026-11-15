@@ -3,7 +3,8 @@
 
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown } from './util.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving } from './util.js';
+import { bandStep, BAND_RECHECK_MS } from './band-settle.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
 import { createPressureTime } from './pressure-time.js';
@@ -231,6 +232,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // (Made once here, so a frame makes none: the closure for the status word's class, and the pass that words the spoken label.)
     const unmeasThen = [() => classSoon(x.st, 'unmeas', false), () => classSoon(x.st, 'unmeas', true)];
     x.unmeasThen = (un) => unmeasThen[un ? 1 : 0];
+    // (A band waiting for its number to land looks again on a timer, band-settle.js: a paused model sends no frame to look again with.)
+    x.bandAsk = 0;
+    x.bandCheck = () => { x.bandAsk = 0; if (frame) paintStrip(frame); };
     x.ariaPass = () => {
       x.ariaAsk = false;
       const v = x.ariaV, s = x.ariaS;
@@ -428,19 +432,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         else x.cmpW.set(ct);
         if (!x.st.hidden) { x.st.hidden = true; fadeIn(x.cmp); }
       } else if (x.cmpW.text) { x.cmpW.set(''); x.st.hidden = false; fadeIn(x.st); }
-      // A new band must hold for a moment before the tile takes it, so a value hovering on a
-      // cut-off does not flicker between two colors. (A paused model sends no more frames: it takes the band at once.)
-      if (sev !== x.sev) {
-        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
-        if (!x.sev || sev === 'none' || !st0.running || now - x.sevSince > 1500) {
-          // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
-          if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
-          dataSoon(el, 'sev', sev); x.sev = sev;
-        }
-      } else x.sevNext = null;
+      // A reading crossing a cut-off rolls (or glides) in its old colour; its colour and word change once the number has landed, the word by
+      // its cross-fade, so the number and the band never disagree mid-roll (A1, band-settle.js). Reduce Motion: all three at once.
+      const g2 = x.live && GAP_ENDS[t.id];
+      const moving = numberMoving(x.val) || shownState.isMoving(x.kBar) || !!(g2 && (shownState.isMoving(END_STATE[g2[0]]) || shownState.isMoving(END_STATE[g2[1]])));
+      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, moving, reduce);
+      if (step === 'wait') { if (!x.bandAsk) x.bandAsk = setTimeout(x.bandCheck, BAND_RECHECK_MS); }
+      else if (step !== 'same') {
+        // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
+        if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
+        dataSoon(el, 'sev', sev); x.sev = sev;
+      }
       // (The status word is handed on only when it or its class changed since it was last handed on: swapText returns at once for the same
       // word, but the call made a closure each frame to find that out.)
-      if (sev === x.sev) { const un = v == null; if (s !== x.stS || un !== x.stUn) { x.stS = s; x.stUn = un; swapText(x.st, s, x.unmeasThen(un)); } }
+      if (sev === x.sev) {
+        const un = v == null;
+        if (s !== x.stS || un !== x.stUn) { x.stS = s; x.stUn = un; if (step === 'now' && reduce) { putText(x.st, s); x.unmeasThen(un)(); } else swapText(x.st, s, x.unmeasThen(un)); }
+      }
       // (The spoken label is worded between frames, and only when what it says changed: the number as shown, the word, the trend.)
       const ak = v == null ? 1e308 : x.vsOut;
       if (ak !== x.ariaK || s !== x.ariaS || x.trend !== x.ariaT) { x.ariaK = ak; x.ariaS = s; x.ariaT = x.trend; x.ariaV = v; if (!x.ariaAsk) { x.ariaAsk = true; restPass(x.ariaPass); } }

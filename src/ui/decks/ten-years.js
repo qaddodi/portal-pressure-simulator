@@ -12,6 +12,8 @@
 const BAND = { kind: 'band' };
 const CARV = { drugs: { carvedilol: true } };
 const ramp = (a, b) => ({ cirrhosis: [a, b] });
+// (Year 2 ends at cirrhosis 0.68, not 0.66, since 15 Nov 2026 (full app review C2b-5): at 0.66 carvedilol brought the HVPG to 10.0, on the
+// CSPH line, and the LSM read 25.5 against the 25 kPa rule. At 0.68: HVPG 13.3, 10.3 on carvedilol, LSM 25.9. The carvedilol talk runs the same.)
 
 export const TEN_YEARS = {
   id: 'ten-years', level: 'advanced', title: 'One patient, ten years', minutes: 15,
@@ -48,7 +50,7 @@ export const TEN_YEARS = {
       ask: ['What places a compensated patient at the second stage, with CSPH?', 'Evidence of CSPH: an HVPG ≥10 mmHg, an LSM ≥25 kPa, varices or collaterals, or a model such as ANTICIPATE ≥75%.'],
     },
     {
-      id: 'd90', tick: 'Year 2', days: 730, ramp: ramp(0.5, 0.66), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
+      id: 'd90', tick: 'Year 2', days: 730, ramp: ramp(0.5, 0.68), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Year 2', site: 'sin', title: 'Year 2: the LSM rules in CSPH', cite: 'Baveno VIII 1.16',
       line: 'In non-obese MASLD, an LSM of {lsm} meets the {>=25 kPa} rule, and with platelets of {plt}, CSPH is ruled in without HVPG measurement. Carvedilol starts.',
       notes: 'In viral and alcohol-related disease and in non-obese MASLD (BMI <30, as here), an LSM ≥25 kPa alone rules CSPH in (Baveno VIII 1.16b). Between 15 and 25 kPa it does not decide. In MASLD with obesity the 25 kPa rule does not apply, and ANTICIPATE-NASH, which adds the BMI, decides. Baveno VIII calls CSPH present when a validated model (ANTICIPATE, or ANTICIPATE-NASH in MASLD, built on LSM, platelet count and BMI) puts its probability at ≥75% (1.16a), or when the spleen stiffness (SSM) with the 100 Hz probe is >55 kPa. In the simulation, the HVPG has risen above 12 mmHg over two years. Carvedilol starts on this result; it does not wait for HVPG measurement. LSM and platelet count are inexpensive and repeatable, which is why they are used to follow patients between HVPG measurements. (Baveno VIII 1.15, 1.16.)',
@@ -58,7 +60,7 @@ export const TEN_YEARS = {
       id: 'd365', tick: 'HVPG', days: 14, cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
       kicker: 'Year 2', site: 'sin', title: 'Year 2: HVPG measurement confirms CSPH',
       line: 'The HVPG is {hvpg}, up from {hvpg@d0} at diagnosis and past the {>=10 mmHg} where CSPH begins. Varices and decompensation are now possible.',
-      notes: 'Here the HVPG is measured as well, as in a study, to show the effect of carvedilol on it; in practice the LSM and platelets were enough to start carvedilol. Over two years the gradient has risen by about 4 mmHg, to nearly 13 mmHg. From about 12 mmHg the risk of variceal bleeding climbs, and the risk of ascites and other decompensation rises with each mmHg. Repeat HVPG measurements are not routine; in practice LSM, platelet count and endoscopy track this rise, and grade 1 ascites, seen only on ultrasound, may already be present without constituting decompensation.',
+      notes: 'Here the HVPG is measured as well, as in a study, to show the effect of carvedilol on it; in practice the LSM and platelets were enough to start carvedilol. Over two years the gradient has risen by about 4.5 mmHg, to over 13 mmHg. From about 12 mmHg the risk of variceal bleeding climbs, and the risk of ascites and other decompensation rises with each mmHg. Repeat HVPG measurements are not routine; in practice LSM, platelet count and endoscopy track this rise, and grade 1 ascites, seen only on ultrasound, may already be present without constituting decompensation.',
       ask: ['His HVPG is 13 mmHg and he feels well. Does he need a drug?', 'Yes. Baveno VIII recommends carvedilol at CSPH, to prevent decompensation.'],
     },
     {
@@ -69,7 +71,7 @@ export const TEN_YEARS = {
       ask: ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
-      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
+      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
       line: 'Four more years of liver injury: the HVPG is {hvpg}, serum albumin {salb}, and {asc} of ascites has accumulated despite carvedilol. Refer him for liver transplant evaluation now.',

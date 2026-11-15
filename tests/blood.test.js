@@ -78,9 +78,12 @@ test('origin: portal blood is SMV, IMV and splenic, the hepatic veins add hepati
 
 test('origin: with hepatofugal flow, gut blood reaches the systemic veins', () => {
   const e = new Engine(); e.loadPreset('cirr-hepatofugal');
-  const f = originFractions(EDGES, NODES, e.Q, e.P);
   const azy = EI.AZY_SVC;
-  assert.ok(f[azy * ORIGIN_N] + f[azy * ORIGIN_N + 1] + f[azy * ORIGIN_N + 2] > 0.05, 'portal blood in the azygos');
+  // (Over 0.04 and well over a healthy patient's 0.012: 0.05 until 15 Nov 2026, when the preset's cirrhosis went from 0.95 to 0.84 to take
+  // its PPG off the 12 mmHg line (ENG-5), and the share went from 0.052 to 0.048.)
+  const gut = (eng) => { const g = originFractions(EDGES, NODES, eng.Q, eng.P); return g[azy * ORIGIN_N] + g[azy * ORIGIN_N + 1] + g[azy * ORIGIN_N + 2]; };
+  const h = new Engine(); h.loadPreset('healthy');
+  assert.ok(gut(e) > 0.04 && gut(e) > 3 * gut(h), `portal blood in the azygos (${gut(e).toFixed(3)}, healthy ${gut(h).toFixed(3)})`);
 });
 
 // The origin lens's mix along a vessel (stage-blood stepOriginFlow → originFractionsInto ends): the flow forward and back, each

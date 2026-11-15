@@ -96,7 +96,8 @@ test('Stiffness: every case shows its spleen stiffness beside the HVPG, and the 
   assert.ok(st.a1.ssm < SSM_CUTS.spareScope, `case 1 ${st.a1.ssm}`);
   assert.ok(st.a2.ssm > SSM_CUTS.ruleIn, `case 2 ${st.a2.ssm}`);
   assert.ok(st.a3.ssm > SSM_CUTS.spareScope && st.a3.ssm < SSM_CUTS.ruleIn, `case 3 ${st.a3.ssm}`);
-  assert.ok(Math.abs(st.a4.ssm - SSM_CUTS.ruleIn) < 5, `case 4 sits close to the 55 kPa line (${st.a4.ssm})`);
+  // (Just above the line, by more than the rounding and the model's wander: 55.9 until 15 Nov 2026, C2b-5.)
+  assert.ok(st.a4.ssm > SSM_CUTS.ruleIn * 1.05 && st.a4.ssm < SSM_CUTS.ruleIn + 8, `case 4 sits just above the 55 kPa line (${st.a4.ssm})`);
   assert.ok(st.a5.ssm > SSM_CUTS.ruleIn && st.a5.lsm < 10, `case 5 ${st.a5.ssm} with a soft liver ${st.a5.lsm}`);
   assert.match(slide('stiffness', 'a4').ask[0], /≥25 kPa/);
 });

@@ -73,7 +73,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, watchAnimating, isAnimating } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
@@ -89,6 +89,8 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+// (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
+const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -193,6 +195,13 @@ async function main() {
   document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
   host.send({ type: 'visibility', visible: !document.hidden });
   host.send({ type: 'ackPaint', on: true });   // (each model frame is told back as it is taken in: ingestFrame)
+  // The model posts its frames about ten times a second while a trace that records its samples scrolls on screen (the Doppler, the
+  // pressure trace, the vitals strip: each runs a fraction of a second behind the newest sample), and only when the shown readings move,
+  // or once a second, otherwise (worker-core.js 'traces'; full app review ENG-1).
+  const tracesNow = () => TRACE_TAGS.some(isAnimating);
+  let tracesSent = tracesNow();
+  host.send({ type: 'traces', on: tracesSent });
+  watchAnimating(() => { const on = tracesNow(); if (on !== tracesSent) { tracesSent = on; host.send({ type: 'traces', on }); } });
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
@@ -755,6 +764,7 @@ async function restartPatient() {
     try { await restartHost(); } catch { toast('The model could not restart. Reload the page.', 'bad', { actions: [['Reload', () => location.reload()]] }); return; }
     host.send({ type: 'ackPaint', on: true });
     host.send({ type: 'visibility', visible: !document.hidden });
+    host.send({ type: 'traces', on: TRACE_TAGS.some(isAnimating) });
     const s = store.get();
     host.send(s.lapse ? { type: 'run', speed: s.lapse, clock: 'disease' } : { type: 'run', speed: s.speed, clock: 'hemo' });
     if (s.running === false) host.send({ type: 'run', running: false });

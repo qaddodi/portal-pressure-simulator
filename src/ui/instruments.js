@@ -558,7 +558,7 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(x1, y1);
       ctx.lineTo(x1 - Math.cos(a - 0.45) * hd, y1 - Math.sin(a - 0.45) * hd); ctx.lineTo(x1 - Math.cos(a + 0.45) * hd, y1 - Math.sin(a + 0.45) * hd); ctx.fill();
     }
-    ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
+    ctx.fillStyle = pressureColor((f.Pf || f.P)[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
     ctx.strokeStyle = rim; ctx.lineWidth = lw; ctx.stroke();
     // The radius, drawn across the varix.
     ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash(DASH_RADIUS);
