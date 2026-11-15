@@ -65,7 +65,7 @@ test('a slide that changes the model lands holding the state before it and plays
   // (the card is lifted before the camera and the cards move: the case card's own waits)
   assert.match(presenter, /if \(caseCard\) \{ await caseLifted\(cut\); if \(cut\(\)\) return; \}/);
   const play = presenter.slice(presenter.indexOf('async function answerPlay'), presenter.indexOf('// ── The answer held back ──'));
-  assert.match(play, /const done = await morphTo\(end, cut, reduce\.matches \? 0 : MORPH_MS, false\);/, 'the change eases, never snaps');
+  assert.match(play, /const done = await morphTo\(end, cut, fadeLen\(MORPH_MS\), false\);/, 'the change eases, never snaps (Reduce Motion too, 15 Nov 2026)');
   assert.match(play, /dataTo\(s, liveFp\(fr\), ref, 280\)/, 'the numbers follow the model as it eases');
   assert.ok(!play.includes('holdAnswer'), 'nothing is held back on a question card');
 });

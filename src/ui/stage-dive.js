@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL, D_SURFACE, easeArrive } from './ease.js';
 import { cancelFrame, easeNow } from './frame.js';
-import { reduceMotionMQ as reduceMotion, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
+import { reducedMs, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
 import { fadeStop } from './res-fade.js';
 import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
@@ -129,8 +129,7 @@ export function createDive(st, live) {
     if (to === dipTo) return;
     dipFrom = dipA; dipTo = to; dipT0 = performance.now();
     if (dipRaf) { cancelFrame(dipRaf); dipRaf = 0; }
-    if (reduceMotion.matches) { dipA = to; pushCam(); return; }
-    dipRaf = drawFrame(dipStep);
+    dipRaf = drawFrame(dipStep);   // (Reduce Motion too: a dim is a fade, never a jump; owner, 15 Nov 2026)
   }
   if (typeof MutationObserver === 'function' && wrap?.nodeType === 1) {   // (the page's view; a stand-in without one in the tests watches nothing)
     const dipMo = new MutationObserver(dipSync);
@@ -149,8 +148,7 @@ export function createDive(st, live) {
     if (live.camShowTo === to && (live.camShowRaf || live.camShow === to)) return;
     live.camShowFrom = live.camShow; live.camShowTo = to; live.camShowT0 = performance.now();
     if (live.camShowRaf) cancelFrame(live.camShowRaf);
-    if (reduceMotion.matches) { live.camShow = to; live.camShowRaf = 0; pushCam(); return; }
-    live.camShowRaf = drawFrame(camShowStep);
+    live.camShowRaf = drawFrame(camShowStep);   // (Reduce Motion too: the figure fades in and out, never pops)
   }
   function setDiveFade(o) {
     const q = o === null ? null : Math.round(o * 1000) / 1000;   // (o is 0 or 1 here; to the thousandth, with no string made)
@@ -389,7 +387,7 @@ export function createDive(st, live) {
     // A reversal mid-way turns round from where it is, at the speed of the move it turns round: the clock slews its velocity over D_FLIP
     // (stage.js diveClock), so it slows and comes back rather than stopping dead and starting again from rest.
     const turn = from0 > 0 && from0 < 1, from = live.diveT, to = on ? 1 : 0;
-    const ms = reduceMotion.matches ? 0 : turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS;
+    const ms = reducedMs(turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS);   // (Reduce Motion: the short form every camera move keeps, REDUCED_MOVE_MS, never an instant swap of views)
     // (Timed by the one clock rule, motion.js: the honest wall clock, easeNow, with the first two frames held to 40 ms each. The backstop
     // below passes `end` to land it.)
     const t0 = easeNow();

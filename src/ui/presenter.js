@@ -105,7 +105,7 @@ const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').the
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of its own to ask)
-import { reduceMotionMQ as reduce, easeMove, COUNT_MS } from './motion.js';
+import { reduceMotionMQ as reduce, easeMove, COUNT_MS, fadeMs as fadeLen } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
 import { procNavPlan } from './proc-nav.js';
@@ -1124,7 +1124,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
 
   // ── The figure's moves ──
-  const fadeMs = () => (reduce.matches ? 0 : D_SURFACE);
+  const fadeMs = () => fadeLen(D_SURFACE);   // (Reduce Motion too: the figure dims and comes back, never swaps in one frame; owner, 15 Nov 2026)
   // A quiet arc over the figure's free space while a new patient settles (it fades in and out with the dim, never pops).
   const loading = (on) => { ui?.load.classList.toggle('on', on); if (on) ui?.load.classList.remove('idle'); };
   async function figureOut(cut) { loading(true); view.classList.add('pz-out'); await waitCut(fadeMs(), cut || NEVER); }
@@ -1674,7 +1674,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         if (easing && fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
       }
     })();
-    const done = await morphTo(st, () => !mine(), reduce.matches ? 0 : 1200, false);
+    const done = await morphTo(st, () => !mine(), fadeLen(1200), false);
     easing = false;
     if (done && mine()) { dataTo(s, st.fp, ref, 280); abSlow(); }
   }
@@ -1974,12 +1974,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
-    pushEnd(s, to, reduce.matches ? 0 : 600);
+    pushEnd(s, to, fadeLen(600));
     paintLapse(s, days, days, true);
     ui?.tools.progress(1); lgSet(1);
     // (The live days land a hair off the computed end: the last step eases there too.)
     shownState = -1;
-    if (!await morphTo(end, cut, reduce.matches ? 0 : 600, false)) return;
+    if (!await morphTo(end, cut, fadeLen(600), false)) return;
     shownState = stateOf[to];
     // A data card held through the days comes in now, already showing where they ended.
     const held = !!ui && 'hold' in ui.data.dataset;
@@ -2009,7 +2009,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   let caseLift = null, caseCard = null, caseHideT = 0;   // (caseHideT: the timer that hides the card once it has faded out, caseShut)
   // The glass card goes up, a case's or a question's: its words fitted before it enters, so it never resizes on screen.
   function cardUp(tag, ...words) {
-    const c = ui.vcase, ms = reduce.matches ? 0 : D_SURFACE;
+    const c = ui.vcase, ms = fadeLen(D_SURFACE);   // (Reduce Motion: it fades, never pops)
     clearTimeout(caseHideT); caseHideT = 0;   // (the card is shown again: the timer of its last leaving has nothing left to hide)
     c.replaceChildren(h('span', { class: 'pz-site pz-case-tag' }, tag), ...words);
     const fading = c.classList.contains('on') ? false : c.style.opacity !== '' && c.style.opacity !== '0';   // (still fading out: it comes back from where it stands)
@@ -2056,7 +2056,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A time-lapse's own start eases in as before, the days playing on from it; a new patient is swapped in under the dip and the figure comes back.)
     // (The slide's colours come in with its patient, unseen under the card: T1.)
     swapping?.();
-    if (own) { if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false; }
+    if (own) { if (!await morphTo(st, cut, fadeLen(1200))) return false; }
     else { applyState(st); await drawn(st); if (cut()) return false; figureIn(); }
     shownState = own ? -1 : si;   // (a time-lapse's own start is not a slide's state: the live figure plays the days from it)
     // (The fit follows what the new patient draws, a growing ascites or spleen: once the organs are back on their GPU copy, one
@@ -3018,7 +3018,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let easing = true;
     (async () => { while (easing && !cut()) { await waitCut(150, cut); const fr = store.get().frame; if (easing && fr?.metrics && !cut()) dataTo(s, liveFp(fr), ref, 280); } })();
     shownState = -1;
-    const done = await morphTo(end, cut, reduce.matches ? 0 : MORPH_MS, false);
+    const done = await morphTo(end, cut, fadeLen(MORPH_MS), false);   // (a model's change is a value cross-fade: kept short, never a jump, under Reduce Motion)
     easing = false;
     if (!done || cut()) return;
     shownState = stateOf[i];
@@ -5735,7 +5735,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!on) {
       if (j.hidden) return;
       j.classList.add('pz-leave');
-      setTimeout(() => { if (j.classList.contains('pz-leave')) j.hidden = true; }, reduce.matches ? 0 : 220);
+      setTimeout(() => { if (j.classList.contains('pz-leave')) j.hidden = true; }, 220);   // (after its fade, Reduce Motion too)
       paintChrome();
       return;
     }
@@ -6418,7 +6418,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     cover.classList.add('on');
     // alloc-rare: boot cover: once per load
     if (cold) { void readMetric(cover, 'offsetWidth'); nextFrame(() => nextFrame(() => cover?.classList.remove('cut'))); }
-    return wait(reduce.matches ? 0 : 300);
+    return wait(fadeLen(300));
   }
   // The slides' fonts, every subset they draw from (Latin, Latin Extended, Greek for μ or Δ), are loaded under the start's cover:
   // a subset is otherwise fetched on its first use, and its words show in a stand-in font first, then swap and change size.
@@ -6456,7 +6456,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!c) return;
     c.classList.remove('on');
     // alloc-rare: boot cover: once per load
-    setTimeout(() => c.remove(), reduce.matches ? 0 : 700);
+    setTimeout(() => c.remove(), 700);   // (after its fade, Reduce Motion too)
   }
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
   async function capture() {
@@ -6593,12 +6593,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // to full rather than staying dimmed or turning healthy under the new talk; motion review round 2, RF5.)
   let healthyGen = 0;
   async function putHealthy(b) {
-    const ms = reduce.matches ? 0 : D_SURFACE;
+    const ms = fadeLen(D_SURFACE);   // (Reduce Motion too: the figure dims while the patient changes, never an instant swap)
     const me = ++healthyGen, gone = () => me !== healthyGen && (view.style.opacity = '', true);
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await waitCut(ms, gone); if (gone()) return; }
     const st = store.get();
     store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
-    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(reduce.matches ? 0 : 1000, gone); if (gone()) return; }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(fadeLen(1000), gone); if (gone()) return; }
     if (st.lobule) { store.set({ lobule: false }); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
     if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
