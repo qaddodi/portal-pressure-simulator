@@ -158,7 +158,7 @@ export function createSitesPaint(st, live) {
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    stageScope.timer(siteGone, reduceMotion.matches ? 0 : afterMs(D_SMALL), el);   // (the leave's fade-out, app.css .cath-label.site.cath-leave: --d-small)
+    stageScope.timer(siteGone, afterMs(D_SMALL), el);   // (Reduce Motion too: the leave is an opacity fade)   // (the leave's fade-out, app.css .cath-label.site.cath-leave: --d-small)
   }
   const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };

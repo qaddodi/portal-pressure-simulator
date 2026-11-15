@@ -6,7 +6,7 @@ import { classSoon } from './class-soon.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
 import { hitLabel } from './label-explain.js';
 import { D_SMALL } from './ease.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeStep } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { flattenPath } from './shape-gl.js';
 import { store, updateParams } from './store.js';
@@ -181,7 +181,7 @@ export function createHover(st, live) {
     if (spotOn() && spot.ids.size) { lift = vhLift; lift.clear(); for (const id of out) lift.add(id); for (const id of spot.ids) lift.add(id); }
     for (const id of lift) if (!vh.selA.has(id)) vh.selA.set(id, 0);
     for (const [id, v] of vh.selA) {
-      const to = lift.has(id) ? 1 : 0, k = reduceMotion.matches ? 1 : dt / SEL_FADE, nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
+      const to = lift.has(id) ? 1 : 0, k = fadeStep(dt * 1000, SEL_FADE * 1000), nv = to > v ? Math.min(1, v + k) : Math.max(0, v - k);
       if (nv <= 0 && !to) vh.selA.delete(id); else vh.selA.set(id, nv);
       if (nv !== to) moving = true;
     }

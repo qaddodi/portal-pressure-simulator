@@ -118,5 +118,5 @@ test('the stage keeps the circuit\'s resistors as records, hands them to the pai
   assert.match(STAGE, /(?:live\.)?veins\.overlay\.touch\(\);/);
   assert.match(STAGE, /if \(recs\.spec\) \{ groups\.set\('rec', \[recGroup\]\); names\.push\('rec'\); \}/);
   // The circuit view fades them as .circuit-only did.
-  assert.match(STAGE, /recs\.show\(t > 0\.5 \? 1 : 0, performance\.now\(\), reduceMotion\.matches\)/);
+  assert.match(STAGE, /recs\.show\(t > 0\.5 \? 1 : 0, performance\.now\(\)\)/);   // (Reduce Motion fades it too, 15 Nov 2026)
 });

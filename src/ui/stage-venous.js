@@ -1,6 +1,6 @@
 // The stents and venous shunt drawn as they come in: the per-vessel stent record, its ease, its mesh and the anastomosis marks.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeStep } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { s } from './util.js';
@@ -84,7 +84,7 @@ export function createVenous(st, live) {
     for (const [id, v] of vst) {
       const goal = vstGoal(id, venousAnat);
       if (v.k !== goal) {
-        const step = reduceMotion.matches ? 1 : dt / (goal ? VST_MS : VST_MS * 0.6);   // (out quicker than in)
+        const step = fadeStep(dt, goal ? VST_MS : VST_MS * 0.6);   // (out quicker than in; under Reduce Motion a short fade, never a jump: owner, 15 Nov 2026)
         const was = v.k;
         v.k = goal ? Math.min(1, v.k + step) : Math.max(0, v.k - step);
         // (A standing stent only changes its strength; one that comes in or goes out is built or taken away.)

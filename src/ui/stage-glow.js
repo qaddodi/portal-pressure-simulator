@@ -3,7 +3,7 @@
 import { EDGES, STENT_SPANS, isStent, stentGate } from '../engine/topology.js';
 import { makeProbeDraw, makeProbePose } from './dop-probe.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeStep } from './motion.js';
 import { store } from './store.js';
 
 export function createGlow(st, live) {
@@ -89,7 +89,7 @@ export function createGlow(st, live) {
     for (const [id, l] of glow.lit) {
       if (l.to && now < l.start) { moving = true; continue; }
       waitOnly = false;
-      const k = reduceMotion.matches ? 1 : dt / l.dur;
+      const k = fadeStep(dt * 1000, l.dur * 1000);   // (Reduce Motion: a short fade, never a snap)
       // (l.v is the glow's progress, stepped linearly by k = dt / dur toward its goal; glow-texels.js eases it (easeInOut) where it is drawn, so
       // a fade is eased at both ends over its duration, which is a step of the motion scale. A glow at its goal stays there.)
       const goal = l.to ? 1 : 0;

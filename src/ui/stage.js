@@ -82,7 +82,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
-import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
+import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS, TURN_MS, DIVE_MS as DIVE_FULL_MS, fadeStep } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
@@ -1148,7 +1148,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lit zone's fade (in on the arrive ease, out the same way) and each dot's (the move ease), a surface step each, on the frame's time.
   function stepMap(dt) {
     mapWake = false;
-    const k = reduceMotion.matches ? 1 : (dt * 1000) / D_SURFACE, fxT = MAP.fxOn ? 1 : 0;
+    const k = fadeStep(dt * 1000, D_SURFACE), fxT = MAP.fxOn ? 1 : 0;
     if (MAP.fxU !== fxT) {
       MAP.fxU = fxT > MAP.fxU ? Math.min(1, MAP.fxU + k) : Math.max(0, MAP.fxU - k);
       MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);

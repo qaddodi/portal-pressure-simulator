@@ -6,7 +6,7 @@ import { createReversalHold } from './blood.js';
 import { FRONT_MS } from './collateral-front.js';
 import { stepLeft } from './change-order.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeMs, reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { createDiaphragm } from './stage-diaphragm.js';
 import { createFocus } from './stage-focus.js';
@@ -32,8 +32,9 @@ export function createTransitions(st, live) {
   // reduced motion or in the figure view.
   const track = {};
   // (Each vessel's reveal record, made once here and written in place by revealOf: a reveal starting makes nothing.)
-  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false };
-  const revealOf = (x, t0, dur, dir, out) => { const r = x.rv; r.t0 = t0; r.dur = dur; r.dir = dir; r.out = out; return r; };
+  // (fade: where nothing may draw on (Reduce Motion, imaging) the vessel fades in or out whole instead, over fadeMs: never at once, owner 15 Nov 2026.)
+  for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false, fade: false };
+  const revealOf = (x, t0, dur, dir, out, fade = false) => { const r = x.rv; r.t0 = t0; r.dur = fade ? fadeMs(dur, true) : dur; r.dir = dir; r.out = out; r.fade = fade; return r; };
   const appEl = document.getElementById('app');
   // The Meso-Rex graft is long (the superior mesenteric vein up to the Rex recess): it draws on from the gut end slowly enough to be seen growing.
   const REX_GROW_MS = 2600;
@@ -51,7 +52,7 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false));
+      if (was === false && open && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
@@ -59,7 +60,7 @@ export function createTransitions(st, live) {
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true));
+    setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true, quietFx()));
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {
@@ -76,7 +77,7 @@ export function createTransitions(st, live) {
       const r = x.reveal;
       const u = clamp((now - r.t0) / r.dur, 0, 1);
       // (The GPU draws the vessel on from x.reveal itself: syncVeins.)
-      const done = u >= 1 || quietFx();
+      const done = u >= 1;   // (a draw-on running when Reduce Motion is turned on runs out its course: no jump)
       if (done) { setReveal(x, null); finished = true; if (r.out) finishExit(x); }
     }
     // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
@@ -305,7 +306,7 @@ export function createTransitions(st, live) {
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
     g.append(...els);
-    markShade(g, markA.want(key, { host, vessel, anatOnly, t: live.ovT }, quietFx()));
+    markShade(g, markA.want(key, { host, vessel, anatOnly, t: live.ovT }));   // (fades in under Reduce Motion and imaging too: nothing pops)
     markA.hold(key, g);
     host.append(g);
   }

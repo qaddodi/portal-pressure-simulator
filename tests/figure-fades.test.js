@@ -12,7 +12,7 @@ test("the resistance zigzag's halo eases with its line, and it is dropped only o
   // (3 Nov 2026: a resistor is a kept record drawn by the overlay painter, over-records.js; its fade is the page's own surface step and
   // curve, run in script. Its width and tone are taken at once, as the CSS took them.)
   assert.match(stage, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
-  assert.match(stage, /recs\.drop\(RES_KEYS\[k\], now, reduceMotion\.matches\)/);
+  assert.match(stage, /recs\.drop\(RES_KEYS\[k\], now\);/);   // (Reduce Motion fades it too, 15 Nov 2026)
   assert.doesNotMatch(css, /\.res-one/, 'no resistor element is styled: none is made');
 });
 

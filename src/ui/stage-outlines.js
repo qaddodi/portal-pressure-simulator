@@ -7,17 +7,16 @@ import { D_FLIP, D_SMALL, easeMove } from './ease.js';
 import { bandRing, dashRings, normalShown } from './highlight-math.js';
 import { darkMQ } from './look.js';
 import { markFade } from './mark-fade.js';
-import { reduceMotionMQ as reduceMotion, smooth01 } from './motion.js';
+import { smooth01 } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { measurePath } from './shape-gl.js';
 import { store } from './store.js';
 import { onTheme } from './theme-epoch.js';
 import { s } from './util.js';
 import { inGrid, ringGrid, warmVisible } from './warm-vis.js';
-
 import { stageScope } from './stage-scope.js';
 export function createOutlines(st, live) {
-  const { E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB } = st;
+  const { E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB } = st;
   // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
@@ -430,7 +429,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       el.setAttribute('class', cls);
       el.fxKey = key;
       late('add', parent, el); fxEls.set(key, el);
-      if (!reduceMotion.matches) nextFrame(el.fxOn1); else el.classList.add('on');
+      nextFrame(el.fxOn1);   // (its .on fades it in, Reduce Motion too: an opacity transition)
     }
     el.seen = true;
     if (el._d !== d) { el._d = d; for (const p of el.children) p.setAttribute('d', d); }
@@ -485,7 +484,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     for (const el of fxEls.values()) {
       if (el.seen || el.going) continue;
       el.going = true; el.classList.remove('on');
-      stageScope.timer(el.fxGone, reduceMotion.matches ? 0 : 420);
+      stageScope.timer(el.fxGone, 420);   // (after its fade, Reduce Motion too)
     }
     for (const [k, el] of fxEls) if (el.seen && el.going) { fxEls.delete(k); }   // (a line gone and wanted again starts afresh)
     if (t !== fxOpT) { fxOpT = t; gFx.style.opacity = t > 0 ? 1 - t : ''; }   // (written when it moves: nothing else sets it)
@@ -587,7 +586,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     // The treatment marks, stepped on the frame's own time (a long frame moves them no further than a short one's worth).
     if (markA.size) {
       const dt = Math.min(64, Math.max(0, now - live.markLast));
-      const r = markA.step(dt, quietFx());
+      const r = markA.step(dt);   // (Reduce Motion and imaging fade too: nothing pops)
       markA.each(markShadeEach);
       if (r.gone.length) { for (const el of r.gone) el.remove(); live.mk.ver++; }
       if (r.moving || r.gone.length) clampMoved = true;

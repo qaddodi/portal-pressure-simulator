@@ -7,14 +7,13 @@ import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
 import { heldBin } from './idle-keys.js';
 import { D_SMALL } from './ease.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { fadeMs } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
 import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
-
 import { stageScope } from './stage-scope.js';
 // The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
 // points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
@@ -59,7 +58,7 @@ export function createClamps(st, live) {
     if (same(m.cur, want)) return;
     const els = () => [...clampW.querySelectorAll(`.clamp-label[data-id="${id}"]`)];
     m.busy = true;
-    const dur = reduceMotion.matches ? 0 : D_SMALL;
+    const dur = fadeMs(D_SMALL);
     // (From and to its own opacity as it stands, the keyframe left out: no style read for it. 1 Nov 2026.)
     // (2 Nov 2026: the fade it ran is kept and cancelled by name, not looked up with getAnimations, which read the page's styles.)
     for (const el of els()) { clampFades.get(el)?.cancel(); const a = el.animate?.([{ opacity: 0 }], { duration: dur, fill: 'forwards' }); if (a) clampFades.set(el, a); }

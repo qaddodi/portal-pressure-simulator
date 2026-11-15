@@ -6,7 +6,6 @@ import { cancelFrame } from './frame.js';
 import { gpuProbe } from './gpu-probe.js';
 import { getLive } from './live-style.js';
 import { darkMQ } from './look.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { organDimMatrix } from './organ-dim.js';
 import { greyOf, paintRef, parseColor } from './organ-grey.js';
 import { readFail, readGroup as readGroupNow, readGroupRefs, targetRoom } from './organ-paint.js';
@@ -543,7 +542,7 @@ export function createPlate(st, live) {
   function syncPlateLook() {
     syncOrganDim();
     if (!live.vLook) return;
-    if (live.plateDim == null || reduceMotion.matches) [live.plateDim, live.plateSat, live.netA] = plateTargets();
+    if (live.plateDim == null) [live.plateDim, live.plateSat, live.netA] = plateTargets();   // (Reduce Motion eases it too: a dim is a fade)
     if (plateOn()) { plateLook.alpha = (1 - easeInOut(live.morph)) * live.plateDim; plateLook.sat = live.plateSat; plateLook.stack = gpuOrgansOn(); live.vLook.plate = plateLook; } else live.vLook.plate = null;
     live.vLook.netAlpha = live.netA;
   }
@@ -642,7 +641,7 @@ export function createPlate(st, live) {
   // (The dim's last key as its parts, not a string built a frame: organDimKey is '' for off or reset, 'on' with these two for a dim.)
   let organDimD = 0, organDimS = 0;
   function syncOrganDim() {
-    if (live.plateDim == null || reduceMotion.matches) [live.plateDim, live.plateSat, live.netA] = plateTargets();
+    if (live.plateDim == null) [live.plateDim, live.plateSat, live.netA] = plateTargets();   // (Reduce Motion eases it too: a dim is a fade)
     const on = !plateOn() && (live.plateDim < 1 || live.plateSat < 1);
     const grey = on && live.plateSat < 1;
     const sat = grey ? live.plateSat : 1;

@@ -81,7 +81,7 @@ test('the figure brings a stent in whole and takes it out whole on its own clock
   assert.match(stage, /if \(id === 'TIPS'\) return;/, 'the TIPS is the covered stent, unrolled with the veins\' (D4)');
   assert.match(stage, /venousSync\(p, t < 0\.5, key !== (?:live\.)?overlayKey\)/, 'followed on every overlay update');
   assert.match(stage, /(?:live\.)?easeInOut\(v\.k\)/, 'it eases, never snaps');
-  assert.match(stage, /reduceMotion\.matches \? 1 : dt/, 'reduced motion takes it in one step');
+  assert.match(stage, /const step = fadeStep\(dt, goal \? VST_MS : VST_MS \* 0\.6\)/, 'reduced motion fades it over a short step, never in one (15 Nov 2026)');
   assert.match(pres, /stented: stentedOf\(s\)/, 'a landing slide sets its veins');
   assert.match(pres, /stented: stentedKept\(s\)/, 'leaving a slide keeps only the veins the next one stents too');
   assert.match(pres, /stented: \[\]/, 'ending the presentation clears them');

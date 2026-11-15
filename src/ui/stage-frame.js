@@ -4,7 +4,7 @@ import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
 import { chordPointInto, peelAt, reverses } from './flow-peel.js';
-import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
+import { easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
 import { clamp, lerp, themeChanged } from './util.js';
@@ -226,7 +226,7 @@ export function createFrame(st, live) {
     setG(gAscites, 'style:opacity', ascTxt);
     svg.classList.toggle('circuit', t > 0.5);
     live.svgOver?.classList.toggle('circuit', t > 0.5);
-    if (recs.show(t > 0.5 ? 1 : 0, performance.now(), reduceMotion.matches)) live.recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
+    if (recs.show(t > 0.5 ? 1 : 0, performance.now())) live.recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
     if (stageWrap.classList.contains('cmap') !== t > 0.5) { stageWrap.classList.toggle('cmap', t > 0.5); themeChanged(); }   // (the map's tokens are the labels' too: label-theme.js)
     if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)

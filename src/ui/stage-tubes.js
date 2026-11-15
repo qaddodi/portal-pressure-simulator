@@ -400,7 +400,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       // A vessel that leaves (a collateral that closes, a shunt that is removed) retracts along its
       // flow, the way it drew on, and is hidden when it is done; it is held visible until then.
       if (x.reveal?.out) vis = true;
-      else if (!vis && x.vis && wasDrawn && live.canFade(x) && !x.reveal && !x.ghost && !live.quietFx()) { startExit(x, f); vis = true; }
+      else if (!vis && x.vis && wasDrawn && live.canFade(x) && !x.reveal && !x.ghost) { startExit(x, f); vis = true; }   // (Reduce Motion and imaging too: it fades out, startExit)
       if (vis !== x.vis) { x.vis = vis; live.edgeRev++; }
       if (!vis) { x.drawn = false; continue; }
       if (x.tipFade && TIP_CONNECT[e.id]) {
@@ -469,7 +469,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
         const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         const openNow = collOpen(e.id, f);
-        if (!openNow && wasDrawn && !x.ghost && !x.reveal && !live.quietFx()) startExit(x, f);
+        if (!openNow && wasDrawn && !x.ghost && !x.reveal) startExit(x, f);
         if (x.ghost !== (!openNow && !x.reveal?.out)) live.edgeRev++;
         x.ghost = !openNow && !x.reveal?.out;
         x.opa = isOccluded(p, e.id) ? 0.45 : Math.min(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5)), LOOK_SITE[e.id] ? varixOpacity(varixS[LOOK_SITE[e.id]]) : 1);   // (the varices' channels fade with their varix)
@@ -757,7 +757,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0;
     const sten = v > 0.01;
-    const stroked = x.ghost || (!!x.reveal && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
+    const stroked = x.ghost || (!!x.reveal && !x.reveal.fade && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
     x.sten = sten; x.stroked = stroked;
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.

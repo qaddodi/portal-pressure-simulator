@@ -746,6 +746,8 @@ export function createVessels(st, live) {
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
       let alpha = x.isArt ? (x.e.shunt === 'ap' ? 0.55 : 0.85) : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
+      // (A vessel that comes or goes where nothing may draw on (Reduce Motion, imaging) fades in or out whole: owner, 15 Nov 2026, nothing pops.)
+      if (x.reveal?.fade) { const u = easeInOut(clamp((now - x.reveal.t0) / x.reveal.dur, 0, 1)); alpha *= x.reveal.out ? 1 - u : u; }
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
       const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
@@ -800,7 +802,7 @@ export function createVessels(st, live) {
       // The drawn stretch: a vessel drawing on (or retracting) grows along its flow. A tributary's arc length is its own
       // (not its trunk's), or its chevrons and streaks would run along it many times too fast and bunch into ticks.
       let lo = 0, hi = 1;
-      if (x.reveal && kind !== 'f' && kind !== 'c' && !fronted(x)) {   // (a collateral keeps its whole length: its front is a width, radFill)
+      if (x.reveal && !x.reveal.fade && kind !== 'f' && kind !== 'c' && !fronted(x)) {   // (a collateral keeps its whole length: its front is a width, radFill)
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }

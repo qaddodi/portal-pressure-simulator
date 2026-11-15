@@ -27,7 +27,7 @@ export const frontP = (r, now) => clamp((now - r.t0) / r.dur, 0, 1);
 /** s for the sample at u (0 at the vessel's first point): a record's dir is 1 when the flow runs from the first point, -1 when it runs to it. */
 export const frontS = (r, u) => (r.dir > 0 ? u : 1 - u);
 /** Whether a vessel's reveal is drawn as this front (the collaterals) and not as a stroke drawing on. */
-export const fronted = (x) => !!x.reveal && x.e.kind === 'collateral';
+export const fronted = (x) => !!x.reveal && !x.reveal.fade && x.e.kind === 'collateral';   // (a reveal that fades (Reduce Motion, imaging) has no front)
 /** A number that changes when the picture of the front does (0 when there is none): the radii key. 120 steps over the change, a frame at 100 Hz. */
 export const frontKey = (x, now) => (fronted(x) ? 1 + Math.round(frontP(x.reveal, now) * 120) + (x.reveal.out ? 1000 : 0) : 0);
 
