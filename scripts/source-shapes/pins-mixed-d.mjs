@@ -455,6 +455,7 @@ export default [
   { file: 'src/ui/main.js', need: [/oxygen: \['Oxygen', /, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (a Colored by choice)'] },
   { file: 'src/ui/main.js', need: [/oxygen: 'Oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the menu label)'] },
   { file: 'src/ui/main.js', need: [/m === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (its own legend)'] },
+  { file: 'src/ui/stage*', need: [/easeOrigins\(/, 'The origin and first-pass blends the figure shows ease toward what the passes work out (origin-ease.js; 15 Nov 2026, nothing pops)'] },
   { file: 'src/ui/stage*', need: [/mode === 'oxygen'\) \{[\s\S]*?c1 = oxygenColor\(oxyF\.far\[2 \* k\]\); c2 = oxygenColor\(oxyF\.far\[2 \* k \+ 1\]\)/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the figure colors each lumen end)'] },
   { file: 'src/ui/lobule-zoom*', need: [/M === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (the lobule colors its vessels)'] },
   { file: 'src/ui/lobule-model.js', need: [/m\.mode === 'oxygen'/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct):'] },

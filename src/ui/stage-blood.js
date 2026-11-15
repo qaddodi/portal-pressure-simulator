@@ -11,7 +11,7 @@ import { store } from './store.js';
 import { bloodColors, clamp } from './util.js';
 import { FLOW_TEXELS } from './veins-gl.js';
 import { CHEV_PITCH } from './chevron-glsl.js';
-import { STYLE_D, STYLE_E } from './blood-tile.js';
+import { STYLE_D, STYLE_E } from './blood-tile.js'; import { easeOrigins } from './origin-ease.js';
 
 // The blood look each view draws (blood-tile.js): Anatomy look D; Circuit look E (sines, no texture read).
 const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_E;
@@ -91,7 +91,7 @@ export function createBlood(st, live) {
   const ORIGIN_TAU = 3;
   const oFwd = new Float64Array(EDGES.length), oBack = new Float64Array(EDGES.length), oMean = new Float64Array(EDGES.length);
   const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length), len: new Float64Array(EDGES.length) };
-  let oSeeded = false;
+  let oSeeded = false; const oGoal = { origins: new Float32Array(EDGES.length * ORIGIN_N), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length), slosh: oEnds.slosh, len: oEnds.len };   // (what the passes work out: the figure's blends follow it)
   function stepOriginFlow(dt) {
     const Q = live.F.Q, Qf = live.F.Qf || Q;
     if (!oSeeded) { oSeeded = true; for (let k = 0; k < EDGES.length; k++) { oFwd[k] = Math.max(0, Qf[k]); oBack[k] = Math.max(0, -Qf[k]); } }
@@ -438,13 +438,13 @@ export function createBlood(st, live) {
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
     if (!live.veins) return;
     const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
-    stepOriginFlow(moving ? dt * live.restK : 0);
-    if (originOn()) oPass = layerMode() === 'firstpass';
+    stepOriginFlow(moving ? dt * live.restK : 0); if (originOn()) oPass = layerMode() === 'firstpass';
     if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) {
       for (let k = 0; k < EDGES.length; k++) oEnds.len[k] = geo[EDGES[k].id]?.len || 0;   // (the drawn length: the ramp into a junction's blend is a length of the vessel, blood.js ORIGIN_RAMP)
-      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds, oPass);
-      live.originsF = live.F; oPassed = oPass;
+      originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, oGoal.origins, oGoal, oPass); live.originsF = live.F; oPassed = oPass;
+      if (!live.origins) { live.origins = oGoal.origins.slice(); oEnds.down.set(oGoal.down); oEnds.pe.set(oGoal.pe); }   // (the first blend is shown as it is: the lens fades in)
     }
+    if (live.origins && easeOrigins({ origins: live.origins, down: oEnds.down, pe: oEnds.pe }, oGoal, dt, ORIGIN_N)) live.bloodEasing = true;   // (the figure's blends ease to the model's: origin-ease.js)
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
     // table ends as a clear of all of it before the writes left it, without clearing and refilling every row each frame.)
