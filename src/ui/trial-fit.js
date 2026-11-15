@@ -17,6 +17,19 @@
 //   gastric_varices        fundal varices present
 //   acute_bleed            bleeding now
 //   tips / no_tips         a TIPS in place, or none
+//   varices_high_risk      a high-risk esophageal varix: Large (5 mm or more) or red wale signs. No varix, or a small one without red wale signs, is
+//                          'no'; a small one with the signs not recorded stays 'na' (the inverse of varices_not_high_risk)
+//   varices_present        esophageal varices of any size
+//   albumin_lt             the serum albumin (params.albumin, g/dL) below `value`
+//   platelets_ge           the platelet count (metrics.spleen.platelets, ×1000/µL) at least `value`
+//   ascitic_protein_lt     the ascitic fluid total protein (metrics.ascites.totalProtein, g/dL) below `value`; open when there is no ascites to tap
+//   diuretics              on spironolactone and furosemide (params.diuretics; the model has no dose)
+//   decompensated          decompensated now or before: ascites or a bleed now is 'yes'; otherwise only a case author's fact answers (the inverse of
+//                          compensated)
+// CONTEXT rules (TC-F2, trials card review 15 Nov 2026): cirrhosis and "no TIPS in place" are true of nearly every patient in the app, so they can keep a
+// patient out (no cirrhosis, a TIPS already in) but are no evidence that a patient is like the trial's. They are defining (a full match still needs them)
+// but are not counted in `met` and `of`: a trial whose only met rules are context reads "Cannot tell", never "Possibly fits". A record may mark any
+// other rule `context: true`; a test in CONTEXT_TESTS is context unless its record says `context: false`.
 // Facts the model does not have (a past bleed, a prior decompensation, the Child–Pugh class) come in as the fourth argument of fitTrial, `facts`, from a
 // case author (a slide's trial tool: `facts: { decompensated: false }`), never from the model: { decompensated?: boolean }. A fact the author did not
 // supply stays unknown, and a row that rests on one says so in its value ("case history") and in `source: 'case'`; a row that rests on the model's own
@@ -77,29 +90,65 @@ const TESTS = {
   varices_medium_large: (r, m) => { const g = varixLabel(m?.varix); return g == null ? ['na', NOT_IN_MODEL] : [g === 'Large' && m.varix.present !== false ? 'yes' : 'no', varixWords(m.varix)]; },
   gastric_varices: (r, m) => (m?.gastricVarix ? (m.gastricVarix.present ? ['yes', 'Fundal varices'] : ['no', 'No fundal varices']) : ['na', NOT_IN_MODEL]),
   acute_bleed: (r, m) => (m && 'bleeding' in m ? (m.bleeding ? ['yes', 'Bleeding now'] : ['no', 'Not bleeding']) : ['na', NOT_IN_MODEL]),
+  varices_high_risk: (r, m) => {
+    const vx = m?.varix, g = varixLabel(vx);
+    if (g == null) return ['na', NOT_IN_MODEL];
+    if (vx.present === false || g === 'None') return ['no', varixWords(vx)];
+    if (g === 'Large') return ['yes', varixWords(vx)];
+    if (vx.redWale === true) return ['yes', `${varixWords(vx)}, red wale signs`];
+    return isBool(vx.redWale) ? ['no', `${varixWords(vx)}, no red wale signs`] : ['na', `${varixWords(vx)}; red wale signs not recorded`];
+  },
+  varices_present: (r, m) => { const g = varixLabel(m?.varix); return g == null ? ['na', NOT_IN_MODEL] : g !== 'None' && m.varix.present !== false ? ['yes', varixWords(m.varix)] : ['no', 'No varices']; },
+  albumin_lt: (r, m, p) => (Number.isFinite(p?.albumin) && Number.isFinite(r.value) ? [p.albumin < r.value ? 'yes' : 'no', `Albumin ${one(p.albumin)} g/dL`] : ['na', NOT_IN_MODEL]),
+  platelets_ge: (r, m) => { const v = m?.spleen?.platelets; return Number.isFinite(v) && Number.isFinite(r.value) ? [v >= r.value ? 'yes' : 'no', `Platelets ${Math.round(v)},000/µL`] : ['na', NOT_IN_MODEL]; },
+  ascitic_protein_lt: (r, m) => {
+    const a = m?.ascites, v = a?.totalProtein;
+    if (!a || !(ascitesGradeOf(a) >= 1)) return ['na', 'No ascites to sample'];
+    return Number.isFinite(v) && Number.isFinite(r.value) ? [v < r.value ? 'yes' : 'no', `Ascitic protein ${one(v)} g/dL`] : ['na', NOT_IN_MODEL];
+  },
+  diuretics: (r, m, p) => (typeof p?.diuretics === 'boolean' ? (p.diuretics ? ['yes', 'On diuretics'] : ['no', 'No diuretics']) : ['na', NOT_IN_MODEL]),
+  // (The inverse of compensated: ascites or a bleed now says yes; their absence says nothing about an earlier decompensation.)
+  decompensated: (r, m, p, facts) => {
+    const g = ascitesGradeOf(m?.ascites);
+    if (g >= 1) return ['yes', ascitesWords(m.ascites)];
+    if (m?.bleeding) return ['yes', 'Bleeding now'];
+    if (facts?.decompensated === true) return ['yes', 'Decompensated before (case history)'];
+    if (facts?.decompensated === false && g === 0) return ['no', 'Never decompensated (case history)'];
+    return ['na', g === 0 ? 'No ascites; earlier decompensation not in the model' : NOT_IN_MODEL];
+  },
   tips: (r, m, p) => (p?.tips ? (p.tips.on ? ['yes', 'TIPS in place'] : ['no', 'No TIPS']) : ['na', NOT_IN_MODEL]),
   no_tips: (r, m, p) => (p?.tips ? (p.tips.on ? ['no', 'TIPS in place'] : ['yes', 'No TIPS']) : ['na', NOT_IN_MODEL]),
 };
 /** The test names fitTrial knows. */
 export const FIT_TESTS = Object.freeze(Object.keys(TESTS));
+/** Tests that are context, not evidence (TC-F2): true of nearly every patient the app shows. */
+export const CONTEXT_TESTS = Object.freeze(new Set(['cirrhosis', 'no_tips']));
+/** Whether an entry rule is context: its record's word, else its test's. */
+export const isContext = (e) => (typeof e?.context === 'boolean' ? e.context : CONTEXT_TESTS.has(e?.test));
+/** The tests whose values are numbers the record must give (value). */
+export const VALUE_TESTS = Object.freeze(new Set(['hvpg_ge', 'albumin_lt', 'platelets_ge', 'ascitic_protein_lt']));
 
 /** The trial's entry rules checked against the model: { verdict: 'fits' | 'no' | 'unknown', rows: [{ rule, state: 'yes' | 'no' | 'na', value,
  *  defining }] }. 'fits' needs every defining rule checked and met; one rule that fails is 'no'; anything else is 'unknown'. */
 export function fitTrial(trial, metrics, params, facts = null) {
   const rows = [];
-  let failed = 0, defining = 0, defined = 0;
+  let failed = 0, defining = 0, defined = 0, key = 0, keyMet = 0;
   for (const e of trial?.entry ?? []) {
     const fn = e && typeof e.test === 'string' && Object.hasOwn(TESTS, e.test) ? TESTS[e.test] : null;
     const [state, value] = fn ? fn(e, metrics, params, facts) : ['na', NOT_IN_MODEL];
-    const isDefining = e?.minor !== true;
+    const isDefining = e?.minor !== true, context = isDefining && isContext(e);
     if (state === 'no') failed++;
     if (isDefining) { defining++; if (state === 'yes') defined++; }
-    const row = { rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining, source: /\(case history\)/.test(value ?? '') ? 'case' : fn && state !== 'na' ? 'model' : null };
+    if (isDefining && !context) { key++; if (state === 'yes') keyMet++; }
+    const row = { rule: String(e?.rule ?? ''), state, value: value ?? NOT_IN_MODEL, defining: isDefining, context, source: /\(case history\)/.test(value ?? '') ? 'case' : fn && state !== 'na' ? 'model' : null };
     if (e?.test === 'hvpg_ge' && Number.isFinite(e.value)) row.need = `≥${e.value}`;
+    if (e?.test === 'albumin_lt' && Number.isFinite(e.value)) row.need = `<${e.value.toFixed(1)}`;
+    if (e?.test === 'ascitic_protein_lt' && Number.isFinite(e.value)) row.need = `<${e.value}`;
+    if (e?.test === 'platelets_ge' && Number.isFinite(e.value)) row.need = `≥${e.value},000`;
     rows.push(row);
   }
-  // met / of: the defining rules the model checked and found met, out of all the defining rules ("2 of 5 entry rules checked").
-  return { verdict: failed ? 'no' : defining && defined === defining ? 'fits' : 'unknown', rows, met: defined, of: defining };
+  // met / of: the defining rules that are not context, met and in all ("2 of 3 key rules met"); context rules (cirrhosis, no TIPS) are not evidence.
+  return { verdict: failed ? 'no' : defining && defined === defining ? 'fits' : 'unknown', rows, met: keyMet, of: key };
 }
 
 /** What a fit that matches every defining rule may say: never eligible, never enrolled (R01). */
@@ -116,8 +165,10 @@ export const fitsWords = (fit) => {
 /** The pane's group for a fit: 'fits', 'possible' (not every defining rule could be checked, but some were and all of those were met), 'no' or
  *  'unknown' (nothing that defines the trial could be checked). */
 export const groupOf = (fit) => (fit.verdict === 'unknown' && fit.met > 0 ? 'possible' : fit.verdict);
-/** "Possibly fits: 2 of 5 entry rules checked". */
-export const possiblyWords = (fit) => `Possibly fits: ${fit.met} of ${fit.of} entry rule${fit.of === 1 ? '' : 's'} checked`;
+/** "Possibly fits: 2 of 3 key rules met" (context rules not counted). */
+export const possiblyWords = (fit) => `Possibly fits: ${countWords(fit)}`;
+/** "2 of 3 key rules met". */
+export const countWords = (fit) => `${fit.met} of ${fit.of} key rule${fit.of === 1 ? '' : 's'} met`;
 /** A rule's words with a lower-case start, except a name that starts with a capital for a reason (HVPG, Child–Pugh). */
 export const lcFirst = (s) => (/^[A-Z][a-z]*(?=[\s,.;:]|$)/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
 /** The one rule that keeps the patient out, as a line: "HVPG 8.2, needs ≥10" (the first rule that fails), or null when none fails. */
@@ -129,6 +180,8 @@ export function whyNot(fit) {
 
 /** The rows that are open: a rule the model cannot check, defining rules first. */
 export const openRows = (fit) => fit.rows.filter((r) => r.state === 'na').sort((a, b) => Number(b.defining) - Number(a.defining));
+/** The defining rules that are open: what a "Possibly fits" or "Cannot tell" line names (fine print waits for the open trial, TC-F5). */
+export const openDefining = (fit) => fit.rows.filter((r) => r.state === 'na' && r.defining);
 
 /** A slide's patient (its fingerprint, fingerprint.js: hvpg, varix and gv diameters in mm, asc in mL) in the shape fitTrial reads, so a deck's
  *  card and the Tests card ask the same tests. A fact the fingerprint does not carry (bleeding now) stays out, and its row answers 'na'. */

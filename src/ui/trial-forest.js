@@ -98,7 +98,9 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
   // Every ratio, by kind; in each kind the trials that fit first, then the order given.
   const order = (a, b) => (lit(b.t) - lit(a.t)) || (a.i - b.i);
   const rows = [];
-  list.forEach((t, i) => { for (const r of ratiosOf(t)) rows.push({ t, r, i, kind: r.kind, lo: r.lo, hi: r.hi }); });
+  // (TC-V3: one row per trial, its primary ratio, the first trials.js lists; secondary endpoints and subgroups stay in the open trial, so a
+  // subgroup never sits beside a primary result as an equal finding. opts.all: every ratio, for a caller that wants them.)
+  list.forEach((t, i) => { for (const r of opts.all ? ratiosOf(t) : ratiosOf(t).slice(0, 1)) rows.push({ t, r, i, kind: r.kind, lo: r.lo, hi: r.hi }); });
   const [a, b] = opts.scale ?? FOREST_SCALE;
   const tk = TICKS.filter((v) => v >= a - 1e-9 && v <= b + 1e-9);
   const padL = meas(tickText(tk[0] ?? a), font(500, fs)) / 2 + 1, padR = meas(tickText(tk[tk.length - 1] ?? b), font(500, fs)) / 2 + 1;
@@ -110,7 +112,6 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     if (!group.length) continue;
     say(ip, y + fs, KIND_NAME[kind], 'forest.grp');
     y += lh + f * 0.2;
-    const top = y;
     const shownWhy = new Set();
     for (const { t, r } of group) {
       // (The picked trial's first row here carries a second line: the one rule the patient fails, or how many rules were checked.)
@@ -121,7 +122,8 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
       const name = t.short ?? t.name, val = ratioText(r), nw = meas(name, font(on ? 600 : 500)), vw = meas(val, font(500, fs));
       say(ip, y + f, name, on ? 'forest.nm' : 'forest.nm.dim');
       say(W - ip, y + f, val, on ? 'forest.val' : 'forest.val.dim', 'end');
-      const of = r.of ? `${r.of}${r.vs ? ` vs ${r.vs}` : ''}` : '';
+      // (A three-arm trial's row names its comparison, which tells its rows apart; another names what it counted.)
+      const of = r.vs || r.of || '';
       say(ip + nw + f * 0.45, y + f, clip(of, W - 2 * ip - nw - vw - f * 1.2, font(500, fs), meas), 'forest.of');
       const ty = Math.round(y + lh + f * 0.55), s = Math.round(f * 0.7);
       lines.push({ x1: X(r.lo), y1: ty, x2: X(r.hi), y2: ty, look: on ? 'forest.ci' : 'forest.ci.dim' });
@@ -130,11 +132,12 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
       const ah = f * 0.45, look = on ? 'forest.ci' : 'forest.ci.dim';
       if (r.hi > b + 1e-9) { const x = X(b); lines.push({ x1: x - ah, y1: ty - ah * 0.8, x2: x, y2: ty, look }, { x1: x - ah, y1: ty + ah * 0.8, x2: x, y2: ty, look }); }
       if (r.lo < a - 1e-9) { const x = X(a); lines.push({ x1: x + ah, y1: ty - ah * 0.8, x2: x, y2: ty, look }, { x1: x + ah, y1: ty + ah * 0.8, x2: x, y2: ty, look }); }
+      // (TC-V2: the line at 1 runs through the interval's band only, never through the words above it: one short stroke per row.)
+      lines.push({ x1: X(1), y1: ty - s, x2: X(1), y2: ty + s, look: 'forest.ref' });
       if (line) say(ip, y + lh + f * 0.9 + fs * 1.1, clip(line, W - 2 * ip, font(500, fs), meas), 'forest.why');
       hits.push({ id: t.id, y, h: rowH });
       y += rowH;
     }
-    lines.push({ x1: X(1), y1: top + lh * 0.6, x2: X(1), y2: y - f * 0.2, look: 'forest.ref' });
     say(ip, y + fs * 0.9, NOT_POOLED, 'forest.k');
     y += fs * 0.9 + f * 0.7;
   }
