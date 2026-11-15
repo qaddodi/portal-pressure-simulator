@@ -5,7 +5,7 @@
 // tests/stop-tokens.test.js fails when the style rules these read change, until this is made again.
 
 /** The hash of the style rules and tokens the stops are computed from (scripts/stop-inputs.mjs). */
-export const STOP_HASH = "3fc2d6b3725d";
+export const STOP_HASH = "80a7a21a6ff2";
 /** The looks that compute differently (each other look is one of these: STOP_LOOK). */
 export const STOP_COLS = ["light","soft","dark","navy"];
 /** Every look (Light, Soft, Dark, Navy, Black, and System as the device's light or dark) → its column. */
@@ -27,9 +27,6 @@ export const STOPS = {
   "lv-sh2|||": ["rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0],   // colour-exempt: computed from styles/tokens.css
   "mt-a|||": ["rgb(102, 114, 133)",1,"rgb(102, 114, 133)",1,"rgb(160, 171, 190)",1,"rgb(160, 171, 190)",1],   // colour-exempt: computed from styles/tokens.css
   "mt-b|||": ["rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1,"rgb(255, 255, 255)",1],   // colour-exempt: computed from styles/tokens.css
-  "sk-in|||": ["rgb(233, 201, 180)",0.5,"rgb(233, 201, 180)",0.5,"rgb(122, 94, 85)",0.5,"rgb(122, 94, 85)",0.5],   // colour-exempt: computed from styles/tokens.css
-  "sk-mid|||": ["rgb(233, 201, 180)",0.3,"rgb(233, 201, 180)",0.3,"rgb(122, 94, 85)",0.3,"rgb(122, 94, 85)",0.3],   // colour-exempt: computed from styles/tokens.css
-  "sk-out|||": ["rgb(233, 201, 180)",0,"rgb(233, 201, 180)",0,"rgb(122, 94, 85)",0,"rgb(122, 94, 85)",0],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--light-ink);stop-opacity:.22||": ["rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22,"rgb(255, 255, 255)",0.22],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--light-ink);stop-opacity:0||": ["rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0,"rgb(255, 255, 255)",0],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-eso-1)||": ["rgb(234, 199, 184)",1,"rgb(207, 173, 158)",1,"rgb(141, 106, 92)",1,"rgb(122, 85, 89)",1],   // colour-exempt: computed from styles/tokens.css

@@ -360,7 +360,6 @@
   --shadow-3: var(--shadow-dialog);
   --on-accent: #FFFFFF;
   --on-status: #FFFFFF;
-  --skin: #E9C9B4;
   --bile-duct: #7C8040;
   --lv-sep: #FFF4E6;
   --lv-nod: #C9955C;
@@ -447,7 +446,6 @@
     --vg-lift: 0%;
     --on-accent: #15140F;
     --on-status: #15140F;
-    --skin: #7A5E55;
     --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2));
     --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
     --glass: rgba(30, 29, 27, .95);
@@ -695,7 +693,6 @@
   --vg-lift: 0%;
   --on-accent: #15140F;
   --on-status: #15140F;
-  --skin: #7A5E55;
   --shadow-menu: calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2));
   --shadow-dialog: calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6));
   --glass: rgba(30, 29, 27, .95);

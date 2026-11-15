@@ -165,7 +165,6 @@ export const TOKENS = {
     // ink on filled controls and badges
     'on-accent': '#FFFFFF', 'on-status': '#FFFFFF',
     // pathology and devices on the plate
-    'skin': '#E9C9B4',
     'bile-duct': '#7C8040',
     // lobule and sinusoid figures: septa, nodules, acinar zones (1 oxygen-rich to 3), and the cells' labels
     'lv-sep': '#FFF4E6', 'lv-nod': '#C9955C',
@@ -292,7 +291,7 @@ export const TOKENS = {
     from: 'light',
     'bg': '#1A1917', 'stage-bg': '#1A1917', 'surface': '#242321', 'surface-2': '#2B2A27', 'surface-3': '#333130',
     'vg-keep': '62%', 'vg-tint': '#000000', 'vg-lift': '0%',
-    'on-accent': '#15140F', 'on-status': '#15140F', 'skin': '#7A5E55',
+    'on-accent': '#15140F', 'on-status': '#15140F',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2))', 'shadow-dialog': 'calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6))',
     'glass': 'rgba(30, 29, 27, .95)', 'frost': 'rgba(30, 29, 27, .42)', 'scrim': 'rgba(6, 5, 4, .6)',
     'hairline': 'rgba(255, 244, 228, .09)', 'border': '#35332F', 'border-strong': '#4B4843',
