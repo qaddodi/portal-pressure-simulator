@@ -106,7 +106,7 @@ test('a ranking from a presinusoidal patient: ties shown as ties, what each cann
   assert.match(body().textContent, /Limits of the model/);
   assert.match(body().textContent, /Next reading to take/);
   assert.match(body().textContent, /Model scenarios, not diagnoses\. Saved on this device only\./);
-  assert.match(body().textContent, /Ruled out by your readings: any mix with/, 'ruled out is said by lesion');
+  assert.match(body().textContent, /Ruled out by your readings: .*any mix with/, 'ruled out is said by lesion');
   assert.ok(body().querySelector('.fr-next-note').compareDocumentPosition(body().querySelector('.fr-list')) & 4, 'the next reading comes before the list');
   assert.ok([...body().querySelectorAll('.fr-mark')].every((m) => m.dataset.m), 'every entered reading has its mark');
 });
@@ -225,5 +225,88 @@ test('a row opens its card on a tap and the rest of the list stays; "Your readin
   next();
   assert.equal(fr.state.view, 'results', 'a reading changed from the scenarios returns to them, not to the review');
   assert.ok(body().querySelector(`.fr-card[data-f="${id}"] .fr-cb`).classList.contains('on'));
+  closePopover();
+});
+
+test('a textbook case loads its readings and shows its scenarios; the normal liver is the healthy answer, with no lesion card to open as a patient to fix (review T1, E2)', () => {
+  reset();
+  openFresh();
+  assert.ok(body().querySelector('.fr-try'), 'the first step offers a way in for someone with no patient to type');
+  body().querySelector('.fr-try').click();
+  assert.equal(fr.state.view, 'cases');
+  const rows = [...body().querySelectorAll('.fr-rv[data-case]')];
+  assert.ok(rows.length >= 6 && rows.some((r) => r.dataset.case === 'normal'));
+  rows.find((r) => r.dataset.case === 'normal').click();
+  assert.equal(fr.state.view, 'results');
+  assert.match(body().querySelector('.fr-case').textContent, /Normal liver/);
+  assert.match(body().querySelector('.fr-q').textContent, /normal range/);
+  const lead = body().querySelector('.fr-card');
+  assert.equal(lead.dataset.f, 'none');
+  assert.match(lead.textContent, /No lesion/);
+  assert.match(lead.textContent, /None changed: every setting is the healthy one/);
+  assert.doesNotMatch(lead.textContent, /Settings could be/, 'a card with no lesion has no settings range');
+  closePopover();
+});
+
+test('guess first: the readings with the lesions to pick, the name kept back until the guess is made, then the search and a comparison', async () => {
+  reset();
+  openFresh();
+  body().querySelector('.fr-try').click();
+  const realRandom = Math.random; Math.random = () => 0.30;   // (the third case)
+  body().querySelector('.fr-guessgo').click();
+  Math.random = realRandom;
+  assert.equal(fr.state.view, 'guess');
+  const { TRY_CASES } = await import('../src/engine/inverse-try-cases.js');
+  assert.ok(!body().textContent.includes(TRY_CASES.find((c) => c.id === fr.state.caseId).label), 'the case name is not shown');
+  const reveal = body().querySelector('.fr-next');
+  assert.equal(reveal.disabled, true, 'a guess is needed first');
+  const pick = (id) => body().querySelector(`.fr-pick [data-id="${id}"]`);
+  pick('none').click();
+  assert.equal(pick('none').getAttribute('aria-pressed'), 'true');
+  pick('sinus').click();
+  assert.equal(pick('none').getAttribute('aria-pressed'), 'false', 'a lesion replaces "no lesion"');
+  assert.equal(reveal.disabled, false);
+  reveal.click();
+  assert.equal(fr.state.view, 'results');
+  assert.match(body().querySelector('.fr-case').textContent, /Your guess/);
+  assert.match(body().querySelector('.fr-case').textContent, /You picked cirrhosis\. The search leads with/);
+  closePopover();
+});
+
+test('readings that cannot all be true: said quietly, no ratings, and the cards are the closest the model gets (review E1, E8)', () => {
+  reset();
+  openFresh();
+  // A wedge far under the free pressure, an atrium far above the free pressure, a stiff liver with a platelet count and spleen that disagree.
+  type('whvp', '4'); type('fhvp', '22'); type('ra', '3'); next(); type('lsm', '4'); next(); type('spleen', '24'); type('plt', '420'); next(); next();
+  assert.equal(fr.state.view, 'review');
+  assert.ok(body().querySelectorAll('.fr-note').length >= 1, 'the warnings are on the review');
+  assert.match(body().querySelector('.fr-notes').textContent, /FHVP|WHVP/);
+  next();
+  assert.equal(fr.state.view, 'results');
+  assert.ok(body().querySelector('.fr-notes'), 'and on the results');
+  assert.match(body().querySelector('.fr-q').textContent, /No model scenario gives all of these readings/);
+  assert.equal(body().querySelectorAll('.fr-card .fr-rate').length, 0, 'no ratings when no scenario fits');
+  assert.equal(body().querySelectorAll('.fr-card .fr-bar').length, 0);
+  assert.match(body().textContent, /Closest the model gets/);
+  assert.match(body().querySelector('.fr-small').textContent, /FHVP|WHVP/, 'the readings it misses are named');
+  assert.doesNotMatch(body().textContent, /Next reading to take/);
+  closePopover();
+});
+
+test('ascitic protein is a reading in the fluid step; scenarios the model cannot tell apart get one sentence', () => {
+  reset();
+  openFresh();
+  next(); next(); next();
+  assert.deepEqual([...body().querySelectorAll('input')].map((i) => i.dataset.k), ['saag', 'asctp', 'pvVel']);
+  closePopover();
+  reset();
+  openFresh();
+  type('whvp', '8'); type('fhvp', '4.5'); type('ppg', '14'); next();
+  type('lsm', '6.5'); type('ssm', '68'); next();
+  type('spleen', '16'); type('plt', '78'); next();
+  grade('Ascites', 'None'); next(); next();
+  assert.equal(fr.state.view, 'results');
+  assert.match(body().querySelector('.fr-ties').textContent, /cannot tell these apart/);
+  assert.ok(body().querySelector('.fr-card[data-tie]'), 'the scenarios that tie are marked');
   closePopover();
 });

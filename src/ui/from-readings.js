@@ -18,6 +18,7 @@ import { slideFold } from './fold-slide.js';
 import { D_SMALL } from './ease.js';
 import { createInverseRemote } from './inverse-remote.js';
 import { FAMILIES, FAMILY, AXES, LESION, LESION_IDS, settingsOf } from '../engine/inverse-families.js';
+import { TRY_CASES } from '../engine/inverse-try-cases.js';
 import {
   READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, modelText, numberText, gapLine, rangeText, reasonsFor, bandsOf,
 } from '../engine/inverse.js';
@@ -26,14 +27,14 @@ export const STEPS = Object.freeze([
   { id: 'pressures', name: 'Pressures', q: 'Do you have pressures?', sub: 'From a hepatic vein catheter, an EUS or a right heart study. Enter any you have.', keys: ['whvp', 'fhvp', 'hvpg', 'pv', 'ppg', 'ivc', 'ra'] },
   { id: 'stiffness', name: 'Stiffness', q: 'Do you have liver or spleen stiffness?', sub: 'Either one helps.', keys: ['lsm', 'ssm'] },
   { id: 'size', name: 'Spleen and blood', q: 'Spleen, platelets and varices?', sub: 'Size on ultrasound or CT, the blood count, the endoscopy.', keys: ['spleen', 'plt', 'varix'] },
-  { id: 'fluid', name: 'Fluid and flow', q: 'Ascites and portal flow?', sub: 'The ultrasound, a tap, the Doppler of the portal vein.', keys: ['asc', 'saag', 'pvVel'] },
+  { id: 'fluid', name: 'Fluid and flow', q: 'Ascites and portal flow?', sub: 'The ultrasound, a tap, the Doppler of the portal vein.', keys: ['asc', 'saag', 'asctp', 'pvVel'] },
 ]);
 
 // What each row says under its name: where it comes from. It never repeats the row's name (review U7), and the allowed errors are not here: the review explains them once.
 const SUBS = {
   whvp: 'Balloon wedged in a hepatic vein', fhvp: 'The same vein, free', hvpg: 'Only if you do not have both pressures above', pv: 'Direct or by EUS',
   ppg: 'EUS-PPG, if you do not have both pressures above', lsm: 'Transient elastography', ssm: 'Transient elastography',
-  spleen: 'Longest length, ultrasound or CT', plt: 'From the blood count', varix: 'At endoscopy', asc: 'On ultrasound', saag: 'Serum minus ascites albumin',
+  spleen: 'Longest length, ultrasound or CT', plt: 'From the blood count', varix: 'At endoscopy', asc: 'On ultrasound', saag: 'Serum minus ascites albumin', asctp: 'From the same tap as the SAAG',
   pvVel: 'Mean velocity; 0 is no flow, negative runs away from the liver',
 };
 /** A reading the person does not type because it is made from two they did: the field shows it, read-only, and says where it comes from (review U8). */
@@ -46,7 +47,7 @@ const STATUS_WORD = { best: 'Fits best', tie: 'Fits about equally', possible: 'P
 const MARK_WORD = { fit: 'fits', near: 'close', off: 'does not fit' };
 
 /** The state of the flow, kept for the page's life so the sheet can be closed and opened again where it was left. */
-const state = { step: 0, raw: {}, view: 'steps', edit: false, back: null, open: new Set() };   // view: 'steps' | 'review' | 'results'; edit: a step opened from the review (back: 'review') or from the results (back: 'results') to change one reading; open: the scenario rows that are open   // raw: what was typed, by reading key (a string, or a grade index for asc and varix)
+const state = { step: 0, raw: {}, view: 'steps', edit: false, back: null, open: new Set(), caseId: null, guess: new Set(), guessed: false };   // view: 'steps' | 'review' | 'results' | 'cases' | 'guess' (a case to guess before the scenarios; caseId the case, guess the lesions picked, guessed that they were revealed); edit: a step opened from the review (back: 'review') or from the results (back: 'results') to change one reading; open: the scenario rows that are open   // raw: what was typed, by reading key (a string, or a grade index for asc and varix)
 
 const parse = (k, v) => {
   if (v == null || v === '') return null;
@@ -144,6 +145,8 @@ export function createFromReadings(ctx) {
     const nextBtn = h('button', { type: 'button', class: 'btn primary fr-next', onclick: () => go(1) }, nextLabel(here, last));
     const kids = [
       dots, still.el, h('p', { class: 'fr-q' }, st.q), h('p', { class: 'fr-small' }, st.sub),
+      // (Nothing entered yet, first step: a way in for a learner who has no patient to type: a textbook case, or one to guess. Review T1, T2.)
+      state.step === 0 && !state.edit && !Object.keys(state.raw).length ? h('button', { type: 'button', class: 'fr-try', onclick: () => { state.view = 'cases'; show(); } }, h('span', {}, h('b', {}, 'No patient to enter?'), h('i', {}, 'Try a textbook case, or guess one')), h('span', { class: 'fr-chev', 'aria-hidden': 'true' })) : null,
       h('div', { class: 'fr-rows' }, st.keys.map((k) => (READINGS[k].kind === 'grade' ? gradeRow(k) : numRow(k)))),
       h('p', { class: 'fr-fine' }, h('b', {}, 'Model scenarios, not diagnoses.')),
       // (the foot stays on screen while the rows scroll, so Next is never below the fold or under the keyboard: review U6)
@@ -222,28 +225,30 @@ export function createFromReadings(ctx) {
   });
   /** One scenario: a compact row (name, share, bar, one chip per reading, one line of why) that opens its card on a tap. */
   function card(f, res, topRating) {
-    const fam = FAMILY[f.id], why = reasonsFor(fam, res.readings, f.best), n = fam.axes.length, open = state.open.has(f.id);
+    const fam = FAMILY[f.id], why = reasonsFor(fam, res.readings, f.best), n = fam.axes.length, open = state.open.has(f.id), ok = res.fit.ok;   // (no rating or bar when no scenario gives the readings: a share between scenarios says nothing then, review E1)
     const lead = why[0] || (f.gaps.length ? `Does not fit: ${f.gaps.map((g) => READINGS[g.key].short).join(', ')}.` : 'Every reading you entered is within the usual error.');
     const bar = h('i', {}); bar.style.setProperty('--fit', String(Math.max(0.02, Math.min(1, f.rating / Math.max(topRating, 1e-6)))));
-    const head = h('button', { type: 'button', class: 'fr-ch', 'aria-expanded': String(open), 'aria-label': `${fam.label}. ${STATUS_WORD[f.status]}, rating ${ratingShort(f)}. ${open ? 'Close' : 'Open'} the details` },
-      h('span', { class: 'fr-ct' }, h('b', {}, fam.label), h('span', { class: 'fr-rate' }, ratingShort(f))),
-      h('span', { class: 'fr-st' }, STATUS_WORD[f.status] + (n > 1 ? ` · ${n === 2 ? 'two' : 'three'} lesions` : '')),
-      h('span', { class: 'fr-bar', 'aria-hidden': 'true' }, bar),
+    const head = h('button', { type: 'button', class: 'fr-ch', 'aria-expanded': String(open), 'aria-label': `${fam.label}. ${ok ? `${STATUS_WORD[f.status]}, relative fit ${ratingShort(f)}` : 'Does not fit all the readings'}. ${open ? 'Close' : 'Open'} the details` },
+      h('span', { class: 'fr-ct' }, h('b', {}, fam.label), ok ? h('span', { class: 'fr-rate' }, ratingShort(f)) : null),
+      h('span', { class: 'fr-st' }, (ok ? STATUS_WORD[f.status] : 'Closest fit') + (n > 1 ? ` · ${n === 2 ? 'two' : 'three'} lesions` : '')),
+      ok ? h('span', { class: 'fr-bar', 'aria-hidden': 'true' }, bar) : null,
       fitChips(f, res), h('span', { class: 'fr-why1' }, lead), h('span', { class: 'fr-chev', 'aria-hidden': 'true' }));
     const bands = bandsOf(f.best.pred, fam);
     const detail = h('div', { class: 'fr-cd' },
       why.length > 1 ? h('ul', { class: 'fr-why' }, why.slice(1).map((t) => h('li', {}, t))) : null,
-      h('div', { class: 'fr-fit' }, settingBlocks(f),
+      h('div', { class: 'fr-fit' }, n ? settingBlocks(f) : h('div', {}, h('p', { class: 'fr-sub' }, 'Model settings that give this'), h('p', { class: 'fr-fine' }, 'None changed: every setting is the healthy one.')),
         h('div', {}, h('p', { class: 'fr-sub' }, 'The model gives back'), h('ul', { class: 'fr-back' }, h('li', { class: 'fr-bh' }, h('span', {}, ''), h('em', {}, 'You'), h('b', {}, 'Model')), backRows(f, res)))),
       h('dl', { class: 'fr-kv' },
         bands.length ? [h('dt', {}, 'In the model'), h('dd', {}, bands.map((b) => h('span', { class: 'fr-band' }, `${b.label} ${b.text}: ${b.band}.`)))] : null,
-        h('dt', {}, 'Settings could be'), h('dd', {}, fitWith(f).join('; ')),
+        n ? [h('dt', {}, 'Settings could be'), h('dd', {}, fitWith(f).join('; '))] : null,
+        // (Review T3: the readings that decide between this scenario and the next one down: what you entered, what each gives.)
+        f.why?.length ? [h('dt', {}, 'Beats the next one'), h('dd', {}, f.why.map((w) => h('span', { class: 'fr-band' }, `${READINGS[w.key].short}: you entered ${readingText(w.key, w.entered)}; this gives ${w.mine == null ? 'none' : modelText(w.key, w.mine)}, the next ${w.theirs == null ? 'none' : modelText(w.key, w.theirs)}.`)))] : null,
         h('dt', {}, 'Cannot explain'), h('dd', {}, f.gaps.length ? f.gaps.map((g) => gapLine(g)).join(' ') : 'Nothing: every reading you entered is within the usual error.'),
         predictLine(f, res).length ? [h('dt', {}, 'Would predict'), h('dd', {}, predictLine(f, res).join(', ') + '. You did not enter these.')] : null),
       disclosure('Limits of the model', () => h('div', { class: 'fr-lim' }, [fam.limits, OUTSIDE[f.id], fam.ev].filter(Boolean).map((t) => h('p', {}, t)))),
       h('div', { class: 'fr-acts' }, h('button', { type: 'button', class: f.status === 'possible' ? 'btn' : 'btn primary', onclick: () => openYours(f) }, 'Open as patient')));
     const box = h('div', { class: 'fr-cb' + (open ? ' on' : '') }, detail);
-    const art = h('article', { class: 'fr-card', 'data-s': f.status, 'data-f': f.id }, head, box);
+    const art = h('article', { class: 'fr-card', 'data-s': f.status, 'data-f': f.id, 'data-tie': f.tieGroup || null }, head, box);
     head.addEventListener('click', () => {
       const on = !box.classList.contains('on');
       if (on) state.open.add(f.id); else state.open.delete(f.id);
@@ -253,7 +258,7 @@ export function createFromReadings(ctx) {
   }
   // ── Your readings: only what was entered, each a button that opens its step; what was not entered is one line of buttons that add it ──
   const typed = (k) => String(state.raw[k] ?? '').trim().replace(',', '.');
-  function editReading(k, back) { state.step = STEPS.findIndex((st) => st.keys.includes(k)); state.view = 'steps'; state.edit = true; state.back = back; show(k); }
+  function editReading(k, back) { state.caseId = null; state.step = STEPS.findIndex((st) => st.keys.includes(k)); state.view = 'steps'; state.edit = true; state.back = back; show(k); }
   function reviewRow(k, res, why) {
     const r = READINGS[k], known = state.raw[k] != null && state.raw[k] !== '', v = parse(k, state.raw[k]);
     const derived = !known && k in DERIVED && DERIVED[k].from.every((a) => a in res.readings);
@@ -290,6 +295,7 @@ export function createFromReadings(ctx) {
       h('p', { class: 'fr-q' }, 'Your readings'),
       h('p', { class: 'fr-small' }, have ? `${have} of ${total} entered. Tap one to change it. What is not entered stays unknown, and the search never fills it in.` : 'Nothing entered yet. Tap a reading below to add it.'),
       groups,
+      notes(res),
       missing.length ? h('div', { class: 'fr-miss' }, h('p', { class: 'fr-sub' }, 'Not entered: tap to add'), h('div', { class: 'fr-chips' }, missing.map((k) => h('button', { type: 'button', class: 'fr-rc', 'data-k': k, onclick: () => editReading(k, 'review') }, READINGS[k].short)))) : null,
       disclosure('How readings are compared', compareView),
       h('p', { class: 'fr-fine' }, h('b', {}, 'Model scenarios, not diagnoses.')),
@@ -304,29 +310,93 @@ export function createFromReadings(ctx) {
     const words = [], heart = gone.has('rhf') && gone.has('constr');
     if (heart) words.push('a heart lesion');
     for (const id of LESION_IDS) if (gone.has(id) && !(heart && (id === 'rhf' || id === 'constr'))) { const sh = LESION[id].short; words.push(/^[A-Z][a-z]/.test(sh) ? sh[0].toLowerCase() + sh.slice(1) : sh); }
-    const rest = out.filter((f) => !FAMILY[f.id].axes.some((id) => gone.has(id)));   // (ruled out for what the mix does together, not for a lesion that is out on its own)
+    // (ruled out for what the mix does together, not for a lesion that is out on its own; a mix that only adds a trace to a smaller one is not ruled out, it is not needed)
+    const rest = out.filter((f) => f.id !== 'none' && !f.redundant && !FAMILY[f.id].axes.some((id) => gone.has(id)));
     const list = words.length > 1 ? `${words.slice(0, -1).join(', ')} or ${words[words.length - 1]}` : words[0];
     const parts = [];
+    if (outIds.has('none')) parts.push('a normal liver');
     if (words.length) parts.push(`any mix with ${list}`);
     if (rest.length) parts.push(`${rest.length} other ${rest.length === 1 ? 'mix' : 'mixes'}`);
-    return `Ruled out by your readings: ${parts.join(', and ')}.`;
+    return parts.length ? `Ruled out by your readings: ${parts.join(', and ')}.` : null;
+  }
+  /** The names of readings, as a list: "WHVP, FHVP and RA". */
+  const nameList = (keys) => { const n = keys.map((k) => READINGS[k].short); return n.length > 1 ? `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}` : n[0] || ''; };
+  // (Pressures that cannot all be true together are kept and said, quietly: a wrong zero level or a slip is not a disease. Review E8.)
+  const notes = (res) => (res.warnings?.length ? h('div', { class: 'fr-notes' }, res.warnings.map((w) => h('p', { class: 'fr-note' }, w.text))) : null);
+  // The textbook case or the one to guess, with what the search found, once the scenarios are up (review T1, T2).
+  function caseBanner(res) {
+    const c = TRY_CASES.find((x) => x.id === state.caseId);
+    if (!c) return null;
+    const lead = res.families.find((f) => !f.redundant), play = res.play.length ? res.play : lead ? [lead] : [];
+    const said = [...state.guess].filter((id) => id !== 'none').sort().join('+');
+    const hit = state.guessed && play.some((f) => [...FAMILY[f.id].axes].sort().join('+') === said);
+    const leadWords = play.map((f) => FAMILY[f.id].short).join(' or ');
+    const picked = state.guess.size ? [...state.guess].map((id) => (id === 'none' ? 'no lesion' : LESION[id].short.toLowerCase())).join(' + ') : 'nothing';
+    return h('div', { class: 'fr-case' }, h('p', { class: 'fr-sub' }, state.guessed ? 'Your guess' : 'Textbook case'),
+      h('p', {}, h('b', {}, c.label + '. '), c.note),
+      state.guessed ? h('p', {}, `You picked ${picked}. The search leads with ${leadWords}. ${hit ? 'That is a match.' : 'Compare what it fits with your readings below.'}`) : null);
+  }
+  /** Cases to try: the readings load and the scenarios come up (T1); or one to guess first, its name kept back (T2). */
+  function casesView() {
+    return h('div', { class: 'fr-cases' },
+      h('p', { class: 'fr-q' }, 'Try a case'),
+      h('p', { class: 'fr-small' }, 'Each is a textbook set of readings. The search puts the right scenario among its leaders; the model has no patient behind it.'),
+      h('button', { type: 'button', class: 'btn primary fr-guessgo', onclick: () => startCase(TRY_CASES[Math.floor(Math.random() * TRY_CASES.length)], true) }, 'Guess one first'),
+      h('div', { class: 'fr-rg' }, h('ul', {}, TRY_CASES.map((c) => h('li', {}, h('button', { type: 'button', class: 'fr-rv', 'data-case': c.id, onclick: () => startCase(c, false) },
+        h('span', { class: 'fr-rl' }, h('b', {}, c.label), h('i', {}, `${Object.keys(c.readings).length} readings`)), h('span', {}), h('span', { class: 'fr-chev', 'aria-hidden': 'true' })))))),
+      h('div', { class: 'fr-foot' }, h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.view = 'steps'; show(); } }, 'Back'))));
+  }
+  function startCase(c, guess) {
+    state.raw = { ...c.readings }; state.caseId = c.id; state.guess = new Set(); state.guessed = false; state.open = new Set(); state.edit = false; state.back = null; state.step = 0;
+    clearTimeout(askT); remote.set(entered()); lastSig = '';
+    state.view = guess ? 'guess' : 'results';
+    show();
+  }
+  /** Guess first: the readings, then the lesions the learner thinks explain them, then the scenarios. */
+  function guessView() {
+    const res = remote.peek(entered()), have = Object.keys(res.readings);
+    const picks = ['none', ...LESION_IDS], word = (id) => (id === 'none' ? 'No lesion' : LESION[id].short);
+    const reveal = h('button', { type: 'button', class: 'btn primary fr-next', onclick: () => { state.guessed = true; state.view = 'results'; lastSig = ''; show(); } }, 'Show what the search finds');
+    reveal.disabled = !state.guess.size;
+    const pills = h('div', { class: 'fr-pick', role: 'group', 'aria-label': 'Lesions you think explain these readings' }, picks.map((id) => {
+      const b = h('button', { type: 'button', class: 'fr-rc', 'aria-pressed': String(state.guess.has(id)), 'data-id': id }, word(id));
+      b.addEventListener('click', () => {
+        if (id === 'none') state.guess = state.guess.has('none') ? new Set() : new Set(['none']);
+        else { state.guess.delete('none'); if (state.guess.has(id)) state.guess.delete(id); else if (state.guess.size < 3) state.guess.add(id); }
+        for (const x of pills.children) x.setAttribute('aria-pressed', String(state.guess.has(x.dataset.id)));
+        reveal.disabled = !state.guess.size;
+      });
+      return b;
+    }));
+    return h('div', { class: 'fr-guess' },
+      h('p', { class: 'fr-q' }, 'Which lesion explains these readings?'),
+      h('p', { class: 'fr-small' }, 'Pick up to three, or no lesion. Then see what the search finds.'),
+      h('div', { class: 'fr-yr' }, h('div', { class: 'fr-chips' }, have.map((k) => h('span', { class: 'fr-rc fr-rc-static' }, `${READINGS[k].short} ${numberText(k, res.readings[k])}${READINGS[k].unit ? ' ' + READINGS[k].unit : ''}`)))),
+      pills,
+      h('div', { class: 'fr-foot' }, h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.view = 'cases'; show(); } }, 'Back'), reveal)));
   }
   function resultView() {
     const res = remote.peek(entered());   // (what was entered, over the grid and every patient the refinement has added: one source, never a result left over from earlier)
     const top = res.families.filter((f) => f.status === 'best' || f.status === 'tie'), possible = res.families.filter((f) => f.status === 'possible');
     const nx = nextText(res), dropped = res.dropped, topRating = res.families[0]?.rating ?? 1;
-    const head = !res.ready ? 'Not enough readings yet.' : res.few ? `A short list from ${res.n} readings.` : top.length > 1 ? `${top.length} scenarios fit about equally.` : 'One scenario fits best.';
+    const poor = res.ready && !res.fit.ok, bad = poor ? (res.fit.worst.length ? res.fit.worst.map((x) => x.key) : res.fit.conflict) : [];
+    const head = !res.ready ? 'Not enough readings yet.' : poor ? 'No model scenario gives all of these readings.' : res.healthy ? 'These readings are in the model’s normal range.' : res.few ? `A short list from ${res.n} readings.` : top.length > 1 ? `${top.length} scenarios fit about equally.` : 'One scenario fits best.';
     const have = Object.keys(res.readings), ruled = res.ready ? ruledOutText(res) : null;
     const kids = [
       h('p', { class: 'fr-q' }, head),
-      h('p', { class: 'fr-small' }, res.few ? `With under ${FEW_READINGS} readings several lesions can fit, so this is what is possible, not a ranking. Each added reading narrows it.` : res.ready ? 'Each is a made-up patient built from your readings. The percentage is its share of the likelihood across every scenario: fewer lesions, each closer to healthy, rate higher. Opening one saves it under Patients as “Yours”.' : `The search needs ${RESULT_MIN} readings; ${res.n} entered.`),
+      caseBanner(res),
+      h('p', { class: 'fr-small' }, poor ? `The closest the model gets still misses ${bad.length ? nameList(bad) : 'several readings'} by more than the usual error. Check ${bad.length ? 'those readings' : 'the readings'} for a slip or a different zero level, or the cause may be one the model does not draw. These are the closest it gets, not scenarios that fit.` : res.healthy ? 'Every reading is within the model’s healthy range, so no lesion is needed. The model’s healthy patient is one set of readings; normal ranges in people are wider.' : res.few ? `With under ${FEW_READINGS} readings several lesions can fit, so this is what is possible, not a ranking. Each added reading narrows it.` : res.ready ? 'Each is a made-up patient built from your readings. The percentage is its relative fit, its share of the likelihood across the scenarios. Fewer lesions, each closer to healthy, rate higher. Opening one saves it under Patients as “Yours”.' : `The search needs ${RESULT_MIN} readings; ${res.n} entered.`),
+      notes(res),
       // (the next reading goes straight under the head, where it teaches most)
       res.ready && nx ? h('div', { class: 'fr-next-note' }, h('span', { class: 'fr-pillnote' }, 'Next'), h('div', {}, h('p', {}, nx.lead), nx.rest.map((t) => h('p', { class: 'fr-fine' }, t)))) : null,
       have.length ? h('div', { class: 'fr-yr' }, h('p', { class: 'fr-sub' }, 'Your readings: tap one to change it'),
         h('div', { class: 'fr-chips' }, have.map((k) => h('button', { type: 'button', class: 'fr-rc', 'data-k': k, onclick: () => editReading(k, 'results') }, `${READINGS[k].short} ${numberText(k, res.readings[k])}`)))) : null,
       dropped.length ? h('p', { class: 'fr-fine fr-dropped' }, 'Left out: ' + dropped.map((d) => `${READINGS[d.key].short} (${d.why})`).join('; ') + '.') : null,
       res.ready ? h('p', { class: 'fr-fine fr-key' }, h('b', {}, 'Chips: '), 'filled fits, outlined is close, struck through does not fit.') : null,
+      poor ? h('p', { class: 'fr-sub' }, 'Closest the model gets') : null,
       res.ready ? h('div', { class: 'fr-list' }, top.map((f) => card(f, res, topRating))) : null,
+      // (Review T5: scenarios the model cannot tell apart are one teaching sentence, not three cards at 25%.)
+      res.ready && !poor && res.tieNotes?.length ? h('div', { class: 'fr-ties' }, res.tieNotes.map((t) => h('p', { class: 'fr-fine' }, h('b', {}, 'The model cannot tell these apart. '), t.text))) : null,
       res.ready && possible.length ? h('div', { class: 'fr-also' }, h('p', { class: 'fr-sub' }, 'Also possible'), possible.map((f) => card(f, res, topRating))) : null,
       ruled ? h('p', { class: 'fr-fine' }, ruled) : null,
       res.ready ? h('p', { class: 'fr-fine fr-refine', 'aria-live': 'polite' }, refineText()) : null,
@@ -342,7 +412,7 @@ export function createFromReadings(ctx) {
     const res = remote.peek(entered()), r = { ...res.readings };
     try { await ctx.openYours(f.id, f.best.p, r); closePopover(); } catch { announce('The patient could not be made right now.'); }
   }
-  function startOver() { state.raw = {}; state.step = 0; state.view = 'steps'; state.edit = false; state.back = null; state.open = new Set(); remote.set({}); show(); }
+  function startOver() { state.caseId = null; state.guess = new Set(); state.guessed = false; state.raw = {}; state.step = 0; state.view = 'steps'; state.edit = false; state.back = null; state.open = new Set(); remote.set({}); show(); }
   function go(d) {
     if (state.view === 'review') { if (d > 0) { clearTimeout(askT); remote.set(entered()); state.view = 'results'; lastSig = ''; show(); } return; }
     const to = state.step + d;
@@ -355,7 +425,7 @@ export function createFromReadings(ctx) {
     if (to < 0) return;
     state.step = to; state.view = 'steps'; show();
   }
-  const viewNow = () => (state.view === 'steps' ? stepView() : state.view === 'review' ? reviewView() : resultView());
+  const viewNow = () => (state.view === 'steps' ? stepView() : state.view === 'review' ? reviewView() : state.view === 'cases' ? casesView() : state.view === 'guess' ? guessView() : resultView());
   // The body's content swapped with the shared fade; the sheet itself never closes and opens again.
   // `focus`: a reading to put the cursor in once its step is up (a tap on it in the review).
   function show(focus = null) {

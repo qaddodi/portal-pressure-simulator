@@ -310,7 +310,7 @@ test('the Baveno VIII bands are printed only where they apply: LSM bands with ci
   for (const f of FAMILIES) {
     const b = bandsOf({ hvpg: 6, lsm: 18, ppg: 9 }, f), lsm = b.find((x) => x.label === 'LSM');
     assert.ok(lsm && lsm.band, f.id);
-    if (!f.parts.includes('sinus')) assert.doesNotMatch(lsm.band, /compensated advanced|rules clinically/, f.id);
+    if (!f.parts.includes('sinus') && f.parts.length) assert.doesNotMatch(lsm.band, /compensated advanced|rules clinically/, f.id);
   }
 });
 
@@ -329,4 +329,12 @@ test('settings that follow from a lesion are marked, so a card does not list the
   assert.equal(settingsOf('sinus', { sinus: 0.9 }).find((x) => x.label === 'Cirrhosis slider').follows, undefined);
   assert.ok(settingsOf('rhf', { rhf: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
   assert.ok(settingsOf('ivcweb', { ivcweb: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
+});
+
+test('the no-lesion family reads with the plain bands, and a fit range inside one word reads as the word (review E2, U3)', () => {
+  const b = bandsOf({ hvpg: 3, lsm: 4.5 }, FAMILY.none);
+  assert.match(b.find((x) => x.label === 'HVPG').band, /normal range/);
+  assert.match(b.find((x) => x.label === 'LSM').band, /under 10.*unlikely/);
+  assert.equal(rangeText('presin', { lo: 0.85, hi: 1, whole: false, fixed: false }), 'severe');
+  assert.equal(rangeText('presin', { lo: 0.2, hi: 0.6, whole: false, fixed: false }), 'mild to marked');
 });

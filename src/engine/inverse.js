@@ -353,7 +353,7 @@ export function rangeText(axis, rg) {
   const t = (v) => settingText(axis, v);
   if (rg.fixed) return t(rg.lo);
   if (rg.whole) return 'not set by these readings';
-  return rg.lo === rg.hi ? t(rg.lo) : `${t(rg.lo)} to ${t(rg.hi)}`;
+  return rg.lo === rg.hi || t(rg.lo) === t(rg.hi) ? t(rg.lo) : `${t(rg.lo)} to ${t(rg.hi)}`;   // (two severities in one word read as that word, not "severe to severe")
 }
 
 /** Solve the small system A x = b (n up to a few) by elimination with pivoting; null when it is singular. */
@@ -517,7 +517,8 @@ const f1text = (v) => (Math.round(v * 10) / 10).toFixed(1);
  * `fam` is the scenario's family; left out, every band applies.
  */
 export function bandsOf(pred, fam = null) {
-  const out = [], parts = fam ? fam.parts : ['sinus'], sinus = parts.includes('sinus'), before = parts.some((id) => BEFORE_LIVER.includes(id));
+  // (The no-lesion family has no lesion to qualify the bands: the plain ones apply.)
+  const out = [], parts = fam ? fam.parts : ['sinus'], sinus = parts.includes('sinus') || (!!fam && !parts.length), before = parts.some((id) => BEFORE_LIVER.includes(id));
   if (pred.hvpg != null) {
     const band = before ? `does not show the portal pressure with a block before the liver${pred.ppg != null ? `; the model's PPG is ${f1text(pred.ppg)} mmHg` : ''}` : hvpgBand(pred.hvpg);
     out.push({ label: 'HVPG', text: `${f1text(pred.hvpg)} mmHg`, band });

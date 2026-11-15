@@ -174,3 +174,23 @@
 .fr-back li[data-m='off'] b { text-decoration: underline dashed; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .fr-back .fr-bh em, .fr-back .fr-bh b { font-size: var(--fs-12); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
 @media (min-width: 640px) { .fr-fit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; } .fr-kv { grid-template-columns: 8em minmax(0, 1fr); } .fr-kv dt { padding-top: 2px; } }
+
+/* Quiet notes (pressures that cannot all be true), the case banner, the entry's way in to cases, and the guess (review E8, T1, T2). Plain text on the card ground: no marks at an edge. */
+.fr-notes { display: flex; flex-direction: column; gap: 6px; }
+.fr-note { margin: 0; padding: 8px 12px; border-radius: var(--r-card); background: var(--surface-2); font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-ties { display: flex; flex-direction: column; gap: 6px; }
+.fr-case { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); }
+.fr-case p { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text); }
+.fr-case p.fr-sub { color: var(--text-3); }
+.fr-try { position: relative; display: block; width: 100%; padding: 10px 34px 10px 12px; border-radius: var(--r-card); border: 1px dashed var(--border-strong); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.fr-try span:first-child { display: flex; flex-direction: column; }
+.fr-try b { font-size: var(--fs-14); font-weight: 600; }
+.fr-try i { font-style: normal; font-size: var(--fs-12); color: var(--text-3); }
+.fr-try .fr-chev { position: absolute; right: 14px; top: 50%; margin-top: -4px; width: 7px; height: 7px; border-top: 1.5px solid var(--text-3); border-right: 1.5px solid var(--text-3); transform: rotate(45deg); }
+.fr-try:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (hover: hover) { .fr-try:hover { background: var(--surface-3); } }
+.fr-cases, .fr-guess { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-guessgo { width: 100%; }
+.fr-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.fr-rc[aria-pressed="true"] { background: var(--fr-fill); border-color: var(--accent-line); }
+.fr-rc-static { cursor: default; }
