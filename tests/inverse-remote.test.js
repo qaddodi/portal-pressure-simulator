@@ -75,6 +75,21 @@ test('a reply to an older request is dropped', () => withWorker(() => {
   assert.equal(r.status(), 'refining');
 }));
 
+test('a patient from a reply to an older request is kept (it is a fact), but that reply neither ends nor advances the current fit', () => withWorker(() => {
+  const w = new FakeWorker(), r = createInverseRemote(() => w);
+  r.set(A);
+  const old = w.sent[0].seq;
+  r.set({ ...A, lsm: 7 });
+  const src = pointsOf(LIBRARY).find((p) => p.f === 'presin' && p.p.presin === 1);
+  const row = ['presin', [0.95], Object.values(src.r)];
+  const before = r.result().families.find((f) => f.id === 'presin').count;
+  w.onmessage({ data: { t: 'points', seq: old, rows: [row], round: 5, rounds: 6, done: true } });
+  assert.equal(r.status(), 'refining', 'the current request is still running');
+  assert.equal(r.progress().round, 0, 'and its round did not move');
+  assert.ok(r.result().families.find((f) => f.id === 'presin').count >= before, 'the patient is in the table');
+  assert.ok(r.peek({ ...A, lsm: 7 }).families.length > 0);
+}));
+
 test('a worker that errors or goes silent leaves the grid\'s ranking and the status "library"', () => withWorker(() => {
   const w = new FakeWorker(), t = fakeTimer(), r = createInverseRemote(() => w, { setTimer: t.set, clearTimer: t.clear });
   r.set(A);

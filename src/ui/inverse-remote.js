@@ -34,10 +34,12 @@ export function createInverseRemote(makeWorker, { setTimer = setTimeout, clearTi
     if (!w) { state = 'library'; return false; }
     w.onmessage = (e) => {
       const m = e.data;
-      if (m.seq !== seq || state !== 'refining') return;
+      // (A patient the worker ran is a fact whatever request asked for it, so its readings are kept even from a reply to an older request; only the
+      // progress and the end of a fit belong to the current one.)
+      if (m.t === 'points') for (const [f, vals, rs] of m.rows) { const pt = pointsOf([[f, vals, rs]])[0]; points.set(keyOf(pt.f, pt.p), pt); }
+      if (m.seq !== seq || state !== 'refining') { if (m.t === 'points' && m.rows.length) { rerank(); emit(); } return; }
       if (m.t === 'error') { giveUp(); return; }
       if (m.t !== 'points') return;
-      for (const [f, vals, rs] of m.rows) { const pt = pointsOf([[f, vals, rs]])[0]; points.set(keyOf(pt.f, pt.p), pt); }
       round = m.round;
       if (m.done) { quiet(); state = 'done'; } else arm();
       rerank(); emit();
