@@ -51,7 +51,11 @@ let fin = new Batch(), finalNow = null;
 let reads = new Batch(), readsNow = null;
 let next = 1, pending = 0;
 let spareQ = new Batch(), spareL = new Batch(), spareF = new Batch(), spareR = new Batch();
-const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, drawn: {}, ms: {} };
+const counts = new Map(), rates = new Map(), draws = new Map(), drawRates = new Map(), totals = { asks: {}, ran: {}, drawn: {}, ms: {} };
+// (The frames each tag ran in, apart from its callbacks: the figure asks for an early and a late callback in one frame, so its callbacks a
+// second were twice its frames, and ?perf read the difference as frames the app skipped on purpose (15 Nov 2026, his Safari paste: "asked
+// for 19 frames/s, drew 10/s" at 8.4 fps). ranAt: the frame each tag last counted in.)
+const ranIn = new Map(), ranRates = new Map(), ranAt = new Map();
 let windowAt = 0, frames = 0, fps = 0, allFrames = 0;
 // Frame watchers (watchFrames). `parts` is the running frame's callbacks (surface, phase, ms), kept only while someone watches.
 // `chained`: the last frame asked for another, so the interval to this one is a frame time; `lastNow`: that frame's timestamp.
@@ -167,6 +171,7 @@ function flush(now) {
   if ((queue.size || late.size || fin.size || reads.size || mayDue() || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = askFrame();
   else if (!pending) mayTimer();
   chained = !!pending;
+  if (renderWatchers.size && !pump) sendRender();   // (?perf: the browser's rendering after this frame's script)
 }
 
 // (Rev 2 §2.8: each callback's own time is read only where something uses it: every callback while frames are watched (?perf, the
@@ -181,6 +186,7 @@ let timeFrame = false;
 export const framesTimed = () => timeFrame;
 // (The early batch runs by priority, 0 then 2 then 3, so the one rule judges the lower ones with the higher ones' time already spent.)
 const EARLY_PASSES = [0, 2, 3], ONE_PASS = [-1];
+function noteRan(tag) { if (ranAt.get(tag) !== allFrames) { ranAt.set(tag, allFrames); ranIn.set(tag, (ranIn.get(tag) || 0) + 1); totals.ran[tag] = (totals.ran[tag] || 0) + 1; } }
 function run(batch, now, phase) {
   const passes = phase === 'early' ? EARLY_PASSES : ONE_PASS;
   for (let p = 0; p < passes.length; p++) runPass(batch, now, phase, passes[p]);
@@ -198,6 +204,7 @@ function runPass(batch, now, phase, prio) {
     batch.cbs[i] = null; batch.tags[i] = null; batch.size--;
     if (phase === 'early' && shedding(tag)) { queue.add(batch.ids[i], tag, cb); continue; }   // (carried to the next frame: see the watchdog)
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
+    noteRan(tag);
     const learn = phase === 'early' && prio > 0, timed = timeFrame || learn;
     const t0 = timed ? performance.now() : 0;
     try { if (gpuProbe.on) probed(tag, cb, now); else cb(now); } catch (e) { rethrow(e); }   // one surface's error never stops the others
@@ -220,6 +227,30 @@ const ends = new Set(), endF = { now: 0, gap: 0, script: 0 };
 let lastTask = 0;
 /** Calls fn({ now, gap, script }) at the end of every frame, cheaply (no parts; the object is reused, read it in the call). Returns the stop. */
 export function onFrameEnd(fn) { ends.add(fn); return () => ends.delete(fn); }
+// ── After the script: the browser's own rendering of a frame (15 Nov 2026, his Safari paste: 102 ms frames, 15 ms of script, 4 ms of GPU) ──
+// A frame's script is only the first part of its time. After the callbacks the browser does its own work in the same task: style, layout and
+// paint of what the frame changed, and the hand-over of every WebGL canvas drawn in it (Safari waits there for its GPU process to run the
+// frame's GL calls). A message posted at the frame's end runs once that is done, so its delay is that work, plus any task queued ahead of it.
+// watchRender(fn) calls fn(frame, ms) for each frame it measures (one in flight at a time); nothing is posted while nobody listens (?perf only).
+const renderWatchers = new Set();
+let renderPort = null, renderSent = 0, renderOf = 0;
+/** Calls fn(frameNo, ms) with each measured frame's time after its script (the browser's rendering). Returns the stop. */
+export function watchRender(fn) { renderWatchers.add(fn); return () => renderWatchers.delete(fn); }
+function renderArrived() {
+  const ms = performance.now() - renderSent;
+  renderSent = 0;
+  for (const w of renderWatchers) try { w(renderOf, ms); } catch (e) { rethrow(e); }
+}
+function sendRender() {
+  if (renderSent) return;
+  if (!renderPort) {
+    if (typeof MessageChannel === 'undefined') return;
+    const ch = new MessageChannel();   // alloc-rare: once, the first time the ?perf readout listens
+    ch.port1.onmessage = renderArrived; /** @type {any} */ (ch.port1).unref?.(); renderPort = ch.port2;   // (unref: Node, the tests; no such call in a browser)
+  }
+  renderOf = allFrames; renderSent = performance.now();
+  renderPort.postMessage(0);
+}
 /** The frames the scheduler has run since the page opened (a stamp for "once a frame"). */
 export const frameCount = () => allFrames;
 
@@ -228,12 +259,19 @@ export const frameCount = () => allFrames;
 // 240, nearest of the rates screens run at: a late frame in Safari is followed by a short one, so the shortest ones lie). Until it is
 // known the budget is 120 Hz's. screen.refreshRate (a few browsers have it) is taken as the panel's own rate when it is given.
 export const REFRESH_RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
+/** A measured cadence (Hz) as a screen's rate: the nearest of REFRESH_RATES when it is within 12% of one, else the cadence itself, rounded.
+ *  (15 Nov 2026: every cadence under 30 was read as 30, so frames 50 or 90 ms apart read "page frames at 30 Hz", which looked like Safari's
+ *  30 fps hold when it was not one.) */
+export function snapRate(hz) {
+  let best = REFRESH_RATES[0];
+  for (let i = 1; i < REFRESH_RATES.length; i++) if (Math.abs(REFRESH_RATES[i] - hz) < Math.abs(best - hz)) best = REFRESH_RATES[i];
+  return Math.abs(best - hz) <= best * 0.12 ? best : Math.max(1, Math.round(hz));
+}
 /** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
 export function refreshFrom(dts) {
   const v = dts.filter((d) => d > 2 && d < 100).sort((a, b) => a - b);
   if (v.length < 20) return 0;
-  const hz = 1000 / v[Math.floor(v.length / 4)];
-  return REFRESH_RATES.reduce((a, b) => (Math.abs(b - hz) < Math.abs(a - hz) ? b : a));
+  return snapRate(1000 / v[Math.floor(v.length / 4)]);
 }
 const gapRing = new Float32Array(240);
 let gapN = 0, gapAt = 0, hzNow = 0, hzMax = 0, hzAt = 0;
@@ -244,10 +282,7 @@ function refreshFromRing() {
   for (let i = 0; i < gapN; i++) { const d = gapRing[i]; if (d > 2 && d < 100) gapSort[k++] = d; }
   if (k < 20) return 0;
   gapSort.fill(Infinity, k); gapSort.sort();
-  const hz = 1000 / gapSort[Math.floor(k / 4)];
-  let best = REFRESH_RATES[0];
-  for (let i = 1; i < REFRESH_RATES.length; i++) if (Math.abs(REFRESH_RATES[i] - hz) < Math.abs(best - hz)) best = REFRESH_RATES[i];
-  return best;
+  return snapRate(1000 / gapSort[Math.floor(k / 4)]);
 }
 function noteGap(dt) {
   gapRing[gapAt] = dt; gapAt = (gapAt + 1) % gapRing.length; if (gapN < gapRing.length) gapN++;
@@ -425,6 +460,7 @@ function runMay(now) {
     if (aged) mayStat.aged++;
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
+    noteRan(tag);
     let more = false;
     try { more = m.fn(Math.max(0, limit - used), now) === true; } catch (e) { rethrow(e); }
     const ms = performance.now() - t, c = mayCost.get(tag);
@@ -463,6 +499,9 @@ function roll(now) {
   for (const [tag, n] of counts) rates.set(tag, Math.round(n * 1000 / span));
   drawRates.clear();
   for (const [tag, n] of draws) drawRates.set(tag, Math.round(n * 1000 / span));
+  ranRates.clear();
+  for (const [tag, n] of ranIn) ranRates.set(tag, Math.round(n * 1000 / span));
+  ranIn.clear();
   fps = Math.round(frames * 1000 / span);
   counts.clear(); draws.clear(); frames = 0; windowAt = now;
 }
@@ -594,14 +633,15 @@ export const finalFrameFor = (tag) => askers.final.get(tag) || keepAsker(askers.
 // A surface that paces itself (asks every frame, draws only some) notes each frame it really drew, for perf().drawn.
 export function noteDraw(tag) { draws.set(tag, (draws.get(tag) || 0) + 1); totals.drawn[tag] = (totals.drawn[tag] || 0) + 1; }
 
-// Per-surface callbacks per second over the last full second, the frames each pacing surface really drew in it,
+// Per-surface callbacks per second over the last full second (surfaces), the frames each tag ran in (framesRan: one a frame however many
+// callbacks it had in it), the frames each pacing surface really drew in it,
 // which surfaces wait for a frame, and the running totals of both since the page opened (for checks over any span;
 // totals.frames: the browser frames the scheduler ran, so a surface's draws can be held against the frames on offer;
 // totals.ms: the main-thread time each surface's callbacks took, in ms: CPU time issuing work, not the GPU's own time).
 export function perf() {
   roll(performance.now());
   // (A report: read by the ?perf readout, the gates and the tests, never by a frame of the figure.)
-  return { fps, surfaces: Object.fromEntries(rates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],   // alloc-rare: a report for the ?perf readout, the gates and the tests
+  return { fps, surfaces: Object.fromEntries(rates), framesRan: Object.fromEntries(ranRates), drawn: Object.fromEntries(drawRates), totals: { asks: { ...totals.asks }, ran: { ...totals.ran }, drawn: { ...totals.drawn }, ms: { ...totals.ms }, frames: allFrames }, waiting: [...fin.waitingTags(late.waitingTags(queue.waitingTags(new Set())))],   // alloc-rare: a report for the ?perf readout, the gates and the tests
     get inputToPaint() { return inputMeasure(); }, frames: frameRecording };   // alloc-rare: part of the same report
 }
 

@@ -126,7 +126,9 @@ test('the panel writes its summary and every row from frames run through the sch
   await new Promise((done) => setTimeout(done, 2300));
   const text = globalThis.pps.hud();
   el.stop(); fence.setFenceContext(null);
-  for (const head of ['== WHY ==', 'NOW: view switch (pieces ready 4 of 6)', 'GOAL:', '== WORST FRAMES', '== PAGE (main thread) ==', 'PHYSICS WORKER', '== GPU', 'whole vessel redraws:', 'display probe', 'figure loop: ', 'lobule loop: ', 'blood drawn by the tubes (lumen pass), figure:']) assert.ok(text.includes(head), `${head} in:\n${text}`);
+  for (const head of ['== WHY ==', 'NOW: view switch (pieces ready 4 of 6)', 'GOAL:', '== WORST FRAMES', '== PAGE (main thread) ==', 'PHYSICS WORKER', '== GPU', 'whole vessel redraws:', 'display probe', 'figure loop: ', 'lobule loop: ', 'blood drawn by the tubes (lumen pass), figure:', 'after the script: the browser\'s rendering p50', 'DOM changes a second:', 'CSS animations:', 'webgl contexts:']) assert.ok(text.includes(head), `${head} in:\n${text}`);
+  assert.match(text, /\d+ frames shown of the \d+ the goal gives in that time \(\d+ missed\)/);
+  assert.doesNotMatch(text, /frames missed in 2 s/);
   assert.match(text, /7500\.0 steps\/s/);
 });
 
@@ -236,4 +238,90 @@ test('netChanged says which element and attribute changed', async () => {
   netWho.target = null;
   assert.equal(netChanged([{ type: 'attributes', target: el, attributeName: 'transform', oldValue: 'scale(1.1)' }]), false);
   assert.equal(netWho.target, null, 'a write that left the value as it was names nobody');
+});
+
+// 15 Nov 2026, his Safari paste (8.4 fps, 15 ms of script, 4 ms of GPU, "127 ms not in script"): the readout's own errors, and the time after
+// the script measured instead of guessed.
+const frame = await import('../src/ui/frame.js');
+const { missedOf, heldAtHalf, heldWords, cssAnimText, nodeName } = hud;
+
+test('frames missed are the goal\'s frames in the time against the frames shown, never more than their own whole ("128 of 17")', () => {
+  const gaps = Array(17).fill(2000 / 17);
+  const m = missedOf(gaps, 1000 / 72);
+  assert.deepEqual(m, { shown: 17, slots: 144, missed: 127 });
+  assert.ok(m.missed < m.slots);
+  assert.deepEqual(missedOf(Array(120).fill(1000 / 60), 1000 / 60), { shown: 120, slots: 120, missed: 0 });
+  assert.deepEqual(missedOf([0, 0], 16.7), { shown: 0, slots: 0, missed: 0 });
+});
+
+test('the goal never passes the screen\'s rate by the display probe (72 fps seen once on a 60 Hz screen)', () => {
+  const g = goalOf({ maxHz: 72, ua: SAFARI, probeHz: 60 });
+  assert.equal(g.hz, 60); assert.match(g.why, /screen's own rate/);
+  assert.equal(goalOf({ maxHz: 120, ua: CHROME, probeHz: 120 }).hz, 120);
+  assert.equal(goalOf({ maxHz: 60, ua: SAFARI, probeHz: 30 }).hz, 60, 'a probe held low itself is no cap');
+});
+
+test('a slow cadence is read as itself, not as 30 Hz: frames 50 ms apart are 20 Hz', () => {
+  assert.equal(frame.snapRate(20), 20);
+  assert.equal(frame.snapRate(1000 / 90), 11);
+  assert.equal(frame.snapRate(58), 60);
+  assert.equal(frame.snapRate(31), 30);
+  assert.equal(frame.refreshFrom(Array(40).fill(50)), 20);
+  assert.equal(frame.refreshFrom(Array(40).fill(16.7)), 60);
+});
+
+test('Safari\'s hold at half the screen\'s rate is told from the frames\' spans: every one an even number of the screen\'s frames', () => {
+  const held = heldAtHalf([33, 34, 67, 100, 33, 66, 33, 101, 134, 33], 60, 60);
+  assert.deepEqual(held, { hz: 30, probe: 60, n: 10 });
+  assert.match(heldWords(held), /every second refresh of the 60 Hz screen \(30 fps at most\).*Low Power Mode/);
+  assert.equal(heldAtHalf([17, 33, 50, 17, 17, 84, 17, 33, 17, 17], 60, 60), null, 'frames on single refreshes: no hold');
+  assert.equal(heldAtHalf([33, 50, 83, 117, 150, 50, 83, 117, 33, 50], 60, 60), null, 'odd counts of frames: the work, not a hold');
+  assert.equal(heldAtHalf(Array(12).fill(16.7), 120, 60), null, 'Safari\'s 60 on a 120 Hz screen is its ceiling, not a hold');
+  assert.equal(heldAtHalf([33, 67], 60, 60), null, 'too few frames to tell');
+});
+
+test('the verdict names the browser\'s rendering after the script when it fills the frame, and Safari\'s hold with how to check it', () => {
+  const goal = goalOf({ maxHz: 60, ua: SAFARI, probeHz: 60 });
+  const r = diagnose({ st: st({ fps: 9, p50: 102, s50: 15 }), goal, gpu: gpuOf([['present copy', 2]]), surfaces: [['stage', 6]], render: { p50: 60, wait: 27, n: 17 } });
+  assert.match(r.head, /^BROWSER RENDERING: .*script takes 15\.0 ms and the browser's own rendering after it 60\.0 ms/);
+  assert.match(r.fix, /DOM changes a second/);
+  const h = diagnose({ st: st({ fps: 20, p50: 50, s50: 6 }), goal, gpu: gpuOf([['present copy', 2]]), surfaces: [['stage', 6]], render: { p50: 3, wait: 40, n: 17 }, held: { hz: 30, probe: 60, n: 20 } });
+  assert.match(h.head, /^HELD BY SAFARI: .*every second refresh of the 60 Hz screen/);
+  assert.match(h.fix, /Low Power Mode/); assert.match(h.fix, /Settings > Battery/);
+  const w = diagnose({ st: st({ fps: 20, p50: 50, s50: 6 }), goal, gpu: gpuOf([['present copy', 2]]), surfaces: [['stage', 6]], render: { p50: 3, wait: 40, n: 17 } });
+  assert.match(w.head, /^HELD BY THE BROWSER: .*rendering after it \(3\.0 ms\).*waits 40\.0 ms for the next/);
+});
+
+test('a surface with two callbacks in one frame counts one frame it ran in (the figure "asked for 19, drew 10" at 8.4 fps)', async () => {
+  const t0 = frame.perf().totals;
+  await new Promise((done) => {
+    frame.frameFor('test-twice')(() => {});
+    frame.lateFrameFor('test-twice')(() => {});
+    frame.finalFrameFor('test-twice')(() => setTimeout(done, 0));
+  });
+  const t1 = frame.perf().totals;
+  assert.equal((t1.asks['test-twice'] || 0) - (t0.asks['test-twice'] || 0), 3, 'three callbacks');
+  assert.equal((t1.ran['test-twice'] || 0) - (t0.ran['test-twice'] || 0), 1, 'one frame');
+  assert.ok('framesRan' in frame.perf());
+});
+
+test('the browser\'s rendering after a frame is measured by a message posted at the frame\'s end, for that frame', async () => {
+  const got = [];
+  const stop = frame.watchRender((fno, ms) => got.push([fno, ms]));
+  const stopW = frame.watchFrames(() => {});
+  let fno = 0;
+  await new Promise((done) => frame.frameFor('test-render')(() => { fno = frame.frameCount(); setTimeout(done, 10); }));
+  stop(); stopW();
+  assert.equal(got.length, 1);
+  assert.equal(got[0][0], fno); assert.ok(got[0][1] >= 0 && got[0][1] < 50, String(got[0][1]));
+});
+
+test('CSS animations off the compositor are named with their property and element; transform and opacity are not', () => {
+  const el = { id: '', localName: 'i', classList: ['look-spin'] };
+  const anim = (name, props, playState = 'running') => ({ playState, animationName: name, effect: { target: el, getKeyframes: () => [{ offset: 0, easing: 'linear', ...props }] } });
+  assert.equal(cssAnimText({ getAnimations: () => [anim('pz-spin', { transform: 'none' })] }), '1 running, all on the compositor (transform, opacity)');
+  assert.match(cssAnimText({ getAnimations: () => [anim('monAlarm', { backgroundColor: 'red' }), anim('x', { opacity: 1 }, 'paused')] }), /^1 running, 1 repainting their element every frame: monAlarm \(backgroundColor\) on i\.look-spin$/);
+  assert.equal(cssAnimText({ getAnimations: () => [] }), 'none running');
+  assert.equal(cssAnimText({}), 'not listed by this browser');
+  assert.equal(nodeName({ id: 'stage' }), '#stage');
 });
