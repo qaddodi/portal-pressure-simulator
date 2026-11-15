@@ -19,7 +19,7 @@ test('a lit sinusoid name takes its term\'s colour as its ink, with no pill behi
 
 test('the end arrows follow their names, so the kept names keep their arrows', () => {
   assert.match(VIEW, /const endShown = \(key\) => \{/);
-  assert.match(VIEW, /\(cap\.on \? 1 : \+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\)\);/);
+  assert.match(VIEW, /\(cap\.on \? 1 : \+readStyle\(e\)\.opacity \|\| 0\) \* \(\+readStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+readStyle\(labels\)\.opacity \|\| 0\)\);/);
   // (A name drawn by the GPU fades there, label-captions.js: its arrow takes the GPU's own strength for it.)
   assert.match(VIEW, /return \(endOp\[key\] \?\? 0\) \* \(cap\.on \? cap\.at\(key, easeNow\(\)\)\?\.a \?\? 0 : 1\);/);   // (the ends' names at full ink since 2 Nov 2026: no 0.78 to divide by)
   assert.match(VIEW, /END_NAMES = \['Portal venule', 'Central vein'\]/);

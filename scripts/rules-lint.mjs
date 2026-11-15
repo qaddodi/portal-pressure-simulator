@@ -344,6 +344,15 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
   need('src/ui/svg-gl.js', [[/if \(!opts\?\.still && typeof MutationObserver === 'function'\) g\.mo = new MutationObserver\(g\.relook\);/, 'a still picture (a readout) makes no observer of its looks']]);
 
+  // The sinusoid view's reads (15 Nov 2026, app review OG-3): the ends' fades are read while a fade runs and four times a second, not on every drawn frame, and
+  // every style and box read goes through layout-snap.js.
+  need('src/ui/sinusoid-view.js', [
+    [/if \(!endsDirty && now >= endFadeUntil && now - endAt < 250\) return false;/, "the ends' three computed-style reads a drawn frame are made only while a fade runs, when the looks change, or four times a second (OG-3)"],
+    [/labels\.addEventListener\('transitionrun', endsMoved\); labels\.addEventListener\('animationstart', endsMoved\);/, "a fade that starts inside the labels is read each frame until it is over"],
+    [/const askLooks = \(\) => \{ endsDirty = true;/, "a look change reads the ends again at once"],
+  ]);
+  forbid('src/ui/sinusoid-view.js', /getComputedStyle\(|getBoundingClientRect\(/, 'the sinusoid view reads styles and boxes through layout-snap.js (readStyle, readBox), never directly (OG-3)');
+
   // A transform list is read as a matrix without writing to the element (15 Nov 2026, app review OG-1): consolidate() replaces the list by one matrix(),
   // which rewrites the attribute and wakes every attribute observer; transform-read.js reads the items and multiplies them instead.
   for (const f of files) if (f.endsWith('.js') && !/transform-read\.js$/.test(f) && /^(?!\s*\/\/)[^\n]*\.consolidate\(/m.test(readFileSync(f, 'utf8'))) errors.push(`${f.slice(ROOT.length + 1)}: a transform list is read with listMatrix (transform-read.js), never consolidate() (it rewrites the transform attribute and wakes the page's attribute observers)`);

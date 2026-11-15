@@ -122,8 +122,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
   }
   // (The looks, read between frames: each caption's type, ink and halo as the stylesheet gives them (its class, the theme, the
   // label size, a slide's lit terms), and the legend's. A change lays the names out again.)
-  let lookAsk = 0;
-  const askLooks = () => { if (!lookAsk) lookAsk = restPass(readLooks); };
+  let lookAsk = 0, endsDirty = true;   // (endsDirty: the ends' fades are read again at the next rest pass, readEnds)
+  const askLooks = () => { endsDirty = true; if (!lookAsk) lookAsk = restPass(readLooks); };
   function readLooks() {
     lookAsk = 0;
     let ch = false;
@@ -331,10 +331,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // The stage's size, kept from its ResizeObserver (read where the layout is already clean), not read on every frame: a
   // read just after the lobule's transform is written laid the page out again, once a frame through the zoom.
   let gapPx = 12;
-  function readGap() { const app = document.getElementById('app'); if (app) gapPx = parseFloat(getComputedStyle(app).getPropertyValue('--gap')) || 12; }
+  function readGap() { const app = document.getElementById('app'); if (app) gapPx = parseFloat(readStyle(app).getPropertyValue('--gap')) || 12; }
   // (Read as the view is made and as the stage is resized (its observer, outside any frame); a frame only takes it.)
   let hostWH = null;
-  const readHost = () => { const r = host.getBoundingClientRect(); hostWH = [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; };
+  const readHost = () => { const r = boxOf(host); hostWH = [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; };
   readHost(); readGap();
   const hostSize = () => hostWH;
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { readHost(); readGap(); if (shown > 0 && !raf && model) raf = nextFrame(loop); }).observe(host);
@@ -515,7 +515,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // (A value not read yet is asked for: read between frames with the others, and the frame that needed it is not painted.)
   let cssMiss = false;
   function readCss() {
-    const cs = getComputedStyle(host);
+    const cs = readStyle(host);
     for (const n of cssVals.keys()) cssVals.set(n, cs.getPropertyValue(n).trim());
     cssStale = false; cssEpoch++;
   }
@@ -833,12 +833,21 @@ export function createSinusoidView({ host, before = null, share = null }) {
     return (endOp[key] ?? 0) * (cap.on ? cap.at(key, easeNow())?.a ?? 0 : 1);
   };
   // (The ends' fades as they stand, read between frames: a rest pass each frame the view is drawn.)
+  // (OG-3, 15 Nov 2026: three computed-style reads a end, two ends, on every drawn frame of a talk, though a name's fade starts and ends
+  // with an event. Read while a fade runs (a transition or an animation started inside the labels, 0.8 s past each start), when the page's
+  // looks change (askLooks marks it), and otherwise four times a second, as the cards are.)
   const endOp = {};
+  let endAt = -1e9, endFadeUntil = 0;
+  const endsMoved = () => { endFadeUntil = performance.now() + 800; };
+  labels.addEventListener('transitionrun', endsMoved); labels.addEventListener('animationstart', endsMoved);
   function readEnds() {
+    const now = performance.now();
+    if (!endsDirty && now >= endFadeUntil && now - endAt < 250) return false;
+    endsDirty = false; endAt = now;
     let ch = false;
     for (const key of ['in', 'out']) {
       const e = regions[key]?.el;
-      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (cap.on ? 1 : +getComputedStyle(e).opacity || 0) * (+getComputedStyle(e.firstElementChild).opacity || 0) * (+getComputedStyle(labels).opacity || 0));
+      const v = !e || e.hidden || !e.firstElementChild ? 0 : Math.min(1, (cap.on ? 1 : +readStyle(e).opacity || 0) * (+readStyle(e.firstElementChild).opacity || 0) * (+readStyle(labels).opacity || 0));
       if (Math.abs((endOp[key] ?? -1) - v) > 0.004) { endOp[key] = v; ch = true; }
     }
     return ch;
@@ -853,12 +862,12 @@ export function createSinusoidView({ host, before = null, share = null }) {
   let bkAt = -1e9, bk = '', bkRects = [];
   function readBlockers() {
     bkAt = performance.now();
-    const hr = host.getBoundingClientRect(), out = [];
+    const hr = boxOf(host), out = [];
     let k = '';
     for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
-      const r = c.getBoundingClientRect();
+      const r = boxOf(c);
       if (r.width) k += `${r.left | 0},${r.top | 0},${r.right | 0},${r.bottom | 0};`;
-      if (r.width && r.height && getComputedStyle(c).visibility !== 'hidden') out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
+      if (r.width && r.height && readStyle(c).visibility !== 'hidden') out.push({ l: r.left - hr.left, r: r.right - hr.left, t: r.top - hr.top, b: r.bottom - hr.top });
     }
     bkRects = out;
     if (k === bk) return false;
