@@ -8,7 +8,7 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, icon, toast, swapText } from './util.js';
+import { h, fmt, icon, toast, swapText, foldHidden, hasBox } from './util.js';
 import { glWords } from './gl-words.js';
 import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
@@ -23,6 +23,7 @@ import { rateOf } from './table-marks.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
 import { createIrPpg } from './ir-ppg.js';
+import { createSwap } from './monitor-takeover.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -82,6 +83,8 @@ export function createHvpgProcedure() {
     onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
   // The PPG by interventional radiology, a measurement played the same way (ir-ppg.js): its monitor stands in the HVPG tracing's place while it runs and after it.
   const ir = createIrPpg({ busy: () => (t0 != null && t < tEnd()) || !!proc, onChange: () => paintSide() });
+  // (The HVPG tracing and the PPG by IR's monitor hand the place over with a fade, never a pop: the one that leaves fades out, then the other fades in. monitor-takeover.js)
+  const trace = createSwap({ base: [box], over: [ir.box], drawn: hasBox });
   const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns), ir.btn);
   const stepsEl = h('ol', { class: 'hvpg-steps' }, stepEls);
   const side = h('div', { class: 'chart-side' }, stepsEl, caption, procRow, note);
@@ -262,7 +265,7 @@ export function createHvpgProcedure() {
     const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : ir.caption() || cap;
     swapText(caption, say);   // (a new step's words crossfade in)
     const busy = (t0 != null && t < tEnd()) || !!proc || ir.running();
-    propSoon(box, 'hidden', ir.shown()); propSoon(stepsEl, 'hidden', ir.shown());   // (the PPG by IR's monitor stands in the HVPG tracing's place, and the HVPG's four steps give way to its caption)
+    trace.set(ir.shown()); foldHidden(stepsEl, ir.shown());   // (the PPG by IR's monitor stands in the HVPG tracing's place, and the HVPG's four steps give way to its caption; both fade, and come back when the monitor goes)
     propSoon(ir.btn, 'disabled', busy);
     propSoon(startBtn, 'disabled', busy);
     for (let pi = 0; pi < PROC_KINDS.length; pi++) {

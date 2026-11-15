@@ -3,13 +3,15 @@
 // transjugular catheter that reads the IVC, then the needle through the skin and the liver and a catheter on into the portal trunk, which reads the
 // portal vein. The gradient is the second reading minus the first. The pressure is drawn on the app's one monitor (monitor.js, through
 // tool-reading.js: the same live number and trace as every other measurement; Mohammad, 13 Nov 2026: "standardize", "apply this for all"), in
-// the place of the HVPG tracing while it runs and after it. It changes nothing in the model: a measurement.
+// the place of the HVPG tracing while it runs and for a few seconds after, then it fades away and the HVPG tracing fades back (monitor-takeover.js; before
+// 15 Nov 2026 it stayed until the HVPG was measured again). It changes nothing in the model: a measurement.
 
 import { h, icon, toast } from './util.js';
 import { ppgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { MEASURES, READS, playProcedure, procRunning, procBlocked } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
+import { createTakeover } from './monitor-takeover.js';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -24,13 +26,17 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
   const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Play the PPG by interventional radiology on the anatomy', title: IDLE,
     onclick: () => play(), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !btn.disabled) play(); } }, icon('play'), h('span', {}, 'PPG by IR'));
   const mon = createReading();
-  const panel = h('div', { class: 'hvpg-ir', hidden: true, 'data-state': 'idle' }, mon.el);
+  const panel = h('div', { class: 'hvpg-ir', 'data-state': 'idle' }, mon.el);
+  // (The monitor's own box is what takes the HVPG tracing's place: it is hidden until its turn, and hvpg-proc.js hands the two over with a fade. A tap on the held result takes it away.)
+  const box = mon.el.querySelector('.chart-box');
+  box.hidden = true;
+  const tk = createTakeover({ onChange: (ph) => { panel.dataset.state = ph; onChange(); } });
+  box.addEventListener('click', () => tk.close());
   const pinLive = () => { const m = store.get().frame?.metrics; if (m) mon.pin({ ivc: m.ivc, pv: m.pv, ppg: m.ppg }); };
   mon.configure({ kind: 'reading' }, { slide: SLIDE, fp: { ivc: NaN, pv: NaN, ppg: NaN } });
 
-  let run = null, kind = '', step = -1, playT = 0, done = false, shown = false, focus0 = null;
+  let run = null, kind = '', step = -1, playT = 0, done = false, focus0 = null;
   const stepWords = () => (kind && step >= 0 ? MEASURES[kind].steps[step][2] : '');
-  function set(next) { if (shown !== next) { shown = next; panel.hidden = !next; onChange(); } }
   function begin(k) {
     kind = k; step = -1;
     run = playProcedure(stageRef, k, {
@@ -42,7 +48,7 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
       onEnd: ({ done: d }) => {
         run = null;
         if (d && k === 'irivc') { begin('irpv'); return; }   // (the second approach goes on by itself, from its start)
-        kind = ''; step = -1; done = d; onChange();
+        kind = ''; step = -1; done = d; tk.finish(d); onChange();
       },
     });
   }
@@ -57,26 +63,26 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
     focus0 = store.get().focus; done = false;
     mon.configure({ kind: 'reading' }, { slide: { ...SLIDE }, fp: { ivc: NaN, pv: NaN, ppg: NaN } }); pinLive();   // (a new run: the monitor starts afresh, waiting for the catheter)
-    set(true);
+    tk.start();
     begin('irivc');
     logAction('procedure', 'PPG by IR');
   }
   return {
-    btn, panel,
+    btn, panel, box,
     /** The card's own model frame: the monitor's live numbers follow the patient until a reading is taken. */
-    update() { if (shown && !run) pinLive(); },
+    update() { if (tk.shown() && !run) pinLive(); },
     /** Whether the monitor stands in the HVPG tracing's place (a run is on or its result is held). */
-    shown: () => shown,
+    shown: () => tk.shown(),
     running: () => !!run,
     /** What the caption says: the step playing, then the result; '' when it has nothing to say. */
     caption() {
       if (run) return stepWords();
-      if (!done) return '';
+      if (!done || !tk.shown()) return '';
       const rd = READS.irpv, ppg = rd.ppg;
       return Number.isFinite(ppg) ? `${ppgWord(ppg, true)}. PPG = PV − IVC = ${word(rd.pv)} − ${word(rd.iv)} = ${word(ppg)} mmHg.` : '';
     },
     /** The HVPG measurement takes the place back, or a new patient is loaded. */
-    hide() { run?.stop(); run = null; kind = ''; step = -1; done = false; set(false); },
-    dispose() { run?.stop(); run = null; mon.dispose(); },
+    hide() { run?.stop(); run = null; kind = ''; step = -1; done = false; tk.reset(); },
+    dispose() { run?.stop(); run = null; tk.dispose(); mon.dispose(); },
   };
 }
