@@ -66,7 +66,7 @@ export default [
   { file: 'src/ui/stage*', need: [/const camEase = easeMove;/, 'One easing family and one duration scale (combined plan M2):'] },
   { file: 'src/ui/stage*', need: [/const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/, 'One easing family and one duration scale (combined plan M2):'] },
   { file: 'src/ui/stage*', need: [/const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/, 'One easing family and one duration scale (combined plan M2):'] },
-  { file: 'src/ui/stage*', need: [/else if \(opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, camMs\(from, to, screenW\(\)\)\);/, 'One easing family and one duration scale (combined plan M2):'] },
+  { file: 'src/ui/stage*', need: [/else if \(opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, Math\.max\(opt\.floor \|\| 0, \(ms > CAM_MS_MAX \? slideMs : camMs\)\(from, to, screenW\(\)\)\)\);/, 'One easing family and one duration scale (combined plan M2):'] },
   { file: 'src/ui/stage*', need: [/animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/, 'One easing family and one duration scale (combined plan M2):'] },
   { file: 'src/ui/stage*', need: [/animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\); \},/, 'One easing family and one duration scale (combined plan M2):'] },
   { file: 'src/ui/stage*', need: [/animateVT\(\{ \.\.\.to \}, ms, \{ scale: true \}\); \},/, 'One easing family and one duration scale (combined plan M2):'] },

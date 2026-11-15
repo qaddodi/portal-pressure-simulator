@@ -16,3 +16,10 @@ export function glideClock() {
     return at;
   };
 }
+
+/**
+ * How far to move the start of a glide on the wall clock whose first frame comes `now - t0` ms after it was asked for: the layout and label
+ * passes the same move set off make that frame a long one, and a glide drawn 150 ms in would show its view a third of the way at once, a snap.
+ * The start moves to at most STEP_MAX ms before the frame (0 for a frame on time), and the glide's end with it (15 Nov 2026).
+ */
+export const lateShift = (now, t0) => (now - t0 > STEP_MAX ? now - t0 - STEP_MAX : 0);

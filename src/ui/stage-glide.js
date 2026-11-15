@@ -3,9 +3,9 @@
 import { VB_ANAT, VIEW } from './anatomy.js';
 import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.js';
 import { ALONG_MAX_MS, ROUTES, alongPath, routeLine } from './cam-routes.js';
-import { CAM_MS_MAX, camMs, carried, easeMove, springSlope } from './ease.js';
+import { CAM_CARRY_MAX, CAM_MS_MAX, camMs, carriedCam, easeMove, slideMs, springSlope } from './ease.js';
 import { cancelFrame } from './frame.js';
-import { glideClock } from './glide-clock.js';
+import { glideClock, lateShift } from './glide-clock.js';
 import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
@@ -43,7 +43,7 @@ export function createGlide(st, live) {
     const from = { ...live.vt };
     let t0 = performance.now();
     if (reduceMotion.matches) ms = reducedMs(ms, true);   // (reduced motion: a short glide, never a jump: REDUCED_MOVE_MS, the exception motion.js writes down)
-    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, screenW()));
+    else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, Math.max(opt.floor || 0, (ms > CAM_MS_MAX ? slideMs : camMs)(from, to, screenW())));   // (a slide's glide, asked for more than a hand's ceiling, slows on past it: slideMs; opt.floor: the least it takes)
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
       live.drifting = false;
@@ -74,12 +74,12 @@ export function createGlide(st, live) {
     }
     let c0 = 0;
     if (v0 && (!live.arcRun || newArc) && !sameView(from, to)) {
-      c0 = springSlope(v0, from, to, screenW(), ms);
+      c0 = springSlope(v0, from, to, screenW(), ms, CAM_CARRY_MAX);
       // (A new arc takes the old speed on too, along the straight line to its end: an arc leaves the old framing toward the same side, and
       // the cap keeps the carried term from running the progress past 1. A refit's blend reads an older arc by u alone, so the carried
       // arc finds its clock from u again.)
-      if (c0 > 0 && newArc) { at = (u, raw) => newArc(carried(u, raw ?? camEaseInv(u), c0)); live.arcRun.at = at; }
-      else if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
+      if (c0 > 0 && newArc) { at = (u, raw) => newArc(carriedCam(u, raw ?? camEaseInv(u), c0)); live.arcRun.at = at; }
+      else if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carriedCam(u, raw, c0)));
     }
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: live.vtGliding, kind: drift ? 'drift' : 'glide', arc: !!live.arcRun, along: alongUsed, k0: from.k, k1: to.k, x0: from.x, y0: from.y, x1: to.x, y1: to.y, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
@@ -92,7 +92,7 @@ export function createGlide(st, live) {
     // (0, 4 Nov 2026: a glide moves its camera every frame again while the figure flicker is chased; at 60 on a 120 Hz screen the figure
     // stepped every other frame beside cards and labels that moved every frame.)
     const stepGap = 0;
-    let stepAt = -1e9;
+    let stepAt = -1e9, lateOk = !clock;
     const step = (now) => {
       // A newer glide (or a framing set outright) took over: this one stops. A glide started from inside this step's
       // frame (a refit a view change set off) left two running, and the older could land last, where nobody wanted it.
@@ -101,7 +101,7 @@ export function createGlide(st, live) {
       // (they all read this step's camera, so none is a frame ahead of another). Its time is the clock's, so nothing jumps; the landing and a hand's
       // frames are never held.)
       if (now - stepAt < stepGap && now - t0 < ms - 20 && !live.gestureOn()) { live.vtAnim = nextFrame(step); return; }
-      stepAt = now;
+      stepAt = now; if (lateOk) { lateOk = false; const sh = lateShift(now, t0); if (sh && !live.gestureOn() && !reduceMotion.matches) { t0 += sh; live.vtUntil = t0 + ms; if (live.arcRun) live.arcRun.t0 = t0; } }   // (a first frame that comes late starts the glide from where it stood: glide-clock.js lateShift)
       const raw = clamp((clock ? clock(now) : now - t0) / ms, 0, 1), u = (drift ? driftEase : camEase)(raw);
       live.vt = at(u, raw);
       if (!drift) {   // (the speed a glide begun now would carry on: per ms, the zoom as its logarithm)
@@ -166,7 +166,7 @@ export function createGlide(st, live) {
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, live.vtGliding ? live.vtTarget : live.vt)) return;
     alongAsk = !!opt.along; freeAsk = live.lastFree;   // (T4: read by the glide this asks for, at once; the rectangle this framing was fitted into)
-    if (opt.drift) animateVT(to, ms, { drift: true }); else if (opt.slow) animateVT(to, Math.min(ms, CAM_MS_MAX), { arc: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
+    if (opt.drift) animateVT(to, ms, { drift: true }); else if (opt.slow) animateVT(to, ms, { arc: true, scale: true, floor: CAM_MS_MAX }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
     alongAsk = false; freeAsk = null;
   }
   function riseTo(box, kMax, clear) { live.riseBox = box ? { box, kMax, clear } : null; live.riseExp = performance.now() + 4000; }

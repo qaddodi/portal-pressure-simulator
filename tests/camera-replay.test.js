@@ -17,7 +17,7 @@ import { VB_ANAT, VB_CIRC, VIEW } from '../src/ui/anatomy.js';
 import { camPath, camWindow, geomView, lerpVT, viewGeom, blendPaths } from '../src/ui/cam-arc.js';
 import { alongPath, ALONG_OFF } from '../src/ui/cam-routes.js';
 import { isCamOn, regionBox } from '../src/ui/cam-frame.js';
-import { camMs, carried, easeMove, createGlideTracker } from '../src/ui/ease.js';
+import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
 import { diveAlong, diveMapInto } from '../src/ui/dive-map.js';
 import { viewBoxAt, viewXfCameraInto, viewXfRetarget } from '../src/ui/view-xf.js';
 
@@ -397,8 +397,77 @@ test('the move in from a case card\'s whole patient lands straight on every scre
       r.g.frameBox(box, 1500, 3.2, false, slow ? { slow: true } : {});
       assert.equal(r.moves.length, 1, 'one move');
       assert.equal(r.moves[0].along, false, 'no path along a vessel from the whole patient');
-      if (slow) assert.equal(r.moves[0].ms, 900, 'in from a case card: the time the move out took');
-      else assert.ok(r.moves[0].ms <= 900);
+      if (slow) assert.ok(r.moves[0].ms >= CAM_MS_MAX, 'in from a case card: never quicker than the move out');
+      else assert.ok(r.moves[0].ms <= CAM_MS_FAR);
     } finally { r.done(); }
+  }
+});
+
+// ── The rail's time and its start ────────────────────────────────────────────────────────────────────────────────────────────
+test('a slide\'s glide time grows with the reach, never stops short of a hand\'s, and settles toward its ceiling', () => {
+  const at = { k: 1, x: 0, y: 0 }, w = 800;
+  let last = 0;
+  for (let x = 0; x <= 8000; x += 25) {
+    const b = { k: 1, x, y: 0 }, m = slideMs(at, b, w);
+    assert.ok(m >= last, `monotone at ${x}`); last = m;
+    assert.ok(m >= camMs(at, b, w) && m <= CAM_MS_FAR, `between a hand's glide and the ceiling at ${x}`);
+    if (camMs(at, b, w) < CAM_MS_MAX) assert.equal(m, camMs(at, b, w), 'the same time where a hand\'s glide has not stopped');
+  }
+  assert.ok(slideMs(at, { k: 1, x: 1600, y: 0 }, w) > CAM_MS_MAX + 100 && slideMs(at, { k: 1, x: 6400, y: 0 }, w) > CAM_MS_FAR - 60, 'two screens are slower than 900, many nearly the ceiling');
+  // no kink in the time: the steps between neighbouring reaches stay small across the 900 ms knee
+  for (let x = 25; x <= 8000; x += 25) assert.ok(Math.abs(slideMs(at, { k: 1, x, y: 0 }, w) - slideMs(at, { k: 1, x: x - 25, y: 0 }, w)) <= 31, `a smooth step at ${x}`);
+});
+
+test('a glide whose first frame comes late starts from where it stood, and its end moves later by what it did not run', () => {
+  const A = { k: 1.2, x: -100, y: -50 }, B = { k: 3, x: -2300, y: -1000 };
+  for (const late of [20, 60, 150, 400]) {
+    const r = rig(A);
+    try {
+      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true });
+      const ms = r.live.vtMs;
+      r.run(late);
+      const frac = Math.log(r.live.vt.k / A.k) / Math.log(B.k / A.k);
+      assert.ok(frac <= easeMove(Math.min(1, 40 / ms)) * 1.5 + 1e-9, `a first frame ${late} ms late shows the start, not ${(frac * 100).toFixed(1)} % of the move`);
+      const t0 = Math.max(0, late - 40);
+      assert.ok(Math.abs(r.live.vtUntil - (t0 + ms)) < 1e-6, 'its end moves with its start');
+      let t = late; while (t < late + ms + 200 && r.live.vtGliding) { t += 16; r.run(t); }
+      assert.ok(!r.live.vtGliding && t >= t0 + ms - 16, 'it runs its whole time from the start it was given');
+    } finally { r.done(); }
+  }
+  // a first frame on time is not held
+  const r = rig(A);
+  try { r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true }); const u0 = r.live.vtUntil; r.run(16); assert.equal(r.live.vtUntil, u0, 'on time: nothing moves'); } finally { r.done(); }
+});
+
+test('a move taken over mid-way keeps its speed: the landing framing\'s screen step does not jump or stop at the hand-over', () => {
+  const A = { k: 1.2, x: -100, y: -50 }, B = { k: 3, x: -2300, y: -1000 };
+  for (const [what, C] of [['on the same way', { k: 3.6, x: -2900, y: -1300 }], ['a small correction', { k: 3.1, x: -2380, y: -1020 }]]) {
+    const r = rig(A);
+    try {
+      const g1 = viewGeom(C, r.vb), T = [g1.cx, g1.cy], pts = [];
+      const rec = () => pts.push([r.live.vt.k * T[0] + r.live.vt.x, r.live.vt.k * T[1] + r.live.vt.y]);
+      r.now(0); r.g.animateVT(B, 900, { arc: true, scale: true }); rec();
+      let t = 0; for (; t < 400; t += 16) { r.run(t + 16); rec(); }
+      const before = pts.length - 1;
+      r.now(t); r.g.animateVT(C, 900, { arc: true, scale: true });
+      for (t += 16; t < 3000 && r.live.vtGliding; t += 16) { r.run(t); rec(); }
+      const step = (i) => Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      const v0 = step(before), v1 = step(before + 2);
+      assert.ok(v0 > 0, 'it was moving');
+      assert.ok(v1 > 0.6 * v0 && v1 < 1.3 * v0, `${what}: the screen step before the hand-over ${v0.toFixed(2)} and after ${v1.toFixed(2)} agree`);
+    } finally { r.done(); }
+  }
+});
+
+test('the camera\'s carried progress leaves at the old speed, rises without overshoot and arrives at rest, up to its cap', () => {
+  for (const c of [0, 0.3, 0.8, 1.5, 2.2, CAM_CARRY_MAX, 9]) {
+    const p = (t) => carriedCam(easeMove(t), t, c), h = 1e-5, want = Math.min(c, CAM_CARRY_MAX);
+    assert.ok(Math.abs((p(h) - p(0)) / h - want) < 1e-3, `c=${c}: it leaves at slope ${want}`);
+    assert.ok(Math.abs((p(1) - p(1 - h)) / h) < 1e-3, `c=${c}: it arrives at rest`);
+    assert.ok(Math.abs(p(1) - 1) < 1e-12 && p(0) === 0, `c=${c}: from 0 to 1`);
+    // (no acceleration jump at the start: the speed rises smoothly from the carried one)
+    assert.ok(Math.abs((p(2 * h) - 2 * p(h) + p(0)) / (h * h)) < 40 * (1 + want), `c=${c}: no acceleration jump at the start`);
+    let last = 0;
+    for (let i = 0; i <= 2000; i++) { const t = i / 2000, v = p(t); assert.ok(v >= last - 1e-12 && v <= 1 + 1e-12, `c=${c} t=${t}: monotone and under 1 (${v})`); last = v; }
   }
 });
