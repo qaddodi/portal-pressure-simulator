@@ -155,7 +155,7 @@ export function aboutOrgan(id, f, st) {
         for (let i = 0; i < LIVER_STAGE.length; i++) if (c < LIVER_STAGE[i][0]) { w = LIVER_STAGE[i][1]; break; }
         out.push(w);
       }
-      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, CSPH ≥10).`);
+      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal ≤5, CSPH ≥10).`);
       M.c = c; M.hv = hv; M.lines = out;
       return out;
     }

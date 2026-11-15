@@ -169,7 +169,7 @@ function buildSentence(def, cur, base, cs) {
 export function formula(eng, id, m = null) {
   const P = eng.P, ni = eng.ni, Q = eng.Q, ei = eng.ei;
   const wu = (dp, q) => (q > 1e-6 ? dp / (q * 0.06) : Infinity);
-  if (m && id === 'hvpg') return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal <5)`;
+  if (m && id === 'hvpg') return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal ≤5)`;
   if (m && id === 'ppg') return `PPG = portal vein − IVC = ${m.pv.toFixed(1)} − ${m.ivc.toFixed(1)} = ${m.ppg.toFixed(1)} mmHg  (normal <6)`;
   if (id === 'pv' || id === 'hvpg' || id === 'ppg') {
     const q = Q[ei.SIN_RR] + Q[ei.SIN_LL];

@@ -87,16 +87,16 @@ export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
-    summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
-    note: 'Normal adult at rest. HVPG about 3 mmHg, portal flow about 1.1 L/min.' },
+    summary: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
+    note: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow about 1.1 L/min.' },
   { id: 'postprandial', group: 'Normal', label: 'Postprandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.',
     note: 'Postprandial splanchnic vasodilation raises portal inflow, so the portal pressure rises slightly.' },
   // (volume 300: the congested mesenteric bed gives back blood to the central circulation by venoconstriction and the sympathetic reflex, so cardiac output stays near normal
   // (4.9 L/min, MAP 92 mmHg, heart rate 63) instead of falling to 3.5 with the splanchnic return blocked; 13 Nov 2026.)
   { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0, volume: 300,
-    summary: 'Occlusive thrombus in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic arterial buffer response maintains liver perfusion. HVPG normal.',
-    note: 'Occlusive thrombus in the main portal vein. No collaterals yet; the hepatic arterial buffer maintains liver perfusion.' },
+    summary: 'Occlusive thrombus in the main portal vein. Mesenteric congestion, with part of the blood already leaving by small preformed collaterals; the cavernoma takes weeks to form. The hepatic arterial buffer response maintains liver perfusion. HVPG normal.',
+    note: 'Occlusive thrombus in the main portal vein. Small preformed collaterals carry some blood; the cavernoma takes weeks to form.' },
   { id: 'pvt-chronic', group: 'Pre-hepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
     summary: 'Months after occlusion: periportal collaterals (cavernoma) carry hepatopetal flow around the thrombus.',
     note: 'Months after occlusion, a cavernoma of periportal collaterals carries hepatopetal flow around the thrombus.' },
@@ -112,21 +112,21 @@ export const PRESETS = [
     summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, near-normal WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
     note: 'Narrowed portal venules without cirrhosis. Splenomegaly, near-normal HVPG. Varices can form; ascites is rare.' },
   { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
-    summary: 'Mild sinusoidal portal hypertension (HVPG 6–9 mmHg). No varices yet.',
-    note: 'Mild sinusoidal portal hypertension. HVPG 6 to 9 mmHg, no varices yet.' },
+    summary: 'Mild sinusoidal portal hypertension (HVPG over 5 and under 10 mmHg). No varices yet.',
+    note: 'Mild sinusoidal portal hypertension. HVPG over 5 and under 10 mmHg, no varices yet.' },
   { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
     summary: 'HVPG ≥10 mmHg: collaterals begin to open and small varices form.',
     note: 'HVPG ≥10 mmHg. Collaterals open and small varices appear.' },
   // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
   // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
-  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 11 and PPG about
-  // 14 mmHg, small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
+  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 10 to 11 and PPG about
+  // 14 mmHg (settled at rest: 10.3 to 10.9 and 13.6 to 14.3, the breath moving them), small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
   { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
     summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance is presinusoidal, so the HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.',
     note: 'Obese MASLD cirrhosis. HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.' },
   { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
-    summary: 'HVPG ≥16 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
-    note: 'HVPG ≥16 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
+    summary: 'HVPG ≥15 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
+    note: 'HVPG ≥15 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
   { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
     note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },

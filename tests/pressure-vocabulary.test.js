@@ -126,8 +126,15 @@ test('no text calls an HVPG of 5 abnormal', () => {
   for (const p of walk('src').filter((f) => f.endsWith('.js'))) {
     read(p).split('\n').forEach((line, i) => {
       const t = line.replace(/\\u2265/g, '≥').replace(/\\u2264/g, '≤');
-      if (/HVPG[^.;'`]{0,40}(?:≥|>=)\s?5 mmHg/.test(t) || /[Nn]ormal\s?<\s?5 mmHg/.test(t) || /HVPG[^.;'`]{0,20}<\s?5 mmHg/.test(t)) bad.push(`${p}:${i + 1}`);
+      if (/HVPG[^.;'`]{0,40}(?:≥|>=)\s?5 mmHg/.test(t) || /[Nn]ormal\s?<\s?5\b/.test(t) || /HVPG[^.;'`]{0,20}<\s?5 mmHg/.test(t) || /\b(?:hvpg|eus):\s*'↑ ≥\s?5\b/.test(t)) bad.push(`${p}:${i + 1}`);
     });
   }
   assert.deepEqual(bad, []);
+});
+
+// The deck guide's rating table says the same: HVPG and EUS-PPG are normal up to and including 5, amber above it (>5), red from 10.
+test('the deck guide rates an HVPG of 5 as normal', () => {
+  const rows = read('docs/deck-authoring-guide.md').split('\n').filter((l) => /^\| `(?:hvpg|eus)` \|/.test(l));
+  assert.equal(rows.length, 2);
+  for (const l of rows) { assert.match(l, /\| ≤5 \| >5 "Mild" \| ≥10 "CSPH"/, l.slice(0, 40)); assert.doesNotMatch(l, /\| <5 \||≥5 "Mild"/); }
 });
