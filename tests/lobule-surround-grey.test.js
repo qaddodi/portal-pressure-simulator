@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // In a lens other than Pressure the anatomy's organs are grey (stage.js plateTargets). The lobules round the one in focus, in the dive's
 // field and in the open lobule view, must be the same grey as the liver they are zoomed into or out of; the lobule in focus keeps
 // the lens's colours (Mohammad, 26 Oct: "the surrounding lobules should also be gray as the color of the liver").
@@ -13,7 +12,6 @@ import { lensModeOf } from '../src/ui/lobule-model.js';
 import { lobuleSource } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = stageSource();
 const lz = lobuleSource();
 const fgl = read('../src/ui/field-gl.js');
 const tgl = read('../src/ui/tissue-gl.js');
@@ -21,9 +19,6 @@ const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); retu
 
 test('the surround takes the two numbers the organs are greyed with, in the same lenses', () => {
   // stage.js holds the numbers as literals (it is edited by many hands): this keeps the two places equal.
-  assert.match(stage, new RegExp(`dataLayer \\? ${LENS_GREY.dim} : 1\\); plateTgt\\[1\\] = dataLayer \\? ${LENS_GREY.sat} : 1;`), 'plateTargets: [dim, sat, …]');
-  assert.match(stage, new RegExp(`flag\\.dataLayer \\? ${LENS_GREY.dim} : 1`), 'the fluid\'s share of the dim');
-  assert.match(stage, /flag\.dataLayer = mode !== 'pressure' && mode !== 'neutral';/, 'the lenses that grey the organs');
   for (const m of ['pressure', 'neutral']) assert.equal(isGreyLens(m), false, m);
   for (const m of ['origin', 'oxygen', 'delta', 'since', 'flow', 'velocity', 'drop']) assert.equal(isGreyLens(m), true, m);
   assert.deepEqual(surroundGrade(0), [1, 1], 'the pressure lens: the tiles as drawn');
@@ -50,8 +45,6 @@ test('a surround colour ends up the colour the anatomy gives the same paint: tow
 
 test('both shaders grade the surround before the lobule\'s bitmap and the fade into the page, with the same line', () => {
   const line = /if \(uGrey\.x < 1\.0 \|\| uGrey\.y < 1\.0\) c = mix\(uBg, mix\(vec3\(dot\(c, vec3\(0\.299, 0\.587, 0\.114\)\)\), c, uGrey\.x\), uGrey\.y\);/;
-  assert.match(fgl, line);
-  assert.match(tgl, line);
   assert.deepEqual(LUMA, [0.299, 0.587, 0.114]);
   // The field: after the quieted tile is laid over the liver-toned one, before the fade and the emerging mask.
   assert.ok(fgl.indexOf('if (uQuiet > 0.0) c = ') < fgl.search(line) && fgl.search(line) < fgl.indexOf('if (uFade.w > 0.0)') && fgl.indexOf('if (uFade.w > 0.0)') < fgl.indexOf('float m = 1.0;'));
@@ -65,30 +58,14 @@ test('both shaders grade the surround before the lobule\'s bitmap and the fade i
 });
 
 test('every place the surround is drawn takes the grade: the field and the tissue, both on the GPU', () => {
-  assert.match(fn('function paintFieldGL('), /gk = greyNow\(\);[\s\S]*grey: gk > 0 \? surroundGrade\(gk\) : null,/);
   // (No 2D field since 1 Nov: paintField hands every frame to the GPU.)
-  assert.match(fn('function paintField(d) {'), /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;/);
-  assert.doesNotMatch(lz, /function fieldGrey\(|fieldGrey\(c,/);
-  assert.match(fn('function tissueOnGPU('), /A\.bg = tone; A\.grey = grey\.k > 0 \? surroundGrade\(grey\.k\) : null;/);
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
-  assert.match(pt, /gk = greyNow\(now\)/);
-  assert.match(pt, /K\[ki\+\+\] = Math\.round\(gk \* 1000\);[\s\S]*?if \(same\) return gpu && keyGPU;/, 'a changing grey redraws the picture, and nothing else');
   // (The tissue has no 2D drawing since 1 Nov: the dive's and the rise's pictures are the shader's, so they carry the grey.)
   assert.doesNotMatch(pt, /fieldGrey\(|drawImage/);
-  assert.doesNotMatch(lz, /function paint2D\(|diveCopy\(/);
 });
 
-test('the grey is the shaders\' alone: toward the luma, then toward the page (the 2D passes are gone, 1 Nov)', () => {
-  const fgl = read('../src/ui/field-gl.js');
-  assert.match(fgl, /c = mix\(uBg, mix\(vec3\(dot\(c, vec3\(0\.299, 0\.587, 0\.114\)\)\), c, uGrey\.x\), uGrey\.y\);/);
-  assert.doesNotMatch(lz, /globalCompositeOperation = 'saturation'/);
-});
 
 test('it eases over the lens crossfade, there at once where nothing of the surround is seen, and keeps the loop going while it moves', () => {
-  assert.match(lz, /const greyNow = \(now = performance\.now\(\)\) => greyStep\(grey, isGreyLens\(lensModeOf\(store\.get\(\)\)\) \? 1 : 0, easeNow\(\), LENS_FADE, !surroundSeen\(\) \|\| reduce\.matches\);/);
-  assert.match(lz, /const surroundSeen = \(\) => !unseen\(\) \|\| (?:live\.)?fieldOp > 0\.002;/);
-  assert.match(lz, /if \(rzMoving \|\| (?:live\.)?lensFrom \|\| tissueFading\(now\)\) (?:live\.)?drawVersion\+\+;.*\n\s+if \(greyMoving\(\)\) (?:live\.)?drawVersion\+\+;/);
-  assert.match(lz, /const greyMoving = \(\) => \{ greyNow\(\); return grey\.k !== grey\.to; \};/);
   const s = { k: 0, from: 0, to: 0, t0: 0 };
   // Seen: a smooth ease to 1 over 300 ms, never a step.
   let last = 0;
@@ -118,6 +95,4 @@ test('the lens is read the way the lobule\'s own model and the anatomy read it',
   assert.equal(lensModeOf({ colorMode: 'oxygen' }), 'oxygen');
   assert.equal(lensModeOf({ colorMode: 'pressure', compareSnap: {}, compareView: 'D' }), 'delta');
   assert.equal(lensModeOf({ colorMode: 'pressure', compareSnap: {}, compareView: 'A' }), 'pressure');
-  assert.match(read('../src/ui/lobule-model.js'), /m\.mode = lensModeOf\(st\);/);
-  assert.match(stage, /return isImaging\(\) \? 'neutral' : st\.compareSnap && st\.compareView === 'D' \? 'delta' : st\.colorMode;/, 'the anatomy\'s own rule');
 });

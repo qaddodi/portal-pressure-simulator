@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // Code review of 15 Oct, items 3 to 5 and Mohammad's answer A: the Doppler never shows one vessel's samples under
 // another's name, the Doppler teaching reads velocity (not a "mean") and draws its rules as cut-offs, and with a TIPS
 // in a fast main portal vein is not flagged.
@@ -35,13 +34,6 @@ test('a new vessel never receives the old one\'s samples: they go out under the 
   }
 });
 
-test('the Doppler judges nothing until 1.5 s of the vessel is recorded, and a new vessel finds its own scale', () => {
-  const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
-  const reading = src.slice(src.indexOf('function reading()'), src.indexOf('function reading()') + 300);
-  assert.match(reading, /if \(tNow - buf\[0\]\[0\] < SETTLE\) return null;/);
-  assert.match(src, /const SETTLE = 1\.5;/);
-  assert.match(src, /if \(f\.probe !== probe\) \{[^}]*scale = null;[^}]*steady\.probe = null;/);
-});
 
 test('Doppler teaching says velocity, not mean, and writes its rules as cut-offs', () => {
   const said = (d) => [...(d.checks || []).flat(), ...d.slides.flatMap((s) => [s.title, s.line, ...(s.ask || [])])].filter(Boolean);
@@ -68,7 +60,6 @@ test('with a TIPS in, a fast main portal vein is normal: no ceiling, never colou
   assert.ok(velPos(50, velNormal(k, { Q: e.Q, D: e.edges.map((x) => e.diameter(x.id)) }, null)) > 0.67);
   // The Doppler monitor uses the same stent-aware range.
   const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
-  assert.match(src, /const normalOf = \(p\) => \(p\.id === 'PV_TRUNK' && frame\?\.D \? velNormal\(EI\.PV_TRUNK, frame\) : null\) \|\| p\.normal;/);
   assert.doesNotMatch(src.slice(src.indexOf('function interpret'), src.indexOf('function setStat')), /p\.normal\[/);
 });
 
@@ -82,12 +73,5 @@ test('velocity callouts read the named vessel as the Doppler reads it, and its m
     const e = EDGES.find((x) => x.id === id);
     assert.ok(e && (e.from === n || e.to === n), `${n} names ${id}, a vessel at that station`);
   }
-  const src = stageSource();
-  const runs = src.slice(src.indexOf('function layerRuns'), src.indexOf('function shortenItem'));
-  assert.match(runs, /Math\.abs\(edgeVel\(f, EI\[x\.e\.id\]\)\) \* dopplerK\(x\.e\)/, 'peak, as the Doppler reads it');
-  assert.match(runs, /STATION_VESSEL\[id\]/);
-  assert.match(runs, /best = shownVelOf\(EDGES\[bestK\]\.id, f, best\)/);
-  const own = src.slice(src.indexOf('function shownVelOf'), src.indexOf('function velItem'));
-  assert.match(own, /shownVel\.get\(id\)/, 'the monitor\'s own number while it samples that vessel');
   assert.equal(STATION_VESSEL.CONF, 'PV_TRUNK', '"Portal v." is the portal vein, not the left gastric or a cavernoma');
 });

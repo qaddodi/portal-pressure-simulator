@@ -1,11 +1,9 @@
-import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { surface, surfaceRows, surfacesText, clearSurfaces } from '../src/ui/gpu-surfaces.js';
 import { guardBlur } from '../src/ui/blur-guard.js';
 import { capDensity } from '../src/ui/pixel-budget.js';
-import { appCss } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -35,9 +33,6 @@ test('the surfaces list is read only by the ?perf readout, never by a frame', ()
     if (!f.endsWith('.js') || f === 'gpu-surfaces.js' || f === 'perf-readout.js') continue;
     assert.doesNotMatch(src(`src/ui/${f}`), /surfaceRows\(/, `${f} reads the surfaces list`);
   }
-  const pr = src('src/ui/perf-readout.js');
-  assert.match(pr, /setInterval\(\(\) => \{ if \(!cur && !folded && !document\.hidden\) restPass\(writeSurf\); \}, 500\);/);
-  assert.match(pr, /cur\.paths = surfaceRows\(\);/);
   // (Every GPU surface of the figure, the lobule and the instruments says where it draws.)
   const names = [['stage.js', ['figure canvas', 'vessels and blood', 'organs', 'overlays (stents, balloons, catheter, guides)', 'labels', 'callout glass', 'card glass']],
     ['lobule-zoom.js', ['lobule tissue', 'lobule field (neighbouring lobules)', 'lobule vessels']], ['sinusoid-view.js', ['sinusoid']],
@@ -71,30 +66,19 @@ test('a software renderer or Battery saver never turns the browser blur on by it
 });
 
 test('the stage runs the blur guard at start, on a changed renderer and on Battery saver; Settings takes it over', () => {
-  const st = stageSource();
-  assert.match(st, /guardBlur\(document\.documentElement, \{ low: SOFTWARE, asked: asked === '1' \? null : asked \}\)/);
-  assert.match(st, /wrap\.dataset\.renderer = SOFTWARE \? 'software' : 'gpu'; wrap\.dataset\.quality = String\(quality\);\n\s*blurGuard\(\);/);
-  assert.match(st, /saverOn = !!on;\n\s*blurGuard\(\);/);
-  assert.match(src('src/ui/main.js'), /const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/);
   // (The noglass look itself: no backdrop-filter anywhere.)
-  assert.match(appCss(), /:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/);
   // (The visual references are the GPU's look: they keep the blur on SwiftShader.)
   assert.match(src('tests/e2e/visual.mjs'), /'\?preset=cirr-decomp' \+ KEEP_BLUR \+ QUERY/);
 });
 
 test('Pixel budget (8 MP until 11 Nov 2026, 2 MP then, now 1.5 MP, 0.5 on a phone): the default, the figure canvas and its full-density overlay canvas', () => {
-  assert.match(src('src/ui/frame.js'), /const figOpts = \{ move: 1, glow: 1, cap: capDefault,/);
-  assert.match(src('src/ui/frame.js'), /const capDefault = isPhone\(\) \? 0\.5 : 1\.5;/, 'the device default: 0.5 MP on a phone, 1.5 on a Mac and an iPad');
   // (A 5K screen at 2x: 2560 x 1440 CSS px.)
   const d = capDensity(2, 2560, 1440, 8);
   assert.ok(Math.abs(2560 * 1440 * d * d - 8e6) < 1);
   // (Phones, iPads, a 16-inch MacBook: unchanged.)
   for (const [w, h, k] of [[390, 844, 3], [1024, 1366, 2], [1728, 1117, 2]]) assert.equal(capDensity(k, w, h, 8), k);
   assert.equal(capDensity(2, 2560, 1440, 0), 2);
-  const st = stageSource();
   // (Figure size caps the picture, not the canvas, since 11 Nov 2026: the canvas keeps at least 1 device px per CSS px, within the 8 MP budget; quarter-mp-big-screen-tricks rec 1.)
-  assert.match(st, /const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/);
-  assert.match(st, /const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/);
 });
 
 test('every WebGL2 surface rebuilds after a lost context (or is a probe or a second look at one that does)', () => {
@@ -107,24 +91,10 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
     assert.match(s, /webglcontextlost/, `${f}: no lost-context handler`);
     // (The tissue's restore is its owner's: lobule-zoom.js makes it again on the same canvas, tissueRestored.)
     // (The vessels' are their owners' too: the anatomy (stage.js) and the lobule each make a new renderer on the canvas, checked below.)
-    const OWNER = { 'tissue-gl.js': ['lobule-zoom.js', /onFigureBack/], 'veins-gl.js': ['stage.js', /veins = createVeinsGL\(vCanvas, \{ tubes: GL_ROWS, force: true, onPlate: \(\) => \{ plateDirty = true; \} \}\);/] };
-    if (OWNER[f]) assert.match(src(`src/ui/${OWNER[f][0]}`), OWNER[f][1], `${f}: no restore by its owner`);
-    else assert.match(s, /webglcontextrestored/, `${f}: no restore`);
   }
   // (The ones that read an existing context: the anatomy's and the lobule's vessels restore through their owner.)
-  assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
-  assert.match(src('src/ui/sinusoid-gl.js'), /const onBack = \(\) => \{ if \(gone\) return; epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \};\s*evCv\.addEventListener\('webglcontextrestored', onBack\);/);
-  assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)
   // (The glass draws in the figure's context since 4 Nov 2026: its programs are made again by the host's restore.)
 });
 
-test('idle rest: the FibroScan probe\'s waves stop with the figure and start again on waking', () => {
-  const st = stageSource();
-  assert.match(st, /if \((?:live\.)?restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
-  assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
-  // (The other loops of the figure's marks stop by themselves once nothing eases (the vessel glow's own loop is gone, 15 Nov 2026): the Doppler probe's ease and its card tracking.)
-  assert.match(st, /dpr\.track = dprTrackQuiet <= 6;/);
-  assert.match(st, /if \(done\) \{ dpr\.eAt = 0; if \(!dpr\.on\) dpr\.leaving = false; return; \}/);   // (a probe that has drawn back to go, or settled in its place, stops its loop)
-});

@@ -227,3 +227,38 @@ Every source-text test removed, and what covers it now. Lint rules live in `scri
 | dive-gpu.test.js | source assertions removed, behaviour kept | 15 as lint rule(s) in pins-mixed-d.mjs; The lobule's dive and rise on the GPU (1 Nov 2026, Mohammad: |
 | menu-swipes.test.js | source assertions removed, behaviour kept | 17 as lint rule(s) in pins-mixed-d.mjs; The menu on a touch screen (Mohammad, 18 Oct): |
 | oxygen.test.js | source assertions removed, behaviour kept | 15 as lint rule(s) in pins-mixed-d.mjs; Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): |
+| fluid-window.test.js | source assertions removed (15), behaviour kept | 15 as lint rule(s) in pins-mixed-e.mjs; The fluid balance's day card (tool { kind: |
+| frame-costs-glow.test.js | source assertions removed (18), behaviour kept | 18 as lint rule(s) in pins-mixed-e.mjs; Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font cac |
+| glass-motion.test.js | source assertions removed (5), behaviour kept | 5 as lint rule(s) in pins-mixed-e.mjs; glass-motion.js builds nothing in a frame (2 Nov 2026, "SVG and CPU do NOTHING during motion"). |
+| glide-dom-1nov.test.js | source assertions removed (13), behaviour kept | 13 as lint rule(s) in pins-mixed-e.mjs; A slide's camera glide sets off no style passes of its own (1 Nov 2026, iPhone: |
+| gpu-fallback-guards.test.js | source assertions removed (20), behaviour kept | 20 as lint rule(s) in pins-mixed-e.mjs; Reviewer's checklist, 1 Nov 2026, sections 7 and 9: |
+| label-snapshot.test.js | source assertions removed (24), behaviour kept | 24 as lint rule(s) in pins-mixed-e.mjs; The displayed-label snapshot (R17): { seq, gen, items: |
+| numbers-agree.test.js | source assertions removed (11), behaviour kept | 11 as lint rule(s) in pins-mixed-e.mjs; Patients numbers agree with each other (review 15 Oct, #6, #7, #8): |
+| sweep-fixes-2.test.js | source assertions removed (30), behaviour kept | 30 as lint rule(s) in pins-mixed-e.mjs; Sweep batches 02–04 (16 Oct): the Pressure chart and the HVPG tab read the bottom bar's own HVPG and PPG, the |
+| uniform-cache.test.js | source assertions removed (9), behaviour kept | 9 as lint rule(s) in pins-mixed-e.mjs; Laptop-heat quick item Q2: a uniform is sent to the GPU only when its value is not the one the program already |
+| blood-shading-fast.test.js | source assertions removed (15), behaviour kept | 15 as lint rule(s) in pins-mixed-e.mjs; The blood's speed-ups of 26 Oct (review/blood-shading-ideas): |
+| cards-critique-17oct.test.js | source assertions removed (17), behaviour kept | 17 as lint rule(s) in pins-mixed-e.mjs; Titles, labels and data cards from the design critique Mohammad answered on 17 Oct. |
+| heat-cuts-30oct.test.js | source assertions removed (22), behaviour kept | 22 as lint rule(s) in pins-mixed-e.mjs; The performance and heat review of 30 Oct, groups 1 and 2: |
+| hover-link.test.js | source assertions removed (19), behaviour kept | 19 as lint rule(s) in pins-mixed-e.mjs; A reading and its vessel light together on hover (sprint brief 8, 1 Nov 2026): |
+| lobule-live.test.js | source assertions removed (26), behaviour kept | 26 as lint rule(s) in pins-mixed-e.mjs; The shader lobule (lobule-live.js, A5b push 1): |
+| lobule-surround-grey.test.js | source assertions removed (20), behaviour kept | 20 as lint rule(s) in pins-mixed-e.mjs; In a lens other than Pressure the anatomy's organs are grey (stage.js plateTargets). |
+| review-doppler-text.test.js | source assertions removed (8), behaviour kept | 8 as lint rule(s) in pins-mixed-e.mjs; Code review of 15 Oct, items 3 to 5 and Mohammad's answer A: |
+| review-u-items.test.js | source assertions removed (22), behaviour kept | 22 as lint rule(s) in pins-mixed-e.mjs; Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch): |
+| tissue-gl.test.js | source assertions removed (26), behaviour kept | 26 as lint rule(s) in pins-mixed-e.mjs; The open lobule's tissue on the GPU (tissue-gl.js): |
+| wide-gl.test.js | source assertions removed (26), behaviour kept | 26 as lint rule(s) in pins-mixed-e.mjs; The lobule's wide copy on the GPU (wide-gl.js, 1 Nov 2026: |
+| ladders-chart-size.test.js | source assertions removed (22), behaviour kept | 22 as lint rule(s) in pins-mixed-e.mjs; The six ladders' charts on a wide screen: |
+| label-gl.test.js | source assertions removed (54), behaviour kept | 54 as lint rule(s) in pins-mixed-f.mjs; The labels drawn on the GPU (label-gl.js): |
+| lobule-field.test.js | source assertions removed (47), behaviour kept | 47 as lint rule(s) in pins-mixed-f.mjs; The lobule dive's field: few, large lobules (a field of hundreds slowed the zoom), and the ones away from the |
+| polish-31oct.test.js | source assertions removed (91), behaviour kept | 91 as lint rule(s) in pins-mixed-f.mjs; Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread). |
+| teaching-features.test.js | source assertions removed (33), behaviour kept | 33 as lint rule(s) in pins-mixed-f.mjs; The teaching features of 25 Oct (review/deck-teaching-ideas/recommendations.md, Mohammad's "All"): |
+| card-throw.test.js | source assertions removed (20), behaviour kept | 20 as lint rule(s) in pins-mixed-f.mjs; Next and Back throw the cards on one clock (Mohammad, 2 Nov 2026: |
+| dop-probe.test.js | source assertions removed (115), behaviour kept | 115 as lint rule(s) in pins-mixed-f.mjs; The Doppler probe on the figure (19 Oct, Mohammad's pick "B1 + white"; |
+| figure-callouts-17oct.test.js | source assertions removed (32), behaviour kept | 32 as lint rule(s) in pins-mixed-f.mjs; The figure's callouts after the 17 Oct design review: |
+| grid-key-phone.test.js | source assertions removed (50), behaviour kept | 50 as lint rule(s) in pins-mixed-f.mjs; The six-case summary (visual: 'ladders', Sites 10 and Where-resistance 8): |
+| hardening-e.test.js | source assertions removed (64), behaviour kept | 64 as lint rule(s) in pins-mixed-f.mjs; Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link |
+| highlights.test.js | source assertions removed (38), behaviour kept | 38 as lint rule(s) in pins-mixed-f.mjs; Deck visuals, package A (figure highlights: |
+| organs-gl.test.js | source assertions removed (100), behaviour kept | 100 as lint rule(s) in pins-mixed-f.mjs; The organs as layers (organs-gl.js): each layer is cropped to its own box on the whole picture's pixel grid, s |
+| proc-anim.test.js | source assertions removed (34), behaviour kept | 34 as lint rule(s) in pins-mixed-f.mjs; The treatment procedures played on the anatomy (proc-anim.js): |
+| review-lobule-transitions.test.js | source assertions removed (55), behaviour kept | 55 as lint rule(s) in pins-mixed-f.mjs; Fable review (16 Oct), graphics G18, G20, G21 and G22: |
+| slide-one-move.test.js | source assertions removed (29), behaviour kept | 29 as lint rule(s) in pins-mixed-f.mjs; A slide change is one move (premium-feel R1): |
+| tips-doppler-points.test.js | source assertions removed (60), behaviour kept | 60 as lint rule(s) in pins-mixed-f.mjs; TIPS Doppler's stent slides call out the stent's velocity at all three points (proximal, mid, distal), not onl |

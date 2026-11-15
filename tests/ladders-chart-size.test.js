@@ -6,59 +6,31 @@
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { profileOf, profileGeo, axisTop, numberSides, placePills, placeBrackets, zoneSize, zoneFit, chartScale, ZONE_MAX, ZONE_MIN } from '../src/ui/tool-profile.js';
 import { runSteps } from './deck-states.js';
-import { appCss, presenterSource } from './split-src.js';
+import { appCss } from './split-src.js';
 
 const css = appCss();
-const presenter = presenterSource();
-const profSrc = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
 const CELL = '.pz:not(.stack) .pz-cell';
 const rule = (sel) => css.match(new RegExp(`^${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'm'))?.[1] ?? '';
 
-test('the card keeps its width, its padding and its 1560 px cap, and is as tall as its charts and no taller', () => {
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-panel \{ width: min\(1560px, calc\(100% - 2 \* var\(--pz-cm\)\)\);/);
-  assert.match(css, /\.pz-panel \{ position: absolute;[^}]*padding: clamp\(18px, calc\(3\.4 \* var\(--pzh\)\), 44px\) clamp\(20px, 3vw, 52px\);/);
-  assert.match(css, /\.pz-grid \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: clamp\(10px, calc\(2 \* var\(--pzh\)\), 26px\); \}/);
-  // (No rule gives the card the screen's height any more: it fits round its two rows, and the room above the nav pill centres it.)
-  assert.doesNotMatch(css, /\.pz-panel\.fill \{[^}]*\bheight: calc/);
-  assert.match(css, /\.pz-panel\.fill \.pz-grid \{ flex: 0 1 auto; min-height: 0; grid-template-rows: repeat\(2, minmax\(0, 1fr\)\); \}/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-panel \{[^}]*max-height: calc\(100% - 3 \* var\(--pz-cm\) - 44px\);/, 'on a window too short for two rows the card keeps its limit and the charts shrink');
-  assert.match(css, /\.pz\.stack \.pz-panel\.fill \{ height: fit-content; \}/);
-  assert.match(css, /\.pz\.low \.pz-panel\.fill \{ height: auto; \}/);
-});
 
 test('the card gives its charts back its own vertical padding, in height only', () => {
   const PANEL = '.pz:not(.stack):not(.low) .pz-panel.fill';
   assert.match(rule(PANEL), /gap: clamp\(8px, calc\(1\.2 \* var\(--pzh\)\), 16px\); padding-bottom: clamp\(12px, calc\(1\.8 \* var\(--pzh\)\), 24px\);/);
   assert.doesNotMatch(rule(PANEL), /width|padding-inline|padding-top/);
   assert.match(rule(`${PANEL} .pz-grid`), /^ row-gap: clamp\(8px, calc\(1\.2 \* var\(--pzh\)\), 16px\); $/);
-  assert.match(rule(`${PANEL} .pz-cell`), /padding-top: clamp\(8px, calc\(1\.1 \* var\(--pzh\)\), 14px\); gap: clamp\(3px, calc\(\.6 \* var\(--pzh\)\), 8px\);/);
   // (A phone keeps its own rules: none of these reaches .stack or .low.)
-  assert.doesNotMatch(css, /\.pz\.(?:stack|low)[^{]*\.pz-panel\.fill[^{]*\{[^}]*clamp\(8px, calc\(1\.2/);
 });
 
 test('a cell\'s chart is the instrument at its own size: its width, type and height from the instrument\'s own formulas, scaled whole', () => {
   // (The instrument's own: the card's width less its padding (--pz-cw, --pz-cp), the data card's chart size (--pz-sm), 62 % of the width with a floor of 28 % and
   // a ceiling of 40 % of the window's height, less the 1.6 em the chart gave back: the same numbers in the cell's tokens.)
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-data \{ --pz-sm: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
-  assert.match(rule(CELL), /--ch-cap: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
-  assert.match(rule(CELL), /--lad-w: calc\(var\(--pz-cw\) - 2 \* var\(--pz-cp\)\); --lad-f: var\(--ch-cap\); --lad-h: calc\(min\(max\(\.62 \* var\(--lad-w\), 28 \* var\(--pzh\)\), 40 \* var\(--pzh\)\) - 1\.6 \* var\(--lad-f\)\);/);
   // (The picture at that size inside its holder, scaled from the corner; the holder is as tall as the scaled picture less half a type size.)
-  assert.match(css, /\.pz-cc > \.pz-prof \{ position: absolute; left: 0; top: 0; width: var\(--lad-w\); height: calc\(var\(--lad-h\) \* var\(--lad-s, 1\)\); min-height: 0; font-size: calc\(var\(--lad-f\) \* var\(--lad-s, 1\)\); transform: scale\(var\(--lad-k, 1\)\); transform-origin: 0 0; \}/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/, 'half a type size, overflow visible: the chart\'s picture has that much blank under the brace\'s name');
-  assert.match(css, /\.pz-cc \{ position: relative; width: 100%; flex: none; \}/);
   // (Not laid out afresh at the cell's size: no cell rule gives the chart a height of its own, and no container query unit reads the cell.)
-  assert.doesNotMatch(css, /\.pz-cell > \.pz-prof|--prof-h: max\(calc\(62cqi/);
   // (A phone, upright or on its side, keeps the strip and its type: a later rule of the same weight gives it the roles' own.)
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-cell \{[^}]*--ch-cap: var\(--s-cap\);/);
   assert.ok(css.indexOf(`${CELL} { --ch-cap`) < css.indexOf(':is(.pz.stack, .pz.low) .pz-cell { display: block'));
   // (The scale is worked out where the cell's width is known, and a new type size is drawn again at once: the box does not change with it.)
-  assert.match(presenter, /const \{ k, s \} = chartScale\(W, w0, f0\)/);
-  assert.match(presenter, /cc\.style\.setProperty\('--lad-s', ss\); P\.redraw\(\);/);
-  assert.match(presenter, /chartOf\.set\(cc, \{ cc, P \}\); chartOf\.set\(P\.el, \{ cc, P \}\);/);
-  assert.match(profSrc, /redraw\(\) \{ if \(shown && el\.isConnected\) \{ measure0\(\); plan = null; draw\(\); \} \},/);
 });
 
 test('chartScale: the instrument scaled down whole, never up, its words 12 px at least on the screen', () => {

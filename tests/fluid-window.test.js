@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fluidDay, dayWords, gaugeParts, tugParts, GAUGE_GAP, GAUGE_MARK } from '../src/ui/tool-fluid.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
-import { appCss, presenterSource } from './split-src.js';
+import { appCss } from './split-src.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -112,32 +112,21 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   const deck = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
-  const pres = presenterSource();
-  assert.doesNotMatch(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'no tiles stand beside any instrument now (7 Nov 2026)');
-  const css = appCss();
-  assert.match(css, /\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
-  const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
-  assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
   assert.match(src, /'Lymph formation'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
-  assert.doesNotMatch(src, /'Leaked '|'Reabsorbed '|'Each day'/, 'the legend rows of the old strip are gone: one sentence says what leaked and what was taken back');
-  assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back:" words and no model sentence on the card');
 });
 
 test('the card draws each part, and never sets text under 12 px', () => {
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
   for (const cls of ['gs-car', 'gs-over', 'gs-tick', 'gs-wall', 'gs-push', 'gs-pull', 'gc-tiles', 'gc-tile', 'gc-ans', 'gc-detail']) assert.ok(src.includes(cls), `${cls} is built`);
-  assert.doesNotMatch(src, /swBack|swBuild|segBlue|segShrink|segRoom|gs-lab/, 'no legend, no strip parts of the old card');
   const css = appCss();
   // (the limit's tick is the table's: chart-looks/fluid.js 'fluid.tick')
   const tick = resolveProps(LOOKS['fluid.tick'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {});
   assert.equal(tick.width, 2); assert.equal(tick.paintStroke ?? true, true);
-  assert.match(css, /--gs-fs: var\(--fs-12\)/, 'the text size is the card\'s 12 px (the card is not zoomed)');
   const px = [...css.matchAll(/\.(?:gs|gc)[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
   assert.ok(px.every((n) => n >= 12), 'no text under 12 px in the card');
   // (every row is one line: a size that moves with the numbers would give the card a height that moves)
   for (const cls of ['gc-cap', 'gc-foot', 'gc-detail', 'gc-ans']) assert.match(css, new RegExp(`\\.${cls}[^{]*\\{[^}]*white-space: nowrap`), `${cls} stays one line`);
-  assert.match(css, /\[data-kind="fluid"\] \{ width: 100%; \}/, 'the card fills the width, as a monitor does');
 });
 
 // The card's title is set in capitals by its style; "mL/day" keeps its own case (Mohammad's pick on 20 Oct: "mL/day", not "ML/DAY").
@@ -150,16 +139,6 @@ test('a unit in a card title is split out, so the style leaves its case alone', 
   assert.deepEqual(titleParts('Millimetres and mLs'), ['Millimetres and mLs'], 'a unit is a whole word');
   const ext = (await import('../src/ui/ext-instruments.js')).default.tools.fluid;
   for (const t of [ext.title({ window: true }), ext.short({ window: true })]) assert.equal(titleParts(t)[1], 'mL/day', `"${t}": the unit is split out, long title and short`);
-});
-test('the data card sets its title and the footer\'s copy of it through the unit split, and the style keeps the unit as typed', () => {
-  const js = presenterSource();
-  assert.match(js, /(?:live\.)?ui\.dhT\.textContent = cardTitle\(s\); unitSpans\((?:live\.)?ui\.dhT\);/, 'the card header');
-  assert.doesNotMatch(js, /pz-tfold/, 'no copy of the title under the words is left (the folded ladder\'s, gone with the ladder on 21 Oct)');
-  assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);
-  const css = appCss();
-  assert.match(css, /\.pz-unit \{ text-transform: none; letter-spacing: normal; \}/, 'the unit is not upper-cased and takes no caps spacing');
-  assert.match(css, /\.pz-dh \{[^}]*text-transform: uppercase/, 'the rest of the header stays in capitals');
-  assert.match(css, /\.pz-sub \{[^}]*text-transform: uppercase/, '(and the folded title)');
 });
 
 // 2 Nov 2026 (move instruments and charts to the GPU): the strip's parts are outlines the GPU draws, points written in place (tool-fluid.js partPts),
@@ -191,5 +170,4 @@ test('the strip and the forces strip are drawn by the GPU picture: no style writ
   assert.match(src, /const glStrip = createSvgGL\(plate, \{ host: 'fluid' \}\)/); assert.match(src, /const glTug = createSvgGL\(tug, \{ host: 'fluid' \}\)/);
   const frame = src.slice(src.indexOf('function draw()'), src.indexOf('function tick('));
   assert.ok(frame.length > 500 && !/\.style\b/.test(frame), 'draw() writes no style');
-  assert.doesNotMatch(src, /num-words/, 'no table of CSS words: the pieces are points');
 });

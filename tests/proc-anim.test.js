@@ -1,9 +1,7 @@
-import { stageSource } from './stage-src.js';
 // The treatment procedures played on the anatomy (proc-anim.js): each eases in and back out, its step order holds, the model
 // takes the change the Treat buttons make, one the patient cannot have says why, and built-in slides use it only where adopted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { PROCS, ENDO, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
@@ -334,52 +332,21 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
 test('presented, Next drives it: the first Next starts it, each Next plays a step, then the slide moves on; the steps are progress only', async () => {
 
   const pz = presenterSource();
-  const st = stageSource();
   const next = pz.match(/const next = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
-  assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\) \|\|/);
-  const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(pn, /procNavPlan\(/, 'the press is counted by the ring: proc-nav.js');
-  assert.match(pn, /if \(plan\.how === 'jump'\) \{ ring\(\); (?:live\.)?procRun\.to\(plan\.at\); return true; \}/, 'a step: the ring first, then the run is told');
-  assert.match(pn, /if \(plan\.how === 'chain'\) \{ ring\(\); if \((?:live\.)?procRun\.at < plan\.at\) (?:live\.)?procRun\.to\(plan\.at\); procChain\(\); ring\(\); return true; \}/, '(a TIPS on its last step) the reading that goes on from where the catheter stands');
-  assert.match(pn, /(?:live\.)?procDoneAt === (?:live\.)?want/, 'once played through, Next moves on');
-  assert.match(pn, /procPlay\(s, (?:live\.)?want, plan\.at, kind\);\n\s+if \(!(?:live\.)?procRun && !(?:live\.)?procWait\) \{/, 'the first Next puts the catheter in (and moves on if it could not start)');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
   assert.doesNotMatch(el, /onclick|'button'/, 'the steps are not buttons');
-  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false; (?:live\.)?procDoneAt = done && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
   // The steps are a line of the slides' own numbered circles, not pills.
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
-  assert.match(pz, /own = lap \? \(await stateReady\((?:live\.)?stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
-  assert.match(pz, /before: s\.procedure \? specOf\(procKindOf\(s\.procedure\)\)\?\.before : undefined/);
-  const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
-  assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
   for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);
   // A catheter you can see: 0.4 of the narrowest vein (the one catheter look he chose, 1 Nov), a hairline edge, a balloon wall to wall, and a close shot that follows the tip.
-  assert.match(st, /cath\.rc = r\.parts \? procRc\(r, Rf\) :/);
   // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
-  assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
-  assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.4, m \* 0\.7\)\);/);
   // (BRTO and BATO ride along, mock B, his pick, 7 Nov 2026: one scale for the way in with the vessel ahead in view, a short push in on the
   // balloon, the view panning up with the sclerosant, then one pull back to the result, held.)
-  assert.match(st, /const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0\.18;/);
-  assert.match(st, /if \(isOblit\(r\) && \(mode === 'tip' \|\| mode === 'fill' \|\| mode === 'work' \|\| \(mode === 'way' && !reduceMotion\.matches\)\)\) return oblitFocus\(/);
   // (The BRTO play with a target, Baveno VIII 6.12: the same way up to the left renal vein, out the renal venules to where the splenorenal shunt joins, up C6; BRTO's camera.)
-  const routes = readFileSync(new URL('../src/ui/proc-routes.js', import.meta.url), 'utf8');   // (the routes' table, shared with the timing tests)
-  assert.match(routes, /brtoC6: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'\]/);
-  assert.match(routes, /B\.vessel\('V_KID_L', \{ rev: true, near: c6, name: 'renal' \}\); B\.vessel\('C6', \{ rev: true, name: 'shunt' \}\);/);
-  assert.match(st, /const isOblit = \(r\) => r\.kind === 'brto' \|\| r\.kind === 'brtoC6' \|\| r\.kind === 'bato';/);
   // (EUS-PPG's way in frames the last stretch before the scope's stop and follows it in)
-  assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
-  assert.match(st, /wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
-  assert.match(st, /const tidy = \(lv \|\| pinned\) && !dop\.all \?/);
-  assert.match(st, /const segAt = m\.f \?\? /);
-  assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
-  assert.match(st, /shaftPart\(sh\.n \* 2, ew, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge (never under a device pixel past the shaft)');
-  assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
-  assert.match(st, /const PROC_K_MAX = 5;/);
-  assert.match(st, /if \(r\.parts\) \{[\s\S]{0,300}const tq = cathAt\(r, ob \? oblitAim\(r, fill \? [^\n]*: Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in (BRTO and BATO: ahead of it, or the sclerosant\'s front)');
 });
 
 test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {
@@ -414,11 +381,7 @@ test("a step's callout comes only once its step has happened", () => {
     });
     assert.ok(markAt(k, P.stops.length - 1) >= P.T.apply, `${k}: the last callout once the change is made`);
   }
-  const pa = readFileSync(new URL('../src/ui/proc-anim.js', import.meta.url), 'utf8');
-  assert.match(pa, /const mk = f\.step < 0 \? -2 : t >= markAt\(kind, f\.step\) \? f\.step : -1;/);
   // (and it keeps off the catheter, its balloon and the part it names, which the vessels' lines do not hold)
-  const st = stageSource();
-  assert.match(st, /const av = m\.pin \? pinAvoid\(m\.edges\[0\]\) : undefined;/);
 });
 
 // Review PROC-7 (15 Nov 2026): under reduced motion the catheter's way in is not crawled at the full leg time; its work steps keep their pace.

@@ -59,7 +59,6 @@ test('every build of the composite has balanced brackets once its #if blocks are
 
 test('there is no classic build: no switch to it, and no build lays every layer under a lumen', () => {
   for (const k of Object.keys(R)) assert.doesNotMatch(R[k], /const bool under = true;|\bFAST\b/);
-  assert.doesNotMatch(glSrc, /blood=classic|CLASSIC/);
   assert.equal(COMP_FS.length, 0, 'the build takes no switch (plain is its only, defaulted, argument)');
 });
 
@@ -72,8 +71,6 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
   }
   assert.equal(mod.lookOf, undefined);
   // The app asks for the streaks (main.js forces them; the lobule defaults to them).
-  assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /blood\.look = 'shimmer';/);
-  assert.match(lobuleSource(), /blood\.look = b\.look \|\| 'shimmer'/);
 });
 
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
@@ -132,11 +129,7 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
   const { LUMEN2 } = await import('../src/ui/veins-gl.js');
   assert.equal(LUMEN2, 0x8000);
   // The vessel shader sets the bit exactly where it writes the second target (fl && gId2 > 0).
-  assert.match(glSrc, /outFlow = fl \? packFlow\(gId, gId2, gS, gY, gW, gB\) : uvec4\(0u\);/);
-  assert.match(glSrc, /uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
-  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/);
   // Rows stay far below the bit (the anatomy's ~250, the lobule's 320).
-  assert.match(lobuleSource(), /const MAXT = 320;/);
   for (const k of Object.keys(R)) {
     const main = body(R[k], 'void main()');
     // Masked off before anything reads the row (the discard above it holds with or without the bit).
@@ -154,9 +147,6 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), or before every row has
   // been seen.
-  assert.match(comp, /let same = !!stillSig && sn === stillN && sn < sigNow\.length;/);
-  assert.match(comp, /for \(let i = 0; same && i < sn; i\+\+\) if \(sigNow\[i\] !== stillSig\[i\]\) same = false;/);
-  assert.match(comp, /const still = !full && !movedAll && !bl\.length && same;/);
   // The comparison takes every uniform the composite sets but the clock (and the bleed's, which it refuses), and the textures' version.
   // (The blood's clock is out of it again, performance A1.2: the rows that carry blood are marked moved when it moves, tests/perf-a1-switches.test.js.)
   const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
@@ -172,11 +162,6 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
   // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.
   const api = glSrc.slice(glSrc.indexOf('  const api = {'));
-  assert.match(api, /setTubes\(data\) \{\n\s*figVer\+\+;\n\s*tubesNew = true;\n\s*markRows\(data, tubeNow, ROW_W\);/);
-  assert.match(api, /setBend\(row, pts\) \{[\s\S]*?if \(same\) return;[\s\S]*?figVer\+\+;\n\s*moved\[row\] = 1;\n\s*gl\.bindTexture\(gl\.TEXTURE_2D, bendTex\);/);
-  assert.match(api, /radRows\.add\(row\); moved\[row\] = 1;/);
-  assert.match(api, /markRows\(data, flowSent, stride\);\n\s*const span = changedRows/);
-  assert.match(api, /if \(dyeSent\) \{\n\s*markRows\(data, dyeSent, DYE_BINS\);/);
   // (setGeometry, patchGeometry and setMorphFrame: a frame of the change between the views writes every vessel's points, stage.js morphFrame.)
   assert.equal((api.match(/fboOK = false; movedAll = true;/g) || []).length, 3);
   assert.ok(body(api, 'setMorphFrame(data) {').includes('fboOK = false; movedAll = true;'));
@@ -186,7 +171,6 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
 
 // ── Item 8: the blood's own pass draws the quarters of its cells a lumen can reach ──
 import { binVeins, CELL } from '../src/ui/veins-bin.js';
-import { lobuleSource } from './split-src.js';
 test('every point a lumen reaches lies in one of the blood quarters, and the quarters lie in the blood cells', () => {
   const N = 64;
   let seed = 7;
