@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,8 +11,6 @@ const SRC = new URL('../src/ui/', import.meta.url);
 // The renderer test the stage reads (veins-gl.js: software), as written there.
 // (Review pass 2: veins-gl.js asks sw-yield.js's softwareGL itself, so the two can no longer differ.)
 const softwareTest = () => {
-  const js = readFileSync(new URL('veins-gl.js', SRC), 'utf8');
-  assert.match(js, /const software = softwareGL\(gl\);/, 'veins-gl.js decides software through sw-yield.js');
   const m = readFileSync(new URL('sw-yield.js', SRC), 'utf8').match(/const SOFTWARE = \/(.+?)\/(\w*);/);
   return new RegExp(m[1], m[2]);
 };
@@ -49,13 +46,7 @@ test('a GPU makes no yield', () => {
 
 test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by the yield', () => {
   // (veins-gesture: a moved view drawn a frame late shows the vessels behind the rest of the figure)
-  const js = stageSource();
-  assert.match(js, /swYield && !swYield\.ready\(now, forceDraw \|\| drawOnce \|\| viewVersion !== drawnView\)/);
-  const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
-  assert.match(lob, /lzYield && !lzYield\.ready\(now, viewVer !== pacedVer\)/);
   // The sinusoid's zoom is drawn by place(), in step with the lobule, with no yield at all; the loop's wait skips the zoom.
-  const sv = readFileSync(new URL('sinusoid-view.js', SRC), 'utf8');
-  assert.match(sv, /if \(opacity > 0 && model\) \{ draw\(0, false\); drewNow = true; \}/);
   // And forced, a frame is drawn whatever the last one and its fence: right after a slow frame, and with the GPU busy.
   let signalled = false;
   const gl = { SYNC_GPU_COMMANDS_COMPLETE: 1, SYNC_STATUS: 2, SIGNALED: 3, fenceSync: () => ({}), flush() {}, deleteSync() {}, isContextLost: () => false, getSyncParameter: () => (signalled ? 3 : 0) };

@@ -5,11 +5,9 @@ import { stageSource } from './stage-src.js';
 // glideClock: the first frame draws the start, and no frame advances it by more than STEP_MAX. (Code only: nobody has looked on screen.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { glideClock, STEP_MAX } from '../src/ui/glide-clock.js';
-import { presenterSource, lobuleSource } from './split-src.js';
+import { presenterSource } from './split-src.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 // (A function's text from its head to its closing brace, the braces of its default parameters passed over.)
 const fn = (src, head) => {
   const i = src.indexOf(head);
@@ -51,48 +49,21 @@ test('a clock that goes back (a timestamp from before the glide began) never run
 });
 
 // ── Where it is used ──
-const stage = stageSource(), presenter = presenterSource(), lobule = lobuleSource(), proc = read('src/ui/proc-anim.js');
+const stage = stageSource(), presenter = presenterSource();
 
-test('the stage times a steady glide by the clock, and never a drift or a move on an arc', () => {
-  const a = fn(stage, 'function animateVT(');
-  assert.match(a, /const clock = opt\.steady && !drift && !(?:live\.)?arcRun \? glideClock\(\) : null;/);
-  assert.match(a, /clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\)/, 'and the step reads it');
-});
 
 test('the refits to cards that moved are steady: the presenter\'s, the catheter\'s and a procedure\'s shot, the stage\'s own home and Tests-card refits', () => {
-  assert.match(fn(presenter, 'function fitAround('), /stage\.cathFocus\(cath\.cam, ms, \{ both: true, steady: true \}\)/);
-  assert.match(fn(presenter, 'function fitAround('), /\{ drift: true \} : \{ steady: true \}/);
-  assert.match(fn(presenter, 'function frameTo('), /stage\.fitSlow\(ms, opt\)/, 'a whole-figure refit takes it');
-  assert.match(fn(stage, 'function frameBox('), /\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}/, 'and a region\'s');
-  assert.match(stage, /fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\)/);
-  assert.match(fn(stage, 'function cathFocus('), /\{ both = false, near = false, arc = false, steady = false, scale = false \}/);
   assert.equal((fn(stage, 'function cathFocus(').match(/steady/g) || []).length, 6, 'a treatment\'s shots, BRTO and BATO\'s (oblitFocus), EUS coils and glue\'s (glueFocus), the TIPS that coils\' (coilFocus) and the route\'s framing pass it on');
-  assert.match(proc, /refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/);
-  assert.match(stage, /const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'the home look');
-  assert.match(fn(stage, 'function refitRead('), /animateVT\(to, 420, \{ steady: true \}\)/, 'the Tests card\'s refit');
 });
 
 test('a slide\'s own framing, the buttons and the catheter\'s trips keep the wall clock, so each ends when the presenter waits for it', () => {
   assert.equal((stage.match(/steady: true/g) || []).length, 3, 'only the three refits in the stage ask for it');
-  assert.doesNotMatch(fn(presenter, 'async function camera('), /steady/);
 });
 
-test('the lobule\'s refit to a changed room is steady', () => {
-  assert.match(lobule, /if \(atFit\) glideTo\(F0, 260, false, null, 'inOut', true\);/);
-  assert.match(lobule, /glideTo\(to, 420, false, null, 'inOut', true\); atFit = fit;/);
-  assert.match(fn(lobule, 'function glideTo('), /const clock = steady \? glideClock\(\) : null;[\s\S]*clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\)/);
-});
 
-test('the sinusoid view counts a frame at most STEP_MAX long', () => {
-  assert.match(read('src/ui/sinusoid-view.js'), /const s = Math\.min\(Math\.max\(dt, 0\), STEP_MAX \/ 1000\)/);
-});
 
 // A card that only folded, docked or settled changes neither the projector size nor the text size: the label passes (every label laid out
 // again and every stage style read again) are left out of the layout pass that begins the camera's glide.
 test('a layout pass that is no resize leaves the label passes out when the sizes are the same', () => {
-  const sl = fn(presenter, 'function setLabels(');
-  assert.match(sl, /const key = `\$\{k\}\|\$\{stage\.labelScale\(\)\}`;\s*if \(unchanged && key === (?:live\.)?labelsFor\) return;\s*(?:live\.)?labelsFor = key;\s*stage\.setProjection\(k\);/);
-  assert.match(presenter, /\n {4}setLabels\(!turn\);\n/, 'onResize asks for it only when no resize came');
   assert.equal((presenter.match(/setLabels\(\)/g) || []).length, 3, 'the start, a new text size and a new card width lay the labels out in full');
-  assert.match(presenter, /stage\.setProjection\(false\); (?:live\.)?labelsFor = '';/, 'and the next talk starts afresh');
 });

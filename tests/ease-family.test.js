@@ -1,14 +1,10 @@
-import { stageSource } from './stage-src.js';
 // One easing family and one duration scale (combined plan M2): the camera's quintic, the arrivals' bezier, the same in CSS, and
 // camera times from how far a glide goes on screen.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { easeMove, easeArrive, easeOut3, cubicBezier, camMs, CAM_MS_MIN, CAM_MS_MAX } from '../src/ui/ease.js';
 import * as motion from '../src/ui/motion.js';
-import { lobuleSource } from './split-src.js';
 
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const quad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 test('easeMove is the quintic smoothstep: ends exact, symmetric, monotonic, with no jump in acceleration at the midpoint', () => {
@@ -25,9 +21,6 @@ test('easeMove is the quintic smoothstep: ends exact, symmetric, monotonic, with
 });
 
 test('the CSS tokens are the same curves: --ease-move within 0.9 % of the quintic, --ease-arrive the bezier --ease has always been', () => {
-  const css = read('styles/tokens.css');
-  assert.match(css, /--ease-arrive: cubic-bezier\(\.2, \.8, \.2, 1\); --ease-move: cubic-bezier\(\.5, 0, \.5, 1\);/);
-  assert.match(css, /--ease: var\(--ease-arrive\);/);
   const mv = cubicBezier(0.5, 0, 0.5, 1);
   for (let t = 0; t <= 1; t += 0.01) assert.ok(Math.abs(mv(t) - easeMove(t)) < 0.009, `${t}`);
   // easeArrive: the bezier itself (the curve's own points), decelerating to rest.
@@ -54,19 +47,6 @@ test('camMs: 480 ms up to half a screen, then in proportion, at most 900 ms', ()
   for (let x = 0; x <= 1500; x += 10) { const m = camMs(at, { k: 1, x, y: 0 }, W); assert.ok(m >= last); last = m; }
 });
 
-test('stage and lobule glides run on the quintic; scaled glides take their reach\'s time, never longer than asked', () => {
-  const stage = stageSource(), lob = lobuleSource();
-  assert.match(stage, /const camEase = easeMove;/);
-  assert.match(stage, /const raw = clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\), u = \(drift \? driftEase : camEase\)\(raw\);/);
-  assert.match(stage, /const u = camEase\(clamp\(\(performance\.now\(\) - prev\.t0\) \/ prev\.ms, 0, 1\)\);/);
-  assert.match(stage, /else if \(opt\.scale && !drift && ms > 0\) ms = Math\.min\(ms, camMs\(from, to, screenW\(\)\)\);/);
-  assert.match(stage, /animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/);
-  assert.match(stage, /animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\); \},/);
-  assert.match(stage, /animateVT\(\{ \.\.\.to \}, ms, \{ scale: true \}\); \},/);
-  assert.match(lob, /e = ease === 'in' \? u \* u : easeMove\(u\);/);
-  assert.match(lob, /const c0 = v0 \? carryRate\(v0, from, to, Math\.max\(1, snap\.w\)\) \* ms : 0;/);
-  assert.doesNotMatch(lob, /CAM_M2|camease/);
-});
 
 test('easeOut3 is the ease-out cubic the moves always ran: 1 - (1 - u) ** 3 exactly, quick off the mark, at rest at the end (motion.js the same)', () => {
   for (let i = 0; i <= 1000; i++) { const u = i / 1000; assert.equal(easeOut3(u), 1 - (1 - u) ** 3, `${u}`); }

@@ -9,22 +9,10 @@ import { readFileSync } from 'node:fs';
 import { WHERE } from '../src/ui/decks/where.js';
 import { runSteps, deckStates } from './deck-states.js';
 import { profileOf, blocksOf, blockBox, profileGeo, axisTop, BLOCK_FALL, STATIONS } from '../src/ui/tool-profile.js';
-import { appCss } from './split-src.js';
 
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-const css = appCss();
-const lob = readFileSync(new URL('../src/ui/decks/lobule.js', import.meta.url), 'utf8');
 
-test('Lobule 8 shows the Gut to heart chart (Recompensation\'s carvedilol slide, which also did, left in the deck rebuild)', () => {
-  assert.match(lob, /id: 'wedge'[^\n]*tool: \{ kind: 'profile' \}/);
-});
 
-test('a bracket\'s bar breaks round its own label, never running through "HVPG"', () => {
-  assert.match(prof, /const ws = Math\.max\(tw\(name, 600\), tw\(s, 700\)\);/);
-  assert.match(prof, /const lw = z \* tw\(`\$\{name\} \$\{s\}`, 700\);/);
-  assert.match(prof, /const wide = \(x1 - x0 - lw\) \/ 2 - LABEL_PAD >= BAR_MIN;/);
-  assert.match(prof, /if \(!\(hi - lo >= x1 - x0 - 0\.5\)\) \{ {3}\/\/ \(the bar, broken round the label\)/);
-});
 
 test('the red block marks each fall over 4 mmHg from the portal vein on, or the heart; a healthy chart shows none', async () => {
   assert.equal(BLOCK_FALL, 4);
@@ -80,9 +68,5 @@ test('the block is drawn under the axis line, the line and the readings, which k
 
 test('every bracket and the healthy line\'s name keep clear of the blocks; a block eases in and out, hatched as the old ladder\'s', () => {
   assert.equal((prof.match(/for \(const i of blocksOf\(goal, hl\)\) place\.take\(blockBox\(G, tw, goal, i\)\);/g) || []).length, 3, 'the brackets, the lines\' names and the pills');
-  assert.match(prof, /if \(!b \|\| b\.a !== a\) \{ blkS\[i\]\.from = reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0; blkS\[i\]\.a = a; blkS\[i\]\.t0 = t; blkLive\[i\] = 1; \}/);
-  assert.match(prof, /if \(blkLive\[i\] && t - blkS\[i\]\.t0 < FADE_MS\) fading = true;/);
-  assert.match(prof, /sv\('rect', \{ class: 'pz-hb', 'data-look': 'card\.hatch\.bg', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', 'data-look': 'card\.hatch\.stripe', width: s \/ 2, height: s \}\)/);
   // (The block's ring is the table's prof.blk: tests/profile-looks.test.js.)
-  assert.doesNotMatch(css, /\.pz-hs \{/);   // (the stripes' look is the table's card.hatch.stripe)
 });

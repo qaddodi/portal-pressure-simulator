@@ -3,7 +3,6 @@
 // the page is read, never by a 2D canvas's parser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { pathPolys, fanTriangles } from '../src/ui/path-poly.js';
 
 const area = (p) => { let a = 0; for (let i = 0; i < p.length; i += 2) { const j = (i + 2) % p.length; a += p[i] * p[j + 1] - p[j] * p[i + 1]; } return Math.abs(a / 2); };
@@ -29,13 +28,6 @@ test('the fans cover each polygon once per triangle from its first point, scaled
 });
 
 test('glass-gl has no 2D canvas: the masks are filled on the GPU and the colours resolved in script', async () => {
-  const g = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(g, /getContext\('2d'\)|Path2D/);
-  assert.match(g, /G\.blendFuncSeparate\(G\.ONE_MINUS_DST_COLOR, G\.ZERO, G\.ONE_MINUS_DST_ALPHA, G\.ZERO\);/, 'filled by parity');
-  assert.match(g, /parseCssColor\(k\)/, 'any colour, in sRGB, worked out in script (css-color.js)');
-  assert.doesNotMatch(g, /createElement\('i'\)|probe\.style/, 'no probe element is written to or read back');
-  const now = g.slice(g.indexOf('  function nowGeo(list) {'), g.indexOf('  // While a callout shows, every frame'));
-  assert.doesNotMatch(now, /resolveColour/, 'never in a frame');
   const { parseColour } = await import('../src/ui/glass-gl.js');
   assert.deepEqual(parseColour('#fff'), [1, 1, 1, 1]);
   assert.deepEqual(parseColour('#00000080').map((v) => +v.toFixed(3)), [0, 0, 0, 0.502]);

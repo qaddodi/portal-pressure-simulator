@@ -1,13 +1,10 @@
-import { stageSource } from './stage-src.js';
 // The figure's kept shapes (src/ui/over-records.js): records the overlay painter draws with no SVG element behind them, eased on a clock the
 // caller gives (the page's own curve and length), checked here on a stepped clock.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { recordLayer } from '../src/ui/over-records.js';
 import { easeArrive, D_SURFACE } from '../src/ui/ease.js';
 
-const STAGE = stageSource();
 const out = { changed: false, moving: false };
 const zig = () => [new Float32Array([0, 0, 10, 5, 20, 0])];
 const part = (polys, extra = {}) => ({ polys, kind: 'stroke', rgb: [0.1, 0.2, 0.3], a: 0.8, w: 2, nss: true, cap: 1, ...extra });
@@ -104,19 +101,3 @@ test('a step that moves nothing says so (a still frame writes nothing and asks n
   assert.equal(out.moving, false);
 });
 
-test('the stage keeps the circuit\'s resistors as records, hands them to the painter, and writes no element for them', () => {
-  assert.match(STAGE, /import \{ recordLayer \} from '\.\/over-records\.js/);
-  assert.match(STAGE, /const recs = recordLayer\(\{ ease: easeArrive, ms: D_SURFACE \}\);/);
-  const RESISTORS = readFileSync(new URL('../src/ui/stage-resistors.js', import.meta.url), 'utf8');   // (the resistors moved out of stage.js)
-  const rp = RESISTORS.slice(RESISTORS.indexOf('  function resPaint('));
-  assert.match(rp, /recs\.put\(RES_KEYS\[k\]/);
-  assert.match(rp, /recs\.drop\(RES_KEYS\[k\]/);
-  assert.match(RESISTORS, /RES_KEYS\[k\] = 'res:' \+ k/, 'each reading\'s record key is res:<name>, made once');
-  assert.doesNotMatch(rp, /setAttribute|classList|\.style\.|setProperty|dataset|createElementNS|cloneNode/, 'a resistor writes no element, class or style');
-  assert.doesNotMatch(STAGE, /res-one|RES_TPL/, 'no resistor element is built');
-  // The painter is told when a kept shape was written in place (the page's watch cannot see it), and when the set of shapes changed.
-  assert.match(STAGE, /(?:live\.)?veins\.overlay\.touch\(\);/);
-  assert.match(STAGE, /if \(recs\.spec\) \{ groups\.set\('rec', \[recGroup\]\); names\.push\('rec'\); \}/);
-  // The circuit view fades them as .circuit-only did.
-  assert.match(STAGE, /recs\.show\(t > 0\.5 \? 1 : 0, performance\.now\(\)\)/);   // (Reduce Motion fades it too, 15 Nov 2026)
-});

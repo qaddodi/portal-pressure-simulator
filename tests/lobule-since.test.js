@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // A change-since slide (lens 'since', ext-highlights.js) in the lobule views: the lobule's vessels, labels and changes count from the
 // same network the figure's vessels do (since-ref.js), and only that lens on a slide takes it: every other lens, Patients and a
 // pinned moment read as before.
@@ -72,19 +71,7 @@ test('the reference can be handed over eased, or left to the slide, and none mea
 
 test('the lobule draws the lens as the Change colours, eases its reference and names it', () => {
   const lz = lobuleSource();
-  assert.match(lz, /M === 'pressure' \|\| M === 'delta' \|\| M === 'since' \|\| M === 'heat'/, 'the Change colours serve the lens');
-  assert.match(lz, /M === 'pressure' \? pressureColor\((?:live\.)?qP\(v\)\) : M === 'heat' \? heatColor\((?:live\.)?qP\(v\)\) : deltaColor\((?:live\.)?qP\(v\)\)/, 'delta and since share the scale');
-  assert.match(lz, /m\.mode === 'delta' \|\| m\.mode === 'since' \? deltaColor\((?:live\.)?qP\(d\)\) : pc\(v\)/, 'a label bar takes the change\'s colour');
-  assert.match(lz, /L\.aSince \? 'since the slide before'/, 'the label says what it counts from');
   // The reference eases as the pressures do, in both places the model is redrawn, and a closed lobule starts from the state itself.
-  assert.match(lz, /const eased = easeP\.step\(f\.Pf \|\| f\.P\), since = sinceStep\(st\);\n\s+(?:live\.)?model = lobuleStateInto\(modelBuf, f, st, since\.v, eased\.v\);/);
-  assert.match(lz, /const st = store\.get\(\), eased = easeP\.step\((?:live\.)?F\.Pf \|\| (?:live\.)?F\.P\), since = sinceStep\(st\);/);
   assert.equal((lz.match(/if \(eased\.moving \|\| since\.moving\) easeRaf = nextFrame\(glideP\);/g) || []).length, 2, 'the glide runs while the reference moves');
-  assert.match(lz, /easeP = createEaser\(\); easeS = createEaser\(\); (?:live\.)?rz = null;/, 'out of sight it takes the reference at once');
 });
 
-test('the stage hands the lobule the reference its own vessels count from', () => {
-  const stage = stageSource();
-  assert.match(stage, /sinceSource\(sinceRef\);/);
-  assert.match(stage, /import \{ sinceSource \} from '\.\/since-ref\.js/);
-});

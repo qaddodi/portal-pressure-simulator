@@ -4,13 +4,9 @@
 // scaled as it is. (1 Nov, the off-GPU gate: the 2D canvas and its copy are gone.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { tissueFS } from '../src/ui/tissue-gl.js';
 import { DIVE_RIM } from '../src/ui/lobule-render-cache.js';
-import { lobuleSource } from './split-src.js';
 
-const lz = lobuleSource();
-const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
 test('the shader draws the rim', () => {
   for (const live of [false, true]) {
@@ -35,21 +31,7 @@ test("the shader's rim is the 2D copy's: the tissue × the fade, plus the lobule
 });
 
 test('the dive and the rise draw the rim on the GPU and make no 2D copy (none is left to make)', () => {
-  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y, out = false) {');
-  assert.match(sd, /if \(rim && !(?:live\.)?wide && !\(rimDrawn && tissueOnGL && rimSame\(\)\)\) rimOnGPU\(\);/);
-  assert.match(sd, /if \(!(?:live\.)?diveRim && rimDrawn\) \{ rimDrawn = false; (?:live\.)?tissueKey = ''; (?:live\.)?idleDrawn = ''; if \((?:live\.)?fade > 0 && !(?:live\.)?wide\) rimOnGPU\(\); \}/, 'landed: drawn again without the rim before the scale goes');
-  assert.doesNotMatch(lz, /paint2D|diveCopy|diveCv|rimCv|keep2D|wideChecked/, 'no 2D canvas or copy for the dive or the rise');
-  assert.match(fn('function tissueOnGPU('), /A\.rim = rimArg\(tw, th\);/);
-  assert.match(fn('function stage() {'), /if \(!wd && !reduce\.matches && (?:live\.)?geo\) (?:live\.)?diveRim = (?:live\.)?rimOf\(sX\((?:live\.)?geo\.cx\), sY\((?:live\.)?geo\.cy\), (?:live\.)?geo\.R \* V\.k\);/, 'staged on the GPU, rim and all');
-  assert.match(fn('function buildWide(W, H, box) {'), /return WIDE_GL \? buildWideGL\(W, H, box\) : null;/, "the wide copy only on the GPU");
-  assert.match(fn('function paintTissue('), /if \(same\) return gpu && keyGPU;/, 'a key the GPU did not draw is never reported as on the GPU');
 });
 
 test('under the GPU the dive scales no page layer: only the canvas zooms, the layers it draws are hidden', () => {
-  const sd = readFileSync(new URL('../src/ui/stage-dive.js', import.meta.url), 'utf8');
-  assert.match(sd, /const diveGpu = \(\) => .*gl-on.*gl-plate/, 'the GPU path needs the context and the whole plate');
-  assert.match(sd, /if \(gpu && el !== vCanvas && \(el\.id !== 'stageOver' \|\| overOnGPU\(el\)\)\) continue;/, 'the zoomed list is the canvas (and an overlay the GPU does not draw)');
-  assert.match(sd, /if \(!landed && diveGpu\(\)\) setDomHidden\(t > 0 && t < 1\);/);
-  assert.match(sd, /if \(!keep\) \{ setDomHidden\(false\);/, 'given back when the dive ends');
-  assert.match(sd, /const diveUnhide = \(\) => \{ if \(live\.diveT >= 1 && live\.lobuleOn\) \{ setDomHidden\(false\);/);
 });

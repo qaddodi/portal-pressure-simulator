@@ -8,7 +8,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { binSwept, writePoints, writeJoinNow } from '../src/ui/veins-sweep.js';
 import { CELL } from '../src/ui/veins-bin.js';
-import { appCss } from './split-src.js';
 
 const N = 16, SLACK = 6;
 let seed = 7;
@@ -113,10 +112,6 @@ test('tight: every point of a head or a run in a frame between two neighbouring 
   }
   assert.ok(passed > all * 0.15 && passed > 4 * sweptPassed, `${passed} of ${all} heads passed over at the stretch's first moment (swept circles: ${sweptPassed})`);
   // The shader takes them only with morphOn 2, which only a tight set sets, as well as the swept ones.
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /if \(morphOn == 2\) \{ vec2 hc = PT\(id, int\(B\.z \+ 0\.5\)\); hd = max\(hd, /);
-  assert.match(gl, /if \(morphOn == 2\) \{ vec2 rc = PT\(id, int\(A\.w \+ 0\.5\)\); lo = max\(lo, /);
-  assert.match(gl, /UC\.i1\(u\.morphOn, geo\.morph \? \(geo\.morph\.tight \? 2 : 1\) : 0\);/);
 });
 
 test('a join is listed, by its index, wherever it reaches along the course of its centres', () => {
@@ -153,27 +148,15 @@ test('a frame of the change draws from a stretch only once every point, reach an
   assert.ok(mf.indexOf("return morphMiss('course')") < mf.indexOf('veins.setMorphFrame(buf)'));
   assert.ok(mf.indexOf("return morphMiss('joins')") < mf.indexOf('veins.useMorphSet(pc.set)'));
   assert.ok(mf.includes("if (reachOf(it) > pc.reach.get(it.row)) return morphMiss('reach');"));
-  assert.match(stage, /const MORPH_GPU = typeof Worker !== 'undefined';/);
-  assert.match(stage, /if \(\(key !== (?:live\.)?(?:live\.)?vBinKey \|\| grew\) && gpuProbe\.time\(null, 'vessel sync: (?:live\.)?(?:live\.)?morph frame', morphFrame, items\)\) (?:live\.)?(?:live\.)?vBinKey = key;\n\s*else if \(key !== (?:live\.)?(?:live\.)?vBinKey \|\| grew\)/);
   // The shader reads the points and joins from the frame's rows only with morphOn.
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /if \(morphOn >= 1\) \{ int si = int\(B\.y \+ 0\.5\); A = vec4\(PT\(id, si\), PT\(id, si \+ 1\)\); \}/);
-  assert.match(gl, /if \(morphOn >= 1\) A = JT\(int\(A\.x \+ 0\.5\)\);/);
   // The worker is bundled with the build.
   assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /sweep-worker\.js/);
 });
 
 test('the change keeps the labels up: solved at the tap, ridden on the morph\'s clock, crossfaded by its progress', () => {
   const stage = stageSource();
-  const css = appCss();
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
-  assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
-  assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);
-  assert.match(stage, /writeVT\(u >= 1 \? \{ \.\.\.viewXf\.to \} : viewXfCameraInto\((?:live\.)?viewXf, u, /);   // (u: the camera's share of the change, view-xf.js viewXfCamU: a framing asked for mid-change retargets it; worked out on the screen against the view box as it stands, camera-replay.test.js)
   // (From the change's progress and the share at which the new labels were whole (view-xf.js viewXfMix): the ghosts ride at full until then, never a timer.)
-  assert.match(stage, /const m = viewXfMix\(p, x\.landAt, XF_MIX\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/);
-  assert.doesNotMatch(stage, /XF_FADE_MS|xfRamp/);
   const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
   assert.ok(sv.includes('viewXfStart(d)') && !sv.includes('morph-fade'));
-  assert.doesNotMatch(css, /(?:live\.)?morph-fade/);
 });

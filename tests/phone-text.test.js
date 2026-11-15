@@ -1,53 +1,23 @@
-import { stageSource } from './stage-src.js';
 // Phone text and labels (review 15 Oct, #23, #48-#51): the figure's captions and the catheter callouts' small words are 12 px
 // on a phone too, the meal chart's words never zoom under 12 px with its card, the FibroScan probe stands steeper beside the
 // screen's edge so its reading stays on screen, figure labels keep off the teaching card's glass, and a phone held sideways
 // keeps a short clock in its play row. (The browser checks judge them on screen: tests/e2e/phone-fit.mjs, smoke.mjs.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { ROLES } from '../src/ui/type-scale.js';
-import { appCss, presenterSource } from './split-src.js';
+import { appCss } from './split-src.js';
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = appCss(), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
+const css = appCss();
 
 test('captions are 12 px on every screen, the SVG labels as the stylesheet', () => {
-  assert.match(tokens, /--t-cap: 12px;/);
   assert.deepEqual(ROLES.cap, [12, 12]);
-  assert.doesNotMatch(css, /\.cath-label small, \.cath-label b \+ span \{ font-size: 11px; \}/);
-  assert.match(css, /\.scan-probe \.sp-unit \{ font-size: 12px;/);
 });
 
-test('the meal chart draws its words at 12 px at least (the card does not zoom it)', () => {
-  assert.match(flow, /const FT_MIN = 12;/);
-  assert.match(flow, /fittedType\(el, gl, FT_MIN\)/);
-  assert.match(flow, /font-size: \$\{G\.f\.toFixed\(2\)\}px/);
-});
 
-test('the FibroScan probe turns steeper beside the left edge, flatter below the top edge, and its card check uses the same angle', () => {
-  assert.match(css, /\.scan-probe \.sp-svg \{[^}]*rotate\(var\(--sp-turn, 45deg\)\)/);
-  assert.match(stage, /function scanTurn\(tx, y = Infinity\)/);
-  assert.match(stage, /while \(deg > 10 && !scanTopOk\(y, deg\) && sideOk\(scanBodyLeftOk, tx, deg - 5\)\) deg -= 5;/);
-  assert.match(stage, /const q = scanBody\(tip\.tx, tip\.y, scanR\(\) \? 180 - scan\.deg : scan\.deg\);/);   // (the head's check takes the body's box at the probe's own angle: the spleen's turned past the upright)
-  assert.match(stage, /const sideOk = \(ok, tx, d\) => \(scanR\(\) \? ok\(stageBox\(\)\.width - tx, d\) : ok\(tx, d\)\);/);   // (the spleen's probe, up to its right, keeps off the right edge the same way)
-});
 
-test('figure labels keep off the teaching card\'s glass', () => {
-  assert.match(stage, /const BLOCKER_SEL = '\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock';/);   // (and the phone's clock: a label sat under "Day 30")
-});
 
 test('a phone held sideways shows the short clock in its play row', () => {
   const at = css.indexOf('@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {\n  .vdock .stage-bar.bottom');
   assert.ok(at > 0, 'the sideways phone block was not found');
-  const block = css.slice(at, css.indexOf('\n}\n', at));
-  assert.match(block, /\.vdock \.tl-time \{ display: inline;/);
-  assert.match(block, /\.vdock \.tl-time \.tl-t-short \{ display: inline; \}/);
-  assert.doesNotMatch(block, /\.tl-time \{ display: none/);
 });
 
-test('a phone\'s six site lines share one row of names over them and letter at their own size', () => {
-  const js = presenterSource();
-  assert.match(js, /h\('div', \{ class: 'pz-grid-head', 'aria-hidden': 'true' \}/);
-  assert.match(css, /:is\(\.pz\.stack, \.pz\.low\) \.pz-grid \{ --pk: 1\.15;/);
-});

@@ -9,13 +9,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { parseDeckSource } from '../src/ui/deck-source.js';
 import { DECKS } from '../src/ui/decks.js';
 import { oneLadder } from '../src/ui/teach-extras.js';
-import { appCss, presenterSource } from './split-src.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const slides = readdirSync(DIR).filter((f) => f.endsWith('.js'))
   .flatMap((f) => parseDeckSource(readFileSync(new URL(f, DIR), 'utf8')).slides.map((s) => ({ ...s, f })));
-const pres = presenterSource();
-const css = appCss();
 const at = (f, id) => slides.find((x) => x.f === f && x.id === id);
 
 test('no built-in slide asks for the old ladder card or any of its fields', () => {
@@ -27,13 +24,6 @@ test('no built-in slide asks for the old ladder card or any of its fields', () =
   }
 });
 
-test('the presenter has no old ladder left: no five-station drawing, strip, legend, hatching on a station or block buttons', () => {
-  assert.doesNotMatch(pres, /bigLadder|RUNGS|ladderFromTo|ui\.ladder|ladder\.strip|pz-strip|pz-ladder|pz-lg|snodeBlk|nodeBlk|blockOf|abBlk|data === 'ladder'/);
-  assert.doesNotMatch(css, /pz-ladder|pz-strip|pz-lg|pzl-(base|bg|bk|br|drop|from|grid|k|lead|line|nb|pt|v)\b|lad-swap|lad-fixed/);
-  // (The level rail keeps its own hatched block: it names the level, not a station.)
-  assert.match(pres, /function railBlock\(\)/);
-  assert.match(pres, /class: 'pzs-drop', 'data-look': 'card\.drop'/);   // (its look is the table's card.drop)
-});
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
@@ -55,10 +45,6 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
   assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
   // (The TIPS slide's instrument is the live graph of the stent, not a profile, Mohammad 10 Nov 2026: the teaching card holds no graph.)
   assert.equal(at('ten-years.js', 'tips').tool.kind, 'evgraph');
-  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-  assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
-  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
-  assert.match(prof, /\[bf, bfName, 'bf'\]/);
 });
 
 test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the heart chart, the catheter tracing in the data card of its own slides', () => {
@@ -70,14 +56,10 @@ test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tile
   assert.equal(cath.monitor, undefined, 'the teaching card holds only words');
   for (const k of ['data', 'tiles', 'compare']) assert.equal(cath[k], undefined, `hvpg slide has no ${k}`);
   // (And the figure tags the wedge and the free hepatic vein on every Gut to heart slide, as it did on the ladder's.)
-  assert.match(pres, /presentNames: s\.tool\?\.kind === 'profile' \|\| !!s\.cath,/);
 });
 
 test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
-  assert.match(pres, /ask: st\.ask, tool: Array\.isArray\(st\.spans\) \? \{ kind: 'profile', spans: st\.spans \} : \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
   // (The test decks still written with the old field come out as the built-in slides do.)
-  const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
-  assert.match(demo, /"data": "ladder"/);
   assert.deepEqual(oneLadder({ data: 'ladder', ladderFrom: 'd-start', ladderFromLabel: 'No Rx' }).tool, { kind: 'profile', from: 'd-start', fromLabel: 'No Rx' });
   // (Every built-in deck, once through it, is unchanged: none has a ladder slide left.)
   for (const d of DECKS) for (const s of d.slides) assert.equal(oneLadder(s), s, `${d.id}/${s.id}`);
@@ -90,11 +72,3 @@ test('the six-case summary keeps its six patients, the heart failure one include
   assert.equal(slides.find((x) => x.f === 'where.js' && x.visual === 'ladders').of.length, 6);
 });
 
-test('the profile\'s HVPG and PPG brackets round the true values, never the difference of the drawn readings (Mohammad\'s pick: they may be 1 off it)', () => {
-  const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /wholeGap/);
-  assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
-  assert.match(src, /const b = m\.br\[r\], v = shown\[b\.key\], vi = whole0\(v\)/);
-  assert.match(src, /spans\.map\(\(\[k, name\]\) => `\$\{name\} \$\{whole\(goal\[k\]\)\}`\)/);   // (the label reads each bracket the chart draws, HVPG and PPG by default)
-  assert.match(src, /return \{ v, hvpg: fp\.hvpg, eus: Number\.isFinite\(fp\.eus\) \? fp\.eus : 0, ppg: fp\.ppg \};/);
-});

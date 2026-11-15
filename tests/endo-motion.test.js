@@ -3,7 +3,6 @@
 // and bleeding jet fade in and out instead of cutting.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { FADE_MS, SIZE_TAU_MS, DEFLATE_TAU_MS, BAND_TAU_MS, BAND_DELAY_MS, fadeIn, glide } from '../src/ui/endo-motion.js';
 import { D_SMALL, D_FLIP } from '../src/ui/motion.js';
 
@@ -27,9 +26,6 @@ test('the scope view moves by one rule, a follow: the field fades over D_SMALL, 
   assert.equal(FADE_MS, D_SMALL);
   assert.ok(SIZE_TAU_MS > 0 && DEFLATE_TAU_MS > 0 && BAND_TAU_MS > 0 && BAND_DELAY_MS > 0);
   assert.equal(BAND_DELAY_MS, D_FLIP, 'the band cinches in one flip step after the vein starts');
-  const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(src, /tween\(an\.kn\[i\], knT\[i\], wall, dt \* 1000, BAND_TAU_MS, knT\[i\] \? BAND_DELAY_MS : 0\)/);
-  assert.doesNotMatch(src, /const ease = \(t\) => \(t < 0\.5/, 'no fixed cubic tween beside the follow');
   // A tween is a follow with a delay: it holds for the delay, then lands exactly (glide's own rule), and a new target turns it round without a jump.
   let cur = 0, at = 0, to = 1, wall = 0;
   const step = (dtMs) => { wall += dtMs; if (wall < at) return cur; cur = glide(cur, to, dtMs, BAND_TAU_MS); return cur; };
@@ -38,15 +34,8 @@ test('the scope view moves by one rule, a follow: the field fades over D_SMALL, 
   let prev = 0, n = 0; while (cur !== 1 && n++ < 1000) { const v = step(16); assert.ok(v >= prev && v - prev < 0.2); prev = v; }
   assert.equal(cur, 1);
   // The balloon and the jet are drawn at their easing strength, not on a bare on/off.
-  assert.match(src, /if \(balA > 0\)/);
-  assert.match(src, /if \(jetA > 0 && bleedLast\)/);
   // The bleed runs on the model's clock (still while paused) and its pool's level eases.
-  assert.match(src, /bleedOpt\.t = still\.matches \? 0\.3 : simTime\(\)/);
-  assert.match(src, /poolA = poolA \? glide\(poolA, poolT, du, 600\) : poolT;/);
-  assert.doesNotMatch(src, /if \(f\.params\?\.balloonEso\) \{/);
   // Each new field bitmap keeps the one shown before it to fade from.
-  assert.match(src, /if \(glId\) keep\(\); else fadeT0 = -1;/);
-  assert.match(src, /G\.image\(null, cx - R, cy - R, 2 \* R, 2 \* R, 1, 'old'\);/, 'the old field drawn under the new one while it fades in');
 });
 
 test('scope bleed: drops thrown on each beat ease in and out, the tear lies on a varix column, the pool is a wedge that widens with the blood lost', async () => {

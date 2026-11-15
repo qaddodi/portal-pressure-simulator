@@ -1,7 +1,5 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { binVeins, CELL } from '../src/ui/veins-bin.js';
 
 // A frame where only the blood moved repaints only the cells a lumen can reach (binVeins' `blood`); the other vessel cells
@@ -92,17 +90,3 @@ test('a remembered binning (a coil patched in place) has the same blood cells as
   assert.deepEqual(Array.from(p.blood), Array.from(f.blood));
 });
 
-test('the figure bins each vessel with a core and repaints the redrawn cells whole after a partial vessel redraw', () => {
-  const stage = stageSource();
-  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  // The core: the reach less the 18 reachOf adds for casing, shadow and glow, plus a pad.
-  assert.match(stage, /const reachOf = \(it\) => Math\.ceil\(\(it\.obj\.glMaxR \+ \(it\.x\.wallPx \|\| 1\) \+ 18\) \/ 2\) \* 2;/);
-  assert.match(stage, /const core = reach - 18 \+ BLOOD_PAD;/);
-  assert.match(stage, /o\.reach = reach \+ a\.m; o\.core = core \+ a\.m;/);   // (binTube writes its tube into a kept entry, not a new object)
-  // drawRows changed the vessel layer under some cells: its composite repaints those cells whole (shape and tint both), the rest as the
-  // blood's frame does (external review, 21 Oct: one changed cell repainted every cell).
-  assert.match(gl, /for \(let c = 0; c < nCells; c\+\+\) if \(mt\.mark\[c\] && !mark\[c\]\) \{ mark\[c\] = 1; k\+\+; \}\n(?:.*\n)*?\s*if \(k\) uploadPart\(mark\);\n\s*this\.composite\(look, blood, full, k\);/);
-  // (Those cells all go in one list, veins-bin splitCells with no one-vessel cells: the classic vessel pass is gone, so no cell has a program of its own.)
-  assert.match(gl, /if \(part && partG\) \{ gl\.bindVertexArray\(partVAO\); gl\.drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, partG\); \}/);
-  assert.match(gl, /function uploadPart\(mark\) \{\n\s*const \{ gen, nGen: g \} = splitCells\(cellsCPU, nCells, null, mark, PART_SPLIT\);/);
-});

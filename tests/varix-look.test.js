@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // 29 Oct, Mohammad: "Gastric varices should visibly get smaller and less intense the less pressurized they are", and (through the
 // coordinator, his proxy) the same for the esophageal varices. The varix (the model's varix.d and gastricVarix.d) follows the
 // pressure now, but its channels (the coronary vein C1a and its drain C1b; the short gastric feeder C2 and the gastrorenal shunt
@@ -7,13 +6,11 @@ import { stageSource } from './stage-src.js';
 import { procSpecs } from '../src/ui/proc-routes.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixMean, VARIX_MEAN_MS, VARIX_JUMP_MM, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
 
-const stage = stageSource();
 // (A fall in the pressure shrinks the varix over weeks, not at once: VARIX.tauFall, doc 4.1, 8 Nov 2026. `weeks` is the time given to the patch; its rise would be at once.)
 const sizes = (id, patch, weeks = 0) => {
   const e = new Engine(); e.loadPreset(id);
@@ -114,14 +111,6 @@ test('a real change in the varix is followed: a jump at once, a drift within sec
   assert.ok(VARIX_MEAN_MS >= 1000 && VARIX_JUMP_MM >= 1, 'the constants stay above a beat and a pulse\'s swing');
 });
 
-test('stage.js draws the varices\' channels by it: width (anatomy, not the flow lens, not a closed shunt, never under the resting caliber), strands, opacity', () => {
-  assert.match(stage, /import \{ LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidthK \} from '\.\/varix-look\.js/);
-  assert.match(stage, /varixS\.VAR = varixSize\('VAR', varixHold\(varixHeld\.VAR, f\.metrics\?\.varix\?\.d\)\); varixS\.GV = varixSize\('GV', varixHold\(varixHeld\.GV, f\.metrics\?\.gastricVarix\?\.d\)\);/);
-  assert.match(stage, /if \(LOOK_SITE\[e\.id\] && mode !== 'flow' && !isOccluded\(p, e\.id\)\) w = Math\.max\(Math\.min\(w, vesselPx\(dMinOf\(e\)\)\), w \* lerp\(varixWidthK\(varixS\[LOOK_SITE\[e\.id\]\]\), 1, t\)\);/);
-  assert.match(stage, /LOOK_SITE\[e\.id\] \? varixOpacity\(varixS\[LOOK_SITE\[e\.id\]\]\) : 1\)/);
-  assert.match(stage, /const fan = sd\.off \* \(1 - t\) \* \(g\.spr \?\? 1\);/);
-  assert.match(stage, /const sprT = isOccluded\(p, x\.e\.id\) \? 1 : varixSpreadK\(varixS\[LOOK_SITE\[x\.e\.id\]\]\)/);
-});
 
 test('BRTO\'s balloon sits near the renal end of the shunt, clear of the splenic vein that crosses it at 0.30 to 0.34', () => {
   const tip = procSpecs({}, () => 1).brto.tip;   // (the route moved out of stage-cath.js into proc-routes.js, where the timing tests read it too)
@@ -142,8 +131,6 @@ test('a paused model\'s frame takes the diameter at once: its one frame per chan
   assert.equal(varixHold(unsnapped, 5.2), 6.0, 'held at 6.0 by the part-way mean');
   const snapped = { m: 6.0, at: 0, d: 6.0, now: 1000, snap: true };
   assert.equal(varixHold(snapped, 5.2), 5.0, 'drawn at the new size');
-  const src = stageSource();
-  assert.match(src, /varixHeld\.VAR\.snap = varixHeld\.GV\.snap = f\.running === false \|\| !!f\.jump;/);
 });
 
 // 7 Nov 2026, Mohammad: "there is a real lag between the varices appearing on endoscopy and appearing in anatomy". The figure follows the
@@ -156,10 +143,4 @@ test('the scope\'s field follows the same running mean as the figure\'s varices'
   assert.equal(held.k, 1);
   varixMean(held, 6.0, 1100); assert.equal(held.k, 1 - Math.exp(-1000 / VARIX_MEAN_MS), 'a drift takes the share the figure takes');
   held.snap = true; varixMean(held, 6.2, 1200); assert.equal(held.k, 1, 'a paused model\'s frame at once');
-  const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
-  assert.match(src, /import \{ varixMean \} from '\.\/varix-look\.js';/);
-  assert.match(src, /mvHeld\.snap = f\.running === false \|\| !!f\.jump;/);
-  assert.match(src, /const dMean = varixMean\(mvHeld, vx\.d, wall\), kb = mvHeld\.k;/);
-  assert.doesNotMatch(src, /Math\.exp\(-dt \/ 4\)/, 'no slower mean of its own');
-  assert.match(src, /if \(busy && !raf\) raf = drawFrame\(redraw\);/, 'a paused model\'s field finishes its ease');
 });

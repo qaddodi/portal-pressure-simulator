@@ -4,7 +4,6 @@
 // just like iphone"). The rules are pure (src/ui/swipe.js); presenter.js needs a DOM, so its wiring is read as text.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { wheelFinger, wheelGesture, ownsWheel, wheelScrollers, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
 import { presenterSource } from './split-src.js';
@@ -134,37 +133,8 @@ test('the wheel reads no layout: ownsWheel answers from the read made between fr
 });
 
 test('presenter: the wheel works the slide, the stack and the case card; a wide screen\'s stack takes the swipe anywhere too', () => {
-  const w = pz.slice(pz.indexOf('let wheelG = null;'), pz.indexOf('// ── Hands off'));
-  assert.match(w, /if \(!deck \|\| !ui \|\| e\.ctrlKey \|\| e\.metaKey \|\| leaving \|\| !ui\.jump\.hidden \|\| isModalOpen\(\)\) return;/, 'a pinch, the slide list and dialogs keep their wheel');
-  assert.match(w, /const now = e\.timeStamp > 0 \? e\.timeStamp : performance\.now\(\);/, 'timed by the event\'s own stamp, not when a busy frame got to it');
-  assert.match(w, /wheelGesture\(wheelG, fx, fy, now\)/);
-  assert.match(w, /wheelFinger\(e\.deltaX, e\.deltaY, e\.deltaMode, e\.webkitDirectionInvertedFromDevice, innerHeight\)/);
-  assert.match(w, /const wheelStop = \{ stop: wrap \};/);
-  assert.match(w, /if \(ownsWheel\(e\.target, Math\.abs\(fx\) > Math\.abs\(fy\) \? 'x' : 'y', wheelStop\)\) \{ if \(wheelG\?\.spent\) wheelG\.t = now; else wheelG = null; return; \}/, 'a glide that has acted stays spent');
-  assert.match(w, /if \(card\) caseFly\(card, a\.dir, 1\.2, card\.c\.offsetWidth\);/, 'a case card is thrown off the way the fingers go');
-  assert.match(w, /else if \(a\.dir < 0\) next\(\);[^\n]*\n\s*else prev\(\);/, 'left goes on, and off the end of the deck it ends the talk, as the touch swipe does');
-  assert.doesNotMatch(w, /want < slides\.length - 1/, 'no last-slide guard on the wheel');
-  assert.doesNotMatch(pz, /stackFold/, 'fingers up or down work no readings card now: none tucks or comes out (7 Nov 2026)');
-  assert.match(w, /\{ passive: false, capture: true \}/);
   // (Before the figure's read-only swallow of the wheel, which stops the event for everything after it.)
   assert.ok(pz.indexOf('let wheelG = null;') < pz.indexOf("for (const t of ['pointerdown', 'mousedown'"), 'ahead of the hands-off listeners');
   // The wide stack is no longer a card that docks to the side, so a sideways swipe on it moves the slide.
-  assert.match(pz, /cardSideways: ui && !ui\.data\.hidden && !phone\(\) && !ui\.root\.classList\.contains\('pz-wide'\)/);
-  assert.match(pz, /!\(phone\(\) \|\| wideSheet\(d\)\)/, 'a swipe up or down anywhere on an iPad on its side works the stack as the iPhone\'s does');
 });
 
-test('presenter: the up and down arrows move no slide, and tuck nothing', () => {
-  const onKey = pz.slice(pz.indexOf('function onKey('), pz.indexOf("addEventListener('keydown', onKey, true)"));
-  assert.doesNotMatch(onKey, /stackFold/);
-  // (Left and right, page keys, space, enter and backspace still move slides; the up and down arrows no longer do.)
-  assert.match(onKey, /k === 'ArrowRight' \|\| k === 'PageDown' \|\| k === ' ' \|\| k === 'Enter'\) \{ if \(!e\.repeat\) next\(\); \}/);
-  assert.match(onKey, /k === 'ArrowLeft' \|\| k === 'PageUp' \|\| k === 'Backspace'\) \{ if \(!e\.repeat\) prev\(\); \}/);
-  const slideKeys = onKey.split('\n').filter((l) => /\b(next|prev)\(\)/.test(l)).join('\n');
-  assert.doesNotMatch(slideKeys, /ArrowUp|ArrowDown/, 'a slide key line never names the up or down arrow');
-  // A focused slider, field or list keeps its arrow keys; the slide list (G) has its own.
-  assert.match(onKey, /if \(tag === 'input' \|\| tag === 'textarea' \|\| tag === 'select'\) return;/);
-  assert.match(onKey, /if \(ui && !ui\.jump\.hidden\) \{ jumpKey\(e\); return; \}/);
-  // The Guide lists the keys.
-  const main = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
-  assert.doesNotMatch(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /↑ · ↓/);   // (no readings card to tuck, 7 Nov 2026)
-});

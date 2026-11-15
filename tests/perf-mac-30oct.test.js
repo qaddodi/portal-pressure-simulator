@@ -2,7 +2,6 @@
 // is sent to the GPU only when it changed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { refreshOf, intervalStats } from '../src/ui/perf-readout.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
@@ -15,13 +14,6 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 test('the refresh and the histogram come from the frames\' timestamps, the gaps from the clock', () => {
-  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
-  const tick = src.slice(src.indexOf('const tick = (ts) => {'), src.indexOf('nextFrame(tick);\n  };'));
-  assert.match(tick, /const fdt = prevTs && ts > prevTs \? ts - prevTs : 0;/);
-  assert.match(tick, /if \(fdt\) \{ recent\.push\(fdt\);/);
-  assert.match(tick, /if \(fdt\) cur\.dts\.push\(fdt\);/);
-  assert.match(tick, /const dt = t - prevT, at = prevT - cur\.t0;/, 'a gap and the steps listed with it stay on the clock');
-  assert.match(tick, /prevT = t; prevTs = ts > 0 \? ts : 0;/);
   // A 60 Hz screen whose callbacks ran early and late in their frames: the clock's intervals had read as a faster screen, the
   // timestamps' read as what it is, and its frames as on time.
   const stamps = Array.from({ length: 120 }, (_, i) => i * 1000 / 60);

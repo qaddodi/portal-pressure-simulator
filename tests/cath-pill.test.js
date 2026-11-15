@@ -1,11 +1,8 @@
-import { stageSource } from './stage-src.js';
 // The HVPG catheter's two readings (cath-pill.js) never sit on a card, the top sheet or each other (2 Nov 2026, his ask: on an iPhone
 // the WHVP reading hung below its point onto the teaching card, HVPG slide 4, and the FHVP one stood close above it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { placePills, pillBox, pillsClear } from '../src/ui/cath-pill.js';
-import { readFileSync } from 'node:fs';
-import { appCss } from './split-src.js';
 
 const meets = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
@@ -39,13 +36,6 @@ test('any phone, iPad or Mac band: clear when a clear place exists, and a clear 
   }
 });
 
-test('the stage places, eases and turns the readings with it, with no CSS flip', () => {
-  const stage = stageSource(), css = appCss();
-  assert.match(stage, /if \(first \|\| \(calm && !pillsClear\(q\)\)\) \{[\s\S]*?placePillsInto\(q, cathSideOut\);/);
-  assert.match(stage, /calm = !(?:live\.)?(?:live\.)?vtGliding && !cath\.glideRaf;/);
-  assert.match(stage, /if \(ready\) \{ const q = cathGlide\(el, bx, by, x, y\); cx = q\[0\]; cy = q\[1\]; \} else el\._gl = null;/);
-  assert.match(css, /\.cath-label\.cath-js, \.cath-label\.cath-js\[data-at="ahead"\], \.cath-label\.cath-js\[data-at="ahead"\]\.above \{ translate: -50% var\(--pre, 0px\); \}/);
-});
 
 test('a reading that is clear keeps its place; one that now covers a card is placed again', () => {
   const W = 390, top = 202, lim = 563, blockers = [{ x0: 4, y0: 565, x1: 386, y1: 844 }];

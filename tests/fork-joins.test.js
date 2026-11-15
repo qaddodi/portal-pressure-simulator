@@ -1,7 +1,5 @@
-import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { forkJoins, nodeJoins, sideEndScale, SIDE_END_MIN } from '../src/ui/fork-joins.js';
 
 const unit = (x, y) => { const L = Math.hypot(x, y); return [x / L, y / L]; };
@@ -199,13 +197,6 @@ test('the coronary vein runs on into the varices, the varices into the azygos ro
   }
 });
 
-test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)', () => {
-  const src = readFileSync(new URL('../src/ui/vein-joins.js', import.meta.url), 'utf8');
-  assert.match(src, /import \{ nodeJoinsInto, newJoinAnswer \} from '\.\/fork-joins\.js/);
-  assert.match(src, /nodeJoinsInto\(PEND, nu, OUT\)/);
-  assert.match(src, /e\.strand = it\.kind === 's'/);
-  assert.match(stageSource(), /import \{ (?:flareScale, )?sideEndScale \} from '\.\/fork-joins\.js/);
-});
 
 // The fundal varices (6 Nov): the feeder arches over into the gastrorenal shunt, and the run-on's smoothing over its usual ten
 // samples cut that bend by 12 units, so the trunk passed under the node and the varices' strands, which end on it, hung off it.

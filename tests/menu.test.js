@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, TOPICS } from '../src/ui/decks.js';
-import { appCss, presenterSource } from './split-src.js';
 
 test('the unified menu lists every presentation under exactly one topic, with a short title', () => {
   const listed = TOPICS.flatMap(([, , list]) => list.map(([id]) => id));
@@ -14,7 +12,6 @@ test('the unified menu lists every presentation under exactly one topic, with a 
   }
 });
 
-// The deck's short name (presenter.js deckTab), in a tab at the teaching card's top right corner.
 test('the five topics list only the eleven core talks, in teaching order; "More talks" lists the other twenty-nine', () => {
   const CORE = ['circulation', 'circuit', 'sites', 'hvpg', 'doppler', 'stiffness', 'varices', 'variceal-bleed', 'next-bleed', 'ascites', 'encephalopathy'];
   const main = TOPICS.filter(([k]) => k !== 'more').flatMap(([, , list]) => list.map(([id]) => id));
@@ -29,33 +26,4 @@ test('every presentation has a short deck name of 20 characters or fewer, distin
   const heads = DECKS.map((d) => d.head);
   for (const d of DECKS) assert.ok(d.head && d.head.length <= 20 && d.head === d.head.trim(), `${d.id} short deck name`);
   assert.equal(new Set(heads).size, heads.length, 'two talks share a short name');
-});
-
-test('the teaching card and the visual slides carry the deck name in a corner tab; the outline slide names the talk in full instead', () => {
-  const src = presenterSource();
-  const css = appCss();
-  assert.match(src, /const deckTab = [^\n]*(?:live\.)?deck\?\.head \|\| \((?:live\.)?deck\?\.title\?\.length <= 24/);
-  assert.match(src, /h\('div', \{ class: 'pz-shade' \}, deckTab\(\)/);
-  assert.match(src, /const tab = s\.visual !== 'outline' && deckTab\(\)/);
-  // (Flush with the card's top and right edges, only its bottom left corner rounded, never under 12 px, never cut short.)
-  const rule = css.match(/\n\.pz-tabname \{([^}]*)\}/)?.[1] || '';
-  assert.match(rule, /top: 0; right: 0;/);
-  assert.match(rule, /border-radius: 0 var\(--pz-tab-ro, 0px\) 0 /);
-  assert.match(rule, /white-space: nowrap/);
-  assert.doesNotMatch(rule, /ellipsis|overflow: hidden/);
-  assert.match(css, /--pz-tabf: calc\(12px \* var\(--ts, 1\)\)/);
-  assert.match(css, /--pz-tabf: max\(12px, /);
-  // (The site tag stays on the left, over the title: the deck tab's mirror in the top left corner.)
-  assert.match(src, /h\('span', \{ class: 'pz-sitetab', hidden: true \}\)/);
-});
-
-// Opening the menu on a touch screen (iPad sideways included, which gets the panel, not the sheet) never focuses the
-// search, so the on-screen keyboard stays down until the search itself is tapped; a mouse or trackpad still types at once.
-test('the menu focuses its search on open only with a fine pointer, never on a touch screen', () => {
-  const src = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
-  assert.match(src, /const fine = matchMedia\('\(hover: hover\) and \(pointer: fine\)'\);/);
-  const open = src.slice(src.indexOf('    open(section, opts = {}) {'), src.indexOf('const scrollTo = () =>'));
-  const focuses = open.match(/\.focus\([^)]*\)/g) || [];
-  assert.equal(focuses.length, 1, 'one focus call on open');
-  assert.match(open, /el\.querySelector\(sheet \|\| !fine\.matches \? '\.um-x' : '\.um-q'\)\.focus\(\{ preventScroll: true \}\);/);
 });

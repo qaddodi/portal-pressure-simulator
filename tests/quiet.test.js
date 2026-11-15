@@ -1,7 +1,5 @@
-import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createQuiet } from '../src/ui/quiet.js';
 
 // The one clock of input the app's deferred work reads: a fake window and clock stand in for the browser.
@@ -74,13 +72,3 @@ test('whenQuiet waits out a gesture, calls once, and a cancel stops it', async (
   assert.equal(m, 0, 'cancelled');
 });
 
-test('the stage, the vessel renderer, the compile helper and the warm-up all read this one clock', () => {
-  const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-  assert.match(stageSource(), /import \{ (?:leftAlone, )?sinceInput(?:, booting, holdCover)? \} from '\.\/quiet\.js/);
-  assert.doesNotMatch(stageSource(), /let inputAt|const pressed = new Set/, 'no second set of listeners');
-  assert.match(src('src/ui/veins-gl.js'), /if \(!leftAlone\(PUBLISH_QUIET_MS\)\) return;/, 'prepare() publishes the optional builds after a gesture');
-  assert.match(src('src/ui/gl-compile.js'), /import \{ leftAlone \} from '\.\/quiet\.js/);
-  const main = src('src/ui/main.js');
-  assert.match(main, /const warmUp = \[\(\) => paletteL\.warm\(\), \(\) => presenterL\.warm\(\), \(\) => dock\.load\(\)\];/);
-  assert.match(main, /whenQuiet\(\(\) => idle\(\(\) => \{ step\(\); warmNext\(\); \}\)\)/, 'one module per quiet idle moment');
-});

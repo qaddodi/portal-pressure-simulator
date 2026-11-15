@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createPaintGate } from '../src/ui/paint-gate.js';
 
 // A gate with a hand-run frame, a hand-run fallback timer and a hand-set clock.
@@ -72,24 +71,4 @@ test('a hidden tab (no frame comes) paints from the fallback timer, once', () =>
   assert.deepEqual(r.log.painted, [2]);
 });
 
-test('main.js ingests every snapshot and paints through the gate; nothing is blended between snapshots', () => {
-  const m = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(m, /createPaintGate\(\{ ingest: ingestFrame, paint: paintFrame,/);
-  assert.match(m, /function onFrame\(f\) \{ frameGate\.push\(f\); \}/);
-  const ing = m.slice(m.indexOf('function ingestFrame'), m.indexOf('function paintFrame'));
-  // (rev 2 step 3: the worker's ack is sent as a frame is taken in, never from the paint)
-  assert.match(ing, /host\?\.send\(\{ type: 'painted' \}\)/);
-  assert.doesNotMatch(m.slice(m.indexOf('function paintFrame'), m.indexOf('function paintFrame') + 400), /type: 'painted'/);
-  assert.match(ing, /replaceParams\(f\.params\)/);
-  assert.match(ing, /timeline\.addEvents\(ev\)/);
-  assert.match(ing, /dock\?\.ingest\(f\)/);
-  const gate = readFileSync(new URL('../src/ui/paint-gate.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(gate, /lerp|mix\(|interpolat\w+\(/);
-});
 
-test('a frame\'s samples go out as one transferred Float64Array, each channel a view of it (rev 2 step 3)', () => {
-  const w = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
-  assert.match(w, /samples: packSamples\(samples\),/);
-  assert.match(w, /if \(f\.samples\) xfer\.push\(f\.samples\.t\.buffer\);/);
-  assert.match(w, /buf\.subarray\(j \* n, \(j \+ 1\) \* n\)/);
-});

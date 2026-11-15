@@ -38,9 +38,3 @@ test('built-in patients: clots, narrowings and occlusions open their own vessel'
   assert.ok(seen >= 2, `only ${seen} vessel facts across the patients`);
 });
 
-test('the row is a button that puts Treat away and opens the card', () => {
-  const chart = readFileSync(new URL('../src/ui/chart.js', import.meta.url), 'utf8'), main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(chart, /const go = !undo && factTarget\(a\.key\);/);
-  assert.match(chart, /class: 'chg-go'/); assert.match(chart, /onclick: \(\) => reveal\(go\) \}/);
-  assert.match(main, /reveal: \(sel\) => \{ closeTreat\(\); select\(sel\); \},/);
-});

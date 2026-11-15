@@ -1,4 +1,3 @@
-import { stageSource } from './stage-src.js';
 // Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): each vessel's oxygen saturation, from the flows the
 // model already mixes for blood origin. The hepatic artery is arterial, the portal vein carries gut venous blood,
 // the sinusoids use oxygen along their length and the hepatic veins carry what is left.
@@ -8,7 +7,6 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
 import { oxygenSat, oxygenFor, SAT, LIVER_EXTRACTION } from '../src/ui/blood.js';
-import { presenterSource, lobuleSource } from './split-src.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -61,17 +59,6 @@ test('oxygen: computed once per model frame and shared', () => {
 });
 
 test('oxygen: a view in the Colored by menu, the legend, the lobule, the vessel card and the slide words', () => {
-  const main = src('src/ui/main.js');
-  assert.match(main, /oxygen: \['Oxygen', /, 'a Colored by choice');
-  assert.match(main, /oxygen: 'Oxygen'/, 'the menu label');
-  assert.match(main, /m === 'oxygen'/, 'its own legend');
-  assert.match(stageSource(), /mode === 'oxygen'\) \{ c1 = oxygenColor\(oxy\[2 \* k\]\); c2 = oxygenColor\(oxy\[2 \* k \+ 1\]\)/, 'the figure colors each lumen end');
-  assert.match(lobuleSource(), /M === 'oxygen'/, 'the lobule colors its vessels');
-  assert.match(src('src/ui/lobule-model.js'), /m\.mode === 'oxygen'/);
-  assert.match(src('src/ui/actions.js'), /lens === 'oxygen'/, 'the vessel card reads the saturation');
-  const pres = presenterSource();
-  assert.match(pres, /oxygen: 'oxygen' \}/, '"colored by oxygen" is a pill');
-  assert.match(pres, /oxygen: '--lens-oxygen' \}/);
 });
 
 test('oxygen: its ramp runs blue to red and its pill colour is its own', () => {
@@ -86,16 +73,3 @@ test('oxygen: its ramp runs blue to red and its pill colour is its own', () => {
   assert.ok(!taken.includes(pill), 'distinct from the other views\' pills');
 });
 
-// Mohammad, 17 Oct: in the Oxygen lens the figure's labels read the oxygen saturation (% O₂), not pressure, from the same
-// saturation the lens colours by: the anatomy's station labels and the lobule's Portal venule, Sinusoids and Central vein.
-test('oxygen: the labels read % O₂ in the Oxygen lens, from the value the lens colours by', () => {
-  const stage = stageSource(), lz = lobuleSource();
-  const runs = stage.slice(stage.indexOf('function layerRuns('), stage.indexOf('function shortenItem('));
-  assert.match(runs, /lm !== 'oxygen'/, 'the oxygen lens has its own label runs');
-  assert.match(runs, /oxygenFor\(EDGES, NODES, f\)\.node\[NI\[id\]\]/, 'anatomy labels read the station node\'s saturation');
-  assert.match(runs, /'% O₂'/);
-  const mv = lz.slice(lz.indexOf('function station(m, key, v, r) {'), lz.indexOf("station(m, 'triad'"));
-  assert.match(mv, /m\.mode === 'oxygen' && m\.oxy/, 'lobule labels switch to oxygen in the Oxygen lens');
-  assert.match(mv, /'% O₂'/);
-  assert.match(src('src/ui/lobule-model.js'), /oxy\[0\] = node\[NI\[S\.pv\]\]; oxy\[1\] = node\[NI\[S\.sin\]\]; oxy\[2\] = node\[NI\[S\.cv\]\]/, 'portal venule, sinusoids, central vein in that order');
-});

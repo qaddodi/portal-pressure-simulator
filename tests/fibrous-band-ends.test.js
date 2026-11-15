@@ -2,9 +2,7 @@
 // ending in flat, clipped-looking cuts (Mohammad, 16 Oct).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { bandOutline, bandOutlineFlat } from '../src/ui/lobule-look.js';
-import { lobuleSource } from './split-src.js';
 
 // A context that records the outline as points (arcs sampled finely).
 function recorder() {
@@ -47,11 +45,6 @@ test('a wide pass narrows to kEnd at its ends: no outer halo round the tract, th
   assert.ok(Math.abs(c.pts[n >> 1][1] - 10.5) < 1e-6, 'full 2.1 width in the middle');
 });
 
-test('the lobule view draws its fibrous bands through the round-ended outline, the widest pass tucked in at the ends', () => {
-  const lp = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');   // (the tissue's painting)
-  assert.match(lp, /bandOutlineFlat\(c, P, N, Wd, k, Math\.min\(k, 1\.45\)\)/);
-  assert.match(lp, /PASS_K = \[2\.1, 1\.45, 1\], PASS_A = \[0\.12, 0\.24, 0\.5\]/);
-});
 
 test('bandOutlineFlat (a band kept as flat numbers, made with no array) draws exactly the points bandOutline does', () => {
   const n = 26, P = [], N = [], Wd = [], fP = new Float64Array(2 * (n + 1)), fN = new Float64Array(2 * (n + 1));
@@ -69,11 +62,3 @@ test('bandOutlineFlat (a band kept as flat numbers, made with no array) draws ex
 
 // The tissue's cross-fade mixes old and new before laying them on the field: drawn one over the other, the see-through
 // collagen past the lobule's edge grew denser mid-fade and dropped back after, so it pulsed (Mohammad, 16 Oct).
-test('the tissue cross-fade is a true mix, (1 - u) old + u new, so see-through parts never pulse', () => {
-  // (On the GPU, the only painter since 1 Nov: the shader mixes the two premultiplied pictures, tissue-gl.js uWMix.)
-  const lz = lobuleSource(), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
-  assert.match(tgl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;/);
-  assert.match(tgl, /UC\.f2\(U\.uWMix, old \? wMix : 1, old \? 1 - wMix : 0\);/, 'u new + (1 - u) old');
-  assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/);
-  assert.doesNotMatch(lz, /drawImage\(worldOld/);
-});

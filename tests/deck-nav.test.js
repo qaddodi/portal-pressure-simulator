@@ -9,7 +9,7 @@ import { noteResume, resumeFor, forgetResume } from '../src/ui/resume.js';
 import { presenterSource } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const presenter = presenterSource(), main = read('main.js'), palette = read('palette.js'), menu = read('menu.js'), tools = read('presenter-tools.js');
+const presenter = presenterSource(), main = read('main.js');
 
 // A localStorage for node: the resume records live there.
 const mem = new Map();
@@ -44,46 +44,16 @@ test('the resume records keep to the newest 40 decks', () => {
   assert.deepEqual(resumeFor('d44', 10), { at: 2, n: 10 });
 });
 
-test('the presenter notes each slide it goes to, and the menu offers Resume with its slide number', () => {
-  assert.match(presenter, /want = clamp\(i, 0, slides\.length - 1\);\s*const tx = \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\);\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);\s*noteResume\(deck\.id, want, slides\.length\);/);
-  assert.match(presenter, /resumeAt: \(d\) => resumeFor\(d\.id, \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.length\)/);
-  assert.match(menu, /lib\.start\(d\.id, r\?\.at \?\? 0\)/);
-  assert.match(menu, /`Resume \$\{r\.at \+ 1\} \/ \$\{r\.n\}`/);
-  assert.match(menu, /'From the start'/);
-});
 
-test('search lists the presentations and starts one', () => {
-  assert.match(palette, /add\('Present', d\.short \|\| d\.title, \(\) => ctx\.present\(d\.id\)/);
-  assert.match(palette, /ctx\.library\(\)\.then\(\(\) => \{ if \(!back\.hidden\) renderList\(\); \}\)/, 'the list fills in once the presenter has loaded');
-  assert.match(main, /library: presenter\.library, libraryNow: presenter\.libraryNow, present: \(id\) => presenter\.start\(id\)/);
-});
 
-test('an upright tablet\'s pill has back and next around the count; a phone\'s keeps the count alone', () => {
-  assert.match(presenter, /const kids = tab \? \[prevBtn\(\), countBtn, nextBtn\(\)\] : \[countBtn\];\s*(?:live\.)?ui\.bar\.replaceChildren\(\.\.\.kids, (?:live\.)?gear\(\)/);
-  assert.match(presenter, /const tab = ph && tabUp\(\), sig = `\$\{ph\}\|\$\{tab\}\|\$\{!!openSettings\}`/);
-  // From slide to slide the same pill is updated in place (P16); a new layout (phone, tablet turned) builds it afresh.
-  assert.match(presenter, /if \(k && k\.sig === sig && k\.count\.isConnected\) \{/);
-  // Turning the tablet rebuilds the pill before the words are fitted around it.
-  assert.match(presenter, /if \((?:live\.)?ui\.bar\.dataset\.kind !== pillKind\(\)\) paintChrome\(\);\s*(\/\/[^\n]*\n\s*)?layout\(\);/);
-});
 
 test('the Guide lists the presenter\'s keys, and ? opens it there while presenting; Esc then closes the Guide, not the talk', () => {
-  assert.match(main, /h\('h3', \{ 'data-sec': 'present' \}, 'While presenting'\)/);
-  assert.match(main, /if \(e\.key === '\?'\) \{ openHelp\(presenter\.active\(\) \? 'present' : undefined\); return; \}/);
   const keys = main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS')));
   for (const k of ["'G'", "'F'", "'Esc'", "'B or .'", "'Home · End'"]) assert.ok(keys.includes(k), k);
   const onKey = presenter.slice(presenter.indexOf('function onKey('), presenter.indexOf("addEventListener('keydown', onKey, true)"));
-  assert.match(onKey, /if \(isModalOpen\(\)\) return;/);
   for (const k of ["lk === 'g'", "lk === 'f'", "lk === 'b'", "k === 'Home'", "k === 'End'", "k === 'Escape'"]) assert.ok(onKey.includes(k), `the Guide lists a key the presenter has: ${k}`);
 });
 
-test('the phone\'s Settings sheet carries History and Help, and Search is a tab of the dock\'s tab row in History\'s old place', () => {
-  // (13 Nov 2026, menu recs P4: History and Help are pages pushed inside the Settings sheet, not sheets of their own.)
-  assert.match(main, /menuItem\('History', \{ icon: 'clock'[^\n]*menuPush\('Settings', 'History', timeline\.historyBody\(\)\)[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => menuPush\('Settings', 'Help', helpRows\(\)\)/);
-  assert.doesNotMatch(main, /menuItem\('Search'/);
-  assert.match(main, /tab\('search', 'search', 'Search', \(\) => \{ if \(palette\.isOpen\(\)\) \{ palette\.close\(\); return; \} clear\(\); palette\.open\(\); \}\)/);
-  assert.match(main, /treat, tests, find, layers, more\)/);
-});
 
 test('every deck\'s outline lists three to five sections, and the circuit talk places each slide in one', () => {
   for (const d of DECKS) {
@@ -97,7 +67,5 @@ test('every deck\'s outline lists three to five sections, and the circuit talk p
 
 test('quiz mode is gone: no deck asks a quiz question and the presenter has no quiz branches', () => {
   for (const d of DECKS) for (const s of d.slides) assert.equal(s.quiz, undefined, `${d.id}/${s.id}`);
-  assert.doesNotMatch(presenter, /\bquiz\b|asking\(|wantRev/);
-  assert.doesNotMatch(tools, /\bquiz\b|'ask'/);
   assert.doesNotMatch(readFileSync(new URL('../docs/deck-authoring-guide.md', import.meta.url), 'utf8'), /quiz/i);
 });

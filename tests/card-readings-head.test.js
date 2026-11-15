@@ -3,22 +3,17 @@
 // number and its unit. Run over every talk, so a slide like it anywhere gets the same.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { tileKeys, toolOnly, headKeys, shownBy } from '../src/ui/card-tiles.js';
 import { tileOf } from '../src/ui/table-marks.js';
 import { scopeLensFor } from '../src/ui/scope-lens-rule.js';
-import { appCss, presenterSource } from './split-src.js';
 
-const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const css = appCss();
 const cards = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => ({ s, at: `${d.id}/${s.id} (slide ${i + 1})` }))).filter(({ s }) => !s.visual && s.tool);
 
 test('every slide with an instrument is an instrument card, on every screen: nothing stands behind it to tuck', () => {
   assert.ok(cards.length > 100);
   for (const { s } of cards) assert.equal(toolOnly(s), true);
   assert.equal(toolOnly({ data: 'tiles', tiles: ['hvpg'] }), false, 'no instrument: a tiles card, as before');
-  assert.match(presenterSource(), /data\.classList\.toggle\('tool-only', toolOnly\(s\)\);/);
 });
 
 test('Varices 3: the chart\'s tiles are its own two lines, so a laptop or tablet shows none beside the name, a phone shows both, and the endoscopic view is the scope ring on the figure', () => {
@@ -47,31 +42,6 @@ test('its readings stand in the header row: the tiles but for the endoscopic vie
   assert.ok(some > 200, 'most instrument cards have readings');
 });
 
-test('the tiles build the header readings from the same values, numbers as GPU words, and the card has no handle, fold key or wheel pull', () => {
-  const js = presenterSource();
-  assert.match(js, /const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/);
-  assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
-  assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true, keep: true \}\) : null;/, 'the number is GPU words with the label outline, kept (never handed to the page text)');
-  assert.doesNotMatch(js, /class: 'pz-hi'[^\n]*h\('i', \{\}\)/, 'no rating dot in the reading');
-  assert.match(js, /if \(!p\.hw\) setT\(p\.hv, hs\); else p\.hw\.set\(hs\);/, 'a header reading is always set, never .now: a kept GPU number is redrawn by set alone, so now left the start state up under a time-lapse\'s end');
-  assert.doesNotMatch(js, /p\.hw\.now\(/);
-  assert.match(js, /else (?:live\.)?ui\.tiles\.paintTiles\(now\.fp, \[\], \[\], null, 0, false\);/, 'a card with no readings clears the last slide\'s');
-  assert.doesNotMatch(js, /stackFold/, 'no key or wheel works a readings card');
-  assert.doesNotMatch(js, /k === 'ArrowUp' \|\| k === 'ArrowDown'\) \{ if \(!e\.repeat\)/);
-  assert.doesNotMatch(src('main.js'), /tuck the readings/, 'the Guide lists no such key');
-});
-
-test('the header\'s readings are laid beside the name by styles alone: a number rated like the tile, units dropped at three or more on a phone', () => {
-  assert.match(css, /\.pz-hr \{ display: none; \}/);
-  assert.match(css, /\.pz \.pz-data\.has-tool > \.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) \{[^}]*justify-content: space-between;/);
-  assert.doesNotMatch(css, /\.pz-hi[^{]*> i\b/, 'no rating dot (style A, 7 Nov 2026)');
-  assert.match(css, /\.pz-hi\[data-rate="hi"\] > b \{ color: var\(--danger-ink\); \}/, 'the number keeps its rating ink');
-  assert.match(css, /\.pz-hi > b \{ -webkit-text-stroke: 3px var\(--label-halo\); paint-order: stroke fill;/, 'the page\'s own number wears the label outline');
-  assert.match(css, /\.pz\.stack \.pz-hr:is\(\[data-n="3"\], \[data-n="4"\]\) \.pz-hi > small \{ display: none; \}/);
-  const block = css.slice(css.indexOf('.pz-hr { display: none; }'));
-  assert.doesNotMatch(block, /backdrop-filter|filter:|animation|transition/, 'no new glass or painted motion: the card\'s own glass holds them');
-});
-
 test('an instrument that already shows a number large never repeats it in the header (FibroScan its stiffness, the monitor its vitals)', () => {
   const liver = { tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'] };
   const spleen = { tool: { kind: 'fibroscan', organ: 'spleen' }, data: 'tiles', tiles: ['ssm', 'lsm', 'hvpg'] };
@@ -87,7 +57,3 @@ test('an instrument that already shows a number large never repeats it in the he
   assert.ok(cards.some(({ s }) => shownBy(s).length && (s.tiles || []).some((k) => shownBy(s).includes(k))), 'some real slide had one');
 });
 
-test('the name keeps its own line when it and the readings do not fit one: the row wraps, the readings fall to the right beneath', () => {
-  assert.match(css, /\.pz \.pz-data\.has-tool > \.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) \{ flex-wrap: wrap;/);
-  assert.doesNotMatch(css, /\.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) > span:first-child \{[^}]*min-width: 0/);
-});

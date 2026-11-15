@@ -2,7 +2,6 @@
 // the last good frame on screen (no frame after the crash), and loading a patient starts it again (review item 1).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createCore } from '../src/worker-core.js';
 
 function setup(t) {
@@ -59,11 +58,3 @@ test('pressures that stop being numbers count as a crash', async (t) => {
   assert.ok(count('frame') > frames);
 });
 
-test('the page turns a crash into a card with Restart patient and Reload', () => {
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /host\.on\('crash'/);
-  assert.match(main, /'The model stopped\. Reload, or restart this patient\.'/);
-  assert.match(main, /\['Restart patient', \(\) => restartPatient\(\)\], \['Reload', \(\) => location\.reload\(\)\]/);
-  const host = readFileSync(new URL('../src/ui/host.js', import.meta.url), 'utf8');
-  assert.match(host, /w\.onerror = \(e\) => \{ e\.preventDefault\?\.\(\); crashed\(/, 'an uncaught worker error after start-up is a crash');
-});

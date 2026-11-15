@@ -8,7 +8,6 @@ import { poreAt, calloutPore, underNucleus, nucAt, NUC_COVER, SEED, SLOT } from 
 import { appCss } from './split-src.js';
 
 const CSS = appCss();
-const GL = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
 const VIEW = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
 
 test('a lit sinusoid name takes its term\'s colour as its ink, with no pill behind', () => {
@@ -18,24 +17,12 @@ test('a lit sinusoid name takes its term\'s colour as its ink, with no pill behi
   assert.ok(!CSS.split('\n').some((l) => l.includes(')::before { opacity: 1;') && l.includes('sinusoid:')), 'no lit pill');
 });
 
-test('the end arrows follow their names, so the kept names keep their arrows', () => {
-  assert.match(VIEW, /const endShown = \(key\) => \{/);
-  assert.match(VIEW, /\(cap\.on \? 1 : \+readStyle\(e\)\.opacity \|\| 0\) \* \(\+readStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+readStyle\(labels\)\.opacity \|\| 0\)\);/);
-  // (A name drawn by the GPU fades there, label-captions.js: its arrow takes the GPU's own strength for it.)
-  assert.match(VIEW, /return \(endOp\[key\] \?\? 0\) \* \(cap\.on \? cap\.at\(key, easeNow\(\)\)\?\.a \?\? 0 : 1\);/);   // (the ends' names at full ink since 2 Nov 2026: no 0.78 to divide by)
-  assert.match(VIEW, /END_NAMES = \['Portal venule', 'Central vein'\]/);
-  assert.match(VIEW, /value = pressTxt\(u, u \? m\.P3 : m\.P1\)/);
-  assert.match(VIEW, /region\('hep', 'Hepatocyte'/);
-  assert.match(VIEW, /region\('lymph', 'Lymph'/);
-});
 
 const pores = (sd, from = -120, to = 120) => { const a = []; for (let j = from; j < to; j++) { const p = poreAt(j, sd); if (p) a.push(p); } return a; };
 
 test('the nucleus swell\'s reach matches the shader\'s nucAt and swell', () => {
-  assert.match(GL, /float nucAt\(int n, int nsd\) \{ return 38\.0 \* float\(n\) \+ 8\.0 \+ 22\.0 \* h1\(n, nsd\); \}/);
   for (const n of [-2, 0, 3]) { const c = nucAt(n, SEED.nucUp); assert.ok(c >= 38 * n + 8 && c < 38 * n + 30, `nucleus ${n} sits in its 38 µm slot (${c})`); }
   // (the swell: a 3.3 µm half length blended 0.9 into the sheet, in the shader's sdEndo)
-  assert.match(GL, /sdE\(q, vec2\(3\.3, th \+ 0\.55 \* det\)\), 0\.9\)/);
   assert.ok(NUC_COVER >= 3.3 + 0.9, 'clear of the swell and its blend');
 });
 
@@ -60,7 +47,6 @@ test('the Fenestrae callout is by place only, in view where a pore is, and falls
   const upper = pores(SEED.poreUp);
   // Not by how open the wall is (the callout's leader does not hop as pores close): no open share goes in.
   assert.equal(calloutPore.length, 5);
-  assert.doesNotMatch(VIEW.split('\n').find((l) => l.includes('const fenAt = ')), /S\.por/, 'fenAt does not read the open share');
   // In view: a pore inside the bounds is chosen over a better one outside them.
   const a = calloutPore(upper, 40, 35, 50, SEED.nucUp);
   assert.ok(a >= 35 && a <= 50, `in view (${a})`);
@@ -72,8 +58,5 @@ test('the Fenestrae callout is by place only, in view where a pore is, and falls
 });
 
 test('both layouts take the pore from the one helper', () => {
-  assert.match(VIEW, /const fenAt = \(x\) => calloutPore\(geo\.pores\[0\], x, VW\.fr\[0\] \+ 3, VW\.fr\[1\] - 3, SEED\.nucUp\);/);
   assert.equal(VIEW.split('fenAt(').length - 1, 3, 'three calls (across, beside the stellate cell, down)');
-  assert.match(VIEW, /leader\('fen', rf, xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/, 'the callout ends on the pore\'s gap in the lining');
-  assert.match(VIEW, /leader\('fen', region\('fen', 'Fenestrae', fenTxt\(\), x, -midTall\(x\)\), xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/);
 });

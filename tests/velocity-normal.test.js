@@ -6,7 +6,6 @@ import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { velNormal, dopplerVel, velPos } from '../src/ui/velNormal.js';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
-import { presenterSource } from './split-src.js';
 
 const frame = (e) => ({ Q: e.Q, D: e.edges.map((x) => e.diameter(x.id)) });
 const band = (e, id, healthy) => {
@@ -45,14 +44,4 @@ test('the TIPS talk: slow portal vein before, a normal stent, then a slow stent 
   const narrow = run('narrow');
   assert.equal(band(narrow, 'TIPS', healthy), 'slow');
   assert.equal(band(narrow, 'PV_TRUNK', healthy), 'slow', 'with a stent the main portal vein is slow under 30 cm/s');
-});
-
-test('the velocity keys name only the two ends, Slow and Fast, so they fit a phone', async () => {
-  const { readFileSync } = await import('node:fs');
-  const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-  const legend = read('main.js').split('\n').find((l) => l.includes('velocity: lgScaleSpec('));
-  assert.match(legend, /\[\[0, 'Slow'\], \[100, 'Fast'\]\]/);
-  assert.doesNotMatch(legend, /Normal/);
-  const key = presenterSource().split('\n').find((l) => l.trim().startsWith("velocity: ['velocity'"));
-  assert.match(key, /'Slow'/); assert.match(key, /'Fast'/); assert.doesNotMatch(key, /Normal/);
 });

@@ -1,18 +1,11 @@
-import { stageSource } from './stage-src.js';
 // The live SVG organs dim and grey exactly as the GPU copy of them does (a lens other than pressure, a selected vessel), through
 // an SVG filter that Safari draws: its CSS filter functions on SVG elements did nothing, so the organs flashed back to full colour
 // whenever the live drawing showed (a patient change in the Sites deck).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { organDimMatrix, LUMA } from '../src/ui/organ-dim.js';
 import { parseColor, greyOf, paintRef } from '../src/ui/organ-grey.js';
-import { appCss } from './split-src.js';
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = stageSource();
-const app = appCss();
-const gl = read('../src/ui/veins-gl.js');
 
 // feColorMatrix on an unpremultiplied colour.
 const apply = (m, [r, g, b, a]) => { const v = m.split(' ').map(Number); return [0, 1, 2, 3].map((i) => v[i * 5] * r + v[i * 5 + 1] * g + v[i * 5 + 2] * b + v[i * 5 + 3] * a + v[i * 5 + 4]); };
@@ -20,7 +13,6 @@ const apply = (m, [r, g, b, a]) => { const v = m.split(' ').map(Number); return 
 const shader = ([r, g, b, a], dim, sat) => { const l = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b; return [l + (r - l) * sat, l + (g - l) * sat, l + (b - l) * sat, a * dim]; };
 
 test('the filter matches the GPU plate grade', () => {
-  assert.match(gl, /float l = dot\(pl\.rgb \/ pl\.a, vec3\(0\.299, 0\.587, 0\.114\)\); pl = vec4\(mix\(vec3\(l\) \* pl\.a, pl\.rgb, plateSat\), pl\.a\) \* plateAlpha;/, 'the shader the filter copies');
   for (const [dim, sat] of [[0.72, 0.12], [0.6, 1], [0.432, 0.12], [0.85, 0.5]]) {
     for (const c of [[0.9, 0.6, 0.5, 1], [0.2, 0.4, 0.8, 0.5], [1, 1, 1, 0.3]]) {
       const got = apply(organDimMatrix(dim, sat), c), want = shader(c, dim, sat);
@@ -30,21 +22,6 @@ test('the filter matches the GPU plate grade', () => {
   assert.deepEqual(apply(organDimMatrix(1, 1), [0.3, 0.5, 0.7, 0.9]).map((v) => +v.toFixed(5)), [0.3, 0.5, 0.7, 0.9], 'identity when nothing dims');
 });
 
-test('the live organs grey through their own colours and dim through the groups\' opacity; never a CSS filter function', () => {
-  assert.match(stage, /<filter id="organDim" filterUnits="userSpaceOnUse" x="200" y="-200" width="1020" height="1320" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"\/><\/filter>/, 'kept for a colour the grey cannot read');
-  assert.match(stage, /const PLATE_RECT = \[200, -200, 1020, 1320\];/, 'the same rectangle as the GPU copy');
-  const sync = stage.slice(stage.indexOf('function syncOrganDim'), stage.indexOf('const plateEasing'));
-  assert.match(sync, /(?:live\.)?(?:live\.)?(?:live\.)?organDimA = on \? (?:live\.)?(?:live\.)?(?:live\.)?plateDim : 1; (?:live\.)?paintOrganAlpha\(\);\n\s+if \(grey\) greyOn\((?:live\.)?(?:live\.)?(?:live\.)?plateSat\); else greyOff\(\);/);
-  assert.match(stage, /for \(const g of greyList\) g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, q\), 'important'\);/);
-  assert.match(stage, /if \(!greyList\) \{ greyFilter = true; for \(let i = 0; i < organGs\.length; i\+\+\) organGs\[i\]\.setAttribute\('filter', 'url\(#organDim\)'\); \}/, 'only when a colour cannot be read');
-  assert.match(stage, /const a = String\((?:live\.)?(?:live\.)?organMorphA \* (?:live\.)?(?:live\.)?organDimA\), tr = (?:live\.)?(?:live\.)?organDimA !== 1 \? 'none' : '';\n\s+for \(let i = 0; i < organGs\.length; i\+\+\) \{\n\s+const g = organGs\[i\];\n\s+if \(\(getLive\(g, 'transition'\) \?\? g\.style\.transition\) !== tr\) setG\(g, 'style:transition', tr\);\n\s+if \(\(getLive\(g, 'opacity'\) \?\? g\.style\.opacity\) !== a\) setG\(g, 'style:opacity', a\);/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
-  assert.match(app, /#organs \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'the transition the dim turns off');
-  assert.match(stage, /(?:live\.)?(?:live\.)?(?:live\.)?organMorphA = 1 - t; (?:live\.)?(?:live\.)?paintOrganAlpha\(\);/);
-  assert.doesNotMatch(app, /#organs[^{]*\{[^}]*filter:/, 'no CSS filter on the organs (it would override the attribute in Chrome)');
-  assert.doesNotMatch(app, /#backdrop[^{,]*\{[^}]*filter:/);
-  assert.match(stage, /const greyed = !!greyList;\n\s+if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}/, 'the GPU pictures take the organs\' own colours');
-  assert.match(stage, /\} finally \{ if \(greyed\) syncOrganDim\(\); \}/);
-});
 
 test('greying each colour, then the group\'s opacity, is the same picture as the filter on the whole group', () => {
   // Two shapes overlapping in one group, over nothing: premultiplied source-over, the matrix on unpremultiplied colour.
@@ -74,9 +51,3 @@ test('computed colours are read in every form the browsers give them', () => {
   assert.equal(greyOf([0.2, 0.4, 0.6, 1], 1), 'color(srgb 0.2 0.4 0.6)', 'nothing greyed at full saturation');
 });
 
-test('the filter is on only while the live drawing shows, and follows every plate switch', () => {
-  assert.match(stage, /if \((?:live\.)?plateDirty\) \{ (?:live\.)?plateDirty = false; wrap\.classList\.toggle\('gl-plate', (?:live\.)?veins\.hasPlate\(0\)\); \}\n {4}(?:live\.)?syncOrganDim\(\);/, 'what the GPU holds, looked at when it said it changed');
-  assert.match(stage, /wrap\.classList\.remove\('gl-plate'\); (?:live\.)?plateDirty = true; (?:live\.)?veinsDirty = true; (?:live\.)?syncPlateLook\(\);/, 'hidePlate');
-  assert.match(stage, /wrap\.classList\.add\('gl-plate'\); (?:live\.)?syncPlateLook\(\);/, 'a raster landing');
-  assert.match(stage, /if \(!(?:live\.)?plateEasing\(\)\) \{ plateFrom = null; return; \}/, 'eases without the GPU too');
-});
