@@ -12,9 +12,9 @@
 
 import { h, svgIcon, popover, closePopover, swapFade, swapText, announce } from './util.js';
 import { createInverseRemote } from './inverse-remote.js';
-import { FAMILIES, FAMILY, AXES } from '../engine/inverse-families.js';
+import { FAMILIES, FAMILY, AXES, LESION, LESION_IDS, settingsOf } from '../engine/inverse-families.js';
 import {
-  READINGS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, gapLine, rangeText,
+  READINGS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, gapLine, rangeText, reasonsFor, bandsOf,
 } from '../engine/inverse.js';
 
 export const STEPS = Object.freeze([
@@ -64,14 +64,16 @@ export function createFromReadings(ctx) {
   let still = null;
   function makeStill() {
     const num = h('b', {}, String(FAMILIES.length)), fine = h('p', { class: 'fr-fine' });
-    const pillEls = new Map(FAMILIES.map((f) => [f.id, h('span', { class: 'fr-pill', 'data-s': 'possible', role: 'listitem' }, f.short)]));
+    const pillEls = new Map(LESION_IDS.map((id) => [id, h('span', { class: 'fr-pill', 'data-s': 'possible', role: 'listitem' }, LESION[id].short)]));
     const root = h('div', { class: 'fr-still' }, h('span', { class: 'fr-sub' }, 'Still possible'),
-      h('div', { class: 'fr-count' }, num, h('span', {}, `of ${FAMILIES.length} lesion types`)),
-      h('div', { class: 'fr-pills', role: 'list', 'aria-label': 'Lesion types' }, [...pillEls.values()]), fine);
+      h('div', { class: 'fr-count' }, num, h('span', {}, `of ${FAMILIES.length} mixes of up to three lesions`)),
+      h('div', { class: 'fr-pills', role: 'list', 'aria-label': 'Lesions still in play' }, [...pillEls.values()]), fine);
     let first = true;
     const update = (res) => {
-      const by = Object.fromEntries(res.families.map((f) => [f.id, chipState(res, f)]));
-      for (const f of FAMILIES) { const st = by[f.id] || 'possible', pe = pillEls.get(f.id); pe.dataset.s = st; pe.setAttribute('aria-label', `${f.short}: ${STATUS_WORD[st].toLowerCase()}`); }
+      // (a lesion is as possible as the best mix that holds it)
+      const order = ['best', 'tie', 'possible', 'out'], by = {};
+      for (const f of res.families) for (const id of FAMILY[f.id].axes) { const st = chipState(res, f); if (!by[id] || order.indexOf(st) < order.indexOf(by[id])) by[id] = st; }
+      for (const id of LESION_IDS) { const st = by[id] || 'possible', pe = pillEls.get(id); pe.dataset.s = st; pe.setAttribute('aria-label', `${LESION[id].short}: ${STATUS_WORD[st].toLowerCase()}`); }
       const t = String(res.possible);
       if (num.textContent !== t) { if (first) num.textContent = t; else swapText(num, t); }
       first = false;
@@ -163,27 +165,39 @@ export function createFromReadings(ctx) {
   }
   const refineText = () => {
     const s = remote.status(), p = remote.progress();
-    if (s === 'refining') return `Checking settings near the best fits (round ${Math.max(1, p.round + 1)} of ${p.rounds})…`;
-    if (s === 'done') return 'Settings checked near the best fits.';
-    if (s === 'library') return 'Searched the grid of settings only; the finer check is not available here.';
+    if (s === 'refining') return `Fitting the settings on the model (round ${Math.max(1, p.round + 1)} of ${p.rounds})…`;
+    if (s === 'done') return 'Settings fitted on the model.';
+    if (s === 'library') return 'Searched the grid of settings only; the finer fit is not available here.';
     return '';
   };
   const fitChips = (f, res) => h('div', { class: 'fr-marks', role: 'list', 'aria-label': 'How each reading you entered fits' },
     Object.keys(res.readings).map((k) => h('span', { class: 'fr-mark', 'data-m': f.marks[k], role: 'listitem', 'aria-label': `${READINGS[k].short} ${MARK_WORD[f.marks[k]]}` }, READINGS[k].short)));
   const fitWith = (f) => FAMILY[f.id].axes.map((k) => `${AXES[k].label.toLowerCase()} ${rangeText(k, f.ranges[k])}`);
+  // The exact settings the best fit gives the model, and what the model gives back beside what was entered.
+  const settingRows = (f) => settingsOf(f.id, f.best.p).map((x) => h('li', {}, h('span', {}, x.label), h('b', {}, x.text)));
+  const backRows = (f, res) => Object.keys(res.readings).map((k) => {
+    const r = READINGS[k], v = f.best.pred[k], entered = readingText(k, res.readings[k]), back = v == null ? 'none' : readingText(k, v);
+    return h('li', { 'data-m': f.marks[k] }, h('span', {}, r.short), h('em', {}, entered), h('b', {}, back));
+  });
+  const ratingText = (f) => (f.rating >= 0.995 ? 'about 100%' : f.rating < 0.01 ? 'under 1%' : `${Math.round(f.rating * 100)}%`);
   const PREDICT_KEYS = ['pv', 'ppg', 'ra', 'ivc', 'ssm', 'pvVel', 'saag', 'lsm', 'spleen', 'plt'];
   const predictLine = (f, res) => PREDICT_KEYS.filter((k) => !(k in res.readings) && f.predicts[k]).slice(0, 4).map((k) => {
     const [lo, hi] = f.predicts[k], r = READINGS[k], t = (v) => readingText(k, v).replace(` ${r.unit}`, '');
     return `${r.short} ${Math.abs(hi - lo) < (r.kind === 'log' ? lo * 0.03 : 0.15) ? t(lo) : `${t(lo)} to ${t(hi)}`}${r.unit ? ' ' + r.unit : ''}`;
   });
   function card(f, res) {
-    const fam = FAMILY[f.id];
+    const fam = FAMILY[f.id], why = reasonsFor(fam, res.readings, f.best), n = fam.axes.length;
     return h('article', { class: 'fr-card', 'data-s': f.status, 'data-f': f.id },
-      h('div', { class: 'fr-ct' }, h('b', {}, fam.label), h('span', { class: 'fr-st' }, STATUS_WORD[f.status] + (fam.parts ? ' · two lesions' : ''))),
-      h('p', { class: 'fr-cs' }, fam.sub),
+      h('div', { class: 'fr-ct' }, h('b', {}, fam.label), h('span', { class: 'fr-st' }, STATUS_WORD[f.status] + (n > 1 ? ` · ${n === 2 ? 'two' : 'three'} lesions` : ''))),
+      h('p', { class: 'fr-rate' }, h('b', {}, `Rating ${ratingText(f)}`), ' of the likelihood across every scenario. Fewer lesions, each closer to healthy, rate higher.'),
+      why.length ? h('ul', { class: 'fr-why' }, why.map((t) => h('li', {}, t))) : null,
       fitChips(f, res),
+      h('div', { class: 'fr-fit' },
+        h('div', {}, h('p', { class: 'fr-sub' }, 'Model settings that give this'), h('ul', { class: 'fr-set' }, settingRows(f))),
+        h('div', {}, h('p', { class: 'fr-sub' }, 'The model gives back'), h('ul', { class: 'fr-back' }, h('li', { class: 'fr-bh' }, h('span', {}, ''), h('em', {}, 'You'), h('b', {}, 'Model')), backRows(f, res)))),
       h('dl', { class: 'fr-kv' },
-        h('dt', {}, 'Fits with'), h('dd', {}, fitWith(f).join('; ')),
+        h('dt', {}, 'In the model this is'), h('dd', {}, bandsOf(f.best.pred).map((b) => `${b.label} ${b.text}: ${b.band}.`).join(' ')),
+        h('dt', {}, 'Settings could be'), h('dd', {}, fitWith(f).join('; ')),
         h('dt', {}, 'Cannot explain'), h('dd', {}, f.gaps.length ? f.gaps.map((g) => gapLine(g)).join(' ') : 'Nothing: every reading you entered is within the usual error.'),
         predictLine(f, res).length ? [h('dt', {}, 'Would predict'), h('dd', {}, predictLine(f, res).join(', ') + '. You did not enter these.')] : null,
         h('dt', {}, 'Not in the model'), h('dd', {}, [fam.limits, OUTSIDE[f.id], fam.ev].filter(Boolean).join(' '))),

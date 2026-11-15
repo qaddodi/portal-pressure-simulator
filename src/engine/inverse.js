@@ -7,8 +7,10 @@
 // Unknown readings are not scored and not guessed. A scenario fits when its predictions sit inside each reading's allowed error (sigma);
 // two scenarios whose scores are within TIE of each other are shown as a tie, never as a first and a second.
 
+import { HVPG_CUTS } from './pressure-cuts.js';
+import { LSM_CUTS } from './lsm-cuts.js';
 import { ASCITES_CUTS, VARIX_NONE_MM, VARIX_LARGE_MM } from './metrics.js';
-import { FAMILIES, FAMILY, AXES, spanOf, keyOf, settingText } from './inverse-families.js';
+import { FAMILIES, FAMILY, spanOf, keyOf, settingText, settingsOf, pctText, LESION, U_MIN, U_MAX } from './inverse-families.js';
 
 /** How a reading is compared. 'abs': difference in its unit; 'log': the log of the ratio (a stiffness or a count is wrong by a fraction);
  *  'grade': the person chose a grade, so a prediction inside the grade's range is a perfect fit and outside it is judged from the nearer edge. */
@@ -43,8 +45,15 @@ const scaleOf = (key, v) => (key === 'asc' ? Math.log1p(v / 300) : v);
 export const MIN_READINGS = 2;
 /** Below this many readings the list is a short list of what is possible, not a ranking: most families still fit, and the screen says so. */
 export const FEW_READINGS = 4;
-/** Each setting a family fits beyond the first costs this much, so an extra component has to earn its place (an Akaike-style penalty). */
-export const SETTING_COST = 2;
+/**
+ * Occam's razor, as a cost in the same unit as a misfit (squared allowed errors): every lesion in a scenario costs LESION_COST, and every lesion costs
+ * SEVERITY_COST times its severity squared (0 to 1), so a scenario with fewer lesions, and with each one closer to healthy, wins when the readings allow it.
+ * A second lesion has to cut the misfit by more than its cost to come out ahead; a larger one by more than the extra it adds.
+ */
+export const LESION_COST = 3;
+export const SEVERITY_COST = 3;
+/** The Occam cost of family `f` at severities `p`. */
+export const costOf = (f, p) => FAMILY[f].axes.reduce((c, k) => c + LESION_COST + SEVERITY_COST * p[k] * p[k], 0);
 /** Scores within TIE of the best fit about equally; within POSSIBLE can still produce the readings; beyond it the family is ruled out. */
 export const TIE = 4;
 export const POSSIBLE = 12;
@@ -55,9 +64,11 @@ export const RANGE_SLACK = 4;
 /** A next reading splits two scenarios when their predictions differ by SPLIT allowed errors or more, and barely helps from BARELY. */
 export const SPLIT = 2;
 export const BARELY = 1;
-/** The live refinement: this many rounds, each running at most this many patients one step either side of the best fits. */
-export const REFINE_ROUNDS = 3;
-export const REFINE_PER_ROUND = 14;
+/** The live fit: this many rounds on the real engine, each trying at most this many patients around the best fits, with moves that narrow each round (see refinePoints). */
+export const REFINE_ROUNDS = 6;
+export const REFINE_PER_ROUND = 48;
+/** The size of a fit round's move in severity: coarse first, then finer, never below 0.01 (one setting step the engine cannot tell apart). */
+export const fitStep = (round) => Math.max(0.01, Math.round(0.2 * 0.55 ** (round - 1) * 1000) / 1000);
 
 /** A reading's residual in allowed errors (signed: prediction minus entered). `entered` is the number, or a grade index for asc and varix. */
 export function residual(key, entered, predicted) {
@@ -115,7 +126,7 @@ export const statusOf = (delta) => (delta <= 0 ? 'best' : delta <= TIE ? 'tie' :
  *  ready     whether enough readings are in (MIN_READINGS) to show a ranking; below that the families are still scored, so a screen can say how many remain
  *  few       ready with fewer than FEW_READINGS readings: the screen shows the scenarios as a short list and says it is not a ranking
  *  possible  how many families are not ruled out (the count a guided entry shows beside each reading)
- *  families  every family, best first: { id, label, sub, status, delta, best: { p, chi, score, per, pred }, free, ranges, predicts, gaps, marks, count }
+ *  families  every family, best first: { id, label, sub, status, delta, rating (its share of all the likelihood, adds to 1), best: { p, chi, cost, score, per, pred }, free, ranges, predicts, gaps, marks, count }
  *  play      the families still in play (status best or tie), the ones the next reading must split
  *  next      the reading to take next, see nextReading()
  */
@@ -124,14 +135,14 @@ export function rank(raw, points) {
   const keys = Object.keys(readings), n = keys.length;
   if (n < 1) return { readings, dropped, n, ready: false, few: false, families: [], possible: FAMILIES.length, play: [], next: null };
   const by = new Map(FAMILIES.map((f) => [f.id, []]));
-  for (const pt of points) { const s = scorePoint(readings, pt.r); by.get(pt.f)?.push({ ...pt, ...s }); }
+  for (const pt of points) { const s = scorePoint(readings, pt.r); by.get(pt.f)?.push({ ...pt, ...s, score: s.chi + costOf(pt.f, pt.p) }); }
   const fams = [];
   for (const f of FAMILIES) {
     const pts = by.get(f.id);
     if (!pts.length) continue;
-    const best = pts.reduce((a, b) => (b.chi < a.chi ? b : a));
-    const cost = SETTING_COST * (f.free - 1);
-    const ok = pts.filter((pt) => pt.chi <= best.chi + RANGE_SLACK);
+    const best = pts.reduce((a, b) => (b.score < a.score ? b : a));
+    const cost = costOf(f.id, best.p);
+    const ok = pts.filter((pt) => pt.score <= best.score + RANGE_SLACK);
     const ranges = {}, predicts = {};
     for (const k of f.axes) {
       const v = ok.map((pt) => pt.p[k]), lo = Math.min(...v), hi = Math.max(...v), [slo, shi] = spanOf(f.id, k);
@@ -148,11 +159,13 @@ export function rank(raw, points) {
       if (marks[k] === 'off') gaps.push({ key: k, entered: readings[k], predicted: best.r[k], d: best.per[k] });
     }
     gaps.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
-    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, score: best.chi + cost, per: best.per, pred: best.r }, score: best.chi + cost, delta: 0, status: /** @type {'best' | 'tie' | 'possible' | 'out'} */ ('out'), ranges, predicts, marks, gaps, count: ok.length });
+    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, cost, score: best.score, per: best.per, pred: best.r }, score: best.score, rating: 0, delta: 0, status: /** @type {'best' | 'tie' | 'possible' | 'out'} */ ('out'), ranges, predicts, marks, gaps, count: ok.length });
   }
   fams.sort((a, b) => a.score - b.score);
   const top = fams[0].score;
-  for (const f of fams) { f.delta = f.score - top; f.status = statusOf(f.delta); }
+  let wsum = 0;
+  for (const f of fams) { f.delta = f.score - top; f.status = statusOf(f.delta); f.rating = Math.exp(-f.delta / 2); wsum += f.rating; }
+  for (const f of fams) f.rating /= wsum;
   const ready = n >= MIN_READINGS, few = ready && n < FEW_READINGS, possible = fams.filter((f) => f.status !== 'out').length;
   const play = ready ? fams.filter((f) => f.status === 'best' || f.status === 'tie') : [];
   return { readings, dropped, n, ready, few, families: fams, possible, play, next: ready ? nextReading(readings, play) : null };
@@ -160,23 +173,7 @@ export function rank(raw, points) {
 
 // Readings the model does not make (the picture, the biopsy, the heart's waveform): never scored, named so a person knows what else would help.
 /** For each family, the test outside the model that would separate it from its neighbours. Said as advice, never as a score. */
-export const OUTSIDE = Object.freeze({
-  sinus: 'Liver biopsy or elastography for the cause and stage; the model has neither.',
-  presin: 'Liver biopsy for obliterative portal venopathy and to exclude cirrhosis; history and imaging for the cause.',
-  pvt: 'Doppler or contrast CT or MR of the portal vein: a cavernoma is a picture the model does not make.',
-  post: 'History (drugs, radiation, transplant) and biopsy; the model reads one central-vein lesion.',
-  bcs: 'Doppler or MR venography of the hepatic veins and IVC.',
-  ivcweb: 'Cavography or MR venography of the IVC.',
-  rhf: 'Echocardiography with the RA waveform; the model cannot draw it.',
-  constr: 'Echocardiography and cardiac MR or CT for septal bounce, filling pattern and a thick pericardium.',
-  mixpre: 'Liver biopsy: the model cannot tell a mixed pattern from its parts.',
-  mixpvt: 'Doppler or CT of the portal vein, and biopsy for the stage of the scar.',
-  mixrhf: 'Echocardiography with the RA waveform, and biopsy for the liver’s own scar.',
-  mixconstr: 'Echocardiography and cardiac MR or CT, and biopsy for the liver’s own scar.',
-  mixivc: 'Cavography or MR venography of the IVC, and biopsy for the scar.',
-  mixbcs: 'Doppler or MR venography of the hepatic veins, and biopsy for the scar.',
-  prepvt: 'Doppler or CT of the portal vein, and liver biopsy to exclude cirrhosis.',
-});
+export const OUTSIDE = Object.freeze(Object.fromEntries(FAMILIES.map((f) => [f.id, f.outside])));
 
 /**
  * The reading that would best split the scenarios still in play: for each reading not entered, the largest difference between two of them
@@ -228,28 +225,77 @@ export function rangeText(axis, rg) {
   return rg.lo === rg.hi ? t(rg.lo) : `${t(rg.lo)} to ${t(rg.hi)}`;
 }
 
-/**
- * Where the live refinement looks next: for each of the best `families` families, the points one step either side of its best point on each
- * setting (inside the family's span) that are not scored yet. `known` is a Set of keys (inverse-families.js keyOf). At most `max` points.
- */
-export function refinePoints(result, known, { families = 3, max = 40 } = {}) {
-  if (!result.ready) return [];
-  const out = [], seen = new Set(known);
-  for (const f of result.families.slice(0, families)) {
-    const fam = FAMILY[f.id];
-    for (const k of fam.axes) {
-      const [lo, hi] = spanOf(f.id, k), step = AXES[k].step;
-      if (hi === lo) continue;
-      for (const dir of [-1, 1]) {
-        const v = Math.round((f.best.p[k] + dir * step) * 1000) / 1000;
-        if (v < lo - 1e-9 || v > hi + 1e-9) continue;
-        const p = { ...f.best.p, [k]: v }, key = keyOf(fam.id, p);
-        if (seen.has(key)) continue;
-        seen.add(key); out.push({ f: f.id, p });
-      }
-    }
+/** Solve the small system A x = b (n up to a few) by elimination with pivoting; null when it is singular. */
+function solve(A, b) {
+  const n = b.length, M = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let piv = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+    if (Math.abs(M[piv][c]) < 1e-12) return null;
+    [M[c], M[piv]] = [M[piv], M[c]];
+    for (let r = c + 1; r < n; r++) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
   }
-  return out.slice(0, max);
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) { let t = M[r][n]; for (let k = r + 1; k < n; k++) t -= M[r][k] * x[k]; x[r] = t / M[r][r]; }
+  return x;
+}
+
+/** The families the live fit works on: the best few by score, and always the simplest still in play (a mix of one lesion, then two), so a coarse grid cannot hide them. */
+function fitCandidates(result, count) {
+  const live = result.families.filter((f) => f.status !== 'out'), out = new Set(live.slice(0, Math.ceil(count / 2)));
+  for (const n of [1, 2, 3]) for (const f of live.filter((x) => FAMILY[x.id].axes.length === n).slice(0, 3)) out.add(f);
+  for (const f of live) if (out.size < count) out.add(f);
+  return [...out].slice(0, count);
+}
+
+/** The step of the finite differences that measure how each reading moves with each severity. */
+export const PROBE = 0.06;
+
+/**
+ * Where the live fit looks next. It is a Gauss-Newton fit on the real engine, one family at a time, so a mix of lesions finds its own
+ * trade-offs instead of stepping along one setting at a time. From a family's best point it needs how each entered reading moves with each lesion's
+ * severity; a probe of PROBE in severity on each lesion gives that (a probe already scored counts), and with all of them in hand it solves for the
+ * move that most cuts the misfit plus the Occam cost, damped (and kept within a step that narrows with the round) so it cannot jump past what
+ * the straight-line picture can promise. The families are the best few and the simplest still in play. `known` is a Map of key to point
+ * ({ f, p, r }, inverse-families.js keyOf) or a Set of keys; a point already scored is never asked for again. At most `max` points, a family at a time in turn.
+ */
+export function refinePoints(result, known, { families = 12, max = 40, round = 1 } = {}) {
+  if (!result.ready) return [];
+  const pts = known instanceof Map ? [...known.values()] : [], seen = new Set(known instanceof Map ? known.keys() : known);
+  const keys = Object.keys(result.readings), lists = [];
+  for (const f of fitCandidates(result, families)) {
+    const fam = FAMILY[f.id], base = f.best, mine = [];
+    const push = (p) => { const key = keyOf(fam.id, p); if (seen.has(key)) return false; seen.add(key); mine.push({ f: f.id, p }); return true; };
+    const mineAll = pts.filter((x) => x.f === f.id);
+    const J = [], missing = [];
+    fam.axes.forEach((k, j) => {
+      const near = mineAll.filter((x) => fam.axes.every((a) => a === k || Math.abs(x.p[a] - base.p[a]) < 1e-6) && Math.abs(x.p[k] - base.p[k]) >= 0.02 && Math.abs(x.p[k] - base.p[k]) <= 0.1)
+        .sort((a, b) => Math.abs(a.p[k] - base.p[k]) - Math.abs(b.p[k] - base.p[k]))[0];
+      if (!near) { const d = base.p[k] + PROBE <= U_MAX + 1e-9 ? PROBE : -PROBE; missing.push({ ...base.p, [k]: Math.round((base.p[k] + d) * 1000) / 1000 }); return; }
+      const dk = near.p[k] - base.p[k];
+      J[j] = keys.map((key) => (residual(key, result.readings[key], near.r[key]) - base.per[key]) / dk);
+    });
+    if (missing.length) { for (const p of missing) push(p); lists.push(mine); continue; }
+    const r0 = keys.map((key) => base.per[key]), u = fam.axes.map((k) => base.p[k]), trust = Math.max(0.03, 0.4 * 0.75 ** (round - 1));
+    for (let tries = 0, lam = 0.3; tries < 4 && !mine.length; tries++, lam *= 4) {
+      const A = fam.axes.map((_, a) => fam.axes.map((__, b) => J[a].reduce((t, v, i) => t + v * J[b][i], 0) + (a === b ? SEVERITY_COST + lam : 0)));
+      const g = fam.axes.map((_, a) => -(J[a].reduce((t, v, i) => t + v * r0[i], 0)) - SEVERITY_COST * u[a]);
+      const sol = solve(A, g);
+      if (!sol) break;
+      const move = sol.map((v) => Math.max(-trust, Math.min(trust, v)));
+      if (Math.max(...move.map(Math.abs)) < 0.004) break;
+      const p = Object.fromEntries(fam.axes.map((k, a) => [k, Math.round(Math.min(U_MAX, Math.max(U_MIN, u[a] + move[a])) * 1000) / 1000]));
+      push(p);
+    }
+    lists.push(mine);
+  }
+  const out = [];
+  for (let i = 0; out.length < max; i++) {
+    let any = false;
+    for (const l of lists) if (i < l.length && out.length < max) { out.push(l[i]); any = true; }
+    if (!any) break;
+  }
+  return out;
 }
 
 /** The library's compact rows [family, settings (in the family's axes order), readings (in READING_KEYS order)] as points the search scores. */
@@ -261,3 +307,38 @@ export function pointsOf(rows) {
 }
 /** A point's readings as the library row keeps them. */
 export const rowOf = (f, p, r) => [f, FAMILY[f].axes.map((k) => p[k]), READING_KEYS.map((k) => r[k] ?? null)];
+
+/**
+ * Why a scenario fits, in a line or two of physiology, from the readings that were entered and the lesions in the scenario (never from a reading
+ * that was not entered). Returns up to four sentences.
+ */
+export function reasonsFor(fam, readings, best) {
+  const out = [], has = (id) => fam.parts.includes(id), after = has('rhf') || has('constr') || has('bcs') || has('ivcweb');
+  const hvpg = 'whvp' in readings && 'fhvp' in readings ? readings.whvp - readings.fhvp : readings.hvpg;
+  const f1 = (v) => (Math.round(v * 10) / 10).toString();
+  if ('fhvp' in readings && readings.fhvp >= 8 && after) out.push(`FHVP ${f1(readings.fhvp)} mmHg is raised: the pressure is already high beyond the sinusoids, which only a block after the liver or a heart lesion does.`);
+  if ('ra' in readings && readings.ra >= 10 && (has('rhf') || has('constr'))) out.push(`RA ${f1(readings.ra)} mmHg puts the cause in the heart; the IVC and hepatic veins carry it back to the liver.`);
+  if ('ra' in readings && readings.ra <= 6 && 'fhvp' in readings && readings.fhvp >= 8 && (has('ivcweb') || has('bcs'))) out.push(`RA ${f1(readings.ra)} mmHg is not raised, so the block sits between the liver and the atrium (hepatic veins or IVC), not in the heart.`);
+  if (hvpg != null && hvpg >= HVPG_CUTS.amber && (has('sinus') || has('presin') || has('post'))) {
+    const st = has('sinus') && best ? pctText(LESION.sinus.set(best.p.sinus).scar) : null;
+    out.push(`HVPG ${f1(hvpg)} mmHg needs a block inside the liver${st && hvpg < HVPG_CUTS.red ? `; the cirrhosis slider at ${st} makes it` : ''}.`);
+  } else if (hvpg != null && hvpg < HVPG_CUTS.amber && !has('sinus') && !has('presin') && !has('post')) out.push(`HVPG ${f1(hvpg)} mmHg is small, as in a block entirely before or after the liver.`);
+  if ('lsm' in readings && has('sinus') && best) out.push(`LSM ${f1(readings.lsm)} kPa: ${lsmBand(readings.lsm)}; the model makes it with the cirrhosis slider at ${pctText(LESION.sinus.set(best.p.sinus).scar)}.`);
+  if ('spleen' in readings && readings.spleen >= 14 && hvpg != null && hvpg < HVPG_CUTS.amber && (has('presin') || has('pvt'))) out.push('A large spleen with a small HVPG points to a block before the sinusoids.');
+  return out.slice(0, 4);
+}
+
+/** The exact model settings of a result's best fit: [{ lesion, label, text }] (inverse-families.js settingsOf). */
+export const settingsFor = (fam, p) => settingsOf(fam.id, p);
+
+/** Where a liver stiffness falls in Baveno VIII's bands (lsm-cuts.js): in words. */
+export const lsmBand = (v) => (v < LSM_CUTS.unlikely ? `under ${LSM_CUTS.unlikely}, compensated advanced chronic liver disease is unlikely` : v <= LSM_CUTS.likely ? `${LSM_CUTS.unlikely} to ${LSM_CUTS.likely}, suggests compensated advanced chronic liver disease` : v < LSM_CUTS.ruleIn ? `over ${LSM_CUTS.likely}, highly likely compensated advanced chronic liver disease` : `${LSM_CUTS.ruleIn} or more, rules clinically significant portal hypertension in`);
+/** Where an HVPG falls: normal, raised, or clinically significant. */
+export const hvpgBand = (v) => (v < HVPG_CUTS.amber ? `under ${HVPG_CUTS.amber}, normal range` : v < HVPG_CUTS.red ? `${HVPG_CUTS.amber} to ${HVPG_CUTS.red}, portal hypertension below the clinically significant cut-off` : `${HVPG_CUTS.red} or more, clinically significant portal hypertension`);
+/** What a scenario's fit gives for the two measures that grade liver disease, with their bands: [{ label, text, band }] (what the model makes, not what was entered). */
+export function bandsOf(pred) {
+  const out = [];
+  if (pred.hvpg != null) out.push({ label: 'HVPG', text: `${(Math.round(pred.hvpg * 10) / 10).toFixed(1)} mmHg`, band: hvpgBand(pred.hvpg) });
+  if (pred.lsm != null) out.push({ label: 'LSM', text: `${(Math.round(pred.lsm * 10) / 10).toFixed(1)} kPa`, band: lsmBand(pred.lsm) });
+  return out;
+}

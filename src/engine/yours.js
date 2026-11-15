@@ -3,7 +3,7 @@
 // time, never read back from storage, so a record that was edited or is old can only ever give a patient the app can make. Pure: no storage here
 // (src/ui/yours-store.js keeps them on this device), no engine; the worker and the page both read it.
 
-import { FAMILY, patientOf, settingText } from './inverse-families.js';
+import { FAMILY, LESION, patientOf, settingText } from './inverse-families.js';
 import { READINGS, READING_KEYS, readingText } from './inverse.js';
 import { registerPreset, forgetPreset, PRESETS } from './scenario.js';
 
@@ -22,10 +22,9 @@ export function yoursId(f, p) {
   return 'yours-' + x.toString(36);
 }
 
-/** The patient's name in the menu: its family and the settings that were fitted ("Presinusoidal block (×50, ×2.2)"). */
+/** The patient's name in the menu: each lesion with how far it is pushed ("Cirrhosis 30% + Right heart failure marked"). */
 export function yoursLabel(f, p) {
-  const fam = FAMILY[f], set = fam.axes.map((k) => settingText(k, p[k])).join(', ');
-  return `${fam.label} (${set})`;
+  return FAMILY[f].axes.map((k) => `${LESION[k].short} ${settingText(k, p[k])}`).join(' + ');
 }
 
 /** The readings as a short sentence for the patient's summary: the first few, then "and n more". */

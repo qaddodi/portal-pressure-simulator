@@ -32,14 +32,14 @@ const reset = () => { fr.state.raw = {}; fr.state.step = 0; fr.state.view = 'ste
 // (A sheet put away is still in the page for its exit: take it out, as the exit's timer does, so the next open is the only one.)
 const openFresh = () => { closePopover(); for (const e of document.querySelectorAll('.fr-pop, .um-scrim')) e.remove(); fr.open(anchor); };
 
-test('it opens on the pressures step with its rows, the count of all lesion types and a skip', () => {
+test('it opens on the pressures step with its rows, the count of all the mixes, a pill for each lesion and a skip', () => {
   reset();
   openFresh();
   assert.ok(root(), 'the sheet is in the page');
   assert.equal(STEPS.length, 4);
   assert.deepEqual([...body().querySelectorAll('input')].map((i) => i.dataset.k), ['whvp', 'fhvp', 'hvpg', 'pv', 'ppg', 'ivc', 'ra']);
-  assert.equal(count(), FAMILIES.length, 'nothing entered: every lesion type is still possible');
-  assert.equal(Object.keys(pills()).length, FAMILIES.length);
+  assert.equal(count(), FAMILIES.length, 'nothing entered: every mix is still possible');
+  assert.equal(Object.keys(pills()).length, 8, 'a pill for each lesion');
   assert.ok(Object.values(pills()).every((s) => s === 'possible'));
   assert.match(body().querySelector('.fr-next').textContent, /skip/i, 'nothing entered: the one button skips');
   assert.match(body().textContent, /Model scenarios, not diagnoses/);
@@ -84,9 +84,12 @@ test('a ranking from a presinusoidal patient: ties shown as ties, what each cann
   next();
   assert.equal(fr.state.view, 'results');
   const heads = body().querySelector('.fr-q').textContent;
-  assert.match(heads, /3 scenarios fit about equally/);
+  assert.match(heads, /\d+ scenarios fit about equally/);
   const cards = [...body().querySelectorAll('.fr-card[data-s="best"], .fr-card[data-s="tie"]')].map((c) => c.dataset.f);
-  assert.deepEqual(cards.sort(), ['mixpvt', 'presin', 'pvt']);
+  assert.ok(cards.includes('pvt') && cards.includes('presin') && cards.includes('sinus+pvt'), 'the blocks before the sinusoids tie: ' + cards);
+  assert.ok(body().querySelector('.fr-card .fr-rate').textContent.startsWith('Rating'), 'each card is rated');
+  assert.ok(body().querySelectorAll('.fr-card .fr-set li').length >= 1, 'each card lists the exact settings');
+  assert.ok(body().querySelectorAll('.fr-card .fr-back li').length > Object.keys(fr.state.raw).length, 'and the readings the model gives back beside the ones entered');
   assert.match(body().textContent, /Cannot explain/);
   assert.match(body().textContent, /Next reading to take/);
   assert.match(body().textContent, /Model scenarios, not diagnoses\. Saved on this device only\./);
@@ -102,7 +105,7 @@ test('Open as patient hands over the family, its settings and only the readings 
   assert.equal(opened[0].f, 'presin');
   assert.deepEqual(Object.keys(opened[0].r).sort(), ['asc', 'fhvp', 'lsm', 'plt', 'ppg', 'spleen', 'ssm', 'whvp']);
   assert.equal(opened[0].r.asc, 0);
-  assert.ok(opened[0].p.pre > 0 && opened[0].p.sin > 0);
+  assert.ok(opened[0].p.presin >= 0.1 && opened[0].p.presin <= 1);
 });
 
 test('a reading that is made from two others is left out and said so; unknown readings are never passed on', () => {

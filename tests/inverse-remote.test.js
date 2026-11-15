@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createInverseRemote, REFINE_TIMEOUT_MS } from '../src/ui/inverse-remote.js';
 import { LIBRARY } from '../src/engine/inverse-library.js';
 import { keyOf, FAMILY } from '../src/engine/inverse-families.js';
-import { pointsOf, MIN_READINGS } from '../src/engine/inverse.js';
+import { pointsOf, MIN_READINGS, REFINE_PER_ROUND } from '../src/engine/inverse.js';
 
 const A = { whvp: 8.0, fhvp: 4.5, ppg: 14, spleen: 16, plt: 78, lsm: 6.5, ssm: 68, asc: 0 };
 const libKeys = new Set(pointsOf(LIBRARY).map((p) => keyOf(p.f, p.p)));
@@ -29,7 +29,8 @@ test('with no worker the ranking is the grid\'s and the status says so', () => {
   assert.equal(r.status(), 'library');
   const res = r.set(A);
   assert.equal(res.ready, true);
-  assert.equal(res.families[0].id, 'presin');
+  assert.ok(['pvt', 'presin'].includes(res.families[0].id), res.families[0].id);
+  assert.ok(['presin', 'pvt'].every((id) => res.families.find((f) => f.id === id).status !== 'out'), 'the two blocks before the sinusoids both stay in play');
 });
 
 test('too few readings start no refinement', () => withWorker(() => {
@@ -50,9 +51,8 @@ test('enough readings rank at once and start a refinement; its rounds add patien
   assert.equal(w.sent[0].t, 'refine');
   assert.deepEqual(Object.keys(w.sent[0].readings).sort(), Object.keys(A).sort());
   const seq = w.sent[0].seq, base = first.families.find((f) => f.id === 'presin').count;
-  // a patient the worker ran: one step off the library's best presinusoidal point
-  const row = ['presin', [55, 2.2], pointsOf(LIBRARY).find((p) => p.f === 'presin' && p.p.pre === 50 && p.p.sin === 2.2).r];
-  row[2] = Object.values(row[2]);
+  // a patient the worker ran: one probe off the library's best presinusoidal point
+  const row = ['presin', [0.95], Object.values(pointsOf(LIBRARY).find((p) => p.f === 'presin' && p.p.presin === 1).r)];
   w.onmessage({ data: { t: 'points', seq, rows: [row], round: 1, rounds: 3, done: false } });
   assert.equal(seen.length, 1);
   assert.equal(r.status(), 'refining');
@@ -127,7 +127,7 @@ test('the real worker runs the engine near the best fit and sends back patients 
   const m = got.find((x) => x.rows?.length);
   assert.equal(m.seq, 7);
   assert.equal(m.round, 1);
-  assert.ok(m.rows.length > 0 && m.rows.length <= 14);
+  assert.ok(m.rows.length > 0 && m.rows.length <= REFINE_PER_ROUND);
   const pts = pointsOf(m.rows);
   for (const pt of pts) assert.ok(!libKeys.has(keyOf(pt.f, pt.p)), 'a refined patient is a new one: ' + keyOf(pt.f, pt.p));
   assert.ok(pts.every((pt) => FAMILY[pt.f]));

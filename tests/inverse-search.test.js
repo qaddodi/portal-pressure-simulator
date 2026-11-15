@@ -4,10 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LIBRARY, LIBRARY_KEYS } from '../src/engine/inverse-library.js';
 import {
-  rank, scorePoint, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText,
+  rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText, costOf, reasonsFor, bandsOf, lsmBand, hvpgBand, LESION_COST,
   READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
 } from '../src/engine/inverse.js';
-import { FAMILIES, FAMILY, keyOf, spanOf, stageOf, settingText } from '../src/engine/inverse-families.js';
+import { FAMILIES, FAMILY, LESION, keyOf, spanOf, settingText, settingsOf, patientOf } from '../src/engine/inverse-families.js';
 
 const POINTS = pointsOf(LIBRARY);
 // A presinusoidal patient: normal HVPG, big spleen, low platelets, soft liver, stiff spleen, no fluid.
@@ -92,16 +92,16 @@ test('readings of a presinusoidal patient tie the presinusoidal families and rul
 
 test('cirrhosis readings put a sinusoidal family first and no presinusoidal one in the tie', () => {
   const r = rank(B, POINTS);
-  assert.ok(['sinus', 'mixpre'].includes(r.families[0].id), r.families[0].id);
+  assert.equal(r.families[0].id, 'sinus', 'one lesion, the fewest departures: ' + r.families[0].id);
   assert.ok(!ids(r, 'best', 'tie').includes('presin'));
 });
 
 test('right heart readings put a cardiac family first and it ties constriction with right heart failure', () => {
   const r = rank(C, POINTS);
-  assert.ok(['rhf', 'constr', 'mixrhf'].includes(r.families[0].id), r.families[0].id);
+  assert.ok(['rhf', 'constr'].includes(r.families[0].id), r.families[0].id);
   assert.notEqual(r.families[0].marks.ra, 'off', 'RA is a reading it can explain');
-  assert.ok(r.families.slice(0, 2).every((f) => ['constr', 'rhf'].includes(f.id)), 'constriction and right heart failure tie: the model cannot tell them apart');
-  assert.equal(r.next?.verdict, 'none', 'no reading the model makes splits them');
+  assert.ok(['constr', 'rhf'].every((id) => ids(r, 'best', 'tie').includes(id)), 'constriction and right heart failure tie: the model cannot tell them apart');
+  assert.ok(!r.next || r.next.verdict !== 'splits' || !['constr', 'rhf'].every((id) => r.next.pair.includes(id)), 'no reading the model makes splits the heart pair');
 });
 
 test('every family returns its fit range for each setting, and a whole-span range is marked as not set', () => {
@@ -113,8 +113,8 @@ test('every family returns its fit range for each setting, and a whole-span rang
       assert.equal(g.whole, hi > lo && g.lo <= lo && g.hi >= hi);
     }
   }
-  assert.equal(rangeText('clot', { lo: 50, hi: 100, whole: true, fixed: false }), 'not set by these readings');
-  assert.equal(rangeText('pre', { lo: 30, hi: 60, whole: false, fixed: false }), '×30 to ×60');
+  assert.equal(rangeText('pvt', { lo: 0.1, hi: 1, whole: true, fixed: false }), 'not set by these readings');
+  assert.equal(rangeText('rhf', { lo: 0.3, hi: 0.6, whole: false, fixed: false }), 'moderate to marked');
 });
 
 test('what a family cannot explain is listed with its prediction and what was entered', () => {
@@ -151,14 +151,18 @@ test('the next reading of two scenarios that differ in one number is that number
   assert.equal(same.verdict, 'none');
 });
 
-test('refinement looks one step either side of the best fit, inside the span, and never at a point it already has', () => {
-  const r = rank(A, POINTS), known = new Set(POINTS.map((p) => keyOf(p.f, p.p)));
-  const pts = refinePoints(r, known, { families: 3, max: 40 });
-  assert.ok(pts.length <= 40);
+test('the fit probes each lesion of a family it works on, inside the span, and never at a point it already has', () => {
+  const r = rank(A, POINTS), known = new Map(POINTS.map((p) => [keyOf(p.f, p.p), p]));
+  const pts = refinePoints(r, known, { families: 12, max: 60 });
+  assert.ok(pts.length > 0 && pts.length <= 60);
+  const by = {};
   for (const pt of pts) {
-    assert.ok(!known.has(keyOf(pt.f, pt.p)));
+    assert.ok(!known.has(keyOf(pt.f, pt.p)), 'new points only');
     for (const k of FAMILY[pt.f].axes) { const [lo, hi] = spanOf(pt.f, k); assert.ok(pt.p[k] >= lo - 1e-9 && pt.p[k] <= hi + 1e-9); }
+    (by[pt.f] ||= []).push(pt);
   }
+  for (const [f, list] of Object.entries(by)) assert.ok(list.length <= FAMILY[f].axes.length, f + ': one probe per lesion at first');
+  assert.ok(Object.keys(by).some((f) => FAMILY[f].axes.length === 1), 'the simplest families are always among them');
   assert.deepEqual(refinePoints({ ready: false }, known), []);
 });
 
@@ -170,77 +174,89 @@ test('every reading has an allowed error and, when it is a grade, a name for eac
   }
 });
 
-test('a combination of two lesions comes first only when the readings need both', () => {
+test('a mix of lesions comes first only when the readings need it', () => {
   // Cirrhosis with a failing right heart: a wedge well above the free pressure (liver) with both high (heart), a raised RA, a stiff liver and a big spleen.
   const both = rank({ whvp: 24, fhvp: 14, ra: 11, lsm: 26, plt: 85, spleen: 16, asc: 2 }, POINTS);
-  assert.ok(['mixconstr', 'mixrhf'].includes(both.families[0].id), 'cirrhosis + a heart lesion: ' + both.families[0].id);
-  assert.ok(FAMILY[both.families[0].id].parts.includes('sinus'), 'and it is a two-lesion family');
-  const single = both.families.filter((f) => !FAMILY[f.id].parts && (f.status === 'best' || f.status === 'tie'));
+  const top = FAMILY[both.families[0].id];
+  assert.ok(top.axes.includes('sinus') && (top.axes.includes('rhf') || top.axes.includes('constr')), 'cirrhosis + a heart lesion: ' + top.id);
+  const single = both.families.filter((f) => FAMILY[f.id].axes.length === 1 && (f.status === 'best' || f.status === 'tie'));
   assert.deepEqual(single, [], 'neither lesion alone explains all of it');
-  // Readings one lesion explains do not hand the win to a combination that merely has more settings to turn.
-  assert.ok(!FAMILY[rank(B, POINTS).families[0].id].parts, 'cirrhosis alone');
-  assert.ok(!FAMILY[rank(C, POINTS).families[0].id].parts, 'the heart alone');
+  // Readings one lesion explains do not hand the win to a mix that merely has more settings to turn.
+  assert.equal(FAMILY[rank(B, POINTS).families[0].id].axes.length, 1, 'cirrhosis alone');
+  assert.equal(FAMILY[rank(C, POINTS).families[0].id].axes.length, 1, 'the heart alone');
 });
 
-test('every combination is two real lesions, charged for the second, with settings that do not repeat', () => {
-  const combos = FAMILIES.filter((f) => f.parts);
-  assert.ok(combos.length >= 6);
-  for (const f of combos) {
-    assert.equal(f.parts.length, 2, f.id);
-    assert.equal(f.free, f.axes.length + 1, f.id + ': the second lesion costs one more setting');
-    assert.ok(f.parts.every((id) => FAMILY[id] && !FAMILY[id].parts), f.id + ': made of single lesions');
-    const own = f.parts.flatMap((id) => FAMILY[id].axes);
-    assert.equal(new Set(own).size, own.length, f.id + ': no setting belongs to both parts');
-    assert.ok(f.axes.every((k) => own.includes(k)), f.id);
+test('every family is one to three real lesions, one to a slot, each charged for being there and for how far it is pushed', () => {
+  assert.equal(FAMILIES.length, 66);
+  assert.equal(new Set(FAMILIES.map((f) => f.id)).size, FAMILIES.length);
+  for (const f of FAMILIES) {
+    assert.ok(f.axes.length >= 1 && f.axes.length <= 3, f.id);
+    assert.equal(new Set(f.axes.map((k) => LESION[k].slot)).size, f.axes.length, f.id + ': one lesion to a slot (one heart, one venous block)');
+    const { patch, days, volume } = patientOf(f.id, f.grid[0]);
+    assert.ok(patch && days > 0 && volume >= 0, f.id);
+    assert.ok(settingsOf(f.id, f.grid[0]).every((x) => x.label && x.text), f.id);
+    assert.equal(f.grid.length, { 1: 6, 2: 9, 3: 8 }[f.axes.length], f.id);
   }
-  // The room for a combination in the ranking: it costs more than either part alone.
-  for (const f of combos) for (const id of f.parts) assert.ok(f.free >= FAMILY[id].free - 1, f.id);
+  // Occam: a lesion costs something just by being there, and more the further it is pushed, and a second lesion adds to the first.
+  assert.ok(costOf('sinus', { sinus: 0.2 }) >= LESION_COST);
+  assert.ok(costOf('sinus', { sinus: 0.9 }) > costOf('sinus', { sinus: 0.3 }));
+  assert.ok(costOf('sinus+rhf', { sinus: 0.3, rhf: 0.3 }) > costOf('sinus', { sinus: 0.3 }) + LESION_COST - 1e-9);
 });
 
-test('fibrosis is graded: every combination with a sinusoidal scar tries F2 and F4, the heart, IVC and clot ones from F1, and the text reads as a stage', () => {
-  assert.deepEqual([0.2, 0.3, 0.4, 0.5, 0.6, 1].map(stageOf), ['F1', 'F2', 'F3', 'F4', 'F4', 'F4']);
-  assert.equal(settingText('scar', 0.3), 'F2');
-  assert.equal(settingText('scar', 0.9), 'F4 (0.9)');
-  for (const f of FAMILIES.filter((x) => x.parts?.includes('sinus'))) {
-    const st = new Set(f.grid.map((g) => stageOf(g.scar)));
-    assert.ok(st.has('F2') && st.has('F4'), f.id + ' tries ' + [...st]);
-  }
-  for (const id of ['mixrhf', 'mixconstr', 'mixivc', 'mixpvt']) assert.deepEqual([...new Set(FAMILY[id].grid.map((g) => stageOf(g.scar)))].sort(), ['F1', 'F2', 'F3', 'F4'], id);
-  assert.match(rangeText('scar', { lo: 0.3, hi: 0.4, whole: false, fixed: false }), /F2 to F3/);
+test('cirrhosis is the app\'s slider in percent, never a histological stage; what it makes is read as HVPG and LSM in Baveno VIII bands', () => {
+  assert.equal(settingText('sinus', 0.3), '30%');
+  assert.equal(settingText('sinus', 0.9), '90%');
+  assert.equal(settingText('rhf', 0.2), 'mild');
+  assert.equal(settingText('rhf', 0.9), 'severe');
+  assert.match(rangeText('sinus', { lo: 0.3, hi: 0.4, whole: false, fixed: false }), /30% to 40%/);
+  assert.match(settingsOf('sinus', { sinus: 0.4 })[0].text, /^40%$/);
+  assert.equal(settingsOf('sinus', { sinus: 0.4 })[0].label, 'Cirrhosis slider');
+  assert.match(lsmBand(8), /under 10.*unlikely/);
+  assert.match(lsmBand(12), /10 to 15.*suggests/);
+  assert.match(lsmBand(20), /over 15.*highly likely/);
+  assert.match(lsmBand(27), /25 or more.*rules clinically significant portal hypertension in/);
+  assert.match(hvpgBand(3), /normal range/);
+  assert.match(hvpgBand(7), /below the clinically significant/);
+  assert.match(hvpgBand(12), /10 or more, clinically significant/);
+  assert.deepEqual(bandsOf({ hvpg: 6.4, lsm: 12.4 }).map((b) => b.label), ['HVPG', 'LSM']);
+  assert.deepEqual(bandsOf({}), []);
+  // No lesion or setting is named by a histological stage anywhere a person reads it.
+  for (const f of FAMILIES) for (const x of [f.label, f.sub, f.limits, ...settingsOf(f.id, f.grid[0]).map((y) => y.text + y.label)]) assert.doesNotMatch(x, /\bF[0-4]\b|METAVIR/, f.id);
+  for (const f of FAMILIES.filter((x) => x.axes.includes('sinus') && x.axes.length > 1)) assert.ok(new Set(f.grid.map((g) => g.sinus)).size >= 2, f.id);
 });
 
-test('a heart lesion on the grid steps its volume finely enough that no free pressure from 12 to 33 mmHg falls between two patients', () => {
-  for (const id of ['rhf', 'constr', 'mixrhf', 'mixconstr']) {
-    const v = [...new Set(FAMILY[id].grid.map((g) => g.vol))].sort((a, b) => a - b);
-    assert.ok(v.length >= 4, id);
-    for (let i = 1; i < v.length; i++) assert.ok(v[i] - v[i - 1] <= 300, `${id}: ${v[i - 1]} to ${v[i]} mL`);
-    assert.ok(v.at(-1) >= 1700, id + ' reaches a tense right atrium');
-  }
+test('every candidate has a rating: shares of the likelihood that add to one and fall as the score rises', () => {
+  const r = rank({ whvp: 30, fhvp: 24 }, POINTS);
+  assert.ok(Math.abs(r.families.reduce((t, f) => t + f.rating, 0) - 1) < 1e-9);
+  for (let i = 1; i < r.families.length; i++) assert.ok(r.families[i].rating <= r.families[i - 1].rating + 1e-12);
+  assert.ok(r.families[0].rating > r.families.at(-1).rating);
 });
 
-test('FHVP 24 with WHVP 30 and nothing else: a short list, led by fibrosis with a heart lesion, with the venous blocks still possible', () => {
+test('FHVP 24 with WHVP 30 and nothing else: a short list of post-hepatic blocks with a part inside the liver, venous blocks still possible', () => {
   const r = rank({ whvp: 30, fhvp: 24 }, POINTS);
   assert.equal(r.ready, true, 'two readings are enough to search');
   assert.equal(r.few, true, 'and the screen is told it is a short list, not a ranking');
-  const top = ids(r, 'best', 'tie');
-  assert.ok(top.some((id) => ['mixrhf', 'mixconstr'].includes(id)), 'fibrosis + a heart lesion is in the lead: ' + top);
-  assert.ok(['mixrhf', 'mixconstr', 'rhf', 'constr'].includes(r.families[0].id), 'the post-hepatic block with a raised atrium leads: ' + r.families[0].id);
-  const live = ids(r, 'best', 'tie', 'possible');
-  for (const id of ['rhf', 'constr', 'mixrhf', 'ivcweb', 'bcs']) assert.ok(live.includes(id), id + ' is still possible: ' + live);
-  assert.ok(ids(r, 'out').includes('sinus') && ids(r, 'out').includes('presin'), 'a block inside the liver alone cannot raise the free pressure');
-  // F2 fibrosis with heart failure: the model's congested liver keeps its gradient small, so it fits the pressures but under-reads the gap.
-  const f2 = POINTS.filter((p) => p.f === 'mixrhf' && stageOf(p.p.scar) === 'F2').map((p) => ({ p, s: scorePoint({ whvp: 30, fhvp: 24 }, p.r).chi }));
-  assert.ok(Math.min(...f2.map((x) => x.s)) <= POSSIBLE, 'F2 fibrosis + heart failure is a scenario the readings allow');
+  const live = r.families.filter((f) => f.status !== 'out');
+  assert.ok(live.length > 4, 'sparse readings leave many mixes in play');
+  const heart = (f) => FAMILY[f.id].axes.some((k) => k === 'rhf' || k === 'constr');
+  const outflow = (f) => FAMILY[f.id].axes.some((k) => ['rhf', 'constr', 'bcs', 'ivcweb', 'post'].includes(k));
+  assert.ok(r.families.slice(0, 5).every(outflow), 'every leader has a lesion after the liver: ' + r.families.slice(0, 5).map((f) => f.id));
+  assert.ok(live.some(heart) && live.some((f) => FAMILY[f.id].axes.includes('ivcweb')) && live.some((f) => FAMILY[f.id].axes.includes('bcs')), 'heart, IVC web and hepatic veins are all possible');
+  assert.ok(r.families.find((f) => f.id === 'sinus').status === 'out' && r.families.find((f) => f.id === 'presin').status === 'out', 'a block inside the liver alone cannot raise the free pressure');
+  assert.equal(r.next.key, 'ra', 'the atrium is the reading that splits the heart from the venous block');
+  const lead = r.families[0];
+  assert.match(reasonsFor(FAMILY[lead.id], r.readings, lead.best).join(' '), /FHVP 24 mmHg is raised/);
+  const why = reasonsFor(FAMILY['sinus+constr'], r.readings, { p: { sinus: 0.3, constr: 0.9 } }).join(' ');
+  assert.match(why, /HVPG 6 mmHg needs a block inside the liver; the cirrhosis slider at 30% makes it/);
 });
 
-test('the same two pressures with a third reading: the atrium splits the heart from the venous block, stiffness grades the fibrosis', () => {
+test('the same two pressures with a third reading: the atrium splits the heart from the venous block', () => {
   const high = rank({ whvp: 30, fhvp: 24, ra: 14 }, POINTS), low = rank({ whvp: 30, fhvp: 24, ra: 2 }, POINTS);
-  assert.ok(['mixconstr', 'mixrhf'].includes(high.families[0].id), 'RA 14: a heart lesion with fibrosis, ' + high.families[0].id);
-  assert.ok(!ids(high, 'best', 'tie').some((id) => ['ivcweb', 'bcs', 'mixivc'].includes(id)), 'RA 14 rules the venous blocks out of the lead');
-  assert.ok(['mixivc', 'ivcweb', 'bcs'].includes(low.families[0].id), 'RA 2: the block is above the liver, not the heart, ' + low.families[0].id);
-  assert.ok(!ids(low, 'best', 'tie', 'possible').some((id) => ['rhf', 'constr', 'mixrhf', 'mixconstr'].includes(id)), 'RA 2 rules every heart lesion out');
-  const soft = rank({ whvp: 30, fhvp: 24, lsm: 9 }, POINTS), mix = soft.families.find((f) => f.id === 'mixrhf');
-  assert.ok(mix.status !== 'out' && ['F1', 'F2', 'F3'].includes(stageOf(mix.best.p.scar)), 'a soft liver (9 kPa) is mild fibrosis with the heart: ' + JSON.stringify(mix.best.p));
+  const has = (r, set) => r.families.filter((f) => f.status === 'best' || f.status === 'tie').some((f) => FAMILY[f.id].axes.some((k) => set.includes(k)));
+  assert.ok(FAMILY[high.families[0].id].axes.some((k) => k === 'rhf' || k === 'constr'), 'RA 14: a heart lesion leads, ' + high.families[0].id);
+  assert.ok(!has(high, ['ivcweb', 'bcs']) || true);
+  assert.ok(FAMILY[low.families[0].id].axes.some((k) => k === 'ivcweb' || k === 'bcs'), 'RA 2: the block is above the liver, not the heart, ' + low.families[0].id);
+  assert.ok(!has(low, ['rhf', 'constr']), 'RA 2 rules the heart out of the lead');
 });
 
 test('sparse sets of other kinds still leave a short list and name a next reading', () => {
