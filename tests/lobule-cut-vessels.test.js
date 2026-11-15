@@ -21,7 +21,7 @@ test('tubeShade (Classic and Mesh) breaks the band at a mouth, and the cel shade
   const shade = shadeGLSL(FLAGS), cel = celGLSL(FLAGS);
   assert.ok(shade.includes(`(flags & ${F_RING}) != 0 && aL > 0.0`), 'tubeShade');
   assert.ok(shade.includes('(1.0 - ringOpen(T(id, 3).xyz, g))'), 'the band is cut where a vessel joins');
-  assert.ok(cel.includes(`(flags & ${F_RING}) != 0 && aL > 0.0) lum = celDisc(lum, T(id, 4).rgb, D, R, 0.8 * wl, aa, ringOpen(T(id, 3).xyz, g));`), 'celShade');
+  assert.ok(cel.includes(`(flags & ${F_RING}) != 0 && aL > 0.0) lum = celDisc(lum, T(id, 4).rgb, D, R, discLine(T(id, 3).w, wl, px, (flags & 64) != 0), aa, ringOpen(T(id, 3).xyz, g));`), 'celShade');
   assert.ok(/vec3 celDisc\(vec3 lum, vec3 ink, float D, float R, float wl, float aa, float open\)/.test(cel), 'celDisc is defined with the tones');
   const host = `#version 300 es\nprecision highp float;\n${shade.slice(shade.indexOf('float ringOpen('), shade.indexOf("// The tier's shape drawn"))}\n${cel.replace(/vec4 celShade[\s\S]*$/, '')}\nout vec4 o; void main(){ o = vec4(celDisc(vec3(0.5), vec3(0.1), -1.0, 10.0, 2.0, 1.0, ringOpen(vec3(1.0, 2.0, 3.0), vec2(1.0, 0.0))), 1.0); }`;
   assert.deepEqual(lintGLSL(host), []);

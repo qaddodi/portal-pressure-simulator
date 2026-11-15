@@ -7,6 +7,7 @@ import { createFieldGL } from './field-gl.js';
 import { easeNow } from './frame.js';
 import { FX_GPU } from './fx-gl.js';
 import { LIGHT } from './light.js';
+import { flareAt } from './lobule-mouths.js';
 import { FADE_MID, FIELD_RS, NEIGHBOUR_FLAT, SIN_NARROW, dullSinusoidInto, fadeOuter, fieldBlend, fieldDof, greyStep, neighbourBlur, surroundGrade } from './lobule-look.js';
 import { lensModeOf, lobuleStateInto, lymphRate } from './lobule-model.js';
 import { fibrousBand, fibrousCuff, fibrousTract, scarGrowth } from './lobule-paint.js';
@@ -450,9 +451,9 @@ export function createLobuleField(st, live) {
     switch (t.kind) {
       case 's0': return rs;
       case 's1': return rs * 1.15;
-      case 's2': return rs * 1.3;
+      case 's2': return rs * 1.3 * flareAt(t.rho[i] * R - R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost), rs * 1.3);   // (opens like a trumpet into the central vein: lobule-mouths.js flareAt)
       case 'an': return rs * 0.68;
-      case 'in': return lerp(R * 0.015, R * 0.009, i / (N - 1)) / (1 + 0.45 * m.fibPre);
+      case 'in': { const r = lerp(R * 0.015, R * 0.009, i / (N - 1)) / (1 + 0.45 * m.fibPre); return r * flareAt(Math.hypot(t.pts[i][0] - t.pts[0][0], t.pts[i][1] - t.pts[0][1]) - R * 0.042 / (1 + 0.35 * m.fibPre), r); }   // (and from the portal venule's side: the same flare)
       case 'pv': return R * 0.042 / (1 + 0.35 * m.fibPre);
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.0115 * clamp(m.art, 0.6, 2.2) ** 0.3);   // (the triad's smallest vessel: 0.014 read as a big red bulb, 6 Nov)
@@ -489,8 +490,6 @@ export function createLobuleField(st, live) {
   const LY_TMP = [0, 0, 0];   // (the lymph's colour, written in place for each drawGL pass to read at once)
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
-  // Radius (in lobule radii) inside which the sinusoid outlines stop: the central vein's edge.
-  const CV_STOP = 0.14;
   const TW_ALPHA = 0.45;   // the arteriole's twig, faint: zone 1's arterial inflow is a hint beside the portal inflow, not a second vessel
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
@@ -632,5 +631,5 @@ export function createLobuleField(st, live) {
     netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),   // alloc-rare: lookOf, a new copy of the styles only
   });
   const triplet = (cs, n) => { const k = cs.getPropertyValue(n).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
-  return { BD_FILL, CV_STOP, DISSE_DEEP, DISSE_DEEP_DARK, DRAW_T, EDGE, LENS_FADE, LYD, LY_TMP, NO_BLOOD, ORIGIN_RGB, TW_ALPHA, WALL, Z_OF, bloodArg, calibersChanged, cssTrim, drawSame, drawTile, easeRadii, fieldLook, fieldState, freeCopies, grey, greyMoving, greyNow, ink, inkNow, lensK, lookOf, lyF, lyInkInto, lyProt, maxOf, noteDrawn, noteLens, paintAhead, paintField, preparePieces, prepareRun, prewarm, put3, qP, quietCopy, radKeep, radiiNow, radiusAt, rowsOf, rzOf, selMoved, shadeOf, stage, stageBg, tileAt, tileDrawn, tileDue, tileLaterRun, tileSets, tubeRGB, warm };
+  return { BD_FILL, DISSE_DEEP, DISSE_DEEP_DARK, DRAW_T, EDGE, LENS_FADE, LYD, LY_TMP, NO_BLOOD, ORIGIN_RGB, TW_ALPHA, WALL, Z_OF, bloodArg, calibersChanged, cssTrim, drawSame, drawTile, easeRadii, fieldLook, fieldState, freeCopies, grey, greyMoving, greyNow, ink, inkNow, lensK, lookOf, lyF, lyInkInto, lyProt, maxOf, noteDrawn, noteLens, paintAhead, paintField, preparePieces, prepareRun, prewarm, put3, qP, quietCopy, radKeep, radiiNow, radiusAt, rowsOf, rzOf, selMoved, shadeOf, stage, stageBg, tileAt, tileDrawn, tileDue, tileLaterRun, tileSets, tubeRGB, warm };
 }

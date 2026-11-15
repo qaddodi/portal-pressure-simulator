@@ -12,6 +12,7 @@
 // tubeBuckets and websByTier run in a frame and make nothing at all.
 import { N_SAMPLES, memberOf } from './veins-mesh.js';
 import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
+import { F_RING } from './veins-mesh-glsl.js';
 import { WEB_FLOATS, WEB_MIN_DEG, WEB_TAPER_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
 import { endTrunk, endContinues, END_THRU_START, END_THRU_END, joinThruSideJS, joinNextCode } from './tube-join-glsl.js';
 
@@ -377,6 +378,10 @@ export function webInstances(joinEntries, tubeData, pts, out, ends = true) {
       if (gap < WEB_TAPER_DEG * DEG || gap >= WEB_MAX_DEG * DEG) { skipped++; continue; }
       // A mouth: one leg is a branch that ends here (one leg of its row), the other a trunk running through (two legs). The join cuts the branch at the trunk's wall and carries the trunk's tones on,
       // so its crotch is a plain V; a fillet web there adds a round bay whose outline steps off the branch's real wall, a dark wedge of the branch's shade and a pale rim. Under MOUTH_WEB_DEG it is left out (13 Nov 2026).
+      // A disc seen end-on (the lobule's central vein, portal venule, arteriole, ductule: F_RING) is a point with a radius, not a vessel with a wall line: its "legs" run along a 0.6 unit stub, so a
+      // fillet web against it landed off the real rim, a speck of the disc's colour and a black tick on the outline beside every mouth (15 Nov 2026, Mohammad: the central vein looked chipped).
+      // The vessel's flare into the disc (lobule-mouths.js flareAt) is the fillet there.
+      if ((tubeData[S.row[la] * TUBE_FLOATS + 10] & F_RING) !== 0 || (tubeData[S.row[lb] * TUBE_FLOATS + 10] & F_RING) !== 0) { skipped++; continue; }
       let nA = 0, nB = 0;
       for (let c = 0; c < n; c++) { if (S.row[c] === S.row[la]) nA++; if (S.row[c] === S.row[lb]) nB++; }
       if ((nA === 1) !== (nB === 1) && gap < MOUTH_WEB_DEG * DEG) { skipped++; continue; }

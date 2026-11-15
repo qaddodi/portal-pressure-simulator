@@ -67,6 +67,7 @@ import { hitLabel } from './label-explain.js';
 import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 import { createLobuleField } from './lobule-zoom-field.js';
+import { mouthSite, mouthWords } from './lobule-mouths.js';
 import { createLobuleRecords } from './lobule-zoom-records.js';
 import { createLobuleLabels } from './lobule-zoom-labels.js';
 const nextFrame = frameFor('lobule-zoom');
@@ -1334,30 +1335,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
     for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-    // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so
-    // the vessel flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). 72 bins of 5 degrees from -180, bit b % 24 of word b / 24, each joining vessel's mouth
-    // from the joining vessel's healthy radius against the disc's, 2 degrees over (a bin, 5 degrees, is its softness). The disc's healthy radius is used (the mask is built once, with the geometry).
+    // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
+    // flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). Only where each vessel arrives is kept here; the mask itself is worked out from the radii as drawn (lobule-mouths.js).
     const mouths = new Map();
     for (const t of tubes) {
       if (t.kind !== 'pv' && t.kind !== 'cv' && t.kind !== 'ha' && t.kind !== 'bd') continue;
-      const a0 = t.pts[0], a1 = t.pts[t.pts.length - 1], mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2;
-      const rD = t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145));
-      const words = [0, 0, 0];
-      for (const j of joins) {
-        if (!j.members.includes(t.id)) continue;
-        for (const oid of j.members) {
-          if (oid === t.id) continue;
-          let best = null, bd = Infinity;
-          for (const p of tubes[oid].pts) { const d = Math.abs(Math.hypot(p[0] - mx, p[1] - my) - rD * 1.5); if (d < bd) { bd = d; best = p; } }
-          const o = tubes[oid], rO = o.kind === 's1' ? rsN * 1.15 : o.kind === 's2' ? rsN * 1.3 : o.kind === 'an' ? rsN * 0.68 : o.kind === 'in' ? R * 0.015 : o.kind === 'tw' ? Math.max(0.8, R * 0.0026) : o.kind === 's0' ? rsN : j.rs;
-          const ang = Math.atan2(best[1] - my, best[0] - mx), half = Math.asin(Math.min(0.94, rO / rD)) + 0.03;
-          for (let b = 0; b < 72; b++) {
-            const th = ((b + 0.5) / 72 - 0.5) * TAU;
-            if (Math.abs(Math.atan2(Math.sin(th - ang), Math.cos(th - ang))) <= half) words[Math.floor(b / 24)] |= 1 << (b % 24);
-          }
-        }
-      }
-      mouths.set(t.id, words);
+      const site = mouthSite(t, tubes, joins, t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145)));
+      if (site) mouths.set(t.id, site);
     }
     return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
@@ -1908,7 +1892,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // software, and set aside if its context is lost (the tissue then waits for the context back: nothing is painted on a 2D canvas).
   let tissueGL, tissueOnGL = false;
     let diveRim = null;
-  const { BD_FILL, CV_STOP, DISSE_DEEP, DISSE_DEEP_DARK, DRAW_T, EDGE, LENS_FADE, LYD, LY_TMP, NO_BLOOD, ORIGIN_RGB, TW_ALPHA, WALL, Z_OF, bloodArg, calibersChanged, cssTrim, drawSame, drawTile, easeRadii: easeRadii$, fieldLook, fieldState, freeCopies, grey, greyMoving, greyNow, ink, inkNow, lensK, lookOf, lyF, lyInkInto, lyProt, maxOf, noteDrawn, noteLens: noteLens$, paintAhead, paintField, preparePieces, prepareRun, prewarm, put3, qP, quietCopy, radKeep, radiiNow, radiusAt, rowsOf, rzOf, selMoved, shadeOf, stage, stageBg, tileAt, tileDrawn, tileDue, tileLaterRun, tileSets, tubeRGB, warm } = createLobuleField({ MAXT, N, TAU, V, binAway, binCache, buildWide, css, draw, dropWide, ensureGL, field, fieldG, figureTop, free, fsBuf, fxGLOn, glRows, host, hostSize, isDark, lzDensity, lzLoop, modelBuf, padBox, paintWorld, reduce, release, resetView, rgb01, sX, sY, smooth, snapState, styles, tissueGLOn, tk, tubeData, unseen, wideGLOn, worldCap }, live);
+  const { BD_FILL, DISSE_DEEP, DISSE_DEEP_DARK, DRAW_T, EDGE, LENS_FADE, LYD, LY_TMP, NO_BLOOD, ORIGIN_RGB, TW_ALPHA, WALL, Z_OF, bloodArg, calibersChanged, cssTrim, drawSame, drawTile, easeRadii: easeRadii$, fieldLook, fieldState, freeCopies, grey, greyMoving, greyNow, ink, inkNow, lensK, lookOf, lyF, lyInkInto, lyProt, maxOf, noteDrawn, noteLens: noteLens$, paintAhead, paintField, preparePieces, prepareRun, prewarm, put3, qP, quietCopy, radKeep, radiiNow, radiusAt, rowsOf, rzOf, selMoved, shadeOf, stage, stageBg, tileAt, tileDrawn, tileDue, tileLaterRun, tileSets, tubeRGB, warm } = createLobuleField({ MAXT, N, TAU, V, binAway, binCache, buildWide, css, draw, dropWide, ensureGL, field, fieldG, figureTop, free, fsBuf, fxGLOn, glRows, host, hostSize, isDark, lzDensity, lzLoop, modelBuf, padBox, paintWorld, reduce, release, resetView, rgb01, sX, sY, smooth, snapState, styles, tissueGLOn, tk, tubeData, unseen, wideGLOn, worldCap }, live);
   function easeRadii(...a) { return easeRadii$(...a); }   // <stage-split stub>
   function noteLens(...a) { return noteLens$(...a); }   // <stage-split stub>
   let tileLastObj = null, tileLru = null;
@@ -1944,7 +1928,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
 
   let sVer = NaN, sDark = null, sCw = 0, sCh = 0, sK = 0;
-  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '';
+  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
   function drawGL(W, H, dpr, dark, cs, dt) {
     const g = gl, G = geo, m = model;
     const res = g.software ? 0.5 : 1, k = dpr * res;
@@ -2027,9 +2011,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The look's casing colour is in the discs' ink line, so a new look makes the attributes again: lookNow, as the draw below keeps it, is brought up to date first.)
       if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
       const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
-      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && !selCh;
+      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && akRad === live.radStamp && !selCh;
       if (inkMoved || !akSame) {
-        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig;
+        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
         tubeData.fill(0);
         if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); }   // alloc-rare: only when the artery's colour token changed (a theme or palette change)
         const art = artRGB;
@@ -2064,8 +2048,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           if (endOn) {
             // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
             // else the cel outline's ink (tube-cel-glsl.js celShade): the look's own casing colour.
-            const mk = G.mouths.get(t.id);
-            if (mk) { tubeData[o + 12] = mk[0]; tubeData[o + 13] = mk[1]; tubeData[o + 14] = mk[2]; }
+            // (Worked out from the radii as drawn, and again whenever they change: akRad. Texel 3's w: the joining vessels' mean radius, the weight of the wall line the disc draws between them.)
+            const ms = G.mouths.get(t.id);
+            if (ms) { tubeData[o + 15] = mouthWords(ms, radiusAt(t, 0), G.tubes, radiiNow, MOUTH_W); tubeData[o + 12] = MOUTH_W[0]; tubeData[o + 13] = MOUTH_W[1]; tubeData[o + 14] = MOUTH_W[2]; }
             const cc = lookNow.casing;
             for (let i = 0; i < 3; i++) tubeData[o + 16 + i] = edge ? edge[i] : cc[i];
           }
@@ -2682,17 +2667,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The sinusoid lining as capsules, a line either side of each sinusoid lw out from its lumen, lw wide.
   function fxGLLine(lw) {
-    const G = geo, z = rzOf();
-    const moved = gLineV[0] !== Math.round(z.sin * 1e5) || gLineV[1] !== Math.round(z.congU * 1e5) || gLineV[2] !== Math.round(V.k * 1e5) || gLineGeo !== geoKey || !gLine;
+    const G = geo, z = rzOf(), rim = radiusAt(G.cv, 0);
+    const moved = gLineV[0] !== Math.round(z.sin * 1e5) || gLineV[1] !== Math.round(z.congU * 1e5) || gLineV[3] !== Math.round(rim * 1e4) || gLineV[2] !== Math.round(V.k * 1e5) || gLineGeo !== geoKey || !gLine;
     if (!moved) return gLine;
-    gLineV[0] = Math.round(z.sin * 1e5); gLineV[1] = Math.round(z.congU * 1e5); gLineV[2] = Math.round(V.k * 1e5); gLineGeo = geoKey;
+    gLineV[0] = Math.round(z.sin * 1e5); gLineV[1] = Math.round(z.congU * 1e5); gLineV[2] = Math.round(V.k * 1e5); gLineV[3] = Math.round(rim * 1e4); gLineGeo = geoKey;
     gLineSlot ^= 1; capBuf = gLineB[gLineSlot]; capN = 0;
     for (const t of G.tubes) {
       if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
       for (let side = -1; side <= 1; side += 2) {
         let has = false, lastX = 0, lastY = 0;
         for (let i = 0; i < t.pts.length; i++) {
-          if (t.rho[i] < CV_STOP) continue;
+          if (t.rho[i] * G.R < rim) continue;   // (the vein's wall as drawn now, not a fixed radius: the line ran out short of it, in a round cap, on a vein smaller than that)
           const x = t.pts[i][0], y = t.pts[i][1];
           const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
           const o = side * (radiusAt(t, i) + lw), px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
