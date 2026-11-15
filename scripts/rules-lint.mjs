@@ -376,6 +376,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/gl\.scissor\(CELL_BOX\[i \* 4\][^\n]*tissue\(u, 1\); \}\n\s+gl\.disable\(gl\.SCISSOR_TEST\);/, "each box is its own scissored draw, and the test is switched off again for what is drawn after"],
   ]);
 
+  // The calipers' tick text is built only when a number of it changed (15 Nov 2026, app review SF-3): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/stage-outlines.js', [
+    [/if \(el0 && !el0\.going && segsSame\(el0\.capN, g\.segs\)\) \{ el0\.seen = true; continue; \}/, "a caliper that stands still keeps its element and builds no path text"],
+    [/if \(el1\) el1\.capN = segsSave\(el1\.capN, g\.segs\);/, "the numbers drawn are kept for the next frame"],
+  ]);
+
   // The probe's waves reach the GPU pass as numbers (15 Nov 2026, app review SF-2): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/stage-scan.js', [
     [/toDom = !live\.labelGL\?\.setWaves \|\| !live\.labelGL\.wavesOn\(\)/, "the page's wave elements are written only where the labels' GPU pass is not drawing the probe (they are a mailbox it no longer reads)"],

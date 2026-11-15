@@ -1,7 +1,7 @@
 // The organ outlines and warm glow on the GPU, the narrowing and mark fades, the presenter's pinned and spotlit organs, and the slide's figure callouts (calipers, brackets, edge marks).
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { ORGANS, RECTUM_FADE } from './anatomy.js';
-import { acrossVessel, spanOf, spanPath, spleenCaliper, zoneBand } from './callout-math.js';
+import { acrossVessel, spanOf, spanPath, segsSame, segsSave, spleenCaliper, zoneBand } from './callout-math.js';
 import { caught } from './caught.js';
 import { D_FLIP, D_SMALL, easeMove } from './ease.js';
 import { bandRing, dashRings, normalShown } from './highlight-math.js';
@@ -467,6 +467,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     t2[0][0] = bx - nx; t2[0][1] = by - ny; t2[1][0] = bx + nx; t2[1][1] = by + ny;
     return capS;
   }
+  const capKey = (id) => 'c:' + id;   // (the key a caliper's element is kept under)
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
     // (A caliper that waited for the morph is let in: the labels are solved again for its reading, which a changed `live.fx` asks for.)
@@ -477,8 +478,13 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     if (live.fx && t < 0.5) for (const c of live.fx.calipers) {
       const g = caliperSegs(c, f);
       if (!g) continue;
+      // (SF-3: the ticks' path text is built only when a number of it changed, a pinch zoom or a growing spleen, not on every frame it stands still.)
+      const ck = capKey(c.id), el0 = fxEls.get(ck);
+      if (el0 && !el0.going && segsSame(el0.capN, g.segs)) { el0.seen = true; continue; }
       const P = ([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`;
-      fxLine('c:' + c.id, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
+      fxLine(ck, gFx, g.segs.map(([p, q]) => `M${P(p)}L${P(q)}`).join(''), 'fx-cal-line');
+      const el1 = fxEls.get(ck);
+      if (el1) el1.capN = segsSave(el1.capN, g.segs);
     }
     if (live.fx) for (const sp of live.fx.spans) { const at = spanOf(sp.from, sp.to, fxK()); if (at) fxLine(`s:${sp.from}:${sp.to}`, gFxC, spanPath(at), 'fx-span-line'); }
     for (const el of fxEls.values()) {

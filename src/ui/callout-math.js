@@ -222,6 +222,19 @@ export const spanPath = (sp) => {
   return (spD[i] = `M${sp.x0} ${sp.y - SPAN_TICK}V${sp.y}H${sp.x1}V${sp.y - SPAN_TICK}`);
 };
 
+// A caliper's three segments (the line and its two end ticks, [[x, y], [x, y]] each) as twelve numbers kept on its element, so the ticks' path
+// text is built only when one of them changed (SF-3). segsSame: are they the numbers kept (k may be absent)? segsSave: keep them, in k or a new array.
+export function segsSame(k, segs) {
+  if (!k) return false;
+  for (let i = 0, j = 0; i < 3; i++) for (let e = 0; e < 2; e++) { const q = segs[i][e]; if (k[j++] !== q[0] || k[j++] !== q[1]) return false; }
+  return true;
+}
+export function segsSave(k, segs) {
+  k ||= new Float64Array(12);   // alloc-rare: once for each element
+  for (let i = 0, j = 0; i < 3; i++) for (let e = 0; e < 2; e++) { const q = segs[i][e]; k[j++] = q[0]; k[j++] = q[1]; }
+  return k;
+}
+
 // ── Where a reading's pill may stand (stage.js placeMulti: edge, avoid) ──
 /** Is the box r at least `edge` px inside the view V? */
 export const insideBy = (r, V, edge = 0) => r.x0 >= V.x0 + edge && r.y0 >= V.y0 + edge && r.x1 <= V.x1 - edge && r.y1 <= V.y1 - edge;
