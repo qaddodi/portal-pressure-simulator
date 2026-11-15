@@ -57,7 +57,7 @@ test('behind the case card the camera eases out to the whole patient, then the p
   const lifted = src.slice(src.indexOf('async function caseLifted('), src.indexOf('async function caseEnd('));
   assert.match(lifted, /await until\(\(\) => cut\(\) \|\| card\.lifted, 864e5\);/);
   assert.match(lifted, /stage\.organsSettled\(\), CATH_SETTLE_MS\)/);
-  const wait = src.indexOf('if (caseCard) { await caseLifted(cut); if (cut()) return; }');
+  const wait = src.indexOf('if (caseCard) { await caseLifted(cut); if (cut()) return; alongOk = false; caseExit = true; }');
   assert.ok(wait > 0 && wait < src.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);'));
   // The words are fitted unseen before that; a catheter slide's cards still wait for the lift before they come in.
   assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);

@@ -476,6 +476,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
+  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, Math\.min\(ms, CAM_MS_MAX\), \{ arc: true \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; alongOk = false; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in follows no vessel path and takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
+  need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.o, slow: true \} : o/, "frameTo asks the move in from a case card slow"]]);
   need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
   need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);

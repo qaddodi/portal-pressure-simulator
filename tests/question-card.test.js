@@ -64,7 +64,7 @@ test('a slide that changes the model lands holding the state before it and plays
   assert.match(presenter, /const said = lap \|\| holdQ \|\| own \? await stateReady\((?:live\.)?stateOf\[to\]\) : st;/);
   assert.match(presenter, /if \(lap\) await playLapse\(s, to, cut\);\n\s*else if \(holdQ\) await answerPlay\(s, to, cut\);/, 'its change plays after its cards are in');
   // (the card is lifted before the camera and the cards move: the case card's own waits)
-  assert.match(presenter, /if \((?:live\.)?caseCard\) \{ await caseLifted\(cut\); if \(cut\(\)\) return; \}/);
+  assert.match(presenter, /if \((?:live\.)?caseCard\) \{ await caseLifted\(cut\); if \(cut\(\)\) return;[^}]*\}/);
   const play = presenter.slice(presenter.indexOf('async function answerPlay'), presenter.indexOf('\n  }\n', presenter.indexOf('async function answerPlay')));
   assert.match(play, /const done = await morphTo\(end, cut, fadeLen\(MORPH_MS\), false\);/, 'the change eases, never snaps (Reduce Motion too, 15 Nov 2026)');
   assert.match(play, /dataTo\(s, liveFp\(fr\), ref, 280\)/, 'the numbers follow the model as it eases');

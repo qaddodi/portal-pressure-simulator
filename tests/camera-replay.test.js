@@ -332,11 +332,11 @@ test('with no change in the view box the camera through a change is the plain ev
 // animateVT itself, run on a clock the test moves (as camera-hand.test.js does), on a Mac's window, with the stage's other parts stood in for.
 function rig(from) {
   let clock = 0, frames = [];
-  const vb = camWindow(1440, 800, BOX), real = performance.now;
+  const moves = [], vb = camWindow(1440, 800, BOX), real = performance.now;
   const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vt: { ...from }, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => false, following: false, rideCTM: null, morphTarget: 0, lastFree: null };
-  const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax: vb.w }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove() {}, nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: {}, vbCenter: () => [0, 0], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
+  const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax: vb.w }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [0, 0], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
   const g = createGlide(st, live);
-  return { live, g, vb, now(t) { clock = t; performance.now = () => clock; }, run(t) { clock = t; const c = frames; frames = []; for (const cb of c) cb(t); }, done() { performance.now = real; } };
+  return { live, g, vb, moves, now(t) { clock = t; performance.now = () => clock; }, run(t) { clock = t; const c = frames; frames = []; for (const cb of c) cb(t); }, done() { performance.now = real; } };
 }
 
 test('a framing asked for while a move runs (the cards settled, or the next slide) goes on to it without going back or overshooting', () => {
@@ -361,6 +361,44 @@ test('a framing asked for while a move runs (the cards settled, or the next slid
       assert.ok(Math.abs(r.live.vt.k - C.k) < 1e-9 && Math.abs(r.live.vt.x - C.x) < 1e-6, `${what}: on the framing asked for`);
       assert.equal(bend(pts.map((p) => [p[0], p[1]])).rev, 0, `${what}: the landing framing goes away and back`);
       for (const p of pts) assert.ok(p[2] >= Math.min(A.k, B.k, C.k) - 1e-9 && p[2] <= Math.max(A.k, B.k, C.k) + 1e-9, `${what}: the zoom overshoots (${p[2]})`);
+    } finally { r.done(); }
+  }
+});
+
+// ── The move in from a case card ─────────────────────────────────────────────────────────────────────────────────────────────
+// A slide with a case card (vignette) has the camera back out to the whole patient behind the card, then in to the slide's framing as the card
+// lifts (presenter-case.js caseRun, presenter.js caseLifted). That move starts at the fit, never at the last slide's framing, which the replay
+// above did not model (Mohammad, 15 Nov 2026, slide 7 of the circulation in cirrhosis: "after the case card the camera does a funky move").
+test('the move in from a case card\'s whole patient lands straight on every screen, and takes the time the move out took', () => {
+  let n = 0;
+  for (const [name, scr] of Object.entries(SCREENS)) {
+    const vb = camWindow(scr.sw, scr.sh, BOX, scr.free), fit = framing(FIT_BOX, scr, 1.15), wMax = vb.w / fit.k;
+    for (const [id, deck] of Object.entries(DECKS)) {
+      (deck.slides || []).forEach((s, i) => {
+        if (!s.vignette || s.view === 'circuit' || s.visual) return;
+        let cam = s.cam || 'fit';
+        if (isCamOn(cam)) cam = cam.near;
+        if (typeof cam !== 'string' || /^(lobule|sinusoid)/.test(cam)) return;
+        const box = cam === 'fit' ? FIT_BOX : regionBox(cam, REGIONS);
+        if (!box) return;
+        const b = framing(box, scr, s.kMax || 3.2), p = camPath(fit, b, vb, wMax);
+        judge((u) => p.at(u), fit, b, vb, Math.max(wMax, vb.w / b.k), p.arc, `${name}, ${id} ${i}, in from the case card`);
+        n++;
+      });
+    }
+  }
+  assert.ok(n >= 10, `the decks have case-card slides (${n})`);
+  // the glide itself: the plain one takes the time its reach asks (a short move 480 ms), the one in from a case card 900
+  const A = { k: 0.8, x: 400, y: 40 }, box = [600, 200, 1000, 600];
+  for (const slow of [false, true]) {
+    const r = rig(A);
+    try {
+      r.live.vt = { ...A }; r.now(0);
+      r.g.frameBox(box, 1500, 3.2, false, slow ? { slow: true } : {});
+      assert.equal(r.moves.length, 1, 'one move');
+      assert.equal(r.moves[0].along, false, 'no path along a vessel from the whole patient');
+      if (slow) assert.equal(r.moves[0].ms, 900, 'in from a case card: the time the move out took');
+      else assert.ok(r.moves[0].ms <= 900);
     } finally { r.done(); }
   }
 });

@@ -3,7 +3,7 @@
 import { VB_ANAT, VIEW } from './anatomy.js';
 import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.js';
 import { ALONG_MAX_MS, ROUTES, alongPath, routeLine } from './cam-routes.js';
-import { camMs, carried, easeMove, springSlope } from './ease.js';
+import { CAM_MS_MAX, camMs, carried, easeMove, springSlope } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glideClock } from './glide-clock.js';
 import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
@@ -55,7 +55,7 @@ export function createGlide(st, live) {
     // (opt.v0: the hand's own speed when it let go, a spring-back's: stage-gestures.js.)
     const v0 = opt.v0 || (!drift && live.vtGliding ? vtTrack.take(performance.now()) : null);
     vtTrack.begin();
-    const room = opt.arc && !reduceMotion.matches ? arcRoom(freeAsk) : null;   // (reduced motion: no pull-back, the plain short glide)
+    let alongUsed = false; const room = opt.arc && !reduceMotion.matches ? arcRoom(freeAsk) : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && live.vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
       // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.
@@ -69,7 +69,7 @@ export function createGlide(st, live) {
       // ALONG_MAX_MS at most; any other long move pulls back over the figure on its arc.)
       const along = alongAsk && live.morphTarget === 0 && !store.get().lobule ? alongPath(from, to, routeLines(), room.vb) : null;
       const path = along ? null : camPath(from, to, room.vb, room.wMax);
-      if (along) { ms = Math.min(Math.round(ms * along.stretch), ALONG_MAX_MS); at = (u) => along.at(u); live.arcRun = { from, to, t0, ms, at }; newArc = at; }
+      if (along) { alongUsed = true; ms = Math.min(Math.round(ms * along.stretch), ALONG_MAX_MS); at = (u) => along.at(u); live.arcRun = { from, to, t0, ms, at }; newArc = at; }
       else if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; newArc = path.at; }
     }
     let c0 = 0;
@@ -81,7 +81,7 @@ export function createGlide(st, live) {
       if (c0 > 0 && newArc) { at = (u, raw) => newArc(carried(u, raw ?? camEaseInv(u), c0)); live.arcRun.at = at; }
       else if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
     }
-    if (!sameView(from, to)) logMove({ t: t0, ms, restart: live.vtGliding, kind: drift ? 'drift' : 'glide', arc: !!live.arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    if (!sameView(from, to)) logMove({ t: t0, ms, restart: live.vtGliding, kind: drift ? 'drift' : 'glide', arc: !!live.arcRun, along: alongUsed, k0: from.k, k1: to.k, x0: from.x, y0: from.y, x1: to.x, y1: to.y, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());
     // (Not for a drift or a move on an arc: those keep their end time, which a refit that bends them reads from the wall clock.)
     const clock = opt.steady && !drift && !live.arcRun ? glideClock() : null;
@@ -166,7 +166,7 @@ export function createGlide(st, live) {
     const to = boxVT(box, kMax, clear);
     if (!to || sameView(to, live.vtGliding ? live.vtTarget : live.vt)) return;
     alongAsk = !!opt.along; freeAsk = live.lastFree;   // (T4: read by the glide this asks for, at once; the rectangle this framing was fitted into)
-    if (opt.drift) animateVT(to, ms, { drift: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
+    if (opt.drift) animateVT(to, ms, { drift: true }); else if (opt.slow) animateVT(to, Math.min(ms, CAM_MS_MAX), { arc: true }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady });   // (a drift never arcs)
     alongAsk = false; freeAsk = null;
   }
   function riseTo(box, kMax, clear) { live.riseBox = box ? { box, kMax, clear } : null; live.riseExp = performance.now() + 4000; }
