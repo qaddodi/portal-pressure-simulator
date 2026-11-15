@@ -7,11 +7,13 @@
 // vessels, crossings), a bend that is one way, and closeness to the TIPS's own angles (34 degrees off the portal run, 52 off the hepatic).
 import { EDGE, anatomyLines, anatomyStations, cubicsToD, judge, sampleD } from './shunt-route-lib.mjs';
 import { EDGE_PATH, NODE_POS } from '../src/ui/anatomy.js';
-import { LIVER_STENT_FROM, LIVER_STENT_TO, isLiverStent } from '../src/engine/topology.js';
+import { JUNCTION_PIECES, LIVER_STENT_FROM, LIVER_STENT_TO, isLiverStent } from '../src/engine/topology.js';
 
 export const PORTAL_HOST = { RPV: 'PVH_R', LPV: 'PVH_L' };   // the branch's drawn run, hilum outward
 export const HEPATIC_HOST = { RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC' };   // the vein's drawn run, toward the cava
 export { LIVER_STENT_FROM, LIVER_STENT_TO, isLiverStent };
+/** A host's whole drawn course: a vein the TIPS joins part-way is drawn as pieces end to end (topology.js JUNCTIONS). */
+const wholeRun = (id) => (JUNCTION_PIECES[id] || [id]).flatMap((p, i) => sampleD(EDGE_PATH[p], 1).slice(i ? 1 : 0));
 export const END_IN = 1.4;   // (how far inside the hepatic vein's near wall the stent ends, off its centre line: the TIPS's own)
 
 const rot = (u, deg) => { const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); return [u[0] * c - u[1] * s, u[0] * s + u[1] * c]; };
@@ -31,10 +33,10 @@ const sagitta = (P) => { const a = P[0], b = P.at(-1), L = Math.hypot(b[0] - a[0
 
 /** Every course of a liver stent, as { d (path text), start, end, ... }, best first, for the custom shunt `id` (from, to). */
 export function liverStentCourse(from, to, lines = anatomyLines(), keep = 1) {
-  const id = `X_${from}_${to}`, H = sampleD(EDGE_PATH[HEPATIC_HOST[to]], 1);
+  const id = `X_${from}_${to}`, H = wholeRun(HEPATIC_HOST[to]);
   const stations = anatomyStations();
   const starts = [];
-  if (PORTAL_HOST[from]) { const P = sampleD(EDGE_PATH[PORTAL_HOST[from]], 1); for (const t of [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) { const [p, u] = at(P, t); starts.push({ p, u, t, node: false }); } }
+  if (PORTAL_HOST[from]) { const P = wholeRun(PORTAL_HOST[from]); for (const t of [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) { const [p, u] = at(P, t); starts.push({ p, u, t, node: false }); } }
   else starts.push({ p: NODE_POS[from][0], u: null, t: 0, node: true });
   const out = [];
   for (const st of starts) for (const te of [0.3, 0.4, 0.5, 0.6, 0.7]) {

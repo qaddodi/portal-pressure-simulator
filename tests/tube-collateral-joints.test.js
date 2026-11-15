@@ -57,7 +57,7 @@ for (const [preset, shunt] of RUNS) {
       assert.ok((Math.floor(d.tube[row * TF + T_FLAGS] + 0.5) & F_SHUNT) !== 0, `${shunt} carries F_SHUNT`);
       const mine = webs.filter((w) => !w.empty && (w.a === row || w.b === row));
       assert.ok(mine.length >= 2, `${shunt} has fillets at its ends (${mine.length})`);
-      const onRenal = mine.filter((w) => [w.ea, w.eb].some((e) => e === 'V_KID_L' || e === 'LRV_IVC'));
+      const onRenal = mine.filter((w) => [w.ea, w.eb].some((e) => e === 'V_KID_L' || e === 'V_KID_L_1' || e === 'LRV_IVC'));
       // (The gastrorenal shunt lands at a right angle, a fillet on each side; the splenorenal shunt comes in at a slant, and its acute side is a plain V by design, MOUTH_WEB_DEG.)
       assert.ok(onRenal.length >= (shunt === 'C5' ? 2 : 1), `${shunt} has fillets at its mouth on the left renal vein (${onRenal.length})`);
       const lost = mine.filter((w) => !w.drawn);

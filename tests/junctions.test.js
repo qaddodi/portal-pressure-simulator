@@ -70,14 +70,14 @@ test('the engine solves the lumped graph it always did: the lead piece is its ve
     }
     assert.ok(Math.abs(pieces.reduce((s, p) => s + p.share, 0) - 1) < 1e-9, `${host}: the pieces' shares add to the whole vein`);
   }
-  // A junction's pressure is the model's at the end of the vein its shunts are joined at, a hair above it (the vein's `to`) or below it (its `from`): the stretch between
-  // the junction and that end has no drop of its own, and blood runs downhill into the junction, or out of it, whatever the pressures.
+  // A junction's pressure is the model's at the end of the vein its shunts are joined at, a hair off it on the side the stretch between runs downhill: no drop of its
+  // own, and blood runs downhill through it whichever way it runs (the order every blend and dye pass visits nodes in).
   for (const c of JUNCTION_CHAINS) {
-    const [a, b] = JUNCTION_HOST_ENDS[c.host], end = c.end === 'to' ? b : a;
+    const [a, b] = JUNCTION_HOST_ENDS[c.host], end = c.end === 'to' ? b : a, adj = c.ids[c.end === 'to' ? c.ids.length - 1 : 0], q = e.Q[e.ei[adj]];
     c.nodes.forEach((node) => {
       const Pj = e.P[e.ni[node]], Pe = e.P[e.ni[end]];
       assert.ok(Math.abs(Pj - Pe) < 1e-4, `${node} reads ${Pj}, the model's ${end} reads ${Pe}`);
-      assert.ok(c.end === 'to' ? Pj > Pe : Pj < Pe, `${node} lies on the right side of ${end}`);
+      if (Math.abs(q) > 1e-6) assert.ok((c.end === 'to' ? Pj - Pe : Pe - Pj) * Math.sign(q) > 0, `${node}: blood runs downhill through ${adj}`);
     });
   }
   for (const k of [edge('TIPS'), edge('DIPS'), edge('C6'), edge('S_DSR'), edge('C7')]) assert.ok(k.mfrom && k.mto, `${k.id} keeps the model ends the engine reads`);
@@ -217,4 +217,15 @@ test('each piece carries the flow that is physically in that stretch: the shunts
   // the bowel's veins and the iliac veins: the retroperitoneal veins leave one and join the other
   assert.ok(Math.abs(Q('V_INT_1') - (Q('V_INT') - Q('C7'))) < 1e-9 && Math.abs(Q('ILI_IVC_1') - (Q('ILI_IVC') + Q('C7'))) < 1e-9);
   for (const c of JUNCTION_CHAINS) assert.equal(c.lead, c.end === 'to' ? 0 : c.ids.length - 1, `${c.host}: the engine's piece is on the side of the model's end`);
+});
+
+test('blood runs downhill through every piece of a cut vein, whichever way it runs (the blend, oxygen and dye passes visit nodes high pressure to low)', () => {
+  const on = { tips: { on: true, d: 8 }, spontaneous: { C6: true, C7: true } };
+  for (const [preset, params] of [['healthy'], ['cirr-decomp'], ['cirr-hepatofugal'], ['budd-chiari'], ['cirr-decomp', on], ['cirr-decomp', { dips: { on: true, d: 8 } }], ['cirr-hepatofugal', on]]) {
+    const e = run(preset, params);
+    for (const id of Object.values(JUNCTION_PIECES).flat()) {
+      const q = e.Q[e.ei[id]], drop = e.P[e.ni[edge(id).from]] - e.P[e.ni[edge(id).to]];   // (the drawn ends)
+      assert.ok(q * drop >= -1e-6, `${preset} ${JSON.stringify(params ?? {})}: ${id} runs ${q.toFixed(3)} against a drop of ${drop.toExponential(2)}`);
+    }
+  }
 });

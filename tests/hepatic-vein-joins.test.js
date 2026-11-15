@@ -52,10 +52,11 @@ test('the hepatic veins end inside the cava\'s wall, in the Anatomy and the Circ
       for (let i = 0; i < 70; i++) await step();
       const by = {};
       for (const s of st.labelVessels().segs) (by[s[5]] ||= []).push(s);
+      const cava = [...(by.IVC_IS || []), ...(by.IVC_IS_1 || [])];   // (the cava is two pieces where the DIPS joins it, topology.js JUNCTIONS)
       assert.ok(by.IVC_IS?.length, `${view}/${preset}: the cava is drawn`);
       for (const id of HV) {
         assert.ok(by[id]?.length, `${view}/${preset}: ${id} is drawn`);
-        const e = by[id].at(-1), [d, hw] = nearest(by.IVC_IS, e[2], e[3]);
+        const e = by[id].at(-1), [d, hw] = nearest(cava, e[2], e[3]);
         seen.push(`${view}/${preset} ${id} ${d.toFixed(1)} of ${hw.toFixed(1)}`);
         assert.ok(d <= 0.85 * hw, `${view}/${preset}: ${id} ends ${d.toFixed(1)} px off the cava's course, its half width ${hw.toFixed(1)}: out of the wall, a bare round cap`);
       }

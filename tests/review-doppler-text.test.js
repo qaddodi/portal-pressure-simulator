@@ -71,7 +71,8 @@ test('velocity callouts read the named vessel as the Doppler reads it, and its m
   const { EDGES } = await import('../src/engine/topology.js');
   for (const [n, id] of Object.entries(STATION_VESSEL)) {
     const e = EDGES.find((x) => x.id === id);
-    assert.ok(e && (e.from === n || e.to === n), `${n} names ${id}, a vessel at that station`);
+    // (a vein a shunt joins part-way is cut in pieces for the drawing, topology.js JUNCTIONS; the station is at an end of the vein the model reads)
+    assert.ok(e && ((e.mfrom ?? e.from) === n || (e.mto ?? e.to) === n), `${n} names ${id}, a vessel at that station`);
   }
   assert.equal(STATION_VESSEL.CONF, 'PV_TRUNK', '"Portal v." is the portal vein, not the left gastric or a cavernoma');
 });

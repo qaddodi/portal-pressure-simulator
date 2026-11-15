@@ -13,7 +13,7 @@
 //   none – not affected
 
 /** A node of the network: id, label, resting pressure (mmHg), compliance, what presses on it from outside ('none', 'abd', 'thor', 'gas', 'eso', 'hep' ...) and its kind. */
-/** @typedef {{ id: string, label: string, P: number, C: number, ext: string, kind: string }} NetNode */
+/** @typedef {{ id: string, label: string, P: number, C: number, ext: string, kind: string, junction?: string }} NetNode */
 /** @type {NetNode[]} */
 export const NODES = [
   // id, label, P, C, ext, kind
@@ -82,7 +82,8 @@ export const NODES = [
 // d = nominal diameter (mm) for velocity & drawing; Q = target baseline flow (mL/s).
 /** @typedef {{ id: string, from: string, to: string, kind: string, label?: string, Q?: number, tone?: string, d?: number, vd?: number, lobar?: string, R?: number, lobe?: string,
  *   zone?: string, G?: number, role?: string, w?: string, route?: [string, string], dMax?: number, Ropen?: number, dMinRatio?: number, code?: string, open?: number,
- *   variant?: boolean, spontaneous?: boolean, systemic?: boolean, shunt?: string, len?: number, portal?: boolean }} NetEdge */
+ *   variant?: boolean, spontaneous?: boolean, systemic?: boolean, shunt?: string, len?: number, portal?: boolean,
+ *   mfrom?: string, mto?: string, virtual?: boolean, part?: string, share?: number, junction?: string }} NetEdge (mfrom, mto: the ends the engine reads where a junction moves the drawn ones; virtual, part, share: a piece of a cut vein) */
 /** @type {NetEdge[]} */
 export const EDGES = [
   // Arterial supply

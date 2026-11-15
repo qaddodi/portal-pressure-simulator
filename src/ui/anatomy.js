@@ -174,7 +174,7 @@ export const EDGE_PATH = {
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
-  MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
+  MHV_IVC: 'M548 282 C 575 272 601 256 616.6 230',   // (its end 1.6 inside the cava's axis since the cava is cut at the DIPS's junction and each piece meanders on its own: the end stays inside the wall)
   // (It meets the cava higher than the right hepatic vein, 21 units from its end. At 11 apart the two were joined as one vein
   // and their round ends met across the cava in a bar: a join takes every end of a node within 20 units of another, vein-joins.js.)
   // The left vein's end lies 3 units off the cava's axis, inside its wall at every caliber: it ended at 630 (10.5 off), which a clotted
@@ -422,7 +422,7 @@ export const CIRCUIT_PATH = {
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
-  TIPS: route([[650, 303], [650, 246], [1030, 246], [1030, 282]], 36),   // (from the TIPS's two junctions, JUNCTION_CIRCUIT: on the right portal vein 30 before its end, on the right hepatic vein 30 after its start)
+  TIPS: route([[660, 303], [660, 246], [1020, 246], [1020, 282]], 36),   // (from the TIPS's two junctions, JUNCTION_CIRCUIT: on the right portal vein 20 before its end, on the right hepatic vein 20 after its start)
   // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
   // above the TIPS lane (below the esophageal route and clear of the SVC), then slants down past the hepatic veins and turns in
   // to the IVC downstream of them (just above IVCI).
@@ -510,7 +510,7 @@ export function metroPath([x1, y1], [x2, y2]) {
 // A junction is a node on the vein, so the vein is two vessels in series (three where two things join it) and each is drawn from the host's own
 // course cut at the junction: the same line, the same look, only now a node sits where the stent leaves or joins it, and the blood of each piece is its own.
 // In the Circuit the junction is a point on the host's course too (JUNCTION_CIRCUIT: where the lanes that join it were drawn to).
-export const JUNCTION_CIRCUIT = { RPV_T: [650, 303], RHV_T: [1030, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600] };
+export const JUNCTION_CIRCUIT = { RPV_T: [660, 303], RHV_T: [1020, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600] };
 const NUM = (n) => String(Math.round(n * 100) / 100);
 function pathSegs(d) {
   const t = d.match(/[MLQC]|-?[\d.]+/g), segs = [];

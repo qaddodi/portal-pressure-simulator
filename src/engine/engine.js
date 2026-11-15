@@ -630,14 +630,15 @@ export class Engine {
       for (let i = c.lead - 1; i >= 0; i--) Q[c.ks[i]] = Q[c.ks[i + 1]] - net(i);
     }
   }
-  /** The pressure at each junction node: the model's pressure at the end of the vein its shunts are joined at, a hair above it (below it) when that is the vein's
-   *  `to` (`from`) end, so the stretch of vein between the junction and that end carries the flow it does with no pressure drop of its own, and blood runs downhill
-   *  from the junction to that end (or from it to the junction) whatever the pressures: the order every blend and dye pass visits nodes in (blood.js byPressure). */
+  /** The pressure at each junction node: the model's pressure at the end of the vein its shunts are joined at, a hair off it on the side the stretch between
+   *  the two runs downhill (above it where blood runs from the junction to the end, below it where it runs from the end to the junction), so the stretch has no drop
+   *  of its own and blood runs downhill through it whichever way it runs: the order every blend and dye pass visits nodes in (blood.js byPressure). */
   fillJunctionPressures() {
-    const P = this.P;
+    const P = this.P, Q = this.Q;
     for (const c of this.jx) {
-      const k = c.ks[c.lead], at = c.end === 'to' ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
-      for (let i = 0; i < n; i++) P[c.nodes[i]] = c.end === 'to' ? P[at] + JUNCTION_HAIR * (n - i) : P[at] - JUNCTION_HAIR * (i + 1);
+      const toEnd = c.end === 'to', k = c.ks[c.lead], at = toEnd ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
+      const q = Q[c.ks[toEnd ? c.ks.length - 1 : 0]], dir = q > 1e-9 ? 1 : q < -1e-9 ? -1 : 0;   // (the stretch next to that end: its flow runs from the vein's from to its to)
+      for (let i = 0; i < n; i++) P[c.nodes[i]] = P[at] + (toEnd ? 1 : -1) * dir * JUNCTION_HAIR * (toEnd ? n - i : i + 1);
     }
   }
 

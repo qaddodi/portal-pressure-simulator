@@ -164,7 +164,7 @@ export function createBlood(st, live) {
   // The cava is one tube of two edges (drawItems), so it keeps its own pattern. Written into the rows put() just filled: flow texel
   // 3 w the parent's row + 1; texel 4 the root's row + 1, A, B, w; texel 5 the root's distance and drift, and the ends' weights.
   const chain = createStreamChain(), chainIt = [], chainK = new Map();   // (chainK: row → edge, kept: a root fading out may no longer be drawn)
-  const NO_CHAIN = new Set(['IVC_IS', 'IVCS_RA']);
+  const NO_CHAIN = new Set(['IVC_IS', 'IVC_IS_1', 'IVCS_RA']);   // (the cava's two stretches below the hepatic veins are one vein cut where the DIPS joins it)
   // (Rev 2 §2.8: the links are worked out again (chain.step, which builds its maps and lists) only when a candidate changed or a link
   // was still easing at the last step; otherwise the last step's answer, unchanged, is written into the rows again. Each candidate's
   // record is kept per slot, so a change is told by comparing each field as it is written, and a steady frame allocates nothing.)
