@@ -459,6 +459,9 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
 .menu.as-sheet.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
+/* (15 Nov 2026) A sheet with a field in it, the on-screen keyboard up (sheet-keyboard.js): it rests on the keyboard and is held to the room above it, so the
+   field and the rows around it can be reached. Over the thumb dock the sheet's own rule sets bottom and max-height, so these match its weight. */
+.menu.as-sheet[data-kb], html.thumb-ui .menu.as-sheet[data-kb] { bottom: var(--sheet-kb); max-height: var(--sheet-room); scroll-padding-bottom: 16px; }
 /* (13 Nov 2026, menu recs P4) A page pushed inside a menu (History and Help from Settings, util.js menuPush): it lies over the menu's rows at the
    menu's own height and scrolls by itself; the rows under it slide away left and take no touch. */
 .menu-root { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }

@@ -5,6 +5,8 @@
 
 .menu.fr-pop { --fr-fill: color-mix(in srgb, var(--accent) 24%, transparent); width: min(440px, calc(100vw - 16px)); padding: 12px 14px 14px; gap: 0; overflow: hidden auto; overscroll-behavior: contain; max-height: min(78dvh, calc(100dvh - 96px)); }
 .menu.fr-pop.as-sheet { width: auto; padding: 8px 14px 14px; }
+.menu.fr-pop { scroll-padding-bottom: 96px; }   /* (a field scrolled into view stays clear of the sticky foot, which is about 80 px) */
+.menu.fr-pop.as-sheet[data-kb], html.thumb-ui .menu.fr-pop.as-sheet[data-kb] { scroll-padding-bottom: 96px; }
 /* On a wide screen the popover is wide enough for a card's two columns to hold their numbers on one line (review U14). The phone's order and content are the reference. */
 @media (min-width: 768px) { .menu.fr-pop:not(.as-sheet) { width: min(620px, calc(100vw - 16px)); max-height: min(86dvh, calc(100dvh - 96px)); } }
 .fr { display: flex; flex-direction: column; gap: 10px; min-width: 0; }

@@ -3,6 +3,7 @@ import { saver, frame, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
+import { keyboardSheet } from './sheet-keyboard.js';
 import { classSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
@@ -507,7 +508,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : el.getBoundingClientRect()) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
-  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };
+  // (A sheet rests on the page's foot, which iOS leaves under the keyboard: any field in it is kept above the keyboard here, once, for every sheet: sheet-keyboard.js.)
+  const kbSheet = asSheet ? keyboardSheet(el) : null;
+  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); kbSheet?.off(); onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
   // the menu. A mouse or a touch leaves focus where it was.
