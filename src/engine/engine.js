@@ -1,7 +1,7 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
+import { NODES, EDGES, JUNCTION_CHAINS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
@@ -15,6 +15,7 @@ const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 // The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
+const JUNCTION_HAIR = 1e-6;   // (mmHg: how far a junction's pressure sits off the end of its vein it is joined at, so the order along the vein holds)
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
 const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45 };
@@ -176,15 +177,18 @@ export class Engine {
     this.edgeF = new Int32Array(this.E);
     this.edgeT = new Int32Array(this.E);
     EDGES.forEach((e, k) => {
-      const f = this.ni[e.from], t = this.ni[e.to];
+      // (A shunt drawn onto the middle of a vein is joined to the vein's own node here, whatever junction it is drawn at: topology.js JUNCTIONS.)
+      const f = this.ni[e.mfrom ?? e.from], t = this.ni[e.mto ?? e.to];
       this.edgeF[k] = f; this.edgeT[k] = t;
       if (e.Q) this.Rbase[k] = (NODES[f].P - NODES[t].P) / e.Q;
       else if (e.R) this.Rbase[k] = e.R;
-      this.edgeExt[k] = EXT_OVERRIDE[e.id] || NODES[f].ext;
+      this.edgeExt[k] = EXT_OVERRIDE[partOf(e.id)] || NODES[f].ext;
       if ((e.Q || e.R) && !(this.Rbase[k] > 0)) throw new Error(`Non-positive baseline resistance on ${e.id}`);
     });
     this.collaterals = EDGES.map((e, k) => (e.kind === 'collateral' ? k : -1)).filter((k) => k >= 0);
-    this.veins = EDGES.map((e, k) => (e.kind === 'vein' || e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
+    this.veins = EDGES.map((e, k) => ((e.kind === 'vein' || e.kind === 'diode') && !e.virtual ? k : -1)).filter((k) => k >= 0);
+    // The veins split where a shunt joins them part-way (topology.js JUNCTIONS): the pieces' edges and the junction nodes between them, filled after each step.
+    this.jx = JUNCTION_CHAINS.map((c) => ({ ks: c.ids.map((id) => this.ei[id]), lead: c.lead, end: c.end, nodes: c.nodes.map((id) => this.ni[id]), at: c.at, taps: c.taps.map((l) => l.map(([id, sg]) => [this.ei[id], sg])) }));
     this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
 
     this.params = params ? structuredClone(params) : defaultParams();
@@ -509,6 +513,7 @@ export class Engine {
     this.wf.fill(0);
     for (let k = 0; k < this.E; k++) {
       const e = EDGES[k];
+      if (e.virtual) { this.G[k] = 0; continue; }   // (a piece of a vein split by a junction that the engine does not solve: its flow is written after the step, fillJunctions)
       const f = this.edgeF[k], t = this.edgeT[k];
       let R = this.Rbase[k];
       switch (e.kind) {
@@ -606,8 +611,34 @@ export class Engine {
   }
 
   occlusion(id) {
-    const s1 = this.params.stenosis[id] || 0, s2 = this.params.thrombus[id] || 0;
+    const v = partOf(id);   // (a vein split in pieces by a shunt joining it part-way along: a clot or a stenosis on it is on every piece)
+    const s1 = this.params.stenosis[v] || 0, s2 = this.params.thrombus[v] || 0;
     return 1 - (1 - s1) * (1 - s2);
+  }
+
+  /**
+   * The flow of each virtual piece of a split vein (topology.js JUNCTIONS), from the one the engine solved and the blood the shunts take from the
+   * junctions or give to them: the flow past a junction is the flow before it plus what the shunts joined there bring (net into the junction), so
+   * blood is conserved at every junction exactly. Written into Q (which the filtered flows follow) and nothing else.
+   */
+  fillJunctionFlows() {
+    const Q = this.Q;
+    for (const c of this.jx) {
+      const n = c.ks.length;
+      const net = (i) => { let s = 0; for (const [k, sg] of c.taps[i]) s += sg * Q[k]; return s; };
+      for (let i = c.lead; i < n - 1; i++) Q[c.ks[i + 1]] = Q[c.ks[i]] + net(i);
+      for (let i = c.lead - 1; i >= 0; i--) Q[c.ks[i]] = Q[c.ks[i + 1]] - net(i);
+    }
+  }
+  /** The pressure at each junction node: the model's pressure at the end of the vein its shunts are joined at, a hair above it (below it) when that is the vein's
+   *  `to` (`from`) end, so the stretch of vein between the junction and that end carries the flow it does with no pressure drop of its own, and blood runs downhill
+   *  from the junction to that end (or from it to the junction) whatever the pressures: the order every blend and dye pass visits nodes in (blood.js byPressure). */
+  fillJunctionPressures() {
+    const P = this.P;
+    for (const c of this.jx) {
+      const k = c.ks[c.lead], at = c.end === 'to' ? this.edgeT[k] : this.edgeF[k], n = c.nodes.length;
+      for (let i = 0; i < n; i++) P[c.nodes[i]] = c.end === 'to' ? P[at] + JUNCTION_HAIR * (n - i) : P[at] - JUNCTION_HAIR * (i + 1);
+    }
   }
 
   // ───────────────────────── integration ─────────────────────────
@@ -730,6 +761,7 @@ export class Engine {
       this.Q[k] = q;
       net[f] -= q; net[t] += q;
     }
+    this.fillJunctionFlows();
     const qh = a0 + dQh * Pn[RA];
     this.Qheart = qh;
     net[RA] -= qh;
@@ -744,6 +776,7 @@ export class Engine {
       const [Pk, Ps] = this.nodeK[i];
       P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i] * this.liverStiff(i), Pk, Ps);
     }
+    this.fillJunctionPressures();
 
     // Blood accounting
     // (In rbc's units, RED: whole blood leaves at the healthy-marrow hematocrit, and a unit's cells count over the marrow's share.)

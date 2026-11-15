@@ -9,6 +9,7 @@
 // B: pts(list, id, f, name) loose points (a lead-in from outside the plate); vessel(id, { rev, a, b, until, near, name, r }) a vessel, whole or in
 //   part, the way the catheter travels it.
 import { lerp } from './num.js';
+import { JUNCTION_PIECES } from '../engine/topology.js';
 
 const TIPS_IDS = ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'];
 /** How far up the coronary vein the TIPS catheter goes to coil it, of the vein from where it joins the portal trunk (0..1 of its length). */
@@ -43,7 +44,7 @@ export function procSpecs(geo, radOf) {
     // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)
     brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
       build(B) {
-        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
+        const bot = headOf(geo, 'ILI_IVC'), lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
         B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
         B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
         B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
@@ -53,7 +54,7 @@ export function procSpecs(geo, radOf) {
     // and up it against its drawn course as C5 is. proc-anim.js PLUGS.)
     brtoC6: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
       build(B) {
-        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1], c6 = geo.C6.cur[geo.C6.cur.length - 1];
+        const bot = headOf(geo, 'ILI_IVC'), lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1], c6 = geo.C6.cur[geo.C6.cur.length - 1];
         B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
         B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
         B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('V_KID_L', { rev: true, near: c6, name: 'renal' }); B.vessel('C6', { rev: true, name: 'shunt' });
@@ -71,13 +72,13 @@ export function procSpecs(geo, radOf) {
     // the right portal vein and on to the middle of the portal trunk, where it reads.
     ppgperc: { ids: ['PVH_R', 'PV_TRUNK'], start: 0.1, tip: ['trunk', 0.45], focus: ['rpv', 'trunk'],
       build(B) {
-        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
+        const rpv = tailOf(geo, 'PVH_R');
         B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
         B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
       } },
     bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
       build(B) {
-        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
+        const rpv = tailOf(geo, 'PVH_R');
         B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
         B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
         B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
@@ -85,6 +86,53 @@ export function procSpecs(geo, radOf) {
   };
 }
 
+/**
+ * A vein split in pieces by a shunt joining it part-way (topology.js JUNCTIONS) as a catheter travels it: its pieces' drawn courses end to end.
+ * { P: the points, ids: the pieces in order from the vein's own start, cuts: the share of the whole's length at which each piece ends }, or null for a vein that is whole.
+ */
+export function wholeOf(geo, id) {
+  const ids = JUNCTION_PIECES[id];
+  if (!ids || ids.length < 2) return null;
+  const P = [], at = [];
+  for (const pid of ids) {
+    const c = geo[pid]?.cur;
+    if (!c?.length) return null;
+    for (let i = P.length ? 1 : 0; i < c.length; i++) P.push(c[i]);
+    at.push(P.length - 1);
+  }
+  const cum = lenTo(P), n = cum[cum.length - 1] || 1, cuts = at.map((i) => cum[i] / n);
+  // (A join on a straight run is no corner: the vein is the one line it was, with the points it had.)
+  for (let k = at.length - 2; k >= 0; k--) {
+    const j = at[k], a = P[j - 1], b = P[j], c = P[j + 1];
+    if (a && c && Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) < 1e-6 && (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) > 0) P.splice(j, 1);
+  }
+  return { P, ids, cuts };
+}
+/** The piece the share u (0 to 1, along the vein's own course) falls in, and the share of that piece. */
+export function pieceAt(w, u) {
+  let k = 0;
+  while (k < w.ids.length - 1 && u > w.cuts[k]) k++;
+  const lo = k ? w.cuts[k - 1] : 0, hi = w.cuts[k];
+  return [w.ids[k], hi > lo ? Math.min(1, Math.max(0, (u - lo) / (hi - lo))) : 0];
+}
+/**
+ * The parts of a leg along a split vein: the pieces it passes, each with its own span of the route (d0 to d1) and share of the piece (fa to fb),
+ * for the leg that starts at the share a and ends at b of the way (rev: against the vein's own course), over route distances d0 to d1.
+ */
+export function legSubs(w, rev, a, b, d0, d1) {
+  const out = [], span = b - a || 1;
+  w.ids.forEach((id, k) => {
+    const lo = k ? w.cuts[k - 1] : 0, hi = w.cuts[k], tl = rev ? 1 - hi : lo, th = rev ? 1 - lo : hi;
+    const x0 = Math.max(a, tl), x1 = Math.min(b, th);
+    if (!(x1 - x0 > 1e-6)) return;
+    const own = (x) => { const u = rev ? 1 - x : x; return hi > lo ? (u - lo) / (hi - lo) : 0; };
+    out.push({ id, name: id, fa: own(x0), fb: own(x1), d0: d0 + (d1 - d0) * (x0 - a) / span, d1: d0 + (d1 - d0) * (x1 - a) / span });
+  });
+  return out;
+}
+/** Where a vein starts and ends on the figure, the whole course of one a shunt splits (its own piece alone stops at the join). */
+const headOf = (geo, id) => (wholeOf(geo, id)?.P || geo[id].cur)[0];
+const tailOf = (geo, id) => { const P = wholeOf(geo, id)?.P || geo[id].cur; return P[P.length - 1]; };
 const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
 /** The part of a polyline from length a to length b (cumulative lengths in cum). */
 export function cutLen(pts, cum, a, b) {
@@ -109,7 +157,7 @@ export function rawRoute(spec, geo) {
   const B = {
     pts(list, id, f, name = 'lead') { marks.push(pts.length); parts.push({ name }); for (const q of list) pts.push(q); },
     vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, from = null, name = id } = {}) {
-      const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
+      const base = wholeOf(geo, id)?.P || geo[id].cur, P0 = rev ? base.slice().reverse() : base, c = lenTo(P0), n = c[c.length - 1] || 1;
       if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
       if (from) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - from[0], q[1] - from[1]); if (dd < best) { best = dd; a = c[i] / n; } }); }
       if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }

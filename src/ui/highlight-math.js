@@ -4,14 +4,14 @@
 // Named sets of vessels ('@name' in a slide's glow, spot or a mark's edges; slide-ext.js expandIds). Every id is a vessel in
 // the model's topology (tests/highlights.test.js).
 export const SETS = {
-  portal: ['V_INT', 'SMV_CONF', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'SV_CONF', 'V_STO', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L'],
-  'hepatic-veins': ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'],
+  portal: ['V_INT', 'V_INT_1', 'SMV_CONF', 'V_COL', 'V_IMV', 'V_SPL', 'SV_MID', 'SV_CONF', 'V_STO', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_R_1', 'PVH_L'],
+  'hepatic-veins': ['RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC'],
   collaterals: ['C1a', 'C1b', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'],
   esophageal: ['LGV_CONF', 'C1a', 'C1b', 'AZY_SVC'],
   gastrorenal: ['C2', 'C5', 'LRV_IVC'],
-  splenorenal: ['C6', 'LRV_IVC'],
+  splenorenal: ['C6', 'LRV_IVC', 'V_KID_L', 'V_KID_L_1'],
   shunts: ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC'],
-  caval: ['ILI_IVC', 'IVC_IS', 'IVCS_RA', 'LRV_IVC', 'AZY_SVC', 'SVC_RA'],
+  caval: ['ILI_IVC', 'ILI_IVC_1', 'IVC_IS', 'IVC_IS_1', 'IVCS_RA', 'LRV_IVC', 'AZY_SVC', 'SVC_RA'],
   'gut-arteries': ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'],
 };
 

@@ -9,6 +9,7 @@
 import { COLON_D, COLON_RING, BOWEL_RING, DUO_D } from './organ-art.js';
 import { gutPath, gutY } from './gut-proportions.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
+import { EDGES, JUNCTIONS, JUNCTION_HOST_ENDS, JUNCTION_PIECES } from '../engine/topology.js';
 
 export const VIEW = { w: 1400, h: 1000 };
 // Where the rectum's end fades away (y: clear above the first, gone at the second): the colon's mask (stage.js rectFade) and the
@@ -421,7 +422,7 @@ export const CIRCUIT_PATH = {
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
-  TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 36),
+  TIPS: route([[650, 303], [650, 246], [1030, 246], [1030, 282]], 36),   // (from the TIPS's two junctions, JUNCTION_CIRCUIT: on the right portal vein 30 before its end, on the right hepatic vein 30 after its start)
   // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
   // above the TIPS lane (below the esophageal route and clear of the SVC), then slants down past the hepatic veins and turns in
   // to the IVC downstream of them (just above IVCI).
@@ -454,10 +455,10 @@ export const CIRCUIT_PATH = {
   // it ran 16 below the portal vein's first stretch for 100 units. 11 Nov 2026.)
   REX: route([[320, 394], [346, 420], [648, 420], [680, 388]], 14),
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
-  C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
+  C6: route([[200, 261], [200, 510], [930, 510], [960, 540]], 16),   // (ends on the renal venules' junction, JUNCTION_CIRCUIT LRV_S)
   // (Its column is 30 left of the spontaneous shunt's: both ran 16 apart for 250 units. 11 Nov 2026.)
-  S_DSR: route([[200, 261], [170, 291], [170, 570], [970, 570], [1000, 540]], 16),
-  C7: route([[320, 394], [320, 600], [1120, 600]], 24),
+  S_DSR: route([[200, 261], [170, 291], [170, 570], [930, 570], [960, 540]], 16),
+  C7: route([[290, 394], [290, 600], [1120, 600]], 24),   // (leaves the small-bowel veins at their junction, JUNCTION_CIRCUIT SMV_R)
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
   C5: route([[240, 121], [70, 121], [70, 700], [1000, 700], [1000, 540]]),
@@ -505,6 +506,108 @@ export function metroPath([x1, y1], [x2, y2]) {
   return `M${x1} ${y1} L ${hx} ${y1} L ${x2} ${y1 + Math.sign(dy) * d} L ${x2} ${y2}`;
 }
 
+// ── Veins split where a shunt or collateral joins them (topology.js JUNCTIONS) ────────────────────────────────────────────────────────────
+// A junction is a node on the vein, so the vein is two vessels in series (three where two things join it) and each is drawn from the host's own
+// course cut at the junction: the same line, the same look, only now a node sits where the stent leaves or joins it, and the blood of each piece is its own.
+// In the Circuit the junction is a point on the host's course too (JUNCTION_CIRCUIT: where the lanes that join it were drawn to).
+export const JUNCTION_CIRCUIT = { RPV_T: [650, 303], RHV_T: [1030, 282], LRV_S: [960, 540], IVC_D: [1120, 430], SMV_R: [290, 394], ILI_R: [1120, 600] };
+const NUM = (n) => String(Math.round(n * 100) / 100);
+function pathSegs(d) {
+  const t = d.match(/[MLQC]|-?[\d.]+/g), segs = [];
+  let i = 0, cur = null;
+  while (i < t.length) {
+    const c = t[i++];
+    if (c === 'M') cur = [+t[i++], +t[i++]];
+    else if (c === 'L') { const p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p] }); cur = p; }
+    else if (c === 'Q') { const p1 = [+t[i++], +t[i++]], p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p1, p] }); cur = p; }
+    else if (c === 'C') { const p1 = [+t[i++], +t[i++]], p2 = [+t[i++], +t[i++]], p = [+t[i++], +t[i++]]; segs.push({ c, a: cur, p: [p1, p2, p] }); cur = p; }
+  }
+  return segs;
+}
+const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+// A segment's point at parameter t, and the two halves it splits into there (de Casteljau).
+function segSplit(seg, t) {
+  const P = [seg.a, ...seg.p];
+  if (seg.c === 'L') { const m = lerp2(P[0], P[1], t); return [{ c: 'L', a: P[0], p: [m] }, { c: 'L', a: m, p: [P[1]] }]; }
+  if (seg.c === 'Q') {
+    const a = lerp2(P[0], P[1], t), b = lerp2(P[1], P[2], t), m = lerp2(a, b, t);
+    return [{ c: 'Q', a: P[0], p: [a, m] }, { c: 'Q', a: m, p: [b, P[2]] }];
+  }
+  const a = lerp2(P[0], P[1], t), b = lerp2(P[1], P[2], t), c = lerp2(P[2], P[3], t), d = lerp2(a, b, t), e = lerp2(b, c, t), m = lerp2(d, e, t);
+  return [{ c: 'C', a: P[0], p: [a, d, m] }, { c: 'C', a: m, p: [e, c, P[3]] }];
+}
+function segPt(seg, t) { const [x] = segSplit(seg, t); return x.p[x.p.length - 1]; }
+const SUB = 24;
+function segLen(seg) { let l = 0, q = seg.a; for (let k = 1; k <= SUB; k++) { const p = segPt(seg, k / SUB); l += Math.hypot(p[0] - q[0], p[1] - q[1]); q = p; } return l; }
+const segsToD = (segs) => `M${NUM(segs[0].a[0])} ${NUM(segs[0].a[1])}` + segs.map((s) => ` ${s.c} ${s.p.map((q) => `${NUM(q[0])} ${NUM(q[1])}`).join(' ')}`).join('');
+/**
+ * The path `d` cut at `f` of its length (0 to 1): [the part before, the part after, the point]. A fraction in the course's own arc length, not in its
+ * curve parameter, so it is the same place the drawn vessel's own arc length gives.
+ */
+export function splitPathAt(d, f) {
+  const segs = pathSegs(d), lens = segs.map(segLen), total = lens.reduce((a, b) => a + b, 0);
+  let want = Math.max(0, Math.min(1, f)) * total, i = 0;
+  while (i < segs.length - 1 && want > lens[i]) { want -= lens[i]; i++; }
+  // (The parameter at the wanted arc length inside that segment, by its own sampled lengths.)
+  let acc = 0, t = 1, q = segs[i].a;
+  for (let k = 1; k <= SUB; k++) {
+    const p = segPt(segs[i], k / SUB), dl = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (acc + dl >= want) { t = (k - 1 + (dl > 0 ? (want - acc) / dl : 0)) / SUB; break; }
+    acc += dl; q = p;
+  }
+  const [h1, h2] = segSplit(segs[i], t), pt = h1.p[h1.p.length - 1];
+  return [segsToD([...segs.slice(0, i), h1]), segsToD([h2, ...segs.slice(i + 1)]), pt];
+}
+/** The fraction of the path's length at which its nearest point to `q` lies. */
+export function pathFractionNear(d, q) {
+  const segs = pathSegs(d), lens = segs.map(segLen), total = lens.reduce((a, b) => a + b, 0);
+  let best = Infinity, at = 0, run = 0;
+  segs.forEach((seg, i) => {
+    let prev = seg.a, acc = 0;
+    for (let k = 1; k <= SUB * 4; k++) {
+      const p = segPt(seg, k / (SUB * 4)), dx = p[0] - prev[0], dy = p[1] - prev[1], l2 = dx * dx + dy * dy, u = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - prev[0]) * dx + (q[1] - prev[1]) * dy) / l2)) : 0;
+      const dd = Math.hypot(prev[0] + dx * u - q[0], prev[1] + dy * u - q[1]);
+      if (dd < best) { best = dd; at = run + acc + u * Math.sqrt(l2); }
+      acc += Math.sqrt(l2); prev = p;
+    }
+    run += lens[i];
+  });
+  return total > 0 ? at / total : 0;
+}
+{
+  // Each host cut at its junctions, in order, in both views; the junction nodes are placed on the cuts.
+  const byHost = new Map();
+  for (const j of JUNCTIONS) { if (!byHost.has(j[1])) byHost.set(j[1], []); byHost.get(j[1]).push(j); }
+  const ends = (host) => JUNCTION_HOST_ENDS[host];
+  for (const [host, list] of byHost) {
+    list.sort((a, b) => a[2] - b[2]);
+    const ids = JUNCTION_PIECES[host], [from, to] = ends(host);
+    // Anatomy: the junctions at their own fractions of the host's drawn course.
+    let rest = EDGE_PATH[host] || `M${NODE_POS[from][0][0]} ${NODE_POS[from][0][1]} L ${NODE_POS[to][0][0]} ${NODE_POS[to][0][1]}`, done = 0;
+    const anat = [], pts = [];
+    for (const j of list) { const [a, b, pt] = splitPathAt(rest, (j[2] - done) / (1 - done)); anat.push(a); pts.push(pt); rest = b; done = j[2]; }
+    anat.push(rest);
+    // Circuit: the junctions at the points the lanes that join them were drawn to, on the host's circuit course.
+    let crest = CIRCUIT_PATH[host] || metroPath(NODE_POS[from][1], NODE_POS[to][1]), cdone = 0;
+    const circ = [];
+    for (const j of list) {
+      const at = JUNCTION_CIRCUIT[j[0]], whole = pathFractionNear(crest, at), [a, b] = splitPathAt(crest, whole);
+      circ.push(a); crest = b; cdone += whole * (1 - cdone);
+    }
+    circ.push(crest);
+    ids.forEach((id, i) => { EDGE_PATH[id] = anat[i]; CIRCUIT_PATH[id] = circ[i]; });
+    list.forEach((j, i) => { NODE_POS[j[0]] = [pts[i].map((v) => Math.round(v * 10) / 10), JUNCTION_CIRCUIT[j[0]]]; HIDDEN_NODES.add(j[0]); });
+    // The sets and tables that name a vein name every piece of it.
+    for (const set of [CONTEXT_EDGES, IVC_EDGES, BACK_EDGES]) if (set.has(host)) for (const id of ids) set.add(id);
+  }
+  // A vein that fades in from its start (TIP_FADE: the share of its whole length) fades over its first piece, scaled to it.
+  for (const host of Object.keys(TIP_FADE)) if (JUNCTION_PIECES[host]?.length > 1) {
+    const [from] = ends(host), first = JUNCTION_PIECES[host].find((id) => EDGES.find((e) => e.id === id).from === from), cut = JUNCTIONS.filter((j) => j[1] === host).map((j) => j[2]).sort((a, b) => a - b)[0];
+    TIP_FADE[first] = Math.min(1, TIP_FADE[host] / cut);
+    if (first !== host) delete TIP_FADE[host];
+  }
+}
+
 // Circuit pressure zones (x0, x1 in world units), captioned along the top of the map.
 export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver · sinusoids', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
 
@@ -532,6 +635,13 @@ export const LABEL_VESSEL = {
   RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
   LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS', DIPS: 'DIPS',
 };
+// A vein a shunt joins part-way is several pieces: its station's label hangs on the piece the vein's middle falls in.
+for (const [n, v] of Object.entries(LABEL_VESSEL)) {
+  const ids = JUNCTION_PIECES[v];
+  if (!(ids?.length > 1)) continue;
+  const cuts = JUNCTIONS.filter((j) => j[1] === v).map((j) => j[2]).sort((a, b) => a - b);
+  LABEL_VESSEL[n] = ids[cuts.filter((c) => c <= 0.5).length];
+}
 
 // The appendix's centre line, and its tip: the lowest point it is drawn to (the line's lowest point, sampled along its cubics,
 // plus half its widest stroke, .org-appendix.band-ao in app.css). The ascites starts below it (fluid-step.js).

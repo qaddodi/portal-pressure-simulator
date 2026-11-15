@@ -13,7 +13,7 @@
 // state is first drawn (the name leads that moment: the new state is asked for only once the new name is in, or NAME_LEAD_MS at
 // most). tests/change-order.test.js holds the order and the times to it.
 
-import { EDGES } from '../engine/topology.js';
+import { EDGES, JUNCTION_PIECES } from '../engine/topology.js';
 
 /** The steps, in the order they start. */
 export const CHANGE_STEPS = Object.freeze(['name', 'cause', 'pressure', 'collaterals', 'numbers']);
@@ -77,12 +77,21 @@ export function causeOf(a, b) {
  *  left portal vein in one step), nor the arteries, whose colour does not change, nor the wedge's model-only links. */
 const FRONT_KINDS = new Set(['vein', 'liver', 'diode']);
 export function hopsFrom(nodes) {
+  // (A vein a shunt joins part-way is several pieces (topology.js JUNCTIONS) but one vessel to count: only its first piece costs a hop.)
   const adj = new Map();
-  const link = (p, q) => { if (!adj.has(p)) adj.set(p, []); adj.get(p).push(q); };
-  for (const e of EDGES) if (FRONT_KINDS.has(e.kind)) { link(e.from, e.to); link(e.to, e.from); }
+  const link = (p, q, w) => { if (!adj.has(p)) adj.set(p, []); adj.get(p).push([q, w]); };
+  for (const e of EDGES) if (FRONT_KINDS.has(e.kind)) { const w = e.part && JUNCTION_PIECES[e.part]?.[0] !== e.id ? 0 : 1; link(e.from, e.to, w); link(e.to, e.from, w); }
   const d = new Map(), q = [];
   for (const n of nodes || []) if (!d.has(n)) { d.set(n, 0); q.push(n); }
-  for (let i = 0; i < q.length; i++) for (const m of adj.get(q[i]) || []) if (!d.has(m)) { d.set(m, d.get(q[i]) + 1); q.push(m); }
+  while (q.length) {
+    const n = q.shift();
+    for (const [m, w] of adj.get(n) || []) {
+      const t = d.get(n) + w;
+      if (d.has(m) && d.get(m) <= t) continue;
+      d.set(m, t);
+      if (w) q.push(m); else q.unshift(m);
+    }
+  }
   return d;
 }
 /** A vessel's distance from the cause, in vessels: 0 for one that touches it (the nearer of its two ends). Unknown: the farthest. */

@@ -706,7 +706,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   const tubeEndW = (J, n, id, stroked, w, lo, lim) => (J[n] && !stroked && GPU_EASE[id] === n ? clamp(J[n], w * lo, w * lim) : w);
   // (The portocaval shunt's end sinks into the side of the cava, as the Warren shunt's does into the renal vein: narrowed inside it and flared toward its wall. Not
   // in SIDE_HOSTS, whose blood hand-off (stage-blood.js) is for veins the shunt's own node meets. 13 Nov 2026.)
-  const SINK = { S_PC: [null, ['IVC_IS', 'ILI_IVC']] };
+  const SINK = { S_PC: [null, ['IVC_IS', 'IVC_IS_1', 'ILI_IVC', 'ILI_IVC_1']] };
   const FLARED = new Set(['S_DSR', 'S_PC']);
   let tubeHosts = 0;   // (how many of a side end's host veins are shown: set by tubeHostMax)
   function tubeHostMax(id, i) {

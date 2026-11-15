@@ -279,19 +279,16 @@ test('first pass: the origin lens is unchanged by it', () => {
   assert.deepEqual(Array.from(b), Array.from(a));
 });
 
-// A shunt drawn into a vein's side part-way (the splenorenal shunt into the left renal vein's venules, stage-geo.js SIDE_HOSTS): from the
-// join on, the vein carries its downstream node's blend, which holds the shunt's blood (the renal vein stayed slate blue past the join).
+// A shunt drawn into a vein's side part-way (the splenorenal shunt into the left renal vein's venules): the vein is cut at the join into two pieces
+// (topology.js JUNCTIONS), so the piece before the join carries the kidney's blood and the piece after it starts at the junction, which holds the shunt's.
 test('origin: a vein a shunt runs into part-way carries the shunt\'s blood from the join on, in both lenses', () => {
   const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams({ ...e.params, spontaneous: { C6: true }, diuretics: false }); e.settle();
-  const n = EDGES.length, kh = EI.V_KID_L;
-  assert.ok(e.Q[EI.C6] > 1 && e.Q[kh] > 0, 'the shunt flows into the renal vein');
+  const before = EI.V_KID_L, after = EI.V_KID_L_1;
+  assert.ok(e.Q[EI.C6] > 1 && e.Q[after] > 0 && e.Q[before] > 0, 'the shunt flows into the renal vein');
   for (const pass of [false, true]) {
-    const mk = (j) => { const ends = { slosh: new Float64Array(n), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n), join: new Float32Array(n) }; ends.join[kh] = j; const up = originFractionsInto(EDGES, NODES, e.Q, e.P, new Float32Array(n * ORIGIN_N), ends, pass); return { up, ends }; };
-    const none = mk(0), at = mk(0.4);
-    assert.equal(none.ends.pe[kh], 0, 'no join, no step');
-    assert.ok(Math.abs(at.ends.pe[kh] - 10.4) < 1e-4, `pe ${at.ends.pe[kh]}`);
-    const upK = Array.from(at.up.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N)), dn = Array.from(at.ends.down.slice(kh * ORIGIN_N, (kh + 1) * ORIGIN_N));
-    assert.ok(upK[0] + upK[1] + upK[2] + upK[3] < 1e-4, `the kidney's blood is systemic ${upK}`);
-    assert.ok(dn[0] + dn[1] + dn[2] > 0.3, `after the join it holds the shunt's gut blood ${dn}`);
+    const up = originFractions(EDGES, NODES, e.Q, e.P, pass), at = (k) => Array.from(up.slice(k * ORIGIN_N, (k + 1) * ORIGIN_N));
+    const b = at(before), a = at(after);
+    assert.ok(b[0] + b[1] + b[2] + b[3] < 1e-4, `the kidney's blood is systemic ${b}`);
+    assert.ok(a[0] + a[1] + a[2] > 0.3, `after the join it holds the shunt's gut blood ${a}`);
   }
 });

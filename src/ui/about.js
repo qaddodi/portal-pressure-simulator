@@ -7,6 +7,7 @@ import { fmt, clamp } from './util.js';
 import { LABEL_VESSEL } from './anatomy.js';
 import { judgeFlow } from './velNormal.js';
 
+import { piecesOf, withPieces } from './part-names.js';
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -57,6 +58,7 @@ const VESSEL = {
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
   REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a thrombosed main portal vein. It restores splanchnic venous inflow to the liver instead of diverting it to the systemic veins.',
 };
+withPieces(VESSEL);
 // A stent between two portal-system veins (13 Nov 2026): the blood stays in the portal system, so it bypasses a segment of the portal system, not the liver.
 const PORTAL_LINK = 'A stent between two veins of the portal system. It bypasses the segment between them, and its flow stays hepatopetal: portal blood still reaches the liver.';
 const BY_KIND = {
@@ -69,7 +71,7 @@ const BY_KIND = {
 
 // The station a vessel's pressure is read at, by the vessel (the first station named for it).
 const STATION_OF = new Map();
-for (const n of Object.keys(LABEL_VESSEL)) if (!STATION_OF.has(LABEL_VESSEL[n])) STATION_OF.set(LABEL_VESSEL[n], n);
+for (const n of Object.keys(LABEL_VESSEL)) for (const id of piecesOf(LABEL_VESSEL[n])) if (!STATION_OF.has(id)) STATION_OF.set(id, n);
 const JF_OPTS = { ref: 1 };   // (judgeFlow reads it as it is called)
 // A card asks for its words with every frame the model sends. The words are made again only when something they say moved: each vessel keeps the
 // numbers its words were made from (whether it is still, reversed, how far open, how much clot and narrowing, how far above normal) and the

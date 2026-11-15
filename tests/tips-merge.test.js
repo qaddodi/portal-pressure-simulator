@@ -2,6 +2,8 @@
 // RHV, not end to end"). The joins pass the renderer blends by (vein-joins.js) on the figure's real courses (anatomy.js) with the radii the stage gives them (right portal vein 11.4, its run on 2,
 // the right hepatic vein's two stretches 3.9 and 2.7, the middle hepatic vein's two stretches the same, the TIPS 4 narrowing to 2.2, and 6 at its widest, a 12 mm stent): the TIPS has exactly two joins,
 // its start on the right portal vein's course and its end on the right hepatic vein's, the vein the trunk of each; none with the middle hepatic vein it crosses, none at a node.
+// (Each of the two veins is two stretches, cut where the TIPS joins it (topology.js JUNCTIONS): the stent is filleted to each stretch as a tributary is to a trunk cut at its node,
+// the way the IMV joins the splenic vein, and the two stretches run on into each other, never filleted together.)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
@@ -31,7 +33,8 @@ function course(d) {   // the path's text as N points along it
   return out;
 }
 const VEINS = [   // [id, from node, to node, radius at each sample]
-  ['PVH_R', 'PVH', 'RPV', () => 11.4], ['PRE_R', 'RPV', 'SIN_R', () => 2], ['POST_R_RHV', 'CV_R', 'RHV', () => 3.9], ['RHV_IVC', 'RHV', 'IVCS', () => 2.7],
+  ['PVH_R', 'PVH', 'RPV_T', () => 11.4], ['PVH_R_1', 'RPV_T', 'RPV', () => 11.4], ['PRE_R', 'RPV', 'SIN_R', () => 2], ['POST_R_RHV', 'CV_R', 'RHV', () => 3.9],
+  ['RHV_IVC_1', 'RHV', 'RHV_T', () => 2.7], ['RHV_IVC', 'RHV_T', 'IVCS', () => 2.7],
   ['POST_R_MHV', 'CV_R', 'MHV', () => 3.9], ['MHV_IVC', 'MHV', 'IVCS', () => 2.7],
 ];
 function figure(tipsR0) {
@@ -41,7 +44,7 @@ function figure(tipsR0) {
     items.push({ x: { isArt: false, e: { id, from, to } }, obj: { glR, glMaxR: Math.max(...glR) }, row: items.length, kind: 'v', pts: course(EDGE_PATH[id]) });
   };
   for (const [id, from, to, rad] of VEINS) add(id, from, to, rad);
-  add('TIPS', 'RPV', 'RHV', (i) => tipsR0 - ((tipsR0 - 2.2) * i) / (N - 1));
+  add('TIPS', 'RPV_T', 'RHV_T', (i) => tipsR0 - ((tipsR0 - 2.2) * i) / (N - 1));
   return items;
 }
 const ROW = Object.fromEntries([...VEINS.map((v) => v[0]), 'TIPS'].map((id, i) => [id, i]));
@@ -50,12 +53,12 @@ for (const r0 of [4, 6]) {
   test(`the TIPS (${r0 * 2} mm at its start) has two joins: its start on the right portal vein, its end on the right hepatic vein, each vein the trunk`, () => {
     const items = figure(r0), J = veinJoins(items, N, newJoinStore());
     const mine = J.filter((j) => j.members.includes(ROW.TIPS));
-    assert.equal(mine.length, 2, `joins with the TIPS: ${mine.map((j) => j.members.join('+') + '@' + Math.round(j.x) + ',' + Math.round(j.y)).join(' ')}`);
+    assert.equal(mine.length, 4, `joins with the TIPS: ${mine.map((j) => j.members.join('+') + '@' + Math.round(j.x) + ',' + Math.round(j.y)).join(' ')}`);
     const at = (row) => mine.find((j) => j.members.includes(row));
     const p = at(ROW.PVH_R), h = at(ROW.RHV_IVC);
     assert.ok(p && h, 'one join on each of the two veins');
-    assert.equal(p.trunk, ROW.PVH_R, 'the portal vein is the trunk at the start');
-    assert.equal(h.trunk, ROW.RHV_IVC, 'the hepatic vein is the trunk at the end');
+    for (const id of ['PVH_R', 'PVH_R_1', 'RHV_IVC_1', 'RHV_IVC']) assert.ok(at(ROW[id]).fork && at(ROW[id]).trunk === ROW[id], `${id} is the trunk of its join with the TIPS`);
+    assert.ok(at(ROW.PVH_R_1).x === p.x && at(ROW.RHV_IVC_1).x === h.x, 'the two stretches of a vein meet the TIPS at one place');
     assert.ok(Math.hypot(p.x - 560.8, p.y - 424.6) < 1 && Math.hypot(h.x - 578.4, h.y - 230.5) < 1, 'the joins lie at the two ends of the tract');
     for (const j of mine) assert.equal(j.members.length, 2, 'a plain side join: the TIPS and its trunk, no third vessel');
   });

@@ -12,6 +12,7 @@ import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 import { easeArrive, D_SURFACE } from './ease.js';
+import { withPieces } from './part-names.js';
 const nextFrame = frameFor('lumen');
 
 // ── How the picture follows the model (6 Nov 2026, Mohammad on iPhone: "This cross section animation is super laggy") ──
@@ -66,6 +67,7 @@ export const hasStent = (id, stented) => STENTS.has(id) || (Array.isArray(stente
 const SYSTEMIC = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA', 'IVCI', 'IVCS']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava', TIPS: 'TIPS', DIPS: 'DIPS' };
+withPieces(NAME);
 export const lumenName = (id) => NAME[id] || EDGES.find((e) => e.id === id)?.label?.toLowerCase() || 'portal vein';
 // The name written in the circle above the %, short enough to fit inside the lumen at the 12 px floor (a deck may set its own,
 // tool.name, kept to about a dozen letters): "Right PV" and "Middle HV" abbreviate, as crowded vessel labels do. A stent is
@@ -73,6 +75,7 @@ export const lumenName = (id) => NAME[id] || EDGES.find((e) => e.id === id)?.lab
 // hepatic vein end ("Distal TIPS").
 const LABEL = { PV_TRUNK: 'Portal vein', PVH_R: 'Right PV', PVH_L: 'Left PV', SV_CONF: 'Splenic vein', SV_MID: 'Splenic vein', V_SPL: 'Splenic vein',
   SMV_CONF: 'SMV', RHV_IVC: 'Right HV', MHV_IVC: 'Middle HV', LHV_IVC: 'Left HV', IVCS_RA: 'IVC', IVCI: 'IVC', IVCS: 'IVC' };
+withPieces(LABEL);
 export const STENT_SITES = ['proximal', 'mid', 'distal'];
 /** Where along a stent the section is cut: the slide's tool.site, else the segment its narrowing sits in
  *  (params.stenosisSite, distal if unset, as scenario.js and the Doppler take it). */

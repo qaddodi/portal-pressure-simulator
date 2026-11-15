@@ -6,7 +6,7 @@ import { geomInto, viewInto } from './cam-arc.js';
 
 /** The vessel paths a glide may follow, each a chain of vessels in the order the blood (or the catheter) runs. */
 export const ROUTES = Object.freeze({
-  portal: ['V_INT', 'SMV_CONF', 'PV_TRUNK', 'PVH_R'],
+  portal: ['V_INT', 'V_INT_1', 'SMV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_R_1'],
   splenic: ['V_SPL', 'SV_MID', 'SV_CONF', 'PV_TRUNK', 'PVH_R'],
   coronary: ['PVH_R', 'PV_TRUNK', 'LGV_CONF', 'C1a', 'C1b', 'AZY_SVC'],
   gastric: ['PV_TRUNK', 'SV_CONF', 'C2', 'C5', 'LRV_IVC'],

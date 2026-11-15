@@ -61,11 +61,13 @@ import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { talkTrace } from './talk-trace.js';
 import { EXT, guard, safe } from './slide-ext.js';
+import { withPieces } from './part-names.js';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
   A_HEP: 'hepatic artery', TIPS: 'the TIPS', C3: 'paraumbilical vein' };
+withPieces(VESSEL);
 const TITLE = {
   doppler: (t) => `Doppler, ${VESSEL[t.vessel || 'PV_TRUNK'] || EDGES.find((e) => e.id === t.vessel)?.label?.toLowerCase() || 'portal vein'}`,
   scope: () => 'Endoscopy, the lower esophagus',

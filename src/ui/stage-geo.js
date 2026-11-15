@@ -87,9 +87,9 @@ export function createGeo(st, live) {
   // it is gone], downward for the rectal and epigastric veins and the infrarenal IVC, upward for the
   // SVC above the azygos arch (it leaves the top of the plate).
   // Veins that end on the faded IVC fade into it over their last stretch, so the join is seamless.
-  const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA']), IVC_JOIN_LEN = 60;
+  const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA', 'IVC_D', 'ILI_R']), IVC_JOIN_LEN = 60;
   // Solid to the wall, joined to the cava as a confluence: the hepatic and renal veins.
-  const HEPATIC_VEINS = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'LRV_IVC', 'RRV_IVC']);
+  const HEPATIC_VEINS = new Set(['RHV_IVC', 'RHV_IVC_1', 'MHV_IVC', 'LHV_IVC', 'LRV_IVC', 'RRV_IVC']);
   const IVC_JOIN = {};
   for (const e of ALL_EDGES) {
     if (IVC_EDGES.has(e.id) || HEPATIC_VEINS.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
@@ -112,7 +112,7 @@ export function createGeo(st, live) {
   // Shunts that leave and join a vein part-way along it, not at a node: the veins at each end ([from end], [to end]).
   // (The ascending lumbar collateral, C9, joins the azygos trunk from the side, below the arch: the trunk is drawn at the
   // azygos's own width, so the azygos is its host there.)
-  const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L']], C9: [[], ['AZY_SVC']] };
+  const SIDE_HOSTS = { C6: [['V_SPL', 'SV_MID'], ['V_KID_L', 'V_KID_L_1']], S_DSR: [['V_SPL', 'SV_MID'], ['V_KID_L', 'V_KID_L_1']], C9: [[], ['AZY_SVC']] };
   // The ends of those that lie inside the vein's lumen, as a side branch (the Warren shunt's start runs on from the
   // divided splenic vein instead): narrowed there on the GPU (renderTube).
   const SIDE_INSIDE = { C6: [true, true], S_DSR: [false, true], C9: [false, true] };

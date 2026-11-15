@@ -16,7 +16,7 @@ const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 test('a station label names the vessel a click on it selects', () => {
   assert.deepEqual(labelTarget('n:CONF'), { edge: 'PV_TRUNK', also: [] });
   assert.deepEqual(labelTarget('n:SIN_R'), { edge: 'SIN_RR', also: [] }, 'the sinusoids are one vessel on each side');
-  assert.deepEqual(labelTarget('n:RHV'), { edge: 'RHV_IVC', also: [] });
+  assert.deepEqual(labelTarget('n:RHV'), { edge: 'RHV_IVC', also: ['RHV_IVC_1'] }, 'the right hepatic vein lights whole: its label hangs on the piece its middle falls in');
   assert.deepEqual(labelTarget('n:IVCS'), { edge: 'IVCS_RA', also: [] }, 'the cava lights whole: stage.js vhEdges');
   assert.deepEqual(labelTarget('n:W_R'), { edge: 'RHV_IVC', also: [] }, 'a wedge reading is its hepatic vein');
 });

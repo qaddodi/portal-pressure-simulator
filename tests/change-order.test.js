@@ -33,7 +33,7 @@ test('the cause is where the change is made', () => {
   const pvt = deepMerge(healthy, { thrombus: { PV_TRUNK: 1 } });
   assert.deepEqual(causeOf(healthy, pvt).sort(), ['CONF', 'PVH']);
   const tips = deepMerge(cirr, { tips: { on: true, d: 8 } });
-  assert.deepEqual(causeOf(cirr, tips).sort(), ['RHV', 'RPV']);
+  assert.deepEqual(causeOf(cirr, tips).sort(), ['RHV_T', 'RPV_T']);
   assert.deepEqual(causeOf(healthy, deepMerge(healthy, { contractility: 0.25 })), ['RA']);
   assert.equal(causeOf(healthy, structuredClone(healthy)), null, 'nothing changed on the circuit: no cause');
   assert.equal(causeOf(healthy, deepMerge(healthy, { albumin: 2.8 })), null, 'albumin alone has no place on the circuit');
