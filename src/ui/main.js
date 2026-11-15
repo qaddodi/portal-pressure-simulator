@@ -23,6 +23,8 @@ import { createCompare } from './compare.js';
 import { createCard } from './card.js';
 import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
+import { readYours, saveYours, removeYours } from './yours-store.js';
+import { YOURS_NOTE } from '../engine/yours.js';
 import { caption } from './a11y.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
@@ -128,7 +130,7 @@ function lazy(load, make) {
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
-let paletteL, presenterL, dopplerL, fibroL, trialsL;
+let paletteL, presenterL, dopplerL, fibroL, trialsL, fromReadingsL;
 const palette = {
   // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
   // (Opened in the same task as the tap once it is loaded (it is warmed at idle), so the field's focus is inside the gesture and iOS raises the
@@ -173,6 +175,8 @@ async function main() {
   dopplerL = lazy(() => import('./doppler.js'), ({ createDoppler }) => createDoppler({ onProbe: probeTo }));
   fibroL = lazy(() => import('./fibroscan.js'), ({ createFibroScan }) => createFibroScan());
   trialsL = lazy(() => import('./trials-pane.js'), ({ createTrialsPane }) => createTrialsPane());   // (the Tests card's Trials tab)
+  // The patient menu's "From readings" (Work backward): its refinement worker is made only when a person has entered enough readings.
+  fromReadingsL = lazy(() => import('./from-readings.js'), ({ createFromReadings }) => createFromReadings({ makeWorker: () => new Worker(new URL('./inverse-worker.js', import.meta.url), { type: 'module' }), openYours }));
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL], ['trials', trialsL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
@@ -206,6 +210,9 @@ async function main() {
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   // Both asked at once: one round trip to the engine before any UI, not two.
+  // (The patients made from readings, "Yours", are on this device only: the engine is told them before the list is asked for, so the one answer holds them.)
+  const saved = readYours();
+  if (saved.length) await host.request('yours', { list: saved }).catch(() => {});
   const [healthy, { presets }] = await Promise.all([host.request('healthyProfile'), host.request('presets'), ...openAtStart]);
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
@@ -301,6 +308,7 @@ async function main() {
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
+    onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); }, onForget: forgetYours,
     onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); labelsUnderMenu(on); },
   });
   paletteL = lazy(() => import('./palette.js'), ({ createPalette }) => createPalette({ ctx: {
@@ -513,6 +521,7 @@ async function main() {
   // left alone for a moment (quiet.js): a module's read-in is tens of ms of script on a phone, and a timer alone put it in a pan or pinch.
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   const warmUp = [() => paletteL.warm(), () => presenterL.warm(), () => dock.load()];   // (dock.load reads in the Doppler, FibroScan and Trials panes too)
+  warmUp.push(() => fromReadingsL.warm());   // (the patient menu's From readings: its module is there by the time its row is tapped)
   const warmNext = () => { const step = warmUp.shift(); if (step) whenQuiet(() => idle(() => { step(); warmNext(); })); };
   setTimeout(warmNext, 3000);
   // While the loading cover is still up, the same modules are read in under it (the cover waits for them), not in the first seconds of use.
@@ -668,6 +677,21 @@ async function openInExplore(id) {
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
+// Work backward's "Open as patient": the scenario is saved on this device as "Yours", the engine is told the whole saved list (engine/yours.js), and
+// the patient is opened in Explore like any other. forgetYours takes one out of the list; a patient already loaded stays as it is.
+async function syncYours(list) {
+  const { presets } = await host.request('yours', { list });
+  store.set({ presetList: presets });
+  mainMenu?.render();
+}
+async function openYours(f, p, readings) {
+  const { list, rec } = saveYours(f, p, readings);
+  if (!rec) throw new Error('not a patient the model can make');
+  await syncYours(list);
+  await openInExplore(rec.id);
+  toast(rec.label, 'note', { sub: YOURS_NOTE });
+}
+const forgetYours = (id) => { syncYours(removeYours(id)).catch(() => {}); };
 let presetGen = 0;
 // (N1, change-order.js: the patient's name changes first, and the model is asked for the new patient once the new name is in, so the
 // vessels never change under the old name (A7). namingId: the patient being loaded, whose name the top bar shows; nameFirst: the bar's
@@ -717,6 +741,8 @@ async function loadShared(s, { quiet = false } = {}) {
   if (!(await loadPreset(s.preset))) return false;
   let clamped = false, repaired = '';
   const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
+  // (A patient made from readings, "Yours", is saved on its owner's device only: a link made from one carries the settings, and says so.)
+  if (s.fromYours) toast('This link comes from a patient made from readings, which is saved on the sender’s device only, so its settings opened on the healthy patient.', 'bad');
   if (s.params) {
     const merged = deepMerge(store.get().params, s.params), { params: clean, repairs } = sanitizeParamsReport(merged);
     updateParams(() => clean, { settle: true, history: false });

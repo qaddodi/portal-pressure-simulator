@@ -1,0 +1,91 @@
+/* From readings (Work backward), the patient menu's top row: src/ui/from-readings.js. A sheet on a phone (the shared .menu.as-sheet, so it rests over
+   the thumb dock's top line, never over it) and a popover under the menu's button elsewhere; the same glass as every menu. Colours are tokens, so
+   all five looks follow. The only things that move are opacity and transform (the pills' fill and strike, the swap's fade): nothing is laid out in
+   motion and nothing pops in or out. Kept apart from the app-NN files: their line budget only goes down (scripts/size-budget.json). */
+
+.menu.fr-pop { width: min(440px, calc(100vw - 16px)); padding: 12px 14px 14px; gap: 0; overflow: hidden auto; overscroll-behavior: contain; max-height: min(78dvh, calc(100dvh - 96px)); }
+.menu.fr-pop.as-sheet { width: auto; padding: 8px 14px 14px; }
+.fr { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-14); color: var(--text-2); }
+.fr-head b { color: var(--text); font-weight: 600; }
+.fr-head span { color: var(--text-3); font-size: var(--fs-12); }
+.fr-ic { width: var(--ic-s, 16px); height: var(--ic-s, 16px); flex: none; color: var(--text-2); }
+.as-sheet .fr-head { display: none; }   /* (the sheet's own head says it) */
+.fr-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fr-step, .fr-results { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+.fr-prog { display: flex; gap: 4px; }
+.fr-prog i { flex: 1; height: 3px; border-radius: 3px; background: var(--surface-3); position: relative; overflow: hidden; }
+.fr-prog i::after { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: 0; }
+.fr-prog i.on::after { opacity: 1; }
+.fr-q { margin: 2px 0 0; font-size: var(--fs-16); font-weight: 600; line-height: 1.3; color: var(--text); }
+.fr-small { margin: -4px 0 0; font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-fine { margin: 0; font-size: var(--fs-12); line-height: 1.4; color: var(--text-3); }
+.fr-fine b { color: var(--text-2); font-weight: 600; }
+.fr-sub { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+
+.fr-rows { display: flex; flex-direction: column; gap: 6px; }
+.fr-row { display: grid; grid-template-columns: minmax(0, 1fr) 124px; align-items: center; gap: 4px 10px; padding: 6px 0; border-top: 1px solid var(--hairline); }
+.fr-row:first-child { border-top: 0; }
+.fr-l { display: flex; flex-direction: column; min-width: 0; }
+.fr-l b { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.fr-l i { font-style: normal; font-size: var(--fs-12); line-height: 1.35; color: var(--text-3); }
+.fr-in { display: flex; align-items: center; gap: 6px; }
+.fr-in input { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border-radius: var(--r-control); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-16); font-variant-numeric: tabular-nums; text-align: right; }
+.fr-in input::placeholder { color: var(--text-3); font-size: var(--fs-14); }
+.fr-in input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.fr-in em { font-style: normal; font-size: var(--fs-12); color: var(--text-3); min-width: 3.4em; }
+.fr-row[data-known="1"] .fr-in input { border-color: var(--accent-line); background: var(--accent-soft); }
+.fr-row[data-bad="1"] .fr-in input { border-color: var(--border-strong); }
+.fr-hint { grid-column: 1 / -1; font-size: var(--fs-12); color: var(--text-2); min-height: 0; }
+.fr-hint:empty { display: none; }
+.fr-grade { grid-template-columns: 1fr; }
+.fr-seg { margin-top: 4px; }
+.fr-seg button { padding: 6px 4px; font-size: var(--fs-12); white-space: normal; }
+.fr-derived { min-height: 0; font-size: var(--fs-12); color: var(--text-2); }
+.fr-derived:empty { display: none; }
+
+/* Still possible: a count and every lesion type as a pill. The state is an attribute; the fill and the strike are layers that fade and scale. */
+.fr-still { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--r-card); background: var(--surface-2); }
+.fr-count { display: flex; align-items: baseline; gap: 6px; color: var(--text-2); font-size: var(--fs-14); }
+.fr-count b { font-size: var(--fs-28); font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.fr-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.fr-pill { position: relative; isolation: isolate; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--border-strong); font-size: var(--fs-12); line-height: 1.5; color: var(--text); overflow: hidden; }
+.fr-pill::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.fr-pill::after { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: left center; transition: transform var(--d-flip) var(--ease); }
+.fr-pill[data-s="best"]::before, .fr-pill[data-s="tie"]::before { opacity: 1; }
+.fr-pill[data-s="out"] { opacity: .55; transition: opacity var(--d-flip) var(--ease); }
+.fr-pill[data-s="out"]::after { transform: scaleX(1); }
+.fr-need { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
+.fr-btns { display: flex; gap: 8px; }
+.fr-btns .btn { flex: 1 1 0; min-width: 0; }
+.fr-btns .btn.primary { flex: 2 1 0; }
+
+/* The scenarios */
+.fr-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--r-card); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); }
+.fr-card[data-s="possible"] { background: transparent; }
+.fr-ct { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fr-ct b { font-size: var(--fs-16); font-weight: 600; color: var(--text); }
+.fr-st { flex: none; font-size: var(--fs-12); color: var(--text-2); }
+.fr-cs { margin: 0; font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+.fr-marks { display: flex; flex-wrap: wrap; gap: 4px; }
+.fr-mark { padding: 1px 7px; border-radius: var(--r-pill); font-size: var(--fs-12); line-height: 1.5; border: 1px solid var(--border-strong); color: var(--text-2); }
+.fr-mark[data-m="fit"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--text); }
+.fr-mark[data-m="off"] { border-style: dashed; color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.fr-kv { display: grid; grid-template-columns: 7.2em minmax(0, 1fr); gap: 4px 10px; margin: 0; }
+.fr-kv dt { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding-top: 2px; }
+.fr-kv dd { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.fr-acts { display: flex; }
+.fr-acts .btn { flex: 1; }
+.fr-also { display: flex; flex-direction: column; gap: 8px; }
+.fr-next-note { display: flex; gap: 10px; align-items: baseline; padding: 10px 12px; border-radius: var(--r-card); box-shadow: inset 0 0 0 1px var(--accent-line); background: var(--accent-soft); }
+.fr-next-note p { margin: 0 0 4px; font-size: var(--fs-14); line-height: 1.45; color: var(--text); }
+.fr-next-note p.fr-fine { color: var(--text-2); }
+.fr-pillnote { flex: none; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 600; background: var(--accent); color: var(--on-accent); }
+.fr-refine { min-height: 1.4em; }
+
+/* The menu's row: the door at the head of the Patients list */
+.um-g.um-fr { margin-bottom: 6px; }
+.um-g.um-fr .um-row { font-weight: 600; }
+.um-fromread .um-m { margin-left: auto; font-weight: 400; }
+@media (max-width: 380px) { .fr-row { grid-template-columns: minmax(0, 1fr) 108px; } .fr-kv { grid-template-columns: 1fr; } .fr-kv dt { padding-top: 6px; } }

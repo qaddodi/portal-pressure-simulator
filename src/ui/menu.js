@@ -32,7 +32,7 @@ const profFrame = frameFor('menu-profile');
 // ?pvglide=0 path, which did, is gone, 1 Nov: nothing laid out in motion.)
 
 // Where each group's resistance sits along the pathway from the gut to the heart.
-const GROUP_WHERE = { Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
+const GROUP_WHERE = { Yours: 'Made from your readings', Normal: 'No added resistance', 'Pre-hepatic': 'Before the liver', Presinusoidal: 'In the portal tracts', Sinusoidal: 'In the sinusoids', Postsinusoidal: 'At the central veins', 'Post-hepatic': 'Hepatic veins and IVC', Cardiac: 'The right heart' };
 
 // A patient's pressure profile from the gut to the right atrium (a hydraulic grade line): blood runs
 // downhill, and the steepest fall is where the resistance sits. Drawn by the GPU (trace-gl.js; 1 Nov 2026, move everything to GPU):
@@ -92,7 +92,10 @@ function paintProfile(ctx, W, H, snap) {
 // The standing cut-offs: HVPG amber from 5, red from 10; PPG amber from 6, red from 12.
 const sev = (cuts, v) => ({ ok: 'ok', caution: 'low', danger: 'high' })[sevOfCuts(cuts, v)];
 const one = (v) => fmt(v, 1);   // (one decimal, as the tiles and the bar print the same gradients: "17.2", never "17")
+// (Set by the open menu: what a patient made from readings adds to its preview, a Delete; the others add nothing.)
+let previewAct = null;
 function patientPreview(p) {
+  const act = previewAct?.(p) ?? null;
   const s = SNAPSHOTS[p.id], fp = s?.fp;
   return h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
@@ -104,14 +107,14 @@ function patientPreview(p) {
       fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, shownOf(fp.ppg)), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
       h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, fmt(s.pv, 1))),
       s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow is reversed, away from the liver' }, 'Hepatofugal') : null) : null,
-    h('p', {}, p.summary || ''));
+    h('p', {}, p.summary || ''), act);
 }
 
 // Search: every word typed must appear somewhere in the row's words (case, accents, spaces and hyphens ignored).
 const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
 const matches = (hay, words) => words.every((w) => hay.includes(w));
 
-export function createMenu({ anchor, library, libraryNow, onPreset, share, help, onToggle }) {
+export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadings, onForget, share, help, onToggle }) {
   const reduce = reduceMotionMQ;
   const sheetMQ = matchMedia(STACK_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
@@ -172,6 +175,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (mark && mark === d.id) li.classList.add('um-new');
     return li;
   }
+  // A patient made from readings can be deleted from its preview (the others are the app's own). The list is made again by whoever forgets it.
+  previewAct = (p) => (p.group === 'Yours' && onForget ? h('div', { class: 'um-acts' }, h('button', { class: 'btn ghost sm', onclick: () => onForget(p.id) }, 'Delete')) : null);
   function patientRow(p, cur) {
     const row = h('button', { class: 'um-row', 'data-k': 'p:' + p.id, 'aria-current': p.id === cur ? 'true' : null, onclick: () => { close(); if (p.id !== store.get().presetId || store.get().mode !== 'explore') onPreset(p.id); } },
       h('span', { class: 'um-t' }, p.label), p.id === cur ? svgIcon('check', 'um-check') : null);
@@ -388,8 +393,15 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const st = store.get(), cur = st.presetId;
     const groups = {};
     for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
-    const patients = h('section', { class: 'um-col', 'data-col': 'patients' },
-      Object.entries(groups).map(([g, ps]) => h('div', { class: 'um-g' },
+    // (Work backward's door heads the list; the patients made from readings are the first group under it, then the app's own, by site.)
+    const door = onFromReadings ? h('div', { class: 'um-g um-fr' }, h('ul', {}, h('li', {}, (() => {
+      const row = h('button', { class: 'um-row um-fromread', 'data-k': 'from-readings', onclick: () => { close(); onFromReadings(anchor); } },
+        svgIcon('scenario', 'um-play'), h('span', { class: 'um-t' }, 'From readings'), h('span', { class: 'um-m' }, 'Work backward'));
+      row.dataset.find = fold('From readings work backward enter measured pressures stiffness reverse search scenarios'); row.dataset.more = fold('Enter what you measured and see which lesions could give it');
+      return row;
+    })()))) : null;
+    const patients = h('section', { class: 'um-col', 'data-col': 'patients' }, door,
+      Object.entries(groups).sort(([a], [b]) => (b === 'Yours') - (a === 'Yours')).map(([g, ps]) => h('div', { class: 'um-g' },
         h('div', { class: 'um-gl', id: 'umg-' + g }, h('b', {}, g), h('span', {}, GROUP_WHERE[g] || '')),
         h('ul', { 'aria-labelledby': 'umg-' + g }, ps.map((p) => patientRowK(p, cur))))));
     let present;

@@ -90,14 +90,30 @@ test('a worker that errors or goes silent leaves the grid\'s ranking and the sta
   assert.ok(REFINE_TIMEOUT_MS >= 20000);
 }));
 
-test('a worker that cannot be made leaves the ranking on the page; dispose ends a worker', () => withWorker(() => {
-  const r = createInverseRemote(() => { throw new Error('no worker'); });
-  assert.equal(r.status(), 'library');
-  assert.equal(r.set(A).ready, true);
-  const w = new FakeWorker(), r2 = createInverseRemote(() => w);
-  r2.dispose();
+test('the worker is made on the first refinement, not before; one that cannot be made leaves the ranking on the page; dispose ends one', () => withWorker(() => {
+  let made = 0;
+  const w = new FakeWorker(), r = createInverseRemote(() => { made++; return w; });
+  assert.equal(made, 0, 'opening the screen makes no worker');
+  r.peek(A); r.set({ whvp: 8 });
+  assert.equal(made, 0, 'nor do too few readings');
+  r.set(A);
+  assert.equal(made, 1);
+  r.set({ ...A, lsm: 7 });
+  assert.equal(made, 1, 'one worker for the life of the screen');
+  r.dispose();
   assert.equal(w.ended, true);
-  assert.equal(r2.status(), 'library');
+  assert.equal(r.status(), 'library');
+  const bad = createInverseRemote(() => { throw new Error('no worker'); });
+  assert.equal(bad.status(), 'idle');
+  assert.equal(bad.set(A).ready, true, 'the ranking is there whatever the worker does');
+  assert.equal(bad.status(), 'library');
+}));
+
+test('peek ranks without starting anything', () => withWorker(() => {
+  const w = new FakeWorker(), r = createInverseRemote(() => w);
+  assert.equal(r.peek(A).ready, true);
+  assert.equal(w.sent.length, 0);
+  assert.equal(r.status(), 'idle');
 }));
 
 test('the real worker runs the engine near the best fit and sends back patients that were not in the library', async () => {

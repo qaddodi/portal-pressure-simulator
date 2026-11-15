@@ -145,7 +145,7 @@ export function rank(raw, points) {
       if (marks[k] === 'off') gaps.push({ key: k, entered: readings[k], predicted: best.r[k], d: best.per[k] });
     }
     gaps.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
-    fams.push({ id: f.id, label: f.label, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, score: best.chi + cost, per: best.per, pred: best.r }, score: best.chi + cost, ranges, predicts, marks, gaps, count: ok.length });
+    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, score: best.chi + cost, per: best.per, pred: best.r }, score: best.chi + cost, ranges, predicts, marks, gaps, count: ok.length });
   }
   fams.sort((a, b) => a.score - b.score);
   const top = fams[0].score;
