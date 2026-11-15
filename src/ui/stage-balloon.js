@@ -4,6 +4,7 @@ import { gastricUp } from '../engine/scenario.js';
 import { BALLOON, BALLOON_MS, balloonShape, esoAt, smoothPath } from './balloon-eso.js';
 import { GAS, gasShape, pathAt, pullArrow, sheath, sheathArcs, tubePath, tubeTip, tubeTo } from './balloon-gas.js';
 import { easeMove, reduceMotionMQ as reduceMotion } from './motion.js';
+import { D_SMALL, D_SURFACE } from './ease.js';
 import { restPass } from './rest-pass.js';
 import { s } from './util.js';
 
@@ -20,22 +21,45 @@ export function createBalloon(st, live) {
   const balEase = easeMove;   // (the one inflation curve, procedure balloons' too: motion.js)
   // (The tube's fit to the stomach is worked out once, in a few milliseconds: ahead of its first use, while the page is idle.)
   (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => stageScope.timer(f, 3000))(() => { tubePath(); });
+  // Reduced motion (owner, 15 Nov 2026: nothing pops in or out, Reduce Motion included): the tube and its balloons do not slide or swell, they fade. The picture on show
+  // fades out over D_SMALL, the new state is drawn whole while it is invisible, and fades in over D_SURFACE; from nothing, only the fade in. The fade is the group's
+  // opacity (the GPU reads a mark through its ancestors' opacity, stage-marks.js, so each step asks the marks to be read again: mk.ver).
+  const rm = { phase: 0, a: 1, gas: false, eso: false, anat: false, op: 1 };   // (phase: 0 at rest, 1 fading out, 2 fading in; gas, eso, anat: the state drawn)
+  function setOpacity(op) {
+    rm.op = op;
+    if (op >= 1) ov.balloons.removeAttribute?.('opacity'); else ov.balloons.setAttribute?.('opacity', op.toFixed(3));
+    if (live.mk) live.mk.ver++;
+  }
+  function reducedStep(wantGas, wantEso, anat, dt) {
+    const changed = wantGas !== rm.gas || wantEso !== rm.eso || anat !== rm.anat;
+    if (changed && rm.phase !== 1) {
+      if (bal.adv <= 0) { rm.a = 0; rm.phase = 2; applyGoal(wantGas, wantEso, anat); } else rm.phase = 1;   // (nothing drawn: no fade out)
+    }
+    if (rm.phase === 1) {
+      rm.a = Math.max(0, rm.a - dt / D_SMALL);
+      if (rm.a <= 0) { applyGoal(wantGas, wantEso, anat); rm.phase = 2; }
+    } else if (rm.phase === 2) {
+      rm.a = Math.min(1, rm.a + dt / D_SURFACE);
+      if (rm.a >= 1) rm.phase = 0;
+    }
+    const op = rm.phase === 0 ? 1 : easeMove(rm.a);
+    if (op !== rm.op) setOpacity(op);
+    live.balloonSqueeze = 1 - 0.45 * bal.eso * op;   // (the esophagus's squeeze follows the fade, never a step)
+    if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
+  }
+  function applyGoal(wantGas, wantEso, anat) {
+    bal.adv = bal.gas = wantGas ? 1 : 0; bal.eso = wantEso ? 1 : 0; bal.anat = anat; bal.dirty = true;
+    rm.gas = wantGas; rm.eso = wantEso; rm.anat = anat;
+  }
   function balloonStep(p, anat) {
     const now = performance.now(), dt = Math.min(100, bal.last ? now - bal.last : 0);
     bal.last = now;
     const wantEso = !!p.balloonEso && anat, wantGas = gastricUp(p) && anat;
     if (wantGas !== bal.wantGas || wantEso !== bal.wantEso) { bal.wantGas = wantGas; bal.wantEso = wantEso; bal.dirty = true; }
     const was0 = bal.adv, was1 = bal.gas, was2 = bal.eso, out = dt / 0.6;   // (out quicker than in)
-    if (reduceMotion.matches) {
-      // (Reduced motion, review PROC-6: no sliding tube or swelling balloons. The goal state is drawn at once, in one step.)
-      bal.adv = wantGas ? 1 : 0; bal.gas = wantGas ? 1 : 0;
-      if (!wantEso) bal.eso = 0; else if (wantGas) bal.eso = 1;
-      if (bal.adv !== was0 || bal.gas !== was1 || bal.eso !== was2) bal.dirty = true;
-      bal.anat = anat;
-      live.balloonSqueeze = 1 - 0.45 * balEase(bal.eso);
-      if (bal.dirty) { bal.dirty = false; balloonDraw(anat); }
-      return;
-    }
+    if (reduceMotion.matches) { reducedStep(wantGas, wantEso, anat, dt); return; }
+    if (rm.phase) { rm.phase = 0; rm.a = 1; }
+    if (rm.op !== 1) setOpacity(1);   // (Reduce Motion turned off mid-fade: the group is whole again)
     if (wantEso) { if (bal.gas >= 1) bal.eso = Math.min(1, bal.eso + dt / BAL_ESO_MS); }
     else bal.eso = Math.max(0, bal.eso - out / BAL_ESO_MS * 1.5);
     if (wantGas) { if (bal.adv >= 1) bal.gas = Math.min(1, bal.gas + dt / BAL_INF_MS); }
