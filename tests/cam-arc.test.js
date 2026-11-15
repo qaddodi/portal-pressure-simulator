@@ -76,5 +76,5 @@ test('a refit while an arc runs bends it to the new framing without a jump, and 
 
 test('the presenter\'s framings take the arc; other camera moves keep the plain glide', () => {
   const stage = stageSource();
-  assert.equal((stage.match(/\{ arc: true[,} ]/g) || []).length, 1, 'only frameBox asks for it');
+  assert.equal((stage.match(/\{ arc: true[,} ]/g) || []).length, 2, 'only frameBox asks for it: the plain move, and the slow one in from a case card (opt.slow)');
 });
