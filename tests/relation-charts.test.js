@@ -86,7 +86,7 @@ test('the model: stiffness against HVPG and platelets over a year a point, every
   const t = { x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.4, to: 0.8, step: 0.2, days: 365, lines: ['hvpg', 'plt'], dots: [{ preset: 'rhf', name: 'Heart failure' }] };
   const [slide] = await seq([{ preset: 'schisto' }]);
   const ser = curveSeries(t, await seq(curveSteps(t), null));
-  assert.deepEqual(ser.lx[0].map((x) => Math.round(x * 10) / 10), [12.4, 23.7, 27.7], 'the stiffness of compensated cirrhosis, CSPH and beyond');
+  assert.deepEqual(ser.lx[0].map((x) => Math.round(x * 10) / 10), [12.4, 23.7, 36], 'the stiffness of compensated cirrhosis, CSPH and beyond');
   for (let i = 1; i < 3; i++) assert.ok(ser.ys[0][i] > ser.ys[0][i - 1] && ser.ys[1][i] < ser.ys[1][i - 1], 'the HVPG climbs and the platelets fall');
   const r = ringAt(t, slide.params, slide.fp);
   assert.ok(r.x < 7 && r.ys[1] < 80, `the schistosomiasis ring sits off the line: ${r.x} kPa, platelets ${r.ys[1]}`);

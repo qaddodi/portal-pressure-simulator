@@ -3,7 +3,7 @@
 // time, never read back from storage, so a record that was edited or is old can only ever give a patient the app can make. Pure: no storage here
 // (src/ui/yours-store.js keeps them on this device), no engine; the worker and the page both read it.
 
-import { FAMILY, LESION, patientOf, settingText } from './inverse-families.js';
+import { FAMILY, LESION, sidesOf, keyOf, patientOf, settingText } from './inverse-families.js';
 import { READINGS, READING_KEYS, readingText } from './inverse.js';
 import { registerPreset, forgetPreset, PRESETS } from './scenario.js';
 
@@ -16,7 +16,7 @@ const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
 /** A stable id for a family at settings p: the same scenario opened twice is the same patient. */
 export function yoursId(f, p) {
-  const s = f + ':' + FAMILY[f].axes.map((k) => p[k]).join(',');
+  const s = keyOf(f, p);
   let x = 5381;
   for (let i = 0; i < s.length; i++) x = ((x * 33) ^ s.charCodeAt(i)) >>> 0;
   return 'yours-' + x.toString(36);
@@ -38,7 +38,8 @@ export function readingsLine(readings, max = 5) {
 export function yoursRecord(f, p, readings = {}, at = Date.now()) {
   const fam = FAMILY[f];
   if (!fam || !p || !fam.axes.every((k) => finite(p[k]))) return null;
-  const set = Object.fromEntries(fam.axes.map((k) => [k, p[k]]));
+  // (side settings the fit chose ride along when they are real numbers inside their slider's range; anything else is left to the lesion's own line)
+  const set = { ...Object.fromEntries(fam.axes.map((k) => [k, p[k]])), ...Object.fromEntries(sidesOf(fam.axes).filter((x) => finite(p[x.id]) && p[x.id] >= x.lo && p[x.id] <= x.hi).map((x) => [x.id, p[x.id]])) };
   const kept = Object.fromEntries(READING_KEYS.filter((k) => finite(readings[k])).map((k) => [k, readings[k]]));
   return { id: yoursId(f, set), f, p: set, readings: kept, label: yoursLabel(f, set), at: finite(at) ? at : 0 };
 }

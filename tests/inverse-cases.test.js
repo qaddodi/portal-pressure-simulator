@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { LIBRARY } from '../src/engine/inverse-library.js';
 import { rank, pointsOf } from '../src/engine/inverse.js';
 import { CASES } from '../scripts/inverse-cases.mjs';
+import { TRY_CASES } from '../src/engine/inverse-try-cases.js';
 
 const POINTS = pointsOf(LIBRARY);
 const run = (id) => { const c = CASES.find((x) => x.id === id); assert.ok(c, id); return { c, r: rank(c.readings, POINTS) }; };
@@ -83,4 +84,15 @@ test('every ranked family carries its Occam fields', () => {
   }
   const share = r.families.filter((f) => !f.redundant).reduce((n, f) => n + f.rating, 0);
   assert.ok(Math.abs(share - 1) < 1e-6, 'the ratings of the families that are not redundant add to one: ' + share);
+});
+
+test('"Try a case" loads readings the search recovers, the same numbers as the review cases', () => {
+  const want = { normal: 'C19', compensated: 'C01', decompensated: 'C02', psvd: 'C04', pvt: 'C06', ivcweb: 'C08', rhf: 'C10', 'cirrhosis-rhf': 'C12' };
+  assert.equal(TRY_CASES.length, Object.keys(want).length);
+  for (const t of TRY_CASES) {
+    const { c, r } = run(want[t.id]);
+    assert.deepEqual(t.readings, c.readings, t.id);
+    assert.ok(t.label && t.note && t.leads.length, t.id);
+    assert.ok(t.leads.some((id) => inPlay(r).includes(id)), `${t.id}: ${t.leads} among ${inPlay(r)}`);
+  }
 });

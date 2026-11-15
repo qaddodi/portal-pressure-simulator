@@ -19,7 +19,7 @@ test('patients run before a cancel reach the page with the next request, so the 
   globalThis.self.onmessage({ data: { t: 'refine', seq: 2, readings: R } });
   await until(() => got.some((m) => m.seq === 2 && m.done));
   const page = new Set();
-  for (const m of got) if (m.t === 'points' && m.seq === 2) for (const r of m.rows) page.add(r[0] + ':' + r[1].join(','));
+  for (const m of got) if (m.t === 'points' && m.seq === 2) for (const r of m.rows) page.add(r[0] + ':' + r[1].join(',') + JSON.stringify(r[3] || {}));
   globalThis.self.onmessage({ data: { t: 'state' } });
   const st = got.find((m) => m.t === 'state');
   assert.equal(st.unsent, 0, 'nothing is left unsent');

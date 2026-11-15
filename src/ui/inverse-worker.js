@@ -7,7 +7,7 @@
 import { rank, refinePoints, pointsOf, rowOf, REFINE_ROUNDS as ROUNDS, REFINE_PER_ROUND as PER_ROUND } from '../engine/inverse.js';
 import { LIBRARY } from '../engine/inverse-library.js';
 import { runPatient } from '../engine/inverse-run.js';
-import { keyOf, FAMILY } from '../engine/inverse-families.js';
+import { keyOf } from '../engine/inverse-families.js';
 
 const known = new Map(pointsOf(LIBRARY).map((pt) => [keyOf(pt.f, pt.p), pt]));
 // The patients run but not yet sent: a request ended in the middle of a round (the typing went on, or "Show scenarios" asked again) leaves them
@@ -15,16 +15,18 @@ const known = new Map(pointsOf(LIBRARY).map((pt) => [keyOf(pt.f, pt.p), pt]));
 // lacks would be skipped as already scored, and the page would call the fit done without the best points.)
 const unsent = new Map();
 let latest = 0;
-const EARLY_STOP = 0.2;   // a round that moves the best score by less than this ends the fit (review E11)
+const EARLY_STOP = 0.2;   // three rounds in a row that move the best score by less than this end the fit (review E11)
+const STALLED = 3;
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function refine({ seq, readings }) {
   if (unsent.size) { self.postMessage({ t: 'points', seq, rows: [...unsent.values()], round: 0, rounds: ROUNDS, done: false }); unsent.clear(); }
-  let before = null;
+  let before = null, still = 0;
   for (let round = 1; round <= ROUNDS; round++) {
     const res = rank(readings, [...known.values()]);
     const now = res.ready && res.families.length ? res.families[0].score : null;
-    if (round > 1 && before !== null && now !== null && Math.abs(before - now) < EARLY_STOP) break;
+    still = round > 1 && before !== null && now !== null && Math.abs(before - now) < EARLY_STOP ? still + 1 : 0;
+    if (still >= STALLED) break;
     before = now;
     const todo = res.ready ? refinePoints(res, known, { families: 12, max: PER_ROUND, round }) : [];
     if (!todo.length) break;
@@ -38,7 +40,7 @@ async function refine({ seq, readings }) {
       rows.push(row); unsent.set(keyOf(t.f, t.p), row);
     }
     self.postMessage({ t: 'points', seq, rows, round, rounds: ROUNDS, done: false });
-    for (const row of rows) unsent.delete(keyOf(row[0], Object.fromEntries(FAMILY[row[0]].axes.map((k, i) => [k, row[1][i]]))));
+    for (const row of rows) { const pt = pointsOf([row])[0]; unsent.delete(keyOf(pt.f, pt.p)); }
   }
   if (latest === seq) self.postMessage({ t: 'points', seq, rows: [], round: ROUNDS, rounds: ROUNDS, done: true });
 }

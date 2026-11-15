@@ -99,6 +99,34 @@ const LES_SET = Object.fromEntries(LESIONS.map((l) => [l.id, l.set]));
 export const LESION = Object.freeze(Object.fromEntries(LESIONS.map((l) => [l.id, l])));
 export const LESION_IDS = LESIONS.map((l) => l.id);
 
+/**
+ * The model's other sliders a lesion carries with it, which the search may set on its own when the readings call for it (review of 15 Nov, Mohammad's
+ * "so many sliders": the heart's pump strength, tricuspid leak and the volume it holds, the albumin, the splanchnic tone). Each has a default that follows
+ * from the lesions' severity (what the lesion's own line sets), so a point with no entry for it is the lesion as before; an entry in `p` is the search's own
+ * choice, and the ranking charges it for how far it sits from the default (inverse.js costOf), so a side setting is used only when it earns its place.
+ * `lo` to `hi` is the slider's own range, `step` the live fit's probe, `round` what the value is kept to.
+ */
+const SIDES = [
+  { id: 'vol', label: 'Extra volume held', lo: 0, hi: 2400, probe: 200, round: 10, applies: (a) => a.some((k) => k === 'rhf' || k === 'constr' || k === 'ivcweb'),
+    def: (a, p) => { let m = 0; for (const k of a) m = Math.max(m, LESION_VOLUME[k](p[k])); return m; }, text: (v) => `${Math.round(v)} mL` },
+  { id: 'contr', label: 'Pump strength', lo: 0.15, hi: 1.2, probe: 0.1, round: 0.01, applies: (a) => a.includes('rhf'), def: (a, p) => LES_SET.rhf(p.rhf).contr, text: (v) => `${v} (1 is normal)` },
+  { id: 'tr', label: 'Tricuspid regurgitation', lo: 0, hi: 1, probe: 0.15, round: 0.01, applies: (a) => a.includes('rhf'), def: (a, p) => LES_SET.rhf(p.rhf).tr, text: (v) => `${v} (0 to 1)` },
+  { id: 'alb', label: 'Albumin', lo: 1.5, hi: 4.5, probe: 0.4, round: 0.1, applies: (a) => a.includes('sinus'), def: (a, p) => LES_SET.sinus(p.sinus).alb, text: (v) => `${v} g/dL` },
+  { id: 'tone', label: 'Splanchnic arteriolar tone', lo: 0.5, hi: 2, probe: 0.2, round: 0.01, applies: (a) => a.length > 0, def: () => 1, text: (v) => `${v} (1 is normal)` },
+];
+export const SIDE = Object.freeze(Object.fromEntries(SIDES.map((x) => [x.id, x])));
+export const SIDE_IDS = SIDES.map((x) => x.id);
+const LESION_VOLUME = Object.fromEntries(LESIONS.map((l) => [l.id, l.volume]));
+/** The side settings family axes `axes` has, with the value each takes when the search leaves it alone (a function of the lesions' severities in `p`). */
+export const sidesOf = (axes) => SIDES.filter((x) => x.applies(axes));
+export const sideDefault = (axes, id, p) => SIDE[id].def(axes, p);
+/** `v` for side `id` as the model keeps it: inside the slider's range, to its resolution. */
+export const sideClamp = (id, v) => { const x = SIDE[id]; return Math.round(Math.min(x.hi, Math.max(x.lo, v)) / x.round) * x.round; };
+const sideOverlay = (p) => ({
+  ...('contr' in p ? { contractility: p.contr } : {}), ...('tr' in p ? { tr: p.tr } : {}), ...('tone' in p ? { splanchnicTone: p.tone } : {}),
+  ...('alb' in p ? { albumin: p.alb, diuretics: p.alb < 4 } : {}),
+});
+
 /** Each lesion as a setting the search varies: its severity. `step` is the live fit's coarsest move. */
 const AX = Object.fromEntries(LESIONS.map((l) => [l.id, { label: l.short, unit: 'severity', step: l.step, note: 'how far the model pushes it from healthy, 0.1 to 1' }]));
 
@@ -131,11 +159,19 @@ function familiesOf() {
       id: axes.join('+'), short: parts.map((l) => l.short).join(' + '), label: parts.map((l) => l.label).join(' + '),
       sub: n === 1 ? parts[0].sub : parts.map((l) => l.sub).join(' '), group: parts[0].group, free: n, axes, parts: axes, lesions: n,
       grid: cross(Object.fromEntries(axes.map((k) => [k, LEVELS[n]]))),
-      patch: (p) => parts.reduce((acc, l) => merge(acc, l.patch(p[l.id])), {}),
-      days: (p) => Math.max(...parts.map((l) => l.days(p[l.id]))), volume: (p) => Math.max(...parts.map((l) => l.volume(p[l.id]))),
+      patch: (p) => merge(parts.reduce((acc, l) => merge(acc, l.patch(p[l.id])), {}), sideOverlay(p)),
+      days: (p) => Math.max(...parts.map((l) => l.days(p[l.id]))), volume: (p) => ('vol' in p ? p.vol : Math.max(...parts.map((l) => l.volume(p[l.id])))),
+      sides: sidesOf(axes).map((x) => x.id),
       settings: (p) => {
-        const vol = Math.max(...parts.map((l) => l.volume(p[l.id])));   // (the one volume the patient holds: the larger of the lesions', never one line for each)
-        return [...parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))), ...(vol > 0 ? [{ ...kv('Extra volume held', `${vol} mL`, true), lesion: parts.find((l) => l.volume(p[l.id]) === vol).id }] : [])];
+        const vol = 'vol' in p ? p.vol : Math.max(...parts.map((l) => l.volume(p[l.id])));   // (the one volume the patient holds: the larger of the lesions', never one line for each)
+        const rows = [...parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))), ...(vol > 0 ? [{ ...kv('Extra volume held', SIDE.vol.text(vol), !('vol' in p)), lesion: parts.find((l) => l.volume(p[l.id]) === Math.max(...parts.map((m) => m.volume(p[m.id])))).id }] : [])];
+        // A side setting the search chose replaces the lesion's own line for it (or joins the list when the lesion has none), and is listed as chosen, not as what follows.
+        for (const x of SIDES) {
+          if (x.id === 'vol' || !(x.id in p)) continue;
+          const row = { ...kv(x.label, x.text(p[x.id])), lesion: x.id === 'tone' ? axes[0] : x.id === 'alb' ? 'sinus' : 'rhf' }, at = rows.findIndex((r) => r.label === x.label);
+          if (at >= 0) rows[at] = row; else rows.push(row);
+        }
+        return rows;
       },
       limits: [...new Set(parts.map((l) => l.limits))].join(' '), ev: [...new Set(parts.map((l) => l.ev).filter(Boolean))].join(' '),
       outside: [...new Set(parts.map((l) => l.outside))].join(' '),
@@ -164,7 +200,7 @@ export function patientOf(f, p) {
 export const settingsOf = (f, p) => FAMILY[f].settings(p);
 
 /** The severities of a family as the library keys them: a stable string, for matching a fitted point to a library one. */
-export const keyOf = (f, p) => f + ':' + FAMILY[f].axes.map((k) => r3(p[k])).join(',');
+export const keyOf = (f, p) => f + ':' + FAMILY[f].axes.map((k) => r3(p[k])).join(',') + SIDES.filter((x) => x.id in p).map((x) => `|${x.id}=${r3(p[x.id])}`).join('');
 
 /** A severity as people read it: the cirrhosis slider's percent, a word for the rest. */
 export function settingText(axis, v) {

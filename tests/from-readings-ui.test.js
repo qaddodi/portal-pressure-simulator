@@ -95,9 +95,9 @@ test('a ranking from a presinusoidal patient: ties shown as ties, what each cann
   const heads = body().querySelector('.fr-q').textContent;
   assert.match(heads, /\d+ scenarios fit about equally/);
   const cards = [...body().querySelectorAll('.fr-card[data-s="best"], .fr-card[data-s="tie"]')].map((c) => c.dataset.f);
-  assert.ok(cards.includes('pvt') && cards.includes('presin') && cards.includes('sinus+pvt'), 'the blocks before the sinusoids tie: ' + cards);
+  assert.ok(cards.includes('pvt') && cards.includes('presin') && !cards.includes('sinus+pvt'), 'the blocks before the sinusoids tie, and a clot on a liver with fibrosis is not needed for these readings: ' + cards);
   assert.match(body().querySelector('.fr-card .fr-rate').textContent, /^(\d+%|<1%|99%\+)$/, 'each row shows its share of the likelihood');
-  assert.ok(body().querySelectorAll('.fr-card .fr-ch').length >= 3 && body().querySelector('.fr-card .fr-ch').getAttribute('aria-expanded') === 'false', 'rows are compact and closed');
+  assert.ok(body().querySelectorAll('.fr-card .fr-ch').length >= 2 && body().querySelector('.fr-card .fr-ch').getAttribute('aria-expanded') === 'false', 'rows are compact and closed');
   assert.ok(body().querySelector('.fr-card .fr-bar i') && body().querySelector('.fr-card .fr-why1').textContent.length > 0, 'a bar and one line of why');
   assert.equal(body().querySelectorAll('.fr-small').length, 1, 'the rating is explained once, not on every card');
   assert.ok(body().querySelectorAll('.fr-card .fr-set li').length >= 1, 'each card lists the exact settings');

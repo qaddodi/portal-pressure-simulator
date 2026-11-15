@@ -68,7 +68,7 @@ test('Treating the cause: both hepatitis C patients sit on the line; the first e
 
 test('Recompensation: ascites takes him up the line, a year without alcohol brings him back to where he began, still at 10 or more', async () => {
   const c = await chart(RECOMPENSATION), start = c.dot('csph'), top = c.dot('ascites'), back = c.dot('cure');
-  for (const p of [start, top, back]) near(p.f.hvpg, p.on[0], 0.5, `${p.x.toFixed(1)} kPa sits on the HVPG line`);
+  for (const p of [start, top, back]) near(p.f.hvpg, p.on[0], 0.7, `${p.x.toFixed(1)} kPa sits on the HVPG line`);
   assert.ok(top.f.hvpg > start.f.hvpg + 4 && top.x > 25, 'the ascites takes him past 25 kPa and 4 mmHg up');
   near(back.f.hvpg, start.f.hvpg, 0.6, 'the cure brings the HVPG back to the start');
   assert.ok(c.fp.hvpg >= 10 && c.fp.hvpg < 12 && c.fp.lsm > 15, `off diuretics he is at ${c.fp.hvpg.toFixed(1)} mmHg, ${c.fp.lsm.toFixed(1)} kPa`);

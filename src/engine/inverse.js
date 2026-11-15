@@ -10,7 +10,7 @@
 import { HVPG_CUTS } from './pressure-cuts.js';
 import { LSM_CUTS } from './lsm-cuts.js';
 import { ASCITES_CUTS, VARIX_NONE_MM, VARIX_LARGE_MM } from './metrics.js';
-import { FAMILIES, FAMILY, spanOf, keyOf, settingText, settingsOf, pctText, LESION, U_MIN, U_MAX } from './inverse-families.js';
+import { FAMILIES, FAMILY, SIDE, sidesOf, sideDefault, sideClamp, spanOf, keyOf, settingText, settingsOf, pctText, LESION, U_MIN, U_MAX } from './inverse-families.js';
 
 /** How a reading is compared. 'abs': difference in its unit; 'log': the log of the ratio (a stiffness or a count is wrong by a fraction);
  *  'grade': the person chose a grade, so a prediction inside the grade's range is a perfect fit and outside it is judged from the nearer edge. */
@@ -54,8 +54,20 @@ export const FEW_READINGS = 4;
  */
 export const LESION_COST = 3;
 export const SEVERITY_COST = 0.5;
-/** The Occam cost of family `f` at severities `p`. */
-export const costOf = (f, p) => FAMILY[f].axes.reduce((c, k) => c + LESION_COST + SEVERITY_COST * p[k], 0);
+/**
+ * A side setting the search chose (the pump strength, the tricuspid leak, the volume held, the albumin, the splanchnic tone) costs SIDE_COST for sitting a whole
+ * slider range from the value its lesion would have set, in proportion to how far it is: used only when the readings call for it, and never for free.
+ */
+export const SIDE_COST = 3;
+/** The Occam cost of family `f` at settings `p`: each lesion's share, its severity, and the distance of any side setting from where its lesion would put it. */
+export const costOf = (f, p) => {
+  const fam = FAMILY[f], axes = fam.axes;
+  let c = 0;
+  for (const k of axes) c += LESION_COST + SEVERITY_COST * p[k];
+  for (const id of fam.sides || NO_SIDES) if (id in p) c += (SIDE_COST * Math.abs(p[id] - sideDefault(axes, id, p))) / (SIDE[id].hi - SIDE[id].lo);
+  return c;
+};
+const NO_SIDES = Object.freeze([]);
 /** A heart lesion is a raised right atrial pressure: a heart lesion whose fit leaves the RA below this is only a way of holding fluid, and is not a scenario (review E7). */
 export const HEART_RA = 8;
 /** The fit is called poor when the best scenario misses by more than this many allowed errors per reading on average, or any one reading by more than WORST_MISS (review E1). */
@@ -72,8 +84,8 @@ export const RANGE_SLACK = 4;
 export const SPLIT = 2;
 export const BARELY = 1;
 /** The live fit: this many rounds on the real engine, each trying at most this many patients around the best fits, with moves that narrow each round (see refinePoints). */
-export const REFINE_ROUNDS = 6;
-export const REFINE_PER_ROUND = 48;
+export const REFINE_ROUNDS = 8;
+export const REFINE_PER_ROUND = 72;
 /** The size of a fit round's move in severity: coarse first, then finer, never below 0.01 (one setting step the engine cannot tell apart). */
 export const fitStep = (round) => Math.max(0.01, Math.round(0.2 * 0.55 ** (round - 1) * 1000) / 1000);
 
@@ -114,12 +126,14 @@ export function normalise(raw = {}) {
   const f1 = (v) => (Math.round(v * 10) / 10).toString(), warn = (code, text, keys) => warnings.push({ code, text, keys });
   if ('hvpg' in readings && 'whvp' in readings && 'fhvp' in readings) {
     const made = readings.whvp - readings.fhvp;
-    if (Math.abs(readings.hvpg - made) > 2 * READINGS.hvpg.sigma) warn('hvpg-mismatch', `The HVPG you entered (${f1(readings.hvpg)}) is not WHVP − FHVP (${f1(made)}); only the two pressures are used.`, ['hvpg', 'whvp', 'fhvp']);
+    const off = Math.abs(readings.hvpg - made), allowed = 2 * READINGS.hvpg.sigma;
+    if (off > allowed) warn('hvpg-mismatch', `The HVPG you entered (${f1(readings.hvpg)}) is not WHVP − FHVP (${f1(made)}); only the two pressures are used.`, ['hvpg', 'whvp', 'fhvp']);
     delete readings.hvpg; dropped.push({ key: 'hvpg', why: 'made from the two pressures above' });
   }
   if ('ppg' in readings && 'pv' in readings && 'ivc' in readings) {
     const made = readings.pv - readings.ivc;
-    if (Math.abs(readings.ppg - made) > 2 * READINGS.ppg.sigma) warn('ppg-mismatch', `The PPG you entered (${f1(readings.ppg)}) is not portal vein − IVC (${f1(made)}); only the two pressures are used.`, ['ppg', 'pv', 'ivc']);
+    const off = Math.abs(readings.ppg - made), allowed = 2 * READINGS.ppg.sigma;
+    if (off > allowed) warn('ppg-mismatch', `The PPG you entered (${f1(readings.ppg)}) is not portal vein − IVC (${f1(made)}); only the two pressures are used.`, ['ppg', 'pv', 'ivc']);
     delete readings.ppg; dropped.push({ key: 'ppg', why: 'made from the two pressures above' });
   }
   // Physiology checks (review E8): pressures that cannot all be true together are kept, and said, so a wrong zero level or a typing slip is not read as a disease.
@@ -367,6 +381,10 @@ function fitCandidates(result, count) {
 
 /** The step of the finite differences that measure how each reading moves with each severity. */
 export const PROBE = 0.06;
+/** How many of the best families also move their side settings (the pump, the volume, the albumin, the tone): each adds probes, so the leaders only. */
+export const SIDE_FAMILIES = 4;
+/** How far (in a move's own range) a point may sit from the base and still shape the slopes the step is made from. */
+const NEIGHBOUR = 0.3;
 
 /**
  * Where the live fit looks next. It is a Gauss-Newton fit on the real engine, one family at a time, so a mix of lesions finds its own
@@ -376,36 +394,61 @@ export const PROBE = 0.06;
  * the straight-line picture can promise. The families are the best few and the simplest still in play. `known` is a Map of key to point
  * ({ f, p, r }, inverse-families.js keyOf) or a Set of keys; a point already scored is never asked for again. At most `max` points, a family at a time in turn.
  */
-export function refinePoints(result, known, { families = 12, max = 40, round = 1 } = {}) {
+export function refinePoints(result, known, { families = 12, max = 40, round = 1, sides = SIDE_FAMILIES } = {}) {
   if (!result.ready) return [];
   const pts = known instanceof Map ? [...known.values()] : [], seen = new Set(known instanceof Map ? known.keys() : known);
   const keys = Object.keys(result.readings), lists = [];
-  for (const f of fitCandidates(result, families)) {
+  fitCandidates(result, families).forEach((f, rankIn) => {
     const fam = FAMILY[f.id], base = f.best, mine = [];
     const push = (p) => { const key = keyOf(fam.id, p); if (seen.has(key)) return false; seen.add(key); mine.push({ f: f.id, p }); return true; };
     const mineAll = pts.filter((x) => x.f === f.id);
-    const J = [], missing = [];
-    fam.axes.forEach((k, j) => {
-      const near = mineAll.filter((x) => fam.axes.every((a) => a === k || Math.abs(x.p[a] - base.p[a]) < 1e-6) && Math.abs(x.p[k] - base.p[k]) >= 0.02 && Math.abs(x.p[k] - base.p[k]) <= 0.1)
-        .sort((a, b) => Math.abs(a.p[k] - base.p[k]) - Math.abs(b.p[k] - base.p[k]))[0];
-      if (!near) { const d = base.p[k] + PROBE <= U_MAX + 1e-9 ? PROBE : -PROBE; missing.push({ ...base.p, [k]: Math.round((base.p[k] + d) * 1000) / 1000 }); return; }
-      const dk = near.p[k] - base.p[k];
-      J[j] = keys.map((key) => (resid(key, result.readings, near.r) - base.per[key]) / dk);
+    // The settings the fit moves: each lesion's severity, and (for the best few families) each side setting, all in units of their own range so one trust region fits them.
+    const moves = [
+      ...fam.axes.map((k) => ({ k, side: false, lo: U_MIN, hi: U_MAX, scale: 1, probe: PROBE })),
+      ...(rankIn < sides ? sidesOf(fam.axes).map((x) => ({ k: x.id, side: true, lo: x.lo, hi: x.hi, scale: x.hi - x.lo, probe: x.probe / (x.hi - x.lo) })) : []),
+    ];
+    const value = (p, m) => (m.side && !(m.k in p) ? sideDefault(fam.axes, m.k, p) : p[m.k]);
+    // The slope of every reading along each move, from the points already run near the base: a least-squares plane through the neighbours (nearer ones count
+    // more), so the slopes carry over from one step to the next and a step does not wait for a round of fresh probes. A move no neighbour has gone along
+    // gets a probe of its own.
+    const t = (p) => moves.map((m) => (value(p, m) - value(base.p, m)) / m.scale);
+    const near = mineAll.filter((x) => x.r && t(x.p).some((d) => Math.abs(d) > 1e-9) && t(x.p).every((d) => Math.abs(d) <= NEIGHBOUR));
+    const reach = moves.map((m, j) => Math.max(0, ...near.map((x) => Math.abs(t(x.p)[j]))));
+    const missing = [];
+    moves.forEach((m, j) => {
+      if (reach[j] >= 0.02) return;
+      const v0 = value(base.p, m), up = v0 + m.probe * m.scale <= m.hi + 1e-9, v = v0 + (up ? 1 : -1) * m.probe * m.scale;
+      missing.push({ ...base.p, [m.k]: m.side ? sideClamp(m.k, v) : Math.round(v * 1000) / 1000 });
     });
-    if (missing.length) { for (const p of missing) push(p); lists.push(mine); continue; }
-    const r0 = keys.map((key) => base.per[key]), u = fam.axes.map((k) => base.p[k]), trust = Math.max(0.03, 0.4 * 0.75 ** (round - 1));
-    for (let tries = 0, lam = 0.3; tries < 4 && !mine.length; tries++, lam *= 4) {
-      const A = fam.axes.map((_, a) => fam.axes.map((__, b) => J[a].reduce((t, v, i) => t + v * J[b][i], 0) + (a === b ? lam : 0)));
-      const g = fam.axes.map((_, a) => -(J[a].reduce((t, v, i) => t + v * r0[i], 0)) - SEVERITY_COST / 2);
+    let J = [];
+    if (!missing.length) {
+      const D = near.map((x) => t(x.p)), w = D.map((d) => 1 / (1 + (Math.hypot(...d) / 0.12) ** 2));
+      const G = moves.map((_, a) => moves.map((__, b) => D.reduce((acc, d, i) => acc + w[i] * d[a] * d[b], 0) + (a === b ? 1e-6 : 0)));
+      const cols = keys.map((key, ki) => solve(G, moves.map((_, a) => D.reduce((acc, d, i) => acc + w[i] * d[a] * (resid(key, result.readings, near[i].r) - base.per[key]), 0))));
+      if (!cols.some((c) => !c)) J = moves.map((_, a) => cols.map((c) => c[a]));
+    }
+    if (missing.length || !J.length) { for (const p of missing) push(p); lists.push(mine); return; }
+    const r0 = keys.map((key) => base.per[key]), t0 = moves.map((m) => value(base.p, m)), trust = Math.max(0.03, 0.4 * 0.75 ** (round - 1));
+    // The Occam cost's slope along each move (per unit of the move): a lesion's severity cost, or a side setting's pull back toward where its lesion puts it.
+    const lean = moves.map((m, a) => (m.side ? SIDE_COST * (Math.abs(t0[a] - sideDefault(fam.axes, m.k, base.p)) < 1e-9 ? 0 : Math.sign(t0[a] - sideDefault(fam.axes, m.k, base.p))) : SEVERITY_COST));
+    for (let tries = 0, lam = 0.3; tries < 8 && !mine.length; tries++, lam *= 2.5) {
+      const A = moves.map((_, a) => moves.map((__, b) => J[a].reduce((t, v, i) => t + v * J[b][i], 0) + (a === b ? lam : 0)));
+      const g = moves.map((_, a) => -(J[a].reduce((t, v, i) => t + v * r0[i], 0)) - lean[a] / 2);
       const sol = solve(A, g);
       if (!sol) break;
       const move = sol.map((v) => Math.max(-trust, Math.min(trust, v)));
       if (Math.max(...move.map(Math.abs)) < 0.004) break;
-      const p = Object.fromEntries(fam.axes.map((k, a) => [k, Math.round(Math.min(U_MAX, Math.max(U_MIN, u[a] + move[a])) * 1000) / 1000]));
+      const p = { ...base.p };
+      moves.forEach((m, a) => {
+        const v = Math.min(m.hi, Math.max(m.lo, t0[a] + move[a] * m.scale));
+        if (!m.side) p[m.k] = Math.round(v * 1000) / 1000;
+        else if (Math.abs(move[a]) * m.scale >= SIDE[m.k].round / 2) p[m.k] = sideClamp(m.k, v);
+      });
+      for (const m of moves) if (m.side && m.k in p && Math.abs(p[m.k] - sideDefault(fam.axes, m.k, p)) < SIDE[m.k].round / 2) delete p[m.k];
       push(p);
     }
     lists.push(mine);
-  }
+  });
   const out = [];
   for (let i = 0; out.length < max; i++) {
     let any = false;
@@ -415,15 +458,18 @@ export function refinePoints(result, known, { families = 12, max = 40, round = 1
   return out;
 }
 
-/** The library's compact rows [family, settings (in the family's axes order), readings (in READING_KEYS order)] as points the search scores. */
+/** The library's compact rows [family, settings (in the family's axes order), readings (in READING_KEYS order), side settings the search chose (an object, only when there are any)] as points the search scores. */
 export function pointsOf(rows) {
-  return rows.map(([f, vals, rs]) => ({
-    f, p: Object.fromEntries(FAMILY[f].axes.map((k, i) => [k, vals[i]])),
+  return rows.map(([f, vals, rs, side]) => ({
+    f, p: { ...Object.fromEntries(FAMILY[f].axes.map((k, i) => [k, vals[i]])), ...(side || {}) },
     r: Object.fromEntries(READING_KEYS.map((k, i) => [k, rs[i]])),
   }));
 }
 /** A point's readings as the library row keeps them. */
-export const rowOf = (f, p, r) => [f, FAMILY[f].axes.map((k) => p[k]), READING_KEYS.map((k) => r[k] ?? null)];
+export const rowOf = (f, p, r) => {
+  const side = Object.fromEntries(sidesOf(FAMILY[f].axes).filter((x) => x.id in p).map((x) => [x.id, p[x.id]]));
+  return [f, FAMILY[f].axes.map((k) => p[k]), READING_KEYS.map((k) => r[k] ?? null), ...(Object.keys(side).length ? [side] : [])];
+};
 
 /**
  * Why a scenario fits, in a line or two of physiology, from the readings that were entered and the lesions in the scenario (never from a reading
