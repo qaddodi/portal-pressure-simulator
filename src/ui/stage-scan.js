@@ -5,7 +5,7 @@ import { dropLabel } from './drop-label.js';
 import { cancelFrame, paceMs } from './frame.js';
 import { D_SMALL, D_SURFACE, reduceMotionMQ as reduceMotion } from './motion.js';
 import { createScanRec, scanKpaOf, scanReadingText, scanRecReset, scanTap, scanTo } from './scan-ease.js';
-import { paintWave, wavePacks } from './scan-waves.js';
+import { arcNumsInto, arcPath, paintWave, wavePacks, waveRecInto, WAVE_STRIDE } from './scan-waves.js';
 import { flattenPathInto, newFlat, polyBoxInto } from './shape-gl.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
@@ -35,11 +35,7 @@ export function createScan(st, live) {
   // probe's number and its waves read what the slide says even where its card is out of sight; the live value swings with each beat.)
   const scanKpa = () => scanKpaOf(fibroReading.pinnedOrgan === scan.organ ? fibroReading.pinned : null, live.F?.metrics?.[scan.organ === 'spleen' ? 'ssm' : 'lsm']);
   const scanSpeed = () => 35 * (clamp(scanKpa() ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
-  function scanArc(r) {
-    const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
-    const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
-    return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
-  }
+  const scanArc = (r) => arcPath(SCAN_TIP, SCAN_HALF, r);   // (the front widens a little with depth)
   // (1 Nov 2026, "Move everything to GPU": no layout read on the probe's frames. The cards its head and body keep clear of are read first in a
   // frame (readFrame), and only when the page's layout may have changed (layoutWatch), at most four times a second, never while the view
   // moves; the frames in between use the boxes last read. The tip's tap restarts by turning between two copies of its animation (tap, tap2),
@@ -91,6 +87,8 @@ export function createScan(st, live) {
   const scanNap = () => { if (scan.on && !scan.raf) scan.raf = nextFrame(scanTick); };
   let scanWaveR = 0, scanWaveGap = 0;   // (the packet being drawn: its front and the ripples' gap, which scanArcAt reads)
   const scanArcAt = (j) => scanArc(Math.max(1, scanWaveR + (j - 1) * scanWaveGap));
+  // (SF-2: the same arc as numbers for the GPU pass, to a tenth as the path text has them: start x, y, radius, end x, y.)
+  const scanArcNums = (j, rec, o) => arcNumsInto(rec, o, SCAN_TIP, SCAN_HALF, Math.max(1, scanWaveR + (j - 1) * scanWaveGap));
   function scanTick(now) {
     scan.raf = 0;
     if (!scan.on || !scan.el) return;
@@ -120,15 +118,21 @@ export function createScan(st, live) {
     const gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
     // (The packets' elements are looked up once, and an opacity or a path is written only when its text changed: an idle packet
     // stays at 0 without a write each frame. The same values as before, so the same picture.)
+    // (SF-2, 15 Nov 2026: the waves go to the labels' GPU pass as numbers, scan.wrec, never through the DOM; the page's own elements are written only where that pass
+    // is not drawing the probe (no GPU labels), where they are what shows.)
     scan.packs ||= wavePacks(scan.el);
+    const wrec = scan.wrec || (scan.wrec = new Float32Array(scan.packs.length * WAVE_STRIDE)), toDom = !live.labelGL?.setWaves || !live.labelGL.wavesOn();   // alloc-rare: made once for the probe's packets
     for (let i = 0; i < scan.packs.length; i++) {
       const w = scan.packs[i], r = scan.fronts[i];
-      if (r == null) { paintWave(w, '0'); continue; }
+      if (r == null) { waveRecInto(wrec, i, 0, null); if (toDom) paintWave(w, '0'); continue; }
       const u = r / span, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
       // A short packet: the crest, with a faint ripple ahead and behind.
       scanWaveR = r; scanWaveGap = gap;
-      paintWave(w, fade.toFixed(3), scanArcAt);
+      const op = +fade.toFixed(3);
+      waveRecInto(wrec, i, op, scanArcNums);
+      if (toDom) paintWave(w, fade.toFixed(3), scanArcAt);
     }
+    live.labelGL?.setWaves?.(wrec);
     live.labelGL?.redraw();   // (the waves moved: the GPU copy of the probe follows in this frame)
     scan.raf = nextFrame(scanTick);
   }

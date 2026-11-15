@@ -4771,6 +4771,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const btNow = blood.bt || 0;
       if (btNow !== btLast && (blood.on || blood.chev || blood.origin)) for (let r = 0; r < nTubes; r++) if (bloodRow[r]) moved[r] = 1;
       btLast = btNow;
+      // (?perf, R1-4, 15 Nov 2026: how many of the rows carry blood, so a device says what a per-row lumen pass could skip: the rows that carry none keep their lumen between blood frames.)
+      if (gpuProbe.on) { let nb = 0, nm = 0; for (let r = 0; r < nTubes; r++) { if (bloodRow[r]) nb++; if (moved[r]) nm++; } gpuProbe.gauge('rows carrying blood', `${nb} of ${nTubes} carry blood, ${nm} marked moved this frame`); }
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       // (sameRipple: every uniform the last picture's but the ascites ripple's phase, which moves with every frame the fluid shows: heat D-3, 13 Nov 2026.)
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;

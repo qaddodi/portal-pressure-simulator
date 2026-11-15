@@ -33,6 +33,7 @@ import { readStyle } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { reduceMotionMQ, D_SMALL, easeMove } from './motion.js';
 import { leaderEnd } from './leader-end.js';
+import { WAVE_ARCS, WAVE_STRIDE } from './scan-waves.js';
 import { darkMQ } from './look.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -2381,6 +2382,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // stops premultiplied, the waves' colours with their opacity, the cable's two ends, the tip's colour, and the body, screen and reading
   // as the painter's ops with a matrix of their own, which a frame writes the angle into to paint the head again. Nothing in a frame
   // makes an array, a string or an op.
+  // (The probe's waves as numbers (scan-waves.js waveRecInto), set by stage-scan.js each frame it draws them; waveOn: the pass draws the probe, so the page need not write its elements.)
+  let waveRec = null, waveOn = false;
   const WN = new Float64Array(16), CN = new Float64Array(64), SHC = new Float64Array([-14, 31, 62, 31, -14, 65, 62, 65]);
   function prepScan(L) {
     L.ver = ++sVer;
@@ -2509,7 +2512,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // The waves: each packet's arcs (read off the probe's model every frame, where scanTick writes them), at the packet's opacity.
     sat(PIV[0], PIV[1]);
     const cx = PT[0], cy = PT[1], wv = L.wavesEl ? L.wavesEl.children : null;
-    if (wv) {
+    if (waveRec && waveOn) {
+      // (SF-2: the packets as numbers, from stage-scan.js's scanTick: no element and no path text.)
+      const np = Math.floor(waveRec.length / WAVE_STRIDE);
+      for (let a = 0; a < np; a++) {
+        const o = a * WAVE_STRIDE, po = waveRec[o];
+        if (!(po > 0.001)) continue;
+        for (let b = 0; b < WAVE_ARCS; b++) {
+          const k = o + 1 + 5 * b, st = b === 1 ? L.front : L.rip;
+          if (!st) continue;
+          const r = waveRec[k + 2], a0 = Math.atan2(waveRec[k + 1] - PIV[1], waveRec[k] - PIV[0]) + SR.ang, a1 = Math.atan2(waveRec[k + 4] - PIV[1], waveRec[k + 3] - PIV[0]) + SR.ang, wr = r * dpr, w = st.w * dpr;
+          ucOf(gl).i1(MU.uKind, 4);
+          ucOf(gl).f4(MU.uBox, cx - wr - w - 2, cy - wr - w - 2, cx + wr + w + 2, cy + wr + w + 2);
+          ucOf(gl).f4(MU.uGeo, cx, cy, wr, 0); ucOf(gl).f4(MU.uR4, a0, a1 < a0 ? a1 + Math.PI * 2 : a1, 0, 0); ucOf(gl).f1(MU.uW, w);
+          ucOf(gl).f4a(MU.uStroke, st.pm); ucOf(gl).f1(MU.uA, LA * Math.min(1, SR.op * po));
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+      }
+    } else if (wv) {
       for (let a = 0; a < wv.length; a++) {
         const pk = wv[a];
         if (!pk.classList.contains('sp-pk')) continue;
@@ -2606,6 +2626,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** Draws now (a mark the stage just moved, outside a label layout: the probe's ease). */
     redraw() { if (lost) return; ask(); },
+    /** The probe's waves for the next picture (SF-2): the packets' numbers, a record both sides hold (scan-waves.js). */
+    setWaves(rec) { waveRec = rec; },
+    /** Whether this pass draws the probe's waves itself (a probe look is read and a record was given), so scanTick leaves the page's own elements alone. */
+    wavesOn() { waveOn = !!(waveRec && sLook?.drawn); return waveOn; },
     /** Host mode: draws the labels into the host's canvas now (veins-gl top, at the end of each present). */
     drawInto() { draw(); },
     /** Host mode: something that decides whether the labels may be drawn over the figure changed (see check). */

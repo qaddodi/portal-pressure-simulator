@@ -370,6 +370,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
   ]);
 
+  // The probe's waves reach the GPU pass as numbers (15 Nov 2026, app review SF-2): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/stage-scan.js', [
+    [/toDom = !live\.labelGL\?\.setWaves \|\| !live\.labelGL\.wavesOn\(\)/, "the page's wave elements are written only where the labels' GPU pass is not drawing the probe (they are a mailbox it no longer reads)"],
+    [/live\.labelGL\?\.setWaves\?\.\(wrec\);/, "the packets' numbers are handed to the GPU pass each frame they move"],
+  ]);
+  need('src/ui/label-gl.js', [[/if \(waveRec && waveOn\) \{/, "the probe's waves are drawn from the record's numbers, with no path text parsed (SF-2); the element read stays for a pass with no record"]]);
+
   // A transform list is read as a matrix without writing to the element (15 Nov 2026, app review OG-1): consolidate() replaces the list by one matrix(),
   // which rewrites the attribute and wakes every attribute observer; transform-read.js reads the items and multiplies them instead.
   for (const f of files) if (f.endsWith('.js') && !/transform-read\.js$/.test(f) && /^(?!\s*\/\/)[^\n]*\.consolidate\(/m.test(readFileSync(f, 'utf8'))) errors.push(`${f.slice(ROOT.length + 1)}: a transform list is read with listMatrix (transform-read.js), never consolidate() (it rewrites the transform attribute and wakes the page's attribute observers)`);
