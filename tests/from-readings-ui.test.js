@@ -68,7 +68,7 @@ test('every step can be skipped and the last one waits for enough readings', () 
   assert.equal(fr.state.view, 'review');
   assert.equal(body().querySelector('.fr-next').textContent, 'Show scenarios');
   assert.equal(body().querySelector('.fr-next').disabled, true, 'no readings: the search is not offered');
-  assert.match(body().querySelector('.fr-need').textContent, /0 of the 4/);
+  assert.match(body().querySelector('.fr-need').textContent, /0 of the 2/);
 });
 
 test('a ranking from a presinusoidal patient: ties shown as ties, what each cannot explain, the next reading, the footer', () => {
@@ -115,15 +115,25 @@ test('a reading that is made from two others is left out and said so; unknown re
   assert.ok(!('ra' in fr.remote.peek(fr.state.raw && Object.fromEntries(Object.entries(fr.state.raw).map(([k, v]) => [k, Number(v)]))).readings));
 });
 
-test('fewer than four readings gives no scenarios and says how many are needed', () => {
+test('one reading gives no scenarios and says how many are needed; two give a short list that says it is not a ranking', () => {
   reset();
   openFresh();
-  type('whvp', '8'); type('fhvp', '4.5'); next(); next(); next(); next();
+  type('whvp', '8'); next(); next(); next(); next();
   assert.equal(fr.state.view, 'review');
   assert.equal(body().querySelector('.fr-next').disabled, true);
   fr.state.view = 'results'; openFresh();
   assert.match(body().textContent, /Not enough readings yet/);
   assert.equal(body().querySelectorAll('.fr-card').length, 0);
+  closePopover();
+  reset();
+  openFresh();
+  type('whvp', '30'); type('fhvp', '24'); next(); next(); next(); next();
+  assert.equal(body().querySelector('.fr-next').disabled, false, 'two readings are enough to search');
+  next();
+  assert.equal(fr.state.view, 'results');
+  assert.match(body().querySelector('.fr-q').textContent, /short list from 2 readings/);
+  assert.match(body().textContent, /not a ranking/);
+  assert.ok(body().querySelectorAll('.fr-card').length >= 1, 'scenarios are shown, with the caution');
   closePopover();
 });
 

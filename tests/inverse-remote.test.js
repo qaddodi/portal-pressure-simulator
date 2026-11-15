@@ -34,10 +34,10 @@ test('with no worker the ranking is the grid\'s and the status says so', () => {
 
 test('too few readings start no refinement', () => withWorker(() => {
   const w = new FakeWorker(), r = createInverseRemote(() => w);
-  r.set({ whvp: 8, fhvp: 4.5, lsm: 6 });
+  r.set({ whvp: 8 });
   assert.equal(w.sent.length, 0);
   assert.equal(r.status(), 'idle');
-  assert.equal(MIN_READINGS, 4);
+  assert.equal(MIN_READINGS, 2);
 }));
 
 test('enough readings rank at once and start a refinement; its rounds add patients and rank again', () => withWorker(() => {

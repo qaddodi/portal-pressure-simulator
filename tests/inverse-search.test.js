@@ -4,10 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LIBRARY, LIBRARY_KEYS } from '../src/engine/inverse-library.js';
 import {
-  rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText,
-  READINGS, READING_KEYS, MIN_READINGS, TIE, POSSIBLE, MISS, SPLIT,
+  rank, scorePoint, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText,
+  READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
 } from '../src/engine/inverse.js';
-import { FAMILIES, FAMILY, keyOf, spanOf } from '../src/engine/inverse-families.js';
+import { FAMILIES, FAMILY, keyOf, spanOf, stageOf, settingText } from '../src/engine/inverse-families.js';
 
 const POINTS = pointsOf(LIBRARY);
 // A presinusoidal patient: normal HVPG, big spleen, low platelets, soft liver, stiff spleen, no fluid.
@@ -24,8 +24,8 @@ test('the library holds every reading key in the order the search reads', () => 
 });
 
 test('fewer than the minimum number of readings does not run', () => {
-  const r = rank({ whvp: 8, fhvp: 4.5, lsm: 6 }, POINTS);
-  assert.equal(MIN_READINGS, 4);
+  const r = rank({ whvp: 8 }, POINTS);
+  assert.equal(MIN_READINGS, 2);
   assert.equal(r.ready, false);
   assert.equal(r.next, null);
   assert.deepEqual(r.play, []);
@@ -195,4 +195,62 @@ test('every combination is two real lesions, charged for the second, with settin
   }
   // The room for a combination in the ranking: it costs more than either part alone.
   for (const f of combos) for (const id of f.parts) assert.ok(f.free >= FAMILY[id].free - 1, f.id);
+});
+
+test('fibrosis is graded: every combination with a sinusoidal scar tries F2 and F4, the heart, IVC and clot ones from F1, and the text reads as a stage', () => {
+  assert.deepEqual([0.2, 0.3, 0.4, 0.5, 0.6, 1].map(stageOf), ['F1', 'F2', 'F3', 'F4', 'F4', 'F4']);
+  assert.equal(settingText('scar', 0.3), 'F2');
+  assert.equal(settingText('scar', 0.9), 'F4 (0.9)');
+  for (const f of FAMILIES.filter((x) => x.parts?.includes('sinus'))) {
+    const st = new Set(f.grid.map((g) => stageOf(g.scar)));
+    assert.ok(st.has('F2') && st.has('F4'), f.id + ' tries ' + [...st]);
+  }
+  for (const id of ['mixrhf', 'mixconstr', 'mixivc', 'mixpvt']) assert.deepEqual([...new Set(FAMILY[id].grid.map((g) => stageOf(g.scar)))].sort(), ['F1', 'F2', 'F3', 'F4'], id);
+  assert.match(rangeText('scar', { lo: 0.3, hi: 0.4, whole: false, fixed: false }), /F2 to F3/);
+});
+
+test('a heart lesion on the grid steps its volume finely enough that no free pressure from 12 to 33 mmHg falls between two patients', () => {
+  for (const id of ['rhf', 'constr', 'mixrhf', 'mixconstr']) {
+    const v = [...new Set(FAMILY[id].grid.map((g) => g.vol))].sort((a, b) => a - b);
+    assert.ok(v.length >= 4, id);
+    for (let i = 1; i < v.length; i++) assert.ok(v[i] - v[i - 1] <= 300, `${id}: ${v[i - 1]} to ${v[i]} mL`);
+    assert.ok(v.at(-1) >= 1700, id + ' reaches a tense right atrium');
+  }
+});
+
+test('FHVP 24 with WHVP 30 and nothing else: a short list, led by fibrosis with a heart lesion, with the venous blocks still possible', () => {
+  const r = rank({ whvp: 30, fhvp: 24 }, POINTS);
+  assert.equal(r.ready, true, 'two readings are enough to search');
+  assert.equal(r.few, true, 'and the screen is told it is a short list, not a ranking');
+  const top = ids(r, 'best', 'tie');
+  assert.ok(top.some((id) => ['mixrhf', 'mixconstr'].includes(id)), 'fibrosis + a heart lesion is in the lead: ' + top);
+  assert.ok(['mixrhf', 'mixconstr', 'rhf', 'constr'].includes(r.families[0].id), 'the post-hepatic block with a raised atrium leads: ' + r.families[0].id);
+  const live = ids(r, 'best', 'tie', 'possible');
+  for (const id of ['rhf', 'constr', 'mixrhf', 'ivcweb', 'bcs']) assert.ok(live.includes(id), id + ' is still possible: ' + live);
+  assert.ok(ids(r, 'out').includes('sinus') && ids(r, 'out').includes('presin'), 'a block inside the liver alone cannot raise the free pressure');
+  // F2 fibrosis with heart failure: the model's congested liver keeps its gradient small, so it fits the pressures but under-reads the gap.
+  const f2 = POINTS.filter((p) => p.f === 'mixrhf' && stageOf(p.p.scar) === 'F2').map((p) => ({ p, s: scorePoint({ whvp: 30, fhvp: 24 }, p.r).chi }));
+  assert.ok(Math.min(...f2.map((x) => x.s)) <= POSSIBLE, 'F2 fibrosis + heart failure is a scenario the readings allow');
+});
+
+test('the same two pressures with a third reading: the atrium splits the heart from the venous block, stiffness grades the fibrosis', () => {
+  const high = rank({ whvp: 30, fhvp: 24, ra: 14 }, POINTS), low = rank({ whvp: 30, fhvp: 24, ra: 2 }, POINTS);
+  assert.ok(['mixconstr', 'mixrhf'].includes(high.families[0].id), 'RA 14: a heart lesion with fibrosis, ' + high.families[0].id);
+  assert.ok(!ids(high, 'best', 'tie').some((id) => ['ivcweb', 'bcs', 'mixivc'].includes(id)), 'RA 14 rules the venous blocks out of the lead');
+  assert.ok(['mixivc', 'ivcweb', 'bcs'].includes(low.families[0].id), 'RA 2: the block is above the liver, not the heart, ' + low.families[0].id);
+  assert.ok(!ids(low, 'best', 'tie', 'possible').some((id) => ['rhf', 'constr', 'mixrhf', 'mixconstr'].includes(id)), 'RA 2 rules every heart lesion out');
+  const soft = rank({ whvp: 30, fhvp: 24, lsm: 9 }, POINTS), mix = soft.families.find((f) => f.id === 'mixrhf');
+  assert.ok(mix.status !== 'out' && ['F1', 'F2', 'F3'].includes(stageOf(mix.best.p.scar)), 'a soft liver (9 kPa) is mild fibrosis with the heart: ' + JSON.stringify(mix.best.p));
+});
+
+test('sparse sets of other kinds still leave a short list and name a next reading', () => {
+  for (const sparse of [{ whvp: 21, lsm: 28 }, { fhvp: 18, ra: 15 }, { lsm: 30, plt: 60 }, { spleen: 18, plt: 70 }, { whvp: 8, spleen: 16 }]) {
+    const r = rank(sparse, POINTS);
+    assert.equal(r.ready, true, JSON.stringify(sparse));
+    assert.equal(r.few, true);
+    assert.ok(r.families[0].status === 'best' && r.possible >= 1, JSON.stringify(sparse));
+    assert.ok(r.next, 'a next reading is named: ' + JSON.stringify(sparse));
+  }
+  assert.equal(rank({ whvp: 30, fhvp: 24, lsm: 9, plt: 150 }, POINTS).few, false, 'four readings is a ranking');
+  assert.equal(FEW_READINGS, 4);
 });

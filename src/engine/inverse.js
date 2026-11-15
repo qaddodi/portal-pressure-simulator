@@ -8,7 +8,7 @@
 // two scenarios whose scores are within TIE of each other are shown as a tie, never as a first and a second.
 
 import { ASCITES_CUTS, VARIX_NONE_MM, VARIX_LARGE_MM } from './metrics.js';
-import { FAMILIES, FAMILY, AXES, spanOf, keyOf } from './inverse-families.js';
+import { FAMILIES, FAMILY, AXES, spanOf, keyOf, settingText } from './inverse-families.js';
 
 /** How a reading is compared. 'abs': difference in its unit; 'log': the log of the ratio (a stiffness or a count is wrong by a fraction);
  *  'grade': the person chose a grade, so a prediction inside the grade's range is a perfect fit and outside it is judged from the nearer edge. */
@@ -39,8 +39,10 @@ const GRADE_RANGE = Object.freeze({
 // (Fluid volume is judged on a log scale, so 100 mL against 150 is a small miss and 100 against 3,000 a large one.)
 const scaleOf = (key, v) => (key === 'asc' ? Math.log1p(v / 300) : v);
 
-/** How many readings must be entered before the search runs: fewer cannot tell families apart, and a ranking from two numbers would only look sure. */
-export const MIN_READINGS = 4;
+/** How many readings must be entered before the search runs: one number cannot tell a lesion from its neighbours. */
+export const MIN_READINGS = 2;
+/** Below this many readings the list is a short list of what is possible, not a ranking: most families still fit, and the screen says so. */
+export const FEW_READINGS = 4;
 /** Each setting a family fits beyond the first costs this much, so an extra component has to earn its place (an Akaike-style penalty). */
 export const SETTING_COST = 2;
 /** Scores within TIE of the best fit about equally; within POSSIBLE can still produce the readings; beyond it the family is ruled out. */
@@ -109,8 +111,9 @@ export const statusOf = (delta) => (delta <= 0 ? 'best' : delta <= TIE ? 'tie' :
  * Rank the lesion families against the entered readings.
  *  raw     what was typed (normalise() tidies it).
  *  points  the virtual patients to score: [{ f: family id, p: its settings, r: its readings (key → number) }].
- * Returns { readings, dropped, n, ready, families, possible, play, next }:
+ * Returns { readings, dropped, n, ready, few, families, possible, play, next }:
  *  ready     whether enough readings are in (MIN_READINGS) to show a ranking; below that the families are still scored, so a screen can say how many remain
+ *  few       ready with fewer than FEW_READINGS readings: the screen shows the scenarios as a short list and says it is not a ranking
  *  possible  how many families are not ruled out (the count a guided entry shows beside each reading)
  *  families  every family, best first: { id, label, sub, status, delta, best: { p, chi, score, per, pred }, free, ranges, predicts, gaps, marks, count }
  *  play      the families still in play (status best or tie), the ones the next reading must split
@@ -119,7 +122,7 @@ export const statusOf = (delta) => (delta <= 0 ? 'best' : delta <= TIE ? 'tie' :
 export function rank(raw, points) {
   const { readings, dropped } = normalise(raw);
   const keys = Object.keys(readings), n = keys.length;
-  if (n < 1) return { readings, dropped, n, ready: false, families: [], possible: FAMILIES.length, play: [], next: null };
+  if (n < 1) return { readings, dropped, n, ready: false, few: false, families: [], possible: FAMILIES.length, play: [], next: null };
   const by = new Map(FAMILIES.map((f) => [f.id, []]));
   for (const pt of points) { const s = scorePoint(readings, pt.r); by.get(pt.f)?.push({ ...pt, ...s }); }
   const fams = [];
@@ -150,9 +153,9 @@ export function rank(raw, points) {
   fams.sort((a, b) => a.score - b.score);
   const top = fams[0].score;
   for (const f of fams) { f.delta = f.score - top; f.status = statusOf(f.delta); }
-  const ready = n >= MIN_READINGS, possible = fams.filter((f) => f.status !== 'out').length;
+  const ready = n >= MIN_READINGS, few = ready && n < FEW_READINGS, possible = fams.filter((f) => f.status !== 'out').length;
   const play = ready ? fams.filter((f) => f.status === 'best' || f.status === 'tie') : [];
-  return { readings, dropped, n, ready, families: fams, possible, play, next: ready ? nextReading(readings, play) : null };
+  return { readings, dropped, n, ready, few, families: fams, possible, play, next: ready ? nextReading(readings, play) : null };
 }
 
 // Readings the model does not make (the picture, the biopsy, the heart's waveform): never scored, named so a person knows what else would help.
@@ -170,6 +173,7 @@ export const OUTSIDE = Object.freeze({
   mixpvt: 'Doppler or CT of the portal vein, and biopsy for the stage of the scar.',
   mixrhf: 'Echocardiography with the RA waveform, and biopsy for the liver’s own scar.',
   mixconstr: 'Echocardiography and cardiac MR or CT, and biopsy for the liver’s own scar.',
+  mixivc: 'Cavography or MR venography of the IVC, and biopsy for the scar.',
   mixbcs: 'Doppler or MR venography of the hepatic veins, and biopsy for the scar.',
   prepvt: 'Doppler or CT of the portal vein, and liver biopsy to exclude cirrhosis.',
 });
@@ -218,7 +222,7 @@ export function gapLine(g) {
 
 /** A fit range in words: "×30 to ×60", or "any value tried" when the readings do not set it. */
 export function rangeText(axis, rg) {
-  const a = AXES[axis], t = (v) => (a.unit === '×' ? `×${v}` : a.unit === '%' ? `${v}%` : a.unit === 'mL' ? `${v} mL` : a.unit === 'g/dL' ? `${v} g/dL` : String(v));
+  const t = (v) => settingText(axis, v);
   if (rg.fixed) return t(rg.lo);
   if (rg.whole) return 'not set by these readings';
   return rg.lo === rg.hi ? t(rg.lo) : `${t(rg.lo)} to ${t(rg.hi)}`;

@@ -14,7 +14,7 @@ import { h, svgIcon, popover, closePopover, swapFade, swapText, announce } from 
 import { createInverseRemote } from './inverse-remote.js';
 import { FAMILIES, FAMILY, AXES } from '../engine/inverse-families.js';
 import {
-  READINGS, MIN_READINGS, OUTSIDE, readingText, gapLine, rangeText,
+  READINGS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, gapLine, rangeText,
 } from '../engine/inverse.js';
 
 export const STEPS = Object.freeze([
@@ -229,10 +229,10 @@ export function createFromReadings(ctx) {
     const res = remote.peek(entered());   // (what was entered, over the grid and every patient the refinement has added: one source, never a result left over from earlier)
     const top = res.families.filter((f) => f.status === 'best' || f.status === 'tie'), possible = res.families.filter((f) => f.status === 'possible'), out = res.families.filter((f) => f.status === 'out');
     const nx = nextText(res), dropped = res.dropped;
-    const head = !res.ready ? 'Not enough readings yet.' : top.length > 1 ? `${top.length} scenarios fit about equally.` : 'One scenario fits best.';
+    const head = !res.ready ? 'Not enough readings yet.' : res.few ? `A short list from ${res.n} readings.` : top.length > 1 ? `${top.length} scenarios fit about equally.` : 'One scenario fits best.';
     const kids = [
       h('p', { class: 'fr-q' }, head),
-      h('p', { class: 'fr-small' }, res.ready ? 'Each is a made-up patient built from your readings. Opening one saves it under Patients as “Yours”.' : `The search needs ${RESULT_MIN} readings; ${res.n} entered.`),
+      h('p', { class: 'fr-small' }, res.few ? `With under ${FEW_READINGS} readings several lesions can fit, so this is what is possible, not a ranking. Each added reading narrows it.` : res.ready ? 'Each is a made-up patient built from your readings. Opening one saves it under Patients as “Yours”.' : `The search needs ${RESULT_MIN} readings; ${res.n} entered.`),
       dropped.length ? h('p', { class: 'fr-fine fr-dropped' }, 'Left out: ' + dropped.map((d) => `${READINGS[d.key].short} (${d.why})`).join('; ') + '.') : null,
       res.ready ? top.map((f) => card(f, res)) : null,
       res.ready && possible.length ? h('div', { class: 'fr-also' }, h('p', { class: 'fr-sub' }, 'Also possible'), possible.map((f) => card(f, res))) : null,
