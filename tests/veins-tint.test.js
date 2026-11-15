@@ -154,12 +154,12 @@ test('any other change, or new radii, still draws the cells again whole', async 
 });
 
 test('the renderer allocates, moves, trims and frees the mark with the layer', () => {
-  assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, depTex, 0\);/);
+  assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, null, 0\);/);   // (the depth mask target is gone, R1b-7)
   // (A pan moves no target, the mark among them: they all stay in their texels and the wrap moves, so they stay in step.)
   assert.doesNotMatch(vg, /\bspare\b/);
-  assert.match(vg, /for \(const t of \[baseTex, gTex, gTex2, depTex\]\)/);
+  assert.match(vg, /for \(const t of \[baseTex, gTex, gTex2\]\)/);
   // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).
-  assert.match(vg, /gl\.bindTexture\(gl\.TEXTURE_2D, tint \? depTex : depNone\)/);
+  assert.match(vg, /gl\.bindTexture\(gl\.TEXTURE_2D, depNone\)/);
 });
 
 // T05 (smoothness review, 26 Oct): a refused partial draw says why, and the rows it was given reach the whole draw after it.

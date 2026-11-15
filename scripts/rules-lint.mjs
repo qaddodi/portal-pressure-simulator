@@ -360,6 +360,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/D\.lumBox\.on = !!C && joinBase < 0;/, "the lumen pass is scissored to the rows' box only at rest: between the views the rows' points move, and the bundle's points are the first sample's"],
   ]);
 
+  // The lobule's label search keeps to a deadline (15 Nov 2026, app review LZ2-1): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/lobule-zoom.js', [
+    [/searchBudget\.begin\(\);\n\s+do \{\n\s+const s2 = solve\(permOf\(items, idx, ord\), base, LC\.ld0, trial\);/, "the order search begins its budget and checks it between solves, so a crowded layout is never 0.6 s in one frame"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+\} while \(nextPerm\(idx, items\.length\)\);/, "the six-label order loop stops at its deadline"],
+    [/if \(sol\.total >= 1e5 && !searchBudget\.over\(\)\) sol = retryClash\(/, "the other-sinusoid retry (30 x 120 solves, 2 s) only starts inside the deadline"],
+    [/if \(searchBudget\.end\(\)\) nextFrame\(\(\) => \{ if \(geo && fade > 0\) \{ layoutKey = ''; lzLoop\.want\(true\); \} \}\);/, "a cut search is run again, longer, in a later frame"],
+    [/cands\.length = Math\.min\(cands\.length, 8\);/, "eight other sinusoids at most"],
+    [/if \(searchBudget\.over\(\)\) break;\n\s+sinIt\.a\[0\] = a\[0\]; sinIt\.a\[1\] = a\[1\];/, "the candidate loop stops at its deadline"],
+  ]);
+
   // A transform list is read as a matrix without writing to the element (15 Nov 2026, app review OG-1): consolidate() replaces the list by one matrix(),
   // which rewrites the attribute and wakes every attribute observer; transform-read.js reads the items and multiplies them instead.
   for (const f of files) if (f.endsWith('.js') && !/transform-read\.js$/.test(f) && /^(?!\s*\/\/)[^\n]*\.consolidate\(/m.test(readFileSync(f, 'utf8'))) errors.push(`${f.slice(ROOT.length + 1)}: a transform list is read with listMatrix (transform-read.js), never consolidate() (it rewrites the transform attribute and wakes the page's attribute observers)`);

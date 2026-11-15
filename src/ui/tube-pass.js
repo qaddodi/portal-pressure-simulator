@@ -28,7 +28,7 @@ export function createTubePass(E) {
   const FR = { two: false, web: false, tb: null, pb: null, wb: null, D: null };
   let lastText = '', lastP, lastP3, choice = tubeStage(null);   // (the choice is read again only when the stage 2 or stage 3 programs change)
   // The layer's draw buffers: the four, or in stage 3 without the second flow target (the lumen layer carries what it carried; the first stays for the arrowheads' quads and picking).
-  const A3 = [ATTACH[0], ATTACH[1], gl.NONE, ATTACH[3]];
+  const A3 = [ATTACH[0], ATTACH[1], gl.NONE, gl.NONE];
   let AT = ATTACH;
   // Sets a vertex stage's pass uniforms on program P and draws n strips from record `first` of buf (size floats of each stride bytes: 1 for the stage 1 rows, 4 for J's).
   function stripCall(P, pass, t, base, H, px, look, vao, buf, size, stride, first, n) {
@@ -166,6 +166,7 @@ export function createTubePass(E) {
     stageNow();
     const two = choice.stage >= 2, web = choice.joins === 'web';
     AT = choice.stage === 3 ? A3 : ATTACH;
+    E.setG2(choice.stage < 3);   // (the second lumen target is made only for the stages that write it; the layer's framebuffer is left bound)
     let tb, pb = null;
     if (two) {
       // (Stage 2: J's rows by tier, plain first, and the webs by tier, into buffers of their own.)

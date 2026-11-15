@@ -152,7 +152,8 @@ test('the vessel layer\'s second-lumen target is bounded: given back to a texel 
   const big = (fmt) => f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === fmt && c[4] === LW && c[5] === LH);
   assert.ok(big(f.gl.RGBA16UI).length >= 1, 'the first lumen\'s layer allocated at the layer\'s size');
   // (The second lumen packed in two channels: ROW2_BITS.)
-  assert.ok(big(f.gl.RG16UI).length >= 1, 'the second lumen\'s layer allocated at the layer\'s size, in two channels');
+  // (R1b-7, 15 Nov 2026: the second lumen is written by the Tube's stages 1 and 2 only; in stage 3, which this renderer draws in, it is a texel and no framebuffer holds it.)
+  assert.equal(big(f.gl.RG16UI).length, 0, 'the second lumen\'s layer is not allocated at the layer\'s size while the Tube draws in stage 3');
   const n = f.calls.length;
   g.trim();
   const small = (fmt) => f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === fmt && c[4] === 1 && c[5] === 1);

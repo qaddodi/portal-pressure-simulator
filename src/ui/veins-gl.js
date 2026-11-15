@@ -2504,10 +2504,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   // The vessel layer, rendered when something changes: its color, and the lumen buffer.
   let fbo = gl.createFramebuffer();
-  let baseTex = dataTex(gl), gTex = dataTex(gl), gTex2 = dataTex(gl), depTex = dataTex(gl);
-  // (The vessel layer's four targets' formats, in ATTACH's order: colour, the front lumen, the second lumen (packed: ROW2_BITS), the depth mask.)
+  let baseTex = dataTex(gl), gTex = dataTex(gl), gTex2 = dataTex(gl);
+  // (The vessel layer's targets' formats, in WARM_ATTACH's order: colour, the front lumen, the second lumen (packed: ROW2_BITS), the depth mask. The layer itself has the first
+  // two, and the second lumen only while the Tube draws in stage 1 or 2 (g2Full); the depth mask had no reader once the classic tint pass went, 15 Nov 2026, R1b-7.)
   const layerFmt = () => [[gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE], [gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT], [gl.RG16UI, gl.RG_INTEGER, gl.UNSIGNED_SHORT], [gl.R8, gl.RED, gl.UNSIGNED_BYTE]];
-  // (depTex: whether a lumen colour reaches each pixel, see the shader. The vessel pass reads depNone, a texel no framebuffer holds.)
+  // (depL, the classic tint pass's mask of the pixels a lumen colour reaches: nothing draws it any more; the vessel pass is given depNone, a texel no framebuffer holds.)
   const depNone = dataTex(gl);
   gl.bindTexture(gl.TEXTURE_2D, depNone);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(1));
@@ -2525,7 +2526,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let fboPW = 0, fboPH = 0;
   // (The world box of every cell of the binning uploaded: [x0, y0, x1, y1], null with none.)
   let cellBox = null;
-  const ATTACH = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3];
+  // (The layer's draw buffers: colour, the front lumen and, in the Tube's stages 1 and 2, the second lumen; the depth mask target is gone (R1b-7). The warm-up target keeps all four, 1 x 1.)
+  const WARM_ATTACH = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3];
+  const ATTACH = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.NONE];
+  const ATTACH_TWO = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.NONE];   // (stage 3: colour and the front lumen alone)
   const ATTACH_COLOR = [gl.COLOR_ATTACHMENT0];   // (the colour target alone: a colour-only redraw, a warm-up)
   // fboOK: the vessel layer holds a whole draw of the current geometry, radii and organ covers, at baseM, so a redraw of
   // some of its cells (drawRows) leaves it exactly as a whole draw would. Cleared by anything else the vessel pass reads.
@@ -2545,31 +2549,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     fboPW = PW(); fboPH = PH(); fboOK = false; wrapNone();
     if (fboW === w && fboH === h) return;
     fboW = w; fboH = h;
-    if (gpuProbe.on) noteAlloc(fboW * fboH * 17 / 1024);
+    if (gpuProbe.on) noteAlloc(fboW * fboH * (g2Full ? 12 : 8) / 1024);
     gl.bindTexture(gl.TEXTURE_2D, baseTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindTexture(gl.TEXTURE_2D, gTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, fboW, fboH, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
     gl.bindTexture(gl.TEXTURE_2D, gTex2);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, fboW, fboH, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
-    gl.bindTexture(gl.TEXTURE_2D, depTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, fboW, fboH, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, g2Full ? fboW : 1, g2Full ? fboH : 1, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTex, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, gTex, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, gTex2, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, depTex, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, g2Full ? gTex2 : null, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, null, 0);
     if (meshStOn) { gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, null); meshStOn = false; }
-    gl.drawBuffers(ATTACH);
+    gl.drawBuffers(g2Full ? ATTACH : ATTACH_TWO);
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
-  // Clears the bound vessel framebuffer's four targets (within the scissor, when it is on).
+  // The second lumen target (gTex2) at the layer's size and attached, or not: only the Tube's stages 1 and 2 write it (stage 3 carries what it carried in the lumen layer), so in stage 3
+  // it is a 1 x 1 texture no framebuffer holds, 4 of the layer's 17 bytes a pixel (R1b-7, 15 Nov 2026). The Tube asks at each pass (tube-pass.js); the layer's framebuffer is left bound.
+  // A change draws the layer whole again: what the second target held is not there.
+  let g2Full = false;
+  function setG2(on) {
+    if (on === g2Full) return;
+    g2Full = on;
+    if (!fboW) return;   // (no layer yet: ensureFBO sizes it by g2Full)
+    if (gpuProbe.on) noteAlloc(fboW * fboH * (on ? 4 : -4) / 1024);
+    gl.bindTexture(gl.TEXTURE_2D, gTex2);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, on ? fboW : 1, on ? fboH : 1, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, on ? gTex2 : null, 0);
+    gl.drawBuffers(on ? ATTACH : ATTACH_TWO);
+    fboOK = false;
+  }
+  // Clears the bound vessel framebuffer's targets (within the scissor, when it is on).
   const CLR_F = new Float32Array(4), CLR_U = new Uint32Array(4);
   function clearLayer() {
     gl.clearBufferfv(gl.COLOR, 0, CLR_F);
     gl.clearBufferuiv(gl.COLOR, 1, CLR_U);
-    gl.clearBufferuiv(gl.COLOR, 2, CLR_U);
-    gl.clearBufferfv(gl.COLOR, 3, CLR_F);
+    if (g2Full) gl.clearBufferuiv(gl.COLOR, 2, CLR_U);
   }
 
   // The catheter's box on the picture under m ([x0, y0, x1, y1], device px, y down, whole pixels, 2 px of margin), from every vertex its
@@ -3009,7 +3026,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); UC.i1(u.tube, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); UC.i1(u.organ, 3);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); UC.i1(u.rmax, 4);
-    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); UC.i1(u.depL, 5);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, depNone); UC.i1(u.depL, 5);
   }
   // ── The vessel geometry (docs/tube-renderer.md) ──
   // Each vessel a strip of triangles placed from the textures, each join a web (or a patch in stage 1), drawn tier by tier as the composite
@@ -3205,7 +3222,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // The Tube vessel renderer's pass (tube-pass.js, docs/tube-renderer.md), given what it works on once; what changes it reads here each time.
   const tubePass = createTubePass({
-    lobule: who === 'lobule', gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_COLOR_BUF, CLR_F, gpuProbe, nTubes, tubeNow,
+    lobule: who === 'lobule', gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_COLOR_BUF, CLR_F, gpuProbe, nTubes, tubeNow, setG2,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet,
     // The world rectangle the vessel layer covers and the widest reach of any pass past a lumen (glow, shadow, selection, outline, skirt), for the Tube's cull (tube-stage2.js cullUpdate).
     layerView: (m, look, out) => {
@@ -3793,11 +3810,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let warmT = null;
   function warmTarget() {
     if (warmT) return warmT;
-    const fb = gl.createFramebuffer(), tx = ATTACH.map(() => dataTex(gl)), buf = gl.createBuffer();
+    const fb = gl.createFramebuffer(), tx = WARM_ATTACH.map(() => dataTex(gl)), buf = gl.createBuffer();
     const fmt = layerFmt();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-    tx.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], 1, 1, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, ATTACH[i], gl.TEXTURE_2D, t, 0); });
-    gl.drawBuffers(ATTACH);
+    tx.forEach((t, i) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, fmt[i][0], 1, 1, 0, fmt[i][1], fmt[i][2], null); gl.framebufferTexture2D(gl.FRAMEBUFFER, WARM_ATTACH[i], gl.TEXTURE_2D, t, 0); });
+    gl.drawBuffers(WARM_ATTACH);
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     // (One cell far off the figure: it lists nothing, so its pixels, none of them inside the target anyway, draw nothing.)
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -3816,7 +3833,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       compBind(streakP.u, false, false, false, false);
       gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       if (streakCellP) { gl.useProgram(streakCellP.p); compBind(streakCellP.u, false, false, false, false); gl.bindVertexArray(w.va); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1); gl.bindVertexArray(null); }
-      gl.drawBuffers(ATTACH);
+      gl.drawBuffers(WARM_ATTACH);
     }
     if (k === 'plain') {
       gl.drawBuffers(ATTACH_COLOR);
@@ -3827,7 +3844,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (va === compVAO) gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); else gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1);
       }
       gl.bindVertexArray(null);
-      gl.drawBuffers(ATTACH);
+      gl.drawBuffers(WARM_ATTACH);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
@@ -5027,10 +5044,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     trim() {
       if (lost) return;
-      for (const t of [baseTex, gTex, gTex2, depTex]) {
+      for (const t of [baseTex, gTex, gTex2]) {
         gl.bindTexture(gl.TEXTURE_2D, t);
         if (t === baseTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        else if (t === depTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, null);
         else if (t === gTex2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, 1, 1, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
@@ -5055,7 +5071,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!lost) {
         useMorphSet(null);
         for (const S of [...morphSets]) dropSet(S);
-        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, bloodBuf, partBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [bloodVAO, halfSet.va, partVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
