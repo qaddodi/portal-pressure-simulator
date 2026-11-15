@@ -28,16 +28,16 @@ test('Circuit, a little zoomed in: a trackpad pan toward a card keeps every slot
   for (let i = 0; i < 200; i++) await step();
   const slots0 = st.labelSlots(), laid0 = st.labelLaid().items, solves = st.labelStats().solves;
   const svg = page.document.querySelector('#stage'), Win = page.dom.window;
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     svg.dispatchEvent(new Win.WheelEvent('wheel', { deltaX: -20, deltaY: 0, deltaMode: 0, clientX: 700, clientY: 450, bubbles: true, cancelable: true }));
     await step();
   }
   for (let i = 0; i < 80; i++) await step();
   const slots1 = st.labelSlots(), laid1 = new Map(st.labelLaid().items.map((i) => [i.key, i.box]));
   assert.equal(st.labelStats().solves, solves, 'no fresh solve after a pure pan');
-  // (Where each reading the pan carried would stand: 240 px to the right. One that stays inside the stage and off the card keeps its slot; one it
+  // (Where each reading the pan carried would stand: 200 px to the right (10 wheel steps of 20: a pan that puts the left gastric vein's reading across the card's edge where it still has a place beside it; 15 Nov 2026, the coronary vein's junction moved that reading, so the 240 px it was calibrated to put it where nothing fits). One that stays inside the stage and off the card keeps its slot; one it
   // carried onto the card or past the edge may take another, and then shows clear of the card.)
-  const carried = new Map(laid0.map((i) => [i.key, [i.box[0] + 240, i.box[1], i.box[2] + 240, i.box[3]]]));
+  const carried = new Map(laid0.map((i) => [i.key, [i.box[0] + 200, i.box[1], i.box[2] + 200, i.box[3]]]));
   const changed = Object.keys(slots0).filter((k) => slots1[k] !== slots0[k]);
   for (const k of changed) {
     const b = carried.get(k);
