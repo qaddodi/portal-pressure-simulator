@@ -95,7 +95,7 @@ test('a slide\'s colours come with its scene, never onto the leaving one (T1)', 
 
 test('the slide number never goes blank (T2)', () => {
   const p = presenterSource();
-  const chrome = p.slice(p.indexOf('function paintChrome()'), p.indexOf('const gear = () =>'));
+  const chrome = p.slice(p.indexOf('function paintChrome()'), p.indexOf('\n  }\n', p.indexOf('function paintChrome()')));
   assert.doesNotMatch(chrome, /swapText\(k\.count/, 'no fade through nothing');
   assert.match(chrome, /k\.count\.textContent = countTxt/);
 });

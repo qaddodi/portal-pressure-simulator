@@ -32,7 +32,7 @@ test('wrapped legends, larger type and treatment bands reserve their actual spac
 test('all wide chart-only cards share the protection while mixed and phone cards keep their layout', () => {
   const js = unsnap(presenterSource());
   const css = appCss();
-  assert.match(js, /const eligible = chart && el\.classList\.contains\('tool-only'\) && ui\.root\.classList\.contains\('pz-wide'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\)/);
+  assert.match(js, /const eligible = chart && el\.classList\.contains\('tool-only'\) && (?:live\.)?ui\.root\.classList\.contains\('pz-wide'\) && !(?:live\.)?ui\.root\.classList\.contains\('stack'\) && !(?:live\.)?ui\.root\.classList\.contains\('low'\)/);
   assert.match(js, /c === chart\.parentElement \? 0 : c\.getBoundingClientRect\(\)\.height/);
   assert.match(css, /\.pz\.pz-wide[^\n]+pz-flowfit > \.pz-tool\[data-kind="flowtime"\] \{ width: 100%; zoom: 1; \}/);
   assert.match(css, /pz-flowfit \.pz-flowtime \{ height: var\(--ft-room\); min-height: 0; \}/);

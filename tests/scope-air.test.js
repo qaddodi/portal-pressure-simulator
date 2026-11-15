@@ -74,7 +74,7 @@ test('compare buttons can change the slide\'s instrument options, and the slide\
   // (the other rows are as they were)
   assert.deepEqual(abChoice([{ label: 'A', preset: 'csph' }, { label: 'B', own: true }], 1), { kind: 'state' });
   assert.deepEqual(abChoice([{ label: 'A', lens: 'flow' }, { label: 'B', lens: 'pressure', own: true }], 1), { kind: 'lens', lens: 'pressure' });
-  assert.match(presenter, /if \(c\.kind === 'tool'\) \{ ui\.tools\.option\(c\.tool\); return; \}/, 'a tool button leaves the model alone');
+  assert.match(presenter, /if \(c\.kind === 'tool'\) \{ (?:live\.)?ui\.tools\.option\(c\.tool\); return; \}/, 'a tool button leaves the model alone');
   assert.match(tools, /option\(patch\) \{ if \(cur && lastTool\) cur\.configure\?\.\(patch \? \{ \.\.\.lastTool, \.\.\.patch \} : lastTool, lastCtx\); \}/);
   assert.match(tools, /inst\.configure\?\.\(t, ctx\);[^\n]*\n\s*lastTool = t; lastCtx = ctx;/, 'every slide sets its own options again, a kept card too');
 });
@@ -82,7 +82,7 @@ test('compare buttons can change the slide\'s instrument options, and the slide\
 test('a what-if slider can move an instrument option: no model change, no worker message, and it starts at the slide\'s own value', () => {
   const fn = presenter.slice(presenter.indexOf('function whatIfEl'), presenter.indexOf('function stopLapse'));
   assert.match(fn, /const v0 = \+\(w\.tool \? s\.tool\?\.\[w\.tool\] \?\? w\.min :/);
-  assert.match(fn, /if \(w\.tool\) \{ ui\?\.tools\.option\(\{ \[w\.tool\]: \+input\.value \}\); return; \}/);
+  assert.match(fn, /if \(w\.tool\) \{ (?:live\.)?ui\?\.tools\.option\(\{ \[w\.tool\]: \+input\.value \}\); return; \}/);
   assert.match(fn, /liveSet\(s, i, patchOf\(\+input\.value\)\)/, 'a model slider goes through the worker as before');
   assert.ok(!/host\.send/.test(fn), 'the slider itself sends nothing to the model');
 });

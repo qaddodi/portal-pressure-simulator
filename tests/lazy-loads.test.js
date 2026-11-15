@@ -58,7 +58,7 @@ test('a dive asked for before the layer exists goes on when it does, with the sl
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
   const stage = stageSource();
   const prep = stageFn('prepLobule');
-  assert.match(prep, /if \((?:live\.)?(?:live\.)?figureShown && !(?:live\.)?(?:live\.)?lzLoad && !(?:live\.)?(?:live\.)?lzSoon\) \{ (?:live\.)?(?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
+  assert.match(prep, /if \((?:live\.)?figureShown && !(?:live\.)?lzLoad && !(?:live\.)?lzSoon\) \{ (?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
   assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
   assert.match(stage, /const lobuleCode = \(\) => \((?:live\.)?lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
   assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);

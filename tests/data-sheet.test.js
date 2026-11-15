@@ -13,7 +13,7 @@ const js = unsnap(presenterSource());
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
-  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
+  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\((?:live\.)?want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
   // (Mohammad, 17 Oct: "I thought the Doppler will show first": the sheet holds the tiles, never the instrument.)
   assert.match(js, /\(data\.classList\.contains\('pz-sheet'\) && !data\.classList\.contains\('tool-only'\)\) \? tiles\.el : tools\.el\);/);
   assert.match(css, /\.pz\.stack \.pz-data:is\(\.tool-lead, \.pz-sheet\):not\(\.tool-open\) > \.pz-tiles \{ max-height: 0; opacity: 0;/);
@@ -39,11 +39,11 @@ test('no Show or Hide on a phone: the chip is never shown upright or sideways', 
 });
 
 test('closing the card leaves its edge and the sheet\'s at the top, and it opens again partly', () => {
-  assert.match(js, /if \(phone\(\)\) return \[0, GRIP - \(lipOn\(d\) \? LIP : 0\) - \(d\.offsetTop \+ d\.offsetHeight\)\];/);
-  assert.match(js, /if \(to === 1 && ui\?\.data\.classList\.contains\('pz-sheet'\) && ui\.data\.classList\.contains\('tool-open'\)\) ui\.setFold\(false\);/);
+  assert.match(js, /if \((?:live\.)?phone\(\)\) return \[0, GRIP - \(lipOn\(d\) \? LIP : 0\) - \(d\.offsetTop \+ d\.offsetHeight\)\];/);
+  assert.match(js, /if \(to === 1 && (?:live\.)?ui\?\.data\.classList\.contains\('pz-sheet'\) && (?:live\.)?ui\.data\.classList\.contains\('tool-open'\)\) (?:live\.)?ui\.setFold\(false\);/);
   // (The handle's tap steps through the three states: partly, fully, closed, then partly again.)
   // (Upright, the readings' card tucks away first: tests/upright-tablet-phone.test.js.)
-  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\);[^\n]*\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
+  assert.match(js, /if \(dock\.to === 1\) \{ dock\.auto = false; dockTo\(0\); \}\n\s*else if \(wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\);[^\n]*\n\s*else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = (?:live\.)?want; setFold\(false\); \} else \{ dock\.auto = false; dockTo\(1\); \} \}\n\s*else if \(split && dock\.down === (?:live\.)?want\) \{ dock\.auto = false; dockTo\(1\); \}\n\s*else setFold\(true\);/);
   assert.match(js, /if \(performance\.now\(\) - \(dock\.tapAt \|\| 0\) < 700\) return;/, 'a touch that already opened it is not taken twice');
   // (A pull down on a partly open card brings the sheet out; a push up from either open state is the dock drag.)
   assert.match(js, /\(!btn\.offsetWidth && !sheet\) \|\| \(sheet && open && !split\)/, 'a phone\'s open sheet: the push up is the dock drag');
@@ -108,8 +108,8 @@ test('pulling the readings out of a stacked card never closes the card', () => {
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
 test('a stacked card keeps one size with its readings tucked or out: it is fitted with them tucked', () => {
-  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
-  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+  assert.match(js, /const split = el === (?:live\.)?ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
+  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*(?:live\.)?ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*(?:live\.)?fitDone\.set\(el, fitSig\(el\)\);/);
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
@@ -121,7 +121,7 @@ test('a stacked card\'s cap grows with its readings while they slide, so its gla
   assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
   assert.doesNotMatch(js, /if \(roomT > 0\) dd\.style\.maxHeight/, 'an opened card is capped at its room whatever room the tucked card has');
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
-  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);/);
+  assert.match(js, /const split = el === (?:live\.)?ui\.data && splitSheet\(el\);/);
   assert.match(js, /const ovOf = \(e\) => \{ if \(split\) measureUnder\(e\); return overflowOf\(e\); \};/, 'its travel is measured at each trial fit, never before the plan');
 });
 

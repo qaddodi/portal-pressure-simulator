@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './dom-shim.js';
+import { presenterSource } from './split-src.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvpgRate, ppgRate, RATE_OF_SEV } from '../src/engine/pressure-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { PLANES } from '../src/ui/visual-plane.js';
@@ -60,7 +61,7 @@ test('no file but the table writes a HVPG or PPG cut-off as a number', () => {
 
 test('every file that rates a gradient takes the table', () => {
   for (const f of ['src/ui/dock.js', 'src/ui/pressure-time.js', 'src/ui/table-marks.js', 'src/ui/presenter.js', 'src/ui/menu.js', 'src/ui/talk-trace.js',
-    'src/ui/hvpg-proc.js', 'src/ui/visual-plane.js', 'src/ui/anatomy.js', 'src/engine/events.js']) assert.match(read(f), /from '(?:\.\.\/engine|\.)\/pressure-cuts\.js/, f);
+    'src/ui/hvpg-proc.js', 'src/ui/visual-plane.js', 'src/ui/anatomy.js', 'src/engine/events.js']) assert.match(f === 'src/ui/presenter.js' ? presenterSource() : read(f), /from '(?:\.\.\/engine|\.)\/pressure-cuts\.js/, f);   // (the presenter and its parts)
 });
 
 test('the plane draws the table: its ticks, cuts and zone edges', () => {

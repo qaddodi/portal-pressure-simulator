@@ -55,7 +55,7 @@ const stage = stageSource(), presenter = presenterSource(), lobule = read('src/u
 
 test('the stage times a steady glide by the clock, and never a drift or a move on an arc', () => {
   const a = fn(stage, 'function animateVT(');
-  assert.match(a, /const clock = opt\.steady && !drift && !(?:live\.)?(?:live\.)?arcRun \? glideClock\(\) : null;/);
+  assert.match(a, /const clock = opt\.steady && !drift && !(?:live\.)?arcRun \? glideClock\(\) : null;/);
   assert.match(a, /clamp\(\(clock \? clock\(now\) : now - t0\) \/ ms, 0, 1\)/, 'and the step reads it');
 });
 
@@ -91,8 +91,8 @@ test('the sinusoid view counts a frame at most STEP_MAX long', () => {
 // again and every stage style read again) are left out of the layout pass that begins the camera's glide.
 test('a layout pass that is no resize leaves the label passes out when the sizes are the same', () => {
   const sl = fn(presenter, 'function setLabels(');
-  assert.match(sl, /const key = `\$\{k\}\|\$\{stage\.labelScale\(\)\}`;\s*if \(unchanged && key === labelsFor\) return;\s*labelsFor = key;\s*stage\.setProjection\(k\);/);
+  assert.match(sl, /const key = `\$\{k\}\|\$\{stage\.labelScale\(\)\}`;\s*if \(unchanged && key === (?:live\.)?labelsFor\) return;\s*(?:live\.)?labelsFor = key;\s*stage\.setProjection\(k\);/);
   assert.match(presenter, /\n {4}setLabels\(!turn\);\n/, 'onResize asks for it only when no resize came');
   assert.equal((presenter.match(/setLabels\(\)/g) || []).length, 3, 'the start, a new text size and a new card width lay the labels out in full');
-  assert.match(presenter, /stage\.setProjection\(false\); labelsFor = '';/, 'and the next talk starts afresh');
+  assert.match(presenter, /stage\.setProjection\(false\); (?:live\.)?labelsFor = '';/, 'and the next talk starts afresh');
 });

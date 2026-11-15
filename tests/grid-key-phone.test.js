@@ -22,8 +22,8 @@ const grid = js.match(/function laddersGrid\(s\) \{[\s\S]*?\n {2}\}/)?.[0] ?? ''
 
 test('each cell draws the Gut to heart chart and its one-line strip, with no legend or old ladder', () => {
   assert.match(grid, /const P = createProfileTool\(\), S = createProfileStrip\(\);/);
-  assert.match(grid, /P\.configure\(\{ kind: 'profile' \}, \{ fp: r\.f, healthy: \(\) => base \}\);/, 'read against the healthy line, as on every card');
-  assert.match(grid, /S\.set\(r\.f, \(\) => base\);/);
+  assert.match(grid, /P\.configure\(\{ kind: 'profile' \}, \{ fp: r\.f, healthy: \(\) => (?:live\.)?base \}\);/, 'read against the healthy line, as on every card');
+  assert.match(grid, /S\.set\(r\.f, \(\) => (?:live\.)?base\);/);
   assert.match(grid, /const cc = h\('div', \{ class: 'pz-cc' \}, P\.el\);/);
   assert.match(grid, /grid\.append\(h\('div', \{ class: 'pz-cell' \}, k, cc, S\.el\)\);/);
   assert.doesNotMatch(js, /bigLadder|pz-grid-key|RUNGS|gridOwn|gridNames/);

@@ -34,7 +34,7 @@ test('every presentation has a short deck name of 20 characters or fewer, distin
 test('the teaching card and the visual slides carry the deck name in a corner tab; the outline slide names the talk in full instead', () => {
   const src = presenterSource();
   const css = appCss();
-  assert.match(src, /const deckTab = [^\n]*deck\?\.head \|\| \(deck\?\.title\?\.length <= 24/);
+  assert.match(src, /const deckTab = [^\n]*(?:live\.)?deck\?\.head \|\| \((?:live\.)?deck\?\.title\?\.length <= 24/);
   assert.match(src, /h\('div', \{ class: 'pz-shade' \}, deckTab\(\)/);
   assert.match(src, /const tab = s\.visual !== 'outline' && deckTab\(\)/);
   // (Flush with the card's top and right edges, only its bottom left corner rounded, never under 12 px, never cut short.)

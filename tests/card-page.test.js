@@ -94,8 +94,8 @@ test('the glass and the words come in by the same keyframes, transform and opaci
   assert.equal(pageIn('next', 24, 6)[0].transform, 'translateX(24px)');
   assert.equal(pageIn('back', 24, 6)[0].transform, 'translateX(-24px)');
   assert.equal(pageIn('jump', 24, 6)[0].transform, 'translateY(6px)');
-  assert.match(body('wordsTurnIn'), /const frames = pageIn\(k, d, RISE_PX\)[\s\S]*t\.animate\?\.\(frames, how\)[\s\S]*ui\.shade\.animate\?\.\(frames, how\)/, 'one set of keyframes, on both');
-  assert.match(body('wordsFreeze'), /\[\[t, a\], \[ui\.shade, shadeAnim\]\]/, 'Next mid-entrance stops both where they are');
+  assert.match(body('wordsTurnIn'), /const frames = pageIn\(k, d, RISE_PX\)[\s\S]*t\.animate\?\.\(frames, how\)[\s\S]*(?:live\.)?ui\.shade\.animate\?\.\(frames, how\)/, 'one set of keyframes, on both');
+  assert.match(body('wordsFreeze'), /\[\[t, a\], \[(?:live\.)?ui\.shade, (?:live\.)?shadeAnim\]\]/, 'Next mid-entrance stops both where they are');
 });
 
 test('during motion the page changes only transform and opacity: no clip, no layout read, no glass resized', () => {

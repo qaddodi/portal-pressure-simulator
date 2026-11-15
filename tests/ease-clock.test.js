@@ -48,7 +48,7 @@ test('holdMotion: the longest hold wins, and afterMotion runs once it is over', 
 test('the zooms, the lobule crossfades and the cards use it', () => {
   const stage = stageSource(), lz = read('src/ui/lobule-zoom.js'), pz = presenterSource(), fr = read('src/ui/frame.js');
   assert.doesNotMatch(fr, /PACED/, 'the dead switch is gone (the clock rule is written in motion.js)');
-  assert.match(stage, /const t0 = easeNow\(\);\s*(?:live\.)?(?:live\.)?lobOn = on;/);
+  assert.match(stage, /const t0 = easeNow\(\);\s*(?:live\.)?lobOn = on;/);
   assert.match(stage, /function lobuleStep\(now, end = false\)/);
   assert.match(stage, /const lobulePoke = \(\) => \{ if \((?:live\.)?lobuleOn && (?:live\.)?lz\.isOpen\(\)\) (?:live\.)?platePoke\(\); \};\s*const lobuleRasterSoon = \(\) => afterMotion\(lobulePoke\);/);
   assert.match(lz, /const xfNow = \(\) => easeNow\(\);/);

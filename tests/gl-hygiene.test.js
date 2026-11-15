@@ -23,7 +23,7 @@ test('the vessel framebuffer and layers are given back while the figure is hidde
   assert.match(s, /if \(stageCovered\(\)\) \{ lastT = flowGate = now; trimVeins\(\); sleep\(\); return; \}/);   // (seen.js: the page hidden, the home screen, the black screen)
   assert.match(s, /if \((?:live\.)?lz\?\.isOpen\(\)\) \{ trimVeins\(\); sleep\(\); return; \}\n\s+(?:if \((?:live\.)?veinsTrimmed\) \{? ?)?(?:live\.)?veinsTrimmed = false;/);   // (perf D1: the tiers' targets are made again a moment after the figure is shown)
   // (Review pass item 8: the warm window is a holder in the global budget, which may give it back early; the trim itself is unchanged.)
-  assert.match(s, /function trimVeins\(\) \{\n\s+if \((?:live\.)?(?:live\.)?veinsTrimmed \|\| !(?:live\.)?(?:live\.)?veins \|\| (?:live\.)?(?:live\.)?veins\.lost \|\| (?:live\.)?(?:live\.)?glowSync\) return;\n(\s+if \(WARM_VIEWS && !document\.hidden\) \{[\s\S]*?\n {4}\}\n)?\s+(?:live\.)?(?:live\.)?veinsHold\?\.drop\(\); (?:live\.)?(?:live\.)?veinsHold = null;\n\s+(?:live\.)?(?:live\.)?veins\.trim\(\); (?:live\.)?(?:live\.)?veinsTrimmed = true; (?:live\.)?(?:live\.)?veinsDirty = true;/);
+  assert.match(s, /function trimVeins\(\) \{\n\s+if \((?:live\.)?veinsTrimmed \|\| !(?:live\.)?veins \|\| (?:live\.)?veins\.lost \|\| (?:live\.)?glowSync\) return;\n(\s+if \(WARM_VIEWS && !document\.hidden\) \{[\s\S]*?\n {4}\}\n)?\s+(?:live\.)?veinsHold\?\.drop\(\); (?:live\.)?veinsHold = null;\n\s+(?:live\.)?veins\.trim\(\); (?:live\.)?veinsTrimmed = true; (?:live\.)?veinsDirty = true;/);
   assert.match(s, /(?:live\.)?veinsHold = gpuHold\(\{ owner: '(?:live\.)?veins \(under the lobule\)', kind: 'warm'/);
   assert.match(src('src/ui/veins-gl.js'), /trim\(\) \{\n\s+if \(lost\) return;/);
 });
@@ -47,5 +47,5 @@ test('the preview\'s test deck is not in the live site\'s bundle', () => {
   const p = presenterSource();
   assert.doesNotMatch(p, /^import [^\n]*test-decks/m);
   assert.match(p, /const testingLoad = PREVIEW \? import\('\.\/test-decks\/demo-all-new-visuals\.js'\)/);
-  assert.match(p, /if \(!d && typeof id === 'string' && id\.startsWith\('test-'\) && !TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);   // (waits once: a missing test deck is \"not found\", not a loop)
+  assert.match(p, /if \(!d && typeof id === 'string' && id\.startsWith\('test-'\) && !(?:live\.)?TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);   // (waits once: a missing test deck is \"not found\", not a loop)
 });

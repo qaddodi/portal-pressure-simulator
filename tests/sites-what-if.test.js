@@ -83,13 +83,13 @@ test('on a phone a what-if slider takes a full line under its label', () => {
 test('a patient compare button eases the live model to its computed patient and back; the chart reads the live patient, with no station block to follow', () => {
   const src = presenterSource();
   assert.match(src, /\.\.\.\(s\.compare \|\| \[\]\)\.filter\(\(o\) => o\.preset\)/);
-  assert.match(src, /stateReady\(o\.preset \? extraOf\.get\(xKey\(o\)\) : stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
+  assert.match(src, /stateReady\(o\.preset \? (?:live\.)?extraOf\.get\(xKey\(o\)\) : (?:live\.)?stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]\)/);
   assert.doesNotMatch(src, /abBlk|blockOf/);
 });
 
 test('the slide count is not left grey (as if the list were open) on a slide picked from the slide list', () => {
   const src = presenterSource();
-  assert.match(src, /listOpen = String\(!ui\.jump\.hidden && !ui\.jump\.classList\.contains\('pz-leave'\)\)/);
+  assert.match(src, /listOpen = String\(!(?:live\.)?ui\.jump\.hidden && !(?:live\.)?ui\.jump\.classList\.contains\('pz-leave'\)\)/);
   assert.match(src, /'aria-expanded': listOpen/);
   assert.match(src, /k\.count\.setAttribute\('aria-expanded', listOpen\)/);   // (the pill updated in place, P16)
 });

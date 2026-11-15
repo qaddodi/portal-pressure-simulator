@@ -58,6 +58,6 @@ test('a sideways phone: figure terms are coloured text with no underline, and th
   assert.match(low, /for \(const c of \['pz-lt', 'pz-lt2'\]\)/);
   assert.match(low, /return done\(!!el\.querySelector\(':scope > :not\(\.pz-dh\):not\(\.pz-grip\):not\(\.pz-lip\)'\), 0\.5\);/);
   assert.doesNotMatch(low, /pz-folds/, 'never folded to its header');
-  assert.match(js, /const lowFloor = el === ui\.data && ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
+  assert.match(js, /const lowFloor = el === (?:live\.)?ui\.data && (?:live\.)?ui\.root\.classList\.contains\('low'\) \? lowData\(el\) : 0;/);
   assert.doesNotMatch(css, /\.pz:is\(\.stack, \.low\) \.pz-data\.pz-folds/, 'no Show or Hide on a phone');
 });

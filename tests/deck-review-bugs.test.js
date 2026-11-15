@@ -48,7 +48,7 @@ test('a bleed\'s jets and pool fade in and out over a surface step (420 ms), nev
   // The stage steps the fade every frame, keeps the figure awake while it runs, and draws the last bleed while it fades out.
   assert.match(stage, /stepSpray\(dt\);/);
   assert.match(stage, /!plateEasing\(\) && !sprayFading\(\)/);
-  assert.match(stage, /fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed/);
+  assert.match(stage, /fadeBleedShapes\(bleedShapes\((?:live\.)?sprayLast\.bleed/);
   assert.ok(!/if \(!F\?\.bleed\?\.active \|\| morph >= 0\.5\) return \[\];/.test(stage), 'no one-frame cut');
 });
 

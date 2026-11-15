@@ -340,17 +340,17 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\) \|\|/);
   const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
   assert.match(pn, /procNavPlan\(/, 'the press is counted by the ring: proc-nav.js');
-  assert.match(pn, /if \(plan\.how === 'jump'\) \{ ring\(\); procRun\.to\(plan\.at\); return true; \}/, 'a step: the ring first, then the run is told');
-  assert.match(pn, /if \(plan\.how === 'chain'\) \{ ring\(\); if \(procRun\.at < plan\.at\) procRun\.to\(plan\.at\); procChain\(\); ring\(\); return true; \}/, '(a TIPS on its last step) the reading that goes on from where the catheter stands');
-  assert.match(pn, /procDoneAt === want/, 'once played through, Next moves on');
-  assert.match(pn, /procPlay\(s, want, plan\.at, kind\);\n\s+if \(!procRun && !procWait\) \{/, 'the first Next puts the catheter in (and moves on if it could not start)');
+  assert.match(pn, /if \(plan\.how === 'jump'\) \{ ring\(\); (?:live\.)?procRun\.to\(plan\.at\); return true; \}/, 'a step: the ring first, then the run is told');
+  assert.match(pn, /if \(plan\.how === 'chain'\) \{ ring\(\); if \((?:live\.)?procRun\.at < plan\.at\) (?:live\.)?procRun\.to\(plan\.at\); procChain\(\); ring\(\); return true; \}/, '(a TIPS on its last step) the reading that goes on from where the catheter stands');
+  assert.match(pn, /(?:live\.)?procDoneAt === (?:live\.)?want/, 'once played through, Next moves on');
+  assert.match(pn, /procPlay\(s, (?:live\.)?want, plan\.at, kind\);\n\s+if \(!(?:live\.)?procRun && !(?:live\.)?procWait\) \{/, 'the first Next puts the catheter in (and moves on if it could not start)');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
   assert.doesNotMatch(el, /onclick|'button'/, 'the steps are not buttons');
-  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false; procDoneAt = done && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
+  assert.match(pz, /stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false; (?:live\.)?procDoneAt = done && s\.procedure \? to : -1;/, 'a new slide starts it afresh (back onto it, it is done)');
   // The steps are a line of the slides' own numbered circles, not pills.
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
-  assert.match(pz, /own = lap \? \(await stateReady\(stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
+  assert.match(pz, /own = lap \? \(await stateReady\((?:live\.)?stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
   assert.match(pz, /before: s\.procedure \? specOf\(procKindOf\(s\.procedure\)\)\?\.before : undefined/);
   const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);

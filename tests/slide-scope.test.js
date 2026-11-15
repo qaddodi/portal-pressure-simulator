@@ -38,9 +38,9 @@ test('presenter: its delayed work goes through the talk\'s scope, disposed by st
     assert.doesNotMatch(PZ, new RegExp(`\\b${t} = setTimeout\\(`), `${t} is not a bare timer`);
   }
   const stop = PZ.slice(PZ.indexOf('  function stopNow('));
-  assert.match(stop.slice(0, 400), /sess\?\.dispose\(\); sess = null; colT = refitT = reframeT = turnT = glassT = 0;/);
-  assert.match(PZ, /sess\?\.dispose\(\); sess = createScope\(\);\n\s+ui = build\(\);/);
-  assert.match(PZ, /const stimer = \(fn, ms\) => \{ const u = ui; return sess \? sess\.timer\(\(\) => \{ if \(ui === u\) fn\(\); \}, ms\) : 0; \};/);
+  assert.match(stop.slice(0, 400), /(?:live\.)?sess\?\.dispose\(\); (?:live\.)?sess = null; (?:live\.)?colT = (?:live\.)?refitT = (?:live\.)?reframeT = (?:live\.)?turnT = (?:live\.)?glassT = 0;/);
+  assert.match(PZ, /(?:live\.)?sess\?\.dispose\(\); (?:live\.)?sess = createScope\(\);\n\s+(?:live\.)?ui = build\(\);/);
+  assert.match(PZ, /const stimer = \(fn, ms\) => \{ const u = (?:live\.)?ui; return (?:live\.)?sess \? (?:live\.)?sess\.timer\(\(\) => \{ if \((?:live\.)?ui === u\) fn\(\); \}, ms\) : 0; \};/);
   assert.match(PZ, /\} finally \{ clearTimeout\(lateT\); \}/);
   assert.match(PZ, /stimer\(\(\) => \{ if \(!cut\(\)\) loading\(true\); \}, 260\)/);
 });

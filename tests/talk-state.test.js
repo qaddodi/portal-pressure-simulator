@@ -57,7 +57,7 @@ test('the explore shortcuts do not reach a talk, except Search and the guide; th
 
 test('a ?script=test- link waits once for the test deck, then says it was not found; a talk\'s link is dropped when it ends', () => {
   assert.match(pres, /async function start\(id, at = 0, opts = null\) \{/);
-  assert.match(pres, /!TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
+  assert.match(pres, /!(?:live\.)?TESTING\.length && !opts\?\.waited\) return testingLoad\.then\(\(\) => start\(id, at, \{ \.\.\.opts, waited: true \}\)\);/);
   const stop = pres.slice(pres.indexOf('function stopNow('), pres.indexOf('// When the show ends'));
   assert.match(stop, /if \(restore\) \{ try \{ const u = new URL\(location\.href\); if \(u\.searchParams\.has\('script'\)\) \{ u\.searchParams\.delete\('script'\); u\.searchParams\.delete\('slide'\); history\.replaceState\(null, '', u\.pathname \+ u\.search \+ u\.hash\); \}/);
 });

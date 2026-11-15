@@ -65,9 +65,9 @@ test('card-throw: a talk ending lets go of a card sent out on the tap (pinned) a
   assert.equal(ct.throwing(c), false);
   // presenter: stopNow lets go of the four cards before it drops the ui, and clears the swipe's hold
   const stop = presenter.slice(presenter.indexOf('  function stopNow('), presenter.indexOf('  // When the show ends, the app returns'));
-  const at = stop.indexOf('for (const el of [ui.text, ui.shade, ui.data, ui.panel]) throwStop(el);');
-  assert.ok(at > 0 && at < stop.indexOf('ui = null;'), 'throwStop of the four cards comes before the ui is dropped');
-  assert.match(stop, /if \(pageHeld\) \{ clearTimeout\(pageHeld\.t\); pageHeld = null; \}\n\s+pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;/);
+  const at = stop.search(/for \(const el of \[(?:live\.)?ui\.text, (?:live\.)?ui\.shade, (?:live\.)?ui\.data, (?:live\.)?ui\.panel\]\) throwStop\(el\);/);
+  assert.ok(at > 0 && at < stop.search(/(?:live\.)?ui = null;/), 'throwStop of the four cards comes before the ui is dropped');
+  assert.match(stop, /if \((?:live\.)?pageHeld\) \{ clearTimeout\((?:live\.)?pageHeld\.t\); (?:live\.)?pageHeld = null; \}\n\s+(?:live\.)?pull = null; (?:live\.)?pageForce = false; (?:live\.)?bare = false; (?:live\.)?throwDir = ''; (?:live\.)?throwD = 0;/);
 });
 
 test('scope tile: a reading that goes one way and comes back inside the wait ends on the picture it came back to', () => {

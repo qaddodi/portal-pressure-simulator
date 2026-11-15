@@ -84,18 +84,18 @@ test('ending a talk fades its cards out, then the app\'s bars in; a new talk end
   const chromeIn = presenter.slice(presenter.indexOf('  function chromeIn() {'), presenter.indexOf('  function stopNow('));
   assert.doesNotMatch(stop + chromeIn, /reduce\.matches/);
   assert.match(stop, /glideOpacity\(el, 1, 0, D_SMALL, easeIn\)/, 'the fade is written by the frames (script-glide.js), in the frame the glass reads it in');
-  assert.match(stop, /if \(leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
-  assert.match(presenter, /if \(deck\) stopNow\(false\);/);
-  assert.match(presenter, /function stopNow\(restore = true\) \{\n\s*leaving = null;/);
-  assert.match(presenter, /function go\(i\) \{\n\s*if \(!deck \|\| leaving\) return;/);
+  assert.match(stop, /if \((?:live\.)?leaving !== me\) return; stopNow\(restore\); chromeIn\(\);/);
+  assert.match(presenter, /if \((?:live\.)?deck\) stopNow\(false\);/);
+  assert.match(presenter, /function stopNow\(restore = true\) \{\n\s*(?:live\.)?leaving = null;/);
+  assert.match(presenter, /function go\(i\) \{\n\s*if \(!(?:live\.)?deck \|\| (?:live\.)?leaving\) return;/);
 });
 
 test('a talk started while one is ending, or while the app returns to healthy, takes over cleanly', () => {
   const start = presenter.slice(presenter.indexOf('  async function start('), presenter.indexOf('const up = Promise.all([coverUp()'));
   // Before its first await: the old talk's fade can no longer run its restore under the new talk.
-  assert.match(start, /leaving = null; healthyGen\+\+;/);
+  assert.match(start, /(?:live\.)?leaving = null; healthyGen\+\+;/);
   assert.doesNotMatch(start, /await/);
-  const put = presenter.slice(presenter.indexOf('  async function putHealthy(b) {'), presenter.indexOf('// ── Library'));
+  const put = presenter.slice(presenter.indexOf('  async function putHealthy(b) {'), presenter.indexOf('\n  }\n', presenter.indexOf('  async function putHealthy(b) {')));
   // Each step's wait is followed by the check (dim, sinusoid, lobule, view, preset), and a stopped return lets the figure ease
   // back to full (its transition kept).
   assert.equal((put.match(/if \(gone\(\)\) return;/g) || []).length, 5);

@@ -117,11 +117,11 @@ test('transitionRun checks its transaction after every await before it publishes
 });
 
 test('the leaving cards are disowned at the press and when the change starts, and given back when its cards come in', () => {
-  assert.match(fn('function outNow() {'), /txn\?\.own\(els\);/);
-  assert.match(PZ, /tx\?\.own\(\[keepNow\.text \? null : ui\.text, keepNow\.text \? null : ui\.shade, keepNow\.data \? null : ui\.data, ui\.panel\]\);/);
-  assert.match(PZ, /function cardsIn\(at\) \{[^\n]*?if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\); txn\?\.restore\(\);/);
-  assert.match(PZ, /if \(mine && want === to\) tx\.end\(\);/);
-  assert.match(fn('function stopNow('), /txn\?\.end\(\); txn = null;/);
+  assert.match(fn('function outNow() {'), /(?:live\.)?txn\?\.own\(els\);/);
+  assert.match(PZ, /tx\?\.own\(\[(?:live\.)?keepNow\.text \? null : (?:live\.)?ui\.text, (?:live\.)?keepNow\.text \? null : (?:live\.)?ui\.shade, (?:live\.)?keepNow\.data \? null : (?:live\.)?ui\.data, (?:live\.)?ui\.panel\]\);/);
+  assert.match(PZ, /function cardsIn\(at\) \{[^\n]*?if \(!(?:live\.)?bare\) \{ (?:live\.)?ui\.text\.classList\.remove\('pz-leave'\); (?:live\.)?txn\?\.restore\(\);/);
+  assert.match(PZ, /if \(mine && (?:live\.)?want === to\) tx\.end\(\);/);
+  assert.match(fn('function stopNow('), /(?:live\.)?txn\?\.end\(\); (?:live\.)?txn = null;/);
 });
 
 test('phase: each begin starts without a phase; stats and trail name the current step', () => {

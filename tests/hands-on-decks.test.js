@@ -97,7 +97,7 @@ test('Ten years: the HVPG rises over the first two years, the catheter two weeks
 
 test('the presenter eases a time-point button to that slide\'s state, and a catheter slide\'s callouts follow the live model', () => {
   const src = presenterSource();
-  assert.match(src, /stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]/);
-  assert.match(src, /const slideAt = \(id\) => slides\.findIndex\(\(x\) => x\.id === id\)/);
+  assert.match(src, /(?:live\.)?stateOf\[o\.slide \? slideAt\(o\.slide\) : i\]/);
+  assert.match(src, /const slideAt = \(id\) => (?:live\.)?slides\.findIndex\(\(x\) => x\.id === id\)/);
   assert.match(src, /if \(s\.cath && cath\.on && cath\.fp\) \{ cath\.fp = f;/);
 });

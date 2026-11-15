@@ -55,40 +55,40 @@ test('only an instrument card folds behind Show: no ladder fold is left', () => 
 test('a phone keeps the words\' height cap while a what-if slider or compare button drives the live model', () => {
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
   assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}/);
-  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| /);
-  assert.match(js, /async function liveSet\(s, i, patch(?:, ev = null)?\) \{[^}]*liveOff = true;/);
-  assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,250}liveOff = true;/);
+  assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| /);
+  assert.match(js, /async function liveSet\(s, i, patch(?:, ev = null)?\) \{[^}]*(?:live\.)?liveOff = true;/);
+  assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,380}(?:live\.)?liveOff = true;/);
 });
 
 // Sites 9 on a Mac (17 Oct): a ladder card folded behind Show was unfolded and folded again on every layout pass until the slide
 // was shown, its foot row under the words made anew each time; the words fitted without the row and the next pass came at once,
 // so the data card flashed in and out and the teaching card jumped. A card folded for this slide at this size stays folded.
 test('a data card folded for the slide at this size stays folded until the words lock', () => {
-  assert.match(js, /const held = !lock && foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
+  assert.match(js, /const held = !lock && (?:live\.)?foldHeld === foldKey && dd\.classList\.contains\('pz-folds'\);/);
   assert.match(js, /if \(!lock && !held && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/);
   assert.match(js, /if \(held\) stepDk\(1\);/);
   assert.match(js, /if \(!below && canFold && !held\) \{ setFolds\(true\);/);
-  assert.match(js, /foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
+  assert.match(js, /(?:live\.)?foldHeld = dd\.classList\.contains\('pz-folds'\) \? foldKey : null;/);
   assert.doesNotMatch(js, /if \(!lock && dd\.classList\.contains\('pz-folds'\)\) setFolds\(false\);/, 'never unfolded unconditionally on an unlocked pass');
 });
 
 // iPad decks (Mohammad, 17 Oct): "the teaching card appears then it snaps to its size". The words' lock was keyed only once the
 // slide was shown, so every pass while the cards eased in measured afresh. It is now keyed from the cards' last unseen layout.
 test('the teaching card keeps the size it came in at: the lock starts with the last unseen layout', () => {
-  assert.match(js, /const at = shown \|\| entering, lockKey = at \? `\$\{at\.gen\}:\$\{at\.i\}:/);
-  assert.match(js, /function cardsIn\(at\) \{ if \(ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
-  assert.match(js, /bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
-  assert.match(js, /shown = null; entering = null;\n/, 'a new slide starts unlocked');
-  assert.match(js, /if \(mine && bare && want === to\) \{ bare = false; layout\(\); cardsIn\(\); \}/, 'a move that ends without a newer slide brings its cards in, never locking the next slide early (no `at`)');
+  assert.match(js, /const at = (?:live\.)?shown \|\| (?:live\.)?entering, lockKey = at \? `\$\{at\.gen\}:\$\{at\.i\}:/);
+  assert.match(js, /function cardsIn\(at\) \{ if \((?:live\.)?ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ (?:live\.)?entering = at; layout\(\); \} reFit\(\);/, 'keyed before the cards show');
+  assert.match(js, /(?:live\.)?bare = false; cardsIn\(\{ i: to, (?:live\.)?gen: g \}\);/);
+  assert.match(js, /(?:live\.)?shown = null; (?:live\.)?entering = null;\n/, 'a new slide starts unlocked');
+  assert.match(js, /if \(mine && (?:live\.)?bare && (?:live\.)?want === to\) \{ (?:live\.)?bare = false; layout\(\); cardsIn\(\); \}/, 'a move that ends without a newer slide brings its cards in, never locking the next slide early (no `at`)');
   // (The one fold left is the instrument's, decided in the locked layout: nothing folds after the fit once the slide is shown.)
   assert.doesNotMatch(js, /layout\(\); return; \}\s*if \(beside && !tabBeside\(\)\)/, 'no second layout pass after the fit');
-  assert.match(js, /fitCards\(ui\.data, ui\.panel\);\s*if \(beside && !tabBeside\(\)\)/);
+  assert.match(js, /fitCards\((?:live\.)?ui\.data, (?:live\.)?ui\.panel\);\s*if \(beside && !tabBeside\(\)\)/);
 });
 
 test('a time-lapse keeps the words where they came in: the phone\'s cap and the stacked pair\'s centring hold while its days run and after', () => {
   // (Re-planned as the data card's readings changed with the days, a varix appearing on the scope, the words' cap stepped and the
   // teaching card bounced as the days passed: Endoscopy 3 on an iPhone, 18 Oct.)
-  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| handOn \|\| lapseOn \|\| \(!!shown && shown\.i === want && !!slides\[want\]\?\.lapse\);/);
+  assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| (?:live\.)?lapseOn \|\| \(!!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && !!(?:live\.)?slides\[(?:live\.)?want\]\?\.lapse\);/);
   assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v; else if \(lockKey\) shiftLock = \{ key: lockKey, v: shift \};\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(shift > 0\.5\)/);
   // (Declared before the layout that reads them.)
   assert.ok(js.indexOf('const readingsOnly') < js.indexOf('function layout()'));
@@ -97,9 +97,9 @@ test('a time-lapse keeps the words where they came in: the phone\'s cap and the 
 test('a time-lapse slide in view never lays its cards out again as its readings change: only the data card refits in its own room', () => {
   // (Every reading that measured the data card a hair different ran the whole layout again, many times a second while the days ran,
   // and on an iPhone the teaching card vibrated: Endoscopy 3, 18 Oct.)
-  assert.match(js, /const cardsStill = \(\) => !!shown && shown\.i === want && \(liveOff \|\| handOn \|\| !!slides\[want\]\?\.lapse\) && !!ui && !ui\.root\.classList\.contains\('pz-prep'\);/);
-  assert.match(js, /clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelRest\(paneRaf\); paneRaf = restPass\(\(\) => \{ if \(!ui\) return; if \(cardMoving\(\)\) \{ if \(thrown\(\)\) layoutAtLanding\(\); return; \} if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
-  assert.match(js, /fitRaf = restPass\(\(\) => \{ if \(ui && cardMoving\(\)\) \{ if \(thrown\(\)\) layoutAtLanding\(\); return; \} if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
+  assert.match(js, /const (?:live\.)?cardsStill = \(\) => !!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && \((?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| !!(?:live\.)?slides\[(?:live\.)?want\]\?\.lapse\) && !!(?:live\.)?ui && !(?:live\.)?ui\.root\.classList\.contains\('pz-prep'\);/);
+  assert.match(js, /(?:live\.)?clearRO \|\|= new ResizeObserver\(\(\) => \{ cancelRest\((?:live\.)?paneRaf\); (?:live\.)?paneRaf = restPass\(\(\) => \{ if \(!(?:live\.)?ui\) return; if \((?:live\.)?cardMoving\(\)\) \{ if \((?:live\.)?thrown\(\)\) layoutAtLanding\(\); return; \} if \((?:live\.)?cardsStill\(\)\) fitCards\((?:live\.)?ui\.data\); else layout\(\); \}\); soon\(\); \}\);/);
+  assert.match(js, /(?:live\.)?fitRaf = restPass\(\(\) => \{ if \((?:live\.)?ui && (?:live\.)?cardMoving\(\)\) \{ if \((?:live\.)?thrown\(\)\) layoutAtLanding\(\); return; \} if \((?:live\.)?ui && (?:live\.)?cardsStill\(\)\) \{ fitCards\((?:live\.)?ui\.data\); return; \}/);
   assert.ok(js.indexOf('const cardsStill') < js.indexOf('function layout()'));
 });
 
@@ -107,9 +107,9 @@ test('a what-if slider or compare button never lays the cards out again as the r
   // (Each reading that measured the data card a hair different ran the whole layout and fitted the words afresh, and on an iPhone
   // the teaching card's text shook while Tricuspid leak moved, slide 60 of the test-all deck, 19 Oct.)
   const still = js.match(/const cardsStill = \(\) => ([^;]+);/)?.[1] || '';
-  assert.match(still, /liveOff/, 'a slider or button driving the live model counts as readings only');
+  assert.match(still, /(?:live\.)?liveOff/, 'a slider or button driving the live model counts as readings only');
   // (Both observers that lay the cards out after a resize hold the words while it does.)
-  assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\(ui\.data\)/g) || []).length, 3);   // (the two observers, and R14's pass at the cards' landing)
+  assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\((?:live\.)?ui\.data\)/g) || []).length, 3);   // (the two observers, and R14's pass at the cards' landing)
   // (The slider drives the live model through liveSet, which sets liveOff before its first reading.)
   const live = js.match(/async function liveSet\(s, i, patch(?:, ev = null)?\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(live.indexOf('liveOff = true') < live.indexOf('dataTo('));

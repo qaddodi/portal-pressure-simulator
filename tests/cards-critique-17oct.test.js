@@ -67,7 +67,7 @@ test('what-if: a label naming the unit shows the bare number, on the label\'s ro
 
 test('the level tab and the deck tab share the glass\'s top edge; the deck\'s gives way where they would meet (P1)', () => {
   assert.match(js, /const tight = !!\(stab && tabEl && stab\.getBoundingClientRect\(\)\.right \+ 8 \* k > tabEl\.getBoundingClientRect\(\)\.left\);/);
-  assert.match(js, /if \(t && tabsTight\(k\)\) ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
+  assert.match(js, /if \(t && tabsTight\(k\)\) (?:live\.)?ui\.shade\.classList\.add\('pz-tabs-tight'\);/);
   assert.match(js, /const tabH = Math\.max\(tabEl && !tight \? tabEl\.offsetHeight : 0, stab\??\.offsetHeight \|\| 0\);/);
   assert.match(js, /return Math\.max\(16, tabH \+ 8\);/);
   assert.match(css, /\.pz-sitetab\[hidden\], \.pz-shade\.pz-tabs-tight \.pz-tabname \{ display: none; \}/);

@@ -130,8 +130,8 @@ test('a let-go case card flies off when far out or flicked, either way, and spri
 
 test('the case card follows a finger and a fling lifts it like a tap, also during the glide behind it', () => {
   // The slide swipe leaves touches on the card alone; the card's own drag is touch-only and swallows the click after it.
-  assert.match(src, /sw = deck && e\.touches\.length === 1 && !caseOn\(e\)/);
-  assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - caseDragAt > 400\) caseLift\?\.\(\); \}/);
+  assert.match(src, /sw = (?:live\.)?deck && e\.touches\.length === 1 && !caseOn\(e\)/);
+  assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - (?:live\.)?caseDragAt > 400\) (?:live\.)?caseLift\?\.\(\); \}/);
 });
 
 test('a tap, Next or a swipe anywhere lifts the case card at once, even while the patient loads; the next one moves on', () => {
@@ -165,12 +165,12 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
 test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {
   // The words keep their leave state behind a case card (wordsIn never lets it go then), and every slide, bare or not
   // (HVPG slide 2 is a catheter slide, whose words used to come in at once under the case), sets it while a case is up.
-  assert.match(src, /if \(!caseCard && !bare && !\(throwDir && !s\.visual\)\) text\.classList\.remove\('pz-leave'\);/, 'and never while thrown in later (card-throw.js)');
+  assert.match(src, /if \(!(?:live\.)?caseCard && !(?:live\.)?bare && !\((?:live\.)?throwDir && !s\.visual\)\) text\.classList\.remove\('pz-leave'\);/, 'and never while thrown in later (card-throw.js)');
   assert.doesNotMatch(src.slice(src.indexOf('function wordsIn('), src.indexOf('function wordsIn(') + 400), /^\s*text\.classList\.remove\('pz-leave'\);/m);
-  assert.match(src, /if \(bare \|\| caseCard\) \{ ui\.text\.classList\.add\('pz-leave'\); ui\.root\.dataset\.bare = ''; \}/);
+  assert.match(src, /if \((?:live\.)?bare \|\| (?:live\.)?caseCard\) \{ (?:live\.)?ui\.text\.classList\.add\('pz-leave'\); (?:live\.)?ui\.root\.dataset\.bare = ''; \}/);
   // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
-  assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
-  assert.match(src, /function cardsIn\(at\) \{ if \(ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ entering = at; layout\(\); \} reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
+  assert.match(src, /if \(!(?:live\.)?bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, (?:live\.)?gen: g \}\); \}/);
+  assert.match(src, /function cardsIn\(at\) \{ if \((?:live\.)?ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ (?:live\.)?entering = at; layout\(\); \} reFit\(\); if \(!(?:live\.)?bare\) \{ (?:live\.)?ui\.text\.classList\.remove\('pz-leave'\);/);
 });
 
 test('a case card may open a time-lapse: it covers the patient as it loads at the time-lapse\'s own start, and the days play after the lift', async () => {
@@ -194,7 +194,7 @@ test('a case card may open a time-lapse: it covers the patient as it loads at th
 });
 
 test('the case card fades on the frame clock, from where it stands, never on a CSS transition', () => {
-  const fade = src.slice(src.indexOf('function caseFade('), src.indexOf('let caseLift = null'));
+  const fade = src.slice(src.indexOf('function caseFade('), src.indexOf('// The glass card goes up, a case'));
   assert.match(fade, /glideTranslate\(c, 0, on \? RISE_CASE : 0, 0, on \? 0 : RISE_CASE, ms, easeArrive\)/);
   assert.match(fade, /glideOpacity\(c, on \? 0 : 1, on \? 1 : 0, ms, easeArrive\)/);
   assert.match(src, /c\.classList\.add\('on'\);\s*caseFade\(c, true, ms\);/);

@@ -58,8 +58,8 @@ test('a chart is drawn at 12 px whatever the card zoom, and a refit with the sam
 test('the card tells every chart it has fitted: after a fit pass of the data card, the tools refit', () => {
   const pres = presenterSource();
   const tools = readFileSync(new URL('../src/ui/presenter-tools.js', import.meta.url), 'utf8');
-  assert.match(pres, /if \(el === ui\.data\) refit = true;/);
-  assert.match(pres, /if \(refit\) ui\.tools\?\.refit\(\);/);
+  assert.match(pres, /if \(el === (?:live\.)?ui\.data\) refit = true;/);
+  assert.match(pres, /if \(refit\) (?:live\.)?ui\.tools\?\.refit\(\);/);
   assert.match(tools, /refit\(\) \{ cur\?\.refit\?\.\(\); \}/);
   for (const f of ['flow-time', 'tool-curve']) assert.match(readFileSync(new URL(`../src/ui/${f}.js`, import.meta.url), 'utf8'), /refit: remake/, `${f} redraws on refit`);
   assert.match(readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8'), /refit\(\) \{ const sz = shown && el\.isConnected \? measure0\(\) : null;/);

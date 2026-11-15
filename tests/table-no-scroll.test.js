@@ -43,7 +43,7 @@ test('a wide screen\'s value columns keep less padding at the sides; the phone\'
 
 test('the card\'s fit counts a wide table\'s sideways overflow, in the card\'s pixels', () => {
   const fn = src.slice(src.indexOf('function overflowOf(el)'), src.indexOf('// What a card\'s fit depends on'));
-  assert.match(fn, /const wideTable = !ui\.root\.classList\.contains\('stack'\);/);
+  assert.match(fn, /const wideTable = !(?:live\.)?ui\.root\.classList\.contains\('stack'\);/);
   assert.match(fn, /if \(wideTable && c\.classList\.contains\('pz-table'\)\) sideways = Math\.max\(sideways, \(c\.scrollWidth - c\.clientWidth\) \* cz\);/);
   assert.match(fn, /h: Math\.max\(el\.scrollWidth - el\.clientWidth, sideways\)/);
   // (The count comes after the part is known to show: a hidden, absolute or folded part adds nothing.)
@@ -53,7 +53,7 @@ test('the card\'s fit counts a wide table\'s sideways overflow, in the card\'s p
 test('a wide table card zooms only as far as its lettering stays 12 px at first, the compact layout\'s rule', () => {
   assert.match(src, /function textFloor\(el\) \{\s*const px = minText\(el\);\s*return px > 12 && isFinite\(px\) \? Math\.ceil\(12 \/ px \* 1000\) \/ 1000 : 1;\s*\}/);
   assert.match(src, /function shortFit\(el\) \{[^]*?return textFloor\(el\);\s*\}/);
-  assert.match(src, /const tableFloor = !small && !lowFloor && !shortFloor && el === ui\.panel && !ui\.root\.classList\.contains\('stack'\) && el\.querySelector\(':scope > \.pz-table'\) \? textFloor\(el\) : 0;/);
+  assert.match(src, /const tableFloor = !small && !lowFloor && !shortFloor && el === (?:live\.)?ui\.panel && !(?:live\.)?ui\.root\.classList\.contains\('stack'\) && el\.querySelector\(':scope > \.pz-table'\) \? textFloor\(el\) : 0;/);
   // (After the compact layout's own floor, before the last resort at half.)
   assert.match(src, /if \(shortFloor > mins\[0\]\) mins\.unshift\(shortFloor\);[^\n]*\n\s*else if \(tableFloor > mins\[0\]\) mins\.unshift\(tableFloor\);/);
 });

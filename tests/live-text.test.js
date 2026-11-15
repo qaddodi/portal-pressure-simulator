@@ -77,15 +77,15 @@ test('the box stacks the hidden copy and the live words in one grid cell, tabula
 });
 
 test('a what-if slider of either kind holds the cards: the plan and the fit stay as the slide came in', () => {
-  assert.match(js, /let handOn = false;/);
-  assert.match(js, /input\.addEventListener\('input', \(\) => \{\s*handOn = true;[^\n]*\n\s*paint\(\+input\.value\);\s*if \(w\.tool\) \{ ui\?\.tools\.option/, 'set before the instrument\'s option, which leaves liveOff alone');
-  assert.match(js, /const readingsOnly = \(\) => liveOff \|\| handOn \|\| lapseOn \|\|/);
-  assert.match(js, /const cardsStill = \(\) => [^\n]*\(liveOff \|\| handOn \|\| !!slides\[want\]\?\.lapse\)/);
-  assert.match(js, /stopLapse\(\); procStop\(\); abSlow\(\); handOn = false;/, 'cleared with the next slide');
-  assert.match(js, /liveOff = false; handOn = false;/, 'and when the talk is closed');
+  assert.match(js, /let (?:live\.)?handOn = false;/);
+  assert.match(js, /input\.addEventListener\('input', \(\) => \{\s*(?:live\.)?handOn = true;[^\n]*\n\s*paint\(\+input\.value\);\s*if \(w\.tool\) \{ (?:live\.)?ui\?\.tools\.option/, 'set before the instrument\'s option, which leaves liveOff alone');
+  assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| (?:live\.)?lapseOn \|\|/);
+  assert.match(js, /const (?:live\.)?cardsStill = \(\) => [^\n]*\((?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| !!(?:live\.)?slides\[(?:live\.)?want\]\?\.lapse\)/);
+  assert.match(js, /stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false;/, 'cleared with the next slide');
+  assert.match(js, /(?:live\.)?liveOff = false; (?:live\.)?handOn = false;/, 'and when the talk is closed');
   // (Where the cards are laid out again for a reading, the words keep the plan: the phone's cap and the wide pair's centring.)
   assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\)/);
   assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v;/);
-  assert.match(js, /if \(ui && cardsStill\(\)\) \{ fitCards\(ui\.data\); return; \}/);
-  assert.match(js, /if \(cardsStill\(\)\) fitCards\(ui\.data\); else layout\(\);/);
+  assert.match(js, /if \((?:live\.)?ui && (?:live\.)?cardsStill\(\)\) \{ fitCards\((?:live\.)?ui\.data\); return; \}/);
+  assert.match(js, /if \((?:live\.)?cardsStill\(\)\) fitCards\((?:live\.)?ui\.data\); else layout\(\);/);
 });

@@ -15,17 +15,17 @@ const prep = st.match(/function prepRise\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
-  assert.match(prep, /if \(!(?:live\.)?(?:live\.)?lobuleOn \|\| (?:live\.)?(?:live\.)?diveT < 1 \|\| (?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?risePrep\) return;/, 'only from a landed lobule');
+  assert.match(prep, /if \(!(?:live\.)?lobuleOn \|\| (?:live\.)?diveT < 1 \|\| (?:live\.)?morphTarget !== 0 \|\| (?:live\.)?risePrep\) return;/, 'only from a landed lobule');
   assert.match(prep, /const fit = preFit\(\);\n\s+if \(live\.F && !live\.inUpdate\) \{ live\.catchUp = fit; try \{ update\(live\.F\); \} finally \{ live\.catchUp = false; \} if \(fit\) preF = live\.F; \}\n\s+if \(preF\) preDraw\(\);\n\s+live\.platePoke\(\);/, 'taken to the rise\'s fit unseen and brought up to date there (next-view pre-render)');
-  assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
+  assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
-  assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
-  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?(?:live\.)?risePrepT\);/);
+  assert.match(st, /if \(!(?:live\.)?plateOn\(\)\) (?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?risePrep\) \{ (?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?risePrepT\); \}/);
+  assert.match(st, /function setLobule\(on, painted = false\) \{\n[^\n]*\n\s+(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?risePrepT\);/);
 });
 
 test('ready means the picture shown is the state now: its key is the organs\' key, and nothing in it still eases', () => {
   // (With the changing organs painted live the picture holds none of them, so their eases play on through the rise instead.)
-  assert.match(ready, /return (?:live\.)?(?:live\.)?plateOn\(\) && !(?:live\.)?(?:live\.)?plateBusy && \((?:live\.)?(?:live\.)?liveOn\(\) \|\| \(!(?:live\.)?(?:live\.)?lvMoving && !(?:live\.)?(?:live\.)?fluidEasing\(\) && !spleenMoving\(\)\)\) && (?:live\.)?(?:live\.)?plateKey === (?:live\.)?(?:live\.)?plateStateKey\(\);/);
+  assert.match(ready, /return (?:live\.)?plateOn\(\) && !(?:live\.)?plateBusy && \((?:live\.)?liveOn\(\) \|\| \(!(?:live\.)?lvMoving && !(?:live\.)?fluidEasing\(\) && !spleenMoving\(\)\)\) && (?:live\.)?plateKey === (?:live\.)?plateStateKey\(\);/);
   assert.match(ready, /if \(!(?:live\.)?risePrep \|\|/, 'nothing to wait for once it is made (or none was asked for)');
 });
 
@@ -53,7 +53,7 @@ test('the picture for the way out is begun early, so Next goes straight out: ahe
   assert.match(pz, /if \(nx && LOBULE_CAM\.test\(cam \|\| ''\) && !LOBULE_CAM\.test\(nCam \|\| ''\)\) \{ clearTimeout\(prepAheadT\); prepAheadT = setTimeout\(\(\) => \{ if \(shown\?\.i === to && shown\.gen === g && gen === g\) stage\.prepRise\?\.\(\); \}, RISE_AHEAD_MS\); \}/);
   assert.ok(+/const RISE_AHEAD_MS = (\d+);/.exec(pz)[1] <= 2000);
   // Made ahead and nothing changed since: ready at once (its key still matches), so the wait in toAnatomy costs nothing.
-  assert.match(st, /if \(key === (?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\) return;/);
+  assert.match(st, /if \(key === (?:live\.)?plateKey && (?:live\.)?veins\.hasPlate\(0\)\) return;/);
 });
 
 test('next-view pre-render: the rise\'s fit is made ahead at prepRise, so the tap has no refit or catch-up update when nothing moved', () => {

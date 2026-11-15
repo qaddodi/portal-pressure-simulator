@@ -34,10 +34,10 @@ test('font-arrival: the counter moves and every subscriber hears each batch of f
 
 test('presenter: a card fit depends on the font generation, and a late face drops the words plan, the phone cap and every fit', () => {
   assert.match(PZ, /const fitSig = \(el\) => `f\$\{fontGen\(\)\}\|/);
-  const fn = PZ.slice(PZ.indexOf('  const onFonts = () => {'), PZ.indexOf('// Where the cards stand, rounded'));
-  assert.match(fn, /textLock = null; phoneLock = null;/);
-  assert.match(fn, /for \(const el of \[ui\.text, ui\.data, ui\.panel\]\) fitDone\.delete\(el\);/);
-  assert.match(fn, /if \(thrown\(\)\) layoutAtLanding\(\); else layout\(\);/);
+  const fn = PZ.slice(PZ.indexOf('  const onFonts = () => {'), PZ.indexOf('// alloc-rare: slide arrival', PZ.indexOf('  const onFonts = () => {')));
+  assert.match(fn, /(?:live\.)?textLock = null; phoneLock = null;/);
+  assert.match(fn, /for \(const el of \[(?:live\.)?ui\.text, (?:live\.)?ui\.data, (?:live\.)?ui\.panel\]\) (?:live\.)?fitDone\.delete\(el\);/);
+  assert.match(fn, /if \((?:live\.)?thrown\(\)\) layoutAtLanding\(\); else layout\(\);/);
 });
 
 test('every fit that measures text hears each batch of faces: none waits on document.fonts.ready alone', () => {
@@ -47,7 +47,7 @@ test('every fit that measures text hears each batch of faces: none waits on docu
   walk(new URL('../src/', import.meta.url).pathname);
   const bad = [];
   for (const f of files) {
-    const t = readFileSync(f, 'utf8');
+    const t = /\/presenter(?:-[a-z]+)?\.js$/.test(f) ? PZ : readFileSync(f, 'utf8');   // (the presenter is read with its parts: a listener may sit in another)
     for (const m of t.matchAll(/fonts\?*\.ready\b[^\n]*/g)) {
       const base = f.split('/').pop();
       if (ok.has(base) || /Promise\.race/.test(m[0]) || /loadingdone/.test(t) || /onFontsLoaded/.test(t)) continue;
@@ -55,7 +55,8 @@ test('every fit that measures text hears each batch of faces: none waits on docu
     }
   }
   assert.deepEqual(bad, []);
-  for (const f of ['presenter.js', 'tool-fluid.js']) assert.match(read(f), /onFontsLoaded\(/, f);
+  assert.match(PZ, /onFontsLoaded\(/, 'presenter');
+  assert.match(read('tool-fluid.js'), /onFontsLoaded\(/, 'tool-fluid.js');
   assert.doesNotMatch(PZ, /fonts\?\.ready\??\.then/);
 });
 
@@ -72,13 +73,13 @@ test('card-clip: only words past the box that clips them count, by more than rou
 });
 
 test('presenter: a card that ends its fit cut off is recorded by slide and card, once, never while the cards move, and shows in the paste', () => {
-  assert.match(PZ, /const sig = fitSig\(el\);\n\s+if \(fitDone\.get\(el\) === sig\) \{ clipSoon\(el\); continue; \}/, 'a fit kept as it was is still looked at once');
-  assert.match(PZ, /fitDone\.set\(el, fitSig\(el\)\);[^\n]*\n\s+clipSoon\(el\);/);
+  assert.match(PZ, /const sig = fitSig\(el\);\n\s+if \((?:live\.)?fitDone\.get\(el\) === sig\) \{ clipSoon\(el\); continue; \}/, 'a fit kept as it was is still looked at once');
+  assert.match(PZ, /(?:live\.)?fitDone\.set\(el, fitSig\(el\)\);[^\n]*\n\s+clipSoon\(el\);/);
   const fn = PZ.slice(PZ.indexOf('  const clipSeen = new WeakMap()'), PZ.indexOf('  // A narrow summary table'));
-  assert.match(fn, /cardMoving\(\)\) return;/);
+  assert.match(fn, /(?:live\.)?cardMoving\(\)\) return;/);
   assert.match(fn, /clipSeen\.get\(c\) === key\) continue;/);
-  assert.match(fn, /degrade\(why\)/);
-  assert.match(fn, /`card-clipped:\$\{slides\[want\]\?\.id \?\? want\}:/);
+  assert.match(fn, /(?:live\.)?degrade\(why\)/);
+  assert.match(fn, /`card-clipped:\$\{(?:live\.)?slides\[(?:live\.)?want\]\?\.id \?\? (?:live\.)?want\}:/);
   assert.match(PZ, /const degraded = \{ n: 0, last: '', clipped: \[\] \};/);
   assert.match(PZ, /degraded: \(\) => \(\{ \.\.\.degraded, clipped: \[\.\.\.degraded\.clipped\]/);
   assert.match(read('lap.js'), /Cards still clipped after their fit/);

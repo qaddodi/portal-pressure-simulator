@@ -105,6 +105,7 @@ export function planSplit(src, spec, A = analyse(src, spec.stage || H.fn)) {
     const i = body.findIndex((b, k) => b.type === 'ExpressionStatement' && src.slice(units[k].stmt.range[0], units[k].stmt.range[1]).split('\n')[0].trim() === text.trim());
     if (i < 0) refusals.push(`also: no expression statement starting "${text}"`); else M.add(i);
   }
+  for (let i = 0; i < body.length; i++) if (body[i].type === 'ReturnStatement') M.delete(i);   // (the closure's own return is the host's, never a part's)
   for (const s of stay) { const i = [...vars.values()].find((x) => x.name === s && x.scope === 'stage'); if (i) M.delete(i.unit); }
   if (refusals.length || !M.size) return { ok: false, refusals: refusals.length ? refusals : ['nothing to move'] };
 

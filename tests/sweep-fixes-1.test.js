@@ -34,7 +34,7 @@ test('a phone held sideways: the bar ends at the Tests card and its controls spr
 });
 
 test('a box at the end of a slide\'s words ends 8 px above the nav pill on a tablet; a phone keeps its 3', () => {
-  assert.match(presenter, /--pz-reach-box', ui\.root\.classList\.contains\('tab'\) \? `\$\{Math\.max\(0, \(restRect\(text\)\.top \+ restRect\(text\)\.height - restRect\(bar\)\.top\) \/ k \+ 8\)/);
+  assert.match(presenter, /--pz-reach-box', (?:live\.)?ui\.root\.classList\.contains\('tab'\) \? `\$\{Math\.max\(0, \(restRect\(text\)\.top \+ restRect\(text\)\.height - restRect\(bar\)\.top\) \/ k \+ 8\)/);
   assert.match(presenter, /: `\$\{Math\.max\(0, Math\.ceil\(reach\) \+ 3\)\}px`\);/);
   const n = [...css.matchAll(/\.pz-pillclr \{ margin-bottom: calc\(\(var\(--pz-reach-box, 37px\) \+ var\(--pz-fkrow, 0px\)\)/g)].length;
   assert.ok(n >= 3, `pill clearance rules: ${n}`);

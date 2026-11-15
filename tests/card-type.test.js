@@ -92,15 +92,15 @@ test('Compact is one fixed step below Regular, the same on every slide', () => {
 test('the words give way once more before the data card is cut off: a tighter title, then no CAUSES line', () => {
   assert.ok(WIDE.tight < WIDE.title && WIDE.tight >= 0.5, 'the title has one further step, still well above the words');
   assert.match(js, /let trim = 0;/);
-  assert.match(js, /const put = \(tk, bk\) => \{ ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); ui\.text\.style\.setProperty\('--pz-bk', bk\); ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
+  assert.match(js, /const put = \(tk, bk\) => \{ (?:live\.)?ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); (?:live\.)?ui\.text\.style\.setProperty\('--pz-bk', bk\); (?:live\.)?ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
   assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); stepDk\(1\);\s*below = put\(WIDE\.title, WIDE\.words\);\s*if \(!below && n === 2\) ladder\(\);/);
   // (Only after the steps before it failed: a slide that fitted at Compact, or with its blocks stepped, is never trimmed.)
   assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below\) squeeze\(\);/);
   // (A fold starts the steps again from the loosest, the trim with them; the slide's lock keeps the CAUSES line's state with its sizes.)
-  assert.match(js, /setFolds\(true\); trim = 0; ts\.removeProperty\('--pz-tk'\); ts\.removeProperty\('--pz-bk'\); ui\.text\.classList\.remove\('pz-nocauses'\);/);
+  assert.match(js, /setFolds\(true\); trim = 0; ts\.removeProperty\('--pz-tk'\); ts\.removeProperty\('--pz-bk'\); (?:live\.)?ui\.text\.classList\.remove\('pz-nocauses'\);/);
   assert.match(js, /if \(!below && !held && dd\.classList\.contains\('pz-folds'\)\) squeeze\(\);/);
-  assert.match(js, /nc: ui\.text\.classList\.contains\('pz-nocauses'\)/);
-  assert.match(js, /ui\.text\.classList\.toggle\('pz-nocauses', !!lock\.nc\);/);
-  assert.match(js, /ui\.text\.style\.removeProperty\('--pz-tk'\); ui\.text\.style\.removeProperty\('--pz-bk'\); ui\.text\.classList\.remove\('pz-nocauses'\);/);
+  assert.match(js, /nc: (?:live\.)?ui\.text\.classList\.contains\('pz-nocauses'\)/);
+  assert.match(js, /(?:live\.)?ui\.text\.classList\.toggle\('pz-nocauses', !!lock\.nc\);/);
+  assert.match(js, /(?:live\.)?ui\.text\.style\.removeProperty\('--pz-tk'\); (?:live\.)?ui\.text\.style\.removeProperty\('--pz-bk'\); (?:live\.)?ui\.text\.classList\.remove\('pz-nocauses'\);/);
   assert.match(css, /\.pz-text\.pz-nocauses \.pz-causes \{ display: none; \}/);
 });

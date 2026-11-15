@@ -65,10 +65,10 @@ test('a reveal that cannot work is named; no built-in slide reveals by accident'
 });
 
 test('the presenter types the whole line once, shows the clauses by class, and lights the figure without moving the camera or the cards', () => {
-  assert.match(PZ, /rv \? revealLine\(s, st\?\.fp, !!st\?\.params\?\.tips\?\.on, Math\.min\(beat, lastBeat\(i\)\) \+ 1\)/, 'a slide opens with the clauses its view shows');
+  assert.match(PZ, /rv \? revealLine\(s, st\?\.fp, !!st\?\.params\?\.tips\?\.on, Math\.min\((?:live\.)?beat, lastBeat\(i\)\) \+ 1\)/, 'a slide opens with the clauses its view shows');
   assert.match(fn(PZ, 'async function beatMove('), /if \(revealCount\(slides\[i\]\)\) return revealMove\(i, k\);/, 'a Next inside the line is a reveal, not a camera beat');
   const mv = fn(PZ, 'async function revealMove(');
-  assert.match(mv, /paintClauses\(ui\.text\.querySelector\('\.pz-line'\), k \+ 1\);\n\s*paintOverlays\(v, i,/, 'the clause comes in, the figure lights its terms');
+  assert.match(mv, /paintClauses\((?:live\.)?ui\.text\.querySelector\('\.pz-line'\), k \+ 1\);\n\s*paintOverlays\(v, i,/, 'the clause comes in, the figure lights its terms');
   assert.ok(!/camera\(|cardsIn|layout\(|wordsIn|textIn|reFit|fitNow/.test(mv), 'no camera move, no card change, no refit');
   assert.match(mv, /hush\(\);/, 'in the liver a change of the lit labels is hushed as a slide change is');
   assert.match(CSS, /\.pz-cl:not\(\.on\) \{ opacity: 0; \}/); assert.match(CSS, /\.pz-cl \{ transition: opacity var\(--d-small\)/, 'a fade on the compositor, nothing else');

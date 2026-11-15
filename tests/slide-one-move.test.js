@@ -20,7 +20,7 @@ test('always one move: the share of the glide and the shared morph window', () =
 });
 
 test('the stage says what is left of its glide, read from the glide itself', () => {
-  assert.match(stage, /(?:live\.)?(?:live\.)?vtGliding = true; (?:live\.)?(?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?(?:live\.)?vtMs = ms;/);
+  assert.match(stage, /(?:live\.)?vtGliding = true; (?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?vtMs = ms;/);
   assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \|\| (?:live\.)?viewXf \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
 });
 
@@ -109,7 +109,7 @@ test('a move that waits for no cards ends with its glide: polled, cut by a newer
   // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)
   const beatMove = src.slice(src.indexOf('async function beatMove('), src.indexOf('function clearPill()'));
   assert.ok(beatMove.indexOf('await camera(cam, v, cut)') > 0 && beatMove.indexOf('await camera(cam, v, cut)') < beatMove.indexOf('paintOverlays(v, i,'));
-  const flip = src.slice(src.indexOf('async function flipMove('), src.indexOf('async function beatMove('));
+  const flip = src.slice(src.indexOf('async function flipMove('), src.indexOf('\n  }\n', src.indexOf('async function flipMove(')));
   assert.ok(flip.indexOf('await camera(cam, v, cut)') > 0 && flip.indexOf('await camera(cam, v, cut)') < flip.indexOf('paintOverlays(v, i,'));
 });
 

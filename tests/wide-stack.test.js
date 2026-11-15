@@ -12,12 +12,12 @@ const css = appCss();
 const js = unsnap(presenterSource());
 
 test('a wide screen stacks every instrument card with readings under the words as two cards, the Gut to heart chart too', () => {
-  assert.match(js, /const wide = cardOn && !low;\n\s*ui\.root\.classList\.toggle\('pz-wide', wide\);/);
+  assert.match(js, /const wide = cardOn && !low;\n\s*(?:live\.)?ui\.root\.classList\.toggle\('pz-wide', wide\);/);
   // (Mohammad, 22 Oct: "every stacked should be stacked": the Gut to heart chart stacks too, its tiles on the readings' card.)
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
+  assert.match(js, /const dd0 = (?:live\.)?ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.doesNotMatch(js, /stackShort/, 'no chart folds behind Show or keeps its tiles beside it any more');
   assert.doesNotMatch(css, /data-ladder/);
-  assert.match(js, /const wideSheet = \(d\) => !!ui\?\.root\.classList\.contains\('pz-wide'\) && d\.classList\.contains\('pz-sheet'\);/);
+  assert.match(js, /const wideSheet = \(d\) => !!(?:live\.)?ui\?\.root\.classList\.contains\('pz-wide'\) && d\.classList\.contains\('pz-sheet'\);/);
   // (Its tiles live on the readings' card: none beside the instrument while it is a stack; back beside it when it is not.)
   assert.match(js, /if \(!p\) dd0\.classList\.toggle\('pz-beside', !sheet && dd0\.hasAttribute\('data-beside'\) && !dd0\.classList\.contains\('pz-folds'\)\);/);
 });
@@ -47,13 +47,13 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
   assert.match(js, /if \(ws\) slip\.lift = dpx \+ slip\.base;/);
   // (Moved with the readings' card every frame, by the finger or the ease, and put back when it rests.)
-  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); slip\.raf = nextFrame\(step\);/);
-  assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\); camAt\(underU\(ui\.data\)\);/);
-  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return;/);
+  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); (?:live\.)?camAt\(u\); slip\.raf = nextFrame\(step\);/);
+  assert.match(js, /(?:live\.)?ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\((?:live\.)?ui\.data\)\); (?:live\.)?camAt\(underU\((?:live\.)?ui\.data\)\);/);
+  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); (?:live\.)?camAt\(u\); return;/);
   // (The card and its handle rise by the readings' travel, --pz-lift; the words and their glass by LIP less, --pz-rise: see the next test.)
   assert.ok(css.includes('.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the card and its handle rise by the readings\' travel');
   assert.ok(css.includes('.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }'), 'the words and their glass rise together, by LIP less');
-  assert.match(js, /const lf = \(parseFloat\(ui\.text\.style\.getPropertyValue\('--pz-rise'\)\) \|\| 0\) \* k;/, 'the glass reads back the words\' rise');
+  assert.match(js, /const lf = \(parseFloat\((?:live\.)?ui\.text\.style\.getPropertyValue\('--pz-rise'\)\) \|\| 0\) \* k;/, 'the glass reads back the words\' rise');
 });
 
 test('the gap under the words is the same with the readings tucked, out or on the way (Mohammad, 22 Oct)', () => {
@@ -67,7 +67,8 @@ test('the gap under the words is the same with the readings tucked, out or on th
     const props = new Map(), slip = { lift: d + base, base };
     const card = () => ({ style: { getPropertyValue: (n) => props.get(n) ?? '', setProperty: (n, v) => props.set(n, v), removeProperty: (n) => props.delete(n) } });
     const ui = { data: card(), lip: card(), text: card(), shade: card() };
-    const { liftTo } = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', `${src}; return { liftTo };`)(ui, slip, LIP, () => {}, () => {});   // (no card zoomed: the zoom hears nothing)
+    const { liftTo } = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', `const live = { ui, zoomFollow };   // (the part reads them off the live record)
+${src}; return { liftTo };`)(ui, slip, LIP, () => {}, () => {});   // (no card zoomed: the zoom hears nothing)
     const at = (u) => {
       liftTo(u);
       const lift = parseFloat(props.get('--pz-lift')) || 0, rise = parseFloat(props.get('--pz-rise')) || 0;
@@ -118,14 +119,14 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
 // (Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy. Like 10fps maybe".)
 test('a slide of the readings\' card never restyles the figure or lays the cards out again on every frame', () => {
   // (The rise is written on the four cards it moves, never on the stage's box, whose style the stage watches and every vessel inherits.)
-  assert.match(js, /const riseOn = \(\(\) => \{[\s\S]*?if \(name === '--pz-lift'\) \{ lift\[0\] = ui\?\.data; lift\[1\] = ui\?\.lip; return lift; \} words\[0\] = ui\?\.text; words\[1\] = ui\?\.shade; return words;/);
+  assert.match(js, /const riseOn = \(\(\) => \{[\s\S]*?if \(name === '--pz-lift'\) \{ lift\[0\] = (?:live\.)?ui\?\.data; lift\[1\] = (?:live\.)?ui\?\.lip; return lift; \} words\[0\] = (?:live\.)?ui\?\.text; words\[1\] = (?:live\.)?ui\?\.shade; return words;/);
   const rise = js.match(/const setRise = [^\n]*/)?.[0] || '';
   assert.ok(rise && !/wrap\./.test(rise), 'the rise is not written on the stage\'s box');
   // (The data card's box changes size on every frame of a slide: its watchers wait until it rests, and foldStill lays it out once then.)
   // (And a zoomed card, card-zoom.js: laid out once it is back.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
+  assert.match(js, /const (?:live\.)?cardMoving = \(\) => !!(?:live\.)?ui && \((?:live\.)?ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in (?:live\.)?ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
   assert.ok(js.indexOf('const cardMoving') < js.indexOf('const fitWatch'));
   assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations(?:\?\.)?\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
-  assert.match(js, /delete data\.dataset\.folding; fitDone\.delete\(data\); onResize\(\);/, 'laid out once it rests');
+  assert.match(js, /delete data\.dataset\.folding; (?:live\.)?fitDone\.delete\(data\); (?:live\.)?onResize\(\);/, 'laid out once it rests');
   assert.match(js, /new ResizeObserver\(\(\) => \{ if \(!data\.classList\.contains\('pz-sliding'\)\) placeLip\(\); \}\)/, 'the handle is placed by the slide itself while it slides');
 });

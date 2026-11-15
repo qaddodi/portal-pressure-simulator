@@ -26,7 +26,7 @@ test('a table asks for its own rows to be filled in, as it is built, and lets go
   const table = body('  function summaryTable(', '  // (A visual a deck visuals package registers');
   assert.match(table, /watchRows\(el, s\);\s*return tableRoles\(el\);/, 'the table starts watching its rows before it is returned');
   const fn = body('  function watchRows(', '  const fpOf = ');
-  assert.match(fn, /rowIdx\(s\)\.filter\(\(x\) => !states\[x\]\)/, 'every row whose patient is not in yet');
+  assert.match(fn, /rowIdx\(s\)\.filter\(\(x\) => !(?:live\.)?states\[x\]\)/, 'every row whose patient is not in yet');
   assert.match(fn, /stateReady\(k\)\.then/);
   assert.match(fn, /!el\.isConnected\) return;/, 'a table the talk has moved on from is let go');
   assert.match(fn, /summaryTable\(s, k\)[\s\S]*el\.replaceWith\(t\)/, 'the table is drawn again with the new row, its cells fading in');

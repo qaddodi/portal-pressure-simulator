@@ -102,20 +102,20 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
   assert.equal(levelsOf({ whvp: 10 }), null);
   assert.equal(levelsOf(null), null);
   const src = read('../src/ui/tool-hvpg.js');
-  assert.match(src, /mon\.set\('free', cur, 0\);/); assert.match(src, /mon\.set\('wedge', cur, 0\);/); assert.match(src, /mon\.set\('result', cur, 1\);/);
-  assert.match(src, /k01\(now - t0, 0, T\.wedge - T\.inflate\), v = a \+ \(b - a\) \* ease\(k\);\s*mon\.balloon\(v\); tell\(v\);/, 'the balloon is driven from the procedure\'s clock');
-  assert.match(src, /mon\.set\('result', cur, 1, true\)/, 'jumped to or gone back to: the finished tracing at once');
+  assert.match(src, /(?:live\.)?mon\.set\('free', cur, 0\);/); assert.match(src, /(?:live\.)?mon\.set\('wedge', cur, 0\);/); assert.match(src, /(?:live\.)?mon\.set\('result', cur, 1\);/);
+  assert.match(src, /k01\(now - t0, 0, T\.wedge - T\.inflate\), v = a \+ \(b - a\) \* ease\(k\);\s*(?:live\.)?mon\.balloon\(v\); tell\(v\);/, 'the balloon is driven from the procedure\'s clock');
+  assert.match(src, /(?:live\.)?mon\.set\('result', cur, 1, true\)/, 'jumped to or gone back to: the finished tracing at once');
   assert.match(src, /pending = forward && !again \? 'steps' : 'result'/, 'it steps going forward onto the slide, once');
   // (One reading a Next, as on every measurement: the presenter hands Next and Back to the card before it moves on.)
-  assert.match(presenter, /else if \(shown\?\.i === want && ui\.tools\?\.step\(1\)\) return;/);
-  assert.match(presenter, /if \(procBack\(\) \|\| \(shown\?\.i === want && ui\.tools\?\.step\(-1\)\)\) return;/);
+  assert.match(presenter, /else if \((?:live\.)?shown\?\.i === (?:live\.)?want && (?:live\.)?ui\.tools\?\.step\(1\)\) return;/);
+  assert.match(presenter, /if \(procBack\(\) \|\| \((?:live\.)?shown\?\.i === (?:live\.)?want && (?:live\.)?ui\.tools\?\.step\(-1\)\)\) return;/);
   assert.match(tools, /step\(dir\) \{ return !!cur\?\.step\?\.\(dir\); \}/);
   assert.match(src, /cur\.hvpg = tenthGap\(cur\.whvp, cur\.fhvp, target\.hvpg\)/, 'the levels ease and the HVPG follows them');
   assert.match(read('../src/ui/hvpg-proc.js'), /function set\(m, f = null, b = bal, instant = false\)/);
   assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| reduceMotionMQ\.matches\) && !falling\(\)\) t = t1;/);
   // The presenter tells the tools when a slide is stepped onto, and not when its card is only kept or rebuilt in place.
-  assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: stateOf\[i\], forward,/);
-  assert.match(presenter, /showTool\(s, i, lap, i === lastAt \+ 1\)/);
+  assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => (?:live\.)?ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: (?:live\.)?stateOf\[i\], forward,/);
+  assert.match(presenter, /showTool\(s, i, lap, i === (?:live\.)?lastAt \+ 1\)/);
   assert.match(tools, /inst\.arrive\?\.\(\{ forward, again: cur === inst \}\);/);
 });
 

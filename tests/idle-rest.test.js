@@ -69,7 +69,7 @@ test('idle rest is wired for the inputs only: it never rests, so the blood keeps
   const stage = stageSource();
   assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
   assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| (?:live\.)?restStill\(\)\) return false;/);
-  assert.match(stage, /(?:live\.)?(?:live\.)?bloodClock = \((?:live\.)?(?:live\.)?bloodClock \+ dt \* (?:live\.)?(?:live\.)?restK\) % 10000;/);
+  assert.match(stage, /(?:live\.)?bloodClock = \((?:live\.)?bloodClock \+ dt \* (?:live\.)?restK\) % 10000;/);
 });
 
 // Mohammad, 5 Nov 2026: slide 12 of the variceal bleed froze about 15 s in (the 8 s talk rest of 4 Nov). No slide stops, and since 13 Nov

@@ -34,12 +34,12 @@ test('an upright tablet\'s Tests card keeps the phone\'s one column, its picture
 test('the first close tucks the readings\' card away, the next closes the instrument card', () => {
   // A push up from fully open is the fold's, not the dock drag's, on an upright tablet.
   assert.match(js, /\(sheet && open && !split\) \|\| dock\.lvl > 0/);
-  assert.match(js, /if \(show !== gg\.open\) \{ if \(gg\.split && !show\) dock\.down = want; setFold\(show\); return; \}/);
+  assert.match(js, /if \(show !== gg\.open\) \{ if \(gg\.split && !show\) dock\.down = (?:live\.)?want; setFold\(show\); return; \}/);
   // The handle's tap: partly, fully, partly (tucked), closed, partly again.
-  assert.match(js, /else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = want; setFold\(false\); \}/);
-  assert.match(js, /else if \(split && dock\.down === want\) \{ dock\.auto = false; dockTo\(1\); \}/);
+  assert.match(js, /else if \(data\.classList\.contains\('tool-open'\)\) \{ if \(split\) \{ dock\.down = (?:live\.)?want; setFold\(false\); \}/);
+  assert.match(js, /else if \(split && dock\.down === (?:live\.)?want\) \{ dock\.auto = false; dockTo\(1\); \}/);
   assert.match(js, /dock\.to = to;\n\s*if \(!to\) dock\.down = -1;/, 'opened again, the cycle starts over');
-  assert.match(js, /open \? \(split \? 'Hide the readings' : 'Close the card'\) : split && dock\.down === want \? 'Close the card' : 'Show the rest of the card'/);
+  assert.match(js, /open \? \(split \? 'Hide the readings' : 'Close the card'\) : split && dock\.down === (?:live\.)?want \? 'Close the card' : 'Show the rest of the card'/);
 });
 
 // (Mohammad, 17 Oct: "I can drag it up to close the tile card first? Then another drag closes both? Then when I open I open the
@@ -67,8 +67,8 @@ test('a pull down on the closed card brings out the instrument card, and carried
 test('the readings\' travel is set on every new card, and a turn lays the cards out for the size the stage settles to', () => {
   assert.match(js, /\|\| !d\.style\.getPropertyValue\('--pz-d'\)\) \{ slip\.d = h1 - h0; d\.style\.setProperty\('--pz-d'/);
   assert.match(js, /cancelFrame\(slip\.raf\); slip\.d = null; slip\.h0 = null;/, 'forgotten when the deck stops');
-  assert.match(js, /new ResizeObserver\(\(\) => \{ if \(ui && sizeNow\(\) !== sizeSeen\) onResize\(\{ type: 'resize' \}\); \}\)/);
-  assert.match(js, /wrapRO\?\.observe\(wrap\);/);
-  assert.match(js, /wrapRO\?\.disconnect\(\);/);
-  assert.match(js, /phone\(\) !== ui\.root\.classList\.contains\('stack'\) && dock\.to === 1 && !dock\.auto\) \{ dockHalt\(\); dock\.to = 0; dock\.lvl = 0;/);
+  assert.match(js, /new ResizeObserver\(\(\) => \{ if \((?:live\.)?ui && sizeNow\(\) !== (?:live\.)?sizeSeen\) (?:live\.)?onResize\(\{ type: 'resize' \}\); \}\)/);
+  assert.match(js, /(?:live\.)?wrapRO\?\.observe\(wrap\);/);
+  assert.match(js, /(?:live\.)?wrapRO\?\.disconnect\(\);/);
+  assert.match(js, /(?:live\.)?phone\(\) !== (?:live\.)?ui\.root\.classList\.contains\('stack'\) && dock\.to === 1 && !dock\.auto\) \{ dockHalt\(\); dock\.to = 0; dock\.lvl = 0;/);
 });

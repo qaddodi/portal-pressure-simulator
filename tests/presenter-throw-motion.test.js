@@ -9,7 +9,7 @@ const PZ = presenterSource();
 const line = (start) => { const at = PZ.indexOf(start); assert.ok(at > 0, start); return PZ.slice(at, PZ.indexOf('\n', at)); };
 
 test('cardsEntering counts a throw coming in or back (the words, their glass, the panel, the data card), with the same left-to-run rule', () => {
-  assert.match(line('  const throwCards = '), /\[ui\?\.text, ui\?\.shade, ui\?\.panel, ui\?\.data\]/);
+  assert.match(line('  const throwCards = '), /\[(?:live\.)?ui\?\.text, (?:live\.)?ui\?\.shade, (?:live\.)?ui\?\.panel, (?:live\.)?ui\?\.data\]/);
   assert.match(line('  const throwEnters = '), /throwState\(el\)[^\n]*s\.kind !== 'out' && s\.left > left/);
   assert.match(line('  const cardsEntering = '), /throwCards\(\)\.some\(\(el\) => throwEnters\(el, left\)\) \|\| .*readAnims/);
 });
@@ -20,5 +20,5 @@ test('cardMoving includes a card on a throw, so a layout is not made under it', 
 
 test('the slide change waits for a full landing on the throws\' own promise before the cards\' size is read', () => {
   assert.match(PZ, /Promise\.race\(\[Promise\.all\(throwCards\(\)\.map\(\(el\) => el && throwLanded\(el\)\)\), wait\(1200\)\]\)/);
-  assert.match(PZ, /import \{[^}]*throwState, throwBusy, throwLanded[^}]*\} from '\.\/card-throw\.js';/);
+  for (const n of ['throwState', 'throwBusy', 'throwLanded']) assert.match(PZ, new RegExp(`import \\{[^}]*\\b${n}\\b[^}]*\\} from '\\./card-throw\\.js';`), `${n} comes from card-throw.js (in whichever part uses it)`);
 });

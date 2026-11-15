@@ -13,7 +13,7 @@ test('B13: the whole preparation job is inside a try, and a failure settles ever
 });
 
 test('B14: a start overtaken during its awaits returns before it writes the deck, saved state or UI', () => {
-  const start = between('  async function start(id, at = 0, opts = null) {', '  // Ending a talk, the slide');
+  const start = between('  async function start(id, at = 0, opts = null) {', '\n  }\n').replace(/\blive\./g, '');   // (read as before the parts: the shared lets are live.x there)
   const gen = start.indexOf('++startGen');
   const awaitCapture = start.indexOf('await capture()');
   const check = start.indexOf('if (startMine !== startGen) return;');

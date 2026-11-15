@@ -22,5 +22,5 @@ test('a table shown with a row still computing is labelled degraded', () => {
 test('an arriving row waits for the cards\' landing before the table is swapped, and a layout it cannot make now is queued', () => {
   const w = PZ.slice(PZ.indexOf('  function watchRows('), PZ.indexOf('  const fpOf = '));
   assert.ok(w.indexOf('await Promise.all(throwCards().map((c) => c && throwLanded(c)))') < w.indexOf('el.replaceWith(t)'));
-  assert.match(w, /if \(!cardMoving\(\)\) layout\(\); else if \(thrown\(\)\) layoutAtLanding\(\);/);
+  assert.match(w, /if \(!(?:live\.)?cardMoving\(\)\) layout\(\); else if \((?:live\.)?thrown\(\)\) layoutAtLanding\(\);/);
 });

@@ -36,7 +36,7 @@ test('A1: a slide\'s glows and outlines are the figure\'s decoration: one that c
 test('V1: the words\' floor keeps their smallest lettering at 12 px on the screen, and a half at the most', () => {
   const f = body(PZ, 'function wordsFloor()');
   assert.match(f, /px > 12 && isFinite\(px\) \? Math\.max\(0\.5, Math\.ceil\(12 \/ px \* 1000\) \/ 1000\) : 1/);
-  assert.match(f, /ts\.removeProperty\('--pz-fit'\);\s*const px = minText\(ui\.text\);\s*if \(sv\) ts\.setProperty\('--pz-fit', sv\);/, 'measured with no fit, put back as it was');
+  assert.match(f, /ts\.removeProperty\('--pz-fit'\);\s*const px = minText\((?:live\.)?ui\.text\);\s*if \(sv\) ts\.setProperty\('--pz-fit', sv\);/, 'measured with no fit, put back as it was');
 });
 
 // ── V2: messages over the wrong surface ──
@@ -91,12 +91,12 @@ test('A2: the presenter\'s catheter monitor has its readings as text, written wh
 // ── A3: the slide announcement ──
 test('A3: a slide is announced once it is on screen, and the cards say they are changing meanwhile', () => {
   const a = body(PZ, 'function announce(force = false)');
-  assert.match(a, /\(force \|\| landedNow\(\)\) && ui\.say\.textContent !== t/);
-  assert.match(a, /aria-busy/);
-  assert.match(PZ, /const landedNow = \(\) => !!shown && shown\.i === want && shown\.gen === gen;/);
+  assert.match(a, /\(force \|\| landedNow\(\)\) && (?:live\.)?ui\.say\.textContent !== t/);
+  assert.match(a, /aria-(?:live\.)?busy/);
+  assert.match(PZ, /const landedNow = \(\) => !!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && (?:live\.)?shown\.gen === (?:live\.)?gen;/);
   const chrome = body(PZ, 'function paintChrome()');
   assert.match(chrome, /\bannounce\(\);/);
-  assert.doesNotMatch(chrome, /ui\.say\.textContent = /, 'the bar\'s count may run ahead; the announcement does not');
+  assert.doesNotMatch(chrome, /(?:live\.)?ui\.say\.textContent = /, 'the bar\'s count may run ahead; the announcement does not');
 });
 
 test('A3: a move that ends, or fails, settles the announcement and puts the cards\' busy flag away', () => {

@@ -25,7 +25,7 @@ test('the early framing reads the handle where it will rest and refits as the ca
   const f = between(presenter, 'const foldReframe = () => {', 'let foldT = 0;');
   assert.ok(f.indexOf('placeLip();') >= 0 && f.indexOf('placeLip();') < f.indexOf('reframe(400);'), 'the handle at the card\'s foot first: it counts in the room');
   for (const g of ['shown.i !== want', 'shown.gen !== gen', '(busy && !playing)', 'leaving', 'dock.to !== 0', 'dock.lvl !== 0', 'zoomOn()', 'reframeT'])
-    assert.ok(f.includes(g), `left to the old path when ${g}`);
+    assert.ok(f.replace(/\blive\./g, '').includes(g), `left to the old path when ${g}`);   // (read as it was before the parts: the shared lets are live.x there)
 });
 
 test('the refit once the card rests leaves a glide to the same view alone, so the camera is not started again', () => {
@@ -51,8 +51,8 @@ const fnBody = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, h
 
 test('the card\'s every move sets the view: a tap\'s ease, the finger, the end of the slide', () => {
   for (const call of ["liftTo(from); slideTell(); camAt(from);", "d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf", "el.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); return;", "ui.data.classList.remove('pz-sliding'); liftTo(underU(ui.data)); camAt(underU(ui.data));"])
-    assert.ok(presenter.includes(call), call);
-  assert.match(presenter, /const camAt = \(u\) => \{ if \(!stage\.following\?\.\(\)\) return; if \(camSlide === want && camSlideGen === gen && shown\?\.i === want\) stage\.followAt\(u\); else stage\.followEnd\?\.\(\); \};/, 'another slide ends it');
+    assert.ok(presenter.replace(/\blive\./g, '').includes(call), call);
+  assert.match(presenter, /const (?:live\.)?camAt = \(u\) => \{ if \(!stage\.following\?\.\(\)\) return; if \(camSlide === (?:live\.)?want && camSlideGen === (?:live\.)?gen && (?:live\.)?shown\?\.i === (?:live\.)?want\) stage\.followAt\(u\); else stage\.followEnd\?\.\(\); \};/, 'another slide ends it');
 });
 
 test('a tap frames the new state and follows from the view as it stood; a finger works out the other state as it takes the card', () => {
@@ -62,7 +62,7 @@ test('a tap frames the new state and follows from the view as it stood; a finger
   const follow = fnBody(presenter, 'function camFollow(');
   assert.match(follow, /stage\.follow\?\.\(open \? vNow : vTo, open \? vTo : vNow\)/, 'v0 the readings tucked, v1 out');
   const grab = fnBody(presenter, 'function camGrabNow(');
-  assert.match(grab, /finally \{ d\.classList\.toggle\('tool-open', open\); if \(sliding\) d\.classList\.add\('pz-sliding'\); placeLip\(\); ui\.lipMO\?\.takeRecords\(\); \}/, 'the card is put back before anything is drawn');
+  assert.match(grab, /finally \{ d\.classList\.toggle\('tool-open', open\); if \(sliding\) d\.classList\.add\('pz-sliding'\); placeLip\(\); (?:live\.)?ui\.lipMO\?\.takeRecords\(\); \}/, 'the card is put back before anything is drawn');
   assert.match(grab, /stage\.follow\?\.\(open \? vOther : vNow, open \? vNow : vOther\)/);
   assert.match(presenter, /if \(gg\.split && \(gg\.u0 === 0 \|\| gg\.u0 === 1\)\) camGrab\(\); hold\(true\);/, 'only from rest, before the card is held');
   const ok = between(presenter, 'const camFollowOk = () =>', 'const camAim');

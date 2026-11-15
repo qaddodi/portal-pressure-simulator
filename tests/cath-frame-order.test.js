@@ -41,7 +41,7 @@ test('the figure renders as the frame\'s last callback, and the camera paths no 
   assert.doesNotMatch(follow, /drawVeins|getBoundingClientRect|clientToVB\(|safeInsets\(|cutLen/);
   assert.match(follow, /const wr = stageBox\(\), ins = cathInsets\(now\);/);
   const glide = fn(stage, 'animateVT');
-  assert.match(glide, /if \((?:live\.)?(?:live\.)?cath\.st\) \{ refreshCTM\(\); (?:live\.)?(?:live\.)?cathLabelsSoon\(\); \}/);
+  assert.match(glide, /if \((?:live\.)?cath\.st\) \{ refreshCTM\(\); (?:live\.)?cathLabelsSoon\(\); \}/);
   assert.doesNotMatch(glide, /drawVeins/);
 });
 
@@ -89,7 +89,7 @@ test('the readings\' sizes and the cards\' room are kept until they change', () 
 
 test("his pick (26 Oct): the route's framing zooms in once and the follow only pans, at one scale", () => {
   const follow = fn(stage, 'cathFollow');
-  assert.match(follow, /const k = (?:live\.)?(?:live\.)?vt\.k,/);
+  assert.match(follow, /const k = (?:live\.)?vt\.k,/);
   assert.match(follow, /(?:live\.)?vt = \{ k, x: (?:live\.)?vt\.x, y: ny \};/);
   assert.doesNotMatch(follow, /k0|0\.25/);
   assert.match(stage, /const FOLLOW_ZOOM = 1\.25;/);

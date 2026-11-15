@@ -33,6 +33,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse } from 'espree';
 import { sourceRegexTests } from './test-classes.mjs';
 import { appCssFiles, appCssText } from './app-css.mjs';
+import { HOSTS, familyFiles } from './stage-split/hosts.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -99,7 +100,8 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
 // move out of stage.js hands no free room to the next feature.
 const stageFamily = () => ['src/ui/stage.js', ...readdirSync(join(ROOT, 'src/ui')).filter((n) => /^stage-.+\.js$/.test(n)).sort().map((n) => 'src/ui/' + n)];
 // The text a rule judges: 'styles/app-*.css' is the app's stylesheet, its parts joined in order (scripts/app-css.mjs); any other name is the file.
-const sourceText = (f) => (f === 'styles/app-*.css' ? appCssText(ROOT) : readFileSync(join(ROOT, f), 'utf8'));
+const familyOf = (f) => Object.entries(HOSTS).find(([n, h]) => n !== 'stage' && h.family === f)?.[0];   // 'src/ui/presenter*' is the presenter and its parts
+const sourceText = (f) => (f === 'styles/app-*.css' ? appCssText(ROOT) : familyOf(f) ? familyFiles(familyOf(f)).map((g) => readFileSync(join(ROOT, 'src/ui', g), 'utf8')).join('\n') : readFileSync(join(ROOT, f), 'utf8'));
 const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json lists the part with its own number)
 
 // Size budget: the three files that grow fastest may not pass their committed line count; a file under it asks for the number to come down.
@@ -107,10 +109,11 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const sizeFile = join(ROOT, 'scripts/size-budget.json'), doc = JSON.parse(readFileSync(sizeFile, 'utf8'));
   const tighten = process.argv.includes('--tighten');
   const lines = (rel) => readFileSync(join(ROOT, rel), 'utf8').split('\n').length - 1;
-  for (const rel of [...stageFamily().slice(1), ...appCssFiles(ROOT)]) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a part may have (PR-09)`);
+  for (const rel of [...stageFamily().slice(1), ...appCssFiles(ROOT), ...['presenter', 'lobule'].flatMap((h) => familyFiles(h).slice(1).map((f) => 'src/ui/' + f))]) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a part may have (PR-09)`);
   for (const [rel, max] of Object.entries(doc.files)) {
     // (A key ending in * is the sum over a family: the stage and its parts, or the app's stylesheet files, so a move between members hands no free room to the next feature.)
-    const n = rel === 'styles/app-*.css' ? appCssFiles(ROOT).reduce((a, f) => a + lines(f), 0) : rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
+    const host = Object.entries(HOSTS).find(([, h]) => h.family === rel && rel !== 'src/ui/stage*')?.[0];   // (presenter, lobule: the file and the parts moved out of it)
+    const n = rel === 'styles/app-*.css' ? appCssFiles(ROOT).reduce((a, f) => a + lines(f), 0) : host ? familyFiles(host).reduce((a, f) => a + lines('src/ui/' + f), 0) : rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
     // (Over the line: an error with BUILD_STRICT (main and ci.yml), a warning on the preview, as the build's chunk cap does: a few lines
     // too many never paints every preview push red while the stage split moves code out.)
     if (n > max) (process.env.BUILD_STRICT ? errors.push.bind(errors) : (t) => console.warn(`::warning title=Size budget::${t}`))(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
@@ -149,14 +152,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
   };
   const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
-  need('src/ui/presenter.js', [
+  need('src/ui/presenter*', [
     [/c\.classList\.contains\('pz-tiles'\) \? 0 :/, "the tiles' own scroll height is no overflow: their numbers' GPU pictures reach past a tile, and counted it zoomed the readings card down in a what-if drag (7 Nov 2026)"],
-    [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
+    [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && (?:live\.)?cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
   ]);
   // A chart is an instrument card, never part of the teaching card (14 Nov 2026 the trial card, 15 Nov 2026 the procedure's event graph and the time-lapse graph, PC-6).
   // presenter-tools.js builds every instrument into the instrument card; slide-instrument.js gives a slide that names none its chart. The presenter builds none for the words.
-  forbid('src/ui/presenter.js', /\b(createFlowTime|createEventGraph|createDoppler|createFibroScan|createPressureTime|createVitalsMonitor|createHvpgCard|createEndoscopy|createAbdomen|createVarixWall|talkTrace|createTrial|createForest)\b/, 'an instrument is built by the instrument card (presenter-tools.js), never for the teaching card');
-  forbid('src/ui/presenter.js', /pz-timegraph|pz-evtime/, 'no chart box in the words');
+  forbid('src/ui/presenter*', /\b(createFlowTime|createEventGraph|createDoppler|createFibroScan|createPressureTime|createVitalsMonitor|createHvpgCard|createEndoscopy|createAbdomen|createVarixWall|talkTrace|createTrial|createForest)\b/, 'an instrument is built by the instrument card (presenter-tools.js), never for the teaching card');
+  forbid('src/ui/presenter*', /pz-timegraph|pz-evtime/, 'no chart box in the words');
   forbid('styles/app-*.css', /\.pz-timegraph/, 'no style for a chart in the words');
   need('src/ui/presenter-tools.js', [[/createFlowTime\(\)/, 'the flow-time chart is the instrument card\'s'], [/createEventGraph\(\)/, 'the procedure graph is the instrument card\'s']]);
   need('src/ui/ink-gl.js', [
@@ -340,8 +343,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/const seen = \(f\) => !gastricUp\(store\.get\(\)\.params \|\| NO_P\) && \(grows \|\| varicesPresent\(f\)\);/, 'no ring with a tamponade balloon in'],
     [/stage\.scopeRingInto\?\.\(rg\)[\s\S]*follow\(\);/, 'the lens follows its ring on every step of the camera, never hidden by it'],
   ]);
-  const pres = text('src/ui/presenter.js');
-  if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
+  const pres = text('src/ui/presenter*');
+  if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); (?:live\.)?ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
   // Readouts and the glass at rest (15 Nov 2026, app review WORDS-1): source shapes moved out of tests (PR-02), each with its reason.
@@ -412,7 +415,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/store\.on\('presenting', \(v\) => keepAwake\(!!v \|\| projector\)\)/, 'a talk keeps the screen awake (wake-lock.js)'],
     [/keepAwake\(projector \|\| !!store\.get\(\)\.presenting\)/, 'so does projector mode'],
   ]);
-  need('src/ui/presenter.js', [[/function stop\(restore = true\) \{\n {4}if \(!deck \|\| leaving \|\| document\.documentElement\.hasAttribute\('data-embed'\)\) return;/, 'an embedded talk stays on its last slide (stop does nothing; start() ends the old talk itself)']]);
+  need('src/ui/presenter*', [[/function stop\(restore = true\) \{\n {4}if \(!(?:live\.)?deck \|\| (?:live\.)?leaving \|\| document\.documentElement\.hasAttribute\('data-embed'\)\) return;/, 'an embedded talk stays on its last slide (stop does nothing; start() ends the old talk itself)']]);
   need('src/ui/presenter-view-page.js', [[/keepAwake\(!!st\);/, "the notes window keeps its screen awake while a talk runs"]]);
 
   // The bottom bar stays as it is while the figure moves (13 Nov 2026, Mohammad: "why does the timeline bar change when I pan"): a pan once folded
@@ -423,7 +426,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   forbid('styles/app-*.css', /\.figure-focus \.zoom-pill:not\(\.under-sheet\) \{ translate/, 'the zoom pill does not drop into the bottom bar\'s row during a pan');
 
   // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
-  need('src/ui/presenter.js', [
+  need('src/ui/presenter*', [
     [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],
     [/const viewSettled = \(cut, stage\) => waitCut\(VIEW_CHANGE_MS \+ 400, \(\) => cut\(\) \|\| !stage\.viewChanging\?\.\(\)\);/, "a step after a switch of view waits for the change to land (stage.viewChanging), with VIEW_CHANGE_S's margin as the longest"],
     [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
@@ -435,21 +438,21 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
     [/if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, "the cards that show are thrown on the press, before the wait for the slide's preparation"],
   ]);
-  forbid('src/ui/presenter.js', /\bwait\(700\)|async function until\(/, 'no 700 ms wait left from the 0.6 s change, and no 40 ms timer poll');
+  forbid('src/ui/presenter*', /\bwait\(700\)|async function until\(/, 'no 700 ms wait left from the 0.6 s change, and no 40 ms timer poll');
   {
-    const pz = text('src/ui/presenter.js'), cam = pz.slice(pz.indexOf('  async function camera('), pz.indexOf('  // (left: only the entrances with more than this many ms still to run count'));
+    const pz = text('src/ui/presenter*'), c0 = pz.indexOf('  async function camera('), cam = pz.slice(c0, c0 + 1 + pz.slice(c0 + 1).search(/\n {2}(?:async )?function |\n {2}\/\/ \(left: only the entrances/));   // (the next function after it, or the note that used to follow it)
     if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
     const at = cam.indexOf('const switching = store.get().view !== v;');
     if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
   }
   {
     // M10 step 2 (8 Nov 2026): a bare `await wait(` is a wait Next cannot cut. The ones left, per file; the number only goes down.
-    const bare = { 'src/ui/presenter.js': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */ };
+    const bare = { 'src/ui/presenter*': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */ };
     for (const [f, n] of Object.entries(bare)) {
       const c = (text(f).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n').match(/await wait\(/g) || []).length;
       if (c !== n) errors.push(`${f}: ${c} bare await wait( (allowance ${n}): use waitCut(ms, cut), or lower the allowance in scripts/rules-lint.mjs when one goes`);
     }
-    const pz = text('src/ui/presenter.js'), cth = pz.slice(pz.indexOf('  async function cathTo('), pz.indexOf('  // ── A time-lapse on the live model'));
+    const pz = text('src/ui/presenter*'), cth = pz.slice(pz.indexOf('  async function cathTo('), pz.indexOf('  // ── A time-lapse on the live model'));
     if (/\bwait\(/.test(cth.replace(/waitCut\(/g, ''))) errors.push('src/ui/presenter.js cathTo(): every wait is waitCut(ms, cut), so Next cuts the catheter descent');
   }
   need('src/ui/stage-view.js', [
@@ -705,7 +708,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 for (const name of readdirSync(join(ROOT, 'scripts/source-shapes')).filter((n) => n.endsWith('.mjs')).sort()) {
   const rules = (await import(pathToFileURL(join(ROOT, 'scripts/source-shapes', name)).href)).default;
   for (const r of rules) {
-    const src = [].concat(r.file).flatMap((f) => (f === 'styles/app-*.css' ? [f] : f.endsWith('*') ? stageFamily() : [f])).map(sourceText).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
+    const src = [].concat(r.file).flatMap((f) => (f === 'styles/app-*.css' || familyOf(f) ? [f] : f.endsWith('*') ? stageFamily() : [f])).map(sourceText).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
     if (r.need && !has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
     if (r.forbid && has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
   }

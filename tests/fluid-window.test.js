@@ -153,7 +153,7 @@ test('a unit in a card title is split out, so the style leaves its case alone', 
 });
 test('the data card sets its title and the footer\'s copy of it through the unit split, and the style keeps the unit as typed', () => {
   const js = presenterSource();
-  assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\); unitSpans\(ui\.dhT\);/, 'the card header');
+  assert.match(js, /(?:live\.)?ui\.dhT\.textContent = cardTitle\(s\); unitSpans\((?:live\.)?ui\.dhT\);/, 'the card header');
   assert.doesNotMatch(js, /pz-tfold/, 'no copy of the title under the words is left (the folded ladder\'s, gone with the ladder on 21 Oct)');
   assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);
   const css = appCss();

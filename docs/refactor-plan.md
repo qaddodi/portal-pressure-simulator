@@ -26,7 +26,7 @@ The engine (`src/engine`) is small, pure and well tested. The weight, and the ri
 | Item | State | What is there |
 |---|---|---|
 | H1 stage.js closure | Done | `createStage` split into the `stage-*.js` modules; `docs/stage-map.md` (from `scripts/stage-map.mjs`) maps what is left; `scripts/stage-split/` holds the move and check tooling used for the split |
-| H2 presenter.js | Open | `presenter-*.js` modules exist, but `presenter.js` is still 6.6k lines with 22 bare timers. Registering every timer with the slide transaction (a behaviour change) is not done |
+| H2 presenter.js | Part | B5 (15 Nov 2026): `presenter.js` went from 6,712 to 2,224 lines; 11 parts (`presenter-words`, `-cards`, `-library`, `-start`, `-scales`, `-ladders`, `-zoom`, `-question`, `-case`, `-lapse`, `-proc`) hold the rest, cut by `scripts/stage-split/` (`--host presenter`, specs in `parts-presenter/`), each move proved equivalent by `check.mjs`. The shared lets are read through the `live` record. Registering every timer with the slide transaction (a behaviour change) is still not done |
 | H3 five ways to defer a DOM write | Part | `class-batch.js` is deleted. No `defer.js` exists; `class-soon.js`, `rest-pass.js`, `store.setSoon` and plain zero-delay timers remain. Scheduler roles: `docs/scheduling.md` |
 | H4 theme observers | Part | `look.js` holds the one `prefers-color-scheme: dark` list (`darkMQ`) and `rules-lint.mjs` keeps new code from making its own; `theme-epoch.js` `onTheme` runs every surface's colour work in one frame (fixed TH1). A shared reduced-motion list is `reduceMotionMQ` in `motion.js`. The 14 observers are not all converted: not verified |
 | H5 duplicated helpers | Open | no `math.js`; `clamp` and the ease helpers are still defined in many files |

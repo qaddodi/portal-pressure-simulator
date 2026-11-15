@@ -33,7 +33,7 @@ test('with reduced motion the cards still fade (opacity only, no slide)', () => 
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \*, \.pz-shade \{ transition: opacity var\(--d-small\) var\(--ease\) !important; \}/);
   assert.match(block, /\.pz > :is\(\.pz-text, \.pz-data, \.pz-panel\), \.pz-text > \.pz-leave, \.pz-shade \{ transform: none !important; \}/);
   // (The data card waits out its fade before it is hidden, reduced motion or not.)
-  assert.match(src, /data\.hidden = true; ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
+  assert.match(src, /data\.hidden = true; (?:live\.)?ui\?\.tools\.hide\(\); \} \}, D_SMALL \+ 20\);/);
 });
 
 test('the cards are refitted and laid out at their final size while still unseen, then fade in', () => {

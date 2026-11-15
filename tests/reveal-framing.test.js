@@ -11,9 +11,9 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const pz = presenterSource(), st = stageSource();
 
 test('under the start cover the camera is set outright, never a glide the reveal can catch', () => {
-  assert.match(pz, /const gl = booting \? 0 : ms \|\| 300;/);
-  assert.match(pz, /fitAround\(s, cam, booting \? 0 : ms\);/);
-  assert.match(pz, /if \(booting\) \{ clearTimeout\(reframeT\); reframeT = 0; reframe\(0\); return; \}/);
+  assert.match(pz, /const gl = (?:live\.)?booting \? 0 : ms \|\| 300;/);
+  assert.match(pz, /fitAround\(s, cam, (?:live\.)?booting \? 0 : ms\);/);
+  assert.match(pz, /if \((?:live\.)?booting\) \{ clearTimeout\((?:live\.)?reframeT\); (?:live\.)?reframeT = 0; reframe\(0\); return; \}/);
 });
 
 test('the cover reframes for a late resize or settled cards, and once more as the entrances end, before it lifts', () => {
@@ -25,11 +25,11 @@ test('the cover reframes for a late resize or settled cards, and once more as th
 
 test('the stage\'s first fit leaves a presenting slide\'s framing alone and glides when the figure already shows', () => {
   const ff = st.slice(st.indexOf('function firstFrame()'), st.indexOf('showFigure();', st.indexOf('function firstFrame()')));
-  assert.match(ff, /!(?:live\.)?(?:live\.)?userMoved && !store\.get\(\)\.presenting/);
+  assert.match(ff, /!(?:live\.)?userMoved && !store\.get\(\)\.presenting/);
   assert.match(ff, /if \((?:live\.)?figureShown\) \{ (?:live\.)?homeAt = d; (?:live\.)?fitted = true; if \(!(?:live\.)?sameView\(d, (?:live\.)?vtGliding \? (?:live\.)?vtTarget : (?:live\.)?vt\)\) animateVT\(d, 450\); \}/);
 });
 
 test('under the start cover a slide with no framing of its own (the outline) takes the stage\'s fit outright', () => {
   const rf = pz.slice(pz.indexOf('function reframe(ms)'), pz.indexOf('function fitAround('));
-  assert.match(rf, /if \(booting && !cam && !store\.get\(\)\.lobule\) \{ stage\.fitSlow\(0\); return; \}/);
+  assert.match(rf, /if \((?:live\.)?booting && !cam && !store\.get\(\)\.lobule\) \{ stage\.fitSlow\(0\); return; \}/);
 });

@@ -31,14 +31,14 @@ test('decks that teach more than one level tag their slides; cirrhosis-only deck
 test('the teaching card shows the tag as a corner tab in the level\'s colour, the title first in the words', () => {
   const src = presenterSource();
   const css = appCss();
-  assert.match(src, /const lvl = s\.visual \? null : siteTag\(deck, s\) \|\| railLvl, stab = ui\.shade\.querySelector\('\.pz-sitetab'\);/);
+  assert.match(src, /const lvl = s\.visual \? null : siteTag\((?:live\.)?deck, s\) \|\| railLvl, stab = (?:live\.)?ui\.shade\.querySelector\('\.pz-sitetab'\);/);
   assert.match(src, /if \(stab\.textContent === lvl\.name\) stab\.dataset\.site = site; else swapText\(stab, lvl\.name, \(\) => \{ stab\.dataset\.site = site; \}\);/);   // (a new level cross-fades, 15 Nov 2026)
   // (the title first, in one place)
   assert.match(src, /head = h\('h1', \{ class: 'pz-h' \}, \.\.\.diseaseNodes\(nb\(s\.title\)\)\)/);
   assert.match(src, /text\.replaceChildren\(\.\.\.\[head, /);
   // (the deck tab's mirror: top left, flush, its outer top corner from the same variable and its bottom right corner rounded,
   // tinted in the level's colour)
-  assert.match(css, /\.pz-sitetab \{ position: absolute; top: 0; left: 0;[^}]*border-radius: var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-ui\)/);
+  assert.match(css, /\.pz-sitetab \{ position: absolute; top: 0; left: 0;[^}]*border-radius: var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\) 0; background: color-mix\(in srgb, var\(--site\) 16%, transparent\);[^}]*font: var\(--caps-w\) var\(--pz-tabf\)\/1 var\(--font-(?:live\.)?ui\)/);
   assert.match(css, /\n\.pz-tabname \{ position: absolute; top: 0; right: 0;[^}]*border-radius: 0 var\(--pz-tab-ro, 0px\) 0 calc\(var\(--pz-tabh\) \* \.5\);/);
   // (on the glass both tabs fill their corners inside its outline, their outer corner on its inner curve: no clipping, no
   // per-side offsets)

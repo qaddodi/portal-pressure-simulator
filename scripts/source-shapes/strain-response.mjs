@@ -1,7 +1,7 @@
 // Source shapes from the features of 11 Nov 2026 (items 41 and 42: the beta-blocker response control, the MAP hold rail and the hold-to-strain button;
 // tests/hold-strain.test.js and tests/response-control.test.js test what the modules do, and their wiring is kept here with a one-line reason each, PR-02).
 
-const PRES = 'src/ui/presenter.js', MON = 'src/ui/vitals-monitor.js';
+const PRES = 'src/ui/presenter*', MON = 'src/ui/vitals-monitor.js';
 
 export default [
   // The hold-to-strain button
@@ -13,8 +13,8 @@ export default [
   { file: PRES, need: [/'contextmenu', \(e\) => e\.preventDefault\(\)/, 'a long press on a phone opens no menu while the button is held'] },
   { file: PRES, need: [/document\.addEventListener\('visibilitychange', onHidden\)/, 'a hidden page lets go of a held strain'] },
   { file: PRES, need: [/document\.removeEventListener\('visibilitychange', onHidden\)/, 'the listener goes with the talk'] },
-  { file: PRES, need: [/strainStop\(\); stopLapse\(\); procStop\(\); abSlow\(\); handOn = false;/, 'leaving a slide lets go of a held strain'] },
-  { file: PRES, need: [/strainStop\(\); stopLapse\(\); procStop\(\); cathStop\(\); abSlow\(\); liveOff = false;/, 'ending the talk lets go of a held strain'] },
+  { file: PRES, need: [/strainStop\(\); stopLapse\(\); procStop\(\); abSlow\(\); (?:live\.)?handOn = false;/, 'leaving a slide lets go of a held strain'] },
+  { file: PRES, need: [/strainStop\(\); stopLapse\(\); procStop\(\); cathStop\(\); abSlow\(\); (?:live\.)?liveOff = false;/, 'ending the talk lets go of a held strain'] },
   { file: PRES, need: [/if \(strainHeld\) \{ freed = 0; continue; \}/, 'held, the data card keeps following the live model'] },
   { file: PRES, need: [/liveSettled\(now - freed, now - still\)/, 'let go, it follows until the readings have rested (liveSet\'s rule)'] },
   { file: 'src/ui/card-keep.js', need: [/\['compare', 'whatIf', 'strain', 'column', 'scales', 'ask'\]/, 'a card with a strain button is never kept for the next slide'] },

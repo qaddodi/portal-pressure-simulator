@@ -11,12 +11,12 @@ const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url),
 
 test('a wider screen 860 px tall or less takes the compact layout', () => {
   assert.match(js, /const SHORT_H = 860;/);
-  assert.match(js, /const short = !p && !low && H \/ k <= SHORT_H;\n\s*ui\.root\.classList\.toggle\('short', short\);/);
+  assert.match(js, /const short = !p && !low && H \/ k <= SHORT_H;\n\s*(?:live\.)?ui\.root\.classList\.toggle\('short', short\);/);
 });
 
 test('a compact card steps tighter, then zooms no further than 12 px on the screen, and past it only as a last resort', () => {
   assert.match(js, /function shortFit\(el\) \{[\s\S]*?for \(const c of \['pz-lt', 'pz-lt2'\]\) \{ if \(fits\(\)\) break; el\.classList\.add\(c\); \}[\s\S]*?return px > 12 && isFinite\(px\) \? Math\.ceil\(12 \/ px \* 1000\) \/ 1000 : 1;/);
-  assert.match(js, /const shortFloor = !small && !lowFloor && ui\.root\.classList\.contains\('short'\) \? shortFit\(el\) : 0;/);
+  assert.match(js, /const shortFloor = !small && !lowFloor && (?:live\.)?ui\.root\.classList\.contains\('short'\) \? shortFit\(el\) : 0;/);
   assert.match(js, /if \(shortFloor > mins\[0\]\) mins\.unshift\(shortFloor\);/);
   // (Stacked under the words, its blocks step tighter, never smaller: no --pz-dk zoom in the compact layout.)
   assert.match(js, /if \(short\) \{ for \(const c of \['pz-lt', 'pz-lt2'\]\) \{[^}]*colHeight\(cw \/ k\)[^}]*\} return; \}/);

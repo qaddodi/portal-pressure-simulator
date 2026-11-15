@@ -44,7 +44,7 @@ test('the scales, the stored value and the listeners', async () => {
 test('the anatomy canvas, the lobule and the sinusoid read it; the instruments and labels do not', () => {
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   assert.match(stage, /(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/);
-  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?(?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?(?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?(?:live\.)?adaptK;/);
+  assert.match(stage, /let k = \(renderSetting\(\) === 'auto' \? (?:live\.)?autoK : renderScale\(\)\) \* \((?:live\.)?moveLow \? figOpt\('move'\) : 1\) \* (?:live\.)?adaptK;/);
   assert.match(stage, /onRenderScale\(\(\) => \{ (?:live\.)?autoK = autoNow\(\); (?:live\.)?moveLow = false; (?:live\.)?adaptK = 1; moveGaps\.length = 0; easeRes\(\); (?:live\.)?veinsDirty = true; (?:live\.)?forceDraw = true; (?:live\.)?stageWake\(\); settleRes\(\); \}\)/);
   // (The lobule's six readers: draw; paintAhead reads draw's own; spareMake; rimOnGPU, the dive's rim drawn on the GPU; buildWideGL, the wide copy on the GPU; the card zoom's sharpen. Each reads
   // lzDensity, the scale held to the figure's pixel budget; none reads the scale bare, or the lobule would be drawn at a density the anatomy's canvas is not (14 Nov 2026).)
@@ -279,7 +279,7 @@ test('Auto keeps its step near an edge: no flip between 75% and 50% when the zoo
   for (const z of [0.8, 1, 1.5, 2, 3, 4, 7, 12]) assert.equal(f.autoSticky(z, 0), f.autoScale(z), `from nothing (a new setting): the table's own step at ${z}×`);
   // (The table and its edges unchanged: 75% from 1.34×.)
   assert.equal(f.autoScale(1.34), 0.75);
-  assert.match(stage, /const k = autoNow\((?:live\.)?(?:live\.)?autoK\), a = (?:live\.)?(?:live\.)?adaptK;/);
+  assert.match(stage, /const k = autoNow\((?:live\.)?autoK\), a = (?:live\.)?adaptK;/);
 });
 
 // (Mohammad, 30 Oct: "no resolution drop unless I choose to".)

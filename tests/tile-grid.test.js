@@ -38,7 +38,7 @@ test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no nu
   const pres = presenterSource();
   const tiles = readFileSync(new URL('../src/ui/card-tiles.js', import.meta.url), 'utf8');
   assert.match(tiles, /export const ownKeys = \(s, onPhone\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !onPhone && !s\.tool\.keepTiles\) && !shownBy\(s\)\.includes\(k\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
-  assert.match(pres, /const tileKeys = \(s\) => cardKeys\(s, phone\(\)\);/, 'the card reads them for the screen it is on');
+  assert.match(pres, /const (?:live\.)?tileKeys = \(s\) => cardKeys\(s, (?:live\.)?phone\(\)\);/, 'the card reads them for the screen it is on');
   assert.match(pres, /if \(sg !== sig \|\| !draw\)/, 'an empty tile set still builds');
   assert.ok(css.includes('.pz-tiles[data-n="0"] { display: none; }'));
   const decks = ['hvpg', 'ncph', 'outflow', 'prehepatic', 'recompensation', 'treatment']

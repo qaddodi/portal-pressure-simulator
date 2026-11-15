@@ -109,7 +109,7 @@ test('the figure places the gate where the callout points (the middle of the ves
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*(?:live\.)?dprobePaint\(\);$|^\s*if \(dop\.id\) \{ dprobePaint\(\); live\.labelGL\?\.redraw\(\); \}$/gm) || []).length, 5, 'view change, zoom glide, labels laid out, Doppler set, and the glow pass');
   // It hides while the views morph and in the liver's own views, and moves by fading out and back in.
-  assert.match(stage, /\((?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph < 0\.01 \|\| (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?lz\?\.isOpen\(\)/);
+  assert.match(stage, /\((?:live\.)?morph < 0\.01 \|\| (?:live\.)?morph > 0\.99\) && !camHides && !dpr\.hold && dprMonitorOn\(\) && !st\.lobule && !st\.sinusoid && !(?:live\.)?lz\?\.isOpen\(\)/);
   // (it goes and comes by drawing back along its line of sight, then fading as it leaves, on its own clock in the stage's record: dprShape; no CSS fade)
   assert.doesNotMatch(css, /\.dop-probe[^{]*\{[^}]*transition/);
 });
@@ -242,7 +242,7 @@ test('a "60 %" the probe would cover steps out to a clear spot on a leader line,
   assert.match(stage, /el\.animate\?\.\(\[\{ opacity: 0 \}\], \{ duration: dur, fill: 'forwards' \}\)/);
   assert.match(stage, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
   assert.match(stage, /c\.x \+ c\.nx \* \(c\.off \+ 8\), c\.y \+ c\.ny \* \(c\.off \+ 8\)/);
-  assert.match(stage, /mv = c\.id !== (?:live\.)?(?:live\.)?clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
+  assert.match(stage, /mv = c\.id !== (?:live\.)?clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
   // The gate bars are in the boxes labels and the probe keep off.
   const g = [300, 300], b = gateBoxes(g, 0, 50, 8)[0];
   assert.ok(b.x0 < 300 - 5 && b.x1 > 300 + 5 && b.y0 < 300 - 5 && b.y1 > 300 + 5);
@@ -418,7 +418,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {
   const src = stageSource();
-  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?(?:live\.)?(?:live\.)?dprHold\(\);/);
+  assert.match(src, /if \(id && store\.get\(\)\.presenting\) (?:live\.)?dprHold\(\);/);
   assert.match(src, /const show = [^;]*!camHides && !dpr\.hold/);
   const av = src.slice(src.indexOf('function animateVT('), src.indexOf('const step = (now)', src.indexOf('function animateVT(')));
   assert.ok(av.indexOf('camMove = true') < av.lastIndexOf('dprLet()'), 'the hold lets go only once the move has hidden it');
@@ -647,7 +647,7 @@ test('stage: a glide that only refits the figure to cards that changed does not 
   // The stage decides once, as the glide starts: only a probe already showing, and only within a moment of the presenter saying so; the
   // carry ends when the camera settles, so a later slide framing is never taken for a refit.
   const av = stage.slice(stage.indexOf('function animateVT('), stage.indexOf('const step = (now)', stage.indexOf('function animateVT(')));
-  assert.match(av, /(?:live\.)?(?:live\.)?camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil;/);
+  assert.match(av, /(?:live\.)?camMove = true; dpr\.carry = dpr\.on && performance\.now\(\) < dpr\.refitUntil;/);
   assert.match(stage, /carryProbe\(\) \{ dpr\.refitUntil = performance\.now\(\) \+ 300; \}/);
   assert.match(stage, /(?:live\.)?camMove = false; dpr\.carry = false;/);
 });

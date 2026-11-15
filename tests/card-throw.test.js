@@ -82,7 +82,7 @@ test('glass: a card raised by --pz-rise or --pz-lift (untucking) has its glass r
   assert.doesNotMatch(glass, /const RISE\b|RISE &&|glassrise=/);
   assert.match(glass, /if \(cards\?\.shift && !s\.translate && !anims\.get\(e\)\?\.size\) \{ const sh = cards\.shift\(e\);/);
   assert.match(presenter, /shift: riseShift \}\)/);
-  assert.match(presenter, /el === ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
+  assert.match(presenter, /el === (?:live\.)?ui\.data \? \(wide && el\.classList\.contains\('col'\) \? risePx\(el, '--pz-lift'\) : 0\)/);
 });
 
 test('R05: the cards that show wait for the slide going in to be prepared, at most PREP_MS, then leave', () => {

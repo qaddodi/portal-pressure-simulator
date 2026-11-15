@@ -50,8 +50,8 @@ const stopNow = src.slice(src.indexOf('  function stopNow('), src.indexOf('  let
 test('stopNow resets the held room and stops the timers that would act after the talk', () => {
   assert.match(stopNow, /insets\.reset\(\)/);
   assert.doesNotMatch(stopNow, /removeProperty\(k\)/, 'the room is taken off by insets.reset, after its timer is stopped');
-  assert.match(stopNow, /clearTimeout\(widthT\); widthT = 0; widthOwn = false;/);
-  assert.match(stopNow, /clearTimeout\(dataHideT\); dataHideT = 0;/);
+  assert.match(stopNow, /clearTimeout\((?:live\.)?widthT\); (?:live\.)?widthT = 0; (?:live\.)?widthOwn = false;/);
+  assert.match(stopNow, /clearTimeout\((?:live\.)?dataHideT\); (?:live\.)?dataHideT = 0;/);
   assert.doesNotMatch(src, /insetPend|insetT\b/, 'one keeper of the held room: inset-hold.js');
 });
 
