@@ -145,7 +145,7 @@ export function rank(raw, points) {
       if (marks[k] === 'off') gaps.push({ key: k, entered: readings[k], predicted: best.r[k], d: best.per[k] });
     }
     gaps.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
-    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, score: best.chi + cost, per: best.per, pred: best.r }, score: best.chi + cost, ranges, predicts, marks, gaps, count: ok.length });
+    fams.push({ id: f.id, label: f.label, short: f.short, sub: f.sub, free: f.free, best: { p: best.p, chi: best.chi, score: best.chi + cost, per: best.per, pred: best.r }, score: best.chi + cost, delta: 0, status: /** @type {'best' | 'tie' | 'possible' | 'out'} */ ('out'), ranges, predicts, marks, gaps, count: ok.length });
   }
   fams.sort((a, b) => a.score - b.score);
   const top = fams[0].score;
@@ -168,7 +168,10 @@ export const OUTSIDE = Object.freeze({
   constr: 'Echocardiography and cardiac MR or CT for septal bounce, filling pattern and a thick pericardium.',
   mixpre: 'Liver biopsy: the model cannot tell a mixed pattern from its parts.',
   mixpvt: 'Doppler or CT of the portal vein, and biopsy for the stage of the scar.',
-  mixrhf: 'Echocardiography; the model holds the heart at one setting here.',
+  mixrhf: 'Echocardiography with the RA waveform, and biopsy for the liver’s own scar.',
+  mixconstr: 'Echocardiography and cardiac MR or CT, and biopsy for the liver’s own scar.',
+  mixbcs: 'Doppler or MR venography of the hepatic veins, and biopsy for the scar.',
+  prepvt: 'Doppler or CT of the portal vein, and liver biopsy to exclude cirrhosis.',
 });
 
 /**

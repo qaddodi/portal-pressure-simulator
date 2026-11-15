@@ -166,7 +166,7 @@ export const PRESETS = [
  * A patient made at run time ("Yours", from Work backward), as a PRESETS entry: a params patch, the disease days and the volume a failing heart keeps.
  * Read from storage or a link, so the patch is sanitized as it is applied: a value no control can reach never gets into the model.
  */
-export function presetFromPatch({ id, label = '', group = 'Yours', patch = {}, days = 0, volume = 0, now, summary = '', note = '' }) {
+export function presetFromPatch({ id, label = '', group = 'Yours', patch = {}, days = 0, volume = 0, now = null, summary = '', note = '' }) {
   const d = Math.min(1500, Math.max(0, Number.isFinite(days) ? days : 0)), v = Math.min(3000, Math.max(0, Number.isFinite(volume) ? volume : 0));
   return { id, group, label, apply: (p) => sanitizeParams(deepMerge(p, patch)), days: d, volume: v, ...(now ? { now } : {}), summary, note };
 }

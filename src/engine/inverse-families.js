@@ -40,7 +40,7 @@ const preFib = (pre, sin) => ({ fibrosis: { R: { pre, sin }, L: { pre, sin } } }
  * axes: the settings by key; grid: the virtual patients of the shipped library; patch/days/volume: how a setting becomes a patient;
  * limits: what the model cannot say about this family; ev: the guideline line behind it (Baveno VIII or AASLD 2024 only).
  */
-export const FAMILIES = [
+const SINGLE = [
   { id: 'sinus', short: 'Sinusoidal', label: 'Sinusoidal block', sub: 'Cirrhosis: the resistance sits in the sinusoids.', group: 'Sinusoidal', free: 2, axes: ['scar', 'alb'],
     grid: cross({ scar: pts(0.2, 1, 0.05), alb: [4, 3, 2.6] }),
     patch: (p) => ({ cirrhosis: p.scar, ...(p.alb < 4 ? { albumin: p.alb, diuretics: true } : {}) }), days: (p) => (p.scar > 0.8 ? 540 : 365), volume: () => 0,
@@ -75,20 +75,46 @@ export const FAMILIES = [
     grid: cross({ peric: [0.7, 0.9, 1], vol: [600, 1000, 1300, 1800] }),
     patch: (p) => ({ pericardial: p.peric }), days: () => 60, volume: (p) => p.vol,
     limits: 'The model’s pericardium is one constriction number. It cannot draw septal bounce or the filling pattern.', ev: '' },
-  { id: 'mixpre', short: 'Cirrhosis + pre', label: 'Cirrhosis with a presinusoidal part', sub: 'The MASLD-type pattern: the wedge under-reads the portal pressure.', group: 'Sinusoidal', free: 2, axes: ['scar', 'pre'],
-    grid: cross({ scar: pts(0.3, 0.9, 0.1), pre: [2, 3, 4, 6] }),
-    patch: (p) => ({ cirrhosis: p.scar, fibrosis: { R: { pre: p.pre }, L: { pre: p.pre } } }), days: () => 365, volume: () => 0,
-    limits: 'The model has no cause. “MASLD-type” means a presinusoidal share, not a diagnosis.',
-    ev: 'Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the portal pressure gradient.' },
-  { id: 'mixpvt', short: 'PVT + cirrhosis', label: 'Portal vein thrombosis with mild cirrhosis', sub: 'The clot, plus a light sinusoidal fibrosis.', group: 'Pre-hepatic', free: 2, axes: ['scar', 'clot'],
-    grid: cross({ scar: [0.2, 0.3, 0.4, 0.6, 0.8], clot: [50, 70, 100] }),
-    patch: (p) => ({ cirrhosis: p.scar, thrombus: { PV_TRUNK: p.clot / 100 } }), days: () => 365, volume: () => 0,
-    limits: 'Mild fibrosis is not required by the readings; it is allowed by them. The model cannot tell a little cirrhosis from none at this stiffness.', ev: '' },
-  { id: 'mixrhf', short: 'Cirrhosis + heart', label: 'Cirrhosis with right heart failure', sub: 'A fibrotic liver that is also congested.', group: 'Cardiac', free: 2, axes: ['scar'],
-    grid: cross({ scar: [0.4, 0.6, 0.8] }),
-    patch: (p) => ({ cirrhosis: p.scar, contractility: 0.4, tr: 0.6 }), days: () => 365, volume: () => 1000,
-    limits: 'The heart is held at one setting (pump 0.4, leak 0.6) with 1 L of extra volume; only the scar is fitted.', ev: '' },
 ];
+
+// Two lesions together. A combination is its own family: it takes the settings of both lesions (the ones it varies are `axes`, the rest are held at
+// `fixed`), builds the patient by laying one lesion's params patch over the other's, and runs the disease clock for the longer of the two. It is
+// charged for the second lesion (free = settings varied + 1, so the ranking's cost is 2 for the lesion beyond the settings it adds), so a
+// combination only comes out ahead of a single lesion when it explains the readings clearly better. Axes never repeat across the two parts.
+const merge = (a, b) => {
+  const out = { ...a };
+  for (const k of Object.keys(b)) out[k] = b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && out[k] && typeof out[k] === 'object' ? merge(out[k], b[k]) : b[k];
+  return out;
+};
+const BASE = Object.fromEntries(SINGLE.map((f) => [f.id, f]));
+function combo({ id, short, label, sub, group, parts, fixed = {}, grid, limits, ev = '' }) {
+  const ps = parts.map((x) => BASE[x]), axes = Object.keys(grid[0]), all = (p) => ({ ...fixed, ...p });
+  return { id, short, label, sub, group, free: axes.length + 1, axes, grid, parts,
+    patch: (p) => ps.reduce((acc, f) => merge(acc, f.patch(all(p))), {}),
+    days: (p) => Math.max(...ps.map((f) => f.days(all(p)))), volume: (p) => Math.max(...ps.map((f) => f.volume(all(p)))), limits, ev };
+}
+const COMBOS = [
+  combo({ id: 'mixpre', short: 'Cirrhosis + pre', label: 'Cirrhosis + presinusoidal block', sub: 'The MASLD-type pattern: a presinusoidal part in a cirrhotic liver, so the wedge under-reads the portal pressure.', group: 'Sinusoidal',
+    parts: ['sinus', 'presin'], fixed: { alb: 4, sin: 1 }, grid: cross({ scar: pts(0.3, 0.9, 0.1), pre: [2, 3, 4, 6] }),
+    limits: 'The model has no cause. “MASLD-type” means a presinusoidal share, not a diagnosis.',
+    ev: 'Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the portal pressure gradient.' }),
+  combo({ id: 'mixpvt', short: 'Cirrhosis + PVT', label: 'Cirrhosis + portal vein thrombosis', sub: 'A clot in the trunk on top of a sinusoidal scar, which may be a light one.', group: 'Pre-hepatic',
+    parts: ['sinus', 'pvt'], fixed: { alb: 4 }, grid: cross({ scar: [0.2, 0.3, 0.4, 0.6, 0.8], clot: [50, 70, 100] }),
+    limits: 'Mild fibrosis is not required by the readings; it is allowed by them. The model cannot tell a little cirrhosis from none at this stiffness.' }),
+  combo({ id: 'mixrhf', short: 'Cirrhosis + heart', label: 'Cirrhosis + right heart failure', sub: 'A fibrotic liver that is also congested by a failing right heart.', group: 'Cardiac',
+    parts: ['sinus', 'rhf'], fixed: { alb: 4, vol: 1000 }, grid: cross({ scar: [0.4, 0.6, 0.8], contr: [0.3, 0.5], tr: [0.3, 0.8] }),
+    limits: 'The heart is a pump strength and a leak, with 1 L of extra volume held; it cannot draw the waveform that tells failure from constriction.' }),
+  combo({ id: 'mixconstr', short: 'Cirrhosis + constriction', label: 'Cirrhosis + constrictive pericarditis', sub: 'A fibrotic liver with a constricted right heart.', group: 'Cardiac',
+    parts: ['sinus', 'constr'], fixed: { alb: 4, vol: 1000 }, grid: cross({ scar: [0.4, 0.6, 0.8], peric: [0.7, 1] }),
+    limits: 'The model’s pericardium is one constriction number, with 1 L of extra volume held. It cannot draw septal bounce or the filling pattern.' }),
+  combo({ id: 'mixbcs', short: 'Cirrhosis + hepatic veins', label: 'Cirrhosis + hepatic vein block', sub: 'Budd–Chiari on a cirrhotic liver: thrombosed hepatic veins and a sinusoidal scar.', group: 'Post-hepatic',
+    parts: ['sinus', 'bcs'], fixed: { alb: 4 }, grid: cross({ scar: [0.4, 0.7], veins: [1, 3], occl: [60, 100] }),
+    limits: 'With the right hepatic vein shut the app prints no HVPG, so a wedged reading from this patient would not exist.' }),
+  combo({ id: 'prepvt', short: 'Pre + PVT', label: 'Presinusoidal block + portal vein thrombosis', sub: 'Narrowed portal venules and a clot in the trunk, with no cirrhosis.', group: 'Pre-hepatic',
+    parts: ['presin', 'pvt'], fixed: { sin: 1 }, grid: cross({ pre: [10, 20, 40, 70], clot: [60, 85, 100] }),
+    limits: 'The model has one presinusoidal lesion; PSVD, schistosomiasis and other causes read the same here, and a clot of 65 to 75% still passes flow.' }),
+];
+export const FAMILIES = [...SINGLE, ...COMBOS];
 
 export const AXES = A;
 

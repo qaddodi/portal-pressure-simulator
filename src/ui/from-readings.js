@@ -39,7 +39,7 @@ const STATUS_WORD = { best: 'Fits best', tie: 'Fits about equally', possible: 'P
 const MARK_WORD = { fit: 'fits', near: 'close', off: 'does not fit' };
 
 /** The state of the flow, kept for the page's life so the sheet can be closed and opened again where it was left. */
-const state = { step: 0, raw: {}, view: 'steps' };   // raw: what was typed, by reading key (a string, or a grade index for asc and varix)
+const state = { step: 0, raw: {}, view: 'steps', edit: false };   // view: 'steps' | 'review' | 'results'; edit: a step opened from the review to change one reading   // raw: what was typed, by reading key (a string, or a grade index for asc and varix)
 
 const parse = (k, v) => {
   if (v == null || v === '') return null;
@@ -102,7 +102,7 @@ export function createFromReadings(ctx) {
   function gradeRow(k) {
     const r = READINGS[k], cur = state.raw[k] == null ? null : Number(state.raw[k]);
     const opts = [['Unknown', null], ...r.grades.map((g, i) => [g, i])];
-    const seg = h('div', { class: 'seg full fr-seg', role: 'group', 'aria-label': r.label },
+    const seg = h('div', { class: 'seg full fr-seg', role: 'group', 'aria-label': r.label, 'data-k': k },
       opts.map(([label, v]) => h('button', { type: 'button', 'aria-pressed': String(v === cur), 'data-v': v == null ? '' : String(v) }, label)));
     seg.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b || !seg.contains(b)) return;
@@ -118,21 +118,21 @@ export function createFromReadings(ctx) {
     const st = STEPS[state.step], res = remote.peek(entered()), n = res.n, last = state.step === STEPS.length - 1;
     still = makeStill(); still.update(res);
     const here = st.keys.some((k) => state.raw[k] != null && state.raw[k] !== '');
-    const dots = h('div', { class: 'fr-prog', role: 'img', 'aria-label': `Step ${state.step + 1} of ${STEPS.length}` }, STEPS.map((_, i) => h('i', { class: i <= state.step ? 'on' : '' })));
-    const next = last ? 'Show scenarios' : here ? `Next: ${STEPS[state.step + 1].name.toLowerCase()}` : 'I do not have these: skip';
-    const nextBtn = h('button', { type: 'button', class: 'btn primary fr-next', onclick: () => go(1) }, next);
-    if (last) nextBtn.disabled = n < RESULT_MIN;
+    const dots = h('div', { class: 'fr-prog', role: 'img', 'aria-label': `Step ${state.step + 1} of ${STEPS.length + 1}` }, [...STEPS, null].map((_, i) => h('i', { class: i <= state.step ? 'on' : '' })));
+    const nextBtn = h('button', { type: 'button', class: 'btn primary fr-next', onclick: () => go(1) }, nextLabel(here, last));
     const kids = [
       dots, h('p', { class: 'fr-q' }, st.q), h('p', { class: 'fr-small' }, st.sub),
       h('div', { class: 'fr-rows' }, st.keys.map((k) => (READINGS[k].kind === 'grade' ? gradeRow(k) : numRow(k)))),
       h('div', { class: 'fr-derived', 'aria-live': 'polite' }),
       still.el,
       h('p', { class: 'fr-need' }, needText(n)),
-      h('div', { class: 'fr-btns' }, state.step > 0 ? h('button', { type: 'button', class: 'btn', onclick: () => go(-1) }, 'Back') : null, nextBtn),
+      h('div', { class: 'fr-btns' }, state.step > 0 && !state.edit ? h('button', { type: 'button', class: 'btn', onclick: () => go(-1) }, 'Back') : null, nextBtn),
       h('p', { class: 'fr-fine' }, h('b', {}, 'Model scenarios, not diagnoses.')),
     ];
     return h('div', { class: 'fr-step', 'data-step': st.id }, kids);
   }
+  // The one button's words: while a reading is being changed from the review it goes back there; otherwise the next step, or the review after the last.
+  const nextLabel = (here, last) => (state.edit ? 'Back to your readings' : last ? 'Review your readings' : here ? `Next: ${STEPS[state.step + 1].name.toLowerCase()}` : 'I do not have these: skip');
   const needText = (n) => (n >= RESULT_MIN ? `${n} readings entered. Enough to search.` : `${n} of the ${RESULT_MIN} readings the search needs.`);
   /** The step's live parts, updated in place at each key: the still-possible block, the derived HVPG and the count of readings. No swap, so typing is never interrupted. */
   function liveParts() {
@@ -141,7 +141,7 @@ export function createFromReadings(ctx) {
     still?.update(res);
     const need = body.querySelector('.fr-need'); if (need) need.textContent = needText(res.n);
     const nb = body.querySelector('.fr-next');
-    if (nb) { const st = STEPS[state.step], here = st.keys.some((k) => state.raw[k] != null && state.raw[k] !== ''), last = state.step === STEPS.length - 1; if (last) nb.disabled = res.n < RESULT_MIN; else nb.textContent = here ? `Next: ${STEPS[state.step + 1].name.toLowerCase()}` : 'I do not have these: skip'; }
+    if (nb) { const st = STEPS[state.step], here = st.keys.some((k) => state.raw[k] != null && state.raw[k] !== ''); nb.textContent = nextLabel(here, state.step === STEPS.length - 1); }
     const d = body.querySelector('.fr-derived'), v = entered();
     if (d) d.textContent = state.step === 0 && v.whvp != null && v.fhvp != null && !Number.isNaN(v.whvp + v.fhvp) ? `HVPG ${(v.whvp - v.fhvp).toFixed(1)} mmHg, from the two pressures.` : '';
   }
@@ -179,7 +179,7 @@ export function createFromReadings(ctx) {
   function card(f, res) {
     const fam = FAMILY[f.id];
     return h('article', { class: 'fr-card', 'data-s': f.status, 'data-f': f.id },
-      h('div', { class: 'fr-ct' }, h('b', {}, fam.label), h('span', { class: 'fr-st' }, STATUS_WORD[f.status])),
+      h('div', { class: 'fr-ct' }, h('b', {}, fam.label), h('span', { class: 'fr-st' }, STATUS_WORD[f.status] + (fam.parts ? ' · two lesions' : ''))),
       h('p', { class: 'fr-cs' }, fam.sub),
       fitChips(f, res),
       h('dl', { class: 'fr-kv' },
@@ -188,6 +188,42 @@ export function createFromReadings(ctx) {
         predictLine(f, res).length ? [h('dt', {}, 'Would predict'), h('dd', {}, predictLine(f, res).join(', ') + '. You did not enter these.')] : null,
         h('dt', {}, 'Not in the model'), h('dd', {}, [fam.limits, OUTSIDE[f.id], fam.ev].filter(Boolean).join(' '))),
       h('div', { class: 'fr-acts' }, h('button', { type: 'button', class: f.status === 'possible' ? 'btn' : 'btn primary', onclick: () => openYours(f) }, 'Open as patient')));
+  }
+  // ── Your readings: every reading by step, unknown where none was entered, each a button that opens its step ──
+  const typed = (k) => String(state.raw[k] ?? '').trim().replace(',', '.');
+  function reviewRow(k, res, why) {
+    const r = READINGS[k], known = state.raw[k] != null && state.raw[k] !== '', v = parse(k, state.raw[k]);
+    const derived = !known && k === 'hvpg' && 'whvp' in res.readings && 'fhvp' in res.readings;
+    const bad = known && (Number.isNaN(v) || (r.kind !== 'grade' && (v < r.min || v > r.max)));
+    let val, note = '';
+    if (known && r.kind === 'grade') val = h('b', {}, r.grades[v] ?? typed(k));
+    else if (known) val = h('span', { class: 'fr-val' }, h('b', {}, typed(k)), r.unit ? h('em', {}, r.unit) : null);
+    else if (derived) val = h('span', { class: 'fr-val' }, h('b', {}, (res.readings.whvp - res.readings.fhvp).toFixed(1)), h('em', {}, r.unit));
+    else val = h('span', { class: 'fr-unk' }, 'Unknown');
+    if (bad) note = `Not used: ${Number.isNaN(v) ? 'not a number' : `outside ${r.min} to ${r.max}`}`;
+    else if (known && why[k]) note = `Not used: ${why[k]}`;
+    else if (derived) note = 'Made from the two pressures above';
+    const row = h('button', { type: 'button', class: 'fr-rv', 'data-k': k, 'data-s': known ? (bad || why[k] ? 'off' : 'on') : derived ? 'derived' : 'unknown', 'aria-label': `${r.label}: ${known ? typed(k) : derived ? 'made from the two pressures' : 'unknown'}. Change` },
+      h('span', { class: 'fr-rl' }, h('b', {}, r.label), note ? h('i', {}, note) : null), val, h('span', { class: 'fr-chev', 'aria-hidden': 'true' }));
+    row.addEventListener('click', () => { state.step = STEPS.findIndex((st) => st.keys.includes(k)); state.view = 'steps'; state.edit = true; show(k); });
+    return h('li', {}, row);
+  }
+  function reviewView() {
+    const res = remote.peek(entered()), why = Object.fromEntries(res.dropped.map((d) => [d.key, d.why]));
+    const total = STEPS.reduce((n, st) => n + st.keys.length, 0), have = Object.keys(state.raw).length;
+    const groups = STEPS.map((st) => h('section', { class: 'fr-rg', 'aria-label': st.name },
+      h('div', { class: 'fr-rgh' }, h('b', {}, st.name), h('span', {}, `${st.keys.filter((k) => state.raw[k] != null && state.raw[k] !== '').length} of ${st.keys.length}`)),
+      h('ul', {}, st.keys.map((k) => reviewRow(k, res, why)))));
+    const ok = res.n >= RESULT_MIN, go2 = h('button', { type: 'button', class: 'btn primary fr-next', onclick: () => go(1) }, 'Show scenarios');
+    go2.disabled = !ok;
+    return h('div', { class: 'fr-review' },
+      h('div', { class: 'fr-prog', role: 'img', 'aria-label': `Step ${STEPS.length + 1} of ${STEPS.length + 1}` }, [...STEPS, null].map(() => h('i', { class: 'on' }))),
+      h('p', { class: 'fr-q' }, 'Your readings'),
+      h('p', { class: 'fr-small' }, `${have} of ${total} entered. Tap a reading to change it. Anything left blank stays unknown, and the search never fills it in.`),
+      groups,
+      h('p', { class: 'fr-need' }, needText(res.n)),
+      h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.step = STEPS.length - 1; state.view = 'steps'; state.edit = false; show(); } }, 'Back'), go2),
+      h('p', { class: 'fr-fine' }, h('b', {}, 'Model scenarios, not diagnoses.')));
   }
   function resultView() {
     const res = remote.peek(entered());   // (what was entered, over the grid and every patient the refinement has added: one source, never a result left over from earlier)
@@ -203,7 +239,7 @@ export function createFromReadings(ctx) {
       res.ready && out.length ? h('p', { class: 'fr-fine' }, `Ruled out by your readings: ${out.map((f) => f.short).join(', ')}.`) : null,
       res.ready && nx ? h('div', { class: 'fr-next-note' }, h('span', { class: 'fr-pillnote' }, 'Next'), h('div', {}, h('p', {}, nx.lead), nx.rest.map((t) => h('p', { class: 'fr-fine' }, t)))) : null,
       res.ready ? h('p', { class: 'fr-fine fr-refine', 'aria-live': 'polite' }, refineText()) : null,
-      h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.view = 'steps'; state.step = STEPS.length - 1; show(); } }, 'Back to readings'),
+      h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.view = 'review'; show(); } }, 'Your readings'),
         h('button', { type: 'button', class: 'btn ghost', onclick: startOver }, 'Start over')),
       h('p', { class: 'fr-fine' }, h('b', {}, 'Model scenarios, not diagnoses.'), ' Saved on this device only.'),
     ];
@@ -215,19 +251,24 @@ export function createFromReadings(ctx) {
     const res = remote.peek(entered()), r = { ...res.readings };
     try { await ctx.openYours(f.id, f.best.p, r); closePopover(); } catch { announce('The patient could not be made right now.'); }
   }
-  function startOver() { state.raw = {}; state.step = 0; state.view = 'steps'; remote.set({}); show(); }
+  function startOver() { state.raw = {}; state.step = 0; state.view = 'steps'; state.edit = false; remote.set({}); show(); }
   function go(d) {
+    if (state.view === 'review') { if (d > 0) { clearTimeout(askT); remote.set(entered()); state.view = 'results'; lastSig = ''; show(); } return; }
     const to = state.step + d;
-    if (to >= STEPS.length) { clearTimeout(askT); remote.set(entered()); state.view = 'results'; lastSig = ''; show(); return; }
+    if (state.edit || to >= STEPS.length) { state.edit = false; state.view = 'review'; show(); return; }
     if (to < 0) return;
     state.step = to; state.view = 'steps'; show();
   }
+  const viewNow = () => (state.view === 'steps' ? stepView() : state.view === 'review' ? reviewView() : resultView());
   // The body's content swapped with the shared fade; the sheet itself never closes and opens again.
-  function show() {
+  // `focus`: a reading to put the cursor in once its step is up (a tap on it in the review).
+  function show(focus = null) {
     if (!body) return;
-    const next = () => body.replaceChildren(state.view === 'steps' ? stepView() : resultView());
-    swapFade(body, next);
-    if (state.view === 'steps') liveParts();
+    swapFade(body, () => {
+      body.replaceChildren(viewNow());
+      if (state.view === 'steps') liveParts();
+      if (focus) { const t = body.querySelector(`input[data-k="${focus}"]`) || body.querySelector(`[data-k="${focus}"] button[aria-pressed="true"]`); t?.focus({ preventScroll: true }); }
+    });
   }
   function onRemote() {
     if (state.view !== 'results' || !body) return;
@@ -243,7 +284,7 @@ export function createFromReadings(ctx) {
       el = popover(anchor, h('div', { class: 'fr' }, h('div', { class: 'fr-head' }, svgIcon('scenario', 'fr-ic'), h('b', {}, 'From readings'), h('span', {}, 'Work backward from what you measured')), body), { cls: 'fr-pop', title: 'From readings', align: 'start', onClose: () => { clearTimeout(askT); offRemote?.(); offRemote = null; body = null; el = null; } });
       if (!el) return;
       el.setAttribute('aria-label', 'From readings');
-      body.replaceChildren(state.view === 'steps' ? stepView() : resultView());
+      body.replaceChildren(viewNow());
       if (state.view === 'steps') liveParts();
       offRemote = remote.on(onRemote);
     },

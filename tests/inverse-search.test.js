@@ -169,3 +169,30 @@ test('every reading has an allowed error and, when it is a grade, a name for eac
     if (r.kind === 'grade') assert.ok(r.grades.length >= 3);
   }
 });
+
+test('a combination of two lesions comes first only when the readings need both', () => {
+  // Cirrhosis with a failing right heart: a wedge well above the free pressure (liver) with both high (heart), a raised RA, a stiff liver and a big spleen.
+  const both = rank({ whvp: 24, fhvp: 14, ra: 11, lsm: 26, plt: 85, spleen: 16, asc: 2 }, POINTS);
+  assert.ok(['mixconstr', 'mixrhf'].includes(both.families[0].id), 'cirrhosis + a heart lesion: ' + both.families[0].id);
+  assert.ok(FAMILY[both.families[0].id].parts.includes('sinus'), 'and it is a two-lesion family');
+  const single = both.families.filter((f) => !FAMILY[f.id].parts && (f.status === 'best' || f.status === 'tie'));
+  assert.deepEqual(single, [], 'neither lesion alone explains all of it');
+  // Readings one lesion explains do not hand the win to a combination that merely has more settings to turn.
+  assert.ok(!FAMILY[rank(B, POINTS).families[0].id].parts, 'cirrhosis alone');
+  assert.ok(!FAMILY[rank(C, POINTS).families[0].id].parts, 'the heart alone');
+});
+
+test('every combination is two real lesions, charged for the second, with settings that do not repeat', () => {
+  const combos = FAMILIES.filter((f) => f.parts);
+  assert.ok(combos.length >= 6);
+  for (const f of combos) {
+    assert.equal(f.parts.length, 2, f.id);
+    assert.equal(f.free, f.axes.length + 1, f.id + ': the second lesion costs one more setting');
+    assert.ok(f.parts.every((id) => FAMILY[id] && !FAMILY[id].parts), f.id + ': made of single lesions');
+    const own = f.parts.flatMap((id) => FAMILY[id].axes);
+    assert.equal(new Set(own).size, own.length, f.id + ': no setting belongs to both parts');
+    assert.ok(f.axes.every((k) => own.includes(k)), f.id);
+  }
+  // The room for a combination in the ranking: it costs more than either part alone.
+  for (const f of combos) for (const id of f.parts) assert.ok(f.free >= FAMILY[id].free - 1, f.id);
+});

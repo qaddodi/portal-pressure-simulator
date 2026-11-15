@@ -63,6 +63,9 @@ test('every step can be skipped and the last one waits for enough readings', () 
   openFresh();
   for (let i = 0; i < 3; i++) { assert.match(body().querySelector('.fr-next').textContent, /skip/i, `step ${i + 1}`); next(); }
   assert.equal(fr.state.step, 3);
+  assert.equal(body().querySelector('.fr-next').textContent, 'Review your readings');
+  next();
+  assert.equal(fr.state.view, 'review');
   assert.equal(body().querySelector('.fr-next').textContent, 'Show scenarios');
   assert.equal(body().querySelector('.fr-next').disabled, true, 'no readings: the search is not offered');
   assert.match(body().querySelector('.fr-need').textContent, /0 of the 4/);
@@ -75,6 +78,8 @@ test('a ranking from a presinusoidal patient: ties shown as ties, what each cann
   type('lsm', '6.5'); type('ssm', '68'); next();
   type('spleen', '16'); type('plt', '78'); next();
   grade('Ascites', 'None');
+  next();
+  assert.equal(fr.state.view, 'review');
   assert.equal(body().querySelector('.fr-next').disabled, false);
   next();
   assert.equal(fr.state.view, 'results');
@@ -104,7 +109,7 @@ test('a reading that is made from two others is left out and said so; unknown re
   reset();
   openFresh();
   type('whvp', '8'); type('fhvp', '4.5'); type('hvpg', '3.5'); next();
-  type('lsm', '6.5'); next(); type('plt', '78'); next(); next();
+  type('lsm', '6.5'); next(); type('plt', '78'); next(); next(); next();
   assert.equal(fr.state.view, 'results');
   assert.match(body().textContent, /Left out: HVPG/);
   assert.ok(!('ra' in fr.remote.peek(fr.state.raw && Object.fromEntries(Object.entries(fr.state.raw).map(([k, v]) => [k, Number(v)]))).readings));
@@ -113,10 +118,43 @@ test('a reading that is made from two others is left out and said so; unknown re
 test('fewer than four readings gives no scenarios and says how many are needed', () => {
   reset();
   openFresh();
-  type('whvp', '8'); type('fhvp', '4.5'); next(); next(); next();
+  type('whvp', '8'); type('fhvp', '4.5'); next(); next(); next(); next();
+  assert.equal(fr.state.view, 'review');
   assert.equal(body().querySelector('.fr-next').disabled, true);
   fr.state.view = 'results'; openFresh();
   assert.match(body().textContent, /Not enough readings yet/);
   assert.equal(body().querySelectorAll('.fr-card').length, 0);
+  closePopover();
+});
+
+test('the review lists every reading by step, shows unknown as unknown, and a tap on a reading opens its step to change it', () => {
+  reset();
+  openFresh();
+  type('whvp', '8'); type('fhvp', '4.5'); next();
+  type('lsm', '6,5'); next();
+  next();
+  grade('Ascites', 'Grade 1');
+  next();
+  assert.equal(fr.state.view, 'review');
+  const rows = [...body().querySelectorAll('.fr-rv')];
+  assert.equal(rows.length, STEPS.reduce((n, st) => n + st.keys.length, 0), 'every reading has its row, entered or not');
+  const row = (k) => rows.find((r) => r.dataset.k === k);
+  assert.equal(row('whvp').dataset.s, 'on');
+  assert.match(row('whvp').textContent, /8.*mmHg/);
+  assert.equal(row('hvpg').dataset.s, 'derived', 'the HVPG is shown, made from the two pressures');
+  assert.match(row('hvpg').textContent, /3\.5/);
+  assert.match(row('lsm').textContent, /6\.5/, 'a comma is read as a point');
+  assert.match(row('asc').textContent, /Grade 1/);
+  assert.equal(row('ra').dataset.s, 'unknown');
+  assert.match(row('ra').textContent, /Unknown/);
+  assert.equal(body().querySelectorAll('.fr-rg').length, STEPS.length);
+  row('lsm').click();
+  assert.equal(fr.state.view, 'steps');
+  assert.equal(fr.state.step, 1, 'its own step');
+  assert.equal(body().querySelector('.fr-next').textContent, 'Back to your readings');
+  type('lsm', '9');
+  next();
+  assert.equal(fr.state.view, 'review');
+  assert.match([...body().querySelectorAll('.fr-rv')].find((r) => r.dataset.k === 'lsm').textContent, /9/);
   closePopover();
 });
