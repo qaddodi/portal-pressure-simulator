@@ -73,6 +73,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
+import { FIG_STEPS, figDetailWords } from './fig-detail-words.js';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, watchAnimating, isAnimating } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
 import { restPass } from './rest-pass.js';
@@ -1364,16 +1365,16 @@ function presenterSettings() { return []; }
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
 // Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
-const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
+const MP_STEPS = FIG_STEPS;
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
   const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Less detail', title: 'Less detail (softer, runs cooler)' }, '−');
   const dflt = figDefault('cap');
   const now = h('button', { class: 'ts-reset', 'aria-label': 'Figure detail: back to Standard', title: 'Back to Standard' });
   const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More detail', title: 'More detail (sharper, runs warmer)' }, '+');
-  // The steps in words: Standard is this device's own default (a phone's is a lighter picture than a laptop's), then one or two steps each way, and
-  // Full at the top (the screen's own density). The megapixels stay in the hover text for a tester who is asked for them.
-  const wordOf = (i) => { const v = MP_STEPS[i], d = MP_STEPS.indexOf(dflt) - i; return !v ? 'Full' : d === 0 ? 'Standard' : d === 1 ? 'Softer' : d > 1 ? 'Softest' : d === -1 ? 'Sharper' : 'Sharpest'; };
+  // The steps in words (fig-detail-words.js, one name each): Standard is this device's own default, the others are counted outward from it, and
+  // Full is at the top (the screen's own density). The megapixels stay in the hover text for a tester who is asked for them.
+  const words = figDetailWords(MP_STEPS, dflt), wordOf = (i) => words[i];
   const paint = () => {
     const i = at(), v = MP_STEPS[i];
     less.disabled = i === 0; more.disabled = i === MP_STEPS.length - 1;
