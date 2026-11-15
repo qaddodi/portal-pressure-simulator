@@ -116,6 +116,7 @@ import { createClamps } from './stage-clamps.js';
 import { createLabelItems } from './stage-label-items.js';
 import { createLabelDriver } from './stage-labels.js';
 import { createPick } from './stage-pick.js';
+import { stationStep } from './fig-stations.js';
 import { createGlow } from './stage-glow.js';
 import { createFrame } from './stage-frame.js';
 import { createTransitions } from './stage-transitions.js';
@@ -2909,15 +2910,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       figShow(null);   // (past either end: Tab leaves the figure, as it would leave any other stop)
       return;
     }
+    // The arrows walk the stations in the order the blood meets them (fig-stations.js): down and right toward the heart, up and left toward the gut.
+    // Shift with Left or Right keeps the old step along the vessel under the cursor, below.
+    const way = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowLeft' || ev.key === 'ArrowUp' ? -1 : 0;
+    if (way && items.length && !(ev.shiftKey && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && at >= 0 && items[at] && !items[at].includes(':'))) {
+      ev.preventDefault();
+      const st = stationStep(items, figKeys.cur, way);
+      if (st) figShow(st.item, `Station ${st.n} of ${st.of}, ${st.name}.`);
+      return;
+    }
     const item = at >= 0 ? items[at] : null;
     if (!item) return;
+    if (item === 'node:RA') { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onSelect({ type: 'node', id: 'RA' }, { keyboard: true }); } return; }
     if (item.startsWith('organ:')) {
       if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt || morph > 0.5) return; setOrganHover(null); onSelect({ type: 'organ', id: item.slice(6) }, { keyboard: true }); }
       return;
     }
     const id = item;
     if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt) { shuntDropOn(id); return; } onSelect({ type: 'edge', id }, { keyboard: true }); }
-    if ((ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') && F && EI[id] != null) {
+    if (ev.shiftKey && (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') && F && EI[id] != null) {
       ev.preventDefault();
       const e = EDGES[EI[id]];
       const q = F.Q[EI[id]];

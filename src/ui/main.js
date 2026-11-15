@@ -2290,7 +2290,7 @@ function openHelp(section) {
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
       ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
-      ['← →', 'Walk vessels along the flow'], ['Esc', 'Cancel · close the card · close']]],
+      ['← → ↑ ↓', 'Step through the stations, gut to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
   openModal('Guide', h('div', {},
     h('p', { class: 'lede' }, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
