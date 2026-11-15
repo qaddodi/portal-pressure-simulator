@@ -84,7 +84,8 @@ const P = (patch) => (p) => deepMerge(p, patch);
 // (/mnt/project-files/review/meal-response/review.md, engine-options.md).
 export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
 
-// Each preset: patch applied to defaultParams(), plus chronic days on the disease clock.
+// Each preset: patch applied to defaultParams(), plus chronic days on the disease clock. `facts`: the case's history the model does not hold
+// (trial-fit.js), so far only whether the patient has ever decompensated (ascites, a variceal bleed): the Tests card's trials read it (TC-F3).
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
     summary: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
@@ -111,34 +112,34 @@ export const PRESETS = [
   { id: 'psvd', group: 'Presinusoidal', label: 'Porto-sinusoidal vascular disorder', apply: P({ fibrosis: { R: { pre: 50, sin: 2.2 }, L: { pre: 50, sin: 2.2 } } }), days: 365,
     summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, near-normal WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
     note: 'Narrowed portal venules without cirrhosis. Splenomegaly, near-normal HVPG. Varices can form; ascites is rare.' },
-  { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
+  { id: 'cirr-comp', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
     summary: 'Mild sinusoidal portal hypertension (HVPG over 5 and under 10 mmHg). No varices yet.',
     note: 'Mild sinusoidal portal hypertension. HVPG over 5 and under 10 mmHg, no varices yet.' },
-  { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
+  { id: 'csph', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
     summary: 'HVPG ≥10 mmHg: collaterals begin to open and small varices form.',
     note: 'HVPG ≥10 mmHg. Collaterals open and small varices appear.' },
   // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
   // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
   // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 10.5 and PPG about
   // 14 mmHg (until 15 Nov 2026 the breath moved them, 10.3 to 10.9 and 13.6 to 14.3; the readings are now its means), small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
-  { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
+  { id: 'masld-csph', facts: { decompensated: false }, group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG underestimates', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
     summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance is presinusoidal, so the HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.',
     note: 'Obese MASLD cirrhosis. HVPG underestimates the portal pressure gradient by a few mmHg. Small varices, no ascites.' },
-  { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
+  { id: 'cirr-decomp', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥15 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
     note: 'HVPG ≥15 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
   // (Cirrhosis 0.84, not 0.95: at 0.95 the PPG rested on the red line at 12, 11.8 at the bedside and 12.1 settled, so the tile and the
   // slides' tables could rate it differently. At 0.84: HVPG 11.1 and PPG 11.2 at the bedside, 11.4 and 11.5 settled, and the portal flow
   // stays reversed (no higher setting clears 12 at the bedside: 1.0 reads 12.0). ENG-5.)
-  { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.84, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
+  { id: 'cirr-hepatofugal', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with reversed portal flow', apply: P({ cirrhosis: 0.84, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.',
     note: 'Very high sinusoidal resistance plus arterioportal shunting. Portal flow reverses into collaterals.' },
-  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
+  { id: 'gastric-varix', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.9, albumin: 3.0, diuretics: true, spontaneous: { C5: true }, isolatedGV: true }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.',
     note: 'Isolated fundal varices (IGV1) drain through a gastrorenal shunt into the left renal vein: the BRTO target.' },
   // Compensated cirrhosis with small varices before pregnancy (HVPG about 12); `now` makes her pregnant once the disease
   // clock has run, so moving the gestation back to 0 shows her before pregnancy.
-  { id: 'pregnancy', group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
+  { id: 'pregnancy', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Cirrhosis in pregnancy', apply: P({ cirrhosis: 0.62 }), days: 365, now: { gestation: 24 },
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.',
     note: 'Compensated cirrhosis at 24 weeks. Higher blood volume and portal inflow enlarge small varices.' },
   // (Central-vein resistance 34, not 32: at 32 SOS rested at HVPG 10.2 and PPG 12.1 at the bedside, on both red lines, and read amber or red with

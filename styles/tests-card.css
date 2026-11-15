@@ -135,51 +135,80 @@
    width and shares the spare room, as the wider row does (app.css .ws-tabs.compact:not(.narrow)), so Pressure and Readouts show whole. ---- */
 .ws-tabs.narrow:not(.tight) .instr-tab { flex: 1 1 auto; }
 
-/* ---- Trials (trials-pane.js): a List and a Forest, switched as the Pressure tab is. Name over number, hairlines between, no boxes. ---- */
+/* ---- Trials (trials-pane.js): a List and a Forest, cross-faded. The closest trial leads, lifted; the rest fold under the rule that keeps them out
+   (trials card review, 15 Nov 2026). Name over number, hairlines between. Only opacity and transform move. ---- */
 .trials-view { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.tr-body { min-width: 0; }
 .trials-view[data-mode="list"] .tr-forest, .trials-view[data-mode="forest"] .tr-list { display: none; }
 .tr-hd .tr-t { font: 600 17px/1.25 var(--font-ui); letter-spacing: -.01em; color: var(--text); }
 .tr-s { margin-top: 2px; font: 400 13px/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .tr-s b { font-weight: 600; color: var(--text); }
 :is(.tr-s, .tr-model) b[data-sev="caution"] { color: var(--caution-ink); }
 :is(.tr-s, .tr-model) b[data-sev="danger"] { color: var(--danger-ink); }
-.tr-list { display: flex; flex-direction: column; }
-.tr-grp { margin: 12px 0 2px; font: 600 12px/1.3 var(--font-ui); color: var(--text-3); }
-.tr-grp:first-child { margin-top: 0; }
-.tr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 14px; align-items: start; width: 100%; padding: 10px 0; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.tr-row + .tr-row, .tr-exp + .tr-row { border-top: 1px solid var(--hairline); }
-.tr-row:focus-visible, .tf-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tr-l { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.tr-nm { font: 600 15px/1.3 var(--font-ui); }
-.tr-ds { font: 400 12.5px/1.35 var(--font-ui); color: var(--text-2); }
-.tr-ds2 { color: var(--text-3); }
-.tr-why { margin-top: 2px; font: 500 12.5px/1.35 var(--font-ui); color: var(--text-2); }
-.tr-rs { text-align: right; font: 600 20px/1.2 var(--font-ui); letter-spacing: -.015em; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tr-vs { font: 500 13px var(--font-ui); color: var(--text-3); letter-spacing: 0; }
-.tr-rs small { display: block; font: 500 12px/1.3 var(--font-ui); color: var(--text-3); letter-spacing: 0; }
-.tr-row.q .tr-nm { font-weight: 500; }
-.tr-row.q .tr-rs { font-size: 15px; color: var(--text-2); }
-.tr-exp { display: flex; flex-direction: column; gap: 10px; padding: 2px 0 12px; font: 500 13px/1.35 var(--font-ui); color: var(--text); }
-.tr-kv { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 4px 10px; }
-.tr-kv .k, .tr-model .k { color: var(--text-3); }
-.tr-rules { display: flex; flex-direction: column; gap: 3px; }
-.tr-rule { display: flex; justify-content: space-between; gap: 2px 10px; flex-wrap: wrap; }
-.tr-rv { color: var(--text-3); text-align: right; }
-.tr-rule[data-state="yes"] .tr-rv { color: var(--text-2); }
-.tr-rule[data-state="no"] .tr-rv { color: var(--text); font-weight: 600; }
-.tr-eff { font-weight: 600; }
-.tr-note { font-weight: 400; color: var(--text-2); }
-.tr-model { display: flex; flex-direction: column; gap: 2px; }
-.tr-model .k b { font-weight: 600; color: var(--text-2); }
-.tr-model .v { font: 500 14px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; }
+.tr-list { display: flex; flex-direction: column; gap: 10px; }
+.tr-sec { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.tr-items { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.tr-grp { margin: 0 0 6px; font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-none { font: 400 13px/1.4 var(--font-ui); color: var(--text-2); }
+/* A row: line 1 the name and the two rates with the outcome word, line 2 why it is here. */
+.tr-row { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 9px 0; border: 0; border-radius: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.tr-items > .tr-row + .tr-row, .tr-items > .tr-exp + .tr-row { border-top: 1px solid var(--hairline); }
+.tr-row:focus-visible, .tf-hit:focus-visible, .tr-fh:focus-visible, .tr-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tr-l1 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-width: 0; }
+.tr-nm { min-width: 0; font: 500 15px/1.3 var(--font-ui); color: var(--text); }
+.tr-rs { flex: none; text-align: right; font: 600 14px/1.3 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.tr-vs { font-weight: 500; color: var(--text-3); }
+.tr-l2 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tr-why { min-width: 0; font: 400 12.5px/1.35 var(--font-ui); color: var(--text-3); }
+.tr-row.hero { gap: 4px; padding: 11px 12px; border-radius: 12px; background: var(--surface-2); }
+.tr-items > .tr-row.hero + .tr-row.hero, .tr-items > .tr-exp + .tr-row.hero { border-top: 0; margin-top: 8px; }
+.tr-row.hero .tr-nm { font-weight: 600; }
+.tr-row.hero .tr-rs { font-size: 15px; }
+.tr-row.hero .tr-why { color: var(--text-2); }
+.tr-pips { display: inline-flex; gap: 3px; flex: none; }
+.tr-pips i { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--text-3); }
+.tr-pips i.y { background: var(--text); border-color: var(--text); }
+.tr-pips i.x { border-color: var(--text); background: linear-gradient(45deg, transparent 42%, var(--text) 42% 58%, transparent 58%); }
+/* A fold: its head (name, count, chevron), the chips of the rules that keep trials out, then its rows. */
+.tr-fold { padding-top: 10px; border-top: 1px solid var(--hairline); }
+.tr-fh { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 0; border: 0; background: none; color: var(--text); font: 600 13.5px/1.3 var(--font-ui); text-align: left; cursor: pointer; }
+.tr-fc { display: inline-flex; align-items: center; gap: 8px; color: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.tr-chev { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform var(--d-small) var(--ease); }
+.tr-fh[aria-expanded="true"] .tr-chev { transform: translateY(1px) rotate(225deg); }
+.tr-chips { position: relative; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; }
+.tr-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font: 500 12px/1.3 var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer; }
+.tr-chip b { font-weight: 600; color: var(--text); }
+.tr-chip[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+.tr-chip[aria-pressed="true"] b { color: var(--surface); }
+.tr-fb { padding-top: 4px; }
+@media (pointer: coarse) { .tr-fh { min-height: 44px; } .tr-chip { padding: 7px 12px; } }
+/* The open trial: lesson, the deck's design A drawing, the rules as a checklist, the Model line, Baveno VIII in short, the source. */
+.tr-exp { display: flex; flex-direction: column; gap: 10px; padding: 10px 0 14px; font: 500 13px/1.35 var(--font-ui); color: var(--text); }
+.tr-lesson { font: 600 14px/1.4 var(--font-ui); color: var(--text); text-wrap: pretty; }
+.tr-also { font: 500 12.5px/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tr-lab { margin-top: 2px; font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-rules { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 5px 8px; align-items: baseline; font: 400 12.5px/1.35 var(--font-ui); }
+.tr-rule { display: contents; }
+.tr-rule .g { font-weight: 700; text-align: center; color: var(--text); }
+.tr-rule .r { min-width: 0; color: var(--text); }
+.tr-rule .v { max-width: 52%; text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tr-rule[data-state="na"] :is(.g, .v) { color: var(--text-3); }
+.tr-rule[data-state="no"] .v { color: var(--text); font-weight: 600; }
+.tr-rule.minor .r { color: var(--text-2); }
+.tr-rsep { grid-column: 1 / -1; height: 1px; background: var(--hairline); }
+.tr-model { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.tr-model .k { font: 650 11px/1.3 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.tr-model .v { font: 600 15px/1.35 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
 .tr-model .v b { font-weight: 600; }
 .tr-model .v s { text-decoration: none; color: var(--text-3); }
-.tr-src { font: 500 12px/1.4 var(--font-ui); color: var(--text-3); }
-.tr-warn { font: 600 12px/1.4 var(--font-ui); color: var(--caution-ink); }
+.tr-model .s { font: 400 12px/1.4 var(--font-ui); color: var(--text-2); }
+.tr-bav { display: flex; flex-direction: column; gap: 4px; font: 400 12.5px/1.45 var(--font-ui); color: var(--text-2); }
+.tr-bav b { font-weight: 600; color: var(--text); }
+.tr-today { color: var(--text); }
+.tr-src { font: 500 11.5px/1.4 var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .tf-hits { position: absolute; inset: 0; }
 .tf-hit { position: absolute; left: 0; right: 0; padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer; }
 #app.thumb .tr-hd .tr-t { font-size: 16px; }
-#app.thumb .tr-rs { font-size: 18px; }
 
 /* ---- Readouts: copy as text (the readings past a cut-off as one sentence; the sentence shown is the one copied) ---- */
 .rp-quote { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font: 400 14px/1.5 var(--font-ui); color: var(--text); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }

@@ -654,7 +654,8 @@ function morphRow(o, r, fade) {
 }
 /** Updates a list in place from freshly built rows (MOTION_HEAT_REVIEW P18): a row whose data-row is already shown stays
  *  (replaced where it stands if its data-sig changed), a new row rises in over .22 s, and a row no longer wanted fades and
- *  folds away before it leaves. Rows without a key are simply replaced. The list was rebuilt whole, every row popping. */
+ *  folds away before it leaves; the rows that stay glide to their new places. Rows without a key are simply replaced. The list
+ *  was rebuilt whole, every row popping. A row passed in that is already shown (the same node) stays as it is. */
 export function reconcile(list, rows) {
   const old = new Map();
   for (const c of list.children) if (c.dataset.row && !c.classList.contains('rc-out')) old.set(c.dataset.row, c);
@@ -669,9 +670,13 @@ export function reconcile(list, rows) {
   const keep = new Set(want);
   const going = [...list.children].filter((c) => !keep.has(c) && !c.classList.contains('rc-out'));
   // A row that goes leaves the flow at once and fades where it stood; the rows under it slide up into its room (FLIP, by
-  // transform). Nothing's height is eased: no layout per frame.
-  const fly = shown && !still && going.some((g) => g.dataset.row);
-  const was = fly ? new Map(want.filter((e) => e.parentNode === list).map((e) => [e, e.offsetTop])) : null;
+  // transform). A row that comes in, or rows that change order, push the others the same way: they glide to their new places
+  // (the Tests card's trials, TC-M1 and TC-M3: an open trial pushed the rows under it down in one frame). Nothing's height is
+  // eased: no layout per frame.
+  const kept = want.filter((e) => e.parentNode === list), seen = kept.length ? [...list.children].filter((c) => keep.has(c)) : kept;
+  const moved = kept.some((e, i) => seen[i] !== e);
+  const fly = shown && !still && (going.some((g) => g.dataset.row) || moved || [...fresh].some((r) => r.dataset.row));
+  const was = fly ? new Map(kept.map((e) => [e, e.offsetTop])) : null;
   let cur = list.firstChild;
   for (const e of want) {
     while (cur && cur !== e && (going.includes(cur) || cur.classList?.contains('rc-out'))) cur = cur.nextSibling;
