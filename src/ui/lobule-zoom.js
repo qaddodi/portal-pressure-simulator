@@ -23,7 +23,7 @@ import { lerp } from './num.js';
 import { stageCovered } from './seen.js';
 import { carryCovers, carryBetween } from './carry-cover.js';
 import { runFlick, FLICK } from './flick.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { glideClock } from './glide-clock.js';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js';
 import { softwareYield } from './sw-yield.js';
@@ -2965,7 +2965,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (quietSin || (!on && !store.get().lobule)) { sinTo = 0; cancelFrame(sinRaf); sinClock.stop(); return; }   // the lobule view is closing, in this same change or before it: the sinusoid fades out with it
     // Asked for while the dive into the lobule is still on its way: it carries on into the sinusoid once the dive lands (setDiveZoom).
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
-    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
+    if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) setViewKey('lobule'); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
     const to = on ? 1 : 0;
     if (to === sinTo && sinU === to) return;
     sinTo = to;
@@ -3004,9 +3004,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function sinOnLanding() {
     if (diveScaled || !sinPending || fade <= 0.98) return;
     sinPending = false;
-    restPass(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) store.set({ sinusoid: true }); });   // alloc-rare: once, when a zoom into the sinusoid asked for while the dive was on its way lands   // (the store's listeners run between frames, not in one)
+    restPass(() => { const st = store.get(); if (st.lobule && !st.sinusoid && fade > 0.98) setViewKey('sinusoid'); });   // alloc-rare: once, when a zoom into the sinusoid asked for while the dive was on its way lands   // (the store's listeners run between frames, not in one)
   }
-  store.on('lobule', (on) => { if (!on) sinPending = false; if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });   // alloc-rare: only when the lobule closes while the sinusoid view is open (once per gesture)
+  store.on('lobule', (on) => { if (!on) sinPending = false; if (!on && store.get().sinusoid) { quietSin = true; setViewKey('anatomy'); quietSin = false; } });   // alloc-rare: only when the lobule closes while the sinusoid view is open (once per gesture)
 
   // Named pieces for the frame-time gate (framePart, frame.js): the dive's staging ran 4 to 17 s outside the scheduler on CI's profiles
   // with nothing inside it named. Each call is unchanged; only while frames are watched is it timed.

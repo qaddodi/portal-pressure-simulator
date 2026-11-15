@@ -11,7 +11,7 @@ import { reduceMotionMQ as reduce } from './motion.js';
 import { camOn, slideTargets } from './presenter-words.js';
 import { playProcedure, procBlocked, procKindOf, procOffered, specOf, stepMarks } from './proc-anim.js';
 import { procNavPlan } from './proc-nav.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { clamp, cssVar, fmt } from './util.js';
 
 export function createProc(st, live) {
@@ -182,7 +182,7 @@ export function createProc(st, live) {
     try {
       await toAnatomy(null, () => !mine());
       if (!mine()) { drop(); return; }
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
+      if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(() => !mine(), stage); }
     } finally { live.procWait = false; }
     if (!mine() || live.procRun) { if (!mine()) drop(); procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];

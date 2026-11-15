@@ -7,8 +7,8 @@
 
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvpgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
-import { store, logAction } from './store.js';
+import { hvpgSev, hvpgWord, EUS_LINE_NOTE, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { store, logAction, setViewKey } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
@@ -24,6 +24,8 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const SLIDE = { procedure: 'eus' };   // (the monitor's measurement: the EUS-PPG, as on a slide that plays it)
 const r1 = (v) => Math.round(v * 10) / 10;
 const IDLE = 'EUS-guided portal pressure gradient: portal and hepatic vein pressures measured transgastrically with one needle.';
+// (The technique's card text, for the button's tooltip: site, reference, conditions and limitations, EUS_LINE_NOTE. R09/§6.2.)
+const TECHNIQUE = `${IDLE} Site: left portal vein (LPV) minus left hepatic vein (LHV), through the stomach. ${EUS_LINE_NOTE}`;
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT);
 // (Read on the HVPG's cut-offs, as EUS-PPG series do: 5 and over portal hypertension, 10 and over clinically significant.)
 
@@ -36,7 +38,7 @@ export function createEusPpg() {
   let capT = IDLE;
   // (A measurement, started as Measure › HVPG starts the HVPG: "Measure", with the procedure's own icon, the needle; the treatments beside the HVPG are what one
   // watches. Unification audit, finding 5. The button keeps its size and words: the Scope card's grid places it.)
-  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Measure EUS-PPG on the anatomy', title: IDLE, onclick: () => play(),
+  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Measure EUS-PPG on the anatomy', title: TECHNIQUE, onclick: () => play(),
     onpointerup: (e) => { if (e.pointerType !== 'mouse' && !btn.disabled) play(); } }, icon('needle'), h('span', {}, 'EUS-PPG'));
   const row = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'EUS-guided portal pressure gradient' }, h('span', { class: 'hvpg-procs-k' }, 'Measure'), btn);
   // (The readings, the steps and the words are one panel, .eus-panel: styles/scope-card.css lays it over the foot of the scope's picture on the side card while a run is on
@@ -61,8 +63,7 @@ export function createEusPpg() {
     playT = performance.now();
     if (procRunning() || stageRef.cathBoxes?.().length) { toast('A procedure is in progress on the figure. Wait for it to finish.'); return; }
     const st = store.get();
-    if (st.lobule) store.set({ lobule: false });
-    if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
+    if (st.lobule || st.view !== 'anatomic') setViewKey('anatomy');   // (one legal write: the lobule and the sinusoid close and the view is the anatomy, R08)
     const focus0 = store.get().focus;
     step = 0; done = false;
     tk.start();
@@ -84,7 +85,7 @@ export function createEusPpg() {
     for (const [k] of keys) { const t = word(rd[k]); if (valW[k].text !== t) valW[k].set(t); }
     dataSoon(vals.ppg, 'sev', Number.isFinite(rd.ppg) ? hvpgSev(rd.ppg) : '');
     for (let i = 0; i < stepEls.length; i++) dataSoon(stepEls[i], 'state', step < 0 ? (done && tk.shown() ? 'done' : null) : i < step ? 'done' : i === step ? 'now' : null);
-    const cap = step >= 0 ? EUS.steps[step][2] : done && tk.shown() && Number.isFinite(rd.ppg) ? `${hvpgWord(rd.ppg, true)}. EUS-PPG = PV − HV = ${word(rd.pv)} − ${word(rd.hv)} = ${word(rd.ppg)} mmHg.` : IDLE;
+    const cap = step >= 0 ? EUS.steps[step][2] : done && tk.shown() && Number.isFinite(rd.ppg) ? `${hvpgWord(rd.ppg, true)} (on the HVPG's lines, a model reference). EUS-PPG = LPV − LHV = ${word(rd.pv)} − ${word(rd.hv)} = ${word(rd.ppg)} mmHg.` : IDLE;
     // (Written between frames: a step changes inside the procedure's frame.)
     if (cap !== capT) { capT = cap; propSoon(caption.firstChild, 'nodeValue', cap); }
     dataSoon(el, 'state', tk.phase());

@@ -1092,8 +1092,7 @@
  ],
  "kidney/carv": [
   "{map}",
-  "{rpp}",
-  "{>=60 mmHg}"
+  "{rpp}"
  ],
  "kidney/path-carv": [
   "{map}",

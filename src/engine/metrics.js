@@ -177,8 +177,8 @@ export function computeMetrics(eng, out = null) {
   r.portalIn = portalIn * 0.06; r.arterialIn = arterialIn * 0.06; r.splanchnicIn = splIn * 0.06;
   r.shuntFraction = shuntFraction; r.collateralFlows = collateralFlows;
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
-  // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.
-  // Both over the breath, as the bar's MAP and the IAP read (full app review ENG-3: this instant's IAP swung the RPP by 2 mmHg a breath).)
+  // (Abdominal perfusion pressure (APP; the key is rpp, its first name): the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not renal perfusion or a filtration rate: the model has no kidneys.
+  // Both over the breath, as the bar's MAP and the IAP read (full app review ENG-3: this instant's IAP swung the APP by 2 mmHg a breath).)
   r.rpp = hold(eng, 'rpp', vt.map - ax.iap, 1);
   r.map = map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;

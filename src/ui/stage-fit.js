@@ -10,7 +10,7 @@ import { cancelFrame } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { elBoxInto } from './shape-gl.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
 
 import { stageScope } from './stage-scope.js';
@@ -323,7 +323,7 @@ export function createFit(st, live) {
   const markCirc = (kind, v) => { live.circFit = kind; circAt.k = v.k; circAt.x = v.x; circAt.y = v.y; };
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
-    if (live.lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } live.lz.fitView(); return; }
+    if (live.lobuleOn) { if (store.get().sinusoid) { setViewKey('lobule'); return; } live.lz.fitView(); return; }
     live.handsOff(); live.handed = false;
     const circuit = live.morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? circWhole() : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;

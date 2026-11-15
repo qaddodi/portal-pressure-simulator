@@ -18,6 +18,8 @@ import { createForest, forestLayout } from '../src/ui/trial-forest.js';
 import { fitTrial, metricsOfFp } from '../src/ui/trial-fit.js';
 import { presenterSource } from './split-src.js';
 
+const TOOL_FACTS = LANDMARK_TRIALS.slides.find((x) => x.id === 'predesci-arms').tool.facts;
+
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const inside = (L, W) => {
   for (const r of L.rects) assert.ok(r.x >= 0 && r.x + r.w <= W + 1e-6 && r.y >= 0 && r.y + r.h <= L.H, `${r.look} inside`);
@@ -46,20 +48,25 @@ test('the trial card is an instrument card: a slide keeps it as its tool, in the
 
 test('the instrument card asks its fit line of the slide\'s own patient (configure(tool, ctx): ctx.fp, ctx.params, the presenter\'s ctxOf)', () => {
   const tt = read('src/ui/tool-trial.js'), pres = presenterSource();
-  assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx\)/, 'configure asks the fit of the context it is given');
+  assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx, t\?\.facts \?\? null\)/, 'configure asks the fit of the context it is given, with the facts the slide\'s author supplied');
   assert.match(read('src/ui/presenter-tools.js'), /inst\.configure\?\.\(t, ctx\)/, 'the instrument path hands every instrument its slide\'s context');
   assert.match(pres, /params: st\?\.params \?\? null, fp: st\?\.fp \?\? null/, 'a context carries the slide\'s own patient');
-  const t = TRIALS.predesci, ctx = { fp: { hvpg: 14, varix: 3, gv: 0, asc: 0 }, params: { cirrhosis: 1, tips: { on: false } } };
-  const fit = fitOf(t, ctx);
-  assert.equal(fit.verdict, 'fits', 'CSPH, small varices, no ascites: PREDESCI\'s patient');
-  assert.notEqual(fitOf(t, { fp: { hvpg: 6 }, params: { cirrhosis: 1 } }).verdict, 'fits', 'an HVPG under 10 does not fit');
+  const t = TRIALS.predesci, ctx = { fp: { hvpg: 14, varix: 3, gv: 0, asc: 0, redWale: false }, params: { cirrhosis: 1, tips: { on: false } } };
+  const CASE = { decompensated: false };
+  assert.equal(fitOf(t, ctx).verdict, 'unknown', 'CSPH, small varices, no ascites: the model cannot say he was never decompensated, so no match on its own');
+  const fit = fitOf(t, ctx, CASE);
+  assert.equal(fit.verdict, 'fits', 'with the case history: PREDESCI\'s patient');
+  assert.match(fitWords(fit), /^Matches the modeled criteria\. Eligibility is incomplete\./);
+  assert.match(fitWords(fit), /From the case history: compensated\./, 'the card says which fact the author supplied');
+  assert.deepEqual(TOOL_FACTS, { decompensated: false }, 'the Landmark trials deck supplies it for the patient its vignette describes');
+  assert.notEqual(fitOf(t, { fp: { hvpg: 6 }, params: { cirrhosis: 1 } }, CASE).verdict, 'fits', 'an HVPG under 10 does not fit');
   assert.equal(fitOf(t, null), null);
   assert.match(trialWords(t, fit), new RegExp(fitWords(fit)));
 });
 
 test('design A: the name, the source line, the endpoint, each arm\'s share large, the bars on one scale and the effect, inside the card at every width', () => {
   for (const id of TRIAL_IDS) for (const W of [240, 300, 360, 460, 600]) for (const f of [12, 14, 16]) {
-    const t = TRIALS[id], L = { ...trialLayout(t, W, f, measure, { verdict: 'fits', rows: [] }), f };
+    const t = TRIALS[id], L = { ...trialLayout(t, W, f, measure, { verdict: 'fits', rows: [] }), f };   // (a full match: the words say eligibility is incomplete)
     inside(L, W);
     const words = L.texts.map((s) => s.t);
     assert.ok(words.includes(t.name) || words[0].startsWith(t.name.split(' ')[0]), `${id}: the name first`);
@@ -68,7 +75,7 @@ test('design A: the name, the source line, the endpoint, each arm\'s share large
     if (effectOf(t)) assert.ok(L.texts.some((s) => s.look === 'trial.eff'), `${id}: the effect`);
     const bars = L.rects.filter((r) => r.look === 'trial.bar');
     assert.deepEqual(bars.map((b) => b.tone), t.arms.map((a) => (a.side === 'treat' ? 's1' : 'text-3')), `${id}: the treated arm s1, a control the muted tone`);
-    assert.equal(L.texts.filter((s) => s.look === 'trialfit.t').map((s) => s.t).join(' '), 'The patient on this slide fits', `${id}@${W}: the fit line, whole`);
+    assert.equal(L.texts.filter((s) => s.look === 'trialfit.t').map((s) => s.t).join(' '), 'Matches the modeled criteria. Eligibility is incomplete.', `${id}@${W}: the fit line, whole`);
   }
   assert.equal(endpointOf(TRIALS.predesci), 'Decompensation or death', 'no follow-up the audit does not give');
   assert.equal(endpointOf(TRIALS.tripathi), `${TRIALS.tripathi.endpoint}, median 20 months`);
@@ -95,9 +102,10 @@ test('two arms stand side by side where their names fit; three arms lay out thre
   assert.ok(p[1].y > p[0].y, 'stacked where the names would not fit');
 });
 
-test('the fit line: a filled accent disc and tick when the patient fits, a ring when not or when the model cannot tell', () => {
+test('the fit line: one quiet ring for every verdict (a check mark only inside it for a full match, a cross for an exclusion, a dash when unknown), never a filled badge', () => {
   assert.equal(fitWords(null), null);
-  assert.equal(fitWords({ verdict: 'fits', rows: [] }), 'The patient on this slide fits');
+  assert.equal(fitWords({ verdict: 'fits', rows: [] }), 'Matches the modeled criteria. Eligibility is incomplete.');
+  assert.equal(fitWords({ verdict: 'fits', rows: [{ rule: 'Randomized within 24 hours', state: 'na', defining: false }] }), 'Matches the modeled criteria. Eligibility is incomplete. Still needed: randomized within 24 hours.');
   assert.equal(fitWords({ verdict: 'unknown', rows: [] }), 'Cannot tell from the model');
   assert.equal(fitWords({ verdict: 'unknown', rows: [], met: 2, of: 5 }), 'Possibly fits: 2 of 5 entry rules checked');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'HVPG 10 mmHg or more', state: 'no', value: '8.2 mmHg' }] }), 'Does not fit: HVPG 10 mmHg or more (this patient: 8.2 mmHg)');
@@ -106,8 +114,8 @@ test('the fit line: a filled accent disc and tick when the patient fits, a ring 
   for (const verdict of ['fits', 'no', 'unknown']) {
     const L = trialLayout(t, 360, 13, measure, { verdict, rows: [{ rule: 'No high-risk varices', state: verdict === 'no' ? 'no' : 'yes' }] });
     for (const x of [...L.texts, ...L.rects, ...L.paths]) looks.add(x.look);
-    assert.equal(L.rects.some((r) => r.look === 'trialfit.mk'), verdict === 'fits', `${verdict}: the filled disc only when the patient fits`);
-    assert.equal(L.rects.some((r) => r.look === 'trialfit.ring'), verdict !== 'fits');
+    assert.equal(L.rects.some((r) => r.look === 'trialfit.ring'), true, `${verdict}: the same quiet ring`);
+    assert.ok(!(`trialfit.mk` in LOOKS) && !('trialfit.tick' in LOOKS), 'no filled accent badge with a check exists to draw');
     assert.equal(L.paths.length, 1);
   }
   for (const k of Object.keys(LOOKS).filter((x) => x.startsWith('trialfit.'))) assert.ok(looks.has(k), `${k} is drawn`);

@@ -5,7 +5,7 @@ import { fmt } from './num.js';
 
 // What each reading is called in running text (the tile's name is a label: "Portal pressure", "Shunted").
 export const SPOKEN = {
-  hvpg: 'HVPG', ppg: 'portal pressure gradient', pv: 'portal vein pressure', rpp: 'renal perfusion pressure',
+  hvpg: 'HVPG', ppg: 'portal pressure gradient', pv: 'portal vein pressure', rpp: 'abdominal perfusion pressure',
   pvflow: 'portal flow', liver: 'sinusoidal flow', shunt: 'shunted blood', varix: 'varix wall stress', ascites: 'ascites', spleen: 'spleen length',
   map: 'blood pressure', hr: 'heart rate', co: 'cardiac output', ra: 'right atrial pressure', hb: 'hemoglobin',
 };

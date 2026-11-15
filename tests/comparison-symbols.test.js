@@ -30,7 +30,7 @@ test('no deck words a comparison as words: symbols, in every title, line, check,
 
 test('the tables\' cut-off heading and the response tile write their cut-offs with symbols', () => {
   for (const [k, c] of Object.entries(CUT)) assert.doesNotMatch(c, WORDS, `${k}: "${c}"`);
-  assert.equal(CUT.pv, '↑ >10, ↑↑ ≥15 mmHg');
+  assert.equal(CUT.pv, '↑ >10, ↑↑ ≥15 mmHg (the model\'s bands)');
   assert.equal(CUT.plt, '↓ <150, ↓↓ <100 × 10³/µL');
   assert.equal(CUT.hb, '↓ <12, ↓↓ <7 g/dL');
   for (const v of [25, 15, 5]) assert.doesNotMatch(RATE.hvpgFall(v, {})[1], /[a-z]/i, 'the response tile\'s band is a symbol and a number, "<10%" not "Under 10%"');

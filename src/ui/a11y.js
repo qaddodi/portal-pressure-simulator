@@ -6,11 +6,12 @@ import { store, hiddenNow } from './store.js';
 import { fmt } from './util.js';
 import { EDGES } from '../engine/topology.js';
 import { judgeFlow } from './velNormal.js';
+import { hvpgSev, HVPG_WORDS } from '../engine/pressure-cuts.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
 // The patient's reading in one line for the figure's accessible description
-// ("Cirrhosis. Portal pressure 23 mmHg, HVPG 17. Large varices, 0.8 L ascites, flow toward the liver.").
+// ("Cirrhosis. Portal pressure 23 mmHg, HVPG 17.0 mmHg (CSPH). Large varices, 0.8 L ascites, flow toward the liver.").
 // It hides what the figure hides. scenario: false leaves out the patient's name.
 export function caption(f, { scenario = true } = {}) {
   if (!f) return '';
@@ -19,9 +20,11 @@ export function caption(f, { scenario = true } = {}) {
   const parts = scenario ? [`${scen}.`] : [];
   if (f.bleed?.active) parts.push(`Active variceal bleed, HR ${fmt(m.vitals?.hr ?? m.hr, 0)}, MAP ${fmt(m.vitals?.map ?? m.map, 0)}.`);   // (the vitals as the bar reads them, over the breath)
   const p = [];
-  const pvS = Math.round(m.pv);   // (rated as it is read out, in whole mmHg: 10.3 is '10', not '10 (raised)')
-  if (!hidden?.has('pv')) p.push(`Portal pressure ${fmt(m.pv, 0)} mmHg${pvS <= 10 ? '' : pvS < 15 ? ' (raised)' : ' (high)'}`);
-  if (!hidden?.has('trueHVPG')) p.push(`HVPG ${fmt(m.hvpg, 1)}`);   // (at one decimal, as the tile prints and rates it: '10' for 9.6 read as past the CSPH line)
+  // The absolute portal pressure is read out as a number, with no severity word of its own: no guideline grades it (R09, external production review, 15 Nov 2026; the
+  // caption used to say "(raised)" and "(high)" from its own copy of the lines). The gradient carries the interpretation, the band the HVPG tile shows, from the same
+  // table (pressure-cuts.js): "HVPG 17.0 (CSPH)", the number at one decimal as the tile prints and rates it ('10' for 9.6 read as past the CSPH line).
+  if (!hidden?.has('pv')) p.push(`Portal pressure ${fmt(m.pv, 0)} mmHg`);
+  if (!hidden?.has('trueHVPG')) { const h = +fmt(m.hvpg, 1); p.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (${HVPG_WORDS[hvpgSev(h)][0]})`); }
   if (p.length) parts.push(p.join(', ') + '.');
   const q = (f.Qf || f.Q)[EI.PV_TRUNK];
   // (The same cut-offs as the Doppler's reading and the figure's labels, velNormal.js judgeFlow: a screen-reader listener keeps the direction of a slow flow.)

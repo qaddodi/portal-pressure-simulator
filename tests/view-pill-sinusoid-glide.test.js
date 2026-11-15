@@ -33,7 +33,7 @@ test('the play / pause is the timeline\'s: no second one in the top bar', () => 
 });
 
 test('on a phone, Treat, Tests and Layers go back out to the lobule first, and open there', () => {
-  assert.match(main, /const outOfSin = \(\) => \{ if \(store\.get\(\)\.sinusoid\) store\.set\(\{ sinusoid: false \}\); \};/);
+  assert.match(main, /const outOfSin = \(\) => \{ if \(store\.get\(\)\.sinusoid\) setViewKey\('lobule'\); \};/);
   for (const t of ['treat', 'tests']) assert.match(main, new RegExp(`tab\\('${t}', [^\\n]*outOfSin\\(\\);`));
   assert.match(main, /tab\('layers', 'layers', 'Layers', menuTab\(\(a\) => \{ outOfSin\(\); openLayersMenu\(a\); \}\)\)/);
 });

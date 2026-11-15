@@ -1492,7 +1492,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
-    if (store.get().lobule) store.set1('lobule', false);
+    if (store.get().lobule) setViewKey('anatomy');
     const lb = liverBox(); if (!lb) return;
     fitted = false;
     const b = vbBox;
@@ -1501,7 +1501,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
-    if (morphTarget !== 0 && store.get().view !== 'anatomic') store.set1('view', 'anatomic');   // (setViewKey has put it there already)
+    if (morphTarget !== 0 && store.get().view !== 'anatomic') setViewKey('anatomy');   // (setViewKey has put it there already)
     // The lobule's code loads after the first paint (lobuleReady): a dive asked for before it is there goes on once it is.
     if (!lz) {
       if (!lzWaiting) {
@@ -3067,7 +3067,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
     zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } handsOff(); const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
     zoomOut: () => {
-      if (lobuleOn) { if (store.get().sinusoid) { store.set({ sinusoid: false }); return; } lz.zoomBy(1 / 1.4); return; }
+      if (lobuleOn) { if (store.get().sinusoid) { setViewKey('lobule'); return; } lz.zoomBy(1 / 1.4); return; }
       handsOff();
       // The last step out lands on the whole figure, centred (the circuit: its whole map), as the lobule's − stops at its framing.
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
@@ -3293,25 +3293,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     async diveToSinusoid() {
       const me = ++sinMoveGen;
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
-        store.set({ lobule: true });
+        setViewKey('lobule');
         const t0 = performance.now();
         while (!(lobuleOn && diveT >= 1 && lz?.isOpen()) && performance.now() - t0 < 12000) await new Promise((r) => stageScope.timer(r, 60));
         await new Promise((r) => stageScope.timer(r, 120));
         if (!lobuleOn || me !== sinMoveGen) return;
       }
-      store.set({ lobule: true, sinusoid: true });
+      setViewKey('sinusoid');
     },
     /** From the sinusoid view out to the anatomy in three steps: out of the sinusoid, back to the lobule's normal framing, then out of the lobule. */
     async exitSinusoid() {
       const me = ++sinMoveGen;
-      if (!store.get().sinusoid || !lz?.sinusoidOpen()) { store.set({ sinusoid: false, lobule: false }); return; }
-      store.set({ sinusoid: false });
+      if (!store.get().sinusoid || !lz?.sinusoidOpen()) { setViewKey('anatomy'); return; }
+      setViewKey('lobule');
       const t0 = performance.now(), wait = (ms) => new Promise((r) => stageScope.timer(r, ms));
       while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);
       if (me !== sinMoveGen || store.get().sinusoid) return;   // (a dive began meanwhile, or the sinusoid was asked for again: leave the lobule where it is)
       if (lz.focusOn('fit', { ms: 900 })) await wait(900);
       if (me !== sinMoveGen || store.get().sinusoid) return;
-      if (store.get().lobule) store.set({ lobule: false });
+      if (store.get().lobule) setViewKey('anatomy');
     },
     /** The Sinusoid button: zoom into the sinusoid from the lobule. While the dive into the lobule is still landing the ask is kept in the
      *  lobule (it carries on at the landing) and the store is not written, so the view says sinusoid once, not true, false, true. askSinusoid(false)

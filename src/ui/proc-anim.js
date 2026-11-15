@@ -103,7 +103,7 @@ export const PROCS = {
       ['dilate', 'Tract dilated', 'Balloon angioplasty dilates the parenchymal tract to the stent diameter.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
       ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : hvBlocked(p) ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },   // alloc-rare: runs once, when the sequence passes T.apply: the model takes the change (a new params record)
     had: (p) => !!p.tips?.on,
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
@@ -506,7 +506,7 @@ export const PLUGS = {
       ['coil', 'Vein coiled', 'The catheter is advanced along the portal trunk into the coronary (left gastric) vein, the feeder of the varices. Coils occlude it, so portal blood no longer reaches the varices.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
       ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : hvBlocked(p) ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
     had: (p) => !!p.tips?.on && !!p.occluded?.C1a,
     undo: (p) => { p.tips = { ...p.tips, on: false }; p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply

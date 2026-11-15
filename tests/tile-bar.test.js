@@ -26,7 +26,10 @@ test('the bands follow the ratings (Baveno VIII stiffness, platelets lower is wo
 });
 
 test('every tile has its normal bands (Mohammad, 22 Oct: "any tile should always have normals if possible"); none is left bare', () => {
-  for (const k of Object.keys(TILE)) {
+  // (The abdominal perfusion pressure, rpp, is a number only: no guideline gives MAP − IAP a cut-off, so it has no rating, no bar ticks and no bands. R03, 15 Nov 2026.)
+  const NUMBER_ONLY = new Set(['rpp']);
+  for (const k of NUMBER_ONLY) assert.ok(!RATE[k] && !(SCALE[k]?.[2]?.length), `${k} is a number only`);
+  for (const k of Object.keys(TILE).filter((x) => !NUMBER_ONLY.has(x))) {
     assert.ok(RATE[k], `${k} has no rating`);
     assert.ok(SCALE[k] && SCALE[k][2].length > 0, `${k} has no cut-offs on its bar`);
     assert.ok(bandsOf(k).length >= 2, `${k} has no bands`);

@@ -135,6 +135,14 @@ export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0,
 const uterusLevel = (weeks) => Math.pow(clamp(((weeks || 0) - 20) / 20, 0, 1), 1.5);
 
 export class Engine {
+  // (Declared for the type checker, never reset: the hidden copy relaxHidden() settles and the unbanded twin of the bands' ratio are made on first use and kept
+  // across a reset; _paramsOf and _V0 live on that copy: the params it was last set to, and its volumes before a relax.)
+  /** @type {Engine | undefined} */ _hidden;
+  /** @type {Engine | undefined} */ _nbTwin;
+  /** @type {object | null | undefined} */ _paramsOf;
+  /** @type {Float64Array | undefined} */ _V0;
+
+  /** @param {{ params?: object, seed?: number }} [opts] */
   constructor({ params, seed } = {}) {
     this.nodes = NODES;
     this.edges = EDGES;
@@ -298,14 +306,14 @@ export class Engine {
   }
 
   /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
-  loadPreset(id, { days } = {}) {
+  loadPreset(id, /** @type {{ days?: number }} */ { days } = {}) {
     const steps = this.loadPresetSteps(id, { days });
     let next;
     do { next = steps.next(); } while (!next.done);
     return next.value;
   }
 
-  *loadPresetSteps(id, { days } = {}) {
+  *loadPresetSteps(id, /** @type {{ days?: number }} */ { days } = {}) {
     const pr = PRESETS.find((x) => x.id === id) || PRESETS[0];
     const params = pr.apply(defaultParams());
     params.seed = this.params.seed;

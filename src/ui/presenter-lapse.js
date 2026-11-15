@@ -9,7 +9,7 @@ import { liveFp } from './presenter-cards.js';
 import { LOBULE_CAM, PRESSURE_KEY, abChoice, keyNodes, lensSpec, slideLens } from './presenter-words.js';
 import { procBlocked, procOffered, specOf } from './proc-anim.js';
 import { expandIds } from './slide-ext.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { liveSettled, shownSig } from './table-marks.js';
 import { clamp, fmt, h, paintRange } from './util.js';
 
@@ -70,7 +70,7 @@ export function createLapse(st, live) {
   const besideHook = { move: (v) => { if (cath.beside) cathBeside(v); }, start: (v) => { if (cath.beside || !cath.on) cathBeside(v); } };
   async function cathTo(mode, fp, cut) {
     await toAnatomy(null, cut);
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); }
+    if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(cut, stage); }
     if (cut()) return;
     cath.beside = false; cath.keep = false;   // (a catheter kept from a tracing card's slide is this slide's own now)
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }

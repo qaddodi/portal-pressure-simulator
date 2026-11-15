@@ -1,8 +1,8 @@
 // The Trials tab of the Tests card (Mohammad, 14 Nov 2026, designs A and D of the trial-card mocks): the landmark trials (trials.js) against the
 // patient on screen. It loads after the first paint (main.js lazy(), lazy-pane.js), as the Doppler and the FibroScan do.
 //
-//   List    "Trials for this patient", the patient's own HVPG, varices and ascites, then the trials in four groups: Fits this patient (every defining
-//           entry rule checked and met), Possibly fits ("2 of 5 entry rules checked"), Not this patient (with the rule it fails) and Cannot tell from
+//   List    "Trials for this patient", the patient's own HVPG, varices and ascites, then the trials in four groups: Matches the modeled criteria (every defining
+//           entry rule checked and met; eligibility is still incomplete and the rules still open are named), Possibly fits ("2 of 5 entry rules checked"), Not this patient (with the rule it fails) and Cannot tell from
 //           the model (no defining rule it can check). A row names the trial, what it
 //           compared and counted, and the treated arm's rate against the control's; a tap opens it in place: who was enrolled (each entry rule
 //           against the model), how long they were followed, the arms as bars, the effect, a caveat, the Model line where the model runs the
@@ -25,11 +25,11 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { caught } from './caught.js';
 import { TRIAL_IDS, trialOf, trialSource } from './trials.js';
-import { fitTrial, failedRows, openRows, groupOf, possiblyWords, whyNot, lcFirst, NOT_IN_MODEL } from './trial-fit.js';
+import { fitTrial, failedRows, openRows, groupOf, possiblyWords, whyNot, lcFirst, stillNeeded, FITS_HEAD, FITS_WORDS, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, armsLayout, layoutTree, ratiosOf, ratioText } from './trial-forest.js';
 import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 
-export const GROUPS = Object.freeze([['fits', 'Fits this patient'], ['possible', 'Possibly fits'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
+export const GROUPS = Object.freeze([['fits', FITS_HEAD], ['possible', 'Possibly fits'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
 const STATE_WORD = { yes: 'Met', no: 'Not met', na: NOT_IN_MODEL };
 const PX = 13;   // (the card's words: the bars' type size, as the rows' 13 px)
 // (How often the card is built again for a value that drifts with no change of group or band: the disease clock moving the HVPG a tenth.)
@@ -75,7 +75,8 @@ export function reasonOf(t, fit) {
     const open = `Not in the model: ${openRows(fit).map((r) => lcFirst(r.rule)).join(', ')}`;
     return fit.met > 0 ? `${possiblyWords(fit)}. ${open}` : open;
   }
-  return fit.rows.filter((r) => r.state === 'yes').map((r) => r.value).join(', ');
+  // (A full match is not eligibility: the line says so and names the rules still open, R01.)
+  return [FITS_WORDS, stillNeeded(fit) && `${stillNeeded(fit)}.`].filter(Boolean).join(' ');
 }
 
 const treatArm = (t) => (t.arms || []).find((a) => a.side === 'treat') || t.arms?.[0];
@@ -128,7 +129,7 @@ export function createTrialsPane() {
   function configureForest(b) {
     const notes = {}, whys = {};
     for (const [g] of GROUPS) for (const { t, fit } of b.groups[g]) {
-      notes[t.id] = g === 'fits' ? 'Fits this patient.' : g === 'no' ? 'Not this patient.' : g === 'possible' ? 'Some entry rules are not in the model.' : 'The model cannot tell whether this patient fits.';
+      notes[t.id] = g === 'fits' ? `${FITS_WORDS}` : g === 'no' ? 'Not this patient.' : g === 'possible' ? 'Some entry rules are not in the model.' : 'The model cannot tell whether this patient fits.';
       if (g === 'no') whys[t.id] = `Not this patient: ${whyNot(fit)}`;
       else if (g === 'possible') whys[t.id] = possiblyWords(fit);
     }
@@ -214,7 +215,7 @@ export function createTrialsPane() {
       h('span', { class: 'tr-nm' }, t.short ?? t.name),
       h('span', { class: 'tr-ds' }, comparisonOf(t)),
       h('span', { class: 'tr-ds tr-ds2' }, t.endpoint),
-      g === 'fits' ? null : h('span', { class: 'tr-why' }, reasonOf(t, fit)));
+      h('span', { class: 'tr-why' }, reasonOf(t, fit)));
     const right = h('span', { class: 'tr-rs' }, tr ? `${tr.rate}%` : '',
       rest.length ? h('span', { class: 'tr-vs' }, ` vs ${rest.map((a) => `${a.rate}%`).join(' / ')}`) : null,
       t.km ? h('small', {}, 'Kaplan–Meier') : null);

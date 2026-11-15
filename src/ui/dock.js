@@ -25,8 +25,7 @@ import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { TILE } from './table-marks.js';
-import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked, HVPG_WORDS, PPG_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgSev, ppgSev, pvSev, hvBlocked, HVPG_WORDS, PPG_WORDS, PV_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
@@ -74,11 +73,12 @@ export const TILES = [
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
     st: ppgSev, s: (v) => PPG_WORDS[ppgSev(v)][0] },
   { id: 'pv', ...fromTile('pv'), group: 'pressure', k: 'Portal pressure', ks: 'Portal P', why: 'pv', v: (m) => m.pv, hideKey: 'pv',
-    scale: [0, 35], ticks: [10, 15],
-    st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
-  { id: 'rpp', ...fromTile('rpp'), group: 'pressure', hideKey: 'model', k: 'Renal perfusion pressure', ks: 'RPP', why: 'rpp', v: (m) => m.rpp,
-    scale: [30, 100], ticks: [KIDNEY_CUTS.rpp],
-    st: rppSev, s: (v) => RPP_WORDS[rppSev(v)] },
+    scale: [0, 35], ticks: [PV_CUTS.amber, PV_CUTS.red],
+    st: pvSev, s: (v) => PV_WORDS[pvSev(v)] },
+  // (MAP − IAP, the abdominal perfusion pressure: a number only. No guideline gives it a cut-off, so it has no tick, no colour and no verdict, and its sub-label is the formula: kidney-cuts.js.)
+  { id: 'rpp', ...fromTile('rpp'), group: 'pressure', hideKey: 'model', k: 'Abdominal perfusion pressure', ks: 'APP', why: 'rpp', v: (m) => m.rpp,
+    scale: [30, 100], ticks: [],
+    st: () => 'none', s: () => 'MAP − IAP' },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
   // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
   { id: 'pvflow', ...fromTile('pvFlow'), group: 'flow', k: 'Portal flow', ks: 'PV flow', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow,
@@ -134,7 +134,6 @@ export const CUTOFFS = [
   ['HVPG (WHVP − FHVP)', '≤5 mmHg', '5.1 to 9.9 (subclinical)', '≥10 (CSPH in cirrhosis)', '—'],
   ['PPG: portosystemic gradient (portal vein − IVC)', '<6 mmHg', '6 to 11.9', '≥12', '—'],
   ['Portal vein pressure', '≤10 mmHg', '10.1 to 14.9', '≥15', '—'],
-  ['Renal perfusion pressure (MAP − IAP; a pressure, not kidney function)', `≥${KIDNEY_CUTS.rpp} mmHg`, '—', `<${KIDNEY_CUTS.rpp}`, '—'],
   ['Portal flow', '≥0.9 L/min and ≥15 cm/s', '<0.9 L/min or <15 cm/s', '<9 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '>75% of normal', '56 to 75%', '≤55%', '—'],
   ['Shunted blood', '<10%', '10 to 29%', '30 to 59%', '≥60%'],

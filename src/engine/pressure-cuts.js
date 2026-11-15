@@ -18,13 +18,39 @@ export const PPG_CUTS = Object.freeze({ amber: 6, red: 12 });
 // HVPG at which a preemptive TIPS is offered after a controlled variceal bleed, whatever the Child–Pugh score (Baveno VIII 5.31): a treatment
 // criterion, not a colour. Read by the guideline path card (path-data.js).
 export const PTIPS_HVPG = 20;
-export const PRESSURE_CUTS = Object.freeze({ hvpg: HVPG_CUTS, ppg: PPG_CUTS });
+// The portal vein's own pressure (an ABSOLUTE pressure, not a gradient): amber above 10 and red from 15 mmHg. These are the model's reading bands for the portal
+// pressure tile, the summary tables and the figure's pressure labels, not a guideline's cut-offs (Baveno VIII and AASLD 2024 grade the HVPG, the gradient). Said once
+// here (R09, external production review, 15 Nov 2026: the screen-reader caption had its own copy, with its own words), so the tile, the table, the arrows and the
+// spoken description of the same patient agree. The wedged pressure is read on the same bands (table-marks.js).
+export const PV_CUTS = Object.freeze({ amber: 10, red: 15, over: true });
+export const pvSev = (v) => sevOfCuts(PV_CUTS, v);
+export const PV_WORDS = Object.freeze({ ok: 'Normal', caution: 'High', danger: 'Severe' });
+export const PRESSURE_CUTS = Object.freeze({ hvpg: HVPG_CUTS, ppg: PPG_CUTS, pv: PV_CUTS });
 
 // A right hepatic vein clotted this far (Budd–Chiari) takes no catheter, so the HVPG cannot be measured: the HVPG procedure aborts
 // (hvpg-proc.js), and the readout tile and the procedure's idle row show "Not measurable" with no number, never a model difference
 // that would read as a normal HVPG.
+//
+// ONE policy for a hepatic vein's measurement (R08 §6.3 of the external production review, 15 Nov 2026; until then src/ui/measure-model.js held a second one, thrombus
+// 0.5 or stenosis 0.8, that no screen used). Three different questions, each with its own line, in the order they fail:
+//   passes        the catheter can be passed: the vein's thrombus is under HV_BLOCKED (0.8). Past it nothing can be measured.
+//   obtainable    a wedged and a free pressure can be taken: the same as passes (a vein that takes the catheter gives a reading).
+//   interpretable the gradient can be read as the sinusoidal one: the vein is also under HV_SUSPECT (thrombus 0.5, stenosis 0.8). A vein clotted half way
+//                 or narrowed that far still gives a reading, but the free and wedged pressures no longer stand for the liver, so the HVPG is not
+//                 clinically interpretable (its number is the vein's, not the liver's).
+// The tiles and the procedure read only `passes` (hvBlocked, for the right vein, the one the HVPG is taken in); `interpretable` is the line a caveat reads.
 export const HV_BLOCKED = 0.8;
-export const hvBlocked = (params) => (params?.thrombus?.RHV_IVC || 0) >= HV_BLOCKED;
+export const HV_SUSPECT = Object.freeze({ thrombus: 0.5, stenosis: 0.8 });
+export const HV_EDGE = Object.freeze({ R: 'RHV_IVC', M: 'MHV_IVC', L: 'LHV_IVC' });
+/** One hepatic vein's measurement state: { passes, obtainable, interpretable }, for vein 'R', 'M' or 'L' (the right by default). Pure: params in, three booleans out. */
+export function hvMeasure(params, vein = 'R') {
+  const id = HV_EDGE[vein];
+  if (!id) throw new Error(`hvMeasure: vein ${vein}`);
+  const th = +params?.thrombus?.[id] || 0, st = +params?.stenosis?.[id] || 0;
+  const passes = th < HV_BLOCKED;
+  return { passes, obtainable: passes, interpretable: passes && th < HV_SUSPECT.thrombus && st < HV_SUSPECT.stenosis };
+}
+export const hvBlocked = (params) => !hvMeasure(params, 'R').passes;
 
 /** A gradient's status as the colour tokens name it: 'ok' (green), 'caution' (amber), 'danger' (red). */
 /** Past the amber line: above it for a cut-off written "over" (HVPG >5), at or above it otherwise (PPG ≥6). */
@@ -56,7 +82,12 @@ export const INK_SHARE = Object.freeze({ ok: 0.88, caution: 0.7, danger: 0.88, c
 const pair = (short, long = short) => Object.freeze([short, long]);
 export const BLEED_WORD = 'Bleed risk';
 export const HVPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('Mild', 'Mild portal hypertension'), danger: pair('CSPH', 'Clinically significant portal hypertension (CSPH)') });
-export const PPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('High', 'Portal hypertension'), danger: pair(BLEED_WORD, 'Portal hypertension with a risk of variceal bleeding') });
+// The PPG's lines are the MODEL's reference lines (6 and 12 mmHg), not a guideline's decision boundaries: Baveno VIII and AASLD 2024 grade the HVPG, and the EUS-PPG is
+// read on the HVPG's lines without a validated cut-off of its own. So the long forms, the sentences, say "model" where the short words (a tile, a cell) have no room
+// (R09/§6.2, external production review, 15 Nov 2026: "Normal" and "Bleed risk" read as established clinical categories). PPG_LINE_NOTE is the one caveat sentence.
+export const PPG_LINE_NOTE = 'The color lines at 6 and 12 mmHg are this model\'s reference lines, not guideline cut-offs: the guidelines grade the HVPG.';
+export const EUS_LINE_NOTE = 'The EUS-PPG is read on the HVPG\'s lines (5 and 10 mmHg) as a model reference, not a validated cut-off. Anesthesia and a different sampled site (portal and left hepatic vein) can bias it, with the hepatic venous pressure overestimated (ENCOUNTER, PMID 40689144).';
+export const PPG_WORDS = Object.freeze({ ok: pair('Normal', 'Below the model\'s PPG reference line'), caution: pair('High', 'Above the model\'s PPG reference line (portal hypertension)'), danger: pair(BLEED_WORD, 'Above the model\'s upper PPG line: the model reads a risk of variceal bleeding') });
 export const hvpgWord = (v, long = false) => HVPG_WORDS[hvpgSev(v)][long ? 1 : 0];
 export const ppgWord = (v, long = false) => PPG_WORDS[ppgSev(v)][long ? 1 : 0];
 

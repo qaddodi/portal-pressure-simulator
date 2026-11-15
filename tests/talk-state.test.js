@@ -66,7 +66,7 @@ test('a shared link with a value out of range still applies its view, selection 
   const fn = main.slice(main.indexOf('async function loadShared('), main.indexOf('// The orange PREVIEW pill'));
   assert.doesNotMatch(fn, /return;\s*\}\s*\n\s*\}/, 'no early return in the clamp branch');
   assert.match(fn, /clamped = true; \}/);
-  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view) store.set({ view: s.view });'));
-  assert.match(fn, /if \(clamped\) toast\(missing \|\| 'This link had values out of range;/);
+  assert.ok(fn.indexOf('clamped = true') < fn.indexOf('if (s.view && s.view !== store.get().view) setViewKey('));
+  assert.match(fn, /if \(clamped\) toast\(missing \|\| `This link had values the model does not accept/);
   assert.match(main, /catch \{ history\.replaceState\(null, '', location\.pathname \+ location\.search \+ `#s=\$\{encodeShare\(\)\}`\);/);
 });

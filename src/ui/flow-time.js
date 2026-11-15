@@ -46,7 +46,7 @@ export const LINE = {
   wt: ['Body weight', '% of start', 0, RC.wt, 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, RC.lsm, 1, { pad: 0.15 }],
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
   ssm: ['Spleen stiffness', 'kPa', 1, RC.ssm, 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, RC.salb, 1, { pad: 0.2 }],
-  rpp: ['Renal perfusion pressure', 'mmHg', 0, RC.rpp], he: ['Encephalopathy risk', 'index', 2, RC.he, 1, { pad: 0.2 }],
+  rpp: ['Abdominal perfusion pressure', 'mmHg', 0, RC.rpp], he: ['Encephalopathy risk', 'index', 2, RC.he, 1, { pad: 0.2 }],
   gv: ['Fundal varix', 'mm', 1, RC.gv], liver: ['Sinusoidal flow', '%', 0, RC.liver, 1, { pad: 0.2 }], map: ['Mean arterial pressure', 'mmHg', 0, RC.map], co: ['Cardiac output', 'L/min', 1, RC.co, 1, { pad: 0.2 }],
 };
 export const MEAL_LINES = ['pv', 'pvFlow'];

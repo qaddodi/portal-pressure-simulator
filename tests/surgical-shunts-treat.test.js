@@ -34,7 +34,8 @@ test('end-to-side and side-to-side are one shunt, one at a time, and removing ei
   ss.apply(p); es.remove(p);
   assert.equal(p.portocaval, false); assert.equal(p.portocavalSide, false);
   assert.equal(defaultParams().portocavalSide, false);
-  assert.equal(sanitizeParams({ portocavalSide: 1 }).portocavalSide, true, 'a share link keeps it as a switch');
+  assert.equal(sanitizeParams({ portocavalSide: true }).portocavalSide, true, 'a share link keeps it as a switch');
+  assert.equal(sanitizeParams({ portocavalSide: 1 }).portocavalSide, false, 'a 1 is not a switch (R07)');
 });
 
 test('the engine: end-to-side divides the portal trunk; side-to-side keeps it, and the liver drains back out through it', () => {

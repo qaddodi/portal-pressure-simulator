@@ -25,7 +25,7 @@ change it. If it explains something every physician knows, cut it. If it could b
   away", "leaves" or "what is left" for a subtraction.
   - HVPG = WHVP − FHVP. "The HVPG is the WHVP minus the FHVP."
   - PPG = portal venous pressure − IVC pressure. "The PPG is the portal pressure minus the IVC pressure."
-  - Renal perfusion pressure: RPP = MAP − IAP. "Renal perfusion pressure is the MAP minus the intra-abdominal pressure."
+  - Abdominal perfusion pressure: APP = MAP − IAP (WSACS; not "renal perfusion pressure", which no guideline defines). "The abdominal perfusion pressure is the MAP minus the intra-abdominal pressure." It is a number with no cut-off.
   - Transmural (variceal wall) pressure = intravariceal pressure − intraluminal (esophageal) pressure.
   - Abdominal perfusion pressure: APP = MAP − IAP; filtration and Starling forces in their usual terms (capillary hydrostatic,
     oncotic pressure, reflection coefficient).
@@ -45,7 +45,7 @@ Use the term on the right. The left column is banned in learner text (the lint h
 | belly\*, tummy | abdomen; peritoneal cavity |
 | the abdomen's pressure, pressure in the belly\* | intra-abdominal pressure (IAP) |
 | the belly takes back\*, taken back | peritoneal reabsorption (mL/day) |
-| kidney pressure\* | renal perfusion pressure (RPP) |
+| kidney pressure\* | abdominal perfusion pressure (APP) |
 | kidney function falls fast | acute kidney injury (AKI); HRS-AKI |
 | a tap\*, tapped, the tap | paracentesis; large-volume paracentesis (LVP) |
 | water pill\*, water tablet | diuretic (spironolactone, furosemide) |
@@ -85,10 +85,10 @@ HRS-AKI only). Platelets in US units (150,000/µL). Sodium in mEq/L, creatinine 
 ## 4. Abbreviations
 
 Standard ones, defined at first use in a deck or card, then used plainly: HVPG, WHVP, FHVP, PPG, EUS-PPG, IVC, RA, RAP, MAP,
-IAP, RPP, CSPH, cACLD, LSM, SSM, VCTE, NSBB, EVL, EGD, EUS, TIPS, BRTO, PARTO, CARTO, PVT, BCS, SOS, PSVD, NCPH, HRS-AKI, AKI,
+IAP, APP, CSPH, cACLD, LSM, SSM, VCTE, NSBB, EVL, EGD, EUS, TIPS, BRTO, PARTO, CARTO, PVT, BCS, SOS, PSVD, NCPH, HRS-AKI, AKI,
 SBP, LVP, HE, MELD (MELD-Na), CTP (Child-Turcotte-Pugh), GOV1, GOV2, IGV1, SAAG, MASLD, MASH, TR, JVP, RUQ. Use them as
 clinicians do ("HVPG 14 mmHg", "a covered 8 mm TIPS", "CTP class C"), not spelled out every time and not invented
-("Kidney P" is not an abbreviation; "RPP" is).
+("Kidney P" is not an abbreviation; "APP" is).
 
 ## 5. Register
 
@@ -169,7 +169,7 @@ A new phrase that a clinician would correct goes into the test's list in the sam
 ## Prompt to hand to a model
 
 > Rewrite the text below for US physicians (residents, GI and hepatology fellows, attendings). Keep every fact, number,
-> threshold and citation exactly. Use standard US clinical terms and abbreviations (HVPG = WHVP − FHVP, PPG, IAP, RPP, LVP,
+> threshold and citation exactly. Use standard US clinical terms and abbreviations (HVPG = WHVP − FHVP, PPG, IAP, APP, LVP,
 > NSBB, TIPS, CSPH), write subtraction as "minus" or "−", never "less", and use symbols for comparisons beside numbers.
 > No lay words (belly, kidney pressure, a tap, the gut's blood), no British usage, no dumbing down, no metaphors, no filler,
 > no em-dashes. One idea per sentence. Return only the rewritten text, plus a one-line list of any fact you were unsure about.

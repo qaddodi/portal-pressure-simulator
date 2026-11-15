@@ -13,7 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
-import { store, replaceParams } from './store.js';
+import { store, replaceParams, setViewKey } from './store.js';
 import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
 import { startChange } from './change-order.js';
@@ -427,7 +427,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
-    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(60, cut); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
+    if (st.sinusoid) { setViewKey('lobule'); await waitCut(60, cut); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
     if (cut()) return;
@@ -440,7 +440,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Circulation 9 to 10).)
     if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
-    store.set({ lobule: false });
+    setViewKey('anatomy');
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
@@ -452,14 +452,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); if (cut()) return; }   // (the change landed, not 700 ms: it takes VIEW_CHANGE_S)
+      if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(cut, stage); if (cut()) return; }   // (the change landed, not 700 ms: it takes VIEW_CHANGE_S)
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
         // Anatomy straight down to the slide's station (aim: the dive lands on it in one move, its labels laid out only there, never
         // a stop at the whole lobule first); the sinusoid is gone to from the lobule's normal framing.
         if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });
-        store.set({ lobule: true });
+        setViewKey('lobule');
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
         await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 12000);
         if (cut()) return;
@@ -471,8 +471,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const sin = cam === 'sinusoid' && sinusoidSupported() && stage.lobuleOpen();
       // (Each wait ends when the stage says the move has landed (the zoom into the sinusoid, out of it, the lobule's glide), never a number; the
       // number is only the longest it may take, and a newer press cuts it at once.)
-      if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); if (ms) await waitCut(1250 + 400, () => cut() || !stage.sinBusy()); } return; }
-      if (store.get().sinusoid) { store.set({ sinusoid: false }); if (ms) await waitCut(1000 + 400, () => cut() || !stage.sinBusy()); if (cut()) return; }
+      if (sin) { if (!store.get().sinusoid) { setViewKey('sinusoid'); if (ms) await waitCut(1250 + 400, () => cut() || !stage.sinBusy()); } return; }
+      if (store.get().sinusoid) { setViewKey('lobule'); if (ms) await waitCut(1000 + 400, () => cut() || !stage.sinBusy()); if (cut()) return; }
       if (stage.lobuleFocus(part, { zoom, ms })) await waitCut(ms + 300, () => cut() || !stage.lobuleGlide?.());
       return;
     }
@@ -494,7 +494,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A switch of view sets off here and the slide's framing is asked of it at once, below: it becomes the change's new end (stage-view.js viewXfRetargetTo),
     // so the camera travels once, on the change's clock, instead of a second glide starting 700 ms into a change that takes 1.3 s.)
     const switching = store.get().view !== v;
-    if (switching) store.set({ view: v });
+    if (switching) setViewKey(v === 'circuit' ? 'circuit' : 'anatomy');
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;

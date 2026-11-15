@@ -18,7 +18,7 @@ import { sheetPanes } from './sheet-glass.js';
 import { figureHooks } from './slide-ext.js';
 import { instrumentOf } from './slide-instrument.js';
 import { createScope } from './slide-txn.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 
@@ -265,7 +265,7 @@ export function createStart(st, live) {
     if (!live.layersBefore) live.layersBefore = { ...st0.lobuleLayers };
     stage.setKeyStops?.(false);   // (the figure is read-only here: no Tab stops on it)
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, stented: [], ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
-    if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
+    if (st0.view !== 'anatomic' && !st0.lobule) setViewKey('anatomy');
     projectorOn();
     app.classList.add('presenting'); themeChanged();   // (.app.presenting restyles the labels: label-theme.js)
     document.getElementById('stage')?.dispatchEvent(new PointerEvent('pointerleave'));   // a hover lit as the deck starts clears
@@ -361,10 +361,10 @@ export function createStart(st, live) {
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await waitCut(ms, gone); if (gone()) return; }
     const st = store.get();
     store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
-    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(fadeLen(1000), gone); if (gone()) return; }
-    if (st.lobule) { store.set({ lobule: false }); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
+    if (st.sinusoid) { setViewKey('lobule'); await waitCut(fadeLen(1000), gone); if (gone()) return; }
+    if (st.lobule) { setViewKey('anatomy'); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
+    if (store.get().view !== 'anatomic') { setViewKey('anatomy'); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     await loadPreset?.('healthy');
     if (gone()) return;

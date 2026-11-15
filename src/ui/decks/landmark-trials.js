@@ -46,7 +46,7 @@ export const LANDMARK_TRIALS = {
       ask: ['Which patients did PREDESCI enroll?', 'Patients with compensated cirrhosis and CSPH who had no high-risk varices.'],
     },
     {
-      id: 'predesci-arms', params: { drugs: { carvedilol: true } }, cam: 'fit', tool: { kind: 'trial', id: 'predesci' }, data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'], delta: 'predesci',
+      id: 'predesci-arms', params: { drugs: { carvedilol: true } }, cam: 'fit', tool: { kind: 'trial', id: 'predesci', facts: { decompensated: false } }, data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'], delta: 'predesci',
       compare: [{ label: 'Placebo', slide: 'predesci' }, { label: 'Beta-blocker', own: true }],
       kicker: 'Preventing decompensation', site: 'sin', title: 'The model shows what the beta-blocker does; the trial shows what it prevents', cite: 'Baveno VIII 3.15',
       line: 'On carvedilol, the model lowers his HVPG from {hvpg@predesci} to {hvpg}. The card gives the trial\'s result.',

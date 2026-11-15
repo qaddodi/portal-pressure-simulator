@@ -1,6 +1,6 @@
 // Clinical wording lint (Mohammad, 13 Nov 2026: "X less Y is a stupid way of putting this minus that"; docs/ai-humanizer.md section 6).
 // Learner text is written for US physicians: subtraction is "minus" (or − in an equation), never "less"; no lay words a clinician
-// would correct (belly, kidney pressure, a tap for paracentesis, water pill, "takes back"); American spelling; no em-dash.
+// would correct (belly, kidney pressure, renal perfusion pressure for MAP − IAP, a tap for paracentesis, water pill, "takes back"); American spelling; no em-dash.
 //
 // check(text) returns the rules a string breaks. The CLI walks every string and template literal in src/ (comments are not
 // tokens, so they are never judged) plus index.html's text, and fails `npm run lint` on any hit.
@@ -18,7 +18,9 @@ export const RULES = [
   ['less-as-minus', /\b(?:MAP|WHVP|FHVP|IVC|RAP|IAP|HVPG|PPG|pressure|pressures|reading|readings|mmHg)\s+less\b(?!\s+(?:than|likely|often|so|well|room|time|common|reliable|blood|flow|portal|of|and|or|in|to|on|at))/i, 'write "minus"'],
   ['belly', /\bbell(?:y|ies)\b/i, 'abdomen, peritoneal cavity, intra-abdominal pressure (IAP)'],
   ['takes-back', /\b(?:takes?|took|taken|taking)\s+back\b/i, 'peritoneal reabsorption (mL/day)'],
-  ['kidney-pressure', /\bkidney (?:pressure|P)\b/i, 'renal perfusion pressure (RPP)'],
+  ['kidney-pressure', /\bkidney (?:pressure|P)\b/i, 'abdominal perfusion pressure (APP)'],
+  // MAP − IAP is the abdominal perfusion pressure (WSACS). "Renal perfusion pressure" claimed a kidney reading the model does not have (external review R03).
+  ['renal-perfusion-pressure', /\b[Rr]enal perfusion pressure\b|\bRPP\b/, 'abdominal perfusion pressure (APP) for MAP − IAP'],
   ['tap', /\b(?:a|the|one|each|every|another|first|second|after|before|big|large|repeat(?:ed)?)\s+taps?\b|\btapp(?:ed|ing)\b|\btaps\b/i, 'paracentesis, large-volume paracentesis (LVP)', /ascit|paracent|albumin|abdom|\bliters?\b|\bL\b|drain|SBP|diuretic|fluid/i],
   ['water-pill', /\bwater (?:pills?|tablets?)\b/i, 'diuretic'],
   ['tummy', /\btumm(?:y|ies)\b/i, 'abdomen'],

@@ -31,9 +31,7 @@ export const TRIAL = {
   'trial.warn': word('trial.warn', tok('caution')),
   // The line on whether the slide's patient fits the trial (only on a slide: trial-fit.js): a filled accent disc with a tick when the patient
   // fits, an open ring with a cross or a dash when not or when the model cannot tell, and its words
-  'trialfit.mk': { base: { fill: tok('accent') } },
   'trialfit.ring': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5 } },
-  'trialfit.tick': { base: { fill: 'none', stroke: tok('on-accent'), width: 2, cap: 'round', join: 'round' } },
   'trialfit.x': { base: { fill: 'none', stroke: tok('text-3'), width: 2, cap: 'round', join: 'round' } },
   'trialfit.t': word('trialfit.t', tok('text')),
 };

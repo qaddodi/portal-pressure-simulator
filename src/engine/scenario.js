@@ -171,32 +171,68 @@ const RANGES = {
 };
 const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+// A switch is a real boolean or nothing: `!!'false'` is true, and a hand-edited link or an imported scenario must never turn a procedure or a drug on
+// because a non-empty string, an array or a 1 arrived (R07, external production review, 15 Nov 2026). Anything else takes the parameter's own default.
+const bool = (v, def) => (typeof v === 'boolean' ? v : def);
 
-/** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. */
-export function sanitizeParams(p) {
+/** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. Only real booleans switch a
+ *  treatment, a drug or a procedure on; a key the model has no parameter for is dropped, at every depth the model's own records have. */
+export function sanitizeParams(p) { return sanitize(p, null); }
+
+/** Like sanitizeParams, and the list of what it repaired: { params, repairs: [{ path, was, now }] }, each path a readable field ("tips.on", "drugs.carvedilol")
+ *  so a caller can say what an imported scenario lost. `was` is the value as it came (an object or array is named by its type, not copied). */
+export function sanitizeParamsReport(p) { const repairs = []; return { params: sanitize(p, repairs), repairs }; }
+
+const seen = (v) => (Array.isArray(v) ? 'array' : v && typeof v === 'object' ? 'object' : v);   // alloc-rare: only while a repair is being reported
+function sanitize(p, rep) {
   const d = defaultParams();
+  const fixed = (path, was, now) => { if (rep) rep.push({ path, was: seen(was), now }); return now; };   // alloc-rare: only while a repair is being reported
   const out = isObj(p) ? deepMerge(d, p) : d;
-  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
-  for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
+  if (rep && !isObj(p) && p != null) fixed('', p, 'defaults');
+  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) { fixed(k, out[k], 'dropped'); delete out[k]; }   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker
+  for (const [k, [lo, hi]] of RANGE_LIST) { const v = out[k], n = num(v, lo, hi, d[k]); out[k] = n; if (rep && n !== v) fixed(k, v, n); }
   out.splenicRx = Math.round(out.splenicRx);
   for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-    if (typeof d[k] === 'boolean') out[k] = !!out[k];
-    else if (isObj(d[k]) && !isObj(out[k])) out[k] = d[k];
+    if (typeof d[k] === 'boolean') { if (typeof out[k] !== 'boolean') out[k] = fixed(k, out[k], d[k]); }
+    else if (isObj(d[k]) && !isObj(out[k])) out[k] = fixed(k, out[k], d[k]);
   }
   for (const lobe of LOBES) {
-    if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = d.fibrosis[lobe];
-    for (const z of ZONES) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
+    if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = fixed(`fibrosis.${lobe}`, out.fibrosis[lobe], d.fibrosis[lobe]);
+    for (const z of ZONES) { const v = out.fibrosis[lobe][z], n = num(v, 1, 80, 1); out.fibrosis[lobe][z] = n; if (rep && n !== v) fixed(`fibrosis.${lobe}.${z}`, v, n); }
+    pruneTo(out.fibrosis[lobe], d.fibrosis[lobe], `fibrosis.${lobe}`, fixed);
   }
-  for (const k of CLAMPED) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) delete out.stenosisSite[id];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const k of SWITCHED) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
-  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
-  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  pruneTo(out.fibrosis, d.fibrosis, 'fibrosis', fixed);
+  for (const k of CLAMPED) for (const id of Object.keys(out[k])) { const v = out[k][id], n = num(v, 0, k === 'stenosis' ? 0.95 : 1, 0); out[k][id] = n; if (rep && n !== v) fixed(`${k}.${id}`, v, n); }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
+  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) { fixed(`stenosisSite.${id}`, out.stenosisSite[id], 'dropped'); delete out.stenosisSite[id]; }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists),
+  for (const k of SWITCHED) {
+    pruneTo(out[k], d[k], k, fixed);
+    out[k].on = typeof out[k].on === 'boolean' ? out[k].on : fixed(`${k}.on`, out[k].on, d[k].on);
+    const v = out[k].d, n = num(v, 6, 12, 8); out[k].d = n; if (rep && n !== v) fixed(`${k}.d`, v, n);
+  }
+  // A custom shunt is a diameter: a number of 4 to 16 mm. A string, a true or anything else that merely reads as "on" is not a diameter, so there is no shunt.
+  for (const id of Object.keys(out.customShunts)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+    const v = out.customShunts[id];
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) out.customShunts[id] = num(v, 4, 16, 10);
+    else { if (v) fixed(`customShunts.${id}`, v, 'dropped'); delete out.customShunts[id]; }
+  }
+  pruneTo(out.catheter, d.catheter, 'catheter', fixed);
+  out.catheter.wedged = typeof out.catheter.wedged === 'boolean' ? out.catheter.wedged : fixed('catheter.wedged', out.catheter.wedged, false);
+  if (out.catheter.vein != null && typeof out.catheter.vein !== 'string') out.catheter.vein = fixed('catheter.vein', out.catheter.vein, null);
+  pruneTo(out.drugs, d.drugs, 'drugs', fixed);
+  for (const k of Object.keys(out.drugs)) if (typeof out.drugs[k] !== 'boolean') out.drugs[k] = fixed(`drugs.${k}`, out.drugs[k], d.drugs[k]);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
   keepKnown(out.stenosis, ANY_EDGE); keepKnown(out.thrombus, ANY_EDGE); keepKnown(out.stenosisSite, ANY_EDGE); keepKnown(out.occluded, ANY_EDGE);   // B7
   keepKnown(out.customShunts, CUSTOM_EDGE); keepKnown(out.spontaneous, SPONTANEOUS_EDGE);
+  // A vessel switched by id (a plug, an anatomical variant) is true or false; a truthy string would close a collateral or add a shunt (the engine reads these as switches).
+  for (const k of ['occluded', 'spontaneous']) for (const id of Object.keys(out[k])) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
+    if (typeof out[k][id] === 'boolean') continue;
+    fixed(`${k}.${id}`, out[k][id], Object.hasOwn(d[k], id) ? d[k][id] : 'dropped');
+    if (Object.hasOwn(d[k], id)) out[k][id] = d[k][id]; else delete out[k][id];
+  }
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }
+// A record the model owns keeps only the keys it defines: an extra one is not a parameter, and must not ride along to be read as a switch.
+function pruneTo(o, tpl, path, fixed) { for (const k of Object.keys(o)) if (!Object.hasOwn(tpl, k)) { fixed(`${path}.${k}`, o[k], 'dropped'); delete o[k]; } }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
 
 // B7: the ids under stenosis, thrombus, stenosisSite, occluded, customShunts and spontaneous are vessels of the model; a link's other ids are dropped.
 const ANY_EDGE = new Set(EDGES.map((e) => e.id));

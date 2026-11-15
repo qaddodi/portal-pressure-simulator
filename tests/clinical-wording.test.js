@@ -30,6 +30,9 @@ test('the rules catch lay words and British spelling a US clinician would correc
   assert.ok(rules('Ascites holds steady: the belly takes back the overflow.').includes('belly'));
   assert.ok(rules('120 leaks; the belly takes back 80.').includes('takes-back'));
   assert.ok(rules('Kidney pressure').includes('kidney-pressure'));
+  assert.ok(rules('Renal perfusion pressure is the MAP minus the IAP').includes('renal-perfusion-pressure'));
+  assert.ok(rules('The RPP tile turns red').includes('renal-perfusion-pressure'));
+  assert.deepEqual(rules('The abdominal perfusion pressure (APP) is the MAP minus the IAP.'), []);
   assert.ok(rules('A tap of 5 liters of ascites lowers the pressure').includes('tap'));
   assert.deepEqual(rules('Tap a station to see its pressure.'), []);   // (a tap on the screen)
   assert.ok(rules('oesophageal varices').includes('british'));

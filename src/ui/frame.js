@@ -256,7 +256,7 @@ function noteGap(dt) {
 /** The cadence the page's frames are observed at now (Hz; 0 until enough frames have run). A diagnostic: never the budget. */
 export const refreshHz = () => hzNow;
 /** The highest refresh seen offered on this page (Hz): the panel can do at least this, so less now is a throttle. */
-export const refreshMaxHz = () => Math.max(hzMax, +globalThis.screen?.refreshRate || 0);
+export const refreshMaxHz = () => Math.max(hzMax, +(/** @type {Screen & { refreshRate?: number }} */ (globalThis.screen))?.refreshRate || 0);
 /** The intervals of the last frames that ran one after another (ms, oldest first). */
 export const recentGaps = () => { const a = Array.from(gapRing.subarray(0, gapN)); return gapN < gapRing.length ? a : [...a.slice(gapAt), ...a.slice(0, gapAt)]; };
 // The target (recs-production-120hz §1, §5; 2 Nov 2026): one fixed rate the engine holds itself to, never the rate it happens to get.
@@ -289,7 +289,7 @@ const SHARE_OF = [1, SCRIPT_SHARE, 0.85, SCRIPT_SHARE];
 export const WATCH_SHARE = SCRIPT_SHARE;
 export const DEFERRABLE = new Set(['credit', 'timeline', 'scroll-edges', 'inspector', 'dock', 'figkey', 'scale select', 'menu-profile', 'menu', 'vitals-monitor', 'main', 'debug', 'perf readout']);
 export const SECONDARY = new Set(['charts', 'doppler', 'fibroscan', 'plane plot', 'pressure-time', 'flow-time', 'tool-curve', 'tool-causes', 'col-wave', 'scope-tile', 'sinusoid-view', 'lumen']);
-const PRIO = new Map([...[...SECONDARY].map((t) => [t, 2]), ...[...DEFERRABLE].map((t) => [t, 3])]);
+const PRIO = new Map([...[...SECONDARY].map((t) => /** @type {[string, number]} */ ([t, 2])), ...[...DEFERRABLE].map((t) => /** @type {[string, number]} */ ([t, 3]))]);
 /** A frame callback's priority by its tag (0, 2 or 3; the may tasks are 1). */
 export const priorityOf = (tag) => PRIO.get(tag) || 0;
 let overStreak = 0, govLevel = 0, govFrameLevel = 0, govShed = 0;
@@ -660,7 +660,9 @@ export const SAVER_MS = 1000 / 15 - 4;
 // (labels, cards, the instruments' readings) are not on those canvases and stay sharp. 1 (Full) changes nothing.
 // 'auto' (30 Oct): the anatomy follows its zoom (stage.js autoScale), 100% zoomed out down to 10% zoomed in; the lobule and the
 // sinusoid stay at Full.
+/** @type {(number | 'auto')[]} */
 export const RENDER_SCALES = ['auto', 1, 0.75, 0.5, 0.25];
+/** @type {number | 'auto'} */
 let renderK = 1;
 try { const t = localStorage.getItem('pps.renderScale'), v = t === 'auto' ? t : +t; if (RENDER_SCALES.includes(v)) renderK = v; } catch (e) { caught('frame:577', e); /* storage unavailable */ }
 const renderSubs = new Set();
@@ -719,6 +721,7 @@ export function setFigOpt(k, v) {
 // lightArt: the colon's and small bowel's lines with about half their points, none more than 0.05 units off (stage.js syncArtLite).
 // (The first of a switch's values is its default.)
 export const FIG_LAB = { motion60: [true, false], glassCache: [false, true], creditLean: [true, false], lymphBoxes: [false, true], upscale: [false, true], lightArt: [false, true] };
+/** @type {Record<string, number | boolean>} */
 const figLabs = Object.fromEntries(Object.entries(FIG_LAB).map(([k, v]) => [k, v[0]]));
 for (const k of Object.keys(figLabs)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : t === 'false' ? false : +t; if (t != null && FIG_LAB[k].includes(v)) figLabs[k] = v; } catch (e) { caught('frame:631', e); /* storage unavailable */ }

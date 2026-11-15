@@ -16,6 +16,7 @@
 // stylesheet load far faster than ~60 source files on a slow or filtered network (pages-build: 1).
 
 import { build as esbuild } from 'esbuild';
+import { fatalWarnings, refusal } from './build-warnings.mjs';
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, basename, sep } from 'node:path';
@@ -52,12 +53,11 @@ const stripStamps = {
     b.onResolve({ filter: /\?v=/ }, (args) => ({ path: resolve(args.resolveDir, args.path.replace(/\?v=[0-9a-f]+$/, '')) }));
   },
 };
-// An import esbuild can only make `undefined` (the module is empty, or exports nothing) minifies to `(void 0)(...)` and the page dies at
-// boot ("(void 0) is not a function", preview c3fb93ed, when a conflict emptied glass-gl.js). esbuild only warns, so the build fails on it.
+// (Warnings that fail the build, scripts/build-warnings.mjs: an import that is always undefined, and a CSS syntax error, strict or not.)
 const build = async (opts) => {
   const r = await esbuild(opts);
-  const bad = r.warnings.filter((w) => w.id === 'import-is-undefined');
-  if (bad.length) throw new Error('Build refused, an import is always undefined:\n' + bad.map((w) => `  ${w.location?.file}:${w.location?.line} ${w.text}`).join('\n'));
+  const bad = fatalWarnings(r.warnings);
+  if (bad.length) throw new Error(refusal(bad));
   return r;
 };
 // Release identity (PR-04): the newest v2026.11.N tag (when the checkout has tags) plus the short commit, so a tester's "which version?"

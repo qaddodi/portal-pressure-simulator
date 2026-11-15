@@ -71,7 +71,7 @@ import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js';
+import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, watchAnimating, isAnimating } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
@@ -714,18 +714,20 @@ function readShare() {
 async function loadShared(s, { quiet = false } = {}) {
   // B1: a load that was replaced (another patient tapped meanwhile) or failed must not take this link's settings.
   if (!(await loadPreset(s.preset))) return false;
-  let clamped = false;
+  let clamped = false, repaired = '';
   const missing = s.missing && `This link names a patient the app does not have (“${s.missing}”), so its settings opened on the healthy patient.`;
   if (s.params) {
-    const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
+    const merged = deepMerge(store.get().params, s.params), { params: clean, repairs } = sanitizeParamsReport(merged);
     updateParams(() => clean, { settle: true, history: false });
+    // (R07: a value that is not what its field takes is replaced and named, never read as "on": the first few field paths are in the toast.)
+    if (repairs.length) repaired = repairs.slice(0, 3).map((r) => r.path || 'the settings').join(', ') + (repairs.length > 3 ? ` and ${repairs.length - 3} more` : '');
     if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); clamped = true; }   // (the view, selection and camera of the link still apply)
   }
-  if (s.view) store.set({ view: s.view });
+  if (s.view && s.view !== store.get().view) setViewKey(s.view === 'circuit' ? 'circuit' : 'anatomy');   // (the link's view, through the one writer: a link made inside the lobule or sinusoid carries the anatomy's)
   if (s.sel) store.set({ selection: s.sel });
   if (s.cam && !store.get().lobule) stage.setCamera(s.cam, 0);
   timeline.flush();
-  if (clamped) toast(missing || 'This link had values out of range; they were set to the nearest allowed values.', missing ? 'bad' : undefined);
+  if (clamped) toast(missing || `This link had values the model does not accept${repaired ? ` (${repaired})` : ''}; they were set to the nearest allowed value or the default.`, missing ? 'bad' : undefined);
   else if (missing) toast(missing, 'bad');
   else if (!quiet) toast('Loaded the shared scenario.');
   return true;
@@ -2001,7 +2003,7 @@ function wireThumbBar() {
   };
   // (Treat, Tests and Layers belong to the lobule and the anatomy: from the sinusoid view, which keeps the dock, 2 Nov, they first go
   // back out to the lobule, and open there. History and Settings open over the sinusoid itself.)
-  const outOfSin = () => { if (store.get().sinusoid) store.set({ sinusoid: false }); };
+  const outOfSin = () => { if (store.get().sinusoid) setViewKey('lobule'); };
   const treat = tab('treat', 'pill', 'Treat', () => { outOfSin(); if (!treatOpen()) clear('treat'); $('#btnTreat').click(); });
   const tests = tab('tests', 'gauge', 'Tests', () => { outOfSin(); if (!app.classList.contains('dock-open')) clear('tests'); $('#tabInstruments').click(); });
   const menuTab = (open) => (e) => { const a = e.currentTarget; if (a.getAttribute('aria-expanded') !== 'true') clear(); open(a); };
@@ -2203,7 +2205,7 @@ function wireKeyboard() {
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
-      else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });
+      else if (store.get().sinusoid && !store.get().selection) setViewKey('lobule');
       else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
       else store.set({ selection: null });
       return;

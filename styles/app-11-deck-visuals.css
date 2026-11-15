@@ -348,7 +348,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
   .pal-list.glides .pal-item.on { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .pal-list.glides .pal-item.on :is(.pal-g, .pal-t b, .pal-h) { color: HighlightText; }
   :is(.ib[aria-pressed="true"], .seg button[aria-pressed="true"], .seg button[aria-selected="true"], .instr-tab[aria-selected="true"]) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  :is(.ib[aria-pressed="true"], .instr-tab[aria-selected="true"]) :is(:is(svg, .ic), :is(svg, .ic) *) { stroke: HighlightText; } .instr-tab[aria-selected="true"]) :is(.ic, .ic *) { background-color: HighlightText; }
+  :is(.ib[aria-pressed="true"], .instr-tab[aria-selected="true"]) :is(:is(svg, .ic), :is(svg, .ic) *) { stroke: HighlightText; } .instr-tab[aria-selected="true"] :is(.ic, .ic *) { background-color: HighlightText; }
   :is(.modes button[aria-selected="true"], .um-tab[aria-selected="true"])::after { background: Highlight; }
   :is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis) { border: 1px solid ButtonText; box-shadow: none; }
   :is(.switch span, .ac-toggle .switch-vis, .lens-opt .mt-sw, .ab-tg .switch-vis, .ab-dp-alb .switch-vis)::before { display: none; }

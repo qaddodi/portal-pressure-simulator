@@ -3,13 +3,14 @@
 // (the other fields as trials.js has them), so these tests do not wait on that file.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitTrial, failedRows, FIT_TESTS, NOT_IN_MODEL, groupOf, possiblyWords, whyNot, lcFirst, openRows } from '../src/ui/trial-fit.js';
+import { fitTrial, failedRows, FIT_TESTS, NOT_IN_MODEL, groupOf, possiblyWords, whyNot, lcFirst, openRows, stillNeeded, fitsWords, FITS_WORDS, metricsOfFp } from '../src/ui/trial-fit.js';
 import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
 import { HV_BLOCKED } from '../src/engine/pressure-cuts.js';
 
 // A patient as computeMetrics and the params give it, with only the fields the tests read.
-const patient = ({ hvpg = 11.6, varix = 3.8, asc = 0, gv = false, bleed = false, cirrhosis = 0.6, tips = false, rhv = 0 } = {}) => ({
-  m: { hvpg, varix: { d: varix, grade: varixGrade(varix), present: varix >= 2.5 }, gastricVarix: { present: gv }, ascites: { volume: asc, ...ascitesGrade(asc) }, bleeding: bleed ? { site: 'VAR' } : null },
+// (rw: the red wale signs the model reads on the varix: true, false, or null for a record that does not carry them.)
+const patient = ({ hvpg = 11.6, varix = 3.8, asc = 0, gv = false, bleed = false, cirrhosis = 0.6, tips = false, rhv = 0, rw = false } = {}) => ({
+  m: { hvpg, varix: { d: varix, grade: varixGrade(varix), present: varix >= 2.5, ...(rw === null ? {} : { redWale: rw }) }, gastricVarix: { present: gv }, ascites: { volume: asc, ...ascitesGrade(asc) }, bleeding: bleed ? { site: 'VAR' } : null },
   p: { cirrhosis, tips: { on: tips, d: 8 }, thrombus: rhv ? { RHV_IVC: rhv } : {} },
 });
 const FIXTURES = {
@@ -27,19 +28,21 @@ const FIXTURES = {
   earlytipsCP: { id: 'earlytipsCP', name: 'Early TIPS, real shape', entry: [{ rule: 'Cirrhosis', test: 'cirrhosis' }, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'Child–Pugh C, or B with active bleeding', test: null }, { rule: 'No TIPS yet', test: 'no_tips' }] },
   confirm: { id: 'confirm', name: 'CONFIRM', entry: [{ rule: 'Hepatorenal syndrome', test: null }, { rule: 'Serum creatinine rising', test: null }] },
 };
-const fit = (id, o) => { const { m, p } = patient(o); return fitTrial(FIXTURES[id], m, p); };
+// What only a case author can say: the patient has never decompensated (no earlier ascites, bleed, encephalopathy or jaundice).
+const CASE = { decompensated: false };
+const fit = (id, o, facts = null) => { const { m, p } = patient(o); return fitTrial(FIXTURES[id], m, p, facts); };
 
 test('the test vocabulary is the one the trials use', () => {
   assert.deepEqual([...FIT_TESTS].sort(), ['acute_bleed', 'ascites', 'cirrhosis', 'compensated', 'gastric_varices', 'hvpg_ge', 'no_tips', 'tips', 'varices_medium_large', 'varices_not_high_risk']);
 });
 
-test('a compensated patient with CSPH and small varices does not "fit" PREDESCI while a defining rule stays open, and fits it once every rule was checked', () => {
-  const r = fit('predesci');
+test('a patient with CSPH, small varices and no ascites does not "fit" PREDESCI while a defining rule stays open, and matches it once every rule was checked', () => {
+  const r = fit('predesci', {}, CASE);
   assert.equal(r.verdict, 'unknown', 'four rules met, one the model cannot check: cannot tell, never fits');
-  assert.equal(fit('predesci4').verdict, 'fits');
+  assert.equal(fit('predesci4', {}, CASE).verdict, 'fits');
   assert.deepEqual(r.rows.map((x) => x.state), ['yes', 'yes', 'yes', 'yes', 'na']);
   assert.equal(r.rows[1].value, 'HVPG 11.6 mmHg');
-  assert.equal(r.rows[3].value, 'Small, 3.8 mm');
+  assert.equal(r.rows[3].value, 'Small, 3.8 mm, no red wale signs');
   assert.equal(r.rows[4].value, NOT_IN_MODEL);
 });
 
@@ -48,7 +51,7 @@ test('one rule that fails is enough: ascites, a large varix or an HVPG under the
   assert.deepEqual(failedRows(fit('predesci', { asc: 1000 })).map((x) => [x.rule, x.value]), [['Never decompensated', 'Ascites 1.0 L']]);
   assert.equal(fit('predesci', { varix: 7.2 }).verdict, 'no');
   assert.equal(fit('predesci', { hvpg: 9.9 }).verdict, 'no');
-  assert.equal(fit('predesci4', { hvpg: 10 }).verdict, 'fits', 'at the line counts as reached');
+  assert.equal(fit('predesci4', { hvpg: 10 }, CASE).verdict, 'fits', 'at the line counts as reached');
   assert.equal(fit('predesci', { cirrhosis: 0 }).verdict, 'no');
 });
 
@@ -57,7 +60,7 @@ test('the varix rules read the model\'s grading: Small under 5 mm, Large from 5'
   assert.equal(fit('tripathi', { varix: 5.0 }).verdict, 'fits');
   assert.equal(fit('tripathi', { varix: 4.96 }).verdict, 'fits', 'graded as printed: 4.96 reads 5.0 mm, Large');
   assert.equal(fit('tripathi', { varix: 1 }).rows[0].value, 'No varices');
-  assert.equal(fit('predesci', { varix: 1 }).rows[3].state, 'yes', 'no varices are not high-risk varices');
+  assert.equal(fit('predesci', { varix: 1, rw: null }).rows[3].state, 'yes', 'no varices are not high-risk varices, whatever the red wale record says');
 });
 
 test('a bleed and a TIPS are read from the model', () => {
@@ -106,11 +109,12 @@ test('TR-5: cirrhosis alone, or any one rule the model can check, never reads "f
 });
 
 test('F18: a trial with some defining rules checked and met is "possibly fits", with the count; none checked is "cannot tell"', () => {
-  const r = fit('predesci');   // four rules checked and met, the fifth (no earlier bleed or encephalopathy) not in the model
+  const r = fit('predesci', {}, CASE);   // four rules checked and met, the fifth (no earlier bleed or encephalopathy) not in the model
   assert.deepEqual([r.verdict, r.met, r.of, groupOf(r)], ['unknown', 4, 5, 'possible']);
   assert.equal(possiblyWords(r), 'Possibly fits: 4 of 5 entry rules checked');
   assert.deepEqual(openRows(r).map((x) => x.rule), ['No earlier bleed or encephalopathy']);
-  assert.equal(groupOf(fit('predesci4')), 'fits');
+  assert.equal(groupOf(fit('predesci4', {}, CASE)), 'fits');
+  assert.equal(groupOf(fit('predesci4')), 'possible', 'without the case history the rule "never decompensated" is open');
   assert.equal(groupOf(fit('predesci', { asc: 1000 })), 'no');
   const none = fit('confirm');
   assert.deepEqual([none.met, none.of, groupOf(none)], [0, 2, 'unknown']);
@@ -122,7 +126,7 @@ test('F4: the one rule the patient fails, as a line: "HVPG 8.2, needs ≥10"', (
   assert.equal(whyNot(fit('predesci', { hvpg: 8.2 })), 'HVPG 8.2, needs ≥10');
   assert.equal(whyNot(fit('predesci', { asc: 1000 })), 'Ascites 1.0 L, needs never decompensated');
   assert.equal(whyNot(fit('predesci', { varix: 7.2 })), 'Large, 7.2 mm, needs no high-risk varices');
-  assert.equal(whyNot(fit('predesci4')), null, 'a patient who fits has no rule to name');
+  assert.equal(whyNot(fit('predesci4', {}, CASE)), null, 'a patient who fits has no rule to name');
   assert.equal(whyNot(null), null);
 });
 
@@ -131,4 +135,59 @@ test('a rule is lower-cased in a sentence unless it starts with a name (HVPG, Ch
   assert.equal(lcFirst('Grade II or larger esophageal varices'), 'grade II or larger esophageal varices');
   assert.equal(lcFirst('Child–Pugh B or C'), 'Child–Pugh B or C');
   assert.equal(lcFirst('HVPG ≥10 mmHg'), 'HVPG ≥10 mmHg');
+});
+
+// ---- R02 of the external production review (15 Nov 2026): a clinical concept is not its nearest number --------------------------------------------------
+test('R02: "no ascites" is not "compensated": the rule is open until a case author says the patient never decompensated', () => {
+  const none = fit('predesci4');
+  assert.deepEqual(none.rows.map((x) => x.state), ['yes', 'yes', 'na', 'yes'], 'no ascites alone leaves compensated unknown');
+  assert.equal(none.rows[2].value, 'No ascites; earlier decompensation not in the model');
+  assert.equal(none.verdict, 'unknown');
+  assert.equal(none.rows[2].source, null, 'a row the model could not answer has no source');
+  const authored = fit('predesci4', {}, CASE);
+  assert.equal(authored.rows[2].state, 'yes');
+  assert.equal(authored.rows[2].value, 'No decompensation (case history)');
+  assert.equal(authored.rows[2].source, 'case', 'a rendered row says the fact was authored');
+  assert.equal(authored.rows[1].source, 'model', 'and the HVPG row says it came from the model');
+  // A fact that is not a real boolean is no fact: the rule stays open.
+  for (const bad of ['false', 0, null, 'no', [], {}]) assert.equal(fit('predesci4', {}, { decompensated: bad }).rows[2].state, 'na', `decompensated: ${JSON.stringify(bad)}`);
+  // What the model does know still excludes: ascites, a bleed now, or an authored earlier decompensation.
+  assert.equal(fit('predesci4', { asc: 1000 }, CASE).rows[2].state, 'no', 'the model\'s ascites beats the author');
+  assert.equal(fit('predesci4', { bleed: true }, CASE).rows[2].state, 'no');
+  assert.equal(fit('predesci4', {}, { decompensated: true }).rows[2].state, 'no');
+  assert.equal(fit('predesci4', {}, { decompensated: true }).verdict, 'no');
+});
+
+test('R02: red wale signs are high-risk varices, whatever the size; unknown signs stay unknown', () => {
+  const rule = (o, facts) => fit('predesci4', o, facts).rows[3];
+  assert.deepEqual([rule({ varix: 3.8, rw: true }).state, rule({ varix: 3.8, rw: true }).value], ['no', 'Small, 3.8 mm, red wale signs'], 'small varices with red wale: high risk');
+  assert.equal(fit('predesci4', { varix: 3.8, rw: true }, CASE).verdict, 'no', 'one known exclusion decides');
+  assert.equal(rule({ varix: 3.8, rw: false }).state, 'yes');
+  assert.equal(rule({ varix: 3.8, rw: null }).state, 'na', 'a record without the signs cannot say they are absent');
+  assert.equal(rule({ varix: 3.8, rw: null }).value, 'Small, 3.8 mm; red wale signs not recorded');
+  assert.equal(rule({ varix: 7.2, rw: null }).state, 'no', 'Large is high risk without looking');
+  assert.equal(fit('predesci4', { varix: 3.8, rw: null }, CASE).verdict, 'unknown', 'one open defining rule: cannot tell');
+  // The slide's record (the fingerprint) carries the signs as a boolean, and metricsOfFp passes only a boolean on.
+  assert.equal(metricsOfFp({ varix: 3.8, redWale: true }).varix.redWale, true);
+  assert.equal(metricsOfFp({ varix: 3.8, redWale: false }).varix.redWale, false);
+  assert.equal('redWale' in metricsOfFp({ varix: 3.8 }).varix, false);
+  assert.equal('redWale' in metricsOfFp({ varix: 3.8, redWale: 'yes' }).varix, false);
+});
+
+test('R01: a full match reads "Matches the modeled criteria. Eligibility is incomplete.", never "fits", "eligible" or "enrolled"', () => {
+  const r = fit('earlytips', { bleed: true });   // every defining rule met; the randomization window is a minor rule the model cannot check
+  assert.equal(r.verdict, 'fits');
+  assert.equal(stillNeeded(r), 'Still needed: randomized within 24 hours');
+  assert.equal(fitsWords(r), `${FITS_WORDS} Still needed: randomized within 24 hours.`);
+  assert.equal(FITS_WORDS, 'Matches the modeled criteria. Eligibility is incomplete.');
+  assert.equal(fitsWords(fit('predesci4', {}, CASE)), `${FITS_WORDS} From the case history: never decompensated.`, 'nothing open: the head, the caveat, and the rule that rests on the case author\'s word');
+  for (const w of [FITS_WORDS, fitsWords(r)]) assert.ok(!/\b(eligible|enrolled|fits)\b/i.test(w.replace('Eligibility is incomplete', '')), w);
+});
+
+test('R01: a passing rule plus an unknown one never gives a favorable headline', () => {
+  const one = fitTrial({ entry: [{ rule: 'Cirrhosis', test: 'cirrhosis' }, { rule: 'Creatinine below 1.5', test: null }] }, patient().m, patient().p);
+  assert.equal(one.verdict, 'unknown');
+  assert.equal(groupOf(one), 'possible');
+  assert.equal(possiblyWords(one), 'Possibly fits: 1 of 2 entry rules checked');
+  assert.equal(stillNeeded(one), 'Still needed: creatinine below 1.5');
 });

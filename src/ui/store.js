@@ -91,6 +91,23 @@ export function viewIllegal(st = state) {
   if (st.lobule && st.view === 'circuit') return 'lobule over the circuit';
   return null;
 }
+// Only setViewKey writes view, lobule or sinusoid (R08, external production review, 15 Nov 2026). A write of any of them from anywhere else is counted in
+// viewWrites.stray (and logged once); where `globalThis.PPS_STRICT_VIEWS` is on (the unit tests, a development page) it throws, so a writer that bypasses the one
+// legal path, or leaves the three fields in a state viewIllegal names, is found where it is made and not as a flicker in a talk.
+let inViewWriter = false;
+export const viewWrites = { stray: 0, illegal: 0, last: '' };
+const VIEW_FIELDS = new Set(['view', 'lobule', 'sinusoid']);
+function checkViewWrite(keys) {
+  let touched = false;
+  for (let i = 0; i < keys.length; i++) if (VIEW_FIELDS.has(keys[i])) { touched = true; break; }
+  if (!touched) return;
+  const why = !inViewWriter ? `${keys.join(', ')} written outside setViewKey` : viewIllegal(state);
+  if (!why) return;
+  if (inViewWriter) viewWrites.illegal++; else viewWrites.stray++;
+  viewWrites.last = why;
+  if (globalThis.PPS_STRICT_VIEWS) throw new Error(`store: ${why}`);
+  if (viewWrites.stray + viewWrites.illegal === 1) console.error(`store: ${why}`);
+}
 const VIEW_PATCH = {};   // (kept: set() reads the patch's keys at once and does not keep it)
 /** Go to one of the four views with a single, legal store.set. Writes only the fields that change; returns the key. */
 export function setViewKey(k) {
@@ -102,7 +119,7 @@ export function setViewKey(k) {
   if (state.lobule !== lob) { p.lobule = lob; n++; }
   if (state.sinusoid !== sin) { p.sinusoid = sin; n++; }
   if (state.view !== view) { p.view = view; n++; }
-  if (n) store.set(p);
+  if (n) { inViewWriter = true; try { store.set(p); } finally { inViewWriter = false; } }
   return k;
 }
 export const store = {
@@ -119,6 +136,7 @@ export const store = {
     try {
       if (rest) rev++;
       Object.assign(state, patch);
+      checkViewWrite(keys);
       if (soonKeys.size) for (let i = 0; i < keys.length; i++) soonKeys.delete(keys[i]);   // (heard now, with the newest value: not again after the frame)
       wake(keys);
     } finally { depth--; }
@@ -130,6 +148,7 @@ export const store = {
     try {
       if (key !== 'frame') rev++;
       state[key] = value;
+      checkViewWrite(keys);
       if (soonKeys.size) soonKeys.delete(key);
       wake(keys);
     } finally { depth--; }
@@ -143,6 +162,7 @@ export const store = {
     for (const k in patch) { if (!hasOwn.call(patch, k)) continue; soonKeys.add(k); if (k !== 'frame') rest = true; }
     if (rest) rev++;
     Object.assign(state, patch);
+    for (const k in patch) if (VIEW_FIELDS.has(k)) { checkViewWrite([k]); break; }
     if (!soonAsked) { soonAsked = true; runSoon(wakeSoon); }
   },
   /** A model frame alone (the common set, several a second): the same as set({ frame: f }) without a patch, a key list or a
@@ -210,6 +230,7 @@ export function onParamChange(fn) { changeHooks.push(fn); }
 /** Apply a params patch (object or function). Records history unless {history:false}. */
 const NO_OPTS = Object.freeze({});
 const HOOK_ARG = { label: '', history: true };   // (what the hooks are given: they read it as they are called)
+/** @param {object | ((p: any) => any)} patchOrFn @param {{ settle?: boolean, history?: boolean, label?: string }} [opts] */
 export function updateParams(patchOrFn, opts = NO_OPTS) {
   const settle = opts.settle ?? false, history = opts.history ?? true, label = opts.label ?? '';
   const prev = state.params;

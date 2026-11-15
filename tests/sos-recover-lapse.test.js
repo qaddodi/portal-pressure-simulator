@@ -52,6 +52,6 @@ test('the Recovered row: PV 8.6, FHVP 4.9, HVPG 2.4, no ascites', async () => {
 
 test('a slide diving from the anatomy aims the lobule at its station before the dive starts', () => {
   const cam = presenter.match(/async function camera\(cam, s, cut, early = 0, begun = null\) \{([\s\S]*?)\n {2}\}/)[1];
-  const aim = cam.indexOf("if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });"), dive = cam.indexOf('store.set({ lobule: true });');
+  const aim = cam.indexOf("if (cam !== 'sinusoid') stage.lobuleAim(part, { zoom });"), dive = cam.indexOf("setViewKey('lobule');");
   assert.ok(aim > 0 && dive > aim, 'aimed first, then the dive');
 });

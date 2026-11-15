@@ -20,7 +20,7 @@ import { measure } from './glyph-measure.js';
 import { readMetric } from './layout-snap.js';
 import { trialOf, trialSource } from './trials.js';
 import { TYPE } from './chart-looks/trial.js';
-import { fitTrial, metricsOfFp, lcFirst, possiblyWords } from './trial-fit.js';
+import { fitTrial, metricsOfFp, lcFirst, possiblyWords, fitsWords } from './trial-fit.js';
 
 export const TRIAL_LINES = 2;   // (the most lines a field's words take; more are cut with an ellipsis)
 export const NOTE_LINES = 3;
@@ -61,7 +61,7 @@ export const endpointOf = (t) => (t.followUp ? `${t.endpoint}, ${lcFirst(t.follo
 /** The fit line's words for fitTrial's answer, or null when there is none. */
 export function fitWords(fit) {
   if (!fit) return null;
-  if (fit.verdict === 'fits') return 'The patient on this slide fits';
+  if (fit.verdict === 'fits') return fitsWords(fit);
   if (fit.verdict === 'no') {
     const r = (fit.rows ?? []).find((x) => x?.state === 'no');
     if (!r?.rule) return 'Does not fit';
@@ -138,15 +138,12 @@ export function trialLayout(t, W, f, meas, fit = null) {
     const d = Math.round(px('trialfit.t') * 1.15), tx = d + f * 0.55, top = y;
     const L0 = lines(fw, 'trialfit.t', 3, tx);
     const cy = top + (L0.length > 1 ? lh('trialfit.t') / 2 : (y - top) / 2) + px('trialfit.t') * 0.04, r = d / 2, cx = r;
-    if (fit.verdict === 'fits') {
-      rects.push({ x: 0, y: cy - r, w: d, h: d, r, look: 'trialfit.mk' });
-      paths.push({ d: `M${(cx - r * 0.42).toFixed(2)} ${(cy + r * 0.02).toFixed(2)} L${(cx - r * 0.1).toFixed(2)} ${(cy + r * 0.34).toFixed(2)} L${(cx + r * 0.45).toFixed(2)} ${(cy - r * 0.3).toFixed(2)}`, look: 'trialfit.tick' });
-    } else {
-      rects.push({ x: 0.75, y: cy - r + 0.75, w: d - 1.5, h: d - 1.5, r: r - 0.75, look: 'trialfit.ring' });
-      const q = r * 0.36;
-      paths.push({ d: fit.verdict === 'no' ? `M${(cx - q).toFixed(2)} ${(cy - q).toFixed(2)} L${(cx + q).toFixed(2)} ${(cy + q).toFixed(2)} M${(cx + q).toFixed(2)} ${(cy - q).toFixed(2)} L${(cx - q).toFixed(2)} ${(cy + q).toFixed(2)}`
-        : `M${(cx - q).toFixed(2)} ${cy.toFixed(2)} L${(cx + q).toFixed(2)} ${cy.toFixed(2)}`, look: 'trialfit.x' });
-    }
+    // (Never the filled accent badge with a check: "matches the modeled criteria" is not an eligibility verdict, so it wears the same quiet ring as the others, R01.)
+    rects.push({ x: 0.75, y: cy - r + 0.75, w: d - 1.5, h: d - 1.5, r: r - 0.75, look: 'trialfit.ring' });
+    const q = r * 0.36;
+    paths.push({ d: fit.verdict === 'no' ? `M${(cx - q).toFixed(2)} ${(cy - q).toFixed(2)} L${(cx + q).toFixed(2)} ${(cy + q).toFixed(2)} M${(cx + q).toFixed(2)} ${(cy - q).toFixed(2)} L${(cx - q).toFixed(2)} ${(cy + q).toFixed(2)}`
+      : fit.verdict === 'fits' ? `M${(cx - r * 0.34).toFixed(2)} ${(cy + r * 0.02).toFixed(2)} L${(cx - r * 0.08).toFixed(2)} ${(cy + r * 0.28).toFixed(2)} L${(cx + r * 0.36).toFixed(2)} ${(cy - r * 0.24).toFixed(2)}`
+      : `M${(cx - q).toFixed(2)} ${cy.toFixed(2)} L${(cx + q).toFixed(2)} ${cy.toFixed(2)}`, look: 'trialfit.x' });
     y = Math.max(y, cy + r);
   }
   return { texts, rects, paths, H: Math.ceil(y + f * 0.35) };
@@ -160,9 +157,9 @@ export function trialWords(t, fit = null) {
 
 /** fitTrial's answer for trial t on a slide's state ({ fp, params }: the slide's own patient, the fingerprint the tiles read), or null when it
  *  cannot be asked (no state yet) or throws. */
-export function fitOf(t, st) {
+export function fitOf(t, st, facts = null) {
   if (!t || !st?.fp) return null;
-  try { return fitTrial(t, metricsOfFp(st.fp), st.params ?? null) ?? null; } catch { return null; }
+  try { return fitTrial(t, metricsOfFp(st.fp), st.params ?? null, facts) ?? null; } catch { return null; }
 }
 
 const sv = svgModel;
@@ -194,7 +191,7 @@ export function createTrial() {
     /** t: the slide's tool; ctx: the slide's context (presenter ctxOf: fp, params), whose patient the fit line is asked for. */
     configure(t, ctx = null) {
       const next = trialOf(t?.id);
-      if (ctx) { const f2 = fitOf(next, ctx); if (fitWords(f2) !== fitWords(fit)) drawnW = 0; fit = f2; }
+      if (ctx) { const f2 = fitOf(next, ctx, t?.facts ?? null); if (fitWords(f2) !== fitWords(fit)) drawnW = 0; fit = f2; }
       if (next !== trial) { trial = next; drawnW = 0; }
       el.setAttribute('aria-label', trial ? trialWords(trial, fit) : '');
       if (trial) draw(); else gl.clear?.();
