@@ -398,6 +398,6 @@ test('one roll speed: COUNT_MS is motion.js\'s alone, and the rolls (util.js cou
   }
   assert.deepEqual(bad, []);
   const importsCount = /import\s*\{[^}]*\bCOUNT_MS\b[^}]*\}\s*from\s*'\.\/motion\.js'/;
-  for (const f of ['src/ui/util.js', 'src/ui/stage-sites-paint.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
+  for (const f of ['src/ui/util.js', 'src/ui/count-roll.js', 'src/ui/presenter.js']) assert.match(read(f), importsCount, `${f} rolls on motion.js COUNT_MS`);
   assert.doesNotMatch(read('src/ui/presenter.js'), /tileGlide\(to, ms = \d/, 'the tiles\' default is COUNT_MS, not a number');
 });

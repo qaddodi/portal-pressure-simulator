@@ -5,6 +5,7 @@ import { CHIP_NODES } from './anatomy.js';
 import { afterMotion, cancelFrame, cancelMay, frameFor, inMotion, mayTask } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { HEART_KEY, addHeart } from './heart-label.js';
+import { onLabelRoll } from './count-roll.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
@@ -152,6 +153,7 @@ export function createLabelDriver(st, live) {
     return false;
   }
   function updateLabels(f, force = false) {
+    rollF = f;
     live.labelPainted = false;
     if (live.viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
     // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short. (Its new labels were solved as it
@@ -341,7 +343,10 @@ export function createLabelDriver(st, live) {
   // dive) a laid-out label is left exactly as it is, its places, widths and collisions kept from its last layout and its live values
   // not rebuilt or written into the page, so a moving frame does no label DOM work at all. The values catch up in the first frame
   // after the move ends.)
-  let heldF = null, heldWait = null;
+  let heldF = null, heldWait = null, rollF = null, rollAsked = false;
+  // (A station's number counting to a new value, review LBL-7: it asks for a frame while it counts, and the frame writes the next step into the label; during a move the held path above takes over and the count starts as the move ends.)
+  const rollRun = () => { rollAsked = false; const g = rollF; if (!g || heldF || inMotion() || cathHid()) return; if (!refreshValues(g)) live.labelKey = null; labelGlSync(); };
+  onLabelRoll(() => { if (!rollAsked) { rollAsked = true; frameFor('labels')(rollRun); } });
   const heldRun = () => { const g = heldF; heldF = null; if (!g || cathHid()) return; if (!refreshValues(g)) live.labelKey = null; labelGlSync(); };
   const heldDone = () => { heldWait = null; frameFor('labels')(heldRun); };
   function holdValues(f) {

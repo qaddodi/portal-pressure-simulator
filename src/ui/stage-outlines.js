@@ -412,7 +412,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   function fxTop() {
     fxFill = 0;
     while (fxSpare.length < FX_SPARE) {
-      const el = s('g', {}, s('path', { class: 'fx-halo' }), s('path', { class: 'fx-ink' }));
+      const el = s('g', {}, s('path', { class: 'fx-ink' }));
       el.fxKey = '';
       el.fxOn2 = () => el.classList.add('on');
       el.fxOn1 = () => nextFrame(el.fxOn2);

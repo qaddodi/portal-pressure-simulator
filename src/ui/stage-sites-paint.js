@@ -7,7 +7,8 @@ import { dropLabel } from './drop-label.js';
 import { ROOM_BASE, placeCallout } from './callout-room.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
-import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, COUNT_MS, easeArrive, afterMs } from './motion.js';
+import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, afterMs } from './motion.js';
+import { newRoll, rollStep } from './count-roll.js';
 import { portalSplit } from './table-marks.js';
 import { clamp, fmt, putText } from './util.js';
 
@@ -170,20 +171,10 @@ export function createSitesPaint(st, live) {
   const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(sitesRun); };
   const SITE_CLS = {};   // (each reading's class text, made once)
   for (const k of Object.keys(SITE_DEF)) SITE_CLS[k] = `cath-label site ${SITE_DEF[k].cls} cath-pre`;
-  const SITE_COUNT = {};   // (each reading's count in flight, made once: the record its element counts with)
-  for (const k of Object.keys(SITE_DEF)) SITE_COUNT[k] = { from: 0, to: 0, t0: 0 };
   function siteCount(el, to, tol) {
-    if (!Number.isFinite(to)) { el._nv = null; el._ng = null; return to; }
-    if (el._nv == null || reduceMotion.matches || el.classList.contains('off')) { el._ng = null; return (el._nv = to); }
-    const now = performance.now();
-    let g = el._ng;
-    if (g ? Math.abs(to - g.to) > tol : Math.abs(to - el._nv) > tol) { g = el._ng = el._ngO; g.from = el._nv; g.to = to; g.t0 = now; }
-    if (!g) return (el._nv = to);
-    g.to = to;
-    const u = clamp((now - g.t0) / COUNT_MS, 0, 1);
-    el._nv = g.from + (g.to - g.from) * easeArrive(u);   // (the one roll's curve, motion.js COUNT_MS)
-    if (u < 1) sitesAgain(); else el._ng = null;
-    return el._nv;
+    const r = el._roll, v = rollStep(r, to, tol, performance.now(), reduceMotion.matches || el.classList.contains('off'));   // (the one roll, count-roll.js: COUNT_MS on easeArrive)
+    if (r.on) sitesAgain();
+    return v;
   }
   const siteAt = [0, 0], resGone = [];   // (the resistors to drop, listed first as resPaint takes them out of resMade; the order the key goes by)
   let sitesWant = NO_LIST;   // (the readings this paint is for)
@@ -210,7 +201,7 @@ export function createSitesPaint(st, live) {
       const ratio = null;
       let el = made.get(k);
       if (!el) {
-        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._ngO = SITE_COUNT[k];
+        el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._roll = newRoll();   // (alloc-rare: once per reading's element)
         if (!d.res) el._glass = glassCallout(el);
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;

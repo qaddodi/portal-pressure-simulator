@@ -9,6 +9,7 @@ import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { labelRoll } from './count-roll.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
@@ -82,9 +83,9 @@ export function createLabelItems(st, live) {
     badges.set(key, shown);
     return shown;
   }
-  function pressureRuns(P, id, compact) {
+  function pressureRuns(P, id, compact, Pv = P) {   // (Pv: the number shown, the roll's; P the model's, which the change badge reads)
     if (!store.get().layers.chips || isImaging()) return null;
-    const [v, u] = fp(P);
+    const [v, u] = fp(Pv);
     const runs = [{ t: v, size: 14, weight: 650, cls: 'lb-val' }];
     if (unitHere(id, u)) runs.push({ t: u, size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 });
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
@@ -209,7 +210,7 @@ export function createLabelItems(st, live) {
     // (The coronary vein a Warren shunt has tied off reads "—": the stomach side's own pressure is not the vein's.)
     const tied = tiedOff(f.viewParams || st.params, id);
     const lr = isImaging() || id === 'HA' || tied ? null : layerRuns(f, id, compact);
-    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact);
+    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact, Number.isFinite(P) ? labelRoll('n:' + id, P, 0.5, performance.now(), reduceMotion.matches) : P);   // (review LBL-7: the station's number counts over COUNT_MS like a site's and a card's, count-roll.js)
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
     // (Any vessel the station stands on or names (revVessels), and with or without a number: the figure's chevrons turn orange on every
     // such vessel, so every label on one says so, even where the readings are off. 13 Nov 2026, "PV doesn't have the reversal icon".)
