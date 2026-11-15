@@ -299,8 +299,17 @@ export function switchText(b, sw, now) {
   return L;
 }
 
-/** An element in a few characters for the readout: #id, or tag.firstClass. */
-export const nodeName = (n) => (!n ? '?' : n.id ? `#${n.id}` : `${n.localName || n.nodeName || '?'}${n.classList?.[0] ? `.${n.classList[0]}` : ''}`);
+/** An element in a few characters for the readout: #id, or tag.firstClass; one with neither is named by the nearest ancestor that has one
+ *  (15 Nov 2026: his paste read "most on g 105, g 105, g 105, g 105", four groups no one could tell apart). */
+export function nodeName(n) {
+  if (!n) return '?';
+  const own = (e) => (e.id ? `#${e.id}` : e.classList?.[0] ? `${e.localName || e.nodeName || '?'}.${e.classList[0]}` : '');
+  const me = own(n);
+  if (me) return me;
+  let p = n.parentElement, k = 0;
+  while (p && k < 6 && !own(p)) { p = p.parentElement; k++; }
+  return `${n.localName || n.nodeName || '?'}${p && own(p) ? ` in ${own(p)}` : ''}`;
+}
 // (The properties a browser animates on its compositor, without painting the element again: anything else repaints it every frame.)
 const COMPOSITED = new Set(['transform', 'opacity', 'translate', 'rotate', 'scale']);
 const KF_META = new Set(['offset', 'computedOffset', 'easing', 'composite']);

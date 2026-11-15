@@ -421,6 +421,26 @@ export function mayTask(tag, fn, opts) {
   else if (!pending) mayTimer();
   return m.cancel;
 }
+// ── settleGate ──
+// A gate for work made for a state that may keep changing (15 Nov 2026, his Safari ?perf in a time-lapse: the labels' solve ahead and the view
+// switch's pieces were begun again at every change of the patient, every second or two for the whole lapse, and neither ever finished).
+//
+//   const gate = settleGate(ms);   // (frame.js: what a may task asks before it begins work for a state)
+//   gate(key, now)   // ms still to wait before work for `key` may begin: 0 when it may begin now
+//
+// A change that comes after a quiet spell of `ms` or more (or the first key seen) may begin at once, as before: a slide change, a tap, a
+// collateral that opens once. A change that comes less than `ms` after the one before waits until its key has held for `ms`: a patient
+// changing all the while (a time-lapse) makes nothing again until it holds still. A key found changed when the caller comes back from a wait
+// the gate gave is never calm: it changed during the wait, unseen. Pure: no timer, no allocation; the caller asks again.
+export function settleGate(ms) {
+  let key, at = -Infinity, calm = true, waited = false;
+  return (k, now) => {
+    if (k !== key) { calm = !waited && now - at >= ms; key = k; at = now; }
+    const left = calm ? 0 : Math.max(0, at + ms - now);
+    waited = left > 0;
+    return left;
+  };
+}
 /** Drops the may task of `tag` that has not run yet. */
 export function cancelMay(tag) { mays.delete(tag); }
 /** Whether a may task of `tag` waits to run. */

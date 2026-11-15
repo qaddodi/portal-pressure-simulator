@@ -137,9 +137,9 @@ export function createLabelSolve(st, live) {
     live.labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
     if (live.labelK !== live.lbkNum) { live.lbkNum = live.labelK; live.lbkStr = live.labelK.toFixed(2); }   // (the text made only when the number moved)
     const lbk = live.lbkStr;
-    // (The text scale sets every label's halo: label-gl reads them all again (L3 P5). Not for a dry solve, the other view's ahead, whose
-    // write stage-view.js preSlice puts back in the same task: no label is read in between.)
-    if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); if (!dry) live.labelGL?.dirty(gLabels); }
+    // (The text scale sets every label's halo: label-gl reads them all again (L3 P5). Not written by a dry solve, the other view's ahead: no label
+    // is read from the page while it runs, and its write and the put-back restyled every label in each slice (frame.js settleGate).)
+    if (!dry && gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); live.labelGL?.dirty(gLabels); }
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan

@@ -1,6 +1,6 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { cancelMay, inMotion, mayTask, mayWaiting } from './frame.js';
+import { cancelMay, inMotion, mayTask, mayWaiting, settleGate } from './frame.js';
 import { sinceInput } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
@@ -163,6 +163,7 @@ export function createMorph(st, live) {
   // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
   // binnings is one check).
   const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
+  const SHOWN_HOLD_MS = 3000, shownGate = settleGate(SHOWN_HOLD_MS);   // (the shown vessels changing all the while, a time-lapse: frame.js settleGate)
   function morphTrackSoon() {
     if (!MORPH_GPU || mayWaiting(CHECK_TAG)) return;
     mayTask(CHECK_TAG, morphTrackCheck, { notBefore: mt.parts || mt.firstAt ? performance.now() + SETTLE_MS : 0 });
@@ -180,12 +181,13 @@ export function createMorph(st, live) {
     }
     const parts = morphTrackParts();
     if (!mt.parts || !owned) { morphTrackStart(parts, !mt.parts ? 'first build' : 'figure replaced'); return; }
-    const d = partsDiff(mt.parts, parts);
+    const shownWait = shownGate(`${parts.anat}|${parts.circ}`, now), d = partsDiff(mt.parts, parts);   // (the gate told every shown set it is checked at)
     if (!d.length) return;
     // (Only the coil differs and it is still easing: wait for it to settle, the sets already made keep serving the frames that fit them.)
     if (d.length === 1 && d[0] === 'coil shape' && live.coilEasing) { morphTrackSoon(); return; }
     // (Only the coil differs, settled: the pieces are made again only if the new shape leaves the courses they were binned for (coilFits).)
     if (d.length === 1 && d[0] === 'coil shape') { coilCheckStart(parts); return; }
+    if (shownWait > 0 && (mt.parts.anat !== parts.anat || mt.parts.circ !== parts.circ)) { mayTask(CHECK_TAG, morphTrackCheck, { notBefore: now + shownWait }); return; }   // (checked again once they have held)
     morphTrackStart(parts, `${d.join(' + ')} changed`);
   }
   // ── A coil that settled at a shape close to the one the pieces were made for (10 Nov 2026) ──

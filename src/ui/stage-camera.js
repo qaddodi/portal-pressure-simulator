@@ -116,14 +116,14 @@ addEventListener('orientationchange', saRead);
     // (The stage's base camera record, stage px from the stage's corner, without the circuit's turn: the one place the stage box and vt meet, so the one writer.
     // A resize moves it with no write to vt.)
     camSet(cams.stage.base, s * live.vt.k, ox + s * live.vt.x - b.left, oy + s * live.vt.y - b.top);
-    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave.)
-    if (sk > 0) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
+    // (A dot keeps at least a 4 px radius on screen however far the map is zoomed out: written where the scale steps a quarter octave; not in a solve at another stage.)
+    if (sk > 0 && !live.glSuppress) { const rm = DOT_MIN_PX / 2 ** (Math.round(Math.log2(sk) * 4) / 4); if (rm !== nd.rmin) { nd.rmin = rm; if (nd.at > 0) nodeVerts(nd.at); } }
     live.wrapRect = b;
     applyClampFs();
   }
   // (A narrowing's "60 %" is drawn in the figure: its size there is that of the labels' names on screen at any zoom, sweep batch 03 at 6–7 px.)
-  function applyClampFs() {
-    const sk = live.CTM?.sc || 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : '';
+  function applyClampFs() {   // (a solve at another stage, live.glSuppress, takes the size it reads and writes nothing on the page: frame.js settleGate)
+    const sk = live.CTM?.sc || 0, cfs = sk > 0 ? (live.clampBase / sk).toFixed(2) : ''; if (live.glSuppress) { if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; placeClampLabels(); } return; }
     const csw = sk > 0 ? `${(7 / sk).toFixed(2)}px` : '';   // (the clamps' halo, 7 px on screen: --clamp-sw, app.css)
     if (csw && csw !== live.clampSw) { live.clampSw = csw; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-sw', csw); }
     if (cfs && cfs !== live.clampFs) { live.clampFs = cfs; for (let i = 0; i < clampGs.length; i++) clampGs[i].style.setProperty('--clamp-fs', `${cfs}px`); placeClampLabels(); }

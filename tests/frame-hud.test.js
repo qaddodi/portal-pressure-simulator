@@ -324,4 +324,7 @@ test('CSS animations off the compositor are named with their property and elemen
   assert.equal(cssAnimText({ getAnimations: () => [] }), 'none running');
   assert.equal(cssAnimText({}), 'not listed by this browser');
   assert.equal(nodeName({ id: 'stage' }), '#stage');
+  const grp = { localName: 'g', classList: [], parentElement: { localName: 'g', classList: [], parentElement: { localName: 'g', id: 'ov-clamps', classList: [] } } };
+  assert.equal(nodeName(grp), 'g in #ov-clamps', 'a bare group is named by its nearest named ancestor');
+  assert.equal(nodeName({ localName: 'g', classList: ['halos'] }), 'g.halos');
 });

@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { peelAt } from './flow-peel.js';
-import { cancelFrame, cancelMay, mayTask } from './frame.js';
+import { cancelFrame, cancelMay, mayTask, settleGate } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
 import { reducedMs } from './motion.js';
@@ -207,10 +207,11 @@ export function createView(st, live) {
   // the stage): at a tap they are carried, with no solve. Anything moving drops one in progress, the view's own layouts (every frame or two on a playing model) do
   // not: it has scratch of its own (stage-label-solve.js DRY_SC, segIdxDry). A new framing or stage begins it again (preSlice). (slots, key, slotsTgt, slotsD: the
   // last whole solve and what it was made for, kept while the next is made, so a tap mid-way still finds one; g, gKey, gFrame, d, tgt, k: the solve under way.)
-  const pre = { need: true, g: null, key: null, gKey: null, gFrame: '', cur: '', d: null, tgt: 0, k: 1, slots: null, slotsTgt: -1, slotsD: null, tasked: false };
+  const pre = { need: true, g: null, key: null, gKey: null, gFrame: '', cur: '', d: null, tgt: 0, k: 1, slots: null, slotsTgt: -1, slotsD: null, tasked: false, kept: null };
+  const PRE_HOLD_MS = 1500, preGate = settleGate(PRE_HOLD_MS);   // (pre.kept: a solve's slices share one end state, as xfKept; the gate: frame.js settleGate)
   const cutSig = (t) => t.slice(t.indexOf('|')), preFrame = (d) => `${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${live.rotU > 0.5},${live.labelFonts},${live.calloutSig()},${live.labelIns()}`;
   function preKey(d) { return `${cutSig(labelSig(live.F))}|${preFrame(d)}`; }
-  function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } }
+  function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } pre.kept = null; } function preRetry() { pre.tasked = false; preAsk(); return false; }
   // (The kept slots' framing near enough the tap's to carry them: the same zoom within a tenth, the centre within an eighth of the stage.)
   function preNear(d) {
     const o = pre.slotsD, b = stageBox();
@@ -244,8 +245,8 @@ export function createView(st, live) {
   // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)
   const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
   function preAsk() {
-    if (pre.slots && !pre.g && !pre.need && preIdle() && preNowKey() !== pre.cur) pre.need = true;   // (the kept slots stand until the new ones are whole)
-    if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return;
+    if (pre.slots && !pre.g && !pre.need && preIdle() && preNowKey() !== pre.cur) pre.need = true; const now = performance.now(), left = live.F && !live.glSuppress ? preGate(cutSig(labelSig(live.F)), now) : 0;   // (the kept slots stand until the new ones are whole; the gate told at every ask, not from a tail at another stage)
+    if (pre.tasked || !(pre.need || pre.g) || !preIdle()) return; if (!pre.g && left > 0) { pre.tasked = true; mayTask('label presolve', preRetry, { notBefore: now + left }); return; }   // (asked again once it has held)
     pre.tasked = true;
     mayTask('label presolve', preStep, live.JOB_NOW);   // (a slice a frame while the figure rests, not when a frame happens to be spare)
   }
@@ -258,10 +259,9 @@ export function createView(st, live) {
   function preSlice(ms) {
     const tgt = live.morphTarget === 0 ? 1 : 0;
     // (A new solve's framing is read before the stage is put to its end: read inside, a framing moved since the last (a zoom) began it for the old one.)
-    if (pre.g && (pre.tgt !== tgt || preFrame(pre.d) !== pre.gFrame || !sameView(preFraming(tgt), pre.d))) preAbort();
-    if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; pre.gFrame = preFrame(pre.d); }
+    if (pre.g && (pre.tgt !== tgt || preFrame(pre.d) !== pre.gFrame || !sameView(preFraming(tgt), pre.d) || pre.kept?.n !== EV.length)) preAbort();   // (or the vessels changed under it: its end state is made again)
+    if (!pre.g) { pre.d = preFraming(tgt); pre.tgt = tgt; pre.gFrame = preFrame(pre.d); pre.kept = { pts: [], vis: [], w: [], n: EV.length }; }
     const keepSol = live.labelSol, keepSpare = live.labelSolSpare, keepTurn = live.labelTurned, keepK = live.labelK, kn = live.lbkNum, ks = live.lbkStr, keepIdx = live.segIdx;
-    const dk = live.gLabels.dataset.k, lv = live.gLabels.style.getPropertyValue('--lbk');
     let done = false;
     try {
       atTargetStage(pre.d, () => {
@@ -270,14 +270,12 @@ export function createView(st, live) {
         else live.labelK = pre.k;   // (the target view's label scale, which its first slice set: the gaps between a reading's runs are measured with it)
         done = labelSliceRun(pre.g, ms).valueOf(); pre.k = live.labelK;
         if (done) { const m = new Map(); for (const [k, v] of live.labelSol) m.set(k, { ...v }); pre.slots = m; pre.key = pre.gKey; pre.slotsTgt = pre.tgt; pre.slotsD = { ...pre.d }; pre.cur = ''; }
-      }, tgt);
-    } catch (e) { pre.g = null; pre.d = null; throw e; }
+      }, tgt, pre.kept);
+    } catch (e) { pre.g = null; pre.d = null; pre.kept = null; throw e; }
     finally {
       live.labelSol = keepSol; live.labelSolSpare = keepSpare; live.labelTurned = keepTurn; live.labelK = keepK; live.lbkNum = kn; live.lbkStr = ks; live.segIdx = keepIdx;
-      if (dk === undefined) delete live.gLabels.dataset.k; else live.gLabels.dataset.k = dk;
-      if (lv) live.gLabels.style.setProperty('--lbk', lv);
     }
-    if (done) { pre.g = null; pre.cur = preNowKey(); }
+    if (done) { pre.g = null; pre.kept = null; pre.cur = preNowKey(); }
     return done;
   }
   // (The node check's (tests/label-presolve-interleave.test.js): a whole run in slices of ms, between() after each that did not land.)

@@ -214,3 +214,22 @@ test('a change between the views under way makes the stretch it is crossing firs
   assert.deepEqual(second.log.sets.slice(0, 3).map((t) => Math.round(t * 6)), [2, 1, 0]);
   cancelMay('view-switch pieces');
 });
+
+// 15 Nov 2026, his Safari ?perf in a time-lapse: "builds 11", one under way 14 s, each collateral that opened made all six pieces again at once.
+test('vessels shown that keep changing (a time-lapse) are built for once they hold still; a lone change still at once', async () => {
+  const { m, shown } = boot();
+  m.morphTrackSoon();
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  shown.b = false; m.morphTrackSoon(); await frames(500);
+  assert.equal(builds(m), 2, 'a lone change is built for at once');
+  // A lapse: the shown set changes every second for 7 s (and ends unlike the set the pieces were made for).
+  for (let i = 0; i < 7; i++) { shown.b = !shown.b; m.morphTrackSoon(); await frames(1000); }
+  assert.equal(builds(m), 2, `nothing made again while the shown vessels keep changing: ${m.mt.stats.restart.reason}`);
+  await frames(4000);
+  assert.equal(builds(m), 3, 'once they hold still for 3 s, built once');
+  assert.match(m.mt.stats.restart.reason, /vessels shown/);
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  cancelMay('view-switch pieces');
+});
