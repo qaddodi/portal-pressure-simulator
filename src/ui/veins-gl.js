@@ -3938,7 +3938,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const bb = gl.createBuffer(), bv = gl.createVertexArray();
       bloodVAOOf(bv, bb);
       const S = { owner: api, entTex: dataTex(gl), bloodVAO: bv, bloodBuf: bb, nBlood: 0, bloodCell: CELL, bloodCPU: null, cellsCPU: null, entCPU: null, nCells: 0, cellBox: null, rowCells: null, patchMark: null, patchK: 0,
-        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight, nJoins: bins.nJoins | 0, joins: null } };
+        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight, nJoins: bins.nJoins | 0, joins: null, rowBox: bins.rowBox || null } };
       morphSets.add(S);
       useMorphSet(S);
       gl.bindTexture(gl.TEXTURE_2D, entTex);

@@ -216,7 +216,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   {
     const vg = text('src/ui/veins-gl.js'), s2 = text('src/ui/tube-stage2.js'), tp = text('src/ui/tube-pass.js');
     if (!/tubeBuckets\(tubeNow, C \? C\.mask : B\.pts\.on, nTubes, st\.R\.rows, D\.tb\);/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the rows by tier are bucketed from the cull\'s mask (C ? C.mask : B.pts.on)');
-    if (!/const C = view && view\.ok && joinBase < 0 \? cullUpdate\(B, nTubes, view\) : null/.test(s2)) errors.push('src/ui/tube-stage2.js frame: no row is culled during the change between the views (joinBase >= 0), nor without a usable view');
+    if (!/const C = view && view\.ok && \(joinBase < 0 \|\| \(B\.morph && B\.morph\.rowBox\)\) \? cullUpdate\(B, nTubes, view\) : null/.test(s2)) errors.push('src/ui/tube-stage2.js frame: between the views (joinBase >= 0) a row is culled only by the boxes its stretch was made with (B.morph.rowBox, R1b-13), never by the bundle\'s points; nor without a usable view');
     if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on, !B\.noEnds[,)]/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
     // (12 Nov 2026: a frame between the views draws only the webs of the joins it has, the morph set's joins.on, not every join of the stretch.)
     if (!/websByTier\([^\n]*jv >= 0 && st\.ji \? websLive\(st, joins\) : null\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: between the views the webs are those of the frame\'s own joins (websLive)');
@@ -352,6 +352,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/const askLooks = \(\) => \{ endsDirty = true;/, "a look change reads the ends again at once"],
   ]);
   forbid('src/ui/sinusoid-view.js', /getComputedStyle\(|getBoundingClientRect\(/, 'the sinusoid view reads styles and boxes through layout-snap.js (readStyle, readBox), never directly (OG-3)');
+
+  // The change between the views is culled too (15 Nov 2026, app review R1b-13): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/stage-morph.js', [[/b\.rowBox = pc\.path \? sweptRowBoxes\(pc\.path, MORPH_SLACK, GL_ROWS, null\) : null;/, "a stretch's set is made with each row's box over the whole stretch (its samples grown by the slack), for the Tube's cull"]]);
+  need('src/ui/tube-stage2.js', [
+    [/\(joinBase < 0 \|\| \(B\.morph && B\.morph\.rowBox\)\) \? cullUpdate\(B, nTubes, view\) : null/, "the Tube culls between the views by the stretch's boxes; without them it draws every row, as before"],
+    [/D\.lumBox\.on = !!C && joinBase < 0;/, "the lumen pass is scissored to the rows' box only at rest: between the views the rows' points move, and the bundle's points are the first sample's"],
+  ]);
 
   // A transform list is read as a matrix without writing to the element (15 Nov 2026, app review OG-1): consolidate() replaces the list by one matrix(),
   // which rewrites the attribute and wakes every attribute observer; transform-read.js reads the items and multiplies them instead.

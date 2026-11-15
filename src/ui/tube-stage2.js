@@ -11,7 +11,7 @@ import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js'
 import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS, MOUTH_AT } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
-import { rowBoxes, rowsInside } from './tube-cull.js';
+import { rowBoxes, rowBoxesFromSwept, rowsInside } from './tube-cull.js';
 
 /** The five programs, in the order stage2Start returns them and the gauge names them. */
 export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth', 'tubeJoinDepth'];
@@ -348,7 +348,8 @@ export function cullUpdate(B, nRows, view) {
   if (again) {
     if (!C.hr || C.hr.length < nRows) { C.hr = new Float32Array(nRows); C.inside = new Uint8Array(nRows); C.mask = new Uint8Array(nRows); }   // alloc-rare: grown with the vessel rows
     for (let r = 0; r < nRows; r++) C.hr[r] = (rm[r] || 0) * 1.25 + MIN_RADIUS;
-    rowBoxes(B.pts, null, C.hr, nRows, C.boxes);
+    if (B.morph && B.morph.rowBox) rowBoxesFromSwept(B.morph.rowBox, C.hr, nRows, on, C.boxes);   // (a stretch of the change between the views: the boxes it was made with, R1b-13)
+    else rowBoxes(B.pts, null, C.hr, nRows, C.boxes);
     C.inside.fill(2, 0, nRows);   // (neither 0 nor 1: the check below finds every row changed)
     C.gen = B.gen; C.n = nRows; C.total = C.boxes.on;
   }
@@ -416,8 +417,8 @@ export function createStage2Data(gl, MG) {
   D.frame = (G, tubeNow, nTubes, joinBase, view, joins = null) => {
     if (!D.stripVAO) make();
     const B = MG.B || MG, tv = MG.tv;
-    // (The rows outside the layer are left out of the buckets: not while a stretch of the change between the views moves the points (joinBase >= 0), nor when the view is not given.)
-    const C = view && view.ok && joinBase < 0 ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
+    // (The rows outside the layer are left out of the buckets: while a stretch of the change between the views moves the points (joinBase >= 0) by the boxes the stretch was made with (R1b-13); not when the view is not given.)
+    const C = view && view.ok && (joinBase < 0 || (B.morph && B.morph.rowBox)) ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
     const jv = joinBase >= 0 && joins ? joins.ver : -1;
     if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && jv === lastJv && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
@@ -425,8 +426,8 @@ export function createStage2Data(gl, MG) {
     else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
     tubeBuckets(tubeNow, C ? C.mask : B.pts.on, nTubes, st.R.rows, D.tb);
     D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
-    D.lumBox.on = !!C;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn)
-    if (C) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
+    D.lumBox.on = !!C && joinBase < 0;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn; not between the views, where the rows' points move)
+    if (D.lumBox.on) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
     websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds, jv >= 0 && st.ji ? websLive(st, joins) : null);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }

@@ -5,6 +5,7 @@ import { sinceInput } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
+import { sweptRowBoxes } from './tube-cull.js';
 
 export function createMorph(st, live) {
   const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, vesselAt, wrap } = st;
@@ -433,6 +434,8 @@ export function createMorph(st, live) {
     return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
   }
   function setOf(pc, b) {
+    // (R1b-13, 15 Nov 2026: the Tube leaves out the rows whose box lies outside its layer, in the change between the views too: each row's box over every moment of the stretch, grown by the slack.)
+    b.rowBox = pc.path ? sweptRowBoxes(pc.path, MORPH_SLACK, GL_ROWS, null) : null;
     pc.set = live.veins.makeMorphSet(b);
     pc.frame = new Float32Array((b.rows - b.entRows) * ENT_W * 4);
     pc.posBase = b.posBase - b.entRows * ENT_W; pc.joinBase = b.joinBase - b.entRows * ENT_W;

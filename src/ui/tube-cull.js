@@ -87,6 +87,47 @@ export function rowBoxesBetween(ptsA, ptsB, rad, rmax, nRows, out) {
   return boxes(ptsA, ptsB, rad, rmax, nRows, out);
 }
 
+/**
+ * The points' box of each row over a whole stretch of the change between the views (R1b-13, 15 Nov 2026): the box of every sample the stretch lists for the row
+ * (`path`: a Map from the row to its samples at the stretch's moments, each moment the row's [x, y] points as binned), grown by `slack`, which is how far a frame's
+ * point lies from the straight line between its two neighbouring moments (stage-morph.js MORPH_SLACK). 4 floats a row into `out` (made if absent or too small);
+ * a row the stretch does not list keeps the empty box (min +Infinity, max -Infinity). A frame's points lie inside it at every moment of the stretch.
+ */
+export function sweptRowBoxes(path, slack, nRows, out) {
+  const b = out && out.length >= nRows * BOX_FLOATS ? out : new Float32Array(nRows * BOX_FLOATS);   // alloc-rare: made once for a stretch, when its set is made
+  for (let r = 0; r < nRows; r++) { const o = r * BOX_FLOATS; b[o] = Infinity; b[o + 1] = Infinity; b[o + 2] = -Infinity; b[o + 3] = -Infinity; }
+  for (const [row, moments] of path) {
+    if (!(row >= 0 && row < nRows)) continue;
+    const o = row * BOX_FLOATS;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const P of moments) for (const q of P) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1]; }
+    if (!(x1 >= x0 && y1 >= y0)) continue;
+    const big = Math.max(1, Math.abs(x0), Math.abs(y0), Math.abs(x1), Math.abs(y1)) + slack, e = slack + big * 4.8e-7;   // (float32 rounds to nearest: a hair of slack, as boxes() leaves)
+    b[o] = x0 - e; b[o + 1] = y0 - e; b[o + 2] = x1 + e; b[o + 3] = y1 + e;
+  }
+  return b;
+}
+
+/**
+ * Every row's world box for a stretch into out.boxes, from its swept point boxes (sweptRowBoxes) grown on every side by `hr[row]` (the row's widest lumen, as rowBoxes grows
+ * by). A row with no points (`on[row]` 0) gets the empty box. A row WITH points the stretch has no box for (it was not listed) gets a box over the whole world, so it is never
+ * left out: a missing box can never hide a vessel. out.n = nRows, out.on = rows with points. Returns out.
+ */
+export function rowBoxesFromSwept(swept, hr, nRows, on, out) {
+  const b = ensure(out, nRows);
+  let n = 0;
+  for (let r = 0; r < nRows; r++) {
+    const o = r * BOX_FLOATS;
+    if (!on || !on[r]) { b[o] = Infinity; b[o + 1] = Infinity; b[o + 2] = -Infinity; b[o + 3] = -Infinity; continue; }
+    n++;
+    if (!swept || swept.length < (r + 1) * BOX_FLOATS || !(swept[o + 2] >= swept[o])) { b[o] = -1e9; b[o + 1] = -1e9; b[o + 2] = 1e9; b[o + 3] = 1e9; continue; }
+    const g = hr[r] || 0;
+    b[o] = swept[o] - g; b[o + 1] = swept[o + 1] - g; b[o + 2] = swept[o + 2] + g; b[o + 3] = swept[o + 3] + g;
+  }
+  out.n = nRows; out.on = n;
+  return out;
+}
+
 function boxes(pA, pB, rad, rmax, nRows, out) {
   const b = ensure(out, nRows), a = arrayOf(pA), c = pB ? arrayOf(pB) : null;
   let on = 0;
