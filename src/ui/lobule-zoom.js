@@ -72,6 +72,7 @@ import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
 import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
+import { createSearchBudget } from './search-budget.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -2311,6 +2312,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const mkSol = () => ({ res: [mkRes(), mkRes(), mkRes(), mkRes(), mkRes(), mkRes()], n: 0, total: 0, pl: [], ld: [], lead: null, call: null });   // alloc-rare: made with the view, and in the settled re-layout that still has a clash (never a frame of a hand's move)
   const mkItem = () => ({ k: '', L: null, w: 0, hh: 0, a: [0, 0], ea: [0, 0], edge: null });
   const mkInk = () => ({ x0: 0, y0: 0, x1: 0, y1: 0, r: 0, L: null });
+  const searchBudget = createSearchBudget();   // (LZ2-1: the settled order search keeps to a deadline and is run again, longer, in a later frame)
   const LC = {
     fr: null, ring: null, cards: null, keep: null, lk: 1, hx: 0, hy: 0,
     placed: [], pre: [], base: [], ld0: [], none: [], shK: [], shL: [], stack: [], sizes: [],
@@ -2508,7 +2510,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let s1 = solve(core, LC.pre, LC.none, mkSol()), tb = mkSol();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     permStart(idx, core.length);
-    do { if (s1.total < 1e5) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); if (t.total < s1.total) { tb = s1; s1 = t; } } while (nextPerm(idx, core.length));
+    do { if (s1.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(core, idx, ord), LC.pre, LC.none, tb); if (t.total < s1.total) { tb = s1; s1 = t; } } while (nextPerm(idx, core.length));
     const pl2 = s1.pl.slice();   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     const lead2 = placeCall(fr, pl2, cards, s1.ld, crosses, ring, hex, keep, into, mkCallOut());   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
     if (callLead && callCost >= 1e6) return null;
@@ -2525,7 +2527,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (items.length <= 5) {
       const idx = [], ord = [];   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
       permStart(idx, items.length);
-      do { if (s2.total < 1e5) break; const t = solve(permOf(items, idx, ord), LC.base, ld, tb); if (t.total < s2.total) { tb = s2; s2 = t; } } while (nextPerm(idx, items.length));
+      do { if (s2.total < 1e5 || searchBudget.over()) break; const t = solve(permOf(items, idx, ord), LC.base, ld, tb); if (t.total < s2.total) { tb = s2; s2 = t; } } while (nextPerm(idx, items.length));
     }
     s2.lead = shown.lead; s2.call = shown;
     return s2;
@@ -2546,9 +2548,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (p[0] > fr.l + 30 && p[0] < fr.r - 30 && p[1] > fr.t + 30 && p[1] < fr.b - 30) cands.push([t, p]);   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
       }
       cands.sort((p, q) => Math.hypot(p[1][0] - cx, p[1][1] - cy) - Math.hypot(q[1][0] - cx, q[1][1] - cy));   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
-      cands.length = Math.min(cands.length, 30);
+      cands.length = Math.min(cands.length, 8);   // (LZ2-1: 8 other sinusoids at most, nearest the middle first; the deadline bounds the rest)
       let winX = a0x, winY = a0y;
       for (const [t, a] of cands) {   // alloc-rare: only the settled re-layout that still has a clash, never a frame of a hand's move
+        if (searchBudget.over()) break;
         sinIt.a[0] = a[0]; sinIt.a[1] = a[1];
         const s2 = pillFirst(items, shown);
         if (betterSol(s2, sol)) { sol = s2; won = s2; winX = a[0]; winY = a[1]; pick.sin = t.id; }
@@ -2756,12 +2759,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       let trial = SOL_B;
       const idx = LC.idx, ord = LC.ord;
       permStart(idx, items.length);
+      searchBudget.begin();
       do {
         const s2 = solve(permOf(items, idx, ord), base, LC.ld0, trial);
         if (s2.total < sol.total) { trial = sol; sol = s2; }
         if (sol.total < 1e5 && items.length > 5) break;   // (up to five labels, 120 orders at most: the shortest leaders win, not just the first clear order)
+        if (searchBudget.over()) break;
       } while (nextPerm(idx, items.length));
-      if (sol.total >= 1e5) sol = retryClash(sol, items, fr, ring, hex, cards, keep, callLead);
+      if (sol.total >= 1e5 && !searchBudget.over()) sol = retryClash(sol, items, fr, ring, hex, cards, keep, callLead);
+      // (Cut at its deadline: the best layout so far is laid, and the search is run again from the start next frame with a longer one, LZ2-1.)
+      if (searchBudget.end()) nextFrame(() => { if (geo && fade > 0) { layoutKey = ''; lzLoop.want(true); } });
     }
     // A label waiting at the edge (what it names is off screen) never lies across another label's leader: its place is
     // set by the way it points, so it gives way (at 200 % text on a phone the Central vein's chip covered the Sinusoids' node).
