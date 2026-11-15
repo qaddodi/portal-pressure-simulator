@@ -3631,14 +3631,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade > 0 || !model || !gl || gl.lost) return;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const G = geo, live = lymphOn ? G.tubes : G.bloodTubes, bk = lymphOn ? 'lymph' : 'blood';
+    const G = geo, tubeSet = lymphOn ? G.tubes : G.bloodTubes, bk = lymphOn ? 'lymph' : 'blood';
     if (binCache.has(bk)) return;
     calibersChanged(rzOf(), G);
-    for (const t of live) {
+    for (const t of tubeSet) {
       t.maxR = maxOf(radiiNow(t));
       binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
     }
-    const ids = new Set(live.map((t) => t.id)), tubes = live.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), joins = G.joins.filter((j) => j.members.every((id) => ids.has(id)));
+    const ids = new Set(tubeSet.map((t) => t.id)), tubes = tubeSet.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), joins = G.joins.filter((j) => j.members.every((id) => ids.has(id)));
     if (!binAway) { binCache.set(bk, binVeins(tubes, joins)); return; }
     const was = geo, job = binning = Promise.resolve().then(() => binAway(tubes, joins)).then((b) => { if (geo === was && b && !binCache.has(bk)) binCache.set(bk, b); }, () => {}).finally(() => { if (binning === job) binning = null; });
   }
@@ -3912,7 +3912,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     shW = W;
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const live = lymphOn ? G.tubes : G.bloodTubes;
+    const tubeSet = lymphOn ? G.tubes : G.bloodTubes;
     const T = DRAW_T[tLast ^ 1];
     T[0] = k * V.k; T[3] = k * V.k; T[4] = k * V.x; T[5] = k * V.y;   // (T[1], T[2] stay 0)
     const dSame = drawSame(cw, ch, T);
@@ -3944,7 +3944,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // and the layer to 4 decimals: calibersChanged). The zoom sets only how small a change is still sent, so a zoom frame compares
       // the kept radii with what was sent.)
       const calCh = calibersChanged(rzOf(), G);
-      if (calCh || !radAll || kq !== radAllK) for (const t of live) {
+      if (calCh || !radAll || kq !== radAllK) for (const t of tubeSet) {
         const r = radiiNow(t);
         t.maxR = maxOf(r);
         // (A vessel's new radii change only the cells that list it, as a colour change does: those cells alone are drawn
@@ -3961,11 +3961,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (reachGrew) binCache.clear();
       if (bk !== binKey || reachGrew) {
         binKey = bk;
-        for (const t of live) binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
+        for (const t of tubeSet) binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
         let bins = binCache.get(bk);
         if (!bins) {
-          const ids = new Set(live.map((t) => t.id));   // alloc-rare: only when this layer's bins are not cached yet (first use of the blood or the lymph layer, or a vessel's reach outgrew its cells)
-          bins = binVeins(live.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), G.joins.filter((j) => j.members.every((id) => ids.has(id))));   // alloc-rare: same branch, bins not cached
+          const ids = new Set(tubeSet.map((t) => t.id));   // alloc-rare: only when this layer's bins are not cached yet (first use of the blood or the lymph layer, or a vessel's reach outgrew its cells)
+          bins = binVeins(tubeSet.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), G.joins.filter((j) => j.members.every((id) => ids.has(id))));   // alloc-rare: same branch, bins not cached
           binCache.set(bk, bins);
         }
         g.setGeometry(bins);
@@ -3976,9 +3976,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const lk = lensK();
       // (The inks, about 1,700 numbers, kept in live order and compared to a thousandth as numbers, not built into a string on every pan or zoom frame.)
       let inkMoved = false, n = 0;
-      for (let p = 0; p < live.length; p++) {
+      for (let p = 0; p < tubeSet.length; p++) {
         for (let e = 0; e < 2; e++) {
-          const c = tubeRGB(live[p], e, lk);
+          const c = tubeRGB(tubeSet[p], e, lk);
           for (let j = 0; j < 3; j++) { const x = c[j]; inkNow[n] = x; const q = Math.round(x * 1000); if (inkWas[n] !== q) { inkMoved = true; inkWas[n] = q; } n++; }
         }
       }
@@ -4003,8 +4003,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           for (let i = 0; i < 3; i++) LYD[i] = lerp(LY[i], deep[i], f);
         }
         const greyed = origin && lk >= 1;
-        for (let p = 0; p < live.length; p++) {
-          const t = live[p];
+        for (let p = 0; p < tubeSet.length; p++) {
+          const t = tubeSet[p];
           const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
           const alpha = (t.kind === 'tw' ? TW_ALPHA : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
@@ -4053,7 +4053,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (A paused pan has the flow it sent last: the same numbers, so they are not worked out and sent again; it is redone with the surface pass.)
     const flowSame = panOnly && g === flowG && flowA === flowAt;
     if (!flowSame) flowData.fill(0);
-    if (!flowSame) for (const t of live) if (t.lymph || t.kind === 'bd') flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph and bile carry no blood origin (a bile ductule keeps its own olive, not the systemic blue of an empty row)
+    if (!flowSame) for (const t of tubeSet) if (t.lymph || t.kind === 'bd') flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph and bile carry no blood origin (a bile ductule keeps its own olive, not the systemic blue of an empty row)
     // Lymph (the Lymph layer): soft dashes with an amber core run along each channel toward the portal tract, drawn by the composite from a
     // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
     // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
@@ -4061,7 +4061,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const lyOn = lymphOn && !m.hide;
     if (!flowSame && lyOn) {
       const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
-      for (const t of live) {
+      for (const t of tubeSet) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
         const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
         mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
@@ -4074,7 +4074,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         flowData[o + 28] = mo.lyD; flowData[o + 29] = lyStill ? (lyS < 0 ? -1e-3 : 1e-3) : lyS;
       }
     }
-    if (!flowSame && (bloodOn || chev || origin)) for (const t of live) {
+    if (!flowSame && (bloodOn || chev || origin)) for (const t of tubeSet) {
       let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
       const lv = t.kind;
       if (lv === 's0' || lv === 's1' || lv === 's2') {

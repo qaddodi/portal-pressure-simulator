@@ -91,6 +91,14 @@ export function analyse(src, stageName = H.fn) {
 
 export function planSplit(src, spec, A = analyse(src, spec.stage || H.fn)) {
   const { body, units, unitAt, vars } = A, refusals = [];
+  // (The parts read the shared lets through a record named `live`: a local of that name in the host would be read as the record. Rename the local first.)
+  estraverse.traverse(A.fn.body, { enter(n, parent) {
+    if (n.type !== 'Identifier' || n.name !== 'live') return;
+    if (parent?.type === 'MemberExpression' && parent.property === n && !parent.computed) return;
+    if (parent?.type === 'Property' && parent.key === n && !parent.computed && !parent.shorthand) return;
+    if (parent?.type === 'VariableDeclarator' && parent.id === n && A.body.some((st) => st.type === 'VariableDeclaration' && st.declarations.includes(parent))) return;
+    refusals.push(`line ${n.loc.start.line}: a local named live would be read as the live record`);
+  } });
   const byName = new Map(); for (const i of vars.values()) byName.set(i.name + '|' + i.scope, i);
   const stay = new Set(spec.stay || []);
   let M = new Set();
