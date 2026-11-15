@@ -123,8 +123,7 @@ test('idle rest: the FibroScan probe\'s waves stop with the figure and start aga
   const st = stageSource();
   assert.match(st, /if \((?:live\.)?restStill\(\)\) \{ scan\.last = 0; scan\.parked = true; return; \}/);
   assert.match(st, /if \(!on && scan\.parked\) \{ scan\.parked = false; if \(scan\.on && !scan\.raf\) \{ scan\.last = 0; scan\.raf = nextFrame\(scanTick\); \} \}/);
-  // (The other loops of the figure's marks stop by themselves once nothing eases: the halos, the Doppler probe's ease and its card tracking.)
-  assert.match(st, /glow\.raf = moving \? nextFrame\(glowStep\) : 0;/);
+  // (The other loops of the figure's marks stop by themselves once nothing eases (the vessel glow's own loop is gone, 15 Nov 2026): the Doppler probe's ease and its card tracking.)
   assert.match(st, /dpr\.track = dprTrackQuiet <= 6;/);
   assert.match(st, /if \(done\) \{ dpr\.eAt = 0; if \(!dpr\.on\) dpr\.leaving = false; return; \}/);   // (a probe that has drawn back to go, or settled in its place, stops its loop)
 });

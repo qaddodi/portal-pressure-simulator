@@ -154,14 +154,10 @@ test('when a stage 2 program is lost mid-run the next frame is stage 1, and when
   assert.ok(seq(h.log).some((x) => x.startsWith('tubeLean')));
 });
 
-test('a lit vessel\'s glow pair stays on the stage 1 strip program, EQUAL, over the rows of the stage 2 buffer read as one float a record', () => {
+test('a row with glow texels set draws no glow pair: the glow passes are gone (15 Nov 2026), the strip program is not drawn on the layer', () => {
   const h = makeHarness({ tubeMutator: (t) => { t[1 * 52 + 43] = 0.5; t[1 * 52 + 47] = 0.1; } });
   h.run();
-  const g = draws(h.log).filter((c) => c.prog === 'tubeStrip');
-  assert.equal(g.length, 2, 'a glow prepass and its colour pass');
-  assert.deepEqual(g.map((c) => c.mask === false), [true, false]);
-  assert.equal(g[1].depth, 'EQUAL');
-  assert.ok(h.log.some((c) => c.call === 'attrib' && c.loc === 1 && c.size === 1 && c.stride === 48), 'one float of each 12-float record');
+  assert.equal(draws(h.log).filter((c) => c.prog === 'tubeStrip').length, 0, 'no stage 1 strip pass over the rows of the stage 2 buffer: stage 2 draws its own');
 });
 
 test('tiers: each tier gets its own pair, and a web is drawn in the higher tier of its two rows', () => {

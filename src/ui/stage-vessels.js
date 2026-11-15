@@ -31,7 +31,7 @@ import { chainsOf, planChainInto } from './vessel-taper.js';
 
 import { stageScope } from './stage-scope.js';
 export function createVessels(st, live) {
-  const { E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, glow, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls } = st;
+  const { E, EV, FADE_DOWN_Y, FADE_IN, FEEDER_FADE_Y, GL_ROWS, IVC_JOIN, LIGATED, MAP, MORPH_GPU, MORPH_JSLACK, MORPH_SLACK, N_SAMPLES, ORIGIN_LUMEN, PORTAL_CASING, SIN_FADE, STRAIGHT_COLL, TIER_ALPHA, TIER_ART, TIER_GROUP, TIER_LIFT, TIER_LIFT_FRONT, W_TAU, arcLen, binList, binMemo, binTube, binTubeOf, divideLen, easeInOut, edgeQ, geo, getOrganCovers, joinKey, joinRoom, joinsKept, joinsOf, keep, layerMode, lenOfItem, levelTier, morphMiss, morphOff, morphTrackSoon, mt, noteMoveFrame, reachOf, refreshCTM, rowKey, selAKey, setOf, settleRes, spot, spotOn, strandAt, subPixel, sweepPiece, syncMapInk, tubeData, tubeFill, vCanvas, vesselAt, vh, viewKeep, viewNext, viewSame, widthMoving, wrap, wrapCS, wrapCls } = st;
   // ── A coil or a varix's spread easing at rest, on the GPU (2 Nov 2026, Mohammad: "Move. Everything. To. GPU.") ──
   // A slide change that grows or shrinks a varix eases its channels' coil (g.wig toward g.wigT) and its strands' fan (g.spr toward
   // g.sprT) over a second or two, and the strands spread into cells their binning did not list: 10 to 19 whole binnings of every vessel
@@ -463,8 +463,6 @@ export function createVessels(st, live) {
     return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
   const END_TOUCH = 3;
-  let rgbGlowCs = null;
-  const rgbGlowOf = (c) => toRGB(c, rgbGlowCs);   // (the glow-only sync's colour reader, kept; rgbGlowCs the style it reads)
   // (A vessel attribute counts as changed once it is a 255th away from what the layer was drawn with: a colour step under that cannot show, and a
   // running model's colours follow a little on every frame. The difference is kept, so the steps add up; NaN counts as changed.)
   const tubeMoved = (a, b) => !(Math.abs(a - b) <= 0.0039);
@@ -472,7 +470,7 @@ export function createVessels(st, live) {
     const m = live.glowMemo;
     if (!m || !live.veins || live.veins.lost || !live.vLook || live.tubesNew || live.lensFrom || live.colEasing || !live.tubesShown || live.tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== live.F || m.geo !== live.geometryVersion || m.netA !== live.netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== live.originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.vf !== live.varixFade || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.vf !== live.varixFade || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== 11) return false;
     const b = glowBits(m.items, 1), nb = m.items.length + IVC_LIST.length;   // (the buffer may be longer than the items it holds)
     for (let i = 0; i < nb; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -481,13 +479,12 @@ export function createVessels(st, live) {
   function syncGlowOnly(t) {
     if (!glowOnlyOk(t)) return false;
     live.glowSync = false;
-    const cs = live.glowMemo.cs, rgbCs = rgbGlowOf, W = TUBE_TEXELS * 4;
-    rgbGlowCs = cs;
+    const W = TUBE_TEXELS * 4;
     let changed = false;
     for (const it of live.glowMemo.items) {
       if (it.kind !== 'v' && it.kind !== 's') continue;
       const o = it.row * W;
-      writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, it.obj.len, glow.lit, vh.amt, rgbCs, easeInOut);
+      writeGlowTexels(tubeData, o, it.kind, it.x.e.id, it.ra?.e.id, vh.amt, easeInOut);
       for (let i = o + 39; i < o + 48; i++) if (tubeMoved(tubeData[i], live.tubesShown[i])) { veinsRows.add(it.row); live.tubesShown.set(tubeData.subarray(o, o + W), o); changed = true; break; }
     }
     if (changed) live.veins.setTubes(tubeData);
@@ -698,7 +695,6 @@ export function createVessels(st, live) {
   // A vessel gets its light line (F_SPEC) from this drawn width (x.width, px at the default fit): between 3.4 and about 5 the light line, the dark line and the rim together
   // covered most of the lumen and a thin vessel read striped (V4, visual-style review).
   const SPEC_MIN_W = 6;
-  const cpRgb = (c) => toRGB(c, cpCs);
   const cpMixA = [0, 0, 0], cpMixB = [0, 0, 0], cpFade = new Float64Array(8);
   const mix3To = (out, a, b, k) => { out[0] = a[0] + (b[0] - a[0]) * k; out[1] = a[1] + (b[1] - a[1]) * k; out[2] = a[2] + (b[2] - a[2]) * k; return out; };
   // (The figure's colours as last shown, by row: [c0, c1]. Kept maps and pairs, three in turn: the one a crossfade reads from
@@ -835,7 +831,7 @@ export function createVessels(st, live) {
         tubeData[o + 32] = wc[0]; tubeData[o + 33] = wc[1]; tubeData[o + 34] = wc[2]; tubeData[o + 35] = obj.wale;
         tubeData[o + 36] = 0.1; tubeData[o + 37] = 0.9; tubeData[o + 38] = 0.15 * (obj.len || 1); tubeData[o + 39] = 0;
       }
-      writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, cpRgb, easeInOut);
+      writeGlowTexels(tubeData, o, kind, id, ra?.e.id, vh.amt, easeInOut);
       // The moving front of the flow peel: a vessel on its way between the views is lit a little in its own hue (the hover's lift, veins-gl
       // shov), a bell on its own share of the change, so the blood seems to lead the change (flow-peel.js; 0 at rest and with reduced motion).
       if (kind === 'v' && !ra && T0 > 0 && T0 < 1 && !reduceMotion.matches) { const gw = PEEL_GLOW * peelGlow(T0, geo[id].rk[N_SAMPLES >> 1]); if (gw > tubeData[o + 39]) tubeData[o + 39] = gw; }
@@ -995,7 +991,7 @@ export function createVessels(st, live) {
     // (The look handed to the vessels' painter: one kept object and its colour lists, written in place each sync; its signature is numbers
     // compared with the last one's, lookChanged, not text made of it.)
     const vl = VLOOK;
-    vl.reach = glow.lit.size ? 20 : 11; vl.organs = 1 - T0; vl.fluid = live.fluidLook;
+    vl.reach = 11; vl.organs = 1 - T0; vl.fluid = live.fluidLook;
     lookRgba(vl.casing, cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56));
     lookRgba(vl.shadow, cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15));
     lookRgba(vl.sheen, toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42));

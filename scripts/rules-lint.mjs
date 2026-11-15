@@ -191,15 +191,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if ((tp.match(/patchCall\(/g) || []).length !== 2) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
-  // The Tube's glow program (brief PD part 4, 10 Nov 2026): optional on its own (a failure leaves the glow pairs on the strip program and takes no stage down); only the glow passes use it.
+  // No vessel glow program (15 Nov 2026, app review R1-7, owner's Q1: the glow program, its MP.GLOW and MP.UP passes and the glow engine's easing are deleted; no vessel takes a glow or halo since 13 Nov).
   {
     const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
-    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
-    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
-    if (!meshUseBody || /tubeGlow/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no glow program (a Tube frame is never drawn by the Mesh or the classic because the glow program failed)');
-    if (/tubeStrip|tubePatch|tubeLean|tube2|tube3/.test(slice(vg, 'const finishGlow = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishGlow: finishes the glow program only');
-    if (!/const P = pass === MP\.GLOW \|\| pass === MP\.UP \? glowP : E\.tubeS;/.test(tp) || !/glowP = E\.tubeGlow \|\| E\.tubeS;/.test(tp)) errors.push('src/ui/tube-pass.js tubeDraw: the glow passes (MP.GLOW, MP.UP) draw with E.tubeGlow, else E.tubeS; no other pass uses the glow program');
-    if ((tp.match(/glowP/g) || []).length !== 6) errors.push('src/ui/tube-pass.js: glowP is set once per frame and read by tubeDraw and the program set-up only');
+    if (/tubeGlow|glowStart|glowFinish|finishGlow/.test(vg)) errors.push('src/ui/veins-gl.js: no Tube glow program is started, finished or deleted (the glow program is gone)');
+    if (/glowP|MP\.GLOW|MP\.UP\b|tubeGlow|tb\.lit/.test(tp)) errors.push('src/ui/tube-pass.js: no glow pass (MP.GLOW, MP.UP) is drawn and no glow program is set up (the glow program is gone)');
+    if (/glowStep|nextFrame\(/.test(text('src/ui/stage-glow.js'))) errors.push('src/ui/stage-glow.js: the glow sources ease nothing and ask for no frame (nothing draws a glow)');
   }
   // The liver's congestion at rest (12 Nov 2026, his Mac: the organ layer painted twice a second, "page changed: liver g.organ transform"): its target is
   // held on the venous pressure with the breath low-passed out, so a breath never tips it a step and the liver is not rewritten at rest.

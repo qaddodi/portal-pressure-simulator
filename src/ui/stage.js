@@ -1250,7 +1250,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       },
     };
   })();
-  const { SEL_FADE, dop, dopApply, dopGateOf, dpr, glow, noGlows, revShown, selAKey, setGlow, setGlowSrc, spot, spotOn, toneCol, vh } = createGlow({ ALL_EDGES, E, EI, geo, nextFrame }, live);
+  const { SEL_FADE, dop, dopApply, dopGateOf, dpr, glow, noGlows, revShown, selAKey, setGlow, setGlowSrc, spot, spotOn, toneCol, vh } = createGlow({ E, EI }, live);
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
   let glowSync = false, themeSnap = false;   // (themeSnap: a new look is on the vessels' colours, which take it at once, not by their ease)

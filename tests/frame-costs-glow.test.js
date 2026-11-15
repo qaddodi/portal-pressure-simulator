@@ -2,7 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { writeGlowTexels, GLOW_DRAWN } from '../src/ui/glow-texels.js';
+import { writeGlowTexels } from '../src/ui/glow-texels.js';
 import { wavePacks, paintWave } from '../src/ui/scan-waves.js';
 
 // Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font caching,
@@ -13,67 +13,26 @@ const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const mix3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
 const rgb = (c) => ({ red: [1, 0, 0], green: [0, 0.5, 0], violet: [0.5, 0.2, 0.9] })[c];
-// The glow texels as syncVeins wrote them before the helper (a04d37a), over a row zeroed first.
-function before(T, o, kind, id, ra, len, lit, hovAmt) {
-  T.fill(0, o, o + 48);
-  const hov = (kind === 'v' || kind === 's') && Math.max(hovAmt.get(id) || 0, ra ? hovAmt.get(ra) || 0 : 0);
-  if (hov) T[o + 39] = ease(hov);
-  if (kind === 'v' || kind === 's') {
-    const la = lit.get(id), lb = ra && lit.get(ra), l = la || lb;
-    const lend = kind === 's' ? [0.3 * len, 0.3 * len] : la && lb ? [la.end[0], lb.end[1]] : l?.end;
-    const v = l ? ease(Math.max(0, l.v)) * l.amt : 0;
-    if (v > 0) {
-      if (l.col) { const c = rgb(l.col); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, ease(l.cu)) : c; }
-      const part = kind === 'v' && la && la.span && (la.span[0] > 0.002 || la.span[1] < 0.998);
-      T.set([...(l.col ? l.rgb : [0, 0, 0]), v, part ? -1 - la.span[0] : lend[0], part ? -1 - la.span[1] : lend[1], l.col ? 0 : 1, l.wide + (l.top ? 10 : 0)], o + 40);
-    } else T.fill(0, o + 40, o + 48);
-  }
-}
+const rnd0 = (seed0) => { let seed = seed0; return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); };
 
-test('the glow texels are written exactly as the whole vessel sync wrote them, over any earlier values', () => {
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const cols = [null, 'red', 'green', 'violet'];
-  for (let n = 0; n < 2000; n++) {
-    const kind = ['v', 's', 'f', 'c'][Math.floor(rnd() * 4)], ra = rnd() < 0.3 ? 'B' : undefined;
-    const mk = () => ({ v: rnd() < 0.2 ? 0 : rnd(), amt: 1 + rnd(), col: cols[Math.floor(rnd() * 4)], from: rnd() < 0.5 ? [0.1, 0.2, 0.3] : null, cu: rnd() < 0.5 ? 1 : rnd(), end: [rnd() * 20, rnd() * 20], span: rnd() < 0.5 ? [rnd() * 0.3, 0.7 + rnd() * 0.3] : [0, 1], wide: 1 + rnd() * 0.3, top: rnd() < 0.2 });
-    const lit = new Map(), hov = new Map();
-    if (rnd() < 0.7) lit.set('A', mk());
-    if (ra && rnd() < 0.6) lit.set('B', mk());
-    if (rnd() < 0.5) hov.set('A', rnd());
-    if (ra && rnd() < 0.5) hov.set('B', rnd());
-    const len = 10 + rnd() * 50;
-    const want = new Float32Array(48), got = new Float32Array(48).map(() => (kind === 'v' || kind === 's' ? rnd() : 0));   // stale values from an earlier frame
-    const litB = new Map([...lit].map(([k, l]) => [k, { ...l }]));
-    before(want, 0, kind, 'A', ra, len, lit, hov);
-    writeGlowTexels(got, 0, kind, 'A', ra, len, litB, hov, rgb, ease, true);
-    // (Only the glow texels are the helper's: the rest of the row is the whole sync's, zero in this stand-in.)
-    for (let i = 0; i < 39; i++) got[i] = 0;
-    assert.deepEqual([...got], [...want], `case ${n}`);
-    for (const k of lit.keys()) assert.deepEqual(litB.get(k).rgb, lit.get(k).rgb);
-  }
-});
-
-test('no glow is drawn on any vessel (13 Nov 2026): every glow texel is zero whatever lights the vessel, the hover brightening stays', () => {
-  assert.equal(GLOW_DRAWN, false);
-  let seed = 11;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+test('no glow is drawn on any vessel (13 Nov 2026; the glow engine is gone, 15 Nov): every glow texel is zero whatever else is in the row, the hover brightening stays', () => {
+  const rnd = rnd0(11);
   for (let n = 0; n < 500; n++) {
-    const kind = ['v', 's'][n % 2], ra = n % 3 === 0 ? 'B' : undefined;
-    const mk = () => ({ v: 1, amt: 1 + rnd(), col: n % 2 ? 'red' : null, from: null, cu: 1, end: [5, 5], span: [0, 1], wide: 1, top: n % 5 === 0 });
-    const lit = new Map([['A', mk()]]);
-    if (ra) lit.set('B', mk());
-    const hov = new Map([['A', 0.5]]);
+    const kind = ['v', 's', 'f', 'c'][n % 4], ra = n % 3 === 0 ? 'B' : undefined;
+    const hov = new Map(); if (rnd() < 0.7) hov.set('A', rnd()); if (ra && rnd() < 0.6) hov.set('B', rnd());
     const T = new Float32Array(48).fill(0.7);
-    writeGlowTexels(T, 0, kind, 'A', ra, 30, lit, hov, rgb, ease);
+    writeGlowTexels(T, 0, kind, 'A', ra, hov, ease);
+    if (kind !== 'v' && kind !== 's') { assert.deepEqual([...T], new Array(48).fill(Math.fround(0.7)), `case ${n}: other kinds are left as they are`); continue; }
     assert.deepEqual([...T.slice(40, 48)], new Array(8).fill(0), `case ${n}: no glow colour, amount, ends or width`);
-    assert.equal(T[39], ease(0.5), 'the hover brightening is not a glow');
+    const h = Math.max(hov.get('A') || 0, ra ? hov.get('B') || 0 : 0);
+    assert.equal(T[39], Math.fround(h ? ease(h) : 0), 'the hover brightening is not a glow');
+    assert.equal(T[38], Math.fround(0.7), 'the rest of the row is not touched');
   }
 });
 
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
   assert.match(stage, /if \((?:live\.)?glowSync && !syncGlowOnly\((?:live\.)?easeInOut\((?:live\.)?morph\)\)\) syncVeins\((?:live\.)?easeInOut\((?:live\.)?morph\)\);/);
-  assert.match(stage, /writeGlowTexels\((?:live\.)?tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, (?:live\.)?easeInOut\);/, 'the whole sync writes them with the same helper');
+  assert.match(stage, /writeGlowTexels\((?:live\.)?tubeData, o, kind, id, ra\?\.e\.id, vh\.amt, (?:live\.)?easeInOut\);/, 'the whole sync writes them with the same helper');
   assert.match(stage, /gm\.items = items; gm\.t = t; gm\.netA = (?:live\.)?(?:live\.)?netA; gm\.cs = cs; gm\.mode = mode; gm\.origin = cpOrigin; gm\.cath = (?:live\.)?(?:live\.)?cathTint; gm\.vf = (?:live\.)?(?:live\.)?varixFade; gm\.F = (?:live\.)?(?:live\.)?F; gm\.geo = (?:live\.)?(?:live\.)?geometryVersion;\n\s+gm\.plate = (?:live\.)?(?:live\.)?veins\.hasPlate\(0\); gm\.cls = wrapCls\(\); gm\.bits = glowBits\(items, 0\); gm\.reach = (?:live\.)?(?:live\.)?vLook\.reach;/);   // (the memo is one kept object written in place)
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
   for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== live.F', 'm.geo !== live.geometryVersion', 'm.netA !== live.netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== live.originOn()', 'm.cath !== live.cathTint', 'm.vf !== live.varixFade', 'm.plate !== live.veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);

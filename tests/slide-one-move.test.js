@@ -4,6 +4,8 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import './dom-shim.js';
+import { createGlow } from '../src/ui/stage-glow.js';
 
 const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const stage = stageSource();
@@ -118,10 +120,20 @@ test('the case card\'s retreat ends with its glide', () => {
   assert.ok(rc.indexOf('gl + 600);') < rc.indexOf('await morphTo(st, cut'), 'the patient changes only once the camera is still');
 });
 
-// A leave takes the step below its entrance (motion-scale-shipped): a slide's halos come in over 500 ms and leave over one small step, with the
-// cards and labels, so the camera does not set off under an old halo still fading. ?onemove=0 keeps the old fade.
-test('a slide\'s halos leave in one small step, and only the slide\'s own', () => {
-  assert.match(stage, /for \(const \[id, l\] of glow\.lit\) if \(!want\.has\(id\)\) \{ l\.to = 0; if \(src === 'slide'\) l\.dur = Math\.min\(l\.dur, D_SMALL \/ 1000\); \}/);
-  // (the way in: a slide's glow eases in over a surface step, 420 ms)
-  assert.match(stage, /o\.at = g\.at; o\.dur = D_SURFACE;\n\s+slideGlowOut\.push\(o\);[\s\S]*?setGlowSrc\('slide', slideGlowOut\);/);
+// A leave takes the step below its entrance (motion-scale-shipped): a slide's halos came in over 500 ms and left over one small step. Since 15 Nov 2026 (app review
+// R1-7) no vessel is drawn with a glow at all, so a slide's glow sources are named and dropped at once: nothing eases and no frame is asked for.
+test('a slide\'s glow sources are named and dropped at once: nothing eases, and the figure is not woken for them', () => {
+  const live = {};
+  const E = { A: { e: { from: 'x', to: 'y' } }, B: { e: { from: 'y', to: 'z' } } };
+  const { setGlowSrc, glow } = createGlow({ E, EI: {} }, live);
+  setGlowSrc('slide', [{ id: 'A', col: 'red' }, { id: 'B', col: null }, { id: 'nothere', col: null }]);
+  assert.deepEqual([...glow.lit.keys()].sort(), ['A', 'B'], 'the vessels named, the unknown one left out');
+  assert.equal(glow.lit.get('A').to, 1);
+  assert.equal(glow.raf, 0, 'no frame asked for');
+  setGlowSrc('hover', [{ id: 'B' }]);
+  setGlowSrc('slide', []);
+  assert.deepEqual([...glow.lit.keys()], ['B'], 'a vessel two sources name stays while one of them does');
+  setGlowSrc('hover', []);
+  assert.equal(glow.lit.size, 0, 'and goes with the last');
+  assert.notEqual(live.glowSync, true, 'the glow sync is not set for a glow that is not drawn');
 });
