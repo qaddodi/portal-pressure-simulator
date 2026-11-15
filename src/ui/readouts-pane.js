@@ -5,7 +5,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving } from './util.js';
+import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving } from './util.js';
 import { bandStep, BAND_RECHECK_MS } from './band-settle.js';
 import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
@@ -28,7 +28,7 @@ const SYSTEMIC = [
   ['map', 'Blood pressure', 'BP'], ['hr', 'Heart rate', 'Heart rate'], ['co', 'Cardiac output', 'Cardiac output'], ['ra', 'Right atrial pressure', 'RA pressure'], ['hb', 'Hemoglobin', 'Hb'],
 ];
 
-export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show }) {
+export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy, show, onFromReadings = null }) {
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
   const els = {};
   const vitEls = [];
@@ -71,7 +71,10 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const el = h('div', { class: 'dock-pane', 'data-pane': 'readouts' },
     copyBox,
     groups.map(([g, label]) => section(g, label, tiles.filter((t) => t.group === g).map(tile))),
-    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))));
+    section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))),
+    // (A second door to From readings, where readings live: the patient menu's top row is the first. Review U13.)
+    onFromReadings ? h('section', { class: 'rp-group rp-fr', 'aria-label': 'From readings' }, h('h3', { class: 'rp-cap' }, 'Have a patient’s numbers?'),
+      h('button', { type: 'button', class: 'btn sm rp-fr-btn', onclick: (e) => onFromReadings(e.currentTarget) }, svgIcon('rewind', 'rp-fr-ic'), h('span', {}, 'Work backward from readings'))) : null);
 
   // The number a tile prints: its shown value, and HVPG and PPG as the bar beside them prints them (the difference of their two readings as shown,
   // dock.js paintStrip, shown.js), so this tab never says 11.7 where the bar says 11.6. A measured HVPG, or a number far from the bar's (a step

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LIBRARY, LIBRARY_KEYS } from '../src/engine/inverse-library.js';
 import {
-  rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText, costOf, reasonsFor, bandsOf, lsmBand, hvpgBand, LESION_COST,
+  modelText, numberText, rank, normalise, residual, pointsOf, statusOf, nextReading, refinePoints, fitMark, gapLine, rangeText, readingText, costOf, reasonsFor, bandsOf, lsmBand, hvpgBand, LESION_COST,
   READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, TIE, POSSIBLE, MISS, SPLIT,
 } from '../src/engine/inverse.js';
 import { FAMILIES, FAMILY, LESION, keyOf, spanOf, settingText, settingsOf, patientOf } from '../src/engine/inverse-families.js';
@@ -269,4 +269,60 @@ test('sparse sets of other kinds still leave a short list and name a next readin
   }
   assert.equal(rank({ whvp: 30, fhvp: 24, lsm: 9, plt: 150 }, POINTS).few, false, 'four readings is a ranking');
   assert.equal(FEW_READINGS, 4);
+});
+
+test('the model\'s grade readings print as grades, never as the raw millimetres or millilitres (review U2)', () => {
+  assert.equal(modelText('varix', 1.0), 'None');
+  assert.equal(modelText('varix', 4.1), 'Small');
+  assert.equal(modelText('varix', 6.2), 'Large');
+  assert.equal(modelText('asc', 40), 'None');
+  assert.equal(modelText('asc', 2000), 'Grade 2');
+  assert.equal(modelText('asc', 9000), 'Grade 3');
+  assert.equal(modelText('whvp', 12.44), '12.4 mmHg');
+  assert.equal(modelText('varix', null), 'none');
+  // (an entered grade is an index; the model's value is a measure: they go through different functions on purpose)
+  assert.equal(numberText('varix', 1), 'Small');
+  assert.equal(numberText('varix', 4.1, true), 'Small');
+  assert.equal(numberText('whvp', 8), '8.0');
+  assert.equal(numberText('lsm', 33.4), '33');
+  assert.equal(gapLine({ key: 'varix', entered: 0, predicted: 6, d: 2 }), 'Predicts Varices Large; you entered None.');
+  // every grade reading the search knows prints as a word for any value the engine can give
+  for (const k of ['asc', 'varix']) for (const v of [0, 0.5, 2.4, 2.5, 4.9, 5, 20, 149, 150, 1499, 1500, 4999, 5000, 30000]) assert.match(modelText(k, v), /^[A-Za-z]/, `${k} ${v}`);
+});
+
+test('the Baveno VIII bands are printed only where they apply: LSM bands with cirrhosis, none for congestion or a block before the liver, HVPG not read as portal pressure before the liver (review U3)', () => {
+  const pred = { hvpg: 0.6, lsm: 33, ppg: 2.4 };
+  const text = (id, p = pred) => bandsOf(p, FAMILY[id]).map((b) => `${b.label} ${b.text}: ${b.band}`).join(' | ');
+  assert.match(text('rhf'), /LSM 33\.0 kPa: congestion raises it, so the Baveno VIII cut-offs do not apply/);
+  assert.doesNotMatch(text('rhf'), /rules clinically significant|cACLD|compensated advanced/, 'no cirrhosis band on a heart card');
+  assert.match(text('constr'), /do not apply/); assert.match(text('bcs'), /do not apply/); assert.match(text('ivcweb'), /do not apply/);
+  assert.match(text('presin', { hvpg: 4.5, lsm: 7, ppg: 11.2 }), /HVPG 4\.5 mmHg: does not show the portal pressure with a block before the liver; the model's PPG is 11\.2 mmHg/);
+  assert.doesNotMatch(text('presin', { hvpg: 4.5, lsm: 7 }), /normal range|unlikely/, 'PSVD: no "normal range" for the HVPG and no cACLD band for the LSM');
+  assert.doesNotMatch(text('pvt'), /normal range/);
+  assert.match(text('sinus', { hvpg: 12, lsm: 27 }), /HVPG 12\.0 mmHg: 10 or more, clinically significant.*LSM 27\.0 kPa: 25 or more/);
+  assert.match(text('sinus+rhf', { hvpg: 12, lsm: 27 }), /congestion raises it too/, 'cirrhosis with congestion: the band, with the caution');
+  assert.match(text('sinus+pvt', { hvpg: 7, lsm: 18 }), /does not show the portal pressure/, 'a clot in the mix: the HVPG is not the portal pressure');
+  // every family says something for each measure and never the cirrhosis band without cirrhosis
+  for (const f of FAMILIES) {
+    const b = bandsOf({ hvpg: 6, lsm: 18, ppg: 9 }, f), lsm = b.find((x) => x.label === 'LSM');
+    assert.ok(lsm && lsm.band, f.id);
+    if (!f.parts.includes('sinus')) assert.doesNotMatch(lsm.band, /compensated advanced|rules clinically/, f.id);
+  }
+});
+
+test('the reasons credit the stiffness to the lesion that makes it, and never print a band that contradicts the slider (review U3)', () => {
+  const rd = (v) => ({ whvp: 14, fhvp: 4, lsm: v });
+  assert.match(reasonsFor(FAMILY.sinus, rd(7), { p: { sinus: 0.25 } }).join(' '), /LSM 7 kPa: the cirrhosis slider at 25% gives it\./, 'a low LSM says no band');
+  assert.doesNotMatch(reasonsFor(FAMILY.sinus, rd(7), { p: { sinus: 0.25 } }).join(' '), /unlikely/);
+  assert.match(reasonsFor(FAMILY.sinus, rd(22), { p: { sinus: 0.7 } }).join(' '), /LSM 22 kPa: over 15, highly likely.*slider at 70% gives it/);
+  assert.match(reasonsFor(FAMILY.rhf, rd(33), { p: { rhf: 0.8 } }).join(' '), /LSM 33 kPa: congestion raises liver stiffness, so the Baveno VIII cut-offs do not apply/);
+  assert.doesNotMatch(reasonsFor(FAMILY.presin, rd(33), { p: { presin: 0.8 } }).join(' '), /LSM/, 'a block before the liver does not make the stiffness');
+});
+
+test('settings that follow from a lesion are marked, so a card does not list them as ones the fit chose (review U15)', () => {
+  const alb = settingsOf('sinus', { sinus: 0.9 }).find((x) => x.label === 'Albumin');
+  assert.equal(alb.follows, true);
+  assert.equal(settingsOf('sinus', { sinus: 0.9 }).find((x) => x.label === 'Cirrhosis slider').follows, undefined);
+  assert.ok(settingsOf('rhf', { rhf: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
+  assert.ok(settingsOf('ivcweb', { ivcweb: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
 });

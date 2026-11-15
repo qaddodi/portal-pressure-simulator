@@ -28,7 +28,8 @@ export const U_MAX = 1;
 const HV_IDS = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 const hvPatch = (veins, occl) => ({ thrombus: Object.fromEntries(HV_IDS.slice(0, veins).map((id) => [id, occl])) });
 const preFib = (pre, sin) => ({ fibrosis: { R: { pre, sin }, L: { pre, sin } } });
-const kv = (label, text) => ({ label, text });
+// (`follows`: a setting that comes with the lesion's severity, not one the fit chose: the card lists it apart, as what follows from the slider.)
+const kv = (label, text, follows = false) => (follows ? { label, text, follows } : { label, text });
 
 /**
  * id, short (the chip's word), label, sub, group (the patient list's own group, scenario.js PRESETS), slot (a family holds one lesion per slot),
@@ -38,7 +39,7 @@ const LESIONS = [
   { id: 'sinus', short: 'Cirrhosis', label: 'Cirrhosis (sinusoidal block)', sub: 'The cirrhosis slider: scar that raises the resistance in the sinusoids.', group: 'Sinusoidal', slot: 'liver', step: 0.1,
     set: (u) => ({ scar: r2(u), alb: r1(4 - 1.4 * bound((u - 0.55) / 0.4, 0, 1)) }),
     patch: (u) => { const s = LES_SET.sinus(u); return { cirrhosis: s.scar, ...(s.alb < 4 ? { albumin: s.alb, diuretics: true } : {}) }; },
-    settings: (u) => { const s = LES_SET.sinus(u); return [kv('Cirrhosis slider', pctText(s.scar)), kv('Albumin', `${s.alb} g/dL`)]; },
+    settings: (u) => { const s = LES_SET.sinus(u); return [kv('Cirrhosis slider', pctText(s.scar)), kv('Albumin', `${s.alb} g/dL`, true)]; },
     days: (u) => (u > 0.8 ? 540 : 365), volume: () => 0,
     limits: 'The model has no histological stage and no cause: one slider, 0 to 100%, sets the sinusoidal resistance. What it makes is read as HVPG and LSM. Albumin falls with the slider from about 55%.',
     ev: 'HVPG 10 mmHg or more is clinically significant portal hypertension (Baveno VIII; AASLD 2024).',
@@ -61,14 +62,14 @@ const LESIONS = [
   { id: 'rhf', short: 'Right heart failure', label: 'Right heart failure with TR', sub: 'High right atrial pressure carried back to the liver.', group: 'Cardiac', slot: 'heart', step: 0.1,
     set: (u) => ({ contr: r2(0.7 - 0.5 * u), tr: r2(0.2 + 0.7 * u), vol: Math.round(900 + 900 * u) }),
     patch: (u) => { const s = LES_SET.rhf(u); return { contractility: s.contr, tr: s.tr }; },
-    settings: (u) => { const s = LES_SET.rhf(u); return [kv('Pump strength', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`)]; },
+    settings: (u) => { const s = LES_SET.rhf(u); return [kv('Pump strength', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`, true)]; },
     days: () => 60, volume: (u) => LES_SET.rhf(u).vol,
     limits: 'The model’s heart is a pump strength, a leak and the volume it holds; it cannot draw the waveform that tells failure from constriction.', ev: '',
     outside: 'Echocardiography with the RA waveform; the model cannot draw it.' },
   { id: 'constr', short: 'Constriction', label: 'Constrictive pericarditis', sub: 'The pericardium holds the right heart; RA pressure is high.', group: 'Cardiac', slot: 'heart', step: 0.1,
     set: (u) => ({ peric: r2(0.5 + 0.5 * u), vol: Math.round(600 + 1200 * u) }),
     patch: (u) => ({ pericardial: LES_SET.constr(u).peric }),
-    settings: (u) => { const s = LES_SET.constr(u); return [kv('Constriction', `${s.peric} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`)]; },
+    settings: (u) => { const s = LES_SET.constr(u); return [kv('Constriction', `${s.peric} (0 to 1)`), kv('Extra volume held', `${s.vol} mL`, true)]; },
     days: () => 60, volume: (u) => LES_SET.constr(u).vol,
     limits: 'The model’s pericardium is one constriction number and the volume it holds. It cannot draw septal bounce or the filling pattern.', ev: '',
     outside: 'Echocardiography and cardiac MR or CT for septal bounce, filling pattern and a thick pericardium.' },
@@ -82,7 +83,7 @@ const LESIONS = [
   { id: 'ivcweb', short: 'IVC web', label: 'IVC web', sub: 'Suprahepatic IVC stenosis: the hepatic veins are high, the right atrium is not.', group: 'Post-hepatic', slot: 'outflow', step: 0.1,
     set: (u) => ({ stenosis: Math.round(30 + 60 * u) }),
     patch: (u) => ({ stenosis: { IVCS_RA: LES_SET.ivcweb(u).stenosis / 100 } }),
-    settings: (u) => [kv('IVC narrowing', `${LES_SET.ivcweb(u).stenosis}%`), kv('Extra volume held', '800 mL')],
+    settings: (u) => [kv('IVC narrowing', `${LES_SET.ivcweb(u).stenosis}%`), kv('Extra volume held', '800 mL', true)],
     days: () => 90, volume: () => 800,
     limits: 'Taken at three months with 800 mL of extra volume held; the model has one IVC narrowing and no image of it.', ev: '',
     outside: 'Cavography or MR venography of the IVC.' },

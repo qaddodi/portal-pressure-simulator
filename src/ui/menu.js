@@ -396,7 +396,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
     // (Work backward's door heads the list; the patients made from readings are the first group under it, then the app's own, by site.)
     const door = onFromReadings ? h('div', { class: 'um-g um-fr' }, h('ul', {}, h('li', {}, (() => {
       const row = h('button', { class: 'um-row um-fromread', 'data-k': 'from-readings', onclick: () => { close(); onFromReadings(anchor); } },
-        svgIcon('scenario', 'um-play'), h('span', { class: 'um-t' }, 'From readings'), h('span', { class: 'um-m' }, 'Work backward'));
+        svgIcon('rewind', 'um-play'), h('span', { class: 'um-t' }, 'From readings'), h('span', { class: 'um-m' }, 'Work backward'));
       row.dataset.find = fold('From readings work backward enter measured pressures stiffness reverse search scenarios'); row.dataset.more = fold('Enter what you measured and see which lesions could give it');
       return row;
     })()))) : null;

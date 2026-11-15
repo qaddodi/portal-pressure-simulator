@@ -210,11 +210,29 @@ export function readingText(key, v) {
   return `${(+v).toFixed(dec)} ${r.unit}`.trim();
 }
 
+/**
+ * What the MODEL gives for a reading, as it is printed. A grade reading's model value is the engine's number (varix mm, ascites mL), so it is
+ * named by its grade ("Small"); readingText takes the grade INDEX a person picked. Every place that prints a prediction goes through here
+ * (the Model column printed "4.1" for varices before: review U2, 15 Nov 2026).
+ */
+export function modelText(key, v) {
+  const r = READINGS[key];
+  if (v == null || !Number.isFinite(v)) return 'none';
+  if (r.kind !== 'grade') return readingText(key, v);
+  return r.grades[gradeIndex(key, v)] ?? 'none';
+}
+/** A reading's number alone (no unit), for a table that names the unit once in its row label; a grade is its word. `model`: the value is the model's. */
+export function numberText(key, v, model = false) {
+  const r = READINGS[key];
+  if (r.kind === 'grade') return model ? modelText(key, v) : readingText(key, v);
+  if (v == null || !Number.isFinite(v)) return 'none';
+  return (+v).toFixed(r.kind === 'log' || key === 'plt' || key === 'pvVel' ? 0 : 1);
+}
+
 /** What a family cannot explain, in one line: "Predicts WHVP 12.4 mmHg; you entered 8.0 mmHg." (A grade reading's prediction is named by its grade.) */
 export function gapLine(g) {
   const r = READINGS[g.key];
-  const pred = g.predicted == null ? 'nothing' : r.kind === 'grade' ? r.grades[gradeIndex(g.key, g.predicted)] : readingText(g.key, g.predicted);
-  return `Predicts ${r.short} ${pred}; you entered ${readingText(g.key, g.entered)}.`;
+  return `Predicts ${r.short} ${g.predicted == null ? 'nothing' : modelText(g.key, g.predicted)}; you entered ${readingText(g.key, g.entered)}.`;
 }
 
 /** A fit range in words: "×30 to ×60", or "any value tried" when the readings do not set it. */
@@ -323,7 +341,12 @@ export function reasonsFor(fam, readings, best) {
     const st = has('sinus') && best ? pctText(LESION.sinus.set(best.p.sinus).scar) : null;
     out.push(`HVPG ${f1(hvpg)} mmHg needs a block inside the liver${st && hvpg < HVPG_CUTS.red ? `; the cirrhosis slider at ${st} makes it` : ''}.`);
   } else if (hvpg != null && hvpg < HVPG_CUTS.amber && !has('sinus') && !has('presin') && !has('post')) out.push(`HVPG ${f1(hvpg)} mmHg is small, as in a block entirely before or after the liver.`);
-  if ('lsm' in readings && has('sinus') && best) out.push(`LSM ${f1(readings.lsm)} kPa: ${lsmBand(readings.lsm)}; the model makes it with the cirrhosis slider at ${pctText(LESION.sinus.set(best.p.sinus).scar)}.`);
+  if ('lsm' in readings && best) {
+    const v = f1(readings.lsm), pct = has('sinus') ? pctText(LESION.sinus.set(best.p.sinus).scar) : null, cong = congests(fam);
+    // (Baveno VIII's LSM bands are for compensated advanced chronic liver disease: said only where cirrhosis is in the scenario, and the stiffness is credited to the lesion that makes it.)
+    if (pct) out.push(`LSM ${v} kPa: ${readings.lsm >= LSM_CUTS.unlikely ? lsmBand(readings.lsm) + '; ' : ''}the cirrhosis slider at ${pct} gives it${cong ? ', with the congestion adding to it' : ''}.`);
+    else if (cong) out.push(`LSM ${v} kPa: congestion raises liver stiffness, so the Baveno VIII cut-offs do not apply.`);
+  }
   if ('spleen' in readings && readings.spleen >= 14 && hvpg != null && hvpg < HVPG_CUTS.amber && (has('presin') || has('pvt'))) out.push('A large spleen with a small HVPG points to a block before the sinusoids.');
   return out.slice(0, 4);
 }
@@ -335,10 +358,30 @@ export const settingsFor = (fam, p) => settingsOf(fam.id, p);
 export const lsmBand = (v) => (v < LSM_CUTS.unlikely ? `under ${LSM_CUTS.unlikely}, compensated advanced chronic liver disease is unlikely` : v <= LSM_CUTS.likely ? `${LSM_CUTS.unlikely} to ${LSM_CUTS.likely}, suggests compensated advanced chronic liver disease` : v < LSM_CUTS.ruleIn ? `over ${LSM_CUTS.likely}, highly likely compensated advanced chronic liver disease` : `${LSM_CUTS.ruleIn} or more, rules clinically significant portal hypertension in`);
 /** Where an HVPG falls: normal, raised, or clinically significant. */
 export const hvpgBand = (v) => (v < HVPG_CUTS.amber ? `under ${HVPG_CUTS.amber}, normal range` : v < HVPG_CUTS.red ? `${HVPG_CUTS.amber} to ${HVPG_CUTS.red}, portal hypertension below the clinically significant cut-off` : `${HVPG_CUTS.red} or more, clinically significant portal hypertension`);
-/** What a scenario's fit gives for the two measures that grade liver disease, with their bands: [{ label, text, band }] (what the model makes, not what was entered). */
-export function bandsOf(pred) {
-  const out = [];
-  if (pred.hvpg != null) out.push({ label: 'HVPG', text: `${(Math.round(pred.hvpg * 10) / 10).toFixed(1)} mmHg`, band: hvpgBand(pred.hvpg) });
-  if (pred.lsm != null) out.push({ label: 'LSM', text: `${(Math.round(pred.lsm * 10) / 10).toFixed(1)} kPa`, band: lsmBand(pred.lsm) });
+/** Lesions that congest the liver (a heart lesion, or a block after it): they raise liver stiffness and the pressures beyond the sinusoids. */
+const CONGESTING = ['rhf', 'constr', 'bcs', 'ivcweb', 'post'];
+/** Lesions that sit before the sinusoids: the HVPG under-reads the portal pressure there (Baveno VIII, PSVD and pre-hepatic block). */
+const BEFORE_LIVER = ['presin', 'pvt'];
+const congests = (fam) => !!fam && fam.parts.some((id) => CONGESTING.includes(id));
+const f1text = (v) => (Math.round(v * 10) / 10).toFixed(1);
+/**
+ * What a scenario's fit gives for the two measures that grade liver disease: [{ label, text, band }] (what the model makes, not what was entered).
+ * The bands are said only where they apply (review U3, 15 Nov 2026). Baveno VIII's LSM bands are for compensated advanced chronic liver disease, so
+ * they are printed when cirrhosis is in the scenario; congestion from the heart or the outflow raises stiffness without it, and a block before the
+ * liver is not read by them. The HVPG band is for a pressure inside or after the sinusoids; before them the HVPG under-reads, so the model's PPG is named.
+ * `fam` is the scenario's family; left out, every band applies.
+ */
+export function bandsOf(pred, fam = null) {
+  const out = [], parts = fam ? fam.parts : ['sinus'], sinus = parts.includes('sinus'), before = parts.some((id) => BEFORE_LIVER.includes(id));
+  if (pred.hvpg != null) {
+    const band = before ? `does not show the portal pressure with a block before the liver${pred.ppg != null ? `; the model's PPG is ${f1text(pred.ppg)} mmHg` : ''}` : hvpgBand(pred.hvpg);
+    out.push({ label: 'HVPG', text: `${f1text(pred.hvpg)} mmHg`, band });
+  }
+  if (pred.lsm != null) {
+    const band = sinus ? lsmBand(pred.lsm) + (congests(fam) ? '; congestion raises it too' : '')
+      : congests(fam) ? 'congestion raises it, so the Baveno VIII cut-offs do not apply'
+        : 'the Baveno VIII cut-offs are for cirrhosis and are not applied to a block before the liver';
+    out.push({ label: 'LSM', text: `${f1text(pred.lsm)} kPa`, band });
+  }
   return out;
 }

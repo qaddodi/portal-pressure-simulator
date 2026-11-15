@@ -198,7 +198,7 @@ function dayText(running, day) {
   if (dayKept !== day || dayRun !== running) { dayKept = day; dayRun = running; dayWords = running ? `Day ${day}` : `Paused · Day ${day}`; }   // alloc-rare: only when the day or the running state changes
   return dayWords;
 }
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout, lazy }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout, onFromReadings = null, lazy }) {
   // One app-wide relayout for a burst of changes (a mode change also changes the lobule): every resize
   // listener (the figure, the timeline, the presenter) runs once, not once per key.
   let rzT = 0;
@@ -482,7 +482,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   wall.el.className = 'instrument-view wall-view';
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   // Every readout the bottom bar used to carry, live, in its own tab.
-  const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show });
+  const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show, onFromReadings });
   const instruments = [
     pressure, createPressureTime({ marks }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.

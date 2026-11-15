@@ -301,7 +301,7 @@ async function main() {
   }
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL, trials: trialsL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
-    marks: () => timeline.entries(), onBeat: () => sendBeat() });
+    marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
