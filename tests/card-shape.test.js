@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Cards are physical: in the presenter they enter and leave whole, and never animate their own size in view.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim(), body }));
 
 test('presenter cards never transition their size', () => {

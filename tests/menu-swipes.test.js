@@ -4,10 +4,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pageGo } from '../src/ui/swipe.js';
+import { appCss } from './split-src.js';
 
 const menu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
 const dock = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('a page drag goes on past a third of the width or after a quick flick, and springs back otherwise', () => {
   assert.equal(pageGo(-150, 600, 400), true);

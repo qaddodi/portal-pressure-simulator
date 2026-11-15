@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { PLANES, planeOf, frame, scaler, layoutPlane, plotNumbers, cutNumbers, widen, crosses, cutSegs, gapSegs } from '../src/ui/visual-plane.js';
 import { deckStates } from './deck-states.js';
 import { TOKENS } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // [W, H, caption px, where]: the summary panel's plot, from an iPhone upright to a wide Mac.
@@ -28,7 +29,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   const pl = planeOf('hvpg-ppg');
   assert.equal(pl.key, false, 'the zones name themselves: no key beside the plot');
   assert.equal(planeOf('csph').key, 'never', 'the stiffness plane names its zones on the drawing everywhere, no key');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pze-planewrap\.pze-nokey > \.pze-key \{ display: none; \}/, 'no key beside the plot');
   assert.match(css, /\.pz\.stack \.pze-planewrap\.pze-nokey > \.pze-key \{ display: block; \}/, 'an iPhone keeps the key under it');
   for (const [W, H, fs, where, phone] of SIZES) {
@@ -117,7 +118,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
 // The zones' fills read as the tiles' green, amber and red, and their words keep 4.5:1 on them in every theme
 // (Mohammad, 19 Oct: "where is the amber area?" on the stiffness plane, whose indeterminate zone read olive).
 test('the plane\'s green, amber and red zones: words 4.5:1 on their fills, light, soft and dark', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
+  const css = appCss(), tok = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
   const pick = (block, k) => block.match(new RegExp(`--${k}: (#[0-9A-Fa-f]{6})`))?.[1];
   const blocks = { light: tok.slice(0, tok.indexOf('@media (prefers-color-scheme: dark)')), soft: tok.slice(tok.indexOf(':root[data-theme="soft"]')), dark: tok.slice(tok.indexOf(':root[data-theme="dark"] {')) };
   const theme = (b) => Object.fromEntries(Object.entries({ surface: pick(b, 'surface'), text: pick(b, 'text'), ok: pick(b, 'ok'), caution: pick(b, 'caution'), danger: pick(b, 'danger'), 'tr-hv': pick(b, 'tr-hv'), 'ramp-violet': pick(tok, 'ramp-violet'), 'ramp-wine': pick(tok, 'ramp-wine'), black: pick(tok, 'black') }).filter(([, v]) => v));

@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const floors = (rule) => [...rule.matchAll(/max\(([\d.]+)px/g)].map((m) => +m[1]);
 

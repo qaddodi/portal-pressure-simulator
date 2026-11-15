@@ -10,9 +10,10 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { EDGES } from '../src/engine/topology.js';
 import { cardFor } from '../src/ui/actions.js';
 import { cardSize } from '../src/ui/card.js';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), card = read('src/ui/card.js');
+const css = appCss(), card = read('src/ui/card.js');
 const CTX = { canShunt: () => true, injectDye: () => {}, canDye: () => true };
 const PARAMS = { stenosis: {}, thrombus: {}, occluded: {}, spontaneous: {}, fibrosis: { R: {}, L: {} } };
 

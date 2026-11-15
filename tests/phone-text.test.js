@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ROLES } from '../src/ui/type-scale.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
+const css = appCss(), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
 
 test('captions are 12 px on every screen, the SVG labels as the stylesheet', () => {
   assert.match(tokens, /--t-cap: 12px;/);

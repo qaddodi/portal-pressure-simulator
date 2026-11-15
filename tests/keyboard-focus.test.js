@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { controlOwnsKey, KEY_OWNERS } from '../src/ui/key-owner.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const el = (sel, visible) => ({ matches: (q) => q === ':focus-visible' ? visible : q === KEY_OWNERS ? sel : false });
@@ -53,7 +54,7 @@ test('a toast with buttons stays until it is dismissed or pressed (SHELL-9), a p
   assert.doesNotMatch(u, /actions\?\.length \? 9000/);
   assert.match(u, /t\.addEventListener\('focusin', \(\) => clearTimeout\(timer\)\)/);
   assert.match(read('src/ui/timeline.js'), /speedBtn\.setAttribute\('aria-label', `Playback speed, \$\{speedBtn\.textContent\}`\)/);
-  assert.match(read('styles/app.css'), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);
+  assert.match(appCss(), /\.pzj-list button:focus-visible \{[^}]*outline: 2px solid var\(--focus\)/);
 });
 
 test('every icon id in the icon art is defined once', () => {

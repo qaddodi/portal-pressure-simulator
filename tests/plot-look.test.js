@@ -12,9 +12,10 @@ import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { planeOf, frame, bleed, scaler, plotNumbers, hasAxes, PAD, est } from '../src/ui/visual-plane.js';
 import { xAxisRow, xAxisName, xTicks, fmtTick } from '../src/ui/tool-curve.js';
 import { ZONE_TOP } from '../src/ui/tool-profile.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css');
+const css = appCss();
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // (An element builder that keeps what it was given: the test DOM draws no SVG.)
 const sv = (tag, attrs = {}, ...kids) => ({ tag, attrs, kids: kids.flat().filter(Boolean) });

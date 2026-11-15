@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const dock = read('../src/ui/dock.js'), util = read('../src/ui/util.js');
@@ -35,7 +36,7 @@ test('Scope view / Wall mechanics fade the view that comes in', () => {
 });
 
 test('HVPG steps, the Ascites albumin and Drain words crossfade, and the gastric-varix procedure buttons fade up', () => {
-  const proc = read('../src/ui/hvpg-proc.js'), instr = read('../src/ui/instruments.js'), css = read('../styles/app.css');
+  const proc = read('../src/ui/hvpg-proc.js'), instr = read('../src/ui/instruments.js'), css = appCss();
   assert.match(proc, /swapText\(caption, say\)/);
   assert.match(proc, /swapText\(note, n\)/);
   assert.match(instr, /swapText\(albS, albTxt\)/);

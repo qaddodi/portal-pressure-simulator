@@ -9,9 +9,10 @@ import { readFileSync } from 'node:fs';
 import { ORGANS, ORGAN_LABELS } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { nameSpots, NAME_ORGAN, NAME_BREAK, NEAR, APART, MOST } from '../src/ui/organ-names.js';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 // (The outline read on its own, finer than the module's, with the even-odd rule: a ring's hole is outside.)
 const rings = (id) => {

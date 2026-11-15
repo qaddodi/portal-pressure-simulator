@@ -2,9 +2,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Mac and iPad landscape: every data card lays its tiles on one grid across its full inner width, every row full.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const G = '.pz:not(.stack) .pz-data:is(.col, .under, .has-tool) .pz-tiles';
 
 test('one to three tiles take one row (any width), four go two by two, one gap', () => {

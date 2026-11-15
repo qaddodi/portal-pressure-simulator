@@ -8,6 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './dom-shim.js';
 import { INK_OF_SEV, INK_OF_RATE, INK_SHARE, TOKEN_OF_SEV, RATE_OF_SEV } from '../src/engine/pressure-cuts.js';
+import { appCss } from './split-src.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -32,7 +33,7 @@ test('the canvases mix each ink by the share the stylesheet gives its token', ()
 const ALLOWED = [/\.pill\.(ok|warn|bad)\b/, /\.ab-rate\[data-dir="up"\]/, /\.dop-dir\b/];
 test('no rule colours text with its own mix of the status colours', () => {
   const stray = [];
-  read('styles/app.css').split('\n').forEach((line, i) => {
+  appCss().split('\n').forEach((line, i) => {
     for (const m of line.matchAll(/(?:^|[;{\s])color:\s*color-mix\(in srgb,\s*var\(--(ok|caution|danger|critical)\)\s*\d+%/g)) {
       if (!ALLOWED.some((re) => re.test(line))) stray.push(`styles/app.css:${i + 1} (${m[1]}): ${line.trim().slice(0, 90)}`);
     }
@@ -41,14 +42,14 @@ test('no rule colours text with its own mix of the status colours', () => {
 });
 
 test('a tile or play bar number is the status ink, danger and critical apart', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.metric\[data-sev="danger"\] \.val \{ color: var\(--danger-ink\); \}/);
   assert.match(css, /\.metric\[data-sev="critical"\] \.val \{ color: var\(--critical-ink\); \}/);
   assert.match(css, /\.pz-val\.tone\[data-rate="hi"\] \{ color: var\(--danger-ink\); \}/);
 });
 
 test('the play bar drops the two gradients while Tests shows them, and keeps the Lobule\'s flows', () => {
-  const dock = read('src/ui/dock.js'), css = read('styles/app.css');
+  const dock = read('src/ui/dock.js'), css = appCss();
   assert.match(dock, /GRADIENT_PANES = new Set\(\['scope', 'hvpg', 'readouts'\]\)/);
   assert.match(dock, /classSoon\(app, 'tests-grad'/);
   assert.match(css, /\.app\.dock-open\.tests-grad[^{]*\.vdock:not\(\.mini\) \.readouts:not\(\.lob\) \{ display: none; \}/);
@@ -58,5 +59,5 @@ test('a reading never shows a dash to start with, and one being worked out keeps
   assert.doesNotMatch(read('src/ui/tile-el.js'), /class: 'val' \}, '—'/);
   assert.doesNotMatch(read('src/ui/readouts-pane.js'), /class: 'val' \}, '—'/);
   assert.match(read('src/ui/util.js'), /!Number\.isFinite\(v\) && c\.shown != null\) \{ if \(!c\.stale\)/);
-  assert.match(read('styles/app.css'), /\.metric \.val\.recompute[^{]*\{ opacity: \.5; \}/);
+  assert.match(appCss(), /\.metric \.val\.recompute[^{]*\{ opacity: \.5; \}/);
 });

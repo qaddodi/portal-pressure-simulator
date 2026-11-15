@@ -8,6 +8,7 @@ import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_ROWS, bleedPulse, poolF
 import { LUMEN, LUMEN_AREA, LUMEN_BOTTOM, STO_N, lumenSurface, lumenAt } from '../src/ui/stomach-lumen.js';
 import { varixBead, beadRadius, BEAD_MAX } from '../src/ui/varix-bead.js';
 import { tokensOfLook, LOOK_IDS } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const STAGE = stageSource(), GL = src('src/ui/veins-gl.js');
@@ -56,7 +57,7 @@ test('G9: a watched vessel that reverses marks its station with ⟲, and no band
   assert.match(STAGE, /const stationRev = \(id\) => \{ const a = revVessels\(id\);/, 'a station tells the reversal of any vessel it stands on, with or without a number');
   assert.match(STAGE, /const rev = stationRev\(id\);/);
   assert.match(STAGE, /\{ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 \}/);
-  assert.match(src('styles/app.css'), /\.lb-rev \{ fill: var\(--flow-reversed-ink\); \}/);
+  assert.match(appCss(), /\.lb-rev \{ fill: var\(--flow-reversed-ink\); \}/);
   assert.doesNotMatch(GL, /revInk/, 'no dashed band');
 });
 

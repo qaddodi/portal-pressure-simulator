@@ -9,8 +9,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import './dom-shim.js';   // (vitals-gl.js reaches the chart drawer, which wants a page)
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim().replace(/\s+/g, ' '), body: m[2] }));
 
 test('one rule sets tabular figures on every element, !important, so the font shorthand cannot set them back', () => {
@@ -66,7 +67,7 @@ test('the vitals monitor: the unit and the alarm patch stand in one place whatev
 });
 
 test('a card or popover settles by its opacity alone: no scale on text as it arrives or leaves (a scaled layer draws its words soft, then sharp)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /@keyframes scale-settle \{ from \{ opacity: 0; \} \}/);
   assert.match(css, /@keyframes scale-settle-out \{ to \{ opacity: 0; \} \}/);
   assert.doesNotMatch(css, /@keyframes scale-settle[^{]*\{[^}]*scale:/, 'no scale in the settle keyframes');

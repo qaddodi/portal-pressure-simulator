@@ -1,7 +1,7 @@
 // Source shapes from tests/perf-a1-switches.test.js, tests/perf-gpu-present.test.js and tests/stent-mesh.test.js (moved out 8 Nov 2026, PR-02).
 // A pattern here may be an object with test(text) and toString() where a test judged a slice of a function, not the whole file.
 
-const VEINS = 'src/ui/veins-gl.js', ORGANS = 'src/ui/organs-gl.js', GLASS = 'src/ui/stage-glass.js', STAGE = 'src/ui/stage*', VENOUS = 'src/ui/stage-venous.js', CSS = 'styles/app.css';
+const VEINS = 'src/ui/veins-gl.js', ORGANS = 'src/ui/organs-gl.js', GLASS = 'src/ui/stage-glass.js', STAGE = 'src/ui/stage*', VENOUS = 'src/ui/stage-venous.js', CSS = 'styles/app-*.css';
 
 // (A forwarding stub the stage-split move tool leaves in stage.js: stage-src.js left it out, so the real function is the one found.)
 const STUB = /^[ \t]*function\*? \w+\(\.\.\.a\) \{ return (?:yield\* )?\w+\$\(\.\.\.a\); \}[ \t]*\/\/ <stage-split stub>\n?/gm;

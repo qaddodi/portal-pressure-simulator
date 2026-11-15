@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { profileOf, profileGeo, axisTop, numberSides, placePills, placeBrackets, zoneSize, zoneFit, chartScale, ZONE_MAX, ZONE_MIN } from '../src/ui/tool-profile.js';
 import { runSteps } from './deck-states.js';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const profSrc = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
 const CELL = '.pz:not(.stack) .pz-cell';

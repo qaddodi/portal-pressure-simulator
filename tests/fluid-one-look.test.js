@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The ascites has one look: the GPU draws it whenever it draws the vessels, with the organ plate or without it (the plate is down
 // while a large fill eases), and the page's SVG copy stays hidden then. The copy had shown during the fill on Ascites slide 5,
 // with a brighter line along its surface, and the fluid snapped to the GPU's look when the plate came back (17 Oct).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('the GPU draws the fluid with the plate off too', () => {

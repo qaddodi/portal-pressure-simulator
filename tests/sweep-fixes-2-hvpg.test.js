@@ -4,9 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), hvpg = read('../src/ui/hvpg-proc.js'), mon = read('../src/ui/monitor.js');
+const css = appCss(), hvpg = read('../src/ui/hvpg-proc.js'), mon = read('../src/ui/monitor.js');
 
 // The pure word wrapper, lifted out of the one monitor (monitor.js; it imports browser-only helpers).
 const src = mon.match(/export function wrapWords[\s\S]*?\n}\n/)[0].replace('export ', '');

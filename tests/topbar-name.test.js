@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 // (the sideways phone's block that sets the name: there are several blocks with this query)
 const HEAD = '@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {';
 const block = css.split(HEAD).slice(1).map((b) => b.slice(0, b.indexOf('\n}\n'))).find((b) => b.includes('scenario-v')) ?? '';

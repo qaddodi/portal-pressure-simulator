@@ -2,8 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('R9 card and dialog titles balance their lines; long prose keeps a lone word off its last line', () => {
   assert.match(css, /:is\(\.p-title h2, \.modal h2\) \{ text-wrap: balance; \}/);

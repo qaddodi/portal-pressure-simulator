@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const dock = read('../src/ui/dock.js'), doppler = read('../src/ui/doppler.js'), instruments = read('../src/ui/instruments.js');
-const readouts = read('../src/ui/readouts-pane.js'), css = read('../styles/app.css');
+const readouts = read('../src/ui/readouts-pane.js'), css = appCss();
 
 test('no tab fits the card to its content: the card keeps its height when the test changes (12 Nov 2026)', () => {
   assert.doesNotMatch(dock, /function setFit\(/);

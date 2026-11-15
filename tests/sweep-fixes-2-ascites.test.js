@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), instr = read('../src/ui/instruments.js');
+const css = appCss(), instr = read('../src/ui/instruments.js');
 // The body of the first @container block whose prelude matches, with its nested braces.
 const containerBlock = (prelude) => {
   const i = css.indexOf(prelude);

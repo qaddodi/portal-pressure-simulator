@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const main = read('../src/ui/main.js');
-const css = read('../styles/app.css');
+const css = appCss();
 const html = read('../index.html');
 const dock = read('../src/ui/dock.js');
 

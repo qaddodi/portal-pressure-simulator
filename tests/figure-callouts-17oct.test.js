@@ -8,10 +8,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { SHORT } from '../src/ui/anatomy.js';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
 const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('stations are named in full, with no abbreviation ending in a full stop', () => {
   for (const [id, name] of Object.entries(SHORT)) assert.doesNotMatch(name, /\.(\s|$)/, `${id}: "${name}"`);

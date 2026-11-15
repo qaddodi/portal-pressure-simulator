@@ -4,9 +4,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const stage = stageSource(), css = read('styles/app.css'), lz = read('src/ui/lobule-zoom.js');
+const stage = stageSource(), css = appCss(), lz = read('src/ui/lobule-zoom.js');
 
 test("the resistance zigzag's halo eases with its line, and it is dropped only once faded", () => {
   // (3 Nov 2026: a resistor is a kept record drawn by the overlay painter, over-records.js; its fade is the page's own surface step and

@@ -8,6 +8,7 @@ import { varixGrade, ascitesGrade } from '../src/engine/metrics.js';
 import { Engine } from '../src/engine/engine.js';
 import { explain } from '../src/engine/explain.js';
 import { stentSegments } from '../src/engine/topology.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -79,7 +80,7 @@ test('#16: "Why?" for PPG and HVPG shows its own formula, adding up to the numbe
 });
 
 test('#45: on a slide the scale unit leaves the top strip, and the strip fits by fixed steps without cutting or dropping a word', () => {
-  const src = read('../src/ui/doppler.js'), css = read('../styles/app.css');
+  const src = read('../src/ui/doppler.js'), css = appCss();
   assert.match(src, /ctx\.fillText\('cm\/s', w - 6, ovOn \? yLab : 13\)/);
   // (the pattern, "High velocity" on a narrowed stent, is never hidden: its last step is a line of its own under the reading)
   assert.doesNotMatch(src, /patternEl\.hidden = true/);

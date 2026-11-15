@@ -5,8 +5,9 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const stage = stageSource() + readFileSync(new URL('../src/ui/label-lean.js', import.meta.url), 'utf8');   // (a label's pieces are listed in label-lean.js kidSpec, L3 P10)
 const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel));
 

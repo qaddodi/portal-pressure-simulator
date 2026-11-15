@@ -3,9 +3,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const STAGE = stageSource();
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const body = (name) => { const at = STAGE.indexOf(`  function ${name}(`); assert.ok(at > 0, name); return STAGE.slice(at, STAGE.indexOf('\n  }\n', at) + 4); };
 
 test('the FibroScan probe never asks the browser for the liver\'s box', () => {

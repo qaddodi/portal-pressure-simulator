@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The organs reach the GPU from a canvas of their own. Handed to the GPU as a canvas, Safari stalled up to 750 ms on each
 // patient change (HVPG slides 8 and 9, 17 Oct): the pixels are read from a canvas kept in memory and sent a strip per frame
@@ -38,7 +39,7 @@ test('highlighting an organ never draws the organ picture again (its look is the
   const key = stage.slice(stage.indexOf('function plateStateKey'), stage.indexOf('const figureHidden'));
   assert.doesNotMatch(key, /selOKey/);
   // (Safe only while the selected organ's class styles nothing: its outline and dim are drawn outside the picture.)
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.doesNotMatch(css, /\.org-sel(?![-\w])/);
 });
 

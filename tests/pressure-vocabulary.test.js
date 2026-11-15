@@ -11,6 +11,7 @@ import './dom-shim.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvpgRate, ppgRate, RATE_OF_SEV } from '../src/engine/pressure-cuts.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { PLANES } from '../src/ui/visual-plane.js';
+import { appCss } from './split-src.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -92,7 +93,7 @@ test('a deck line that marks a cut-off on an HVPG or PPG chart marks one of the 
 // The colour a rating takes is one thing everywhere: data-rate "mid" is --caution (amber) and "hi" is --danger (red), never the other
 // way about, in any rule of the stylesheet. (Rules that tint with the colour of a pill's own tone, --tone, are set from these.)
 test('the stylesheet colours "mid" amber and "hi" red, everywhere', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const bad = [];
   for (const m of css.matchAll(/([^{}]*\[data-rate="(mid|hi)"\][^{}]*)\{([^{}]*)\}/g)) {
     const [, sel, rate, body] = m, want = rate === 'mid' ? 'caution' : 'danger', other = rate === 'mid' ? 'danger' : 'caution';

@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { CUT, RATE, cutText } from '../src/ui/table-marks.js';
 import { ZONES, keyLine } from '../src/ui/tool-criteria.js';
+import { appCss } from './split-src.js';
 
 const WORDS = /\b(more|less|fewer|greater|higher|lower) than [\d{]|\d[\d,.]*(?:\/µL|%)?\+(?![\w])|(?:[\d}%)*]|mmHg|kPa|mm|cm\/s|g\/dL|mg\/dL|µL|points?|months?|weeks?|days?|hours?|minutes?|liters?|L) or (more|less|fewer|higher|lower|greater|above|below|over|under)\b|\b(one|two|three|four|five|six) or (more|fewer)\b|\bat (least|most) [\d{]|\b(over|under|above|below) [\d{]|\bat or (above|below)\b|\bjust (above|below)\b|\b(age|aged) \d+ or (over|more|older)\b/i;
 // What stays, with its reason: a range's edge ("above 10 to 12" is not one cut-off) and a duration in a case story.
@@ -71,7 +72,7 @@ test('Stiffness, the first visit: a graph of distinct zones, the EGD area hatche
   }
   assert.ok(keys.some((k) => /ANTICIPATE ≥75% or SSM >55 kPa = CSPH/.test(k.plain)), 'what the indeterminate zone tests mean: CSPH');
   assert.ok(keys.some((k) => /BMI ≥30/.test(k.plain)), 'the BMI exception to the 25 kPa rule');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const blk = css.slice(css.indexOf('/* A zones card'), css.indexOf('.pzc-sw {'));   // (to the hatch's swatch, now a plain block: tool-criteria.js)
   assert.doesNotMatch(blk, /border-(left|right)|box-shadow|ellipsis/, 'no stripe, glow or ellipsis');
   assert.match(blk, /\.pzc-key \{[^}]*align-items: center;[^}]*text-align: center;[^}]*font: 500 max\(12px,/, 'the key centred, 12 px or more');

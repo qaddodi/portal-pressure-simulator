@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The endoscopy data card on Mac and iPad landscape: a large view, its readings in one compact row.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''), body }));
 const rule = (sel) => rules.filter((r) => r.sel === sel).map((r) => r.body).join(' ');

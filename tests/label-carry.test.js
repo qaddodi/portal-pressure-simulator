@@ -5,9 +5,10 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('rigid labels: a presenter move carries no label, hides none, and the old carry machinery is gone', () => {
   for (const w of ['carryable', 'carryAbort', 'landable', 'solveLanding', 'landRide', 'CARRY_ZOOM']) assert.ok(!stage.includes(w), w);

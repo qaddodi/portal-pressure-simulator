@@ -4,10 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const chart = readFileSync(new URL('../src/ui/chart.js', import.meta.url), 'utf8');
 const dock = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('#20 the Treat card keeps every tab in one grid cell, so it is as tall as the tallest tab on all of them', () => {
   assert.match(chart, /h\('div', \{ class: 'treat-pane' \}, panes\.map\(\(x\) => x\[2\]\)\)/);

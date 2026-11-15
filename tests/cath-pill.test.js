@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { placePills, pillBox, pillsClear } from '../src/ui/cath-pill.js';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const meets = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
@@ -39,7 +40,7 @@ test('any phone, iPad or Mac band: clear when a clear place exists, and a clear 
 });
 
 test('the stage places, eases and turns the readings with it, with no CSS flip', () => {
-  const stage = stageSource(), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const stage = stageSource(), css = appCss();
   assert.match(stage, /if \(first \|\| \(calm && !pillsClear\(q\)\)\) \{[\s\S]*?placePillsInto\(q, cathSideOut\);/);
   assert.match(stage, /calm = !(?:live\.)?(?:live\.)?vtGliding && !cath\.glideRaf;/);
   assert.match(stage, /if \(ready\) \{ const q = cathGlide\(el, bx, by, x, y\); cx = q\[0\]; cy = q\[1\]; \} else el\._gl = null;/);

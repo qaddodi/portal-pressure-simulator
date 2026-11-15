@@ -4,6 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 globalThis.window ??= globalThis;
 globalThis.Element ??= class {};
@@ -52,7 +53,7 @@ test('BM9: the shader and the lobule read the same table, with no lane loop left
 });
 
 test("a narrowing's clamp and label fade out from their own group, which the label layout never reads", () => {
-  const stage = stageSource(), css = read('styles/app.css');
+  const stage = stageSource(), css = appCss();
   assert.match(stage, /clamps: s\('g'\), clampsOut: s\('g'\)/);
   assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);

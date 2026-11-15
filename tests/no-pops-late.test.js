@@ -3,9 +3,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), util = read('src/ui/util.js'), dock = read('src/ui/dock.js');
+const css = appCss(), util = read('src/ui/util.js'), dock = read('src/ui/dock.js');
 
 test('Reduce Motion takes the movement out but keeps the fades (P3)', () => {
   assert.doesNotMatch(css, /transition-duration: \.001s !important/, 'no blanket rule that turns every transition into a pop');

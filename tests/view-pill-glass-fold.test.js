@@ -12,6 +12,7 @@ import { glidePlateOn } from '../src/ui/plate-glide.js';
 import { EASE_MOVE, EASE_ARRIVE, D_SMALL } from '../src/ui/ease.js';
 import { D_SURFACE } from '../src/ui/ease.js';
 import { FOLD_MS } from '../src/ui/pill-motion.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const ASK = morphAsk('');
@@ -54,7 +55,7 @@ test('the pill\'s fold hands a GPU-drawn face to the glass and keeps the CSS hal
 });
 
 test('why the halves cannot carry the glass: a GPU face has no CSS fill, ring or shadow to copy', () => {
-  const css = read('../styles/app.css'), fs = read('../src/ui/face-split.js');
+  const css = appCss(), fs = read('../src/ui/face-split.js');
   assert.match(css, /\.nb-views > \.vp-face, \.sv-legend\)\[data-gl\] \{ background: none; \}/);
   assert.match(css, /\[data-gl="edge"\]:not\(\.pal, \.modal\) \{ box-shadow: none !important;/);
   assert.match(fs, /const LOOK = \['backgroundColor'/, 'the halves copy the computed look');

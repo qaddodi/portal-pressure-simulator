@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rule = (sel) => { const i = css.indexOf(sel); assert.ok(i >= 0, `missing rule ${sel}`); return css.slice(i, css.indexOf('}', i)); };
 
 test('Explore phone sheet: direction and mean are small, the spectrum bleeds to the edges', () => {

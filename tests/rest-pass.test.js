@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss } from './split-src.js';
 
 let rafs = 0;
 globalThis.requestAnimationFrame = () => { rafs++; return rafs; };
@@ -63,6 +64,6 @@ test('presenter: a folding card follows a finger by transform and opacity; its h
   assert.match(pz, /if \(e\.touches\.length > 1\) \{ const gg = g; reset\(\); restPass\(\(\) => landCut\(gg\)\); return; \}/);
   assert.match(pz, /cancelRest\(camGrabT\); camGrabT = restPass\(camGrabNow\);/);
   assert.match(pz, /if \(gg\.xf\) \{ gg\.xf = false; gg\.p\.classList\.remove\('pz-follow'\); gg\.p\.style\.translate = ''; \}/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pz-data\.pz-folds > \.pz-tool\.pz-follow \{ max-height: none; margin-bottom: 0; \}/);
 });

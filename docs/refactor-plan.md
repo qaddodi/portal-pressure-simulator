@@ -33,7 +33,7 @@ The engine (`src/engine`) is small, pure and well tested. The weight, and the ri
 | H6 dead exports | Part | `class-batch.js` and the `layout-snap.js` kept-box API are gone, and `num-words.js` is trimmed. No `knip` or equivalent runs in lint. The remaining candidates were not re-scanned |
 | H7 comments that read as a changelog | Open | the dated comments are still in the source; no line-length rule |
 | H8 ownership of shared surfaces | Open | no `CODEOWNERS`; `scripts/off-gpu-owners.json` is the only map |
-| H9 `app.css` | Part | split into five files, but `app.css` is still 7.6k lines and the doubled-class specificity is not replaced by `@layer` (not verified) |
+| H9 `app.css` | Part | `app.css` is now 11 files, `styles/app-01-chrome.css` to `app-11-deck-visuals.css` (15 Nov 2026), cut between rules in source order so the built stylesheet is byte for byte the old one (`scripts/app-css.mjs` lists them). The doubled-class specificity is not replaced by `@layer`: reordering rules into layers changes the cascade, so it needs `scripts/look-diff.mjs` first |
 | H10 error handling | Part | an `unhandledrejection` listener reports through `caught` (`report.js`). Some `caught()` tags are still hand-numbered with a line (13 `main:<number>` style tags); empty-catch lint not verified |
 | H11 untyped engine boundary | Open | no `src/protocol.js`; messages are still object literals through `host.send` / `host.request`. The queue for sends during a restart is done (`host.js`, B3) |
 | H12 many schedulers | Done as a document | `docs/scheduling.md` (scopes) and the header of each helper; the helpers were not folded |

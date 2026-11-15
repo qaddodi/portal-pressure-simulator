@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Vessel card and Details bugs V1–V3 from the 17 Oct critique (review/vessel-card-critique-17oct.md).
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), html = read('index.html'), card = read('src/ui/card.js'), actions = read('src/ui/actions.js');
+const css = appCss(), html = read('index.html'), card = read('src/ui/card.js'), actions = read('src/ui/actions.js');
 
 test('V1: no card title in the page carries an icon (an unsized one draws as a huge black shape)', () => {
   assert.ok(!/class="card-title"[^>]*>\s*<svg/.test(html));

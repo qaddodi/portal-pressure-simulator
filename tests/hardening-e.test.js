@@ -107,7 +107,7 @@ test('the phone menu sheet is lifted above the on-screen keyboard and put back w
   assert.match(mn, /vv\?\.addEventListener\('resize', fitSheet\); vv\?\.addEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /vv\?\.removeEventListener\('resize', fitSheet\); vv\?\.removeEventListener\('scroll', fitSheet\);/);
   assert.match(mn, /for \(const v of \['--menu-kb', '--menu-h'\]\)/, 'a rebuilt sheet keeps them');
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.umenu\.sheet \{[^}]*bottom: var\(--menu-kb, 0px\); width: auto; height: var\(--menu-h, 88dvh\);/);
 });
 
@@ -168,11 +168,12 @@ test('the menu sheet has no height floor over the keyboard and the tablet\'s 62 
   const m = read('src/ui/menu.js');
   assert.match(m, /const room = Math\.round\(vvH - 16\);[\s\S]*?el\.style\.setProperty\('--menu-kb', kbText\); el\.style\.setProperty\('--menu-h', roomText\);/, 'the sheet is held to the room above the keyboard');
   assert.ok(!/Math\.max\(240, Math\.round\(vv/.test(m), 'a 240 px floor pushed the top off a phone held sideways');
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /html\.thumb-ui \.umenu\.sheet \{ left: 15% !important; right: 15%; height: min\(62dvh, var\(--menu-h, 62dvh\)\); \}/);
 });
 
 import { createCore } from '../src/worker-core.js';
+import { appCss } from './split-src.js';
 test('a bedside time-lapse does not run on while the page is hidden: it carries on from where it was', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   let now = 0;
@@ -279,7 +280,7 @@ test('a tooltip is measured by its layout size and shown only once its side is s
 });
 
 test('the organs with a look of their own keep it over the general organ lines: the right atrium faint, the kidney heavier', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const general = css.indexOf('.organ .org-line { stroke-opacity: .62; stroke-width: 1.1; }');
   assert.ok(general > 0);
   for (const rule of [

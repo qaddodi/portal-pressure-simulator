@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Menu chips answer their menu (1 Nov 2026, Sonnet sprint brief 3): Blood, Layers and the lens chip turn their chevron over
 // and hold the pressed tint while their menu is open; a switch's thumb widens under a finger.
 
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 const UTIL = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
 const HTML = readFileSync(new URL('../index.html', import.meta.url), 'utf8');

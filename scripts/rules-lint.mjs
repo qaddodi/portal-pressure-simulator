@@ -32,6 +32,7 @@ import { join, relative, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse } from 'espree';
 import { sourceRegexTests } from './test-classes.mjs';
+import { appCssFiles, appCssText } from './app-css.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -97,6 +98,8 @@ for (const f of files.filter((x) => x.endsWith('.js'))) {
 // The stage family: stage.js and every src/ui/stage-*.js part (stage-split plan). A budget key ending in * is the sum over the family, so a
 // move out of stage.js hands no free room to the next feature.
 const stageFamily = () => ['src/ui/stage.js', ...readdirSync(join(ROOT, 'src/ui')).filter((n) => /^stage-.+\.js$/.test(n)).sort().map((n) => 'src/ui/' + n)];
+// The text a rule judges: 'styles/app-*.css' is the app's stylesheet, its parts joined in order (scripts/app-css.mjs); any other name is the file.
+const sourceText = (f) => (f === 'styles/app-*.css' ? appCssText(ROOT) : readFileSync(join(ROOT, f), 'utf8'));
 const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json lists the part with its own number)
 
 // Size budget: the three files that grow fastest may not pass their committed line count; a file under it asks for the number to come down.
@@ -104,9 +107,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const sizeFile = join(ROOT, 'scripts/size-budget.json'), doc = JSON.parse(readFileSync(sizeFile, 'utf8'));
   const tighten = process.argv.includes('--tighten');
   const lines = (rel) => readFileSync(join(ROOT, rel), 'utf8').split('\n').length - 1;
-  for (const rel of stageFamily().slice(1)) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a stage part may have (PR-09)`);
+  for (const rel of [...stageFamily().slice(1), ...appCssFiles(ROOT)]) if (!(rel in doc.files) && lines(rel) > PART_MAX) errors.push(`${rel} has ${lines(rel)} lines, over the ${PART_MAX} a part may have (PR-09)`);
   for (const [rel, max] of Object.entries(doc.files)) {
-    const n = rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
+    // (A key ending in * is the sum over a family: the stage and its parts, or the app's stylesheet files, so a move between members hands no free room to the next feature.)
+    const n = rel === 'styles/app-*.css' ? appCssFiles(ROOT).reduce((a, f) => a + lines(f), 0) : rel.endsWith('*') ? stageFamily().reduce((a, f) => a + lines(f), 0) : lines(rel);
     // (Over the line: an error with BUILD_STRICT (main and ci.yml), a warning on the preview, as the build's chunk cap does: a few lines
     // too many never paints every preview push red while the stage split moves code out.)
     if (n > max) (process.env.BUILD_STRICT ? errors.push.bind(errors) : (t) => console.warn(`::warning title=Size budget::${t}`))(`${rel} has ${n} lines, over its budget of ${max} in scripts/size-budget.json: move code out into its own module first (PR-09)`);
@@ -139,7 +143,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 // Source shapes moved out of tests (6 Nov 2026, PR-02): app-review-fixes, blood-heads, lymph-dashes and scope-lens read src/ text, which the tests rule
 // forbids. Each rule keeps its one-line reason; a pattern that no longer matches means the code it guarded changed, so look before editing the rule.
 {
-  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const text = sourceText;
   const need = (file, rules) => {
     const src = text(file);
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
@@ -153,7 +157,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   // presenter-tools.js builds every instrument into the instrument card; slide-instrument.js gives a slide that names none its chart. The presenter builds none for the words.
   forbid('src/ui/presenter.js', /\b(createFlowTime|createEventGraph|createDoppler|createFibroScan|createPressureTime|createVitalsMonitor|createHvpgCard|createEndoscopy|createAbdomen|createVarixWall|talkTrace|createTrial|createForest)\b/, 'an instrument is built by the instrument card (presenter-tools.js), never for the teaching card');
   forbid('src/ui/presenter.js', /pz-timegraph|pz-evtime/, 'no chart box in the words');
-  forbid('styles/app.css', /\.pz-timegraph/, 'no style for a chart in the words');
+  forbid('styles/app-*.css', /\.pz-timegraph/, 'no style for a chart in the words');
   need('src/ui/presenter-tools.js', [[/createFlowTime\(\)/, 'the flow-time chart is the instrument card\'s'], [/createEventGraph\(\)/, 'the procedure graph is the instrument card\'s']]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
@@ -400,7 +404,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/name="twitter:card" content="summary_large_image"/, 'the card is a large picture, not a thumbnail'],
     [/name="theme-color" content="#F1EBE0" media="\(prefers-color-scheme: light\)"/, 'the manifest theme colour (#F1EBE0) matches the light page colour'],
   ]);
-  need('styles/app.css', [[/html\[data-embed\] \.topbar/, '?embed hides the top bar']]);
+  need('styles/app-*.css', [[/html\[data-embed\] \.topbar/, '?embed hides the top bar']]);
   need('src/ui/main.js', [
     [/location\.protocol !== 'file:' && !EMBED\)/, 'an embed on another site installs no offline worker'],
     [/function showFirstHint\(\) \{\n {2}if \(EMBED\) return;/, 'an embed shows no first-run hint'],
@@ -414,9 +418,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   // The bottom bar stays as it is while the figure moves (13 Nov 2026, Mohammad: "why does the timeline bar change when I pan"): a pan once folded
   // it to a play-and-clock pill on the phone layout. figure-focus now only slides the top bar's second row away; nothing styles the bottom bar with it.
   forbid('src/ui/main.js', /foldDock|foldSoon|classList\.toggle\('mini'/, 'a pan, pinch or wheel does not fold the bottom bar to a pill (it must stay steady while the figure moves)');
-  forbid('styles/app.css', /\.vdock\.mini\b/, 'the bottom bar has no folded pill any more');
-  forbid('styles/app.css', /\.figure-focus[^{}]*(?:\.vdock|\.timeline|\.readouts|\.stage-bar\.bottom|\.thumb-bar)[^{}]*\{/, 'figure-focus does not style the bottom bar');
-  forbid('styles/app.css', /\.figure-focus \.zoom-pill:not\(\.under-sheet\) \{ translate/, 'the zoom pill does not drop into the bottom bar\'s row during a pan');
+  forbid('styles/app-*.css', /\.vdock\.mini\b/, 'the bottom bar has no folded pill any more');
+  forbid('styles/app-*.css', /\.figure-focus[^{}]*(?:\.vdock|\.timeline|\.readouts|\.stage-bar\.bottom|\.thumb-bar)[^{}]*\{/, 'figure-focus does not style the bottom bar');
+  forbid('styles/app-*.css', /\.figure-focus \.zoom-pill:not\(\.under-sheet\) \{ translate/, 'the zoom pill does not drop into the bottom bar\'s row during a pan');
 
   // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/presenter.js', [
@@ -479,7 +483,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 // the strips' loops; these pin the wiring a unit test cannot reach without the page. A pattern that no longer matches means the code it guarded
 // changed: look before editing the rule.
 {
-  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const text = sourceText;
   const need = (file, rules) => {
     const src = text(file);
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
@@ -504,7 +508,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 // Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit
 // test cannot reach without the page). A pattern that no longer matches means the code it guarded changed: look before editing the rule.
 {
-  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const text = sourceText;
   const need = (file, rules) => {
     const src = text(file);
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
@@ -585,19 +589,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/headStep\(shown, goal, dt\)/.test(src)) errors.push(`src/ui/${f}.js: the head steps by headStep(shown, goal, dt), the time between frames, not a fraction per frame`);
     if (/shown \+= \(goal - shown\)/.test(src)) errors.push(`src/ui/${f}.js: shown += (goal - shown) * k per frame is faster at 120 Hz than at 60: use headStep`);
   }
-  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8');
-  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--(?:shadow-cath-label|glass-shadow)\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
-  for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
+  const css = appCssText(ROOT);
+  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--(?:shadow-cath-label|glass-shadow)\)[^}]*transition: opacity/.test(css)) errors.push('styles/app-*.css: the catheter label\'s shadow is its ::before, faded by opacity');
+  for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app-*.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
 }
 
 // Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list
 // exactly the selectors of main.js CHROME; a wider list paints a pill that main.js gives no glass (the patient pill, the Colored-by key) solid.
 {
   const m = readFileSync(join(ROOT, 'src/ui/main.js'), 'utf8').match(/const CHROME = \[(.+)\]\.join/);
-  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8').split('\n').filter((l) => /^:root:root :is\(/.test(l) && l.includes('.nb-views > .vp-face'));
+  const css = appCssText(ROOT).split('\n').filter((l) => /^:root:root :is\(/.test(l) && l.includes('.nb-views > .vp-face'));
   const list = m && m[1].split(/',\s*'/).map((x) => x.replace(/^'|'$/g, '').trim()).join(', ');
   if (!list) errors.push('main.js CHROME list not found (chrome glass rule)');
-  else if (css.length !== 2 || css.some((l) => !l.includes(`:is(${list})`))) errors.push('styles/app.css: the chrome [data-gl] and :not([data-gl]) rules must list exactly the selectors of main.js CHROME');
+  else if (css.length !== 2 || css.some((l) => !l.includes(`:is(${list})`))) errors.push('styles/app-*.css: the chrome [data-gl] and :not([data-gl]) rules must list exactly the selectors of main.js CHROME');
 }
 
 // Motion (PR-22): one reduce-motion read, and no new bare durations in the stylesheets.
@@ -628,12 +632,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   else if (bare < mDoc.bareDurations && process.argv.includes('--tighten')) writeFileSync(mFile, JSON.stringify({ ...mDoc, bareDurations: bare }, null, 1) + '\n');
 }
 
-// Chart looks (chart-looks-in-code plan, WP0): the count of chart look rules left in styles/app.css, per chart, may not rise above
+// Chart looks (chart-looks-in-code plan, WP0): the count of chart look rules left in styles/app-*.css, per chart, may not rise above
 // scripts/chart-look-allowance.json. A chart's migration PR deletes its rules and lowers its number (--tighten); WP12 ends at 0.
 {
   const aFile = join(ROOT, 'scripts/chart-look-allowance.json'), aDoc = JSON.parse(readFileSync(aFile, 'utf8'));
-  const now = chartCounts(chartInventory(readFileSync(join(ROOT, 'styles/app.css'), 'utf8')));
-  for (const [chart, n] of Object.entries(now)) if (n > (aDoc.charts[chart] ?? 0)) errors.push(`styles/app.css has ${n} ${chart} chart look rules, over the allowance of ${aDoc.charts[chart] ?? 0} in scripts/chart-look-allowance.json: a chart's look belongs in its chart-looks table, not in app.css (node scripts/chart-looks-inventory.mjs --chart ${chart})`);
+  const now = chartCounts(chartInventory(appCssText(ROOT)));
+  for (const [chart, n] of Object.entries(now)) if (n > (aDoc.charts[chart] ?? 0)) errors.push(`styles/app-*.css has ${n} ${chart} chart look rules, over the allowance of ${aDoc.charts[chart] ?? 0} in scripts/chart-look-allowance.json: a chart's look belongs in its chart-looks table, not in app.css (node scripts/chart-looks-inventory.mjs --chart ${chart})`);
   if (process.argv.includes('--tighten')) writeFileSync(aFile, JSON.stringify({ ...aDoc, charts: Object.fromEntries(Object.entries(now).map(([c, n]) => [c, Math.min(n, aDoc.charts[c] ?? n)])) }, null, 1) + '\n');
 }
 
@@ -701,7 +705,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 for (const name of readdirSync(join(ROOT, 'scripts/source-shapes')).filter((n) => n.endsWith('.mjs')).sort()) {
   const rules = (await import(pathToFileURL(join(ROOT, 'scripts/source-shapes', name)).href)).default;
   for (const r of rules) {
-    const src = [].concat(r.file).flatMap((f) => (f.endsWith('*') ? stageFamily() : [f])).map((f) => readFileSync(join(ROOT, f), 'utf8')).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
+    const src = [].concat(r.file).flatMap((f) => (f === 'styles/app-*.css' ? [f] : f.endsWith('*') ? stageFamily() : [f])).map(sourceText).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
     if (r.need && !has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
     if (r.forbid && has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
   }

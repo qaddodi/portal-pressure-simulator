@@ -3,7 +3,7 @@
 // the caput by abdTo); a patch of that kind, or any new radial gradient in the figure's defs, fails lint.
 export default [
   { file: 'src/ui/stage*', forbid: [/abd-wall|abdWall|abdTo|abdFade|url\(#skin\)|id="skin"/, 'no abdominal-wall skin tint under the caput medusae'] },
-  { file: 'styles/app.css', forbid: [/\.abd-wall|\.sk-(in|mid|out)\b/, 'no skin-tint rules'] },
+  { file: 'styles/app-*.css', forbid: [/\.abd-wall|\.sk-(in|mid|out)\b/, 'no skin-tint rules'] },
   { file: 'styles/tokens.css', forbid: [/--skin\b/, 'no skin colour token (nothing is tinted round the navel)'] },
   { file: 'src/ui/theme-tokens.js', forbid: [/'skin'\s*:/, 'no skin colour token (nothing is tinted round the navel)'] },
   // Every radial gradient in the figure is an organ's own shading (congest, orgForm, ogVol, caudDome, lvSheen): a new one, a disc behind vessels, must be named here on purpose.

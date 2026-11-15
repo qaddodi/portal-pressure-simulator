@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The four safe fixes from docs/design-humanizer.md's first audit (DG2–DG5), picked by Mohammad on 17 Oct.
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), tokens = read('styles/tokens.css');
+const css = appCss(), tokens = read('styles/tokens.css');
 const chart = read('src/ui/chart.js'), main = read('src/ui/main.js'), dock = read('src/ui/dock.js');
 const rule = (sel) => { const at = css.indexOf('\n' + sel); assert.ok(at >= 0, sel); return css.slice(at, css.indexOf('}', at)); };
 

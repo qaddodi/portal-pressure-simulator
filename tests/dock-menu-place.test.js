@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // A small fake DOM: just what util.js popover() reads to place a menu.
 class FakeEl {
@@ -57,7 +58,7 @@ test('a dock menu opened with the default placement lands above the dock too, ne
 });
 
 test("a dock menu has no cut of its own: the sheet layer cuts it on the dock's top line (W4, 4 Nov 2026)", () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.doesNotMatch(css, /html\.thumb-ui \.menu\.from-dock \{ clip-path/);
   assert.doesNotMatch(css, /\.menu\.from-dock \{ translate: 0 var\(--sink/);
   assert.doesNotMatch(css, /html\.thumb-ui \.menu\.from-dock[^{]*\{[^}]*--sink/);

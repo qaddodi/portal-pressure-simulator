@@ -2,6 +2,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The figure's overlays on the GPU (31 Oct, recs A1; ?stageover=gpu, off by default): the lowest run of #stageOver's groups the organs'
 // painter can read is painted in the vessel canvas over the picture; the first group it cannot read, and every group above it,
@@ -183,7 +184,7 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
 });
 
 test('the stage: off unless asked for; the painted groups\' SVG hidden by an empty clip; read again on a change, and while a CSS ease runs', () => {
-  const st = stageSource(), css = read('../styles/app.css');
+  const st = stageSource(), css = appCss();
   assert.match(st, /const OVER_ASK = typeof location !== 'undefined' && \/\[\?&\]stageover=gpu\\b\/\.test\(location\.search\);/);
   assert.doesNotMatch(st, /OVER_GPU|stageover=svg/);
   assert.match(st, /let OVER_ON = !!(?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\);/);

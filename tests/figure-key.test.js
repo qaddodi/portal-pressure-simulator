@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
 // Mohammad, 15 Oct: "on mac, put the legend on top of the zoom pill" (the nav pill at the lower right).

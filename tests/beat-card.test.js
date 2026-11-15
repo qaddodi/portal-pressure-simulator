@@ -6,10 +6,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { beatTop, beatLayout, colPlan, COL_NEED, paperFine, beforeLabelY, sinceText } from '../src/ui/beat-card.js';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const pt = read('../src/ui/pressure-time.js');
-const css = read('../styles/app.css');
+const css = appCss();
 const presenter = read('../src/ui/presenter.js');
 
 test('the scale runs from 0 to a multiple of 5, 20 or more, over every value with room to spare', () => {

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SCALE, TILE, tileOf, RATE, bandsOf, rateOf, rateShown, dirAbs } from '../src/ui/table-marks.js';
+import { appCss } from './split-src.js';
 
 // Each data card tile's scale bar (layout A): its bands take the tile's own rating, so the bar and the status word agree.
 const bandRates = (k) => bandsOf(k).map((z) => rateOf(k, { asc: 1e4, [k]: z.m })[0] || 'info');
@@ -75,14 +76,14 @@ test('WHVP and FHVP have bars like HVPG\'s (22 Oct): the portal pressure\'s band
 
 test('the Tests › HVPG readings carry their tile\'s colour too, and ease into it', () => {
   const js = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(js, /for \(let ki = 0; ki < 2; ki\+\+\) \{\s*const k = KEYS2\[ki\];\s*const sk = shown\[k\] \? sevOfRead\(k, v\[k\]\) : '';/);
   assert.match(js, /const KEYS3 = \['fhvp', 'whvp', 'hvpg'\], KEYS2 = \['fhvp', 'whvp'\];/);
   assert.match(css, /\.hvpg-kv dd \{[^}]*transition: none/, 'the colour is taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
 });
 
 test('every tile is one height on every slide: its bar, rating and change lines always keep their room (2 Nov 2026)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(css, /\.pz-tile:has\(\.pzb-was:not\(\[hidden\]\)\) \.pzt-d \{ visibility: hidden; \}/, 'the ring\'s change line folds out of sight, not out of the layout');
   assert.ok(css.includes(".pz-tile :is(.pzt-r, .pzt-d):empty::before { content: '\\00a0'; }"), 'an empty rating or change keeps its line');
@@ -94,7 +95,7 @@ test('every tile is one height on every slide: its bar, rating and change lines 
 });
 
 test('the now dot and the start ring stay whole inside the track, even past either end of the scale (sweep, 16 Oct)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   const size = (cls) => +css.match(new RegExp(`\\.${cls}::before \\{[^}]*width: ([\\d.]+)px`))[1];
   // (Platelets of 380 on a bar that stops at 300 put the dot half off the end, its halo on the card's border.)

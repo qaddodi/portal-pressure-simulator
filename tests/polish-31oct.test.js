@@ -5,11 +5,12 @@ import { readFileSync } from 'node:fs';
 import { cutDp, SCALE } from '../src/ui/table-marks.js';
 import { removedLabel } from '../src/ui/removed-label.js';
 import './dom-shim.js';
+import { appCss } from './split-src.js';
 const { fmt } = await import('../src/ui/util.js');
 
 // Tile, menu and number polish, 31 Oct (the "Polish tiles, cards and tables" sprint thread).
 const src = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = src('styles/app.css'), presenter = src('src/ui/presenter.js'), menu = src('src/ui/menu.js'), dock = src('src/ui/dock.js');
+const css = appCss(), presenter = src('src/ui/presenter.js'), menu = src('src/ui/menu.js'), dock = src('src/ui/dock.js');
 
 test('a scale bar prints every cut-off with the decimals it has', () => {
   assert.equal(fmt(0.15, cutDp(0.15)), '0.15');

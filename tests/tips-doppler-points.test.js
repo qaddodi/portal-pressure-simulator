@@ -8,9 +8,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TIPS_DOPPLER } from '../src/ui/decks/tips-doppler.js';
 import { rolePx, roleOf } from '../src/ui/type-scale.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = stageSource(), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js'), css = read('styles/app.css');
+const stage = stageSource(), doppler = read('src/ui/doppler.js'), tools = read('src/ui/presenter-tools.js'), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js'), css = appCss();
 
 test('the stent slides, and only they, call out all three points', () => {
   const on = TIPS_DOPPLER.slides.filter((s) => s.tool?.points).map((s) => s.id);
@@ -52,7 +53,7 @@ test('one callout per point, at its own third, the three in a column beside thei
   assert.match(stage, /if \(it\.point\) dots\.push\(\{ k: 'h:' \+ it\.key, tag: 'circle', at: \{ class: 'leader-dot-halo'/);
   assert.match(stage, /leaders\.push\(\.\.\.dots\);/);
   assert.match(stage, /x0 = d\.ax \+ \(\(le\.x - d\.ax\) \/ L\) \* \(DISC \+ 2\)/);
-  assert.match(read('styles/app.css'), /\.leader-dot-halo \{ fill: var\(--stage-bg\); \}/);
+  assert.match(appCss(), /\.leader-dot-halo \{ fill: var\(--stage-bg\); \}/);
   // (The flow's arrowheads keep out from under the callouts and 12 px round each dot.)
   assert.match(stage, /\[dx, dy, dx, dy, 17 \* k\]/);
   assert.match(stage, /return Math\.hypot\(px - it\.ax - ex \* t, py - it\.ay - ey \* t\) < 18; \}\)\) return;/);   // the mark's leader passes no other dot
@@ -98,7 +99,7 @@ test("the points' numbers take the velocity colours against the stent's normal; 
   assert.match(stage, /\.\.\.\(tint \? \{ fill: tint \} : \{\}\)/);
   // (A colour change only repaints the number: it is not part of the label's structure, which rebuilds its text.)
   assert.match(stage, /line\.map\(\(\{ t, fill, cls, \.\.\.style \}\) => style\)/);
-  assert.doesNotMatch(read('styles/app.css'), /lb-gate \{ fill/);
+  assert.doesNotMatch(appCss(), /lb-gate \{ fill/);
 });
 
 test("the three callouts never give way to the Doppler probe: the column's side, its spots and its visibility ignore the probe's body and line of sight, and the probe waits for the column and keeps off it", () => {

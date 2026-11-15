@@ -3,6 +3,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -97,7 +98,7 @@ test('NP11: afterExit hides once the exit animations end, never for an element o
 });
 
 test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closing pieces wait for their fade; Rotate folds in the zoom pill', () => {
-  const css = read('styles/app.css'), main = read('src/ui/main.js'), card = read('src/ui/card.js'), pal = read('src/ui/palette.js');
+  const css = appCss(), main = read('src/ui/main.js'), card = read('src/ui/card.js'), pal = read('src/ui/palette.js');
   assert.match(css, /@media \(min-width: 1024px\) \{ \.cmp-badge \{ top: calc\(var\(--top-safe, 0px\) \+ 6px \+ var\(--cmp-h, 0px\)\); \} \}/);
   assert.match(card, /closeTimer = afterExit\(el, 'ac-leaving',/);
   assert.match(main, /hintT = afterExit\(el, 'leaving',/);

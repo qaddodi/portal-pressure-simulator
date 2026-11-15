@@ -4,10 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const menu = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('R15 a tap builds and shows the menu in its own frame, without waiting for the presentations', () => {
   assert.match(main, /\$\('#btnMenu'\)\.addEventListener\('click', \(\) => mainMenu\.toggle\(\)\);/);

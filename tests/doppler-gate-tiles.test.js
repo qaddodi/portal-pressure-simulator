@@ -3,10 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 const tools = readFileSync(new URL('../src/ui/presenter-tools.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the spot dropdown is gone', () => {
   assert.doesNotMatch(src, /gateSel|dop-gate/);

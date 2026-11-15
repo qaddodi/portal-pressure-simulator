@@ -4,8 +4,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { traceRoom, TRACE_MIN, MON_MIN } from '../src/ui/trace-room.js';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('at the monitor box floor the trace area is tall enough, at every width', () => {
   for (const hh of [MON_MIN, 136]) {

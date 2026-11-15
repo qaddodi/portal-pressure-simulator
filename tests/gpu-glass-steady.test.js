@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sheetPanes } from '../src/ui/sheet-glass.js';
 import { parseColour } from '../src/ui/glass-gl.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const GLASS = read('../src/ui/glass-gl.js'), LABELS = read('../src/ui/label-gl.js'), STAGE = stageSource(), CSS = read('../styles/app.css');
+const GLASS = read('../src/ui/glass-gl.js'), LABELS = read('../src/ui/label-gl.js'), STAGE = stageSource(), CSS = appCss();
 const box = (l, t, w, h) => ({ left: l, top: t, width: w, height: h, right: l + w, bottom: t + h });
 
 test('a colour mixed by color-mix() (the cards\' tint), as the canvas gives it back, is read as that colour, not as none', () => {

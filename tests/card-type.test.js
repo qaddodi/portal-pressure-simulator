@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMPACT, AB_COMPACT, AB_FLOOR, WIDE } from '../src/ui/card-type.js';
 import { rolePx, TEXT_STEPS } from '../src/ui/type-scale.js';
+import { appCss } from './split-src.js';
 
 // The teaching card's text in two fixed sizes, Regular and Compact (Mohammad, 19 Oct: "Two fixed sizes"). At either size, on every
 // layout and text size: the title reads larger than the words, the buttons and the corner tab never larger than the words, and
 // nothing under 12 px. (Slide 38 of the test-all deck on an iPhone had its tab, title, words and buttons all at 12 to 14 px, the
 // buttons the largest: the title had stepped down alone and the buttons had kept their size.)
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
 // The rules these sizes are read from, so the sums below stay the stylesheet's.

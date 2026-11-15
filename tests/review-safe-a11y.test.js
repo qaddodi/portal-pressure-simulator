@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createAnnouncer, LIVE_GAP } from '../src/ui/live.js';
 import { cleanShare } from '../src/ui/share-link.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -74,7 +75,7 @@ test('the organs a tap opens are keyboard items of the figure that never take th
   assert.match(keys, /return `\$\{ORGAN_NAME\.get\(item\.slice\(6\)\)\}\. Press Enter for its card\.`;/);
   assert.match(keys, /onSelect\(\{ type: 'organ', id: item\.slice\(6\) \}, \{ keyboard: true \}\)/);
   assert.match(keys, /setOrganHover\(sel\?\.type === 'organ' && sel\.id === org \? null : org\);/, 'focus shows as the hover outline');
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /#world :is\(g, path, [^)]*\) \{ pointer-events: none; \}/, 'world paths take no pointer');
   assert.match(css, /\.stage-view #stage:focus, \.stage-view #stage:focus-visible \{ outline: none; \}/, 'no ring round the figure');
   // Every keyboard organ is one the pointer can open too.

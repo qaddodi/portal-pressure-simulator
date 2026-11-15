@@ -24,6 +24,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
 import { gzipSync } from 'node:zlib';
 import { withCsp } from './csp.mjs';
+import { appCssFiles } from './app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'dist');
@@ -215,7 +216,7 @@ for (const queue = [appOut]; queue.length;) {
 
 // 3. Styles: fonts, tokens and layout in one file; fonts get hashed names.
 const cssEntry = join(OUT, '_entry.css');
-writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', 'styles/app.css', 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css', 'styles/guideline-sides.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
+writeFileSync(cssEntry, ['fonts/fonts.css', 'styles/tokens.css', 'styles/icons.css', ...appCssFiles(ROOT), 'styles/path.css', 'styles/scope-card.css', 'styles/tests-card.css', 'styles/guideline-sides.css'].map((f) => `@import "${relative(OUT, join(ROOT, f)).split(sep).join('/')}";`).join('\n'));
 const css = await build({ ...common, plugins: [], entryPoints: [cssEntry], outdir: ASSETS, entryNames: 'app-[hash]', assetNames: '[name]-[hash]', loader: { '.woff2': 'file', '.png': 'file' }, write: true, metafile: true });
 rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));

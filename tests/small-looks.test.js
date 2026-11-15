@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { tokensOfLook } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const ctx = (over = {}) => withCtx(makeCtx({ host: 'lobule' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic', ...over });
 const P = (k, st = {}, c = ctx()) => resolveProps(LOOKS[k], c, st, {});
@@ -54,6 +55,6 @@ test('every piece the builders make names a look that exists, and the sheet keep
     assert.ok(names.length >= 2, f);
     for (const n of names) assert.ok(LOOKS[n], `look ${n}`);
   }
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.doesNotMatch(css, /\.tl-day-gl|\.lz-call-[lr]|\.lz-leaders[^{]*\.(leader|ld-gone)/, 'their model rules are gone');
 });

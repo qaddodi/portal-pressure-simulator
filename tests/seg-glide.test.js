@@ -6,6 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -125,7 +126,7 @@ test('Reduce Motion: the piece is faded out first (--go 0), not travelled', asyn
 });
 
 test('the stylesheet: every piece rule sits behind .seg-glide, the chosen button\'s own fill is only turned off under it, and high contrast keeps Highlight', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const pieces = css.match(/[^{}\n]*::before\s*\{[^}]*var\(--gx\)[^}]*\}/g) || [];
   assert.ok(pieces.length >= 2, 'the piece is drawn for segments and tabs (the menu\'s and the desktop tab rows show the chosen tab by weight, not an underline: review ST-14)');
   for (const p of pieces) assert.match(p, /\.seg-glide/, `a piece rule without the class: ${p.slice(0, 80)}`);

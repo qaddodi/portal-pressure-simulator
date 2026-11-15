@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Every slider is the data tiles' scale bar made draggable (Mohammad's pick B, 17 Oct).
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), util = read('src/ui/util.js');
+const css = appCss(), util = read('src/ui/util.js');
 const rule = (sel) => { const at = css.indexOf('\n' + sel); assert.ok(at >= 0, sel); return css.slice(at, css.indexOf('}', at)); };
 
 test('the track is the tiles\' 6 px bar, drawn by the wrapper; the input\'s own track is clear', () => {

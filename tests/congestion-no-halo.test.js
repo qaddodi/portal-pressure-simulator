@@ -4,11 +4,12 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('the Congestion lens draws no halo: GPU, Lite graphics or CSS', () => {
-  const gl = read('../src/ui/veins-gl.js'), stage = stageSource(), css = read('../styles/app.css');
+  const gl = read('../src/ui/veins-gl.js'), stage = stageSource(), css = appCss();
   assert.doesNotMatch(gl, /uniform int heat\b/, 'no congestion-glow switch in the vein shader');
   assert.doesNotMatch(gl, /sheat\[|shcol\[/, 'no per-vessel congestion-glow strength or colour');
   assert.doesNotMatch(stage, /heatGlow|heatBlur|v-heat|heatA\b/, 'no SVG halo layer for Lite graphics');

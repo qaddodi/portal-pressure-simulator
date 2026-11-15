@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // ── a small fake DOM: what morphKey and crossfadeText read and write ──
 class FakeNode {
@@ -230,7 +231,7 @@ test('Reduce Motion keeps the plain fade out and in: no ghost, no slide, no mixi
 });
 
 test('the sources: main.js hands the key and the name to legend-morph.js, the bars carry their ramp, and the stylesheet gives --lg-k its clock', () => {
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), css = appCss();
   assert.match(main, /import \{ morphKey, crossfadeText \} from '\.\/legend-morph\.js/);
   assert.match(main, /const LG_BAR_STYLE = \{ background: '' \}, LG_BAR = \{ class: 'lg-bar', style: LG_BAR_STYLE \};/);
   assert.match(main, /LG_BAR_STYLE\.background = grad;\s+const bar = h\('div', LG_BAR\);\s+bar\._ramp = grad;/);

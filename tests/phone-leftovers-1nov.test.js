@@ -3,9 +3,10 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('an upright phone gives the name the room the widest key leaves it, so it wraps the same on every lens', () => {
   assert.match(css, /\.app\.thumb \.topbar \.tb-id \{ max-width: calc\(100% - 136px - clamp\(48px, calc\(100vw - 302px\), 88px\)\); \}/);

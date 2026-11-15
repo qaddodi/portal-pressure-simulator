@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { edgeState } from '../src/ui/scroll-edges.js';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const js = readFileSync(new URL('../src/ui/scroll-edges.js', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 

@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Menu system plan W4 (4 Nov 2026): a phone's vessel or organ card is pulled, flicked and let go on the rules every sheet over the dock shares,
 // by its plate and content's one offset (sheet-move.js), with no --sink written per move and no script-eased cut.
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const card = read('src/ui/card.js'), css = read('styles/app.css');
+const card = read('src/ui/card.js'), css = appCss();
 
 test("a vessel's card uses the shared sheet rules and the one sheet time", () => {
   assert.match(card, /isFlick\(dy, speed, [^\n]*, SHEET_FLICK_MIN, SHEET_FLICK_FAR\)/);

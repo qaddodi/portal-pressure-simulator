@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // The compact layout (22 Oct): an iPad held sideways or a short Mac window. Its cards stand tighter before they zoom, and zoom
 // only as far as their smallest lettering stays 12 px on the screen (they had zoomed to half, text down to 7 px).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
 

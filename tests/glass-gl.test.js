@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as GL from '../src/ui/glass-gl.js';
 import { CARD, SMOOTH, parseShadow, glassWanted } from '../src/ui/glass-gl.js';
+import { appCss } from './split-src.js';
 
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 
 test('one glass look: CARD is the only look glass-gl.js exports, and every stand-in fill for the glass is the one tint', () => {

@@ -12,6 +12,7 @@ import { holds, rangeOf, planeOf, zoneOf, zoneRect, PLANES, fitWords, placeNames
 import { wavePath, waveVessel } from '../src/ui/col-wave.js';
 import { runSteps } from './deck-states.js';
 import { createCore } from '../src/worker-core.js';
+import { appCss } from './split-src.js';
 
 test('package E registers its visuals, instruments and columns', () => {
   assert.equal(EXT.owner.visuals.plane, 'E');
@@ -129,7 +130,7 @@ test('the Doppler traces: forward hepatic vein flow below the line, a clotted po
 });
 
 test('package E\'s styles stay inside its own block', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const a = css.indexOf('/* ── Package E, panels and table columns: start ── */'), b = css.indexOf('/* ── Package E: end ── */');
   assert.ok(a > 0 && b > a);
   const outside = css.slice(0, a) + css.slice(b);

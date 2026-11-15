@@ -10,9 +10,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TOKENS } from '../src/ui/theme-tokens.js';
 import { GATE_FRAC, gateFrac, AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = stageSource(), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
+const stage = stageSource(), doppler = read('src/ui/doppler.js'), css = appCss(), tokens = read('styles/tokens.css');
 // (The marks as the old path strings, to read them as lines: the numbers are what the probe's record holds, dop-probe.js probeGeomInto.)
 const f1 = (v) => +v.toFixed(1);
 const probeShapes = (D, r, phi = PROBE.ANGLE, size = 1, out = 0) => {
@@ -412,7 +413,7 @@ test('stage: a probe shown afresh starts at its place, and a jump fades out and 
   assert.ok(src.indexOf("act === 'jump'") < src.indexOf('if (!dpr.on || !dpr.has || reduceMotion.matches) {'));
   // (the jump itself is decided in dop-probe.js, from where the probe is drawn and where it would stand)
   assert.match(readFileSync(new URL('../src/ui/dop-probe.js', import.meta.url), 'utf8'), /if \(on && cur && !swing && probeJumps\(cur, tgt\)\) \{ at = ''; pend = ''; return 'jump'; \}/);
-  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
+  assert.doesNotMatch(appCss(), /\.dop-probe \{[^}]*transition:[^;}]*transform/);
 });
 
 test('stage: on a slide the probe waits, hidden, for the slide\'s camera to settle (Doppler 2)', () => {

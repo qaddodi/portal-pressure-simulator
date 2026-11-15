@@ -6,9 +6,10 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), gl = read('src/ui/label-gl.js'), stage = stageSource();
+const css = appCss(), gl = read('src/ui/label-gl.js'), stage = stageSource();
 
 test('no label or leader entry fade fills forwards (it would block every later fade)', () => {
   for (const m of css.matchAll(/^([^\n{]*(?:#labels \.lb|\.lb-leaders > \*)[^\n{]*)\{[^}]*animation: crossfade[^;}]*;/gm)) assert.ok(!/ both;/.test(m[0]), `${m[1].trim()} fills forwards`);

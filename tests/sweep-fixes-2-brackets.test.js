@@ -9,9 +9,10 @@ import { readFileSync } from 'node:fs';
 import { WHERE } from '../src/ui/decks/where.js';
 import { runSteps, deckStates } from './deck-states.js';
 import { profileOf, blocksOf, blockBox, profileGeo, axisTop, BLOCK_FALL, STATIONS } from '../src/ui/tool-profile.js';
+import { appCss } from './split-src.js';
 
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const lob = readFileSync(new URL('../src/ui/decks/lobule.js', import.meta.url), 'utf8');
 
 test('Lobule 8 shows the Gut to heart chart (Recompensation\'s carvedilol slide, which also did, left in the deck rebuild)', () => {

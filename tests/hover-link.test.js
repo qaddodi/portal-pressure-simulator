@@ -8,10 +8,11 @@ import { readFileSync } from 'node:fs';
 import { NODES, EDGES } from '../src/engine/topology.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { HOVER_LINK, labelTarget, labelsOf, edgesOfLabel } from '../src/ui/hover-link.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = stageSource();
-const css = read('styles/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 const EDGE_IDS = new Set(EDGES.map((e) => e.id));
 
 test('a station label names the vessel a click on it selects', () => {

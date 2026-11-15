@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { scanKpaOf, scanReadingText } from '../src/ui/scan-ease.js';
 import { NOT_SHOWN } from '../src/engine/pressure-cuts.js';
+import { appCss } from './split-src.js';
 
 const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
@@ -35,7 +36,7 @@ test('the probe\'s screen always has a number: the card\'s, else its own eased o
 test('the probe\'s number is plain model text, never GPU words that would clear its fill', () => {
   const src = read('src/ui/stage-scan.js');
   assert.doesNotMatch(src, /putText\(|import \{[^}]*putText/, 'putText makes glWords on a connected element, and .glw-on clears the fill');
-  assert.match(read('styles/app.css'), /\.glw-on, \.glw-on \* \{ color: transparent !important;[^}]*fill: transparent !important/, 'the rule the number must stay clear of');
+  assert.match(appCss(), /\.glw-on, \.glw-on \* \{ color: transparent !important;[^}]*fill: transparent !important/, 'the rule the number must stay clear of');
   assert.match(src, /sv\.textContent = scan\.domTxt/, 'written as plain text');
   assert.match(src, /restPass\(\(\) => \{\s*scan\.domAsk = 0;/, 'between frames, not in one');
   assert.match(src, /scan\.shown = null; scan\.svEl = null; scanRecReset\(scanRec, el\)/, 'a new probe element gets its number again');

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { binSwept, writePoints, writeJoinNow } from '../src/ui/veins-sweep.js';
 import { CELL } from '../src/ui/veins-bin.js';
+import { appCss } from './split-src.js';
 
 const N = 16, SLACK = 6;
 let seed = 7;
@@ -164,7 +165,7 @@ test('a frame of the change draws from a stretch only once every point, reach an
 
 test('the change keeps the labels up: solved at the tap, ridden on the morph\'s clock, crossfaded by its progress', () => {
   const stage = stageSource();
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
   assert.match(stage, /if \((?:live\.)?(?:live\.)?viewXf\) return;/);
   assert.match(stage, /if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/);

@@ -20,15 +20,15 @@ export default [
   { file: 'src/ui/main.js', need: [/if \(instr && !was\) surfacesAway\(\);\n\s*if \(instr && !was\) giveWay\('dock'\);/, 'main.js puts menus away as a card opens'] },
   { file: 'src/ui/main.js', need: [/if \(s\.anchor && el\.contains\(s\.anchor\)\) \{ under = true; continue; \}/, 'a menu opened from inside a card, over it, keeps a plain fill so the card does not show through'] },
   { file: 'src/ui/main.js', need: [/s\.el\?\.classList\.toggle\('over-card', under\);/, 'a menu opened from inside a card, over it, keeps a plain fill so the card does not show through'] },
-  { file: 'styles/app.css', need: [/:root:root :is\(\.menu, \.why-pop\)\.over-card:not\(\[data-gl\]\) \{ background: var\(--surface\);/, 'a menu opened from inside a card, over it, keeps a plain fill so the card does not show through'] },
+  { file: 'styles/app-*.css', need: [/:root:root :is\(\.menu, \.why-pop\)\.over-card:not\(\[data-gl\]\) \{ background: var\(--surface\);/, 'a menu opened from inside a card, over it, keeps a plain fill so the card does not show through'] },
 
   // --- palette-veil ---
-  { file: 'styles/app.css', need: [first(PAL_BACK, ''), '.pal-back rule exists'] },
-  { file: 'styles/app.css', forbid: [first(PAL_BACK, '[^}]*background'), '.pal-back paints no veil over the palette\'s glass (its background would dim the frost drawn under it)'] },
-  { file: 'styles/app.css', forbid: [first('/\\* Command palette \\*/', '[\\s\\S]*?\\.pal-back[^{]*\\{[^}]*background:\\s*var\\(--scrim\\)'), '.pal-back paints no veil over the palette\'s glass (no scrim background in the palette section)'] },
-  { file: 'styles/app.css', need: [first(PAL, '[^}]*--pal-veil: 0 0 0 100vmax var\\(--scrim\\)'), 'the veil is the palette\'s outer shadow'] },
-  { file: 'styles/app.css', need: [first(PAL, '[^}]*box-shadow:[^;}]*var\\(--pal-veil\\)'), 'the veil is the palette\'s outer shadow'] },
-  { file: 'styles/app.css', need: [/:root:root \.pal\[data-gl\] \{ box-shadow: var\(--pal-veil\); \}/, 'the veil is kept when the GPU draws the glass'] },
+  { file: 'styles/app-*.css', need: [first(PAL_BACK, ''), '.pal-back rule exists'] },
+  { file: 'styles/app-*.css', forbid: [first(PAL_BACK, '[^}]*background'), '.pal-back paints no veil over the palette\'s glass (its background would dim the frost drawn under it)'] },
+  { file: 'styles/app-*.css', forbid: [first('/\\* Command palette \\*/', '[\\s\\S]*?\\.pal-back[^{]*\\{[^}]*background:\\s*var\\(--scrim\\)'), '.pal-back paints no veil over the palette\'s glass (no scrim background in the palette section)'] },
+  { file: 'styles/app-*.css', need: [first(PAL, '[^}]*--pal-veil: 0 0 0 100vmax var\\(--scrim\\)'), 'the veil is the palette\'s outer shadow'] },
+  { file: 'styles/app-*.css', need: [first(PAL, '[^}]*box-shadow:[^;}]*var\\(--pal-veil\\)'), 'the veil is the palette\'s outer shadow'] },
+  { file: 'styles/app-*.css', need: [/:root:root \.pal\[data-gl\] \{ box-shadow: var\(--pal-veil\); \}/, 'the veil is kept when the GPU draws the glass'] },
 
   // --- view-key ---
   { file: 'src/ui/lobule-zoom.js', need: [new RegExp(SIN_ASK + 'if \\(fade < 0\\.98 && sv\\.available && store\\.get\\(\\)\\.lobule\\) \\{ sinPending = true; return true; \\}'), 'bug (a): the stage keeps the sinusoid ask in the lobule while it fades in and returns true'] },

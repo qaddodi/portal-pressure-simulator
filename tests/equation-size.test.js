@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // An equation on a teaching card stays in proportion to the words beside it, on phones and upright iPad (the stack layout).
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim(), body }));
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 const px = (name, vmin) => {   // --t-<name>: clamp(lo, calc(lo + (100vmin - 390px) * k), hi) at a given short side

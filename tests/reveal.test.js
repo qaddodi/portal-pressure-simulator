@@ -7,9 +7,10 @@ import { DECKS } from '../src/ui/decks.js';
 import { clausesOf, plainLine, revealCount, shownLine, revealProblems } from '../src/ui/reveal.js';
 import { beatCount, beatView, beatProblems } from '../src/ui/slide-beats.js';
 import { slideTargets } from '../src/ui/presenter.js';
+import { appCss } from './split-src.js';
 
 const PZ = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, `${head} is there`); return src.slice(i, src.indexOf('\n  }\n', i)); };
 
 test('a line is cut after commas, semicolons and full stops, and the clauses join back into the line', () => {

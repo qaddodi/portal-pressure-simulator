@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { appCss } from './split-src.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => unsnap(readFileSync(join(root, f), 'utf8'));
@@ -45,7 +46,7 @@ test('a card that gives way hands focus on to the opening card\'s button; a dial
   assert.match(u, /back\.style\.setProperty\('--modal-top', `\$\{Math\.max\(0, Math\.round\(modalVV\.offsetTop\)\)\}px`\)/);
   assert.equal((u.match(/removeProperty\('--modal-top'\)/g) || []).length, 1, 'cleared in modalKbEnd, which the keyboard going and the dialog gone both run');
   assert.match(u, /modalKbEnd\(back\); modalBand = \[0, 0\]/);
-  const css = read('styles/app.css');
+  const css = appCss();
   assert.match(css, /\.modal-back \{ position: fixed; inset: var\(--modal-top, 0px\) 0 var\(--modal-kb, 0px\) 0;/);
   assert.match(css, /calc\(100dvh - var\(--modal-kb, 0px\) - var\(--modal-top, 0px\) - 32px/);
 });
@@ -76,7 +77,7 @@ test('the feedback ask waits for every open working surface on every screen (Tes
 });
 
 test('the Compare strip centres in the room the right-hand cards leave, and eases as they come and go', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const rule = css.match(/^\.sb-center\.float-ui \{([^}]*)\}/m)?.[1] ?? '';
   // (since the off-GPU gate: the room's centre is reached by translate, half the cards' width, not by easing right)
   assert.match(rule, /right: calc\(env\(safe-area-inset-right\) \+ var\(--gap\)\);/);

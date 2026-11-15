@@ -12,11 +12,12 @@ import { levelsOf } from '../src/ui/tool-hvpg.js';
 import { eases, dataPlan } from '../src/ui/card-keep.js';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
+import { appCss } from './split-src.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const tools = read('../src/ui/presenter-tools.js');
 const presenter = read('../src/ui/presenter.js');
-const css = read('../styles/app.css');
+const css = appCss();
 const run = (g) => { let n; do { n = g.next(); } while (!n.done); };
 
 // ── The encephalopathy-risk tile ──

@@ -5,6 +5,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const main = src('main.js');
@@ -90,7 +91,7 @@ test('every resize for a share goes through easeRes; the copy is laid over first
   const at = fn.indexOf('fadeOver(vCanvas, resFollow, veinsPresent, veins && !veins.lost ? veins.top : null, fadeBox)');
   assert.ok(at >= 0 && at < fn.indexOf('resizeCanvas()'), 'copied before the resize clears it, the kept picture put on the canvas for each read');
   assert.ok(!/moveLow = true; resizeCanvas\(\)/.test(stage) && !/autoK = k; moveLow = false; resizeCanvas\(\)/.test(stage), 'no share change resizes without the fade');
-  assert.match(src('../../styles/app.css'), /\.stage-view\.in-lobule \.res-fade/);
+  assert.match(appCss(), /\.stage-view\.in-lobule \.res-fade/);
 });
 
 test('resFollow: the old picture moves from the transform it was drawn in to the one drawn now', () => {

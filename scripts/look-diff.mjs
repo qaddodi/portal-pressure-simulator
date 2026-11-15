@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inventory, CHARTS } from './chart-looks-inventory.mjs';
+import { appCssText } from './app-css.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -35,7 +36,7 @@ const spec = (selector) => selector.split(/,(?![^(]*\))/).map((p) => specificity
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2), i = args.indexOf('--chart'), chart = i < 0 ? null : args[i + 1];
   if (!chart || !CHARTS[chart]) { console.error(`usage: look-diff.mjs --chart <${Object.keys(CHARTS).join('|')}> [--json]`); process.exit(2); }
-  const rows = inventory(readFileSync(resolve(ROOT, 'styles/app.css'), 'utf8'))[chart].map((r) => ({ line: r.line, ctx: r.ctx.join(' > '), selector: r.selector, specificity: spec(r.selector), old: r.body, new: null }));
+  const rows = inventory(appCssText(ROOT))[chart].map((r) => ({ line: r.line, ctx: r.ctx.join(' > '), selector: r.selector, specificity: spec(r.selector), old: r.body, new: null }));
   if (args.includes('--json')) console.log(JSON.stringify(rows, null, 1));
   else {
     console.log('| app.css | selector (specificity) | context | old | new key / row | new | |\n|---|---|---|---|---|---|---|');

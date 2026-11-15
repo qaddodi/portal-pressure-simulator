@@ -158,7 +158,7 @@ test('the card is wired: a tool kind, a stylesheet in the page and the build, th
   assert.equal(ext.tools.path.title({}), 'First visit with cACLD');
   assert.equal(ext.tools.path.title({ title: 'Mine' }), 'Mine');
   assert.match(read('index.html'), /styles\/path\.css/);
-  assert.match(read('scripts/build.mjs'), /'styles\/app\.css', 'styles\/path\.css'/);
+  assert.match(read('scripts/build.mjs'), /\.\.\.appCssFiles\(ROOT\), 'styles\/path\.css'/);
   assert.match(read('src/ui/presenter.js'), /RIDES_MODEL = new Set\(\[[^\]]*'path'/);
   const { STIFFNESS } = await import('../src/ui/decks/stiffness.js');
   const { BLEED: BLEED_DECK } = await import('../src/ui/decks/variceal-bleed.js');

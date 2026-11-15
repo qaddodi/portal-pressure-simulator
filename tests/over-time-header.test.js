@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { wrapLabel } from '../src/ui/wrap-label.js';
+import { appCss } from './split-src.js';
 
 // Tests > Pressure > Over time: the header (HVPG, its number, the status over its trend) is one row on every screen,
 // with Smooth and the 10 s / 2 min / Days switch beside the trace pills, and a long event label wraps instead of ending in "…".
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), src = read('../src/ui/pressure-time.js');
+const css = appCss(), src = read('../src/ui/pressure-time.js');
 
 test('the header holds only the readout; Smooth and the range switch sit with the trace pills', () => {
   assert.match(src, /h\('span', \{ class: 'pt-st' \}, heroSev, heroDelta\)/);

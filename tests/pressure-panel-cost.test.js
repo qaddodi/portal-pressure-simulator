@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { monotoneSegs, curveTester } from '../src/ui/curve-near.js';
 import { firstAtOrAbove, firstAbove } from '../src/ui/sorted.js';
 import { limitLabelX } from '../src/ui/limit-label.js';
+import { appCss } from './split-src.js';
 
 // The Tests > Pressure panel lagged: the ladder above it placed its labels by asking the browser, point by point,
 // whether each lay on the curve's widened stroke (isPointInStroke), thousands of times a frame while the pressures
@@ -130,7 +131,7 @@ test('the panel does no layout work it does not need on each frame', () => {
 });
 
 test('the HVPG trend under the header is never cut with an ellipsis', () => {
-  const css = read('../styles/app.css');
+  const css = appCss();
   const rule = css.match(/^\.pt-delta \{[^}]*\}/m)[0];
   assert.doesNotMatch(rule, /ellipsis|nowrap/);
   assert.match(rule, /min-width: min-content/);

@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 // (Every rule that starts a line with exactly this selector; a piece may have several, only one of which places it.)
 const bodies = (sel) => {

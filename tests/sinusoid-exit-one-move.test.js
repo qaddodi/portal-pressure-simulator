@@ -5,9 +5,10 @@ import { diveMapInto } from '../src/ui/dive-map.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the space that opens as the sinusoid closes re-aims the zoom out, instead of a refit after it lands', () => {
   // (Why the framing can move: the top bar or a card changing as the sinusoid closes. The dock no longer does: the sinusoid view

@@ -6,11 +6,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
 const motion = read('../src/ui/pill-motion.js');
-const css = read('../styles/app.css');
+const css = appCss();
 
 // The pill's buttons in their order, with a 2 px gap and 6 px of face around them, centred on the pill (px from its centre).
 const ORDER = ['circuit', 'anatomic', 'lobule', 'sinusoid'];

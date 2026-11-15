@@ -7,10 +7,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { organDimMatrix, LUMA } from '../src/ui/organ-dim.js';
 import { parseColor, greyOf, paintRef } from '../src/ui/organ-grey.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
-const app = read('../styles/app.css');
+const app = appCss();
 const gl = read('../src/ui/veins-gl.js');
 
 // feColorMatrix on an unpremultiplied colour.

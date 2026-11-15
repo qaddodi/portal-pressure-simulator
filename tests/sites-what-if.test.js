@@ -9,6 +9,7 @@ import { SITES } from '../src/ui/decks/sites.js';
 import { NCPH } from '../src/ui/decks/ncph.js';
 import { PRESETS, defaultParams } from '../src/engine/scenario.js';
 import { runSteps } from './deck-states.js';
+import { appCss } from './split-src.js';
 
 const slide = (id) => SITES.slides.find((s) => s.id === id);
 const paths = (w) => [].concat(w.param);
@@ -74,7 +75,7 @@ test('Sites level slides show the Gut to heart chart, and no slide has a ladder 
 });
 
 test('on a phone a what-if slider takes a full line under its label', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pz\.stack \.pzi-t \{ flex: 1 0 100%; \}/);
   assert.match(css, /\.pz-wi \{[^}]*flex-wrap: wrap/);
 });

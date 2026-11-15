@@ -5,11 +5,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BACKDROP } from '../src/ui/anatomy.js';
+import { appCss } from './split-src.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 
 test('no body-cavity glow is drawn behind the abdomen', () => {
-  const stage = stageSource(), css = read('styles/app.css'), tokens = read('styles/tokens.css');
+  const stage = stageSource(), css = appCss(), tokens = read('styles/tokens.css');
   assert.equal(BACKDROP.cavity, undefined);
   assert.doesNotMatch(stage, /cavityShade|bd-cavity/);
   assert.doesNotMatch(css, /\.cav-(hi|mid|lo)\b|bd-cavity/);

@@ -4,10 +4,11 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the map grid is drawn by the GPU, fading by its frames\' dot alpha, with no element, pattern or layer', () => {
   assert.doesNotMatch(stage, /mapGrid|'map-grid'|class: 'zone|fx-zone|id: 'grid'|id: 'nodes'/, 'no SVG grid, zones, lit zone or dots');

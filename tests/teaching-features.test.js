@@ -10,9 +10,10 @@ import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
 import { criteriaRow, criteriaRows, criteriaMet, criteriaReading, criteriaHasCase, cutParts, verdictParts, CRITERIA_MAX, ZONES, keyLine } from '../src/ui/tool-criteria.js';
 import teaching from '../src/ui/ext-teaching.js';
+import { appCss } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const slidesUsing = (f) => DECKS.flatMap((d) => d.slides.filter((s) => s[f] !== undefined).map((s) => [d, s]));
 
 test('hold: only adopted question slides use it, each a true flag on a slide with a card and no preset answer', () => {
@@ -115,7 +116,7 @@ test('criteria card, plain rules (his pick 26 Oct, C with D\'s key words): a mar
   const src = readFileSync(new URL('../src/ui/tool-criteria.js', import.meta.url), 'utf8');
   assert.match(src, /classList\.toggle\('ordered', t\?\.ordered === true\)/);
   assert.match(src, /classList\.toggle\('has-lit', rows\.some\(\(r\) => r\.lit\)\)/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const block = css.slice(css.indexOf('/* Plain rules, no cut-off column'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 400);
   assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no side stripes: a ring is an outline all round');
@@ -145,7 +146,7 @@ test('criteria card V3 in the decks: every rule pill is cited in its slide\'s no
     }
     if (rows.some((r) => r.cut)) assert.ok(rows.filter((r) => r.cut).length >= 2, `${id}: cut-offs on more than one row, or none`);
   }
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   const block = css.slice(css.indexOf('/* The criteria card'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 200);
   assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no vertical lines or side stripes in the criteria card (his rule)');

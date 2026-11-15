@@ -5,6 +5,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
@@ -48,7 +49,7 @@ test('the debug overlay starts off on every load: no stored choice is read back'
 });
 
 test('Windows high contrast keeps the on and selected states and the switches visible', () => {
-  const css = read('styles/app.css');
+  const css = appCss();
   const at = css.indexOf('@media (forced-colors: active)');
   assert.ok(at > 0);
   const blk = css.slice(at);

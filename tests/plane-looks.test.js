@@ -7,6 +7,7 @@ import { LOOKS, HOSTS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { tokensFor } from '../src/ui/theme-tokens.js';
 import { parseCssColor } from '../src/ui/css-color.js';
+import { appCss } from './split-src.js';
 
 const LOOKS5 = [['light', false, 'navy'], ['soft', false, 'navy'], ['dark', true, 'navy'], ['dark', true, 'black']];
 const ctx = (theme = 'light', dark = false, palette = 'navy', host = 'plane') => withCtx(makeCtx({ host, layout: 'wide', scale: { cap: 16, chCap: 12 }, svk: 1 }), { theme, dark, palette });
@@ -86,5 +87,5 @@ test('every look the plane names exists, and the plane reads no style', () => {
   assert.ok(named.size >= 20, `read ${named.size} names`);
   for (const k of named) assert.ok(LOOKS[k], `${k} is in the table`);
   assert.doesNotMatch(src, /getComputedStyle/, 'the plane asks the page for no style');
-  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.pze-(zone|zt|box|cut|diag|grid|axis|dt|ln|t|ax|pt|lead|path|was|ring|halo|dot|trail|walk|stop|sn)\b/, 'the model pieces\' rules are gone from the stylesheet');
+  assert.doesNotMatch(appCss(), /\.pze-(zone|zt|box|cut|diag|grid|axis|dt|ln|t|ax|pt|lead|path|was|ring|halo|dot|trail|walk|stop|sn)\b/, 'the model pieces\' rules are gone from the stylesheet');
 });

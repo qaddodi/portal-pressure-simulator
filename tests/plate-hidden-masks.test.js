@@ -2,11 +2,12 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // While the GPU draws the plate, its SVG groups are hidden, and their masks are turned off with them: a hidden group's mask
 // is still built on each repaint (the diaphragm's covered the whole abdomen with ascites, on every pan frame). The copy the
 // GPU draws is cloned from the mask attributes, which the rule leaves alone.
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const stage = stageSource();
 
 test('the hidden plate groups draw no masks', () => {
@@ -22,7 +23,7 @@ test('the hidden plate groups draw no masks', () => {
 
 
 test('the page\'s own ascites, hidden while the GPU draws the fluid, builds no clip or mask either', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.stage-view\.gl-on :is\(#ascites, #ascites \[mask\]\) \{ mask: none; clip-path: none; \}/);
 });
 

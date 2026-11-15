@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { portalSplit, RATE } from '../src/ui/table-marks.js';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the two shares are whole percents that always add to 100, clamped to 0..1', () => {
   for (const sh of [0, 0.004, 0.07, 0.125, 0.5, 0.93, 0.996, 1, -0.2, 1.4, NaN]) {

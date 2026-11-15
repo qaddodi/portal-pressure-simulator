@@ -3,8 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const src = readFileSync(new URL('../src/ui/callout.js', import.meta.url), 'utf8');
 
 test("the hairline rule: the one glass's edge (13 Nov 2026), 2 px stroke (1 px shows)", () => {

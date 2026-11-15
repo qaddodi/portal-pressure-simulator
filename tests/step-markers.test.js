@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
 import { lineText } from '../src/ui/handout.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const markers = (line) => [...(line || '').matchAll(/\{#(\d+)\}/g)].map((m) => +m[1]);
@@ -47,7 +48,7 @@ test('the presenter draws a marker as the figure\'s circle, ahead of the typed v
 });
 
 test('the marker is the figure\'s dark circle with a light numeral, sized to the words, never under 12 px, inside the line\'s spacing', () => {
-  const css = read('../styles/app.css');
+  const css = appCss();
   const rule = css.match(/\n\.pz-step \{([^}]*)\}/)?.[1] || '';
   assert.ok(rule, '.pz-step has a rule');
   assert.match(rule, /background: var\(--text\)/, 'the figure\'s fill (#labels .lb.fx-step .lb-bg)');
@@ -57,7 +58,7 @@ test('the marker is the figure\'s dark circle with a light numeral, sized to the
   assert.match(rule, /min-width: 1\.5em; height: 1\.5em/, 'a circle, sized from its own type');
   assert.match(rule, /margin-block: -\.3em/, 'the circle stays inside the line\'s 1.4 spacing, so no line grows');
   assert.doesNotMatch(rule, /box-shadow|\bborder:|border-(?:width|color|style|left|top|right|bottom)|gradient|animation|transition/, 'no glow, ring or gradient: the figure\'s marker has none');
-  const stage = read('../styles/app.css');
+  const stage = appCss();
   assert.match(stage, /#labels \.lb\.fx-step \.lb-bg \{ fill: var\(--text\)/);
   assert.match(stage, /#labels \.lb\.fx-step text \{ fill: var\(--stage-bg\)/);
 });

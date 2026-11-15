@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { writeGlowTexels } from '../src/ui/glow-texels.js';
 import { wavePacks, paintWave } from '../src/ui/scan-waves.js';
+import { appCss } from './split-src.js';
 
 // Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font caching,
 // each with the same picture as before.
@@ -66,7 +67,7 @@ test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit 
   assert.match(credit, /const vesselsNow = \(\) => window\.pps\?\.stage\?\.vesselShapes\?\.\(\)/, 'the credit takes the vessels\' courses from the stage');
   assert.doesNotMatch(credit, /v-hit/, 'and reads no hit stroke');
   assert.match(credit, /window\.pps\?\.stage\?\.lumenWidth\?\.\(v\.id\) \?\? v\.w/, 'a lit vein\'s width is the stage\'s number');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   for (const c of ['.v-wall', '.v-lumen', '.v-artery', '.v-strand', '.v-select', '.v-shadow', '.tier-casing']) assert.ok(!css.includes(c + ' ') && !css.includes(c + ','), `no style left for ${c}`);
 });
 
@@ -106,7 +107,7 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{wrapCls\(\)\}\|/);
   assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{wrapCls\(\)\}\|/);
   // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|lb-ride)\b[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(m[2], /--[\w-]+\s*:/, `${m[1].trim()} sets no custom property`);
     assert.doesNotMatch(m[1], /#organs|#veins|#stage\s+\S|\.organ|\.v-/, `${m[1].trim()} styles nothing in the figure`);

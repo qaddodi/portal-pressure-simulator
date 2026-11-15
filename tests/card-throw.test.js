@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
 import { throwAt, THROW_IN } from '../src/ui/card-throw.js';
+import { appCss } from './split-src.js';
 
 const src = readFileSync(new URL('../src/ui/card-throw.js', import.meta.url), 'utf8');
 const presenter = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
@@ -72,7 +73,7 @@ test('instant: every leaving card sets off in the tap\'s task, on one distance, 
 
 test('a card comes in from a little to its side (THROW_IN), not from where the old one went; no drop shadow round the cards', () => {
   assert.match(src, /write\(el, s \* THROW_IN, 0\)/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /:root:root:not\(\[data-carddrop\]\) :is\(\.pz, \.pz-shade\) \{ --glass-drop: transparent; \}/);
 });
 
@@ -92,7 +93,7 @@ test('R05: the cards that show wait for the slide going in to be prepared, at mo
 });
 
 test('a thrown readings sheet keeps its parts and glass whole: only the throw fades it (no CSS clock of its own)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(src, /el\.classList\?\.add\(THROWING\); classSoon\(el, THROWING, true\);[^\n]*\n\s+el\.style\.setProperty\('transition', 'none', 'important'\);/, 'marked in the task that starts the move');
   assert.match(src, /const rest = \(el\) => \{[^\n]*classSoon\(el, THROWING, false\)/, 'let go at rest, a task after the frame');
   assert.doesNotMatch(src, /data-thrown/, 'no attribute written in a frame');

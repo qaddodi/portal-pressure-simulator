@@ -3,10 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const chart = read('src/ui/chart.js');
-const css = read('styles/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('drug rows: an empty box off, the accent edge and a tick drawn in when on', () => {
   assert.match(css, /\.order-chip \.oc-dot \{[^}]*border-radius: 5px; box-shadow: inset 0 0 0 1\.5px var\(--border-strong\)/);

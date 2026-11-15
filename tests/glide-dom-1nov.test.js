@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GESTURE_LOOK, onlyClasses } from '../src/ui/idle-keys.js';
+import { appCss } from './split-src.js';
 
 const STAGE = stageSource();
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 
 test('the glide\'s classes are no look the stage\'s keyed readers depend on', () => {
   const src = STAGE.match(/const gestureFree = \(c\) => \(c \|\| ''\)\.replace\((\/[^ ]+\/g), ''\);/)[1];

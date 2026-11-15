@@ -5,8 +5,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { poreAt, calloutPore, underNucleus, nucAt, NUC_COVER, SEED, SLOT } from '../src/ui/sinusoid-gl.js';
+import { appCss } from './split-src.js';
 
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const GL = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
 const VIEW = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
 

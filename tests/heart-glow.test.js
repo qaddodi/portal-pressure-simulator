@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss } from './split-src.js';
 
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 const stage = stageSource();
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 
 test('the right atrium and the heart targets both light the heart, and no deck outlines the atrium alone', () => {
   assert.match(presenter, /ra: \{ node: 'RA', organ: 'heart', /);

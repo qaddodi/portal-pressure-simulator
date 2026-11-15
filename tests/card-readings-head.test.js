@@ -8,9 +8,10 @@ import { DECKS, withOverview } from '../src/ui/decks.js';
 import { tileKeys, toolOnly, headKeys, shownBy } from '../src/ui/card-tiles.js';
 import { tileOf } from '../src/ui/table-marks.js';
 import { scopeLensFor } from '../src/ui/scope-lens-rule.js';
+import { appCss } from './split-src.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const cards = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => ({ s, at: `${d.id}/${s.id} (slide ${i + 1})` }))).filter(({ s }) => !s.visual && s.tool);
 
 test('every slide with an instrument is an instrument card, on every screen: nothing stands behind it to tuck', () => {

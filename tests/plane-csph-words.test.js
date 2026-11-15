@@ -10,6 +10,7 @@ import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { readFileSync } from 'node:fs';
 import { planeOf, frame, scaler, placeCardWords, dotBoxes, dotSize, cutSegs, lineBoxes, layoutPlane, plotNumbers, planeReading, zoneOf } from '../src/ui/visual-plane.js';
 import { runSteps } from './deck-states.js';
+import { appCss } from './split-src.js';
 
 const pl = planeOf('csph');
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
@@ -33,7 +34,7 @@ test('the three zones carry his words, and the readout under the card uses them'
 
 test('the data card: no key, a dot in proportion to the plot with a gap around it, every zone named clear of it', () => {
   // (The test DOM draws no SVG: the drawing's own lines, read as written.)
-  const src = readFileSync(new URL('../src/ui/visual-plane.js', import.meta.url), 'utf8'), css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/ui/visual-plane.js', import.meta.url), 'utf8'), css = appCss();
   assert.match(src, /pl\.key === 'never' \? null : planeCardKey\(pl\)/, 'no key under the card plot');
   assert.match(src, /card && pl\.key === 'never' \? ' pze-ownwords' : ''/, 'the plot takes the key\'s room');
   assert.match(css, /\.pz\.stack \.pze-plot\.pze-incard\.pze-ownwords \{ height: calc\(min\(clamp\(210px, 66cqi, 300px\) \* var\(--pz-fit, 1\), max\(150px, var\(--pz-ph, 9999px\)\)\) \+ 1\.3em \+ 6px\); \}/);

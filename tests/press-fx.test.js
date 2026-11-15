@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 // Press and hover states for the controls that had none (1 Nov 2026): eased tints, a press sink, a tint under a finger.
 
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const MAIN = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
 test('main.js adds html.press-fx, and every new rule hangs on it', () => {

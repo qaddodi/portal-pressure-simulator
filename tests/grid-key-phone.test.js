@@ -13,8 +13,9 @@ import { pillReadings } from '../src/ui/tool-profile.js';
 import { WIDE } from '../src/ui/card-type.js';
 import { RATE } from '../src/ui/table-marks.js';
 import { deckStates } from './deck-states.js';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
 const grid = js.match(/function laddersGrid\(s\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';

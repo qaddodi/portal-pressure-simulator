@@ -18,7 +18,7 @@ export default [
   { file: PRES, need: [/if \(strainHeld\) \{ freed = 0; continue; \}/, 'held, the data card keeps following the live model'] },
   { file: PRES, need: [/liveSettled\(now - freed, now - still\)/, 'let go, it follows until the readings have rested (liveSet\'s rule)'] },
   { file: 'src/ui/card-keep.js', need: [/\['compare', 'whatIf', 'strain', 'column', 'scales', 'ask'\]/, 'a card with a strain button is never kept for the next slide'] },
-  { file: 'styles/app.css', need: [/\.pz-strain-b \{ touch-action: none; user-select: none;/, 'a long press on the button must not select, scroll or zoom'] },
+  { file: 'styles/app-*.css', need: [/\.pz-strain-b \{ touch-action: none; user-select: none;/, 'a long press on the button must not select, scroll or zoom'] },
   { file: 'src/ui/decks.js', need: [/\/\/ {3}strain\s+true or/, 'the slide field is documented where the others are'] },
   { file: 'src/ui/test-decks/demo-all-new-visuals.js', need: [/"id": "r-strain"[\s\S]*?"strain": true/, 'the Testing deck has a slide to try the button on'] },
   // The response control and the hold rail

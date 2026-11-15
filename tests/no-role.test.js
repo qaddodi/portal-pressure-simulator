@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { appCssFiles } from '../scripts/app-css.mjs';
 
 const read = (f) => readFileSync(new URL(f, import.meta.url), 'utf8');
-const files = [...readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => '../src/ui/' + f), '../styles/app.css'];
+const files = [...readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => '../src/ui/' + f), ...appCssFiles().map((f) => '../' + f)];
 
 test('no code or style reads a role or a Student mode', () => {
   for (const f of files) {

@@ -5,9 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { svgOnly, lookKey, layBlock, blockOps, shadowsOf, ringBox, rgba } from '../src/ui/label-gl.js';
+import { appCss } from './split-src.js';
 
 const STAGE = stageSource();
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const LGL = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8');
 // (The same copy of the GPU text module label-gl.js uses, by its stamped name, with Inter's outlines loaded as the page loads them.)
 const TEXT_SPEC = readFileSync(new URL('../src/ui/label-gl.js', import.meta.url), 'utf8').match(/from '\.\/(text-gl\.js)'/)[1];

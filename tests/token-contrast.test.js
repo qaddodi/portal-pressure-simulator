@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TOKENS, LOOK_IDS, tokensOfLook } from '../src/ui/theme-tokens.js';
+import { appCss } from './split-src.js';
 
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 // The body of the first rule (from `from` on) whose selector is exactly `sel`, as written at the start of a line.
@@ -68,7 +69,7 @@ const inkShare = (t, k) => { const m = /color-mix\(in srgb, var\(--[\w-]+\) (\d+
 // The surfaces text sits on, the darkest card (--surface-3) included: the test left it out and Soft's inks were 4.3:1 there (ST-5).
 const INK_SURFACES = ['--bg', '--surface', '--surface-2', '--surface-3'];
 test('amber used as text (--caution-ink) is at least 4.5:1 on the surfaces text sits on, in every theme', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(tokens, /--caution-ink: color-mix\(in srgb, var\(--caution\) 70%, var\(--text\)\);/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
@@ -94,7 +95,7 @@ test('the text on a danger fill (--on-status) is at least 4.5:1 on --danger, in 
 });
 
 test('the amber pill\'s text is at least 4.5:1 on its own amber tint, on every surface, in every theme', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pill\.warn \{ background: color-mix\(in srgb, var\(--caution\) 14%, transparent\); color: color-mix\(in srgb, var\(--caution\) 62%, var\(--text\)\); \}/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
@@ -111,7 +112,7 @@ test('the amber pill\'s text is at least 4.5:1 on its own amber tint, on every s
 // Green and red as text (production pass, second round): --ok is 3.97:1 and --danger 4.16:1 on the paper-grey surface of the light theme. Where they are
 // the text, the stylesheet uses --ok-ink and --danger-ink (12 % toward the text colour); the raw colours stay the fills and strokes.
 test('green and red used as text (--ok-ink, --danger-ink) are at least 4.5:1 on the surfaces text sits on, in every theme', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(tokens, /--ok-ink: color-mix\(in srgb, var\(--ok\) 88%, var\(--text\)\); --danger-ink: color-mix\(in srgb, var\(--danger\) 88%, var\(--text\)\);/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
@@ -129,7 +130,7 @@ test('green and red used as text (--ok-ink, --danger-ink) are at least 4.5:1 on 
 });
 
 test('the green and red pills\' text clears 4.5:1 on their own tint, on every surface, in every theme', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pill\.ok \{ background: color-mix\(in srgb, var\(--ok\) 12%, transparent\); color: color-mix\(in srgb, var\(--ok\) 80%, var\(--text\)\); \}/);
   assert.match(css, /\.pill\.bad \{ background: color-mix\(in srgb, var\(--danger\) 12%, transparent\); color: color-mix\(in srgb, var\(--danger\) 80%, var\(--text\)\); \}/);
   const fails = [];
@@ -149,7 +150,7 @@ test('the green and red pills\' text clears 4.5:1 on their own tint, on every su
 // table's heads and stacked labels use --critical-ink (12 % toward the text colour). --s6 was the light theme's #008300 on the dark ground (3.2:1 on --surface, 2.9:1 on
 // --surface-2); the dark theme now carries a lighter green that clears 4:1 on both.
 test('critical red as text (--critical-ink) is at least 4.5:1 on the surfaces text sits on, and the dark --s6 line colour stays visible', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(tokens, /--critical-ink: color-mix\(in srgb, var\(--critical\) 88%, var\(--text\)\);/);
   const fails = [];
   for (const [theme, t] of Object.entries(THEMES)) {
@@ -181,7 +182,7 @@ test('the reversed-flow label ink is 4.5:1 on the ground in every look, and the 
   }
   assert.deepEqual(fails, []);
   assert.equal(light['--flow-reversed'], '#EC7424');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.lb-rev \{ fill: var\(--flow-reversed-ink\); \}/);
   assert.match(css, /\.lb-alert \{ fill: var\(--danger-ink\); \}/);
 });

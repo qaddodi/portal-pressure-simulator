@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { surface, surfaceRows, surfacesText, clearSurfaces } from '../src/ui/gpu-surfaces.js';
 import { guardBlur } from '../src/ui/blur-guard.js';
 import { capDensity } from '../src/ui/pixel-budget.js';
+import { appCss } from './split-src.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -76,7 +77,7 @@ test('the stage runs the blur guard at start, on a changed renderer and on Batte
   assert.match(st, /saverOn = !!on;\n\s*blurGuard\(\);/);
   assert.match(src('src/ui/main.js'), /const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/);
   // (The noglass look itself: no backdrop-filter anywhere.)
-  assert.match(src('styles/app.css'), /:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/);
+  assert.match(appCss(), /:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/);
   // (The visual references are the GPU's look: they keep the blur on SwiftShader.)
   assert.match(src('tests/e2e/visual.mjs'), /'\?preset=cirr-decomp' \+ KEEP_BLUR \+ QUERY/);
 });

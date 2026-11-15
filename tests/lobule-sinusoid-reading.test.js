@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
+import { appCss } from './split-src.js';
 
 const SRC = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const CSS = appCss();
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The lobule targets a slide's line lights (presenter.js slideTargets, for { words: target } terms).
 const litOf = (s) => (s.terms && !Array.isArray(s.terms) ? Object.entries(s.terms).filter(([w, k]) => /^lobule:/.test(k) && new RegExp(`\\b(?:${esc(w)})\\b`, 'i').test(s.line || '')).map(([, k]) => k) : []);

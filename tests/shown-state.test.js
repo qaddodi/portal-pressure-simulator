@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createShownState, createFollow, noteJump, SHOWN_TAU } from '../src/ui/display-state.js';
 import { tenthGap } from '../src/engine/gap.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 // A scheduler the test drives: ask() keeps the one callback asked for; run(t) runs it at time t.
@@ -84,7 +85,7 @@ test('the bar, the Readouts tab, the charts and the instruments read the one sho
   assert.match(dock, /shownState\.on\(\(\) => \{ if \(frame\) paintStrip\(frame, true\); \}\)/);
   assert.match(dock, /gap\.hvpg = tenthGap\(sm\.whvp, sm\.fhvp, null\); gap\.ppg = tenthGap\(sm\.pv, sm\.ivc, null\);/);
   assert.match(pane, /shownState\.set\('rp:' \+ t\.id, v, followOpts\(t\.d, !eased\)\)/);
-  assert.match(read('../styles/app.css'), /\.rb-fill \{[^}]*transition: opacity var\(--d-small\) var\(--ease\);/, 'it fades; its colour is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
+  assert.match(appCss(), /\.rb-fill \{[^}]*transition: opacity var\(--d-small\) var\(--ease\);/, 'it fades; its colour is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(main, /if \(jumpSeen\) \{ jumpSeen = false; noteJump\(\); \}/);
   assert.match(worker, /jump: jumpDirty \|\| clock !== postedClock/);
   assert.match(worker, /function stateChanged\(replaced = true\) \{[^}]*jumpDirty = true;/);

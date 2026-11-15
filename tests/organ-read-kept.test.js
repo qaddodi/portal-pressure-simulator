@@ -5,6 +5,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const stage = stageSource();
 const paint = readFileSync(new URL('../src/ui/organ-paint.js', import.meta.url), 'utf8');
@@ -39,7 +40,7 @@ test('what eases (outlines, opacities) and the lens grey (always taken off for a
 });
 
 test('the backdrop (the diaphragm) is read as shown: it is out of the page\'s layout (display: none) while the GPU draws the plate', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   // Why it must be: the plate's rule takes the backdrop out of layout, and a root that is display: none is read as hidden. 2 Nov 2026, e6d08386:
   // every reading made once the plate was up left the diaphragm out of the GPU's layers.
   assert.match(css, /\.stage-view\.gl-plate #backdrop \{ display: none; \}/);

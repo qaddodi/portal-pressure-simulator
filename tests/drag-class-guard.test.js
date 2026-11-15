@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
@@ -17,7 +18,7 @@ test('#31 a drag adds stage-busy and figure-focus only when they are missing', (
 // Premium feel R7: the pieces dim only after 120 ms of motion, so a tap, or a drag over inside 120 ms, never dims anything; a
 // gesture that ends while the dim is still waiting cancels it; the dim is .55 over 240 ms and the return 420 ms.
 test('R7 the stage-busy class still arms only after 120 ms of motion, and no longer fades anything (13 Nov 2026)', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(main, /const BUSY_DELAY = 120;/);
   assert.match(main, /const busyEnd = \(ms\) => \{ if \(dimmed\) busy\(ms\); else \{ clearTimeout\(armT\); armT = 0; clearTimeout\(busyT\); \} \};/);
   assert.match(main, /addEventListener\('pointerup', \(\) => \{ if \(down\) \{ down = null; busyEnd\(600\);/);
@@ -36,7 +37,7 @@ test('R7 the stage-busy class still arms only after 120 ms of motion, and no lon
 // measure and place every card, the credit and the framing again (the hitch as the menus faded back in after a pan, 21 Oct).
 test('stage-busy alone never announces a new layout', () => {
   const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(main, /const appClass = \(\) => app\.className\.replace\(\/\(\?:\^\|\\s\)stage-busy\(\?=\\s\|\$\)\/g, ''\);/);
   assert.match(main, /new MutationObserver\(\(\) => \{ const c = appClass\(\); if \(c !== appCls\) \{ appCls = c; soon\(\); \} \}\)\.observe\(app,/);
   assert.match(main, /const sig = `\$\{appClass\(\)\}\|/);

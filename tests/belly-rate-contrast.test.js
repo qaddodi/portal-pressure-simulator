@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 
 const block = (re) => { const m = tokens.match(re); assert.ok(m, `token block ${re}`); return m[1]; };

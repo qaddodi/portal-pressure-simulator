@@ -2,9 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const css = read('styles/app.css'), util = read('src/ui/util.js'), menu = read('src/ui/menu.js'), compare = read('src/ui/compare.js');
+const css = appCss(), util = read('src/ui/util.js'), menu = read('src/ui/menu.js'), compare = read('src/ui/compare.js');
 
 test('the preview card\'s profile is drawn by the GPU, its dots true circles at the card\'s own width (no SVG stretched with the curve)', () => {
   assert.doesNotMatch(menu, /sv\('circle'|createElementNS/);

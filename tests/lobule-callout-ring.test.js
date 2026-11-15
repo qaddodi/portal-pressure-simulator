@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
+import { appCss } from './split-src.js';
 
 test('the lobule callout ring and leader are at least 4px thick, in every kind', () => {
   // (their looks are the chart-looks table's now: small.call, both pieces)
@@ -14,7 +15,7 @@ test('the lobule callout ring and leader are at least 4px thick, in every kind',
     const w = resolveProps(LOOKS['small.call'], c, { kind, on }, {}).width;
     assert.ok(w >= 4, `stroke-width is ${w}px (${kind}, on ${on})`);
   }
-  assert.doesNotMatch(readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8'), /\.lz-call-[lr]/, 'no sheet rule is left to thin it');
+  assert.doesNotMatch(appCss(), /\.lz-call-[lr]/, 'no sheet rule is left to thin it');
 });
 
 test('the lesion leader starts on the ring\'s edge, and labels keep clear of the ring', () => {

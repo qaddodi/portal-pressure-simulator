@@ -5,12 +5,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from '../src/ui/lobule-look.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const stage = stageSource();
 const lz = read('../src/ui/lobule-zoom.js');
 const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting: lobule-paint.js paintLobule)
-const app = read('../styles/app.css');
+const app = appCss();
 const tokens = read('../styles/tokens.css');
 
 test('G18: organs and vessels ease on one clock and one curve', () => {

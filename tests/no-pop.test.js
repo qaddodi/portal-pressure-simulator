@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => unsnap(readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
-const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
+const css = appCss(), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
 const dock = read('src/ui/dock.js'), stageSrc = stageSource();
 
 test('there is one exit curve, gentle at its start', () => {

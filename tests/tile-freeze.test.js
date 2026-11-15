@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
@@ -24,6 +25,6 @@ test('a tile\'s changing number is drawn as GPU words, and a slide\'s change fol
   const glide = pz.slice(pz.indexOf('function tileGlide('), pz.indexOf('// A band\'s colour is the rating'));
   assert.match(glide, /draw\.glide\(to\);/);
   assert.doesNotMatch(glide, /odoSwap|sync = true/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.doesNotMatch(css, /tglide|--tile-ms/);
 });

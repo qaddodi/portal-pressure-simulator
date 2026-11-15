@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), stage = stageSource(), pres = read('../src/ui/presenter.js');
+const css = appCss(), stage = stageSource(), pres = read('../src/ui/presenter.js');
 
 test('the change halos are sized on screen, fade in, and show one decimal', () => {
   assert.match(css, /\.halo-in \{ transform: scale\(var\(--halo-k, 1\)\); \}/);
@@ -36,6 +36,7 @@ test('leaving the lobule here, its layers change only once it is left', () => {
 
 // Sweep 2: anatomy.
 import { EDGE_PATH } from '../src/ui/anatomy.js';
+import { appCss } from './split-src.js';
 const end = (d) => d.trim().split(/[\s,]+/).slice(-2).map(Number);
 
 test('the hepatic veins meet the cava at three heights, never two within 20 units (they were joined as one bar)', () => {

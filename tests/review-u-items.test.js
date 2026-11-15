@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { explain, METRICS } from '../src/engine/explain.js';
 import { computeMetrics } from '../src/engine/metrics.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const settled = (id) => { const e = new Engine(); e.loadPreset(id); for (let i = 0; i < 4; i++) e.settleQuick(); return e; };
@@ -48,7 +49,7 @@ test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {
 });
 
 test('U2: Undo is reachable on touch, and no collapse banner covers the figure (removed 18 Oct)', () => {
-  const tl = read('../src/ui/timeline.js'), main = read('../src/ui/main.js'), css = read('../styles/app.css');
+  const tl = read('../src/ui/timeline.js'), main = read('../src/ui/main.js'), css = appCss();
   assert.match(tl, /\.\.\.\(canUndo\(\) \? \[menuBtn\('Undo the last change', \(\) => undo\(\)\)\] : \[\]\),\n\s+h\('div', \{ class: 'menu-title' \}, 'Jump ahead'\)/);
   assert.match(tl, /undo, canUndo, lastChangeLabel, redo/);
   assert.doesNotMatch(main, /would not survive|collapse-banner|syncCollapse/);

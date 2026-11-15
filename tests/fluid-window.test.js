@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fluidDay, dayWords, gaugeParts, tugParts, GAUGE_GAP, GAUGE_MARK } from '../src/ui/tool-fluid.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
+import { appCss } from './split-src.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -113,7 +114,7 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.doesNotMatch(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'no tiles stand beside any instrument now (7 Nov 2026)');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
   assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
@@ -127,7 +128,7 @@ test('the card draws each part, and never sets text under 12 px', () => {
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
   for (const cls of ['gs-car', 'gs-over', 'gs-tick', 'gs-wall', 'gs-push', 'gs-pull', 'gc-tiles', 'gc-tile', 'gc-ans', 'gc-detail']) assert.ok(src.includes(cls), `${cls} is built`);
   assert.doesNotMatch(src, /swBack|swBuild|segBlue|segShrink|segRoom|gs-lab/, 'no legend, no strip parts of the old card');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   // (the limit's tick is the table's: chart-looks/fluid.js 'fluid.tick')
   const tick = resolveProps(LOOKS['fluid.tick'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {});
   assert.equal(tick.width, 2); assert.equal(tick.paintStroke ?? true, true);
@@ -155,7 +156,7 @@ test('the data card sets its title and the footer\'s copy of it through the unit
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\); unitSpans\(ui\.dhT\);/, 'the card header');
   assert.doesNotMatch(js, /pz-tfold/, 'no copy of the title under the words is left (the folded ladder\'s, gone with the ladder on 21 Oct)');
   assert.match(js, /h\('span', \{ class: 'pz-unit' \}, t\)/);
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.pz-unit \{ text-transform: none; letter-spacing: normal; \}/, 'the unit is not upper-cased and takes no caps spacing');
   assert.match(css, /\.pz-dh \{[^}]*text-transform: uppercase/, 'the rest of the header stays in capitals');
   assert.match(css, /\.pz-sub \{[^}]*text-transform: uppercase/, '(and the folded title)');

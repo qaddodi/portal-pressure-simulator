@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 const src = readFileSync(new URL('../src/ui/timeline.js', import.meta.url), 'utf8');
 
@@ -30,7 +31,7 @@ test('every history row reserves the icon column and uses stroke icons', () => {
 });
 
 test('History is a vertical timeline that scrolls inside soft edges', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.tl-history \.tl-pop-row::before \{[^}]*position: absolute/);
   assert.match(css, /\.tl-pop\.tl-history \{[^}]*mask-image: linear-gradient/);
   assert.match(css, /\.menu\.as-sheet \.tl-pop\.tl-history \{[^}]*overflow: auto/);

@@ -8,9 +8,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { setShown, shownOr } from '../src/ui/shown.js';
+import { appCss } from './split-src.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), charts = read('../src/ui/charts.js'), hvpg = read('../src/ui/hvpg-proc.js'), dock = read('../src/ui/dock.js');
+const css = appCss(), charts = read('../src/ui/charts.js'), hvpg = read('../src/ui/hvpg-proc.js'), dock = read('../src/ui/dock.js');
 const stage = stageSource(), main = read('../src/ui/main.js'), instr = read('../src/ui/instruments.js');
 
 test('the value the bottom bar shows is the one the chart and the HVPG tab read', () => {

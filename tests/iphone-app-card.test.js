@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
-const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+const css = appCss();
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 const rule = (sel) => css.split('\n').find((l) => l.startsWith(`${sel} {`)) || '';
 

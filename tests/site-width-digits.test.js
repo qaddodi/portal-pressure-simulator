@@ -4,6 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { appCss } from './split-src.js';
 
 test('a site reading\'s width is keyed on its text with every digit as a zero', () => {
   const src = stageSource();
@@ -13,7 +14,7 @@ test('a site reading\'s width is keyed on its text with every digit as a zero', 
   assert.match(src, /function siteMeasure\(el, d, wk\) \{\n\s+el\._wk = wk; el\._half = el\.offsetWidth \/ 2;/);
   assert.match(src, /siteAsk \|\|= readFrame\(/);
   // (The digits it keys away are drawn tabular, so the width it kept is the width.)
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+  const css = appCss();
   assert.match(css, /\.cath-label b \{[^}]*font-variant-numeric: tabular-nums;/);
   // (The callout's own font shorthand sets its digits back to proportional; its number, the split share's numbers inside it
   // included, takes them tabular again, and no rule for the number or what it holds uses the shorthand.)
