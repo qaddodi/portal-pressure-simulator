@@ -14,6 +14,7 @@ import { NODES } from '../engine/topology.js';
 import { store } from './store.js';
 import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';
+import { onFontsLoaded } from './font-arrival.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -459,7 +460,7 @@ export function createFluid() {
     ro = new ResizeObserver(() => { W = flowBox.getBoundingClientRect().width; gl.relook(); glStrip.relook(); glTug.relook(); TW = trk.clientWidth; FW = tug.clientWidth; roSeen = true; labSig = ''; labels(); draw(); kick(); });
     ro.observe(el); ro.observe(trk); ro.observe(tug); ro.observe(flowBox);
   }
-  document.fonts?.ready.then(() => { labSig = ''; labels(); });
+  const offFonts = onFontsLoaded(() => { if (!dead) { labSig = ''; labels(); } });   // (every batch of faces, not only the first: font-arrival.js)
   let opts = {}, pinned = null;
   function paint(f) {
     if (!f) return;
@@ -540,6 +541,7 @@ export function createFluid() {
     dispose() {
       if (dead) return;
       dead = true;
+      offFonts();
       cancelFrame(raf); raf = 0;
       ro?.disconnect(); ro = null;
       gl.dispose?.(); glStrip.dispose?.(); glTug.dispose?.();

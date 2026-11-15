@@ -88,6 +88,8 @@ import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, throwFade, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto, stageBox } from './layout-snap.js';
 import { caught } from './caught.js';
+import { fontGen, onFontsLoaded } from './font-arrival.js';
+import { clippedBy, isClipped } from './card-clip.js';
 import { createInk } from './ink-gl.js';
 const nextFrame = frameFor('presenter');
 
@@ -722,7 +724,7 @@ function bigTiles() {
   let fitRaf = 0, fitShape = '';
   const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
-  document.fonts?.ready?.then(fitSoon);
+  const offFonts = onFontsLoaded(fitSoon);   // (a face arriving after the tiles were fitted changes the numbers' widths, not their boxes: font-arrival.js)
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
@@ -880,6 +882,7 @@ function bigTiles() {
       dead = true;
       cancelRest(tileAsk); tileAsk = 0; cancelRest(fitRaf); fitRaf = 0; tileArgs = null; held = null;
       tileRO?.disconnect(); tileRO = null; heldObs?.disconnect(); heldObs = null;
+      offFonts();
       picT?.stop(); picT = null;
       stopShown?.(); stopShown = null;
       for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }
@@ -2300,7 +2303,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
   // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
   // keeps a Next answered at once; it no longer passes for readiness, and a manifest that failed or never began is prepared afresh.)
-  const degraded = { n: 0, last: '' };
+  const degraded = { n: 0, last: '', clipped: [] };   // (clipped: the cards that ended their fit with words cut off, 'card-clipped:<slide>:<card>', each once)
   const degrade = (why) => { degraded.n++; degraded.last = why; if (ui) ui.root.dataset.pzDegraded = why; };
   function prepHold(i, then) {
     clearTimeout(prepT);
@@ -3991,8 +3994,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-  const fitSig = (el) => `${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === ui?.data ? `s${want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
+  const fitSig = (el) => `f${fontGen()}|${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === ui?.data ? `s${want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
+  // A card that ends its fit with words still cut off is recorded by slide and card (degrade 'card-clipped:<slide>:<card>', the ?perf paste),
+  // once per fit, never while the cards move (a part mid-slide is not where it rests). The fit's own floor and the capped parts it ignores
+  // are why a card can still clip; nothing said so before. PC-2.
+  const clipSeen = new WeakMap(), clipQ = new Set();
+  let clipAsk = 0;
+  const clipSoon = (el) => {
+    clipQ.add(el);
+    if (clipAsk) return;
+    const u = ui;
+    clipAsk = restPass(() => {
+      clipAsk = 0;
+      const els = [...clipQ]; clipQ.clear();
+      if (ui !== u || !u || cardMoving()) return;
+      for (const c of els) {
+        if (c.hidden || c.classList.contains('pz-hide') || 'gone' in c.dataset || 'folding' in c.dataset) continue;
+        const key = `${want}|${fitSig(c)}`;
+        if (clipSeen.get(c) === key) continue;
+        clipSeen.set(c, key);
+        const o = overflowOf(c), w = clippedBy(c);
+        if (o.v > 1 || o.h > 1 || isClipped(w)) {
+          const why = `card-clipped:${slides[want]?.id ?? want}:${c === ui.text ? 'text' : c === ui.data ? 'data' : 'panel'}`;
+          if (!degraded.clipped.includes(why)) degraded.clipped.push(why);
+          degrade(why);
+        }
+      }
+    });
+  };
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
   // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (The phone and upright-tablet layouts read it.)
   // On an upright iPad a head fits when its word keeps 3 px clear of its column's edges, so two neighbours are never closer than 6 px: an
@@ -4012,7 +4042,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       headRO = new ResizeObserver((es) => { for (const e of es) fitHeadRow(e.target); });
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      document.fonts?.ready.then(() => document.querySelectorAll('.pz-table thead tr').forEach(fitHeadRow));
+      onFontsLoaded(() => restPass(() => document.querySelectorAll('.pz-table thead tr').forEach(fitHeadRow)));
     }
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     for (const tr of el.querySelectorAll('.pz-table thead tr')) { headRO.observe(tr); fitHeadRow(tr); }
@@ -4033,8 +4063,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       }
     }
   }
-  // (An equation typeset before the math font arrives is wider or narrower than it ends up: fitted again once the fonts are in.)
-  document.fonts?.ready.then(() => { for (const c of [ui?.text, ui?.data, ui?.panel]) if (c && !c.hidden) { fitEquations(c); } });
+  // (An equation typeset before the math font arrives is wider or narrower than it ends up: onFonts drops every card's fit, and fitCards fits its equations again.)
   // A phone on its side: its data card's lettering never under 12 px on the screen (critique I1, 17 Oct: it had zoomed to 8 px,
   // Varices 7, TIPS 3 and 11, Stiffness 4 and 8, Circuit 5). A card too tall for its room first stands its tiles tighter (.pz-lt:
   // less padding, the numbers a step smaller; .pz-lt2: smaller again, the names and units at their size), then zooms only as far as
@@ -4156,7 +4185,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // slide deletes the fit first (fitDone), so they still fit it afresh.)
       if (el === ui?.data && el.classList.contains('tiles-only') && !el.querySelector(':scope > .pz-tool') && fitDone.has(el) && cardsStill()) continue;
       const sig = fitSig(el);
-      if (fitDone.get(el) === sig) continue;
+      if (fitDone.get(el) === sig) { clipSoon(el); continue; }
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       fitFlowTime(el);
@@ -4301,6 +4330,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         ui.lipMO?.takeRecords();
       }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
+      clipSoon(el);
       if (el === ui.data) refit = true;
     }
     if (refit) ui.tools?.refit();   // (the chart in the data card draws at the zoom the fit left, not one it tried on the way)
@@ -5088,7 +5118,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return [...mid, ...out.filter(ok)];
   }
   stage.setFreeArea(freeRects);
-  const onFonts = () => { if (!ui) return; if (thrown()) layoutAtLanding(); else layout(); };   // (R14: a font that arrives while the cards come in refits them once, when they have landed)
+  // (A face that arrives after a card was fitted changes its words' size, not its box (a phone's card is held to a cap): the words' plan and the
+  // phone's cap, each kept per slide, and every card's fit are dropped, so all of them are made afresh with the face that is there now. PC-1.)
+  const onFonts = () => {
+    if (!ui) return;
+    textLock = null; phoneLock = null;
+    for (const el of [ui.text, ui.data, ui.panel]) fitDone.delete(el);
+    if (thrown()) layoutAtLanding(); else layout();
+  };   // (R14: a font that arrives while the cards come in refits them once, when they have landed)   // (R14: a font that arrives while the cards come in refits them once, when they have landed)
   // Where the cards stand, rounded: the camera framed this space last; the same space needs no second glide.
   let framedSig = '';
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
@@ -6678,7 +6715,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.
-    go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
+    go: (i) => go(i), busy: () => busy, glass: () => ui?.glass ?? null, degraded: () => ({ ...degraded, clipped: [...degraded.clipped], now: ui?.root.dataset.pzDegraded || '' }), skipLapse: () => skipLapse(),   // (a time-lapse sped to its end, as Next does)
     // What Settings shows while presenting.
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.

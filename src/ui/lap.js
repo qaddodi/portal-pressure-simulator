@@ -106,6 +106,7 @@ export function lapText({ info, steps, ex, done, wanted, secs }) {
   const c = Object.entries(ex.caught || {});
   lines.push(c.length ? `Caught by the app (${c.length}): ${c.map(([k, v]) => `${k} ×${v.n} "${String(v.last).slice(0, 90)}"`).join('; ')}` : 'Caught by the app: nothing.');
   lines.push(ex.degraded ? `Slides shown unprepared (presenter degraded): ${ex.degraded.n}${ex.degraded.last ? `, last "${ex.degraded.last}"` : ''}.` : 'Slides shown unprepared: not read (no talk ran).');
+  if (ex.degraded) lines.push(ex.degraded.clipped?.length ? `Cards still clipped after their fit: ${ex.degraded.clipped.slice(-8).join(', ')}.` : 'Cards still clipped after their fit: none.');
   lines.push(ex.contexts);
   lines.push(ex.tier);
   return lines.join('\n');

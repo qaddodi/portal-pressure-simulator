@@ -18,5 +18,5 @@ test('the presenter labels a slide shown past its preparation or with an unfille
   assert.match(PZ, /const st = slidePrep\.state\(i\); degrade\('prep-' \+ st\); if \(st !== 'preparing'\) slidePrep\.aim\(i, turn, tx \? tx\.live : undefined\); then\(\);/);
   assert.match(PZ, /if \(!filled\) degrade\('window'\);/);
   assert.match(PZ, /noteResume\(deck\.id, want, slides\.length\);[^\n]*\n\s+if \(ui\) delete ui\.root\.dataset\.pzDegraded;/, 'a press starts clean');
-  assert.match(PZ, /degraded: \(\) => \(\{ \.\.\.degraded, now: ui\?\.root\.dataset\.pzDegraded \|\| '' \}\)/);
+  assert.match(PZ, /degraded: \(\) => \(\{ \.\.\.degraded, clipped: \[\.\.\.degraded\.clipped\], now: ui\?\.root\.dataset\.pzDegraded \|\| '' \}\)/);
 });
