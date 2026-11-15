@@ -5,13 +5,12 @@ import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
-import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
+import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
-import { lerpVT } from './cam-arc.js';
-import { VIEW_CHANGE_S, viewXfCamU } from './view-xf.js';
+import { VIEW_CHANGE_S, viewBoxAt, viewXfCamU, viewXfCameraInto } from './view-xf.js';
 import { easeArrive, easeMove, createGlideTracker, CAM_MS_MAX, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
@@ -1282,6 +1281,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const rotEase = easeMove;   // (the turn travels: the one move curve)
   const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
+  const xfBoxNow = [0, 0, 0, 0], xfBoxEnd = [0, 0, 0, 0];   // (the view box as the change has it this frame, and as it lands: the camera is worked out against both, view-xf.js)
   // Degrees the world is turned by: only once the circuit has landed; mid-change the circuit's side lies turned instead (circ-turn.js: no spin).
   const rotDeg = () => (lastMorph >= 1 ? -90 * rotEase(rotU) : -0), { cbAt, circTurn, circTurnPt } = createCircTurn(CIRC_C, rotEase, () => rotU);
   // The circuit's map turns upright with the turn alone, never with the morph (it only fades in): its turn from the world's, which the GPU
@@ -2793,7 +2793,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       viewClock.sync(morph); viewClock.aim(morphTarget, viewMs());
       morph = viewClock.tick(now);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
-      if (viewXf && !viewXf.same) { const u = viewXfCamU(viewXf, viewXfP()); writeVT(u >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, u)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
+      if (viewXf && !viewXf.same) { const u = viewXfCamU(viewXf, viewXfP()); const sb = stageBox(); writeVT(u >= 1 ? { ...viewXf.to } : viewXfCameraInto(viewXf, u, viewBoxAt(easeInOut(morph), rotEase(rotU), VB_ANAT, VB_CIRC, VB_CIRC_R, xfBoxNow), viewBoxAt(morphTarget, rotEase(rotU), VB_ANAT, VB_CIRC, VB_CIRC_R, xfBoxEnd), sb.sw, sb.sh, { k: 1, x: 0, y: 0 })); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)

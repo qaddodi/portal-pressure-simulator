@@ -178,7 +178,7 @@ export function createView(st, live) {
     // (landAt: the share of the change at which the target's labels were whole (0: at the tap), null while they are still being solved. The old
     // view's labels ride as ghosts at full until then: viewXfMix.)
     // (lab: the camera the new labels were solved for. p0: the camera's share already travelled when a framing was asked of the change, viewXfRetarget.)
-    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, lab: to, p0: 0, same: sameView(live.vt, to), pending, landAt: pending ? null : 0, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
+    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, vb0: [vbBox.x, vbBox.y, vbBox.width, vbBox.height], to, lab: to, p0: 0, same: sameView(live.vt, to), pending, landAt: pending ? null : 0, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
     // (The change's own length, for whoever waits on it (the presenter's cards: glideLeft, viewChanging): what is left of VIEW_CHANGE_S from the morph as it stands, not 700 ms.)
     live.vtTarget = to; live.vtGliding = !live.viewXf.same; const ms = reducedMs(VIEW_CHANGE_MS); live.vtUntil = performance.now() + viewXfLeftMs(live.morph, live.morphTarget, ms); live.vtMs = ms;
     live.xfOp = '';
@@ -325,7 +325,7 @@ export function createView(st, live) {
     const x = live.viewXf;
     if (!x || x.hand) return false;
     const p = viewXfP();
-    if (!viewXfRetarget(x, live.vt, to, p, sameView(live.vt, to))) return false;
+    if (!viewXfRetarget(x, live.vt, to, p, sameView(live.vt, to), [vbBox.x, vbBox.y, vbBox.width, vbBox.height])) return false;
     live.vtTarget = x.to; live.vtGliding = !x.same;
     const crossing = x.landAt != null && (x.landAt >= 1 || p > (x.landAt > 0.5 ? x.landAt : 0.5));
     if (!crossing && !sameView(x.lab, x.to) && live.F) {

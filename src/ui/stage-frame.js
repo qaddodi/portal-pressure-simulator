@@ -3,6 +3,7 @@
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
+import { viewBoxAt } from './view-xf.js';
 import { chordPointInto, peelAt, reverses } from './flow-peel.js';
 import { easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
@@ -61,11 +62,8 @@ export function createFrame(st, live) {
   function setViewBox(t) {
     const rr = rotEase(live.rotU);
     let vbChanged = false;
-    for (let i = 0; i < 4; i++) {
-      const v = lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t);
-      vbNow[i] = v;
-      if (v !== vbSeen[i]) { vbSeen[i] = v; vbChanged = true; }
-    }
+    viewBoxAt(t, rr, VB_ANAT, VB_CIRC, VB_CIRC_R, vbNow);   // (view-xf.js: the one formula, the camera through a change reads it too)
+    for (let i = 0; i < 4; i++) { const v = vbNow[i]; if (v !== vbSeen[i]) { vbSeen[i] = v; vbChanged = true; } }
     if (vbChanged) {
       vbTxt = `${vbNow[0].toFixed(1)} ${vbNow[1].toFixed(1)} ${vbNow[2].toFixed(1)} ${vbNow[3].toFixed(1)}`;
       vbBox.x = +vbNow[0].toFixed(1); vbBox.y = +vbNow[1].toFixed(1); vbBox.width = +vbNow[2].toFixed(1); vbBox.height = +vbNow[3].toFixed(1);

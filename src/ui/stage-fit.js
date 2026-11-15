@@ -1,7 +1,7 @@
 // The framing: card and pill insets, the clear-of-pill view, the fit and default view for each view, refit, close view, the circuit rotation and reveal.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
-import { lerpVT } from './cam-arc.js';
+import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
 import { figureShift, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
@@ -12,7 +12,6 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
-import { viewXfDetach } from './view-xf.js';
 
 import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
@@ -395,12 +394,13 @@ export function createFit(st, live) {
     // (The framing the turn lands on, taken now, at the press: the turn's last frame sets it again without measuring the cards.)
     live.rotWhole = whole && live.morphTarget === 1 ? { ...live.vt } : null;
     // (Rec 8: in the landed circuit the camera glides to that framing on the turn's own clock and ease (rotStep), never set outright.)
-    live.rotGlide = live.rotWhole && live.morph === 1 && !reduceMotion.matches ? { from, e0: rotEase(live.rotU) } : null;
+    live.rotGlide = live.rotWhole && live.morph === 1 && !reduceMotion.matches ? { from, e0: rotEase(live.rotU), x: { from, to: live.rotWhole, vb0: [vbBox.x, vbBox.y, vbBox.width, vbBox.height] } } : null;   // (x: the glide as view-xf.js works it out: the view box turns under the camera)
     if (live.rotGlide) live.vt = from;
     if (live.morphTarget !== 1 || reduceMotion.matches) { live.rotU = on; setViewBox(live.easeInOut(live.morph)); if (live.rotHold) { holdView(live.rotHold); live.rotHold = null; } }
   }
   // A frame of the turn (the stage's frame, after rotU stepped): a held view keeps its spot under the same screen point; a whole one glides
   // from where the press found it to the turned framing, in step with the turn's eased share, and lands on it exactly.
+  const RB_NOW = [0, 0, 0, 0], RB_END = [0, 0, 0, 0];   // (the view box now and as the turn lands: written in place)
   function rotStep() {
     if (live.rotHold) { holdView(live.rotHold); if (live.rotU === live.rotTarget) live.rotHold = null; return; }
     const w = live.rotWhole, g = live.rotGlide;
@@ -410,7 +410,9 @@ export function createFit(st, live) {
       // (A hand that moves the view mid-turn takes it over: the glide, and the framing it was going to, are dropped.)
       if (g.last && live.vt !== g.last) { live.rotGlide = null; live.rotWhole = null; return; }
       const d = rotEase(live.rotTarget) - g.e0;
-      live.vt = g.last = lerpVT(g.from, w, d ? clamp((rotEase(live.rotU) - g.e0) / d, 0, 1) : 1); applyVT();
+      // (The view box turns from the wide Circuit's to the tall one as the turn goes: the camera is worked out on the screen against the box as it stands, view-xf.js.)
+      const sb = stageBox();
+      live.vt = g.last = viewXfCameraInto(g.x, d ? clamp((rotEase(live.rotU) - g.e0) / d, 0, 1) : 1, viewBoxAt(1, rotEase(live.rotU), VB_ANAT, VB_CIRC, VB_CIRC_R, RB_NOW), viewBoxAt(1, rotEase(live.rotTarget), VB_ANAT, VB_CIRC, VB_CIRC_R, RB_END), sb.sw, sb.sh, { k: 1, x: 0, y: 0 }); applyVT();
       return;
     }
     live.vt = { ...w }; live.rotWhole = null; live.rotGlide = null; applyVT();

@@ -64,6 +64,7 @@ import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { camThen, camSet, camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
+import { diveMapInto } from './dive-map.js';
 import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
@@ -819,7 +820,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // size of the texture. (No switch for the lobule's own context: one path, PR-01.) Hosted from the first frame to the last; a new stage context makes it again.
   const figureTop = () => { const t = figure?.() ?? null; return t && t.gl && !t.gl.isContextLost?.() ? t : null; };
   let shareTop = null, shareOff = null, shW = 1, shared = false;
-  const elXf = { rot: 0, Z: 1, ox: 0, oy: 0 };   // (the sinusoid zoom's turn and growth of the lobule about its fixed point: placeSinusoid)
+  const elXf = { rot: 0, Z: 1, ox: 0, oy: 0, tx: 0, ty: 0 };   // (the sinusoid zoom's turn and growth of the lobule about its sinusoid's point, and that point's straight step: dive-map.js, placeSinusoid)
   let fieldWas = 0;
   // The lobule's texture, then the field's under it, laid in the stage's present (under the glass: LZ_UNDER_GLASS).
   // The view the lobule's picture in the figure's texture was drawn for, and whether it is now carried to the view by the GPU (a hand is moving it).
@@ -863,16 +864,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const shXf = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 };
   function shareMap() {
     const wh = !!wide?.host;
-    // (The glCv's own CSS transform in the dive, then the layer's, the sinusoid zoom's turn and growth about its fixed point.)
+    // (The glCv's own CSS transform in the dive, then the layer's, the sinusoid zoom's turn and growth about its sinusoid's point.)
     let a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
     // (The picture was drawn for another view: the hand's move since, as a scale and a shift of its own.)
     if (frozenDraw && drawnV.ok && drawnV.k > 0) { const vk = realV.on ? realV.k : V.k, vx = realV.on ? realV.x : V.x, vy = realV.on ? realV.y : V.y; a = d = vk / drawnV.k; tx = vx - a * drawnV.x; ty = vy - a * drawnV.y; }
     if (!wh && (DIVE.k !== 1 || DIVE.x || DIVE.y)) { a *= DIVE.k; d *= DIVE.k; tx = tx * DIVE.k + DIVE.x; ty = ty * DIVE.k + DIVE.y; }
     if (elXf.rot || elXf.Z !== 1) {
       const cs = Math.cos(elXf.rot) * elXf.Z, sn = Math.sin(elXf.rot) * elXf.Z, ox = elXf.ox, oy = elXf.oy;
-      // p' = o + R (p - o), after the dive's map
+      // p' = o + t + R (p - o), after the dive's map
       const na = cs * a - sn * c, nb = cs * b - sn * d, nc = sn * a + cs * c, nd = sn * b + cs * d;
-      const ntx = ox + cs * (tx - ox) - sn * (ty - oy), nty = oy + sn * (tx - ox) + cs * (ty - oy);
+      const ntx = ox + elXf.tx + cs * (tx - ox) - sn * (ty - oy), nty = oy + elXf.ty + sn * (tx - ox) + cs * (ty - oy);
       a = na; b = nb; c = nc; d = nd; tx = ntx; ty = nty;
     }
     // (A card's zoom camera, after all of those: p' = CARD.k p + (CARD.x, CARD.y).)
@@ -4847,7 +4848,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return srOut;
   }
   // (keep: an earlier geometry whose sinusoid end is kept, so only the lobule end moves.)
-  const diveObj = { p: [0, 0], c: [0, 0], q: [0, 0], rot: 0, Z: 1, run: [0, 0], k: 1, ang: 0, lumen: 0 };   // (the zoom's geometry, one object kept and written in place: sinDive is it, or null)
+  const diveObj = { p: [0, 0], c: [0, 0], rot: 0, Z: 1, run: [0, 0], k: 1, ang: 0, lumen: 0 };   // (the zoom's geometry, one object kept and written in place: sinDive is it, or null)
   function diveGeometry(keep) {
     const G = geo, t = G.tubes[sinPick.tube];
     distTo(t.pts, sinPick.w[0], sinPick.w[1]);
@@ -4860,14 +4861,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     else { const F = sv.frame(); Fx = F.x; Fy = F.y; Fang = F.ang; Fk = F.k; Flumen = F.lumen; }
     const rot = Math.atan2(Math.sin(Fang - th), Math.cos(Fang - th));
     const Z = clamp(Flumen / Math.max(0.05, 2 * radiusAt(t, i) * V.k), 1.5, 400);
-    // The zoom is one similarity, from the lobule as it is to the sinusoid view as it rests (p to the view's
-    // centre c, turned by rot, grown by Z), taken a fraction at a time about its fixed point q: nothing slides,
-    // everything grows out of q, and the lobule's sinusoid stays exactly where the view draws it.
-    const m = Z * Math.cos(rot), n = Z * Math.sin(rot);
-    const bx = Fx - (m * p0 - n * p1), by = Fy - (n * p0 + m * p1);
-    const a = 1 - m, b = n, det = a * a + b * b;   // (I − M) q = c − M p, with I − M = [a b; −b a]
+    // The zoom is one similarity, from the lobule as it is to the sinusoid view as it rests (p to the view's centre c, turned by rot, grown by Z), taken a
+    // share at a time about p itself, p going straight to c (dive-map.js): the sinusoid it zooms into never circles on the way, and the lobule's sinusoid
+    // lands exactly where the view draws it.
     const D = diveObj;
-    D.p[0] = p0; D.p[1] = p1; D.c[0] = Fx; D.c[1] = Fy; D.q[0] = (a * bx - b * by) / det; D.q[1] = (b * bx + a * by) / det;
+    D.p[0] = p0; D.p[1] = p1; D.c[0] = Fx; D.c[1] = Fy;
     D.rot = rot; D.Z = Z; D.run[0] = sr.run[0]; D.run[1] = sr.run[1]; D.k = Fk; D.ang = Fang; D.lumen = Flumen;
     return D;
   }
@@ -4890,14 +4888,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (What the sinusoid view is told each frame of the zoom, kept and written in place: the view reads it within place() and holds the dive
   // object as the last it was given, whose values are then the latest, as the last object's were.)
   let orq0 = NaN, orq1 = NaN, orStr = '';
-  const placeArg = { opacity: 0, dive: null, isOpen: false }, diveArg = { g: 0, p: null, q: null, rot: 0, Z: 1, run: null, k: 1, ang: 0 };
+  const placeArg = { opacity: 0, dive: null, isOpen: false }, diveArg = { g: 0, p: null, c: null, rot: 0, Z: 1, run: null, k: 1, ang: 0 }, DM = { rot: 0, Z: 1, ox: 0, oy: 0, tx: 0, ty: 0 };
   function placeSinusoid() {
     const u = sinU, rm = reduce.matches;
     let D = sinDive;
     if (!D || u <= 0) {
       sinZ = 0;
       el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; classSoon(el, 'lz-sin', false);
-      elXf.rot = 0; elXf.Z = 1;
+      elXf.rot = 0; elXf.Z = 1; elXf.tx = 0; elXf.ty = 0;
       placeArg.opacity = 0; placeArg.dive = null; placeArg.isOpen = false;
       sv.place(placeArg);
       return;
@@ -4908,19 +4906,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
     const g = rm ? 1 : easeIO(u);
     sinZ = Math.log(D.Z) * g;
-    // The lobule: turned and grown about the zoom's fixed point.
-    // (The fixed point's text made again only when it moves a hundredth of a pixel: it settles early in the zoom, once the space the lobule lands in has opened.)
-    const oq0 = Math.round(D.q[0] * 100), oq1 = Math.round(D.q[1] * 100);
-    if (oq0 !== orq0 || oq1 !== orq1) { orq0 = oq0; orq1 = oq1; orStr = `${(oq0 / 100).toFixed(2)}px ${(oq1 / 100).toFixed(2)}px`; }   // alloc-rare: only when the zoom's fixed point moved a hundredth of a pixel
+    // The lobule: turned and grown about its sinusoid's point, which goes straight to where the view draws it (dive-map.js).
+    // (The origin's text made again only when it moves a hundredth of a pixel: it settles early in the zoom, once the space the lobule lands in has opened.)
+    const M = diveMapInto(D.p, D.c, D.rot, D.Z, g, DM), oq0 = Math.round(M.ox * 100), oq1 = Math.round(M.oy * 100);
+    if (oq0 !== orq0 || oq1 !== orq1) { orq0 = oq0; orq1 = oq1; orStr = `${(oq0 / 100).toFixed(2)}px ${(oq1 / 100).toFixed(2)}px`; }   // alloc-rare: only when the zoom's origin moved a hundredth of a pixel
     el.style.transformOrigin = rm ? '' : orStr;
-    el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
-    elXf.rot = rm ? 0 : D.rot * g; elXf.Z = rm ? 1 : D.Z ** g; elXf.ox = D.q[0]; elXf.oy = D.q[1];
+    el.style.transform = rm ? '' : `translate(${M.tx.toFixed(2)}px, ${M.ty.toFixed(2)}px) rotate(${M.rot.toFixed(5)}rad) scale(${M.Z.toFixed(5)})`;
+    elXf.rot = rm ? 0 : M.rot; elXf.Z = rm ? 1 : M.Z; elXf.ox = M.ox; elXf.oy = M.oy; elXf.tx = rm ? 0 : M.tx; elXf.ty = rm ? 0 : M.ty;
     if (shareTop && gl && !gl.lost) shareTop.present();
     el.style.visibility = u >= 1 ? 'hidden' : '';
     classSoon(el, 'lz-sin', true);
     // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame; it comes in over the lobule as the zoom lands.
     let dv = null;
-    if (!(u >= 1 || rm)) { dv = diveArg; dv.g = g; dv.p = D.p; dv.q = D.q; dv.rot = D.rot; dv.Z = D.Z; dv.run = D.run; dv.k = D.k; dv.ang = D.ang; }
+    if (!(u >= 1 || rm)) { dv = diveArg; dv.g = g; dv.p = D.p; dv.c = D.c; dv.rot = D.rot; dv.Z = D.Z; dv.run = D.run; dv.k = D.k; dv.ang = D.ang; }
     placeArg.opacity = (rm ? u : 1) * fade; placeArg.dive = dv; placeArg.isOpen = u >= 1 && fade > 0.98;
     sv.place(placeArg);
   }

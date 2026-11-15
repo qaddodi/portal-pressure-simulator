@@ -408,7 +408,18 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
     [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
     [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
+    [/viewXfCameraInto\(viewXf, u, viewBoxAt\(/, "the camera through a change between the views is worked out on the screen against the view box as it stands (a lerp in the box's own units bowed the landing framing off its line and back, 15 Nov 2026)"],
   ]);
+  forbid('src/ui/stage.js', /lerpVT\(viewXf\./, "the change's camera is never lerped in the view box's units: view-xf.js viewXfCameraInto");
+  need('src/ui/stage-frame.js', [[/viewBoxAt\(t, rr, VB_ANAT, VB_CIRC, VB_CIRC_R, vbNow\)/, 'the view box is drawn by the one formula the camera reads (view-xf.js viewBoxAt)']]);
+  need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
+  need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
+  forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
+  need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
+  forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
+  need('src/ui/lobule-zoom.js', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);
+  forbid('src/ui/lobule-zoom.js', /D\.q\b/, 'no fixed point: the zoom into a sinusoid spiralled about it (15 Nov 2026)');
+  need('src/ui/sinusoid-view.js', [[/diveAlong\(Z, g\)/, "the sinusoid view's centre is on the same straight line, at the same share, as the lobule's sinusoid"]]);
 }
 
 // Rest pacing, Mac heat recs 2 and 7 (13 Nov 2026): tests/talk-rest-20hz.test.js and tests/instruments-rest-pace.test.js run the pacing and

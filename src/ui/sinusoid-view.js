@@ -20,6 +20,7 @@
 // around it.
 
 import { stageCovered } from './seen.js';
+import { diveAlong } from './dive-map.js';
 import { h, fmt, clamp, lerp } from './util.js';
 import { createCaptions, lookOf, ringOf, shadowOf, rgbaOf } from './label-captions.js';
 import { measure } from './glyph-measure.js';
@@ -456,10 +457,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
     let k = VW.k, ang = geo.ang;
     C[0] = VW.C[0]; C[1] = VW.C[1];
     if (dive) {
-      // The zoom's similarity a fraction g of the way, about its fixed point q: the view's centre is where the lobule's sinusoid point p is now.
+      // The zoom a fraction g of the way (dive-map.js): the view's centre is where the lobule's sinusoid point p is now, on its straight way to c.
       // Its scale and angle are the ones it set out with, so nothing the layout does meanwhile moves it.
-      const { g, p, q, rot, Z } = dive, zg = Z ** g, ct = Math.cos(rot * g), st = Math.sin(rot * g), dx = p[0] - q[0], dy = p[1] - q[1];
-      C[0] = q[0] + zg * (dx * ct - dy * st); C[1] = q[1] + zg * (dx * st + dy * ct);
+      const { g, p, c, rot, Z } = dive, zg = Z ** g, al = diveAlong(Z, g);
+      C[0] = p[0] + al * (c[0] - p[0]); C[1] = p[1] + al * (c[1] - p[1]);
       k = dive.k * zg / Z; ang = dive.ang + rot * (g - 1);
     }
     CAM.k = k; CAM.ang = ang; CAM.ca = Math.cos(ang); CAM.sa = Math.sin(ang);

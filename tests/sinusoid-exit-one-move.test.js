@@ -1,6 +1,7 @@
 // Zooming out of the sinusoid lands on the lobule's framing in one move (17 Oct, Mohammad: "it zooms out then it pans to
 // where it should"). The dock and the top bar come back a frame after the zoom starts, which moves the framing: the zoom is
 // aimed afresh at it then, instead of landing on the old framing and refitting with a pan.
+import { diveMapInto } from '../src/ui/dive-map.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,17 +22,14 @@ test('the space that opens as the sinusoid closes re-aims the zoom out, instead 
   assert.match(lz, /if \(keep\) \{ Fx = keep\.c\[0\]; Fy = keep\.c\[1\]; Fang = keep\.ang; Fk = keep\.k; Flumen = keep\.lumen; \}/);
 });
 
-// The zoom is the similarity M (lobule's sinusoid p to the view's centre c, turned by rot, grown by Z), taken g of the way about
-// its fixed point q. At its start (g = 1) the screen is the sinusoid view whatever the lobule's framing, so re-aiming there is unseen.
+// The zoom is the similarity M (lobule's sinusoid p to the view's centre c, turned by rot, grown by Z), taken g of the way about p itself, p going
+// straight to c (dive-map.js). At its start (g = 1) the screen is the sinusoid view whatever the lobule's framing, so re-aiming there is unseen.
 test('at the start of the zoom out the re-aimed and the old zoom draw the same picture', () => {
   const frame = { c: [200, 400], ang: 0.3, lumen: 80 }, w0 = [10, -4], th = -0.9, r = 1.5;
   const zoomAt = (V, w, g) => {
     const p = [V.k * w0[0] + V.x, V.k * w0[1] + V.y], s = [V.k * w[0] + V.x, V.k * w[1] + V.y];
-    const rot = frame.ang - th, Z = frame.lumen / (2 * r * V.k), m = Z * Math.cos(rot), n = Z * Math.sin(rot);
-    const bx = frame.c[0] - (m * p[0] - n * p[1]), by = frame.c[1] - (n * p[0] + m * p[1]);
-    const a = 1 - m, b = n, det = a * a + b * b, q = [(a * bx - b * by) / det, (b * bx + a * by) / det];
-    const zg = Z ** g, rg = rot * g, d = [s[0] - q[0], s[1] - q[1]];
-    return [q[0] + zg * (Math.cos(rg) * d[0] - Math.sin(rg) * d[1]), q[1] + zg * (Math.sin(rg) * d[0] + Math.cos(rg) * d[1])];
+    const rot = frame.ang - th, Z = frame.lumen / (2 * r * V.k), M = diveMapInto(p, frame.c, rot, Z, g, {}), ct = Math.cos(M.rot), st = Math.sin(M.rot), d = [s[0] - M.ox, s[1] - M.oy];
+    return [M.ox + M.tx + M.Z * (ct * d[0] - st * d[1]), M.oy + M.ty + M.Z * (st * d[0] + ct * d[1])];
   };
   const before = { k: 1.1, x: 40, y: 90 }, after = { k: 0.95, x: 52, y: 60 };
   for (const w of [[0, 0], [30, 12], [-25, 40]]) {
