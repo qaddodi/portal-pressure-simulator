@@ -47,20 +47,25 @@ test('the inks are the band colours themselves, mixed with the look\'s own text 
 });
 
 // ── A band written is a colour told to the GPU numbers ──
-test('every place that writes a tile\'s band also tells its GPU words (recolor)', () => {
+test('every place that writes a tile\'s band takes it under a fading number and tells its GPU words (bandSwap: nothing pops)', () => {
   const pc = read('src/ui/presenter-cards.js');
   assert.ok(!/setA\(p\.(tile|hi), 'data-rate'/.test(pc), 'the data card tile\'s data-rate is written in one place, tile-band.js paintBand');
   assert.match(pc, /else \{ p\.pend = null; paintBand\(p, word, rate\); \}/);
   assert.match(pc, /paintBand\(p, w, r\)/);
-  assert.match(read('src/ui/tile-band.js'), /if \(changed\) \{ p\.vw\?\.recolor\(\); p\.hw\?\.recolor\(\); \}/, 'paintBand tells both its numbers when the band changed');
+  const tb = read('src/ui/tile-band.js');
+  assert.match(tb, /bandSwap\(fades, put, words\)/, 'a band that changes under a number on show fades the number out and back');
+  assert.match(tb, /for \(const w of words\) w\.recolor\(\)/, 'a first band, written at once, still tells the numbers');
   const dock = read('src/ui/dock.js');
-  assert.match(dock, /dataSoon\(el, 'sev', sev\); x\.sev = sev;\s*runSoon\(x\.recolor\)/, 'the dock tile');
-  assert.match(dock, /if \(badNow !== x\.badOn\) \{ x\.badOn = badNow; runSoon\(x\.recolor\); \}/, 'the dock vitals (red when out of range)');
+  assert.match(dock, /else bandSwap\(\[x\.val\], \(\) => dataSoon\(el, 'sev', sev\)\)/, 'the dock tile');
+  assert.match(dock, /bandSwap\(fades, \(\) => \{ x\.badShown = x\.badOn; classSoon\(x\.el, 'bad', x\.badShown\); \}\)/, 'the dock vitals (red when out of range)');
+  assert.ok(!/classSoon\(x\.el, 'bad', badNow\)/.test(dock), 'the red class is written only at the dip');
   const ro = read('src/ui/readouts-pane.js');
-  assert.equal((ro.match(/dataset\.sev = sev; x\.sev = sev;\s*recolorWords\(x\.val\)/g) || []).length, 2, 'both Readouts loops');
-  const gw = read('src/ui/gl-words.js');
-  assert.match(gw, /recolor\(\) \{ if \(S\.dead\) return; wake\(S\); S\.stale = true; askMeasure\(S\); \}/, 'any words, kept or not, can be told');
-  assert.match(read('src/ui/util.js'), /export const recolorWords = /);
+  assert.equal((ro.match(/else bandSwap\(\[x\.val\], \(\) => \{ (tileEl|x\.el)\.dataset\.sev = sev; \}\)/g) || []).length, 2, 'both Readouts loops');
+  const u = read('src/ui/util.js');
+  assert.match(u, /export function bandSwap\(fades, apply, words = fades\)/);
+  assert.match(u, /for \(const e of fades\) swapFade\(e, once\)/, 'it fades with the shared swapFade (Reduce Motion keeps the fade)');
+  assert.match(u, /export const recolorWords = /);
+  assert.match(read('src/ui/gl-words.js'), /recolor\(\) \{ if \(S\.dead\) return; wake\(S\); S\.stale = true; askMeasure\(S\); \}/, 'any words, kept or not, can be told');
 });
 
 // ── A band does not wait for ever on a number that keeps moving ──
@@ -91,4 +96,38 @@ test('systolic, mean and diastolic agree at every moment of a held strain and it
   e.holdStrain(false);
   for (let t = 0, i = 0; t < 14; t += 0.05, i++) { e.step(0.05); if (i % 10 === 0) check(`release ${t.toFixed(1)} s`); }
   assert.ok(Math.max(...seen) - Math.min(...seen) > 5, 'the strain really moved the pressure (the test judges a transient, not a rest)');
+});
+
+// ── bandSwap, run ──
+import { bandSwap } from '../src/ui/util.js';
+const later = () => new Promise((r) => setTimeout(r, 30));
+test('bandSwap: the band is written once and the numbers are told after it; with nothing to fade it is written at once', async () => {
+  const calls = [];
+  const word = { recolor: () => calls.push('recolor') };
+  bandSwap([], () => calls.push('apply'), [word]);
+  assert.deepEqual(calls, ['apply'], 'written at once, the words told in the same task');
+  await later();
+  assert.deepEqual(calls, ['apply', 'recolor']);
+  calls.length = 0;
+  // Elements that cannot fade (no animate, as a hidden tile) take the band at once, once, though two were given.
+  bandSwap([{}, {}], () => calls.push('apply2'), [word]);
+  await later();
+  assert.deepEqual(calls, ['apply2', 'recolor'], 'once, then told');
+});
+
+test('bandSwap: a number that can fade is clear when the band is written, and is told after it', async () => {
+  const log = [];
+  const fakeEl = (name) => {
+    const el = { isConnected: true, firstChild: {}, getBoundingClientRect: () => ({ width: 10, height: 10, top: 0, left: 0, right: 10, bottom: 10 }), offsetWidth: 10, offsetHeight: 10,
+      animate: (frames, opts) => { const a = { cancelled: false, finished: new Promise((r) => setTimeout(r, opts.fill === 'forwards' ? 5 : 0)), cancel() { this.cancelled = true; } }; log.push(`${name}:fade ${frames[frames.length - 1].opacity}`); return a; } };
+    return el;
+  };
+  const a = fakeEl('a'), b = fakeEl('b');
+  bandSwap([a, b], () => log.push('apply'), [{ recolor: () => log.push('recolor') }]);
+  assert.ok(!log.includes('apply'), 'the band waits for the fade out');
+  await later();
+  assert.equal(log.filter((l) => l === 'apply').length, 1, 'written once, at the dip');
+  assert.ok(log.indexOf('apply') > log.indexOf('a:fade 0'), 'after the number began to fade out');
+  assert.ok(log.indexOf('recolor') > log.indexOf('apply'), 'the number is told after the band is written');
+  assert.ok(log.some((l) => l.endsWith('fade 1')), 'and it fades back in');
 });

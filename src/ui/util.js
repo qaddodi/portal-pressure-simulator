@@ -4,7 +4,7 @@ import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
 import { keyboardSheet } from './sheet-keyboard.js';
-import { classSoon } from './class-soon.js';
+import { classSoon, runSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
@@ -819,6 +819,24 @@ export function releaseWords(root) {
 }
 /** The words putText made over `el` read the page's colour again (its tile changed band: the number is drawn in the colour it now has). A no-op where none were made. */
 export const recolorWords = (el) => { wordsOfEl.get(el)?.recolor(); };
+/**
+ * A tile's band taken under its number without a snap (16 Nov 2026, "nothing pops": the number's GPU words keep one colour, so a band change redrew
+ * them in the new colour at once): the elements that hold the numbers fade out as the band word does (swapFade), `apply` writes the band (the attribute
+ * that recolours the number, the word, the marker) while they are clear, the numbers' GPU words read their ink again (`words`: glWords wrappers, or the
+ * elements putText made them over), and the elements fade back in. Reduce Motion keeps the fade (a fade is not motion). An element that cannot fade
+ * (hidden, no box) takes the band at once. apply runs once, at the first dip.
+ */
+export function bandSwap(fades, apply, words = fades) {
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
+    apply();
+    runSoon(() => { for (const w of words) { if (w && typeof w.recolor === 'function') w.recolor(); else recolorWords(w); } });   // (after the writes apply asked for are made, in the same task)
+  };
+  if (!fades.length) once();
+  else for (const e of fades) swapFade(e, once);
+}
 /** How many implicit wrappers putText holds (the teardown checks read it). */
 export const implicitWordsLive = () => implicitW.size;
 export const putText = (el, t) => {
