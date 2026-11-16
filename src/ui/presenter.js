@@ -40,8 +40,7 @@ import { gpuProbe } from './gpu-probe.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { onTheme } from './theme-epoch.js';
-import { expandIds, stepExtra, markLabel, figureHooks, safe, warmOf, trailOf } from './slide-ext.js';
-import { spansOf } from './tool-profile.js';
+import { stepExtra, figureHooks, safe, warmOf, trailOf } from './slide-ext.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { revealCount } from './reveal.js';
 import { trailKeys } from './flow-time.js';
@@ -74,7 +73,7 @@ let panelGoTok = null;   // (the visual panel's fade out to a words slide: the t
 import { createWaits } from './wait-cut.js';
 import { VIEW_CHANGE_MS } from './view-xf.js';
 import { tileVal, liveFp, PT_FREE, ptPush, sv, glBox, fitted, fitNow, est, fitChart, fsOf } from './presenter-cards.js';
-import { LOBULE_CAM, lensSpec, PRESSURE_KEY, keyNodes, TARGETS, EDGE_TONE, VAL_TONE, rateTone, slideLens, SITE_NODE, slideTargets } from './presenter-words.js';
+import { LOBULE_CAM, lensSpec, PRESSURE_KEY, keyNodes, slideLens, slideTargets } from './presenter-words.js';
 import { createLibrary } from './presenter-library.js';
 import { createStart } from './presenter-start.js';
 import { instrumentOf } from './slide-instrument.js';
@@ -86,6 +85,7 @@ import { createQuestion } from './presenter-question.js';
 import { createCase } from './presenter-case.js';
 import { createLapse } from './presenter-lapse.js';
 import { createProc } from './presenter-proc.js';
+import { createOverlays } from './presenter-overlays.js';
 export { slideLens, abChoice, SITE_NODE, slideTargets, camOn, LENS_WORDS, LENS_TONE } from './presenter-words.js';
 const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
@@ -1226,7 +1226,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (later && !under) { if (!await morphTo(st, cut, MORPH_ONE_MS)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
-      if (swap) { await until(() => cut() || stage.organsSettled(), under ? 600 : 1500); if (cut()) return; }   // (under the glide the organs still change: a short wait)
+      if (swap && !under) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }   // (not under a glide: under one the organs change as the cards come in, and the smooth-frames gate below is the only wait: a card was out of sight for the whole change)
       if (prep && !swap && !caseCard) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);   // (a new patient's or a case's cards are fitted again once it is in)
       if (cut()) return;
       const filled = await ui.tools.ready(900); if (cut()) return;
@@ -1276,43 +1276,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (back && procDoneAt === to && specOf(procKind(s))?.parkMs && !procThen(s) && !cut()) procPlay(s, to, specOf(procKind(s)).stops.length - 1, procKind(s), 0, true);
   }
 
-  // What a slide calls out on the figure once it has landed (or a scale's view of it, after a flip: flipMove): its marks, labels,
-  // the stations its terms name (in their colours), its glows, the lobule's callout and its readings (see slideTargets).
-  function paintOverlays(s, to, st, hooks = true) {
-    if (!s.visual) {
-      // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
-      const tg = slideTargets(s), xc = ctxOf(s, to);
-      // (A mark's edges may name a package's set, '@name', and its label goes through the packages' label hooks: slide-ext.js.)
-      let marks = (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...expandIds(m.edges)], label: markLabel(m.label, m, xc), kind: m.kind || 'block', free: !!m.free, ...(m.seg ? { seg: m.seg } : {}), ...(m.clot ? { clot: true } : {}) }));
-      // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
-      // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
-      if (tg) {
-        const named = new Set([...(s.labels || []), ...tg.labels].flatMap((n) => TARGETS[n]?.edges || []));
-        for (const m of marks) if (m.kind === 'note') for (const e of m.edges) if (!tg.glow.some((g) => g.id === e)) tg.glow.push({ id: e, tone: EDGE_TONE[e] || 'accent' });
-        marks = marks.filter((m) => !(m.kind === 'note' && m.edges.some((e) => named.has(e))));
-      }
-      // (A site the label stands in for lends it its station colour, so the label is the slide's highlight.)
-      if (tg) for (const k of s.sites || []) if (SITE_NODE[k] && [...(s.labels || []), ...tg.labels].includes(SITE_NODE[k])) tg.terms[SITE_NODE[k]] ||= TARGETS[k]?.tone || VAL_TONE[k];
-      markBase = { i: to, marks };
-      marks = clotMarks(marks, st?.params || store.get().params);
-      store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
-        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentGrads: s.tool?.kind === 'profile' ? spansOf(s.tool.spans).map(([k]) => k).join() : null, presentFp: st?.fp || null,
-        focus: markFocus(marks), stented: stentedOf(s), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
-      // (The glows and outlines are the figure's decoration: one that cannot be drawn, as on a device without WebGL2 once, leaves the slide
-      // without it rather than half-changed with its cards never in.)
-      if (tg) {
-        try { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
-        catch (e) { console.warn(`presenter: slide ${to + 1}'s glows and outlines could not be drawn`, e); }
-      }
-      app.dataset.lit = tg?.lit.join(' ') || '';
-      if (hooks) figureHooks('show', xc);   // (a deck visuals package's own marks on the figure: slide-ext.js; a flip leaves them as they are)
-    }
-    // A site whose station label is already on the slide is not called out twice: the label carries the one reading,
-    // in its station's colour, and the pill stays only where no label stands.
-    { const named = new Set(store.get().presentLabels || []);
-      const ss = !s.visual ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])].filter((k) => !named.has(SITE_NODE[k])) : [];
-      if (ss.length && st) stage.setSites(ss, st.fp); }
-  }
+  const { paintOverlays: paintOverlays$ } = createOverlays({ app, clotMarks, ctxOf, markFocus, stage, stentedOf }, live);
+  function paintOverlays(...a) { return paintOverlays$(...a); }   // <stage-split stub>
   // The fonts in and two frames for the cards' charts and refits to run, then one last fit; then the cards show (eased in).
   // (The cards were fitted unseen; once in place, every chart is lettered again for its size, before the next paint.)
   const reFit = () => { if (zoomHeld()) return; fitted.forEach(fitNow); };
