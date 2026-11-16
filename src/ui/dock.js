@@ -109,6 +109,8 @@ export const TILES = [
 // list): through the sinusoids, in from the portal vein and the hepatic artery, and the lymph the liver
 // makes. They are not findings, so they stay out of TILES. `v` reads the frame and the store, as the lobule does.
 const lobuleVal = (key, f, st) => lobuleFlows(f, st.healthy)[key];
+/** Whether lymph is made beyond what the lymphatics carry (it spills as ascites): more than 10 mL a day of it. */
+const lymphSpill = (f) => (f?.metrics?.ascites?.lymphOver ?? 0) * 1440 >= 10;
 export const LOBULE_TILES = [
   { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Sinusoidal blood flow (portal vein plus hepatic artery), as a percentage of the healthy patient\u2019s flow.', why: 'sinFlow', v: (f, st) => lobuleVal('flow', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 150], ticks: [55, 75],
@@ -119,10 +121,13 @@ export const LOBULE_TILES = [
   { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Hepatic arteriolar inflow to the lobule, as a percentage of the healthy patient\u2019s inflow. It rises when portal inflow falls (hepatic arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
-  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 1,150 mL/day; above about three times that, the excess enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT,
-    scale: [0, 7200], ticks: [1730, 3460],
-    st: (v, f, st) => { const r = v / lymphDay(lobuleFlows(f, st.healthy).lymph0); return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
-    s: (v, f, st) => { const r = v / lymphDay(lobuleFlows(f, st.healthy).lymph0); return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 860 mL/day; it rises many-fold with the sinusoidal pressure, and the lymph the lymphatics cannot carry enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT,
+    // (The scale reaches the lymphatics' most, about 14 L/day (engine lymph.js LYMPH.max); the ticks are 1.5 times healthy and a healthy adult's capacity.
+    // Overflow is the model's own: lymph made beyond what the lymphatics carry (metrics.ascites.lymphOver), not a multiple of healthy, since a liver can
+    // make several times its usual lymph and still have it all carried away.)
+    scale: [0, 14400], ticks: [1290, 5760],
+    st: (v, f, st) => (lymphSpill(f) ? 'danger' : v / lymphDay(lobuleFlows(f, st.healthy).lymph0) >= 1.5 ? 'caution' : 'ok'),
+    s: (v, f, st) => (lymphSpill(f) ? 'Overflow' : v / lymphDay(lobuleFlows(f, st.healthy).lymph0) >= 1.5 ? 'High' : 'Normal') },
 ];
 // Collapsed, the lobule view keeps its two key flows: through the sinusoids and in from the portal venule.
 export const LOBULE_PRIMARY = new Set(['lz-sin', 'lz-pv']);

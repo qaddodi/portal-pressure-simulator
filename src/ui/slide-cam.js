@@ -74,7 +74,7 @@ const FRAMES_MAX = 600;
 // (A run's frames as rows [t, k, x, y], for the judge and the console.)
 function rows(r) { const out = []; for (let i = 0; i < r.n; i++) out.push([r.buf[i * 4], r.buf[i * 4 + 1], r.buf[i * 4 + 2], r.buf[i * 4 + 3]]); return out; }
 export function createCamLock({ now = () => performance.now(), keep = 24 } = {}) {
-  let run = null, writing = 0, dry = 0, settle = null, pressAt = -1;
+  let run = null, writing = 0, dry = 0, settle = null, pressAt = -1, stepsNext = null;
   const traces = [];
   const lock = {
     get run() { return run; },
@@ -83,14 +83,23 @@ export function createCamLock({ now = () => performance.now(), keep = 24 } = {})
       const t = now();
       // alloc-rare: once per slide move (its record; the frames go into one kept buffer, read back as rows only by the judge)
       run = { plan, why, t0: t, press: pressAt >= 0 && t - pressAt < 15000 ? pressAt : null, buf: new Float64Array(FRAMES_MAX * 4), n: 0, get frames() { return rows(this); }, held: [], blocked: [], pend: null, after: null, end: '', raf: 0 };
-      pressAt = -1;
+      pressAt = -1; if (stepsNext) { run.steps = stepsNext; stepsNext = null; }
       traces.push(run); if (traces.length > keep) traces.shift();
       settle = null;
       return run;
     },
     mine: (r) => !!r && r === run,
     /** A slide change was asked for (Next, Back, a jump): the last run lets go, and the next run counts its start from now. */
-    pressed() { lock.release('new slide'); pressAt = now(); settle = null; },
+    pressed() { lock.release('new slide'); pressAt = now(); settle = null; stepsNext = null; },
+    /** The slide change's steps so far ([name, at, name, at ...], slide-txn.js), kept with the next run: [[step, ms from the press], ...]. */
+    steps(trail) {
+      if (!trail || pressAt < 0) { stepsNext = null; return; }
+      if (trail.length > 1 && trail[1] < pressAt) pressAt = trail[1];   // (the change began before its run did: counted from its first step)
+      // alloc-rare: once per slide move
+      const out = [];
+      for (let k = 0; k + 1 < trail.length; k += 2) out.push([trail[k], Math.round(trail[k + 1] - pressAt)]);
+      stepsNext = out;
+    },
     release(why) { settle = null; if (!run) return; if (!run.end) run.end = why; run = null; },
     /** The run has landed: its trace is closed and near asks are dropped for SETTLE_MS. Answers the held ask to run after it, or null. */
     land(r, vb) {
