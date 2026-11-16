@@ -75,7 +75,7 @@ export const SITES = {
       ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome but not in schistosomiasis?', 'In sinusoidal obstruction syndrome the resistance is in the sinusoids and central veins, between the wedged and free positions; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
-      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
+      id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], marks: [{ edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, { organ: 'caudate', label: 'Caudate lobe', kind: 'note' }],
       tool: PROFILE, key: ['fhvp', 'ra', 'hvpg'],
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome: a high PPG, the HVPG near zero',
       vignette: 'A 29-year-old woman with OCP use has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 g/dL and a total protein of 4.3 g/dL.',
