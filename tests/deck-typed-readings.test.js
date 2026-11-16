@@ -54,11 +54,12 @@ test('"Her LSM ... is now N kPa": the reading a slide\'s words name for its pati
   assert.deepEqual(bad, []);
 });
 
-test('the Carvedilol check that names her MAP after the bleed names the MAP of the hypotension slide', async () => {
-  const { d, fps } = (await decks()).find((x) => x.d.id === 'carvedilol');
-  const f = fps[d.slides.findIndex((s) => s.id === 'low')], q = d.checks.find(([t]) => /MAP is \d+ mmHg/.test(t));
-  assert.ok(q, 'the check is there');
-  assert.equal(Number(/MAP is (\d+) mmHg/.exec(q[0])[1]), Math.round(f.map));
+test('the Carvedilol check that names her pressure after the bleed prints the hypotension slide\'s own (a token, not a typed number)', async () => {
+  const { d } = (await decks()).find((x) => x.d.id === 'carvedilol');
+  const q = d.checks.find(([t]) => /blood pressure is \{map@low\}/.test(t));
+  assert.ok(q, 'the check prints {map@low}');
+  assert.ok(d.slides.some((s) => s.id === 'low'), 'the slide it names exists');
+  assert.ok(!d.checks.some(([t]) => /MAP is \d+ mmHg/.test(t)), 'no typed MAP left in the checks');
 });
 
 test('the fall the Variceal bleeding deck gives octreotide is the fall the model gives (play-test B11: "about 2 mmHg" over a model that gives 1.5)', async () => {

@@ -9,6 +9,7 @@
 
   /* anatomy */
   --cap-ink: var(--text);   /* (what a name's own colour is mixed with, so it reads on the theme's label halo: the theme's text ink, dark on the light halo, light on the dark one) */
+  --label-dim: .65;   /* (what a label the slide does not light, or one not explained, steps back to: it must still read 3:1 over the vessels behind it in every look, tests/label-dim-contrast.test.js; was .35, about 2:1)  */
   --cap-outline: var(--label-halo);   /* (the outline of a lobule or sinusoid name: the theme's one label halo, as the Anatomy and Circuit labels have it) */
   --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme (the probe's front band, --dop-face, is the look's: theme-tokens.js) */
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);

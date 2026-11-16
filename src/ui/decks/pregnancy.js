@@ -54,7 +54,7 @@ export const PREGNANCY_DECK = {
     {
       id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'wall' },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
-      kicker: 'Management', site: 'sin', title: 'Second-trimester EGD shows large varices', cite: 'AASLD 2024 55, 56 · Baveno VIII 8.17',
+      kicker: 'Management', site: 'sin', title: 'Second-trimester EGD shows an enlarging varix', cite: 'AASLD 2024 55, 56 · Baveno VIII 8.17',
       line: 'Without EGD in the year before conception, screen in the second trimester. The varix now measures {varix}, with red wale signs.',
       notes: 'AASLD 2024 recommends EGD within the year before conception (statement 55), and early in the second trimester for a woman who was not screened (statement 56); Baveno VIII 8.17, written for vascular liver disease, gives the same timing. The second trimester follows organogenesis and precedes both the peak in blood volume and labor. Varices can enlarge quickly, so a normal EGD before pregnancy does not settle the question. For medium and large varices AASLD 2024 recommends a nonselective beta-blocker or band ligation in pregnancy, and prefers band ligation when cherry-red spots or red wale signs are present, as here. It notes that few data exist to guide the management of varices in pregnancy.',
       ask: ['Why is the second trimester chosen for screening EGD?', 'Organogenesis is complete, and it precedes both the peak in blood volume and labor.'],

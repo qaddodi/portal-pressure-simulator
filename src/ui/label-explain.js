@@ -5,7 +5,7 @@
 //
 // This file is the pure part: which drawn label a tap lands on, what the tooltip says, and the toggle. The layers do the lighting.
 
-export const DIM_ALPHA = 0.35;   // (what the labels that are not explained step back to: V-LIT-3, 14.3 B)
+export const DIM_ALPHA = 0.65;   // (what the labels that are not explained or lit step back to, the one value of tokens.css --label-dim: 3:1 over the vessels in every look, 16 Nov 2026; was 0.35, V-LIT-3, 14.3 B, about 2:1)
 const MIN_SHOWN = 0.2;           // (a label drawn fainter than this is on its way in or out: a tap does not land on it)
 
 /**

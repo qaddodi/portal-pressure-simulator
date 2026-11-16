@@ -1,12 +1,13 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { createCallGeoFade } from './call-geo-fade.js';
+import { zoneSpot } from './lobule-zone-spot.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
 import { D_SMALL, D_SURFACE, easeArrive } from './ease.js';
 import { inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
-import { explainText } from './label-explain.js';
+import { explainText, DIM_ALPHA } from './label-explain.js';
 import { overlapLRTB } from './label-place.js';
 import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
@@ -355,7 +356,7 @@ export function createLobuleLabels(st, live) {
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
-  // A presenter slide that lights lobule terms dims every other label and zone name to 35 % (app.css, dimmed): they keep their places and their room.
+  // A presenter slide that lights lobule terms dims every other label and zone name to DIM_ALPHA (label-explain.js; app.css, dimmed): they keep their places and their room.
   const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
   const litOf = () => {
     if (!live.appEl?.isConnected) live.appEl = document.querySelector('.app');
@@ -650,7 +651,9 @@ export function createLobuleLabels(st, live) {
   const NO_BOXES = [];   // (read, never written: no zone names on show)
   const ZONE_Q = [0.83, 0.51, 0.2];
   const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
-  const zBox = { l: 0, r: 0, t: 0, b: 0 };
+  const zOrder = new Int8Array(3);   // (the zones in the order they are placed)
+  let zLesion = null;   // (the lesion ring placeZones is placing for, read by zRing)
+  const zRing = (b) => ringDepth(zLesion, b);
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
     // Zones off: each name fades out where it stands and stays in zoneEls (capSync draws from it: a name taken out stayed drawn at its last alpha).
@@ -658,8 +661,13 @@ export function createLobuleLabels(st, live) {
     const { R, cx, cy } = live.geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
     boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
-    for (let i = 0; i < 3; i++) {
-      const q = ZONE_Q[i];
+    zLesion = lesion;
+    // The zones the slide lights or names are placed first, so a name that has to give way is an unlit one (lobule-zone-spot.js).
+    let nz = 0;
+    for (let i = 0; i < 3; i++) if (!dimmed(ZONE_TPL[i].dataset.target)) zOrder[nz++] = i;
+    for (let i = 0; i < 3; i++) if (dimmed(ZONE_TPL[i].dataset.target)) zOrder[nz++] = i;
+    for (let n = 0; n < 3; n++) {
+      const i = zOrder[n], q = ZONE_Q[i];
       let z = zoneEls[i];
       if (!z) z = zoneEls[i] = ZONE_TPL[i].cloneNode(true);   // (cloned from its model, made with the view: a frame builds nothing)   // alloc-rare: only the first layout with the Zones layer on
       if (!z.isConnected) mount(labels, z);
@@ -686,8 +694,8 @@ export function createLobuleLabels(st, live) {
       const w = szW, hh = szH;
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
-      let at = -1;
-      for (let j = 0; j < nT; j++) { zBox.l = zTx[j] - w / 2 - hx; zBox.r = zTx[j] + w / 2 + hx; zBox.t = zTy[j] - hh / 2 - hy; zBox.b = zTy[j] + hh / 2 + hy; if (!ringDepth(lesion, zBox)) { at = j; break; } }
+      // (Nor on a zone name already placed: on a zoomed phone two zones' in-view spots were one, and their names stood on each other, lobule-zone-spot.js.)
+      const at = zoneSpot(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes.length, !dimmed(z.dataset.target));
       if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
       put(z, zTx[at], zTy[at]);
@@ -801,7 +809,7 @@ export function createLobuleLabels(st, live) {
     cap.paint();
   }
   // A label a slide's words leave unlit fades out (app.css, the presenting app's data-lit): the same test, on the lit terms kept.
-  const DIM_A = 0.35;   // (an unlit name's alpha on a slide that lights terms: Mohammad's pick 14.3 B)
+  const DIM_A = DIM_ALPHA;   // (an unlit name's alpha on a slide that lights terms: label-explain.js, the CSS's --label-dim)
   // (The leaders in this layer fade with their names: a class on each, as the sheet's presenting-and-lit rule set their strength, read again by the picture.)
   const syncDim = () => { for (const k in labs) { const L = labs[k]; if (!L.line) continue; const d = dimmed(L.el.dataset.target); classSoon(L.line, 'lz-dim', d); classSoon(L.dotEl, 'lz-dim', d); } };
   // Which labels a lit slide leaves unlit, as a bit for each of LAB_KEYS: a slide's words lighting other terms change the layout (an unlit name keeps off the hexagon, records solve).

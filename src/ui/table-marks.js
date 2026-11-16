@@ -10,7 +10,8 @@ import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
 import { LSM_CUTS, lsmContext } from '../engine/lsm-cuts.js';
 import { TRANSFUSE } from '../engine/transfusion-cuts.js';
 
-export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
+export const NO_ASC = 150;
+export const ASC_G2 = 1500;   // mL: grade 2, the moderate belly, starts here   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 // (The ratings are fixed pairs [colour class, word], made once and handed out as the same frozen arrays: a tile's rating is asked for on every
 // frame it is drawn, and a caller only reads it.)
 const tup = (a, b) => Object.freeze([a, b]);
@@ -77,7 +78,7 @@ export const RATE = {
   saag: (v, f) => (f.asc < NO_ASC ? T_null_No_ascites : v >= SAAG_PORTAL ? T_hi_Portal_HTN : T_ok_Not_portal),
   // (Protein is neither good nor bad, except that below 1.5 g/dL it no longer guards against infection.)
   tp: (v, f) => (f.asc < NO_ASC ? T_null_No_ascites : v >= TP_HIGH ? T_info_High : v < TP_SBP ? T_mid_SBP_risk : T_info_Low),
-  asc: (v) => (v < NO_ASC ? T_ok_None : v < 1500 ? T_mid_Grade_1 : v < 5000 ? T_hi_Grade_2 : T_hi_Grade_3),
+  asc: (v) => (v < NO_ASC ? T_ok_None : v < ASC_G2 ? T_mid_Grade_1 : v < 5000 ? T_hi_Grade_2 : T_hi_Grade_3),
   varix: vSize, gv: vSize,
   spleen: (v) => (v > 16 ? T_hi_Large : v > 13 ? T_mid_Large : T_ok_Normal),
   plt: (v) => (v < 100 ? T_hi_Severe : v < 150 ? T_mid_Low : T_ok_Normal),
@@ -255,11 +256,14 @@ export function dirAbs(k, f) {
 // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
 // (The right-sided pressures, RA and the IVC, take 2 mmHg: a catheter reads them to within that, and a clot in cirrhosis, which fills the plasma
 // a little as the ascites forms, moved the right atrium 3.7 to 4.8 and put an arrow on a row that has no cardiac lesion, play-test B16, 16 Nov 2026.)
-export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: 2, ra: 2, hvpg: .5, eus: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, pvVel: 2, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
+export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: 2, ra: 2, hvpg: .5, eus: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: NO_ASC, liver: 2, shunt: .05, pvFlow: .15, pvVel: 2, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
 export function dirRel(k, f, ref) {
   const a = atShown(k, fpv(k, f)), b = atShown(k, fpv(k, ref));
   if (a == null || b == null) return 0;
   const d = a - b, r = Math.abs(d) / Math.max(Math.abs(b), 1e-6);
+  // (Ascites is graded, not scaled by its own ratio: from none to a few hundred mL, grade 1 and ultrasound only, is one arrow; two arrows are for the
+  // moderate and the tense belly, 1.5 L and over. 16 Nov 2026: 238 mL against none read as two, over a case "with no ascites".)
+  if (k === 'asc') return Math.abs(d) < STEP_REL.asc ? 0 : (d > 0 ? 1 : -1) * (Math.max(a, b) >= ASC_G2 ? 2 : 1);
   return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
 }
 export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, ssm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, rpp: 0, hr: 0, he: 2, pvVel: 0 };

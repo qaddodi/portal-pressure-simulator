@@ -245,7 +245,7 @@ html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--su
    off and on at once (2 Nov, "labels turn on and off randomly"). */
 #labels .lb { transition: none; animation: none; }   /* (4 Nov: a label shows and goes at once, no entry fade) */
 /* Tap a label to explain it (stage.js explainApply, label-explain.js): the others step back to 35 %, their leaders with them. Before .lb-off and .ld-gone, which stay at 0. */
-#labels .lb.spot-dim, .lb-leaders > .spot-dim { opacity: .35; }
+#labels .lb.spot-dim, .lb-leaders > .spot-dim { opacity: var(--label-dim); }
 #labels .lb.lb-off { opacity: 0; pointer-events: none; }
 .lb-leaders > * { transition: none; animation: none; }
 .lb-leaders > .ld-gone { opacity: 0; }

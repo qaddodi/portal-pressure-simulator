@@ -71,7 +71,7 @@ export const TEN_YEARS = {
       ask: ['When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
-      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
+      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.9], albumin: [4, 2.6] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
       line: 'Four more years of liver injury: the HVPG is {hvpg}, serum albumin {salb}, and {asc} of ascites has accumulated despite carvedilol. Refer him for liver transplant evaluation now.',

@@ -38,5 +38,5 @@ test('createExplain toggles, switches and clears, calling back only on a change'
   e.clear(); e.clear();               // (nothing explained: no call)
   e.tap('n:C'); e.clear();
   assert.deepEqual(seen, ['n:A', 'n:B', null, 'n:C', null]);
-  assert.equal(DIM_ALPHA, 0.35);
+  assert.equal(DIM_ALPHA, 0.65);
 });

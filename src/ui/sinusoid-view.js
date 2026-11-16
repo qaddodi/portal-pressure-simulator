@@ -42,7 +42,7 @@ import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { cssColor8 } from './css-color.js';
 import { surface } from './gpu-surfaces.js';
 import { restPass, restClass, restAttr } from './rest-pass.js';
-import { hitLabel } from './label-explain.js';
+import { hitLabel, DIM_ALPHA } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
@@ -1091,7 +1091,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // The leaders and dots as the Anatomy and Circuit labels have them (app.css .leader, .leader-dot, .leader-dot-halo): the leader ink, the stage's paper
   // under the dot and round it, the text ink's ring. Read through the token cache, so a theme change shows at once.
   const LEAD_LOOK = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
-  // A slide that lights terms dims every name it does not light to 35 % and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
+  // A slide that lights terms dims every name it does not light to DIM_ALPHA (label-explain.js) and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
   let litRaw = null, litSet = new Set();
   // (The terms a presenting slide lights now, split when they change; none outside a talk.)
   function litNow() {
@@ -1103,7 +1103,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const app = document.getElementById('app'), raw = app?.dataset.lit || '';
     if (raw !== litRaw) { litRaw = raw; litSet = new Set(raw ? raw.split(' ') : []); }   // alloc-rare: only when the slide's lit terms change
     if (!raw || !app.classList.contains('presenting') || !/(^| )(lobule|sinusoid):/.test(raw)) return 1;
-    return litSet.has(`sinusoid:${SV_TARGET[R.key] || R.key}`) ? 1 : 0.35;
+    return litSet.has(`sinusoid:${SV_TARGET[R.key] || R.key}`) ? 1 : DIM_ALPHA;
   };
   function putCaps() {
     const now = easeNow();
