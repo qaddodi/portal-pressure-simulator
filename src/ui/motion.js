@@ -24,7 +24,7 @@
 // first third in one step. After them the move is on the wall clock for good. createStepClock and createReversible apply the rule; an
 // ease timed from a start time (t0) that is not one of these has no cap and is the plain wall clock. simTime (200 ms) and the blood's
 // clock (100 ms) are the model's own clocks, not moves, and keep their caps.
-import { STEP_MAX } from './glide-clock.js';
+import { STEP_MAX, STALL_MAX } from './glide-clock.js';
 import { D_FLIP, D_SMALL, D_SURFACE, CAM_MS_MIN, settleAt } from './ease.js';
 export {
   D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX, CAM_MS_MIN, CAM_MS_MAX, LOBULE_MS_MAX,
@@ -79,6 +79,8 @@ export const fadeStep = (dt, ms, on = reduced()) => Math.max(0, dt) / Math.max(1
 export const FIRST_FRAMES = 2;
 /** The most one of those first frames may advance a move, in ms. */
 export const FIRST_STEP_MAX = STEP_MAX;
+/** The most one frame advances a view change after its first frames, in ms (the camera's STALL_MAX): a stalled frame pauses the move, never skips part of it. */
+export const VIEW_STALL_MAX = STALL_MAX;
 
 /**
  * The clock rule for a move that does its own sums (a velocity, an integral): start() when the move begins, then dt(now) each frame answers
@@ -120,10 +122,13 @@ export function createStepClock() {
  * so a progress used raw, without a shape of its own, still arrives at rest. A turn that would run past a bound (min, max) stops at the
  * bound and slews back from rest. Written in place: nothing is allocated by aim, tick or step.
  *
+ *   stall (ms, default none): the most one frame advances the move once the first frames are by. A view change passes STALL_MAX (the camera's own rule, glide-clock.js): a
+ *   frame that took longer (a first draw, a layout pass, a solve) pauses the move and it goes on from there, so it never lands in one jump with nothing zooming out.
+ *
  *   x, v (per ms, signed), to, ms, moving (not landed), rest (at rest: the next move starts at full rate).
  *   set(x) jumps and lands there; stop() holds where it is; slewing at most 2 * rate / flip per ms per ms.
  */
-export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, land = true, x: x0 = min } = {}) {
+export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, land = true, stall = Infinity, x: x0 = min } = {}) {
   let x = x0, v = 0, to = x0, full = ms, rate = 1 / ms, rest = true;
   let brk = false, bx = 0, bd = 0, bT = 1, bt = 0;   // (the landing: from bx, by bd, over bT ms, bt of them gone)
   let last = -1, n = 0;                              // (the clock rule's frame count and last time)
@@ -171,6 +176,7 @@ export function createReversible({ ms = 1000, flip = D_FLIP, min = 0, max = 1, l
       last = now;
       if (!(dt > 0)) return x;
       if (n < FIRST_FRAMES) { n++; dt = Math.min(dt, FIRST_STEP_MAX); }
+      else if (dt > stall) dt = stall;   // (a stalled frame holds the move where it stood: it goes on from there, never lands its next part in one jump)
       return step(dt);
     },
     /** The target (and, if given, the time of a full run in ms). The same target again changes nothing; a new one turns the move round. */
