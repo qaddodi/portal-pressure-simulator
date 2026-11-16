@@ -51,7 +51,7 @@ import { D_SMALL, D_SURFACE, EASE_ARRIVE, RISE_PX, cssCurve, easeArrive } from '
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS, throwReach } from './card-throw.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { calmFrames, cardsLanded, createFrameGates } from './cover-lift.js';
 import { caught } from './caught.js';
@@ -651,7 +651,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (ms <= 0) { caseFade(c, false, 0); return 0; }
     caseFadeTokens.set(c, {});   // (a fade still running in lets go: its ending must not take the throw's inline values off)
     const gx = glideX(c), gy = glideY(c), x = Number.isFinite(gx) ? gx : 0, y = Number.isFinite(gy) ? gy : 0, o = parseFloat(c.style.opacity);
-    const dist = Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP);
+    const dist = throwReach(readBox(c), 'next', innerWidth, Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP), 0.95);   // (never cut at the screen's edge: card-throw.js throwReach)
     glideStop(c); c.style.removeProperty('transition'); c.style.removeProperty('transform');
     // (The card and its glass read these same frame-clock values, card-throw.js's way: they never part.)
     glideTranslate(c, x, y, x - dist, y, RAIL_MS, easeArrive);
