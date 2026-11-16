@@ -23,7 +23,7 @@ import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 
 export function createStart(st, live) {
-  const { NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
+  const { patientHistory, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
   // ── Start and stop ──
   function build() {
     const tiles = bigTiles();
@@ -227,7 +227,7 @@ export function createStart(st, live) {
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient and clock too, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
-    return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
+    return { snap, history: patientHistory?.save() ?? null, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
       selection: st.selection, details: st.details, compareSnap: st.compareSnap, compareView: st.compareView, colorMode: st.colorMode,
       lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
@@ -371,6 +371,7 @@ export function createStart(st, live) {
     if (b.snap && b.params) {
       host.send({ type: 'restore', snap: b.snap });
       replaceParams(structuredClone(b.params));
+      if (b.history) patientHistory?.load(b.history);   // (the History list and the undo stack come back with the patient: the slides' own changes were never the viewer's)
       store.set({ presetId: b.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1, speed: b.speed || 1, lastHVPG: b.lastHVPG ?? null, hvpgMeasured: !!b.hvpgMeasured });
       host.send({ type: 'run', running: b.running !== false, clock: b.clock || 'hemo', speed: b.speed || 1 });
     } else {
