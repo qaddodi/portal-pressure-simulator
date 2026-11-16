@@ -10,7 +10,7 @@ import { geoOf, setGeo } from './svg-gl.js';
 import { clamp } from './util.js';
 
 export function createLobuleRecords(st, live) {
-  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
+  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
   const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
     camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
@@ -411,7 +411,7 @@ export function createLobuleRecords(st, live) {
     for (let ki = 0; ki < LAY_ORDER.length; ki++) {
       const k = LAY_ORDER[ki], L = labs[k];
       if (!L) continue;
-      if ((k === 'lymph' && !live.lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
+      if (labelLayerOff(k) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
       // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
       L.peek = isHid(L.el); setHid(L.el, false);
       shK[ns] = k; shL[ns] = L; ns++;

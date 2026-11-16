@@ -409,6 +409,26 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     ['.app[data-lit~="sinusoid:canaliculus"] [data-target="sinusoid:canaliculus"]', 'a lit canaliculus name is coloured like every lit sinusoid name'],
   ]);
 
+  // The lobule's layers (16 Nov 2026, Mohammad: "when I toggle zones on and off in lobule view, the zones labels do not disappear"): source shapes kept here (PR-02), each with its reason.
+  // The zone names had been taken out of zoneEls, the list the GPU captions walk, so the GPU kept drawing them at their last alpha with the layer off.
+  // Now a layer's names are only faded, never taken out, and every layer is one table (LAYERS, LAB_LAYER) read by the layout, the kept layout record and the labels.
+  forbid('src/ui/lobule-zoom*', /zoneEls\.(pop|shift|splice)\(|zoneEls\.length\s*=[^=]/, "a zone name is never taken out of the list the GPU captions walk (a name out of it stays drawn at its last alpha)");
+  forbid('src/ui/lobule-zoom*', /k === 'lymph' && !live\.lymphOn/, 'a label tests its layer through labelLayerOff, not by hand');
+  need('src/ui/lobule-zoom*', [
+    [/if \(!layerOn\('zones'\)\) \{ for \(let i = 0; i < zoneEls\.length; i\+\+\) fadeOut\(zoneEls\[i\]\); return NO_BOXES; \}/, 'Zones off: every zone name fades out where it stands'],
+    [/if \(labelLayerOff\(k\) \|\|/, "the layout fades a layer's station label out through the one table (LAB_LAYER)"],
+    [/for \(let i = 0; i < LAYERS\.length; i\+\+\) if \(f\.ly\[i\] !== layerOn\(LAYERS\[i\]\)\) return false;/, "a layer's switch starts the layout over"],
+    [/const off = !e\.isConnected \|\| gone\(e\)/, 'the GPU fades a name whose element is gone (capSync)'],
+  ]);
+  {   // every layer the store keeps is in LAYERS and has its switch on the lobule
+    const lz = text('src/ui/lobule-zoom*'), st = text('src/ui/store.js');
+    const layers = [...((/const LAYERS = \[([^\]]*)\]/.exec(lz) || ['', ''])[1]).matchAll(/'(\w+)'/g)].map((m) => m[1]);
+    const stored = [...((/lobuleLayers: \{([^}]*)\}/.exec(st) || ['', ''])[1]).matchAll(/(\w+):/g)].map((m) => m[1]);
+    if (layers.slice().sort().join() !== stored.slice().sort().join()) errors.push(`src/ui/lobule-zoom-labels.js LAYERS (${layers}) must list exactly the layers store.lobuleLayers keeps (${stored}): a layer left out keeps its names on when it is off`);
+    for (const n of layers) if (!new RegExp(`get ${n}On\\(\\) \\{ return ${n}On; \\}`).test(lz)) errors.push(`src/ui/lobule-zoom.js: live.${n}On is the switch of the ${n} layer`);
+    for (const m of (/const LAB_LAYER = \{([^}]*)\}/.exec(lz) || ['', ''])[1].matchAll(/\w+: '(\w+)'/g)) if (!layers.includes(m[1])) errors.push(`src/ui/lobule-zoom-labels.js LAB_LAYER names a layer that is not in LAYERS: ${m[1]}`);
+  }
+
   // The calipers' tick text is built only when a number of it changed (15 Nov 2026, app review SF-3): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/stage-outlines.js', [
     [/if \(el0 && !el0\.going && segsSame\(el0\.capN, g\.segs\)\) \{ el0\.seen = true; continue; \}/, "a caliper that stands still keeps its element and builds no path text"],
