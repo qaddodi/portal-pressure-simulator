@@ -27,7 +27,7 @@ const DISPLAY = process.argv.includes('--display');
 export const DISPLAY_BASE = 96, DISPLAY_RADIUS = 20, DISPLAY_CHARS = '0123456789.,:/%+-−–×<>≤≥~≈°';
 export const BASE = DISPLAY ? DISPLAY_BASE : 32, RADIUS = DISPLAY ? DISPLAY_RADIUS : 8, CUTOFF = 0.25, PAD = RADIUS + 1;
 const WEIGHTS = [400, 500, 600, 650, 700];
-const CHARS = DISPLAY ? DISPLAY_CHARS : [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•§©¹¼¾éøΣαβγδθκλμπρστφω⁴⁵⁻₂↑↓↔↗↘⇄⇅∘∝∞✓✕'].join('');
+const CHARS = DISPLAY ? DISPLAY_CHARS : [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•§©¹¼¾éøáàíóúñüöäèêçΣαβγδθκλμπρστφω⁴⁵⁻₂↑↓↔↗↘⇄⇅∘∝∞✓✕'].join('');
 
 // (each glyph set in a cell of its own, its pen at (PX, PY) in it; at BASE 32: 80, 22, 52)
 const CELL = BASE * 2.5, PX = Math.round(BASE * 0.6875), PY = Math.round(BASE * 1.625), COLS = 32;
