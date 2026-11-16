@@ -1,6 +1,6 @@
 // The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { cancelMay, inMotion, mayTask, mayWaiting, settleGate } from './frame.js';
+import { cancelMay, inMotion, settling, mayTask, mayWaiting, settleGate } from './frame.js';
 import { sinceInput } from './quiet.js';
 import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
@@ -170,7 +170,7 @@ export function createMorph(st, live) {
   }
   function morphTrackCheck() {
     if (!live.veins || live.veins.lost || live.morph !== live.morphTarget || !wrap.classList.contains('gl-on') || live.lobuleOn) return;
-    if (inMotion() || live.rotU !== live.rotTarget) { morphTrackSoon(); return; }
+    if (settling() || live.rotU !== live.rotTarget) { morphTrackSoon(); return; }
     const owned = !mt.pieces || mt.pieces.every((pc) => !pc.set || pc.set.owner === live.veins);
     // (The first build waits for a coil that is easing at load (a second or so), at most COIL_WAIT_MS: the stretches made on the way
     // would be made again when it settles, and the worker, which is what the build waits on, is busy with them.)
@@ -231,7 +231,7 @@ export function createMorph(st, live) {
   function coilCheckStep() {
     const c = mt.coilCheck;
     if (!c || c.gen !== mt.gen || mt.parts?.coil === c.parts.coil) { if (mt.coilCheck === c) mt.coilCheck = null; return false; }
-    if (inMotion() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
+    if (settling() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
     if (!coilFits(mt.pieces?.[c.i], c.changed)) { mt.coilCheck = null; morphTrackStart(c.parts, 'coil shape changed'); return false; }
     if (++c.i < MORPH_PIECES.length) return true;
     // (Every piece still fits: the key takes the new coil, the pieces stay.)

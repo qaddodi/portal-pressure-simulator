@@ -18,7 +18,7 @@ import { sheetPanes } from './sheet-glass.js';
 import { figureHooks } from './slide-ext.js';
 import { instrumentOf } from './slide-instrument.js';
 import { createScope } from './slide-txn.js';
-import { store, setViewKey } from './store.js';
+import { store, replaceParams, setViewKey } from './store.js';
 import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 
@@ -206,10 +206,10 @@ export function createStart(st, live) {
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), with: (g) => (g === shade ? [text] : null), bare: () => [panel], shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
   }
-  function coverUp() {
+  function coverUp(what = '') {
     live.booting = true;
     clearTimeout(live.coverT); live.coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
-    if (!live.cover) { live.cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(live.cover); void readMetric(live.cover, 'offsetWidth'); }
+    if (!live.cover) { live.cover = h('div', { class: 'pz-cover', role: 'status' }, h('i', { 'aria-hidden': 'true' }), h('span', {}, what ? [what, h('small', {}, 'Preparing the slides')] : 'Preparing the slides')); document.body.append(live.cover); void readMetric(live.cover, 'offsetWidth'); }   // (the cue says what is opening: a wait of seconds on a slow machine is a loading, not a blank)
     // (A deck link opened cold: the loading cover is still up, and it lifts onto this one. This cover is on at once, not faded in, so the
     // loading cover never lifts onto the plain app's bars and an empty figure for the length of a fade.)
     const cold = document.documentElement.dataset.boot === 'hold';
@@ -224,7 +224,7 @@ export function createStart(st, live) {
   const fontsIn = () => (document.fonts?.load
     ? Promise.race([Promise.all(['400 16px Inter', '600 16px Inter', '600 32px "Source Serif 4"'].map((f) => document.fonts.load(f, 'Aāαἀ').catch(() => {}))), wait(1500)])
     : null);
-  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
+  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient and clock too, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
@@ -249,7 +249,7 @@ export function createStart(st, live) {
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
-    const up = Promise.all([coverUp(), fontsIn()]);
+    const up = Promise.all([coverUp(d.title), fontsIn()]);
     // Starting another deck while one runs keeps the state from before the first.
     const before = live.deck ? live.saved : await capture();
     await up;
@@ -349,8 +349,8 @@ export function createStart(st, live) {
     // (The talk is over: a reload, or a tab the phone discarded and brings back, must not start it again from the link that opened it.)
     if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch (e) { caught('presenter:5785', e); /* no history here */ } }
   }
-  // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
-  // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
+  // When the show ends, the app returns to the patient the viewer started from (16 Nov 2026; it was the healthy preset): that patient and
+  // clock, anatomy view framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
   // lobule layers they chose) stay as they were. The figure dims softly while the patient changes, as between slides, so nothing pops.
   // (A talk started meanwhile takes over: healthyGen moves on, and this return stops at its next step, the figure easing back
   // to full rather than staying dimmed or turning healthy under the new talk; motion review round 2, RF5.)
@@ -365,8 +365,18 @@ export function createStart(st, live) {
     if (st.lobule) { setViewKey('anatomy'); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
     if (store.get().view !== 'anatomic') { setViewKey('anatomy'); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
-    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
-    await loadPreset?.('healthy');
+    // The patient the viewer had before the talk comes back, with the model's clock (16 Nov 2026, play-test: Esc, the ✕ or Finish dropped a viewer who had
+    // picked Decompensated cirrhosis onto Healthy at 0:03). Every way a talk ends goes through here (stop). Only a viewer with no snapshot
+    // (a talk opened on a link, before any patient was captured) lands on the healthy preset.
+    if (b.snap && b.params) {
+      host.send({ type: 'restore', snap: b.snap });
+      replaceParams(structuredClone(b.params));
+      store.set({ presetId: b.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1, speed: b.speed || 1, lastHVPG: b.lastHVPG ?? null, hvpgMeasured: !!b.hvpgMeasured });
+      host.send({ type: 'run', running: b.running !== false, clock: b.clock || 'hemo', speed: b.speed || 1 });
+    } else {
+      host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+      await loadPreset?.('healthy');
+    }
     if (gone()) return;
     stage.fitSlow(reduce.matches ? 0 : 700);
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); if (me === healthyGen) view.style.transition = ''; }

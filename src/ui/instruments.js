@@ -3,7 +3,7 @@
 
 import { NODES } from '../engine/topology.js';
 import { gastricUp } from '../engine/scenario.js';
-import { wallRead } from '../engine/wall-read.js';
+import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/wall-read.js';
 import { pressureColor } from './colormap.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
@@ -381,7 +381,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near rupture', critical: 'Rupture risk' };
+const WALL_SEV = WALL_WORDS;
 // The meter's four states by the stress's share of the tear point (one rule, read by the bar, the readout and the rim of the varix drawn below).
 const wallState = (r) => (r > 1 ? 'critical' : r > 0.7 ? 'danger' : r > 0.4 ? 'caution' : 'ok');
 const RIM_INK = { ...TOKEN_OF_SEV, critical: '--critical' };
@@ -448,11 +448,11 @@ export function createVarixWall() {
     item('endo-tile', h('dt', {}, 'Wall w'), wal),
     item('endo-tile', name('Stress index', 'Index'), idx));
   const side = h('div', { class: 'chart-side' }, stats,
-    h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
+    h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it. ' + WALL_MEANING));
   el.append(stage, side);
   // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
   const set = wordSetter([ptm.v, rad.v, wal.v, idx.v, stressTxt, wPct, wSev]);
-  let wMean = null, wT = 0, wN = 0, wPin = NaN, wPinT = 0;
+  let wMean = null, wPin = NaN, wPinT = 0;
   // (A what-if or a time-lapse pins a new state every few frames: each eases into the last, so the figure does not flicker.)
   function pin(fp) {
     const x = fp?.wall, now = performance.now();
@@ -466,20 +466,18 @@ export function createVarixWall() {
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratioShown > 1 ? 'above the rupture point' : tearTxt(Math.round(v.ratioShown * 100)));
-    const sev = wallState(v.ratioShown);
+    const share = wallShare(v);   // (the engine's two-breath mean: every screen reads this one number, A6)
+    set(stressTxt, share > 1 ? 'above the rupture point' : tearTxt(Math.round(share * 100)));
+    const sev = wallState(share);
     dataSoon(stressBar, 'sev', sev);
-    // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
-    // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
-    const now = performance.now();
-    if (wMean == null || now - wT > 3000) { wMean = v.ratioShown; wN = 1; } else { wN++; wMean += (v.ratioShown - wMean) * Math.max(1 / wN, 1 - Math.exp(-(now - wT) / 6000)); }
-    wT = now;
+    // (The stress swings with each beat and each breath: the engine already gives its mean over two breaths, wallShare, so the number reads steady and the same on every screen, folded or open.)
+    wMean = share;
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
     const ms = wallState(wMean);
     set(wPct, intTxt(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     dataSoon(wSev, 'sev', ms); dataSoon(wBig, 'sev', ms);
-    const wPctW = slideTxt(Math.round(clamp(v.ratioShown, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
+    const wPctW = slideTxt(Math.round(clamp(share, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
     if (stressFill.style.translate !== wPctW) stressFill.style.translate = wPctW;
     const pen = fitPen(cv, wallGL), ctx = pen.ctx;
     try { drawWall(ctx, pen.w, pen.h, v, f); } finally { ctx.end?.(); }
@@ -548,7 +546,7 @@ export function createVarixWall() {
     ctx.strokeStyle = cssVar('--hairline'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rl, 0, 7); ctx.fill();
     // The varix in the submucosa at the top, bulging into the lumen; its size follows the model's radius.
-    const rim = cssVar(RIM_INK[wallState(v.ratioShown)]);   // (the stress meter's four states, below: ok, caution, danger, critical)
+    const rim = cssVar(RIM_INK[wallState(wallShare(v))]);   // (the stress meter's four states, below: ok, caution, danger, critical)
     // Transmural pressure pushes outward on the varix wall: longer arrows for a higher ΔP.
     ctx.strokeStyle = cssVar('--text-2'); ctx.fillStyle = cssVar('--text-2'); ctx.lineWidth = Math.max(1.25, R / 140);
     for (let a = -Math.PI; a < Math.PI - 0.01; a += Math.PI / 4) {

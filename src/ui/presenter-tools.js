@@ -190,7 +190,7 @@ export function createTools({ host, stage }) {
     pin(fp) { for (const k in made) made[k]?.pin?.(fp); },
     /** The instrument of kind k when it is the one showing (the presenter drives the procedure's graph: presenter.js evAdopt), else null. */
     current(k) { return kind === k ? cur : null; },
-    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
+    progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); else cur?.progress?.(k, trail); },   // (a package's instrument that draws a time-lapse's days: tool-shift.js)
     /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
     refit() { cur?.refit?.(); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */

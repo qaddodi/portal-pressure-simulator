@@ -6,7 +6,7 @@ import { Engine } from './engine.js';
 import { computeMetrics } from './metrics.js';
 import { defaultParams, DRUGS } from './scenario.js';
 import { EDGES, dMinOf } from './topology.js';
-import { wallRead } from './wall-read.js';
+import { wallRead, wallShare } from './wall-read.js';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -21,7 +21,7 @@ export const METRICS = {
   hb: { label: 'Hemoglobin', unit: 'g/dL', get: (m) => m.blood.hb, digits: 1 },
   hr: { label: 'Heart rate', unit: '/min', get: (m) => m.hr, digits: 0 },
   shunt: { label: 'Shunt fraction', unit: '%', get: (m) => m.shuntFraction * 100, digits: 0 },
-  varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => m.varix.ratioShown * 100, digits: 0 },
+  varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => wallShare(m.varix) * 100, digits: 0 },
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },

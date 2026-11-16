@@ -13,7 +13,7 @@
 /* ── Package B, charts from the slide's numbers: start ── */
 /* The pressure profile and the portal blood bar (tool-profile.js, tool-flows.js): drawn at their own pixels in the cards' one
    small size; the card's fit shortens the chart, never its words. */
-.pz-tool .pz-inst:is(.pz-prof, .pz-flows) { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); }
+.pz-tool .pz-inst:is(.pz-prof, .pz-flows, .pz-shift) { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); }
 /* (One size per layout, never the card's fit (Mohammad, 21 Oct, Sites 5 on a Mac: "bouncing between large and small card ... vibrating"): shortened
    by the fit, the ladder pushed its brackets into a band, asked for a taller box (tool-profile.js min-height), the card re-fitted, and round again.
    Each box is 1.6 em shorter than it was: the chart no longer keeps a key row over its plot (tool-profile.js profileGeo), so the plot is as tall as
@@ -27,7 +27,7 @@
 /* (The card's fit shortens these charts, never their width or their words: they keep the card's full width and are not zoomed with
    the card. Narrowed and zoomed with the fit as the instruments are, a short card drew the profile at a third of its width with its
    words under 12 px and its values crowded, Sites 4 and 5; its type already keeps 12 px on the screen, tool-profile.js.) */
-.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
+.pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="profile"], [data-kind="flows"], [data-kind="shift"]) { width: 100%; zoom: 1; }   /* (six times, to stand over the stacked card's own width rule, which narrowed them by the fit and the block step: a short window drew the ladder at a third of its card, Sites 4 and 5) */
 .pz .pz-data.pz-data.pz-data.pz-data.pz-data.pz-data > .pz-tool:is([data-kind="vitals"], [data-kind="hvpg"]) { width: 100%; }   /* (the vitals monitor and the catheter tracing draw to their own box, so the card's fit and block steps never narrow them; the same weight as the rule above, to stand over the stacked card's width rule) */
 .pz.stack .pz-data.pz-data.pz-data.pz-data > .pz-tool[data-kind="flowtime"] { width: 100%; zoom: 1; }   /* (a phone's after-meal chart likewise: phoneTextCap shortens it, flow-time.js redraws its words at size) */
 /* Wide chart-only cards allocate the room below the words before fitting. As with the other adaptive charts,
@@ -40,7 +40,9 @@
    drawing centred in the card whatever the slide holds, tool-flows.js. The portal blood card has room for two rows of pills; the
    inflow's has none. Names and percents on the bars carry a halo in the card's colour, so they read on every segment.) */
 .pz-flows { height: var(--flows-h, 10em); min-height: 10em; }
-.pz-flows[data-of="inflow"] { --flows-h: 6em; min-height: 6em; }   /* (the liver's inflow is one bar with the Healthy line over it: the words above, the bar, the line's overshoot; nothing hangs under it, tool-flows.js inflowGeo) */
+.pz-flows[data-of="inflow"] { --flows-h: 6em; min-height: 6em; }
+/* (The change from healthy, tool-shift.js: two panels over the talk's states, the names under them; drawn at its own pixels, one height per layout.) */
+.pz-shift { height: 17em; min-height: 13em; }   /* (the liver's inflow is one bar with the Healthy line over it: the words above, the bar, the line's overshoot; nothing hangs under it, tool-flows.js inflowGeo) */
 /* Treatment bands on the over-time charts (rx-bands.js). On the talk trace a soft band in the treatment's colour, its name in a
    deeper shade over the lines with a halo; the chart grows by the names' rows (talk-trace.js sets --band-room). On a flowtime
    chart the treatments' names on a row under the clock and a thin bar each, the chart taller by them (flow-time.js sets
@@ -494,6 +496,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool > .pz-tool[data-kind="talk"] { --tz: 1; zoom: 1; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="talk"] .pz-talk { height: calc(var(--pz-chart-hh) + var(--band-room, 0px) * var(--pz-fit, 1)); min-height: 0; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool .pz-mon .hvpg-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="beats"] .pt-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="doppler"] .dop-box { height: calc(var(--pz-chart-hh) + var(--dop-free, 0px)); }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="shift"] .pz-shift { height: var(--pz-chart-hh); min-height: 0; }   /* (a phone's: the one chart height, on top of the card) */
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="flowtime"] .pz-flowtime { --ft-h: var(--pz-chart-hh); height: calc(var(--ft-h) + var(--band-room, 0em)); }
 
 /* The scope view on the figure (scope-lens.js, mock C1 6 Nov 2026): the lens beside the varices' ring, the cone to it, its caption and its

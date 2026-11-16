@@ -27,7 +27,7 @@ export const CIRCULATION = {
     {
       id: 'ladder', lens: 'drop', cam: 'route', scales: { lobule: { glow: ['lobule:triad', 'lobule:central'] } }, labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'The portal circulation', title: 'Normal pressures from the portal vein to the right atrium',
-      line: 'The [portal vein](pv) pressure is about {pv} and the [right atrium](ra) {ra}. Healthy [sinusoids](sin) offer little resistance, so the portal pressure gradient is only {ppg}.',
+      line: 'The [portal vein](pv) pressure is {pv}, the [IVC](ivc) {ivc} and the [right atrium](ra) {ra}. Healthy [sinusoids](sin) offer little resistance, so the PPG, portal vein minus IVC, is only {ppg}.',
       notes: 'The ladder runs from the splanchnic veins to the right atrium, through the portal vein, the three intrahepatic stations and the hepatic vein; the wedged hepatic venous pressure reflects the sinusoids. The dashed line is the healthy reference, used on every slide. In health the whole pressure drop from the portal vein to the IVC, the portal pressure gradient (PPG), is ≤5 mmHg, and the hepatic venous pressure gradient (HVPG), the drop across the sinusoids, is 1 to 5 mmHg. The wedged pressure is a balloon-occlusion measurement of sinusoidal pressure; the Measuring HVPG and PPG talk explains it.',
       ask: ['What is the normal portal pressure gradient?', '≤5 mmHg, because healthy sinusoids offer little resistance to flow.'],
     },

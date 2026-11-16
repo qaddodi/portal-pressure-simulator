@@ -632,6 +632,29 @@ function anyMoving(t) {
 }
 /** True while a move asked to be left alone (holdMotion), or a transition begun with beginMotion has not ended. */
 export const inMotion = () => { const t = wall(); return t < holdUntil || (moving.size > 0 && anyMoving(t)); };
+// A slide change, from the press to its landing (presenter.js transition): the page is waiting for the cards and the camera, a frame at a time,
+// and any piece of background work that starts in those waits (the lobule's pictures made ahead, the vessels' envelopes and stretches, the
+// morph's checks) holds the page for 100 to 250 ms a piece, so the camera set off late and its first frames came after it (16 Nov 2026, the
+// stall of 450 to 800 ms on every slide change). Such work asks settling(), not inMotion(): inMotion() also holds the labels' values and the
+// like, which must keep up with a change of patient as it eases in.
+const changes = new Map();   // (change token → the wall time it must end by)
+export const CHANGE_MAX_MS = 8000;
+/** A slide change begins: background work that can wait (settling) waits until the returned end() is called, or CHANGE_MAX_MS passes. */
+export function beginChange(maxMs = CHANGE_MAX_MS) {
+  // alloc-rare: once per slide change, when it begins; never in a frame
+  const tok = {};
+  changes.set(tok, wall() + maxMs);   // alloc-rare: the change's record, made with its begin
+  return () => { changes.delete(tok); };   // alloc-rare: the change's end function, made with its begin
+}
+/** True while a slide change runs (begun with beginChange, and not past its longest). */
+export const inChange = () => {
+  if (!changes.size) return false;
+  const t = wall();
+  for (const [tok, until] of changes) if (t >= until) changes.delete(tok);
+  return changes.size > 0;
+};
+/** Whether background work that can wait should wait: a move holds the page (inMotion), or a slide change runs (inChange). */
+export const settling = () => inMotion() || inChange();
 /** Calls fn once no move holds the page (polled with timers, never a frame loop); returns a cancel. */
 export function afterMotion(fn, poll = 60) {
   let t = 0, dead = false;

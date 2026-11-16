@@ -3,7 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
-import { figureShift, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
+import { figureShift, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -127,7 +127,7 @@ export function createFit(st, live) {
     if (!W || !H) return ins;
     // A phone held sideways docks its cards at the side like a tablet (dock.js), so they count as side cards.
     const wide = W >= 768 || (W > H && H <= 500 && W >= 640);
-    const tops = [];   // (a sideways phone's top-bar pieces: [x0, x1, y1] each, judged against the figure's column below)
+    const blocks = [], tops = [];   // (blocks: the side cards' boxes, for the largest free rectangle, roomiest. tops: a sideways phone's top-bar pieces: [x0, x1, y1] each, judged against the figure's column below)
     for (const { el, rest: q, edge: pedge, part } of list) {
       if (skip && skip.includes(el)) continue;
       // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
@@ -145,11 +145,12 @@ export function createFit(st, live) {
       else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
-      else if (edge === 'right' && (wide || side)) { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
-      else if (wide && edge === 'left') ins.l = Math.max(ins.l, x1);
+      else if (edge === 'right' && (wide || side)) { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); blocks.push([x0, y0, x1, y1]); }
+      else if (wide && edge === 'left') { ins.l = Math.max(ins.l, x1); blocks.push([x0, y0, x1, y1]); }
     }
     // (The top-bar pieces over the figure's column cover its top; the ones beside it do not: card-clear.js. A slide's framing keeps the whole bar clear.)
     if (tops.length) ins.t = topOverColumn(tops, ins, exact);
+    const bandT = ins.t, bandB = ins.b;   // (the bars' bands, before the next rule moves them: roomiest, below)
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
     // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
     // (Not while presenting: a slide's text and data columns are laid out to leave the figure its own column.)
@@ -163,7 +164,7 @@ export function createFit(st, live) {
     if (W - ins.l - ins.r < (store.get().presenting ? 200 : W < 768 ? 260 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
     // (A sheet that leaves the figure under 35% of the height gives up part of its cover, never the top bars': the figure's top stays below the pills.
     // It scaled both before, and with Tests or Treat open on an iPhone the figure's top slid under the pills: A10.)
-    if (!exact) ins.b = squeezeBottom(ins);
+    if (!exact) { ins.b = squeezeBottom(ins); if (!store.get().presenting) roomiest(ins, W, H, bandT, bandB, blocks); }   // (the room the cards leave: card-clear.js roomiest)
     return ins;
   }
   // A framing computed for the whole stage, moved and scaled into the free space.

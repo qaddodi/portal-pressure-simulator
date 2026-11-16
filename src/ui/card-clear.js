@@ -44,3 +44,48 @@ export function topOverColumn(tops, ins, exact = false) {
   for (let i = 0; i < tops.length; i += 3) if (exact || (tops[i] < mid + half && tops[i + 1] > mid - half)) t = Math.max(t, tops[i + 2]);
   return t;
 }
+
+// The largest free rectangle (16 Nov 2026, camera fit with panels open). The insets above are four edges, each the furthest any card reaches, so
+// two cards that leave a big gap between them (Treat at the top right, Tests across the bottom) were read as one wall: the figure was fitted
+// into the 130 px strip under the short card and the gap stayed empty (a Mac window 1250 x 1043 did it with Tests alone).
+// `blocks` are the side cards' boxes [x0, y0, x1, y1] in stage px; `t` and `b` are the bars' full-width bands above and below. Every rectangle
+// the cards' edges and the bands bound is tried; the one the figure would be biggest in wins (its drawn size is limited by the narrower of the
+// room's width and its height times the figure's own shape, FIG_SHAPE), then the larger area. Gives { l, t, r, b, score } as insets, or null.
+export const FIG_SHAPE = 0.89;   // (the figure's width over its height: VB_ANAT 820 x 920)
+export const roomScore = (w, h) => Math.min(w, h * FIG_SHAPE);
+export function largestFreeRect(W, H, t, b, blocks) {
+  const y0 = t, y1 = H - b;
+  if (!(W > 0) || !(y1 - y0 > 0)) return null;
+  const xs = [0, W], ys = [y0, y1];
+  for (const k of blocks) {
+    if (k[0] > 0 && k[0] < W) xs.push(k[0]);
+    if (k[2] > 0 && k[2] < W) xs.push(k[2]);
+    if (k[1] > y0 && k[1] < y1) ys.push(k[1]);
+    if (k[3] > y0 && k[3] < y1) ys.push(k[3]);
+  }
+  xs.sort((p, q) => p - q); ys.sort((p, q) => p - q);
+  let best = null;
+  for (let i = 0; i < xs.length; i++) for (let j = i + 1; j < xs.length; j++) {
+    const xa = xs[i], xb = xs[j];
+    if (xb - xa < 1) continue;
+    for (let m = 0; m < ys.length; m++) for (let n = m + 1; n < ys.length; n++) {
+      const ya = ys[m], yb = ys[n];
+      if (yb - ya < 1) continue;
+      let hit = false;
+      for (const k of blocks) if (k[0] < xb - 0.5 && k[2] > xa + 0.5 && k[1] < yb - 0.5 && k[3] > ya + 0.5) { hit = true; break; }
+      if (hit) continue;
+      const score = roomScore(xb - xa, yb - ya), area = (xb - xa) * (yb - ya);
+      if (!best || score > best.score + 0.5 || (score > best.score - 0.5 && area > best.area)) best = { l: xa, t: ya, r: W - xb, b: H - yb, score, area };
+    }
+  }
+  return best;
+}
+
+// The insets the figure is fitted into: the edges' way (`ins`, as safeInsetsFrom worked them out) unless the largest free rectangle is clearly roomier
+// (15 % and 8 px more figure), as with Treat at the top right over a Tests sheet, or Tests alone in a tall window (the 560 px card ends above 62 % of it).
+// Never on a slide, whose columns are laid out for the figure. Written into `ins`.
+export function roomiest(ins, W, H, bandT, bandB, blocks) {
+  const fr = blocks.length ? largestFreeRect(W, H, bandT, bandB, blocks) : null;
+  if (fr && fr.score >= 200 && fr.score > roomScore(W - ins.l - ins.r, H - ins.t - ins.b) * 1.15 + 8) { ins.l = fr.l; ins.r = fr.r; ins.t = fr.t; ins.b = fr.b; }
+  return ins;
+}

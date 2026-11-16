@@ -30,8 +30,10 @@ import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, isLive, litOf, outcomeOf, 
 import { headKeys } from './card-tiles.js';
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
+/** The smallest a figure's words may be drawn on screen, in px (7c, play-test 16 Nov 2026: the Stages figure was drawn at 60% and its 11-12 px words came out at about 8 px, unreadable on a projector). Every ROLE is at least 12 px (the small phone grid's answer 11), and a figure is never fitted below FIT_MIN of its size, so its smallest word is at least FIG_TEXT_MIN. */
+export const FIG_TEXT_MIN = 10, ROLE_MIN = 11, ROLE_SMALL = ['ctc', 'csc'], FIT_MIN = FIG_TEXT_MIN / ROLE_MIN;   // (ROLE_SMALL: the small layout's (a phone's) grid answers and their second line, 11 px, drawn whole on a phone, never fitted down)
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
-const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.475, FIT_MIN = 0.6;   // (the data card keeps under half the window's height for the picture, which with the card's own rows is all it has; never drawn below 60%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac, 62% still 11 px over in one 481 px high)
+const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.55;   // (the data card keeps under half the window's height for the picture, which with the card's own rows is all it has; never drawn below 60%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac, 62% still 11 px over in one 481 px high)
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
@@ -40,11 +42,11 @@ export const ROLE = {
   t: { weight: 400, size: 12, lh: 15 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 15 }, st: { weight: 500, size: 12, lh: 15 },
   rh: { weight: 600, size: 21, lh: 26 }, rs: { weight: 500, size: 12, lh: 26 }, rp: { weight: 400, size: 14, lh: 20 },
   // the score card, checklist, grid and ladder (path-cards.js): a row's name and definition, an answer and its points, a zone's name
-  rn: { weight: 600, size: 13, lh: 17 }, rd: { weight: 400, size: 12, lh: 16 }, op: { weight: 600, size: 12, lh: 16 }, pt: { weight: 600, size: 11, lh: 16 }, zl: { weight: 500, size: 11, lh: 14 },
+  rn: { weight: 600, size: 13, lh: 17 }, rd: { weight: 400, size: 12, lh: 16 }, op: { weight: 600, size: 12, lh: 16 }, pt: { weight: 600, size: 12, lh: 16 }, zl: { weight: 500, size: 12, lh: 14 },
   // the grid's column and row names, a cell's words (the small layout's a little smaller) and its second line
-  gh: { weight: 500, size: 12, lh: 16 }, gr: { weight: 600, size: 12, lh: 16 }, gs: { weight: 400, size: 11, lh: 14 }, ct: { weight: 600, size: 12, lh: 16 }, ctc: { weight: 600, size: 11, lh: 14 }, cs: { weight: 400, size: 11, lh: 14 },
+  gh: { weight: 500, size: 12, lh: 16 }, gr: { weight: 600, size: 12, lh: 16 }, gs: { weight: 400, size: 12, lh: 14 }, ct: { weight: 600, size: 12, lh: 16 }, ctc: { weight: 600, size: 11, lh: 14 }, cs: { weight: 400, size: 12, lh: 14 }, csc: { weight: 400, size: 11, lh: 14 },
   // the ladder's stage label, "Patient is here", what the stage means, and the way back (its lead and its words)
-  sn: { weight: 500, size: 11, lh: 14 }, yo: { weight: 600, size: 11, lh: 14 }, sw: { weight: 600, size: 12, lh: 16 }, bk: { weight: 400, size: 12, lh: 16 }, bb: { weight: 600, size: 12, lh: 16 },
+  sn: { weight: 500, size: 12, lh: 14 }, yo: { weight: 600, size: 12, lh: 14 }, sw: { weight: 600, size: 12, lh: 16 }, bk: { weight: 400, size: 12, lh: 16 }, bb: { weight: 600, size: 12, lh: 16 },
 };
 
 /** The readings the card's header row already shows as tiles (card-tiles.js headKeys: the slide's tiles beside its instrument), so the card does not say them again. */
@@ -184,11 +186,11 @@ export function createPath() {
   function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
 
   /** Everything that does not change with the patient: the columns, the nodes' words and their heights, the rooms reserved, the total height. */
-  function layout(sc = 1) {
+  function layout(sc = 1, small = false) {
     if (!spec || !(W > 0) || !ready) return;
     const Wv = W / sc;   // (the width the picture is laid out in: wider than the card when it is drawn smaller to fit the card's height)
     const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches;
-    const compact = card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone);
+    const compact = small || (card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone));
     ctxFor();
     const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
     let y = 0;
@@ -234,7 +236,13 @@ export function createPath() {
     // about half the window's height for it; the phone's small map has its own room)
     const room = Math.max(300, viewSize().h * FIT_SHARE);
     // (The small map is fitted the same way off a phone: on a 900 px Mac the Rule of five map stood 513 px tall in a 482 px card and the card cut its last 90 px.)
-    if (sc === 1 && (!compact || !phone) && L.H > room) return layout(Math.max(FIT_MIN, room / L.H));
+    if (sc === 1 && (!compact || !phone) && L.H > room) {
+      // (B13, 16 Nov 2026: fitted down to 60% the Baveno bleeding chart's words came out at 5 to 6 px. A figure that needs less than FIT_MIN of its size to fit
+      // is not shrunk past it: the whole chart gives way to the small map (12 px words and up), whose own height is fitted the same way.)
+      const need = room / L.H;
+      if (need >= FIT_MIN) return layout(need, small);
+      return compact ? layout(FIT_MIN, small) : layout(1, true);
+    }
     L.Hr = Math.ceil(L.H * sc);
     lay = L;
     pic.style.height = `${L.Hr}px`;

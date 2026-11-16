@@ -213,7 +213,7 @@ function drawGrid(spec, W, compact, p, H) {
     for (const [t, face] of parts) { if (!t) continue; paras.push(...wrap(t, face, width)); ends.add(paras.length - 1); }
     return fl(H, paras, width, { align: 'center', gap: (pi) => (ends.has(pi) ? gapAfter : 0) });
   };
-  const word = (ce, width) => block([[ce[0], cFace], [ce[1], 'cs']], width);
+  const word = (ce, width) => block([[ce[0], cFace], [ce[1], compact ? 'csc' : 'cs']], width);
   const pTone = H.TOKEN[spec.cells[`${p.r}|${p.c}`][2]];
   // (each word of the grid is centred in its frame, kept on the op as box [x0, x1, y0, y1] so a test can hold it inside: nothing spills)
   const putIn = (items, ox, oy, on, tone, box) => { const n = ops.length; put(ops, items, ox, oy, on, tone); for (let i = n; i < ops.length; i++) ops[i].box = box; };
