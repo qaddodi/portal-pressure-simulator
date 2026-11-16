@@ -31,7 +31,6 @@ test('a name a layout moves fades from its old place to the new (never a snap, n
   assert.match(LABELS, /function noteAt\(L, fade\)/);
   assert.match(LABELS, /if \(fade\) L\.fadeMove = true;/);
   assert.match(LABELS, /const eased = false;/, 'no glide');
-  assert.match(LABELS, /const fade = !!L && L\.fadeMove && !off;/);
   assert.match(LABELS, /D_SURFACE, call \? \(off \? 0\.94 : 1\) : -1, t, fade\);/, 'asked of the shared caption layer');
   assert.match(RECORDS, /noteAt\(L, still && !L\.peek\)/, 'only a name already showing');
   const still = RECORDS.match(/const still = (.*);\n/)[1];
@@ -39,8 +38,16 @@ test('a name a layout moves fades from its old place to the new (never a snap, n
   assert.match(ZOOM, /get gliding\(\) \{ return gliding; \}, set gliding/, 'the camera glide flag the layout reads');
   assert.match(read('../src/ui/sinusoid-view.js'), /PUT\.fade = !dive && \(!VW\.vel \|\| calm\(VW\.vel\)\);/, 'the Sinusoid view too');
   assert.match(read('../src/ui/label-captions.js'), /function moveFade\(/);
-  assert.ok(!/syncLeaders/.test(LABELS + ZOOM.replace(/function syncLeaders|syncLeaders\(\)/g, '')), 'no glide left to follow');
+  assert.ok(!/live\.syncLeaders/.test(LABELS + ZOOM), 'no glide left to follow');
   void SV;
+});
+
+test("the zone names' and the call-out pill's moves fade too, as a layout's own (not a ride's) puts", () => {
+  assert.match(LABELS, /let layFade = false;/);
+  assert.match(LABELS, /if \(layFade\) e\._fm = true;/);
+  assert.match(LABELS, /const fade = !off && \(L \? L\.fadeMove : !!e\._fm\);/);
+  assert.match(RECORDS, /function layoutLabels\(\) \{\n {4}try \{ layoutLabelsRun\(\); \} finally \{ setLayFade\(false\); \}/, 'never left on after a layout, so a ride or a bake is not faded');
+  assert.match(RECORDS, /setLayFade\(still\);/);
 });
 
 test('every lobule, sinusoid and zone name takes the same 4 px outline, nowhere the thinner 3 px', () => {
