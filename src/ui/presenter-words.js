@@ -15,7 +15,6 @@ import { citeText } from './teach-extras.js';
 import { clausesOf, shownLine } from './reveal.js';
 
 export const LOBULE_CAM = /^(lobule|sinusoid)/;
-
 // ── Numbers ────────────────────────────────────────
 // A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
 export function equation(eq) {
@@ -152,6 +151,7 @@ export const TARGETS = {
   'sinusoid:hepatocyte': { lit: true, tone: 'accent', words: 'hepatocytes?|liver cells' },
   'sinusoid:lymph': { lit: true, tone: 'ivc', words: 'lymph' },
   'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
+  'sinusoid:canaliculus': { lit: true, tone: '--bile-duct', words: 'bile canaliculi|bile canaliculus|canaliculi' },
 };
 const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
 // (A deck visuals package's targets (slide-ext.js) after the app's own, before the node names and the station tones.)

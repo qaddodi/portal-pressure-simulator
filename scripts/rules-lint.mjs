@@ -384,6 +384,23 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/gl\.scissor\(CELL_BOX\[i \* 4\][^\n]*tissue\(u, 1\); \}\n\s+gl\.disable\(gl\.SCISSOR_TEST\);/, "each box is its own scissored draw, and the test is switched off again for what is drawn after"],
   ]);
 
+  // The bile canaliculus (16 Nov 2026, Mohammad: "Build the named canaliculus"): source shapes kept here (PR-02), each with its reason.
+  need('src/ui/sinusoid-gl.js', [
+    [/float vm = HEP \* \(0\.3 \+ 0\.4 \* h1\(j, sd \+ 9\)\), bend = 4\.0 \* \(h1\(j, sd \+ 10\) - 0\.5\)/, "the shader's cell border is the one canaliculusAt() follows, so the name's leader lands on the canaliculus drawn"],
+    [/vec2 q = vec2\(x - edgeAt\(j \+ k, sd, v\), v - 0\.5 \* HEP\);/, 'each canaliculus sits on a cell border, mid-plate'],
+  ]);
+  forbid('src/ui/sinusoid-gl.js', /Bile canaliculi between neighbouring cells[\s\S]{0,1400}?\b(uFlow|uLym|uShim|uLyF)\b[\s\S]{0,200}?return outC;/, 'the canaliculi are still: canalicular bile moves by diffusion, not as a stream (Vartak, Hepatology 2021)');
+  need('src/ui/sinusoid-view.js', [
+    [/region\('bc', 'Bile canaliculus'/, 'one canaliculus is named in the view'],
+    [/const DECK = \[[^\]]*'bc'\]/, "its name gives way to the other names (it is the last to place)"],
+    [/if \(litNow\(\)\.has\('sinusoid:canaliculus'\)\)/, 'a portrait screen has no room for a seventh name: it is named there only while a slide points at it'],
+    [/R\.key === 'bc' && !bcOn\) \? 0 : dimA\(R\)/, 'a canaliculus the layout did not name fades its name out (never left where it was)'],
+  ]);
+  need('styles/app-*.css', [
+    ['[data-target="sinusoid:canaliculus"] { --term-c: var(--bile-duct); }', "a lit canaliculus takes the bile ducts' ink, as the lobule's ductule does"],
+    ['.app[data-lit~="sinusoid:canaliculus"] [data-target="sinusoid:canaliculus"]', 'a lit canaliculus name is coloured like every lit sinusoid name'],
+  ]);
+
   // The calipers' tick text is built only when a number of it changed (15 Nov 2026, app review SF-3): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/stage-outlines.js', [
     [/if \(el0 && !el0\.going && segsSame\(el0\.capN, g\.segs\)\) \{ el0\.seen = true; continue; \}/, "a caliper that stands still keeps its element and builds no path text"],
