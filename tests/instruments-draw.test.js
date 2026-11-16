@@ -165,13 +165,17 @@ test('the HVPG card shows the finished tracing at once when jumped to, eases to 
   assert.ok(texts(cv2).includes('FHVP') && texts(cv2).includes('8.2'), `the free pressure: ${texts(cv2)}`);
   assert.ok(!texts(cv2).includes('WHVP') && !texts(cv2).includes('11.4'), 'nothing more until Next');
   assert.equal(bal, 0, 'the balloon down');
+  // (canStep: whether Next or Back would take a reading, asked with nothing changed: the presenter asks it before a swipe lifts a card, so a swipe that only steps moves none, Varices 6/11.)
+  assert.deepEqual([sweep.canStep(1), sweep.canStep(-1), sweep.canStep(1)], [true, false, true], 'on the free pressure a Next would step and a Back would leave');
   assert.equal(sweep.step(1), true, 'Next: the wedge');
   fresh(cv2); play();
   assert.ok(texts(cv2).includes('WHVP') && texts(cv2).includes('19.6'), `the balloon up, the wedged pressure: ${texts(cv2)}`);
   assert.ok(!texts(cv2).includes('HVPG'), 'the HVPG waits for its Next');
   assert.equal(bal, 1, 'the figure\'s balloon up with the tracing\'s');
+  assert.deepEqual([sweep.canStep(1), sweep.canStep(-1)], [true, true], 'on the wedge both ways step');
   assert.equal(sweep.step(1), true, 'Next: the HVPG');
   fresh(cv2); play();
+  assert.deepEqual([sweep.canStep(1), sweep.canStep(-1)], [false, true], 'on the HVPG a Next moves on, a Back takes the reading back');
   assert.ok(texts(cv2).includes('HVPG') && texts(cv2).includes('11.4'), `the result: ${texts(cv2)}`);
   assert.equal(sweep.step(1), false, 'then Next moves on');
   assert.equal(sweep.step(-1), true, 'Back: the HVPG off');
@@ -181,7 +185,18 @@ test('the HVPG card shows the finished tracing at once when jumped to, eases to 
   fresh(cv2); play();
   assert.ok(tail(cv2).includes('FHVP') && !tail(cv2).includes('WHVP') && !tail(cv2).includes('balloon up'), `back on the free pressure: ${tail(cv2)}`);
   assert.equal(bal, 0, 'the figure\'s balloon down again');
+  assert.equal(sweep.canStep(-1), false, 'on the free pressure again a Back leaves the slide');
   assert.equal(sweep.step(-1), false, 'then Back leaves the slide');
+  // A card jumped to shows the finished tracing and takes no reading going Back (it was never stepped).
+  const jumped = createHvpgCard();
+  jumped.configure({ kind: 'hvpg' }, { slide: {} });
+  jumped.arrive({ forward: false }); jumped.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 });
+  assert.deepEqual([jumped.canStep(1), jumped.canStep(-1)], [false, false], 'a card jumped to has nothing to step');
+  // The catheter on the figure takes the steps on its own slides: the card steps none.
+  const cath = createHvpgCard();
+  cath.configure({ kind: 'hvpg', catheter: true }, { slide: { cath: 'free' } });
+  cath.arrive({ forward: true }); cath.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 });
+  assert.deepEqual([cath.canStep(1), cath.canStep(-1)], [false, false], 'a catheter slide\'s card steps nothing');
   assert.deepEqual(cv2.log.bad, []);
   // A Next pressed while the wedge is still holding its plateau brings the HVPG within a second (its bracket draws in), not after the rest of the plateau (headless shots, 13 Nov 2026).
   sweep.arrive({ forward: true, again: false }); sweep.pin({ fhvp: 8.2, whvp: 19.6, hvpg: 11.4 }); play();
