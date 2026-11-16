@@ -64,6 +64,7 @@
 //   param: 'scope.air' (from 0, to 20), lines: ['seen', 'across']
 //                     a curve over the scope's air in the esophagus, an instrument option, not a model setting: worked out from
 //                     the slide's own varix as the scope works it (the size seen, the pressure across the wall), nothing run.
+//   gap: true         with two swept lines against one x (against, pair): the band between them, tinted, so their difference reads as a shape.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
@@ -817,6 +818,12 @@ export function createCurve() {
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', 'data-look': 'cv.name', 'data-p-c': tokName(l.c), 'data-nomorph': '' }, l.name) : null };
     });
+    // (gap: true, two swept lines read against the same x: the band between them, so a difference of a mmHg or two shows as a shape, the claim of the slide.)
+    let gapEl = null;
+    if (t.gap && ser && G.ag && lines.length >= 3) {
+      const at = (j) => (ser.ys[j] || []).map((y, i) => (Number.isFinite(y) ? [X(lineX(j)[i]), lines[j].Y(y)] : null)).filter(Boolean), a = at(1), b = at(2).reverse();
+      if (a.length > 1 && b.length > 1) gapEl = sv('path', { class: 'pcv-gap', 'data-look': 'cv.gap', d: `M${[...a, ...b].map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')}Z` });
+    }
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
     let nth = 0;
@@ -847,7 +854,7 @@ export function createCurve() {
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      sv('defs', {}, panel.clip), panel.back, zone, gapEl, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
@@ -984,14 +991,6 @@ export function createCurve() {
       if (d.lead) restClass(d.lead, 'off', !pl.lead);
       if (pl.ok) { boxes.push(pl.box); if (pl.lead) leads.push(Object.assign([...pl.lead], { w: 2 })); }
     });
-    // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
-    if (ob.zoneLab) {
-      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
-      for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
-      const pl = placeWord(cands, tw, f, { ...ob, boxes });
-      boxes.push(pl.box);
-      ob.zoneLab.setAttribute('x', pl.x.toFixed(1)); ob.zoneLab.setAttribute('y', pl.y.toFixed(1)); ob.zoneLab.setAttribute('text-anchor', pl.anchor);
-    }
     // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
@@ -1012,6 +1011,14 @@ export function createCurve() {
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       restClass(c.el, 'on', !!p.on);
+    }
+    // (The zone's name inside it, low and away from the lines, after the cut-offs' names so it keeps clear of them ("HVPG 5" and "Response" stood on each other): the right corner, else the left or the middle.)
+    if (ob.zoneLab) {
+      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
+      for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
+      const pl = placeWord(cands, tw, f, { ...ob, boxes });
+      boxes.push(pl.box);
+      ob.zoneLab.setAttribute('x', pl.x.toFixed(1)); ob.zoneLab.setAttribute('y', pl.y.toFixed(1)); ob.zoneLab.setAttribute('text-anchor', pl.anchor);
     }
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`
