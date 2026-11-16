@@ -293,13 +293,13 @@ export default [
   { file: 'src/ui/vitals-gl.js', need: [/drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'the vitals monitor is all GPU: no 2D context, no cached pictures (one capsule per strip segment)'] },
   // wall-numbers-agree
   { file: 'src/ui/instruments.js', need: [/const wr = wallRead\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/instruments.js', need: [/v\.ratioShown > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
-  { file: 'src/ui/instruments.js', need: [/wMean = v\.ratioShown/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
-  { file: 'src/ui/dock.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/compare.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/inspector.js', need: [/metrics\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/inspector.js', need: [/wallShare\(f\.metrics\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/inspector.js', need: [/metrics\.gastricVarix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/engine/explain.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/engine/explain.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   // warm-vis
   { file: 'src/ui/stage*', need: [/const seen = warmVis\(o\.id\);/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },
   { file: 'src/ui/stage*', need: [/\(wmVis && !wmVis\[2 \* \(t < 0\.5 \? i0 : i1\) \+ \(side > 0 \? 1 : 0\)\]\)/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },

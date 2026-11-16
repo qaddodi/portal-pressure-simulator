@@ -4,6 +4,7 @@
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js';
+import { wallShare } from '../engine/wall-read.js';
 import { h, fmt, svgIcon } from './util.js';
 import { liveBalance } from './balance-hold.js';
 import { activeInterventions } from './inspector.js';
@@ -13,7 +14,7 @@ import { activeInterventions } from './inspector.js';
 const GROUPS = [['Pressure', 3], ['Flow', 3], ['Consequences', 2], ['Systemic', 3]];
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
-  ['Hepatic perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => m.varix.ratioShown * 100, 0, '%'],
+  ['Hepatic perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall stress (model)', (m) => wallShare(m.varix) * 100, 0, '%'],
   ['Ascites formation', (m, live) => (live ? liveBalance(m.ascites.ratePerDay) : Math.round(m.ascites.ratePerDay / 100) * 100), 0, 'mL/day'], ['Right atrial pressure', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 1, 'L/min'],
 ];
 
