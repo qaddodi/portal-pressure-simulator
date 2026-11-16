@@ -12,6 +12,7 @@ import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
 import { cancelRest, flushRestAttrs, restAttr, restPass } from './rest-pass.js';
+import { stageScope } from './stage-scope.js';
 import { store } from './store.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { geoOf, setGeo, svgModel } from './svg-gl.js';
@@ -856,7 +857,7 @@ export function createLobuleLabels(st, live) {
     write(g) { for (let i = 0; i < 3; i++) setGeo(callRing, CALL_G[i], g[i]); setGeo(callLine, 'x1', g[3]); setGeo(callLine, 'y1', g[4]); setGeo(callLine, 'x2', g[5]); setGeo(callLine, 'y2', g[6]); leadGL.paint(); },
     isOn: () => classHas(callRing, 'on'), pillOn: () => classHas(callEl, 'on'),
     setOn(on) { classSoon(callLine, 'on', on); classSoon(callRing, 'on', on); runSoon(leadPaint); },
-    schedule: (fn, ms) => setTimeout(fn, ms), cancel: (t) => clearTimeout(t), ms: D_SMALL,
+    schedule: (fn, ms) => stageScope.timer(fn, ms), cancel: (t) => stageScope.clear(t), ms: D_SMALL,   // (a timer of the stage's scope, docs/scheduling.md: not a bare one)
   });
   // A layout's own puts (the zone names, the call-out pill) are marked to fade to their new spot (layFade, set by layoutLabels while the camera is not carrying them).
   let layFade = false;

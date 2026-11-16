@@ -4,7 +4,7 @@
 export const DISEASES = ['cardiac cirrhosis', 'cirrhosis', 'cirrhotic', 'portal vein thrombosis', 'splenic vein thrombosis', 'PVT',
   'non-?cirrhotic portal hypertension', 'NCPH', 'porto-?sinusoidal vascular disorder', 'PSVD', 'schistosomiasis', 'sinusoidal obstruction(?: syndrome)?', 'SOS', 'IVC web',
   'hepatic artery thrombosis', 'HRS(?:-AKI)?', 'pancreatic cancer', 'liver cancer', 'Budd[–-]⁠?Chiari(?: syndrome)?',
-  'right heart failure', 'heart failure', 'MASLD', 'hepatitis [BC]', 'alcohol-associated hepatitis', 'tricuspid regurgitation', 'constrictive pericarditis',
+  'right heart failure', 'heart failure', 'MASLD', 'MASH(?: cirrhosis)?', 'hepatitis [BC]', 'alcohol-associated hepatitis', 'tricuspid regurgitation', 'constrictive pericarditis',
   'hepatorenal syndrome', 'spontaneous bacterial peritonitis', 'SBP', 'hepatic encephalopathy', 'congestive hepatopathy', 'nodular regenerative hyperplasia',
   'hepatoportal sclerosis', 'hepatic fibrosis', 'hepatocellular carcinoma', 'HCC', 'pancreatitis', 'sarcoidosis', 'primary biliary cholangitis'];
 
