@@ -56,6 +56,7 @@ export default {
   tree, mapWords, lit,
   outcomes: ['in', 'gray', 'out'],
   outcomeOf, reading, chips, patientFor, compare,
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { lsm: 99.9, plt: 1000 },
   notes: 'The AASLD 2024 guidance (Fig. 3, guidance statement 7) combines liver stiffness measurement (LSM) by vibration-controlled transient elastography with the platelet count: the rule of five. CSPH is presumed at LSM ≥25 kPa whatever the platelets, at 20–25 kPa with platelets <150,000/µL, or at 15–20 kPa with platelets <110,000/µL. It is excluded at LSM <15 kPa with platelets ≥150,000/µL. Between them lies an indeterminate zone, where spleen stiffness or HVPG can decide. Baveno VIII draws its first-visit rules differently: it rules CSPH out at LSM ≤15 kPa with platelets ≥150,000/µL and in at LSM ≥25 kPa, so the two differ at exactly 15 kPa. Interpret it with caution in obesity with MASLD, ALT >3 × ULN, and primary sclerosing cholangitis with a dominant stricture, where it is less well validated.',
 };

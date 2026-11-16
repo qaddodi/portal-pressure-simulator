@@ -10,7 +10,7 @@
 import { HVPG_CUTS } from './pressure-cuts.js';
 import { LSM_CUTS } from './lsm-cuts.js';
 import { ASCITES_CUTS, VARIX_NONE_MM, VARIX_LARGE_MM } from './metrics.js';
-import { FAMILIES, FAMILY, SIDE, sidesOf, sideDefault, sideClamp, spanOf, keyOf, settingText, settingsOf, pctText, LESION, U_MIN, U_MAX } from './inverse-families.js';
+import { FAMILIES, FAMILY, SIDE, sidesOf, sideDefault, sideClamp, spanOf, keyOf, settingText, settingsOf, pctText, LESION, LESION_IDS, U_MIN, U_MAX } from './inverse-families.js';
 
 /** How a reading is compared. 'abs': difference in its unit; 'log': the log of the ratio (a stiffness or a count is wrong by a fraction);
  *  'grade': the person chose a grade, so a prediction inside the grade's range is a perfect fit and outside it is judged from the nearer edge. */
@@ -383,6 +383,8 @@ function fitCandidates(result, count) {
 export const PROBE = 0.06;
 /** How many of the best families also move their side settings (the pump, the volume, the albumin, the tone): each adds probes, so the leaders only. */
 export const SIDE_FAMILIES = 4;
+/** How many of the best families start their neighbours (the same mix with one lesion swapped for another of its slot). */
+const SEED_FAMILIES = 3;
 /** How far (in a move's own range) a point may sit from the base and still shape the slopes the step is made from. */
 const NEIGHBOUR = 0.3;
 
@@ -449,6 +451,21 @@ export function refinePoints(result, known, { families = 12, max = 40, round = 1
     }
     lists.push(mine);
   });
+  // Starts in the neighbouring families: the best few, with each lesion swapped for another that fills the same slot (a failing heart for a constricted one,
+  // a hepatic vein block for an IVC web) at the same severity. Where the model cannot tell two lesions apart one of them may sit far from the library's coarse
+  // points and never be fitted; a start beside its twin's fit gets it there, and the ranking then shows both.
+  const seeds = [];
+  for (const f of result.families.filter((x) => !x.redundant && x.status !== 'out').slice(0, SEED_FAMILIES)) {
+    const axes = FAMILY[f.id].axes;
+    for (const k of axes) for (const l of LESION_IDS) {
+      if (l === k || LESION[l].slot !== LESION[k].slot || axes.includes(l)) continue;
+      const id = axes.map((a) => (a === k ? l : a)).sort((a, b) => LESION_IDS.indexOf(a) - LESION_IDS.indexOf(b)).join('+');
+      if (!FAMILY[id]) continue;
+      const p = Object.fromEntries(FAMILY[id].axes.map((a) => [a, a === l ? f.best.p[k] : f.best.p[a]])), key = keyOf(id, p);
+      if (!seen.has(key)) { seen.add(key); seeds.push({ f: id, p }); }
+    }
+  }
+  lists.unshift(seeds);
   const out = [];
   for (let i = 0; out.length < max; i++) {
     let any = false;

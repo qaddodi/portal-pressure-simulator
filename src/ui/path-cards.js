@@ -56,7 +56,7 @@ export const zoneText = (z, allOf) => (allOf ? z[2] : `${z[2]} · ${z[1] === 99 
 // ── score ──
 function drawScore(spec, W, compact, p, H) {
   const { ROLE, TOKEN } = H, ops = [], allOf = !!spec.allOf, { t, v } = scoreState(spec, p), tone = TOKEN[v.tone];
-  const pillH = ROLE.op.lh + 2 * PAD_Y;
+  const padY = compact ? 3 : PAD_Y, pillH = ROLE.op.lh + 2 * padY, rowPad = compact ? 6 : ROW_PAD;   // (the small layout's rows stand a little closer)
   const pillW = (o) => 2 * PAD_X + wOf(H, 'op', o[0]) + (allOf ? 0 : PILL_GAP + wOf(H, 'pt', pointsText(o[1])));
   const natural = Math.max(...spec.rows.map((r) => r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP));
   const avail = W - COL_GAP, optsW = Math.min(Math.max(natural, avail * 0.28), avail * 0.68), namesW = avail - optsW;   // (the answers' column as wide as its widest row needs; the names get the rest)
@@ -68,22 +68,32 @@ function drawScore(spec, W, compact, p, H) {
       if (x > 0 && x + w > width + 0.01) { x = 0; y += pillH + PILL_GAP; }
       const on = p[r.k] === oi, px = x0 + x, py = y0 + y;
       ops.push(rect('path.opt', px, py, w, pillH, 8, on, tone));
-      ops.push(text('op', px + PAD_X, py + PAD_Y + baseOf(ROLE.op), o[0], on, tone));
-      if (!allOf) ops.push(text('pt', px + PAD_X + wOf(H, 'op', o[0]) + PILL_GAP, py + PAD_Y + baseOf(ROLE.op), pointsText(o[1]), on, tone));
+      ops.push(text('op', px + PAD_X, py + padY + baseOf(ROLE.op), o[0], on, tone));
+      if (!allOf) ops.push(text('pt', px + PAD_X + wOf(H, 'op', o[0]) + PILL_GAP, py + padY + baseOf(ROLE.op), pointsText(o[1]), on, tone));
       x += w + PILL_GAP;
     });
     return y + pillH;
   };
   let y = 0;
   spec.rows.forEach((r, ri) => {
-    if (ri) { ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5)); y += 1 + ROW_PAD; }
+    if (ri) { ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5)); y += 1 + rowPad; }
     const paras = [[{ text: r.n, face: 'rn' }], ...(r.d ? [[{ text: r.d, face: 'rd' }]] : [])];
-    const name = fl(H, paras, compact ? W : namesW, { gap: 2 });
-    put(ops, name.items, 0, y, false, 'text');
     let rowH;
-    if (compact) rowH = name.h + 6 + pills(r, 0, y + name.h + 6, W);
-    else rowH = Math.max(name.h, pills(r, namesW + COL_GAP, y, optsW));
-    y += rowH + ROW_PAD;
+    // (the small layout: a row whose name is one line and whose answers fit beside it puts them on that line, right-aligned, the definition under:
+    // the answers' line stood apart for every row, Mohammad 16 Nov 2026, the phone cards too long)
+    const rowPills = r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP, one = compact && fl(H, [[{ text: r.n, face: 'rn' }]], W - rowPills - 10);
+    if (one && one.h === ROLE.rn.lh) {
+      put(ops, one.items, 0, y + (pillH - ROLE.rn.lh) / 2, false, 'text');
+      const ph = pills(r, W - rowPills, y, rowPills);
+      rowH = ph;
+      if (r.d) { const d = fl(H, [[{ text: r.d, face: 'rd' }]], W); put(ops, d.items, 0, y + ph + 4, false, 'text'); rowH += 4 + d.h; }
+    } else {
+      const name = fl(H, paras, compact ? W : namesW, { gap: 2 });
+      put(ops, name.items, 0, y, false, 'text');
+      if (compact) rowH = name.h + 6 + pills(r, 0, y + name.h + 6, W);
+      else rowH = Math.max(name.h, pills(r, namesW + COL_GAP, y, optsW));
+    }
+    y += rowH + rowPad;
   });
   // the total: the bar of zones (as wide as the totals each covers), their names, the verdict and what is next
   ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5));

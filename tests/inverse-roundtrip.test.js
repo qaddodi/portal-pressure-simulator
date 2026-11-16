@@ -29,12 +29,12 @@ test('a random patient is drawn from the lesions and their side sliders, and run
   assert.ok(p.f && Object.keys(p.p).length >= 1);
 });
 
-test('WHVP 30 with FHVP 24: right heart failure with cirrhosis is a leading scenario, at the cirrhosis the model needs for an HVPG of 6 under that congestion', { timeout: 300000 }, () => {
+test('WHVP 30 with FHVP 24: right heart failure with about 40% cirrhosis on the slider is a leading scenario (an HVPG of 6 with the atrium at 24, congestion does not take the gradient away)', { timeout: 300000 }, () => {
   const res = fit({ whvp: 30, fhvp: 24 });
   const f = res.families.find((x) => x.id === 'sinus+rhf');
   assert.ok(f && (f.status === 'best' || f.status === 'tie') && !f.redundant, 'sinus+rhf: ' + (f && f.status));
   assert.ok(f.best.chi < 3, 'it gives both pressures: chi ' + f.best.chi);
-  assert.ok(f.best.p.sinus >= 0.5 && f.best.p.sinus <= 0.8, 'cirrhosis ' + f.best.p.sinus);
+  assert.ok(f.best.p.sinus >= 0.3 && f.best.p.sinus <= 0.55, 'cirrhosis ' + f.best.p.sinus);
 });
 
 for (const seed of [12, 22, 34]) {

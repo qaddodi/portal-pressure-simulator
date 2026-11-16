@@ -8,15 +8,15 @@ import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
-import { PATHS, WORST, OUTCOMES, readingFor, mapWordsOf, patientFor } from '../src/ui/path-data.js';
-import { CARD_HELPERS, flow, mapPlace, mapType, readParas, shownOf } from '../src/ui/tool-path.js';
+import { PATHS, patientFor } from '../src/ui/path-data.js';
+import { CARD_HELPERS, mapBodyOf, shownOf } from '../src/ui/tool-path.js';
 import { layout, isCardKind } from '../src/ui/path-cards.js';
 import { loadMetrics } from '../src/ui/text-gl.js';
 
 await loadMetrics();
 export const PHONE_BODY_MAX = 330;   // (px under the pill, above the rule: the pill, the rule and the foot add about 50, the card's title and padding 60 more; the card holds about half an iPhone's height)
-// the cards over the budget today, by algorithm: their tallest body at 340 px (how far a ceiling may sit above the real height: SLACK)
-const CEILING = { psvdscore: 455, first_visit: 440, recomp: 365, ascites: 350, pvtdur: 350 };
+// the cards over the budget today, by algorithm (id with _ for -): their tallest body at 340 px (how far a ceiling may sit above the real height: SLACK)
+const CEILING = { psvdscore: 350, first_visit: 365 };
 const SLACK = 30;
 const W = 340, SMALL = 280;
 
@@ -25,10 +25,7 @@ const slides = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'pat
 function bodyAt(tool, w) {
   const of = tool.of, spec = PATHS[of], patient = patientFor(tool, null, shownOf);
   if (isCardKind(spec.kind)) return layout(spec.algo, w, true, patient, CARD_HELPERS, true).H;
-  const worst = WORST[of], k = mapType(w) / 12;
-  const map = mapPlace(spec.tree, w, k, 0, (id) => mapWordsOf(of, id));
-  const read = Math.max(...OUTCOMES[of].flatMap((o) => [patient, worst].map((p) => flow(readParas(readingFor(of, o, p)), w, { gap: 4 }).h)));
-  return Math.ceil(map.H + 10 + 12 + read);
+  return Math.ceil(mapBodyOf(of, spec, patient, w).H);
 }
 
 test('there are path cards on slides to hold', () => { assert.ok(slides.length >= 30); });

@@ -51,6 +51,7 @@ export default {
     else if (Number.isFinite(b.map)) p.map = b.map;
     return p;
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { held: true, sbp: 140, hrs: false, map: 100 },
   notes: 'In decompensated cirrhosis carvedilol (or another nonselective beta-blocker) should be dose-reduced or stopped when the blood pressure stays low (systolic <90 mmHg or mean <65 mmHg) and/or there is HRS-AKI (4.6, strong). It should be restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered (4.7, strong). A patient in whom carvedilol is already held and who still has either problem stays off it; one in whom it is held and who has recovered on both counts restarts it.',
 };

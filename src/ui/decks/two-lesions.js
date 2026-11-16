@@ -2,7 +2,7 @@
 // CSPH gets a portal vein clot, then constrictive pericarditis on top of it, then loses each in turn (the clot recanalizes, the
 // pericardium is stripped and the retained fluid is diuresed), and the talk ends on how the two lesions interact: the clot raises the
 // PPG and lowers the HVPG, congestion lifts every pressure and lowers both gradients, and together the PPG ends near where it began
-// while the HVPG reads normal.
+// while the HVPG falls well under the CSPH line.
 //
 // Every number on a slide is the engine's (live pills and tiles). The congestion is the Constrictive pericarditis preset's own:
 // `pericardial: 0.9` and 1,150 mL of retained salt and water (the `retain` action, worker-core.js; a preset's `volume`), taken out
@@ -26,7 +26,7 @@ export const TWO_LESIONS = {
   objectives: [
     'Predict how a portal vein clot changes the HVPG and the PPG in cirrhosis',
     'Predict how a raised right atrial pressure changes the FHVP, the WHVP and both gradients',
-    'Explain why the two lesions together can leave the PPG where it was and the HVPG normal',
+    'Explain why the two lesions together can leave the PPG where it was and the HVPG well under the CSPH line',
     'Name the two extra pressures and the image to get when the gradients do not fit the patient',
   ],
   checks: [
@@ -35,7 +35,7 @@ export const TWO_LESIONS = {
     ['A man with cirrhosis has an HVPG of 4 mmHg and a PPG of 13 mmHg. Which two lesions do you look for?', 'A portal vein clot, which raises the PPG, and a raised right atrial pressure, which lowers both gradients.'],
     ['Which two pressures does AASLD 2024 add to the FHVP and WHVP?', 'The IVC pressure at the hepatic vein outlet and the right atrial pressure.'],
   ],
-  summary: 'One man with cirrhosis and CSPH gets a portal vein clot, then constrictive pericarditis, then loses each lesion in turn. The clot raises the PPG and lowers the HVPG, congestion lowers both gradients, and together they leave the HVPG normal and the PPG where it began.',
+  summary: 'One man with cirrhosis and CSPH gets a portal vein clot, then constrictive pericarditis, then loses each lesion in turn. The clot raises the PPG and lowers the HVPG, congestion lowers both gradients, and together they pull the HVPG well under the CSPH line and leave the PPG where it began.',
   slides: [
     {
       id: 'base', preset: 'csph', cam: 'route', labels: ['CONF', 'RHV', 'RA'], data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
@@ -83,9 +83,9 @@ export const TWO_LESIONS = {
     {
       id: 'together', params: { ...CLOT, ...SQUEEZE }, action: { kind: 'retain', mL: FLUID }, days: 90, lens: 'heat', cam: 'route', labels: ['CONF', 'RHV', 'RA'], sites: ['pv', 'ra'], data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       compare: [{ label: 'Both', own: true }, { label: 'Clot only', short: 'Clot', slide: 'clot' }, { label: 'Congestion only', short: 'Heart', slide: 'unclot' }, { label: 'Cirrhosis only', short: 'Neither', slide: 'base' }],
-      kicker: 'Together', site: 'cardiac', title: 'Together, the HVPG reads normal and the PPG reads as it did before',
+      kicker: 'Together', site: 'cardiac', title: 'Together, the HVPG falls well under the CSPH line and the PPG reads as it did before',
       line: 'The clot pushes the PPG up and congestion pulls it down, so it reads {ppg}, close to {ppg@base} before either. The HVPG reads {hvpg}, with the portal vein at {pv}.',
-      notes: 'Put both lesions back and press the buttons. The clot raises the PPG and lowers the HVPG; congestion lowers both gradients; together the HVPG is normal and the PPG sits near where cirrhosis alone put it, while the portal vein pressure and the ascites are the highest of the four. Neither gradient flags the problem. What does is the absolute pressures: the portal vein, the FHVP and the right atrium. The two lesions act at opposite ends of the liver, so they add on the pressures and partly cancel on the gradients.',
+      notes: 'Put both lesions back and press the buttons. The clot raises the PPG and lowers the HVPG; congestion lowers both gradients; together the HVPG falls well under the CSPH line and the PPG sits near where cirrhosis alone put it, while the portal vein pressure and the ascites are the highest of the four. Neither gradient flags the problem. What does is the absolute pressures: the portal vein, the FHVP and the right atrium. The two lesions act at opposite ends of the liver, so they add on the pressures and partly cancel on the gradients.',
       ask: ['With both lesions the PPG is unchanged from the cirrhosis alone. Is the portal pressure the same?', 'No. The portal vein pressure is far higher. The two lesions cancel on the PPG, which is a difference, not a level.'],
     },
     {
