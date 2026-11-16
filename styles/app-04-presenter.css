@@ -595,7 +595,7 @@
   .pz-table .tn { min-width: 0; margin: 0; font-size: var(--s-lab); line-height: 1.15; overflow-wrap: normal; -webkit-hyphens: manual; hyphens: manual; }
   .pz-table .tw { display: block; min-width: 0; }
   .pz-table .vs { font-size: var(--s-cap); }
-  .pz-table td.num { font-size: var(--s-body); }
+  .pz-table td.num { font-size: var(--s-body); } .pz-table td.num.bp { white-space: normal; text-wrap: balance; padding-inline: 2px; }   /* ("117/69 (82)" is wider than a phone's column: it breaks at its space, and no longer runs into the next, 16 Nov 2026) */
   .pz-table .pz-arr .pz-ag { height: .85em; }
   .pz-table td.asc { padding: .3em 6px .3em 2px; font-size: var(--s-cap); line-height: 1.3; white-space: normal; text-align: left; }
   .pz-table td.asc .ap { display: block; white-space: nowrap; }

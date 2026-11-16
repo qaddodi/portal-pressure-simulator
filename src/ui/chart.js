@@ -154,18 +154,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       // says why it is not made. (A shunt of the learner's own, between any two veins, is still drawn from a vein's card: Add shunt.)
       ...SURGICAL.map((x) => placed(proc('stent', x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
       placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
-      // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
-      (() => {
-        const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
-        const b = proc('occlude', 'Spleen', SUB[0], () => {
-          const v = ((store.get().params.splenicRx | 0) + 1) % 3;
-          updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
-          select({ type: 'organ', id: 'spleen' });
-        });
-        b.append(h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check')));
-        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); b.toggleAttribute('data-on', v > 0); };
-        paint(); live.push(paint); return b;
-      })(),
+      // The spleen's two treatments are two orders, each named for what it does (one button that cycled untreated → embolization → splenectomy
+      // was just "Spleen", and its meaning lived in a tooltip, 16 Nov 2026). Taking one in place takes the other down; pressing it again undoes it.
+      ...[[1, 'Splenic embolization', 'partial splenic artery embolization', 'Partial splenic embolization'], [2, 'Splenectomy', 'spleen removed', 'Splenectomy']].map(([v, name, sub, label]) => placed(proc('occlude', name, sub, () => {
+        const on = (store.get().params.splenicRx | 0) === v;
+        updateParams((p) => { p.splenicRx = on ? 0 : v; return p; }, { label: on ? 'Spleen untreated' : label });
+        select({ type: 'organ', id: 'spleen' });
+      }), (p) => (p.splenicRx | 0) === v)),
       proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
