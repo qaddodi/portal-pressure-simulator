@@ -388,6 +388,8 @@ export function walkArrow(p, q, dr, f) {
   const tip = [mx + ux * hl / 2, my + uy * hl / 2], bx = mx - ux * hl / 2, by = my - uy * hl / 2;
   return { d: `M${n(tip[0])} ${n(tip[1])}L${n(bx - uy * hw)} ${n(by + ux * hw)}L${n(bx + uy * hw)} ${n(by - ux * hw)}Z`, seg: [bx, by, tip[0], tip[1]] };
 }
+// (The last try for a name the crowd left no spot, a dot among several nearly on it in a small card: every ten degrees round the dot, not the sixteen angles of the first tries.)
+const DOT_ANGLES_FINE = Array.from({ length: 36 }, (_, i) => i * 10);
 const DOT_ANGLES = [0, 180, 270, 90, 315, 225, 45, 135, 340, 200, 20, 160, 295, 245, 65, 115];   // (degrees from the right, clockwise on the screen)
 /** The names of the dots, each beside its dot: items [{ x, y, w }] (the dot's centre and its name's width), f the type size, half the
  *  dot's clear box (a dot is a box 2 × half wide to every word). Each name takes the nearest spot, round the dot at a few distances and
@@ -398,9 +400,9 @@ const DOT_ANGLES = [0, 180, 270, 90, 315, 225, 45, 135, 340, 200, 20, 160, 295, 
 export function placeDotNames(items, f, half, ob) {
   const boxes = [...(ob.boxes || [])], segs = [...(ob.segs || [])], lim = ob.inside, out = new Array(items.length);
   const o = half + 3, gap = half + 4;   // (the word's padded box starts at the dot's box; a leader past a short way)
-  const spotsOf = (it) => {
+  const spotsOf = (it, fine = false) => {
     const cs = [];
-    for (const r of [o, o + 0.7 * f, o + 1.5 * f, o + 2.5 * f, o + 3.6 * f, o + 5 * f, o + 7 * f, o + 9.5 * f, o + 12.5 * f]) for (const a of DOT_ANGLES) {
+    for (const r of [o, o + 0.7 * f, o + 1.5 * f, o + 2.5 * f, o + 3.6 * f, o + 5 * f, o + 7 * f, o + 9.5 * f, o + 12.5 * f]) for (const a of fine ? DOT_ANGLES_FINE : DOT_ANGLES) {
       const c = Math.cos(a * Math.PI / 180), s = Math.sin(a * Math.PI / 180), px = it.x + r * c, py = it.y + r * s;
       const anchor = c > 0.35 ? 'start' : c < -0.35 ? 'end' : 'middle';
       cs.push({ x: px, y: s > 0.35 ? py + 0.9 * f : s < -0.35 ? py - 0.2 * f : py + 0.35 * f, anchor });
@@ -446,7 +448,7 @@ export function placeDotNames(items, f, half, ob) {
     if (q.ok) return;
     const it = items[i], bx = boxes.map(shrink), sg = segs;
     let best = null;
-    for (const c of spotsOf(it)) {
+    for (const c of spotsOf(it, true)) {
       const t = trial(it, c, bx, sg, 1), cost = (t.n ? 1e3 + t.n : 0) + t.d + (t.lead ? 0.6 * f : 0) + t.cross * f;
       if (!best || cost < best.cost) best = { ...t, cost, anchor: c.anchor };
     }
@@ -938,7 +940,8 @@ export function createCurve() {
     // (With against, each line's name on the drawing beside its own line, after the values: the first clear spot along it,
     // over the line, then under it.)
     const named = [];
-    if (ser) parts.lines.forEach((p, j) => {
+    // (The longest name first: it has the fewest places it fits, and the short ones then take what it leaves, 16 Nov 2026: Esophageal stood behind two Fundals that had taken its room.)
+    if (ser) parts.lines.map((p, j) => [p, j]).sort((a, b) => cw(b[0].l.name || '', f, true) - cw(a[0].l.name || '', f, true) || a[1] - b[1]).forEach(([p, j]) => {
       if (!p.name) return;
       const ys = ser.ys[j], xs = lineX(j), tw = 1.12 * cw(p.l.name, f, true), cands = [];
       // (Over a rising line the words sit up and to the left of a point, under it down and to the right, where the line is
@@ -949,7 +952,7 @@ export function createCurve() {
         const y = ys[i], x = X(xs[i]);
         if (!Number.isFinite(y)) continue;
         const rise = (ys[Math.min(ys.length - 1, i + 1)] ?? y) - (ys[Math.max(0, i - 1)] ?? y) >= 0, py = p.Y(y);
-        for (const k of [0, 0.7, 1.4]) cands.push({ x: x + (rise ? -0.3 : 0.3) * f, y: py - (0.5 + k) * f, anchor: rise ? 'end' : 'start' }, { x: x + (rise ? 0.3 : -0.3) * f, y: py + (1.3 + k) * f, anchor: rise ? 'start' : 'end' });
+        for (const k of [0, 0.7, 1.4, 2.1, 2.8]) cands.push({ x: x + (rise ? -0.3 : 0.3) * f, y: py - (0.5 + k) * f, anchor: rise ? 'end' : 'start' }, { x: x + (rise ? 0.3 : -0.3) * f, y: py + (1.3 + k) * f, anchor: rise ? 'start' : 'end' });
         cands.push({ x, y: py - 0.55 * f, anchor: 'middle' }, { x, y: py + 1.35 * f, anchor: 'middle' });
       }
       // (Never with another line between the words and their own: it would read as naming that one.)

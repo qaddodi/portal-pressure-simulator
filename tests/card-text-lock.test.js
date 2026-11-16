@@ -89,7 +89,7 @@ test('a time-lapse keeps the words where they came in: the phone\'s cap and the 
   // (Re-planned as the data card's readings changed with the days, a varix appearing on the scope, the words' cap stepped and the
   // teaching card bounced as the days passed: Endoscopy 3 on an iPhone, 18 Oct.)
   assert.match(js, /const readingsOnly = \(\) => (?:live\.)?liveOff \|\| (?:live\.)?handOn \|\| (?:live\.)?lapseOn \|\| \(!!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && !!(?:live\.)?slides\[(?:live\.)?want\]\?\.lapse\);/);
-  assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v; else if \(lockKey\) shiftLock = \{ key: lockKey, v: shift \};\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(shift > 0\.5\)/);
+  assert.match(js, /if \(lockKey && shiftLock\?\.key === lockKey && readingsOnly\(\)\) shift = shiftLock\.v; else if \(lockKey\) shiftLock = \{ key: lockKey, v: shift \};\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(Math\.abs\(shift\) > 0\.5\)/);   // (a pair may rise into its top margin on a phone on its side, 4e8f8ddc: the shift is signed)
   // (Declared before the layout that reads them.)
   assert.ok(js.indexOf('const readingsOnly') < js.indexOf('function layout()'));
 });

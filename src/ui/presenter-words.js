@@ -214,6 +214,9 @@ export function slideTargets(s, line = shownLine(s, s.revealed)) {   // (a revea
     if (t.res) res.set(t.res, t.tone);
   }
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
+  // A mark that names the caudate lobe points at it, so the lobe is drawn whether or not the line says its name (a callout on nothing).
+  // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
+  for (const m of [].concat(s.marks || s.mark || [])) if (m?.organ === 'caudate' && !organs.has('caudate') && !organs.has('caudate-lobe')) organs.set('caudate', TARGETS.caudate.tone);
   for (const k of s.tint || []) { const t = TARGETS[k]; if (t?.node) terms[t.node] = t.tone; }   // (a label the line does not name, in its colour all the same)
   // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
