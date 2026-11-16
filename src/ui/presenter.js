@@ -1071,6 +1071,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const dimmed = !booting && !reduce.matches && !!ui && freshPatient(s, lap, pre) && shownState >= 0 && (si !== shownState || liveOff) && !ask && !(s.vignette && !noCase && to > lastAt) && !cath.on && !view.classList.contains('pz-out') ? figureOut(cut) : null;
     tx?.phase('leave');
     if (outMs || thrown) { await painted(); await painted(); }
+    tx?.phase('left-painted');   // (the two frames the leave is seen begun in: each step of the leave is named, so a slow one is found by its name)
     if (cut()) return;
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
@@ -1089,6 +1090,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     strainStop(); stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
     // (Landed on done, the last step is the one on show, as it stands after the play-through; a slide arrived at forward shows none until its first Next.)
     procShown = procRing = procDoneAt === to ? procSteps(s).length - 1 : -1; procShownAt = procRingAt = procDoneAt === to ? to : -1;
+    tx?.phase('fade-out');
     if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
@@ -1149,22 +1151,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const dip = swap && !booting && !reduce.matches && !own && freshPatient(s, lap, pre), glide = swap && !booting && !reduce.matches && !dip, later = glide && !ct && !!ui;
-    let morphCt = null;
+    // (The new cards, built and settled unseen: a new patient's while the figure dims (below), so the camera, which frames into the room
+    // they leave, need not wait for them after the change. 16 Nov 2026, circuit 8 to 7 and 8 to 9: the cards were built only once the dim
+    // and the new patient's first frame were done, and the move set off 0.9 s after the press.)
+    const wordsUp = async (said) => {
+      ui?.root.classList.add('pz-prep');
+      // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
+      // measurement while the catheter drives the camera.)
+      bare = !booting && !!ui && !ct;
+      wordsIn(s, said, to, swap, lap, st);
+      // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
+      // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
+      if (keepNow.text) { /* (kept words stay on screen as they are) */ }
+      else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+      tx?.phase('settle');
+      await settleRun(tx);
+    };
+    let morphCt = null, drawnP = null;
+    let wordsP = null;
     if (swap) {
       liveOff = false;
       tx?.phase('morph');
       // (A catheter slide's cards come in over the patient's change, not after it, where the organs are on the GPU and a frame stays short: the words carry the slide's own readings. The catheter still waits for the change, below.)
       if (glide) { shownState = -1; if (!later) { lensGo(); if (ct && stage.canDrift?.()) { morphCt = morphTo(st, cut); } else { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } } }
       else {
+        if (dip && ui && !lap && !holdQ && !own) wordsP = wordsUp(st);   // (built while the figure dims: a new patient's words are its own state's)
         if (dimmed) { await dimmed; if (cut()) return; }   // (begun with the old cards' leave)
+        tx?.phase('dimmed');
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         lensGo(); applyState(st); shownState = own ? -1 : si;
-        await drawn(st);
+        // (The camera frames the new patient's organs, which the engine's first frame of the new state draws (its sizes come with the state); the
+        // figure stays dim until that state's pressures have also come through (drawn), which can take most of a beat. 16 Nov 2026: circuit 6 to 7,
+        // the camera waited 840 ms for them under the dim before it set off. It now sets off on the first frame, and the dim lifts after drawn.)
+        drawnP = drawn(st);
+        { const n0 = frames; await until(() => cut() || frames > n0, 300); await new Promise((done) => nextFrame(done)); }
+        if (!dip) await drawnP;
       }
       if (cut()) return;
       // (The state is in: the recording instruments start now, their window filled with the steady state the slide opens on, tools.hold.
       // A slide whose change eases in after the camera lands does it below.)
-      if (!later && !morphCt) ui?.tools.hold(false);
+      if (!later && !morphCt) { if (drawnP) drawnP.then(() => { if (!cut()) ui?.tools.hold(false); }); else ui?.tools.hold(false); }   // (a new patient's: once its pressures are drawn)
     }
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
@@ -1177,17 +1203,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // and the camera frames once, into the space they really leave (see settle).
     // The new cards are laid out and measured where they will rest while still unseen (bare), so the camera makes one eased move
     // straight to the framing that fits around them; only then do they come in, whole, and the camera stays put.
-    ui?.root.classList.add('pz-prep');
-    // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
-    // measurement while the catheter drives the camera.)
-    bare = !booting && !!ui && !ct;
-    wordsIn(s, said, to, swap, lap, st);
-    // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
-    // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
-    if (keepNow.text) { /* (kept words stay on screen as they are) */ }
-    else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
-    tx?.phase('settle');
-    await settleRun();
+    if (wordsP) { await wordsP; if (cut()) return; } else await wordsUp(said);
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return; tx?.phase(bare ? 'camera' : 'cards-in');
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
@@ -1195,6 +1211,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let prep = null; const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? (prep = bare ? unseenFit(cut) : null, Promise.resolve(prep).then((ok) => (bare && !ok ? null : camera(cam, fv, cut)))) : null;
     tx?.phase('lead');
     if (lead) { await waitCut(150, cut); if (cut()) return; }
+    if (drawnP) { await drawnP; if (cut()) return; }   // (the new patient's pressures are drawn before the dim lifts, as before)
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     // A catheter slide with a new patient changes it before its camera moves (its cards come in at once), and the catheter then drives
@@ -1339,11 +1356,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; if (ui.data.classList.contains('pz-hide')) fadeIn(ui.data); ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
   let bare = false;
-  async function settleRun() {
-    await Promise.race([document.fonts?.ready, wait(400)]);
+  async function settleRun(tx = null) {
+    if (document.fonts?.status === 'loading') { tx?.phase('fonts'); await Promise.race([document.fonts.ready, wait(400)]); }   // (only while a face is loading: its step is named)
+    tx?.phase('settle-frames');
     await new Promise((done) => nextFrame(() => nextFrame(done)));
     if (!ui) return;
     layout();
+    tx?.phase('keep-fall');
     await keepFall(keepCut);   // (a kept card this layout would change leaves after all, and is built again)
   }
   // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); otherwise zones off and lymph as the viewer had it.

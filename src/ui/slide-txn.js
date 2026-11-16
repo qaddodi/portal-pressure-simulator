@@ -13,7 +13,7 @@
 //   txns.current()  txns.stats()
 import { caught } from './caught.js';
 
-const PHASE_TRAIL = 40;   // (steps kept per change, two entries each: a slide change has about a dozen)
+const PHASE_TRAIL = 64;   // (steps kept per change, two entries each: a slide change has about a dozen, and up to 30 with every step of its leave and settle named)
 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export function createTxns() {
