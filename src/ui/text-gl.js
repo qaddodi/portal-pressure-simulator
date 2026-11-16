@@ -241,8 +241,10 @@ const CLS = { ' ': 'SP', '\u00a0': 'GL', '\u2060': 'GL', '\u0304': 'CM', '(': 'O
   '\u201d': 'QU', '\u2018': 'QU', '\u2019': 'QU', '\u2212': 'PR', '+': 'PR', '$': 'PR', '\u00b1': 'PR', '\u00b0': 'PO', '%': 'PO' };
 const brClass = (c) => CLS[c] || (c >= '0' && c <= '9' ? 'NU' : 'AL');
 /** Whether a line may break between character a and the character b that follows it, by their classes. */
-export function mayBreak(a, b) {
+export function mayBreak(a, b, z = '') {
   const x = brClass(a), y = brClass(b);
+  // (A number's unit stays with it: "160,000/µL", "3/min", "5/mm³" never break after the slash (play-test 16 Nov 2026). z: the character before a.)
+  if (x === 'SY' && brClass(z) === 'NU') return false;
   if (x === 'SP') return y !== 'SP' && y !== 'EX' && y !== 'CP' && y !== 'IS' && y !== 'SY' && y !== 'CM';   // (a break after spaces, but never before a stop or a closing bracket)
   if (y === 'SP' || y === 'GL' || x === 'GL' || y === 'CM' || y === 'EX' || y === 'CP' || y === 'IS' || y === 'SY' || y === 'QU' || x === 'QU' || x === 'OP') return false;
   if (x === 'B2' || y === 'B2') return true;
@@ -298,7 +300,7 @@ export function layoutParagraph(runs, width, { pretty = false } = {}) {
   const ok = new Uint8Array(cells.length + 1);
   for (let b = 1; b < cells.length; b++) {
     const a = cells[b - 1], c = cells[b];
-    ok[b] = (a.nw && a.run === c.run) || (c.nw && a.run === c.run) ? 0 : mayBreak(a.ch, c.ch) ? 1 : 0;
+    ok[b] = (a.nw && a.run === c.run) || (c.nw && a.run === c.run) ? 0 : mayBreak(a.ch, c.ch, b > 1 ? cells[b - 2].ch : '') ? 1 : 0;
   }
   // (Prefix widths, so a line's width is a difference; its hanging spaces, at its end, take none.)
   const n = cells.length, pre = new Float64Array(n + 1);

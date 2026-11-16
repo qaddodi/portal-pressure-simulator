@@ -446,6 +446,12 @@ export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) 
   }
   return best;
 }
+/** Whether the segment (ax, ay)-(bx, by) crosses the segment (cx, cy)-(dx, dy) (touching ends do not count: two leaders may leave a shared neighbourhood). */
+export function segsCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  const d1 = o(ax, ay, bx, by, cx, cy), d2 = o(ax, ay, bx, by, dx, dy), d3 = o(cx, cy, dx, dy, ax, ay), d4 = o(cx, cy, dx, dy, bx, by);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+}
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
 function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
@@ -459,6 +465,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The lines among the boxes to avoid: a name beside its point stays on the point's side of each one.)
   const cutLines = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8);
+  const labelBoxes = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) > 8 && !cross.includes(o));
   // (Judged from the line itself, not its 4 px band: a point a hair off a cut-off still keeps its name on its own side.)
   const sameSide = (b, p) => cutLines.every((o) => {
     if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < (o[0] + o[2]) / 2 ? b[2] <= o[0] : b[0] >= o[2]);
@@ -514,6 +521,9 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
             if ((best && d >= best.d) || (over ? hitBut(b) : hit(b))) continue;
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            // (15 and B22, play-test 16 Nov 2026: leaders crossed the lines' own names ("R = 8") and each other. A leader crosses no word box of the plot (a line's name, a zone's words) and no other leader: as the callouts' leaders, 9719188b.)
+            if (labelBoxes.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            if (out.some((o, j) => o?.lead && segsCross(p.x, p.y, lx, ly, pts[j].x, pts[j].y, o.lead[0], o.lead[1]))) continue;
             // (A leader across a cut-off counts against it, so a name stays on its point's side of the line if it can, and
             // crosses as few lines as it must when it cannot.)
             const dd = d + 2 * fs * cutLines.filter((o) => crosses(p.x, p.y, lx, ly, o)).length;
