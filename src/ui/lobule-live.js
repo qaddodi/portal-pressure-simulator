@@ -432,6 +432,25 @@ export const cellReach = (k) => 0.5 * Math.hypot(k.l * 1.12, k.w * 1.3) + Math.m
 // the bitmap's box), in the order paintLobule lays it: the fill, the hexagon's gap colour, then (clipped to the hexagon) the cells,
 // the nutmeg and the zones, then the hairline. Antialiased by distance: a shape covers a pixel by how far its edge lies from the
 // pixel's centre in pixels (lvCov), a line thinner than a pixel by its width (lvLine).
+// MOCK (not for the preview): ?slab=a|b|c|d draws each hepatocyte as a block with a side wall (depth, wall slant, darkening, corner, shadow reach).
+const SIGN_Y = 1;
+const SLAB_P = { a: [0.16, 0.3, 0.55, 0.38, 0], b: [0.32, 0.35, 0.55, 0.3, 0], c: [0.18, 0.3, 0.3, 0.5, 0], d: [0.16, 0.3, 0.55, 0.38, 1.9] }[(() => { try { return new URLSearchParams(location.search).get('slab'); } catch { return null; } })()] || null;
+const SLAB_F = (v) => v.toFixed(3);
+const SLAB_R = SLAB_P ? SLAB_F(SLAB_P[3]) : '0.38';
+const SLAB_WALL = SLAB_P ? `
+        float sdW = 1e9, sdS = 1e9;
+        vec2 off = vec2(${SLAB_F(SLAB_P[1])}, ${SLAB_F(SIGN_Y)}) * ${SLAB_F(SLAB_P[0])} * lw;
+        for (int zi = 1; zi <= 4; zi++) {
+          vec2 d2 = d - off * (float(zi) * 0.25);
+          vec2 l2 = vec2(ca * d2.x + sa * d2.y, -sa * d2.x + ca * d2.y);
+          vec2 q2 = abs(l2) - 0.5 * vec2(lw, ww) + r;
+          sdW = min(sdW, length(max(q2, vec2(0.0))) + min(max(q2.x, q2.y), 0.0) - r);
+        }
+        ${SLAB_P[4] > 0 ? `{ vec2 d3 = d - off * ${SLAB_F(SLAB_P[4])}; vec2 l3 = vec2(ca * d3.x + sa * d3.y, -sa * d3.x + ca * d3.y); vec2 q3 = abs(l3) - 0.5 * vec2(lw, ww) + r; sdS = length(max(q3, vec2(0.0))) + min(max(q3.x, q3.y), 0.0) - r; }` : ''}` : 'float sdW = 1e9, sdS = 1e9;';
+const SLAB_DRAW = SLAB_P ? `
+        af = 1.0;
+        acc = lvOver(lvTint(fill * 0.3, 0.3) * (lvCov(sdS, px) * clipC * live), acc);
+        acc = lvOver(lvTint(fill * (1.0 - ${SLAB_F(SLAB_P[2])} * 0.8), 1.0) * (lvCov(sdW, px) * clipC * live), acc);` : '';
 export const LIVE_FS = `
 precision highp int;
 uniform highp sampler2D uLC, uLB, uLI;   // the cells, the bins, the bins' cell lists
@@ -596,13 +615,15 @@ vec4 liveTissue(vec2 w) {
         vec2 d = wp - (t0.xy + t2.yz * dz);
         float ca = cos(ang), sa = sin(ang);
         vec2 lp = vec2(ca * d.x + sa * d.y, -sa * d.x + ca * d.y);
-        float r = min(lw, ww) * 0.38;
+        float r = min(lw, ww) * ${SLAB_R};
         vec2 qd = abs(lp) - 0.5 * vec2(lw, ww) + r;
         float sd = length(max(qd, vec2(0.0))) + min(max(qd.x, qd.y), 0.0) - r;
-        if (sd > 0.5 * lw0 + px) continue;
+        ${SLAB_WALL}
+        if (min(min(sd, sdW), sdS) > 0.5 * lw0 + px) continue;
         float tt = 0.88 + 0.12 * t1.y;
         vec3 fill = mix(lvTone(uLBase * tt + (1.0 - tt) * (dark ? 0.15 : 1.0) * 0.3, q, dark), dark ? vec3(0.42, 0.33, 0.3) : vec3(0.93, 0.86, 0.72), dd);
         float af = mix(dark ? 0.8 : 0.92, 0.6, dd), live = 1.0 - dd;
+        ${SLAB_DRAW}
         acc = lvOver(lvTint(fill, af) * (lvCov(sd, px) * clipC), acc);
         if (live > 0.0) {
           acc = lvOver(lvTint(uLPlate.rgb, uLPlate.a) * (lvLine(sd, 0.5 * lw0, px) * clipC * live), acc);
