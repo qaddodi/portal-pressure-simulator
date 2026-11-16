@@ -357,6 +357,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); (?:live\.)?ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
+  // One glass (16 Nov 2026, style play-test: "the glass is not the same on every panel"; 11 Nov, Mohammad: "Tint and blur of glass should be the same EVERYWHERE"):
+  // every region the page registers with stage.glass.add (sheets, toasts, chrome, menus, the Present cards) asks for the one card glass (card: true: CARD's blur,
+  // the look's surface at CARD.tint, glass-gl.js), whatever its own --gl-tint says. The figure's callouts (stage.js) are the one region with their own ways.
+  for (const f of ['src/ui/main.js', 'src/ui/menu-glass.js', 'src/ui/presenter-start.js']) forbid(f, /(?:\bglass\??\.add|\bapi\??\.add)\((?![^\n]*card: true)/, 'a glass region without card: true wears its own tint and blur, not the one glass');
+  // A turn of the device frames a hand-placed view again (16 Nov 2026, style play-test, iPad portrait in Navy: a leftover zoom cropped the figure until Fit).
+  need('src/ui/stage-fit.js', [[/turnMQ\.addEventListener\('change', onTurn\)/, 'a turn of the device (orientation change) refits a view the learner zoomed or panned, as Fit does']]);
+
   // The zoom pill's glyphs at rest on a pointer device keep 3:1 on the glass in every look (16 Nov 2026): muted ink at .5 was 2.5:1 in Light and Soft.
   need('styles/app-07-floating.css', [[/\.zoom-pill \.ib:not\(\.stage-rotate\):not\(:disabled\) \{ opacity: \.7;/, "the zoom pill's resting ink is .7 (3.9:1 or more in all five looks; .5 was 2.5:1 in Light)"]]);
 

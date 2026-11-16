@@ -28,7 +28,8 @@ for (const size of SIZES) {
       assert.ok(nodes.length >= 2, `${id}: ${nodes.length} station labels shown`);
       for (const it of nodes) assert.match(it.text, /\d/, `${id}: "${it.text}" (${it.key}) is shown with no number`);
       const names = nodes.map((it) => it.text.split(' ')[0]).filter((n) => ABBRS.has(n) || /^[A-Z][a-z]+$/.test(n));
-      const abbreviated = nodes.filter((it) => ABBRS.has(it.text.split(' ')[0])), full = nodes.filter((it) => { const k = it.key.slice(2); return ABBR[k] && !ABBRS.has(it.text.split(' ')[0]) && !it.text.startsWith(ABBR[k]); });
+      const abbreviated = nodes.filter((it) => ABBR[it.key.slice(2)] && ABBRS.has(it.text.split(' ')[0])),   // (a station with no abbreviation to take, the superior cava's "IVC", reads whole as it is: neither)
+         full = nodes.filter((it) => { const k = it.key.slice(2); return ABBR[k] && !ABBRS.has(it.text.split(' ')[0]) && !it.text.startsWith(ABBR[k]); });
       assert.ok(!(abbreviated.length && full.length), `${id}: ${abbreviated.map((i) => i.text).join(', ')} abbreviated beside ${full.map((i) => i.text).join(', ')} in full (${names.length})`);
     }
   });

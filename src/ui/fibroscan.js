@@ -20,6 +20,7 @@ import { fibroscanLabel } from './instrument-aria.js';
 import { RATE } from './table-marks.js';
 import { onTheme } from './theme-epoch.js';
 import { createStiffBar } from './stiff-bar.js';
+import { lsmContext } from '../engine/lsm-cuts.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -167,6 +168,8 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   fillKey(); showBar();
   // (The platelet count the bar reads: the Tests card's live one; a slide's, only when its own tiles show the platelets, its settled one.)
   const pltNow = () => (switcher || pltOnSlide ? (pinFp?.plt ?? lastF?.metrics?.spleen?.platelets) : null) ?? null;
+  // (The context the bar judges the rules' eligibility by: a congested or a vascular liver takes the CSPH rules off the bar, lsm-cuts.js lsmContext. A slide's pinned state first, as the stiffness.)
+  const ctxNow = () => lsmContext(pinFp ?? lastF?.metrics);
   function setOrgan(id, tapped = false) {
     if (!ORGAN[id] || id === organ) return;
     organ = id; pinned = pinFp ? pinFp[ORGAN[organ].key] ?? null : null;   // (a slide's pinned state, read again for this organ)
@@ -229,7 +232,7 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     const { c } = fr;
     const th = colors();
     const reading = fix1(shown), txt = none ? '–' : reading; dataSoon(cv, 'reading', txt);
-    if (barShown()) bar.set(none ? null : shown, organ === 'liver' ? pltNow() : null, organ);   // (drawn again only when the reading, to a tenth, or the count changes)   // (txt: a dash with no spleen to read)
+    if (barShown()) bar.set(none ? null : shown, organ === 'liver' ? pltNow() : null, organ, ctxNow());   // (drawn again only when the reading, to a tenth, or the count changes)   // (txt: a dash with no spleen to read)
     fibroReading.txt = txt; fibroReading.cv = cv; fibroReading.show?.(txt);   // (the figure's probe, on the organ this card reads)
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
@@ -336,7 +339,7 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
     none = v == null; if (!none) model = v;   // (no spleen after a splenectomy: the reading is a dash, the map holds its last slope)
     fed = true;
     // (The picture's values, for a screen reader, with the tile's own band word: A11-1.)
-    attrSoon(cv, 'aria-label', fibroscanLabel(organ, none ? null : v, none ? '' : RATE[ORGAN[organ].key](v)[1]));
+    attrSoon(cv, 'aria-label', fibroscanLabel(organ, none ? null : v, none ? '' : RATE[ORGAN[organ].key](v, pinFp ?? lastF?.metrics)[1]));
     if (onScreen()) start();
   }
   /** A slide's tool: { kind: 'fibroscan', organ: 'spleen' } reads the spleen (presenter-tools.js). */

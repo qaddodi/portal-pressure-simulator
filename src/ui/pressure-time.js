@@ -99,7 +99,7 @@ function sevVar(sev) {
 }
 const byY = (a, b) => a.y - b.y;
 
-export function createPressureTime({ marks = () => [], stillLayer = true } = {}) {
+export function createPressureTime({ marks = () => [], stillLayer = true, smooth: smooth0 = false } = {}) {
   // ── DOM ───────────────────────────────────────────
   const heroVal = h('b', { class: 'pt-num' }, NOT_SHOWN);
   const heroSev = h('span', { class: 'pt-sev' });
@@ -144,9 +144,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const laneChipBtn = laneChip('hvpg', 'HVPG lane', 'The HVPG lane under the pressures', true, (v) => { showLane = v; });
   chips.append(ekgChip, laneChipBtn);
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
-  let smooth = false;
+  // (The Tests pane draws the minutes' trace smooth until Smooth is touched: the spikes of each beat and breath are the option there, Tests > Pressure > Over time, play-test 16 Nov 2026. One beat's own
+  // window keeps its pulses, which is all it shows, a mean over six seconds being a straight line there; a slide's beat-by-beat trace keeps them too.)
+  let smooth = false, touched = false;
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and respiratory variation', onclick: () => {
-    smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
+    touched = true; smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
   // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.
   chips.append(h('div', { class: 'pt-ctl' }, smoothBtn, rangeSeg));
@@ -154,6 +156,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
 
   function setRange(id) {
     range = id;
+    if (smooth0 && !touched) { smooth = id !== 'beats'; smoothBtn.setAttribute('aria-pressed', String(smooth)); }
     rangeSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.range === id)));
     ekgChip.disabled = id !== 'beats';   // (one beat is the strip's unit: over two minutes or days it has nothing to show)
     yr.pressure = yr.hvpg = null;
@@ -806,6 +809,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       for (let v = Math.ceil(lo / tick) * tick; v <= hi + 1e-9; v += tick) {
         const yy = Math.round(Y(v)) + 0.5;
         c.strokeStyle = gridOn; c.globalAlpha = 0.7; c.beginPath(); c.moveTo(L, yy); c.lineTo(L + plotW, yy); c.stroke(); c.globalAlpha = 1;
+        if (key === 'hvpg' && !narrow && Math.abs(v - HVPG_CUTS.red) < 1e-9) continue;   // (the CSPH line carries its own number: the axis does not say it twice)
         c.fillStyle = faint; c.fillText(fmt(v, tick < 1 ? 1 : 0), L - 6, yy);
       }
       c.textBaseline = 'alphabetic';
@@ -1110,7 +1114,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       if (Number.isFinite(hr)) pushEnd(mid, hr, 0, 'HR', text, ekgLane);
     }
     ctx.font = FONT(500, 12); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 8, (lanes[0] ? lanes[0].top : T) - (ekgLane ? 8 : 12));
-    if (slide && lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
+    if (lanes.length > 1) ctx.fillText('HVPG, mmHg', 8, lanes[1].top - 10);
 
     // markers: learner changes and events, where they happened
     const allBot = drawMarkers(allLanes);

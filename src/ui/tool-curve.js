@@ -406,13 +406,13 @@ export function placeDotNames(items, f, half, ob) {
     }
     return cs;
   };
-  const trial = (it, c, bx, sg) => {
+  const trial = (it, c, bx, sg, tight = 0) => {
     let x0 = c.anchor === 'end' ? c.x - it.w : c.anchor === 'middle' ? c.x - it.w / 2 : c.x, y = c.y;
     if (lim) {
       const dx = clamp(x0 - 3, lim[0], Math.max(lim[0], lim[2] - it.w - 6)) - (x0 - 3), dy = clamp(y - 0.85 * f - 1, lim[1], Math.max(lim[1], lim[3] - 1.15 * f - 2)) - (y - 0.85 * f - 1);
       x0 += dx; y += dy;
     }
-    const box = [x0 - 3, y - 0.85 * f - 1, x0 + it.w + 3, y + 0.3 * f + 1], rect = [x0, y - 0.8 * f, x0 + it.w, y + 0.25 * f];
+    const pd = 3 - 2 * tight, box = [x0 - pd, y - 0.85 * f - 1 + 0.2 * f * tight, x0 + it.w + pd, y + 0.3 * f + 1 - 0.1 * f * tight], rect = [x0, y - 0.8 * f, x0 + it.w, y + 0.25 * f];
     const qx = clamp(it.x, rect[0], rect[2]), qy = clamp(it.y, rect[1], rect[3]), d = Math.hypot(qx - it.x, qy - it.y);
     const lead = d > gap ? [it.x + (qx - it.x) / d * (half - 1), it.y + (qy - it.y) / d * (half - 1), qx, qy] : null;
     let n = boxScore(box, { ...ob, boxes: bx, segs: sg });
@@ -439,7 +439,47 @@ export function placeDotNames(items, f, half, ob) {
     out[i] = { x: ax, y: best.y, anchor: best.anchor, box: best.box, lead: ok ? best.lead : null, ok, cross: best.cross };
     if (ok) { boxes.push(best.box); if (best.lead) segs.push(Object.assign([...best.lead], { w: 2 })); }
   });
+  // (A name the crowd left no clear spot gets one more try with the padding round words and dots drawn in to a point: close, but clear.)
+  const shrink = (b) => [b[0] + 2, b[1] + 2, b[2] - 2, b[3] - 2];
+  out.forEach((q, i) => {
+    if (q.ok) return;
+    const it = items[i], bx = boxes.map(shrink), sg = segs;
+    let best = null;
+    for (const c of spotsOf(it)) {
+      const t = trial(it, c, bx, sg, 1), cost = (t.n ? 1e3 + t.n : 0) + t.d + (t.lead ? 0.6 * f : 0) + t.cross * f;
+      if (!best || cost < best.cost) best = { ...t, cost, anchor: c.anchor };
+    }
+    if (!best || best.n) return;
+    const ax = best.anchor === 'end' ? best.box[2] - 1 : best.anchor === 'middle' ? (best.box[0] + best.box[2]) / 2 : best.box[0] + 1;
+    out[i] = { x: ax, y: best.y, anchor: best.anchor, box: best.box, lead: best.lead, ok: true, cross: best.cross };
+    boxes.push(best.box); if (best.lead) segs.push(Object.assign([...best.lead], { w: 2 }));
+  });
+  uncross(items, out, half);
   return out;
+}
+/** Leaders that cross are untangled the way a label maker does it: two names of one width swap places (each leader then runs to the
+ *  other's spot), which shortens both and uncrosses them; kept only when no leader crosses more than before. Mutates out. */
+function uncross(items, out, half) {
+  const leadTo = (it, b, w) => {
+    const rect = [b[0] + 3, b[1] + 1 + 0.05 * (b[3] - b[1]), b[0] + 3 + w, b[3] - 1 - 0.05 * (b[3] - b[1])];
+    const qx = clamp(it.x, rect[0], rect[2]), qy = clamp(it.y, rect[1], rect[3]), d = Math.hypot(qx - it.x, qy - it.y);
+    return d > half + 4 ? [it.x + (qx - it.x) / d * (half - 1), it.y + (qy - it.y) / d * (half - 1), qx, qy] : null;
+  };
+  const crossings = () => { let n = 0; for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) if (out[i]?.lead && out[j]?.lead && segsCross(out[i].lead, out[j].lead)) n++; return n; };
+  const len = (l) => l ? Math.hypot(l[2] - l[0], l[3] - l[1]) : 0;
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+      const a = out[i], b = out[j];
+      if (!a?.ok || !b?.ok || !a.lead || !b.lead || !segsCross(a.lead, b.lead) || Math.abs(items[i].w - items[j].w) > 1.5) continue;
+      const before = crossings(), la = leadTo(items[i], b.box, items[i].w), lb = leadTo(items[j], a.box, items[j].w);
+      const keep = [a, b];
+      out[i] = { ...b, lead: la, cross: 0 }; out[j] = { ...a, lead: lb, cross: 0 };
+      if (crossings() < before && len(la) + len(lb) <= len(a.lead) + len(b.lead) + 1e-6) changed = true;
+      else { out[i] = keep[0]; out[j] = keep[1]; }
+    }
+    if (!changed) break;
+  }
 }
 
 /** The x the slide's case sits at, and each line's value there (shown units): from the live params and fingerprint while a

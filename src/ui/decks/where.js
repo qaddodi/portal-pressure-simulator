@@ -62,8 +62,8 @@ export const WHERE = {
       caseQ: 'Where is the resistance?',
       kicker: 'Case 5', site: 'presin', title: 'Case 5: large varices and normal liver stiffness',
       line: 'Schistosomiasis. Eggs lodge in the portal venules, upstream of the sinusoids, so the HVPG stays at {hvpg} with a patent portal vein.',
-      notes: 'Schistosoma mansoni is endemic around Lake Victoria. Its eggs reach the portal venules, and periportal fibrosis follows. Hepatocytes are spared, so liver tests, liver stiffness and albumin stay near normal. Cases 2 and 5 have the same HVPG and PPG; at catheterization the pressures match, and only portal vein patency distinguishes them. The ladder shows the difference: the pressure drop is at the thrombus in case 2 and in the portal venules in case 5.',
-      ask: ['Cases 2 and 5 have the same HVPG and PPG. What distinguishes them?', 'The portal vein: occluded in case 2, patent in case 5. On the ladder the pressure drop is at the thrombus in case 2 and in the portal venules in case 5.'],
+      notes: 'Schistosoma mansoni is endemic around Lake Victoria. Its eggs reach the portal venules, and periportal fibrosis follows. Hepatocytes are spared, so liver tests, liver stiffness and albumin stay near normal. Cases 2 and 5 both have a low HVPG and a raised PPG; at catheterization the pattern is the same, and only portal vein patency distinguishes them. The ladder shows the difference: the pressure drop is at the thrombus in case 2 and in the portal venules in case 5.',
+      ask: ['Cases 2 and 5 both have a low HVPG and a raised PPG. What distinguishes them?', 'The portal vein: occluded in case 2, patent in case 5. On the ladder the pressure drop is at the thrombus in case 2 and in the portal venules in case 5.'],
     },
     {
       id: 'a6', preset: 'ivc-web', cam: 'hepatic', labels: ['IVCS', 'RA'], mark: { edges: ['IVCS_RA'], label: 'Web' }, compare: LENS, tool: { kind: 'profile' }, key: ['ivc', 'ra', 'ppg'], rail: true,
@@ -82,13 +82,13 @@ export const WHERE = {
       ask: ['Which two cases did neither gradient detect?', 'Case 6, the IVC web, and case 3, constrictive pericarditis.'],
     },
     {
-      // (Cases 2 and 5 share their HVPG and PPG; the Doppler of the portal trunk tells them apart. Case 5 is the slide's own patient and a button eases to case 2.)
+      // (Cases 2 and 5 share their pattern, a low HVPG with a raised PPG; the Doppler of the portal trunk tells them apart. Case 5 is the slide's own patient and a button eases to case 2.)
       id: 'doppler', preset: 'schisto', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvVel', 'ppg'], key: ['pvVel'],
       compare: [{ label: 'Case 5', own: true }, { label: 'Case 2', preset: 'pvt-chronic', same: true }],
       kicker: 'Telling them apart', title: 'Doppler of the portal vein tells cases 2 and 5 apart',
-      line: 'Cases 2 and 5 have the same HVPG and PPG. The portal vein has flow in case 5 (schistosomiasis) and none in case 2 (portal vein thrombosis).',
+      line: 'Cases 2 and 5 both have a low HVPG and a raised PPG. The portal vein has flow in case 5 (schistosomiasis) and none in case 2 (portal vein thrombosis).',
       notes: 'Source: Baveno VIII 9.2; AASLD 2024 Table 1. Doppler ultrasound is the first-line test for portal vein thrombosis: solid material in the vein, or a network of porto-portal collaterals that suggests a cavernoma (Baveno VIII 9.2). In case 2 the trunk is thrombosed, so Doppler shows no flow and a cavernoma carries portal flow around it. In case 5 the trunk is patent and the resistance lies in the portal venules. AASLD 2024 Table 1 places portal vein thrombosis at the prehepatic level and schistosomiasis at the presinusoidal level. Neither Baveno VIII nor AASLD 2024 gives Doppler cut-offs for this.',
-      ask: ['Cases 2 and 5 have the same HVPG and PPG. What does portal vein Doppler show in each?', 'Case 2: no flow in the trunk, thrombosis with a cavernoma. Case 5: a patent vein with flow, so the resistance lies in the portal venules.'],
+      ask: ['Cases 2 and 5 both have a low HVPG and a raised PPG. What does portal vein Doppler show in each?', 'Case 2: no flow in the trunk, thrombosis with a cavernoma. Case 5: a patent vein with flow, so the resistance lies in the portal venules.'],
     },
     {
       // (The pressure ladder of each case, one at a time: patient buttons run through the six cases. The IVC web and the heart raise the IVC pressure the PPG subtracts.)

@@ -111,7 +111,9 @@ export function createCase(st, live) {
       // (Only once a day has run: before that the live figure is at the bedside, its numbers swinging with each beat, while
       // the card already shows the settled start.)
       // (The days' chart draws the worker's calmed trail, and its head prints the trail's number at this share of the days: the tiles take that same number for the chart's lines, so the two never part. The words stand at the end state.)
-      if (fr?.metrics && d >= 1) dataTo(s, chartFp(s, end, liveFp(fr), d / days), ref, fast ? 120 : 280);
+      // (The tiles show the days' number at once, never through the shown-state follower: the chart's head and the figure's pills print the same trail reading in the same
+      // poll, and a follower's lag behind a fast time-lapse put the card 0.6 mmHg and 0.4 L behind them, and 0.9 L behind at the end: Ascites 3, play-test 16 Nov 2026.)
+      if (fr?.metrics && d >= 1) dataTo(s, chartFp(s, end, liveFp(fr), d / days), ref, 0);
       if (d >= days && fr?.clock === 'hemo') break;
       if (d > dBest) { dBest = d; moveAt = performance.now(); } else if (performance.now() - moveAt > 3000 * (s.lapse.seconds || 8)) { live.degrade('lapse-stall'); break; }
     }

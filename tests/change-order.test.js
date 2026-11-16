@@ -82,14 +82,13 @@ test('the figure keeps the order: the colour front, and collaterals after it', (
 
 test('a slide\'s colours come with its scene, never onto the leaving one (T1)', () => {
   const p = presenterSource();
-  const run = p.slice(p.indexOf('async function transitionRun('), p.indexOf('function paintOverlays('));
+  const run = p.slice(p.indexOf('async function transitionRun('), p.indexOf('const reFit = '));
   const lens = run.indexOf('const lensGo = ');
   assert.ok(lens > 0);
   // (The words leave, the catheter retracts and the camera rises out of the lobule before the slide's colours come.)
   for (const k of ["tx?.phase('cath-out')", "tx?.phase('to-anatomy')"]) assert.ok(run.indexOf(k) > lens && !/lensGo\(\)/.test(run.slice(lens + 20, run.indexOf(k))), `${k} before the colours`);
   assert.match(run, /lensGo\(\); applyState\(st\)/, 'under the dip, with the new patient');
-  // (A catheter slide over a drawable stage lets the change run under the cards: its colours still come with that change, and the catheter waits for it.)
-  assert.match(run, /lensGo\(\); if \(ct && stage\.canDrift\?\.\(\)\) \{ morphCt = morphTo\(st, cut\); \} else \{ if \(!await morphTo\(st, cut\)\) return;/, 'with the patient\'s change');
+  assert.match(run, /lensGo\(\); if \(ct && stage\.canDrift\?\.\(\)\) \{ morphCt = morphTo\(st, cut\); \} else \{ if \(!await morphTo\(st, cut\)\)/, 'with the patient\'s change (a catheter slide with GPU organs runs it under its cards)');
   assert.ok(run.indexOf("tx?.phase('cath-in')") > run.lastIndexOf('lensGo();'), 'or with the camera\'s move');
   assert.doesNotMatch(run.slice(0, lens), /store\.set\(\{ colorMode/, 'never as the old words leave');
 });

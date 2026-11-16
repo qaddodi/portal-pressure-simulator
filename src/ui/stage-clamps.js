@@ -257,7 +257,7 @@ export function createClamps(st, live) {
       }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
-      lab._txt = `${Math.round(v * 100)}%`;
+      lab._txt = `${Math.round(v * 100)}% narrowed`;   // (a number alone says nothing: every figure label carries a word or a unit)
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
