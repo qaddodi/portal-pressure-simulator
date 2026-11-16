@@ -16,7 +16,7 @@ import { readAnims, readBox, readMetric, readStyle, readTiming } from './layout-
 import { afterMs, reduceMotionMQ as reduce } from './motion.js';
 import { isResponse } from './nsbb-response.js';
 import { dropCharts, liveFp, rail, tileVal, wedgeColumn } from './presenter-cards.js';
-import { citeEl, diseaseNodes, equation, gateButtons, lensButtons, revealLine, rich, rulesLine, setFpAt, slideLens, toolButtons } from './presenter-words.js';
+import { citeEl, diseaseNodes, equation, gateButtons, lensButtons, revealLine, rich, setFpAt, slideLens, toolButtons } from './presenter-words.js';
 import { revealCount } from './reveal.js';
 import { EXT, safe } from './slide-ext.js';
 import { store } from './store.js';
@@ -138,7 +138,7 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
-    // (a time-lapse's words start at its start state; the days carry them to the end: presenter-case.js chipsTo)
+    // (a time-lapse's words are typeset from its end state; presenter-case.js chipsTo lands them there if that was not ready)
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -166,7 +166,7 @@ export function createQuestion(st, live) {
   live.variantWords = variantWords;
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i, wst = live.keepArgs?.s === s && live.keepArgs.lap ? live.keepArgs.now : st) {
-    if (s.lapse && rulesLine(s.line)) wst = live.states[live.stateOf[i]] || wst;   // (a sentence that applies a rule to a value states the end state's, from the first frame: presenter-words.js rulesLine)
+    if (s.lapse && s.line) wst = live.states[live.stateOf[i]] || wst;   // (the words of a time-lapse slide state where the days end, from the first frame: presenter-case.js chipsTo)
     const { text, panel } = live.ui;
     evDrop();   // (the last slide's graph is let go)
     paintScales(s, i);
