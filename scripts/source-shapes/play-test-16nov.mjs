@@ -38,4 +38,6 @@ export default [
   { file: 'styles/app-03-layouts.css', forbid: [/#app\.sin-focus :is\([^)]*#dock[^)]*\) \{ display: none !important; \}/, 'the cards are hidden by display alone: they pop out'] },
   // The zoom pill's box changes size by a glide; under Reduce Motion by a short fade, never in one frame.
   { file: 'src/ui/plate-glide.js', need: [/if \(still\.matches\) \{ host\.animate\(\[\{ opacity: 0\.4 \}, \{ opacity: 1 \}\]/, 'a box that changes size under Reduce Motion fades in, it does not snap'] },
+  // The Compare switch (Then, Now, Change) keeps its elements while its words stand, so the selection glides from one choice to the next (seg-glide.js) instead of being set down on the new one.
+  { file: 'src/ui/main.js', need: [/bannerSeg\._words === cmpLabel \+ '\|' \+ cmpNA \+ '\|' \+ cmpNB\) \{\s*for \(let i = 0; i < 3; i\+\+\) bannerSeg\.children\[i\]\.setAttribute\('aria-pressed'/, 'a press of Then, Now or Change only moves the pressed mark'] },
 ];
