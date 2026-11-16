@@ -27,4 +27,7 @@ export default [
   { file: 'styles/app-07-floating.css', need: [/\.treat-card \{[^}]*--occ-x: calc\(-1 \* \(var\(--panel-occ, 0px\) \+ var\(--instr-occ, 0px\)\)\); translate: var\(--occ-x\) 0; transition: [^;}]*translate/, 'Treat and History glide aside for Tests and the Details panel'] },
   { file: 'styles/app-07-floating.css', need: [/\.instrument-workspace\.side \{[^}]*--occ-x: calc\(-1 \* var\(--panel-occ, 0px\)\); translate: var\(--occ-x\) 0; transition: [^;}]*translate/, 'the side Tests card glides aside for the Details panel'] },
   { file: 'styles/app-10-thumb-dock.css', need: [/translate: var\(--occ-x, 0px\) var\(--sink, 0px\)/, 'the thumb dock keeps the glide beside the sheet sink'] },
+  // The Circuit's zone bands and dots come in over the second half of the change (a ramp of t from 0.5), never with the first: a faint panel showed over the plate.
+  { file: 'src/ui/stage-frame.js', need: [/const ma = t <= 0\.5 \? 0 : t >= 1 \? 1 : /, 'the map fades in only after the organs are mostly gone'] },
+  { file: 'src/ui/stage-frame.js', forbid: [/if \(MAP\.a !== t\)/, 'the map\'s opacity is not the morph\'s t itself'] },
 ];

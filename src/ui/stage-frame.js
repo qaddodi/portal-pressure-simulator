@@ -229,7 +229,10 @@ export function createFrame(st, live) {
     if (stageWrap.classList.contains('cmap') !== t > 0.5) { stageWrap.classList.toggle('cmap', t > 0.5); themeChanged(); }   // (the map's tokens are the labels' too: label-theme.js)
     if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
-    if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
+    // (The zone bands and dots come in over the second half of the change, as the organs are gone from the first (1 - t): over the plate they showed as a faint
+    // rectangle behind the half-turned vessels before it settled, play-test 16 Nov 2026. The same ramp runs back out over the first half of the way to the Anatomy.)
+    const ma = t <= 0.5 ? 0 : t >= 1 ? 1 : (2 * t - 1) * (2 * t - 1) * (3 - 2 * (2 * t - 1));
+    if (MAP.a !== ma) { MAP.a = ma; nd.dirty = true; }
     live.CTM = null;
   }
   // (The change between the views, the label layer's glide, the callouts' room glide and the dive's lobule share all run on the camera's curve, the

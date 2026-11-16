@@ -17,9 +17,11 @@ const XF_OUT = 0.55, XF_IN = 0.45, smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x 
 // figure is still the old view's, so none stands over the other view's vessels, and a name of the one (IVC 4.0) never lands on a name of the other (RIGHT ATRIUM)
 // as the two layouts' anchors cross (play-test, Mac, 16 Nov 2026). The old ones fade from XF_GO of the change, over the first half; the new ones start the moment
 // they are gone. Solved late, the old ones stay until the new ones exist, as before: no frame with no labels on the figure.
+// (`early`: the change between the Anatomy and the Circuit, where the figure itself changes. A presenter's glide over one view (glide-labels.js) keeps the plain law: its
+// figure stays the same, so its old names are still right under the moving camera until the new ones come.)
 const XF_GO = 0.12;
-export function viewXfMix(p, landAt, out = { o: 1, n: 0 }) {
-  if (landAt != null && landAt <= 0.5) {
+export function viewXfMix(p, landAt, out = { o: 1, n: 0 }, early = false) {
+  if (early && landAt != null && landAt <= 0.5) {
     out.o = 1 - smooth((p - XF_GO) / (0.5 - XF_GO));
     out.n = smooth((p - 0.5) / 0.5);
     return out;

@@ -11,17 +11,13 @@ test('still solving: the ghosts at full, the new labels at nothing, at every pro
   for (const p of [0, 0.25, 0.5, 0.75, 1]) assert.deepEqual(viewXfMix(p, null), { o: 1, n: 0 });
 });
 
-test('solved ahead (at the tap): the old names leave over the first half, the new ones come in over the second, never both', () => {
-  assert.deepEqual(viewXfMix(0, 0), { o: 1, n: 0 });
-  assert.deepEqual(viewXfMix(0.12, 0), { o: 1, n: 0 });
-  assert.deepEqual(viewXfMix(0.5, 0), { o: 0, n: 0 });
+test('solved ahead (at the tap): the crossfade is the change\'s own second half, as before', () => {
+  assert.deepEqual(viewXfMix(0.2, 0), { o: 1, n: 0 });
+  assert.deepEqual(viewXfMix(0.5, 0), { o: 1, n: 0 });
+  const mid = viewXfMix(0.75, 0);
+  assert.ok(mid.o < 0.03 && mid.n < 0.03, 'handed over at the middle: neither set strong on top of the other');
   assert.deepEqual(viewXfMix(1, 0), { o: 0, n: 1 });
-  assert.ok(viewXfMix(0.3, 0).o > 0 && viewXfMix(0.3, 0).o < 1, 'the old names are part way out at 30 %');
   assert.deepEqual(viewXfMix(0.75, 0.3), viewXfMix(0.75, 0), 'landed before the half: the same law');
-  for (let p = 0; p <= 1.0001; p += 0.01) { const m = viewXfMix(p, 0); assert.ok(Math.min(m.o, m.n) === 0, `never both sets showing (p ${p.toFixed(2)}: ${m.o}, ${m.n})`); }
-  // The old names are gone by the time the figure is half the new view's, so none stands over its vessels: they are under 5 % by 45 % of the change.
-  assert.ok(viewXfMix(0.45, 0).o < 0.05);
-  for (let p = 0; p <= 1; p += 0.05) assert.ok(viewXfMix(p + 0.05, 0).o <= viewXfMix(p, 0).o + 1e-9 || p >= 0.5, 'the old names only go out');
 });
 
 test('solved late in the change: the two cross over what is left of it, whole as the figure lands', () => {
@@ -37,3 +33,17 @@ test('solved late in the change: the two cross over what is left of it, whole as
 test('solved after the figure landed: the swap is that frame', () => {
   assert.deepEqual(viewXfMix(1, 1), { o: 0, n: 1 });
 });
+
+test('the change between the views (early): solved ahead, the old names leave over the first half, the new ones come in over the second, never both', () => {
+  assert.deepEqual(viewXfMix(0, 0, undefined, true), { o: 1, n: 0 });
+  assert.deepEqual(viewXfMix(0.12, 0, undefined, true), { o: 1, n: 0 });
+  assert.deepEqual(viewXfMix(0.5, 0, undefined, true), { o: 0, n: 0 });
+  assert.deepEqual(viewXfMix(1, 0, undefined, true), { o: 0, n: 1 });
+  assert.ok(viewXfMix(0.3, 0, undefined, true).o > 0 && viewXfMix(0.3, 0, undefined, true).o < 1, 'the old names are part way out at 30 %');
+  assert.deepEqual(viewXfMix(0.75, 0.3, undefined, true), viewXfMix(0.75, 0, undefined, true), 'landed before the half: the same law');
+  for (let p = 0; p <= 1.0001; p += 0.01) { const m = viewXfMix(p, 0, undefined, true); assert.ok(Math.min(m.o, m.n) === 0, `never both sets showing (p ${p.toFixed(2)}: ${m.o}, ${m.n})`); }
+  // The old names are gone by the time the figure is half the new view's, so none stands over its vessels: they are under 5 % by 45 % of the change.
+  assert.ok(viewXfMix(0.45, 0, undefined, true).o < 0.05);
+  for (let p = 0; p <= 1; p += 0.05) assert.ok(viewXfMix(p + 0.05, 0, undefined, true).o <= viewXfMix(p, 0, undefined, true).o + 1e-9 || p >= 0.5, 'the old names only go out');
+});
+
