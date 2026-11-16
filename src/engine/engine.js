@@ -1330,10 +1330,13 @@ export class Engine {
     return (P[i] - P[j]) - (this.refP[i] - this.refP[j]);
   }
 
-  /** Starling filtration & lymph balance, mL/min; protein in g/dL. */
-  starling() {
-    const p = this.params, P = this.P, s = p.cirrhosis;
-    const iap = this.iap ?? 5;
+  /** Starling filtration & lymph balance, mL/min; protein in g/dL. `shown`: the screen's reading, from the pressures averaged over one
+   *  breath and beat (Pf, iapf: shownMean), so the lymph and its protein hold still at rest; the hemodynamic clock's integration of the
+   *  ascites (fastProcesses) reads this instant's, which its sum over time averages out. (The sinusoidal and abdominal pressures swing with
+   *  the breath, and the lymph was read off them as they swung: 0.5 to 1.1 mL/min in a healthy liver, the protein 86 to 91 %.) */
+  starling(shown = false) {
+    const p = this.params, P = shown && this.Pf ? this.Pf : this.P, s = p.cirrhosis;
+    const iap = (shown ? this.iapf : undefined) ?? this.iap ?? 5;
     const pic = 25 * (p.albumin / 4.0);
     // How capillarized the sinusoid wall is: as the cirrhosis has it, less the share of its closed pores opened again (fenestrae,
     // a what-if: the pores opened in the same liver, its scar and resistance unchanged). A number at both ends, so a change eases.
@@ -1684,6 +1687,8 @@ export class Engine {
       lv: this.lv,   // (the lungs' and ventricle's share of the beat, lvStep)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
+      // (The shown readings, the means over the last breath and beat: a restored moment reads as it did, not as this instant's swing.)
+      Pf: this.Pf ? Array.from(this.Pf) : null, Qf: this.Qf ? Array.from(this.Qf) : null, iapf: this.iapf,
     });
   }
   restore(s) {
@@ -1703,8 +1708,9 @@ export class Engine {
     // (One from before the red cells' clocks (RED): its patient's own red cell mass, worked out as it was then.)
     if (this.blood.own == null) this.blood.own = this.ownRbc();
     this.slow.vRest ||= { VAR: null, GV: null };   // (one from before the varix's lag on its fall (VARIX.tauFall) starts it at the size the pressure gives)
-    this.Pf = Float64Array.from(this.P);
-    this.Qf = Float64Array.from(this.Q);
+    this.Pf = Float64Array.from(c.Pf?.length === this.N ? c.Pf : this.P);
+    this.Qf = Float64Array.from(c.Qf?.length === this.E ? c.Qf : this.Q);
+    this.iapf = Number.isFinite(c.iapf) && c.Pf?.length === this.N ? c.iapf : undefined;
     this._held = null;   // (the readings' dead band, holdShown, starts over with the shown means)
     this.pvQm = this.pvVm = undefined; this.vitM = null;
     this.qpm = Array.isArray(c.qpm) ? [...c.qpm] : null;   // (one from before it was kept starts it at this moment's inflow)

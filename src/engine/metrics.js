@@ -112,7 +112,7 @@ export function computeMetrics(eng, out = null) {
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);
   const noGRS = eng.params.spontaneous?.C5 === false;   // no gastrorenal shunt, no fundal varices
-  const st = eng.starling();
+  const st = eng.starling(true);   // (the shown means: the lymph and its protein hold still at rest)
   const asc = ascitesGrade(eng.slow.ascites);
   const co = (eng.COf ?? 83.3) * 0.06;
   const map = eng.MAPf;
@@ -197,7 +197,7 @@ export function computeMetrics(eng, out = null) {
   // The mean was the engine's raw MAPf, one fast stage, beside a systolic and a diastolic averaged over about eight seconds, so in any change of
   // pressure (the Valsalva strain, a bleed, a drug) a tile printed 102/72 (103), a mean outside its own systolic and diastolic: 16 Nov 2026.
   // The resistance below is physics and keeps the raw mean.)
-  r.map = vt.map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
+  r.map = vt.map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = vt.co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, vt.co);   // (the cardiac output as the vitals show it, averaged over two breaths: the 2 s filter's `co` swung 3.9 to 5.6 L/min at rest in a healthy liver, and the heart's label and the tiles read this field)
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;
   return r;
