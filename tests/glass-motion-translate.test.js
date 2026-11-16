@@ -36,3 +36,27 @@ test('a transform animation is not the property\'s, and one that mixes the two i
   assert.equal(miss.bad, true);
 });
 
+
+// A view switch read the glasses' boxes and styles on most frames (play-test T02, 16 Nov 2026; pps.glassWhy). An inline transform that is no
+// translation (a scale, a rotation) could not be put back from the numbers, so every frame it stood the glass asked for a read of the page;
+// the page read with it already holds it, so it is a reason once per text, not once per frame.
+import { Inline, inlineShift, inlineShiftNew, inlineShiftOk, inlineTranslate, inlineTranslateNew, inlineTranslateOk } from '../src/ui/glass-motion.js';
+
+test('an inline transform that is no translation asks for a read once, not in every frame it stands', () => {
+  const im = new Inline();
+  const frame = (str) => { if (!inlineShift(im, str)) return inlineShiftNew(im, str); inlineShiftOk(im); return false; };
+  assert.equal(frame('scale(1.05)'), true, 'the first frame it is seen');
+  for (let i = 0; i < 20; i++) assert.equal(frame('scale(1.05)'), false, 'the same text again: the page read holds it');
+  assert.equal(frame('scale(1.06)'), true, 'a new text is a new reason');
+  assert.equal(frame('translate(4px, 2px)'), false, 'a translation is followed by the numbers');
+  assert.equal(frame('scale(1.06)'), true, 'and its return after a translation is read again');
+});
+
+test('the same for an inline translate the numbers cannot follow', () => {
+  const im = new Inline();
+  const frame = (str) => { if (!inlineTranslate(im, str)) return inlineTranslateNew(im, str); inlineTranslateOk(im); return false; };
+  assert.equal(frame('calc(10px + 1em) 0px'), true);
+  assert.equal(frame('calc(10px + 1em) 0px'), false);
+  assert.equal(frame('3px 4px'), false);
+  assert.equal(frame('calc(10px + 1em) 0px'), true);
+});
