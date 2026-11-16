@@ -15,7 +15,8 @@ export function createGlide(st, live) {
   let freeAsk = null;   // (the rectangle frameBox fitted its framing into: set only around its animateVT call)
   // ── One slide, one straight move (16 Nov 2026, Mohammad: "I THOUGHT WE FIXED THIS AT THE ORIGIN") ──
   // A slide's move to its framing (opt.slide: the presenter's camera(), presenter-proc.js frameTo) is the rail: one path planned as it sets off
-  // (cam-arc.js camPath: every point of the figure on a straight line, the zoom on a log scale), never followed along a vessel (the T4 glide,
+  // (cam-arc.js lerpVT, the plain glide: the pan tied to the zoom on one eased curve, every point of the figure on a straight line, the zoom on a
+  // log scale and one way; never the pull-back arc), never followed along a vessel (the T4 glide,
   // deleted 16 Nov 2026: it curved up to 18 % of the move off its line), never bent or restarted by a framing asked while it runs. Such a
   // framing (a refit to the cards, the figure's home fit, a closed sheet) is held: a near one is dropped, a real change (a card folded, the
   // screen turned) is the one glide after the landing. For RAIL_SETTLE_MS after the landing a near one is dropped too, so the cards settling
@@ -80,7 +81,9 @@ export function createGlide(st, live) {
     // (opt.v0: the hand's own speed when it let go, a spring-back's: stage-gestures.js.)
     const v0 = opt.v0 || (!drift && live.vtGliding ? vtTrack.take(performance.now()) : null);
     vtTrack.begin();
-    const room = opt.arc && !reduceMotion.matches ? arcRoom(freeAsk) : null;   // (reduced motion: no pull-back, the plain short glide)
+    // (A slide's own move never pulls back: one path, the pan and the zoom on the one eased curve, every point of the figure on a straight line,
+    // the zoom one way; 16 Nov 2026, "go to the root". Reduced motion: no pull-back either, the plain short glide.)
+    const room = opt.arc && !opt.slide && !reduceMotion.matches ? arcRoom(freeAsk) : null;
     if (room && prev && live.vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
       // A refit while an arc runs (the cards settled, the screen turned): the same arc from where it began, now to the new framing,
       // taken over gradually from here on, keeping its pace and its end time. Nothing jumps and it does not start over from rest.

@@ -158,16 +158,14 @@ test('the stage\'s arc room and screen width are its real view box\'s, the free 
 for (const [name, scr] of Object.entries(SCREENS)) {
   test(`${name}: every slide-to-slide move of every deck lands straight, in zoom without overshoot, and never reverses`, () => {
     const vb = camWindow(scr.sw, scr.sh, BOX, scr.free), fit = framing(FIT_BOX, scr, 1.15), wMax = vb.w / fit.k;
-    let n = 0, arcs = 0;
+    let n = 0;
     for (const { from, to, at } of moves()) {
-      const a = framing(from.box, scr, from.kMax), b = framing(to.box, scr, to.kMax), p = camPath(a, b, vb, wMax);
-      if (p.arc) arcs++;
-      // (the glide's own progress: eased by the quintic; each path asked at the eased value, as animateVT's step does)
-      judge((u) => p.at(u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), p.arc, `${name}, ${at}`);
+      const a = framing(from.box, scr, from.kMax), b = framing(to.box, scr, to.kMax);
+      // (a slide's move is always the plain glide, never the pull-back: stage-glide.js; each asked at the quintic's eased value, as animateVT's step does)
+      judge((u) => lerpVT(a, b, u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), false, `${name}, ${at}`);
       n++;
     }
     assert.ok(n > 600, `the decks have their moves, forward and back (${n})`);
-    assert.ok(arcs <= n);
   });
 
   // The glide as it runs: animateVT on the test's clock, asked as the presenter's camera() asks a slide's framing (1500 ms, an arc allowed,
@@ -189,6 +187,7 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         r.g.animateVT(b, 1500, { arc: true, scale: true, slide: true });
         const plan = r.moves[0], ms = plan?.ms;
         assert.ok(plan && plan.slide, `${name}, ${at}: the slide's move is asked`);
+        assert.equal(plan.arc, false, `${name}, ${at}: a slide's move never pulls back (the zoom one way)`);
         assert.ok(ms >= SLIDE_MS_MIN && ms <= Math.round(CAM_MS_FAR * 1.3), `${name}, ${at}: a slide's glide takes ${ms} ms, never under ${SLIDE_MS_MIN}`);
         // a late first frame (the move's own layout pass), then 16 ms frames, a 1 s stall somewhere in the move (seeded by the move), a near refit
         // half way, and a near refit 300 ms after the landing
@@ -207,12 +206,12 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         const glides = r.moves.filter((m) => m.kind === 'glide');
         assert.equal(glides.length, 1, `${name}, ${at}: one move, not ${glides.length} (${r.moves.map((m) => m.kind).join(', ')})`);
         assert.ok(Math.abs(r.live.vt.k - b.k) < 1e-9 && Math.abs(r.live.vt.x - b.x) < 1e-6 && Math.abs(r.live.vt.y - b.y) < 1e-6, `${name}, ${at}: on the slide's framing`);
-        // every point on one straight line, never back along it (the plain glide; a pull-back keeps its middle on the line, judged above)
-        if (!plan.arc) track.forEach((P, i) => { const w = wander(P); assert.ok(w.dev < 0.5 + 0.002 * w.L && w.back < 0.5, `${name}, ${at}: point ${i} is off its line by ${w.dev.toFixed(1)} of ${w.L.toFixed(0)}, back ${w.back.toFixed(1)}`); });
-        // the zoom one way (or, on a pull-back, out once and in)
+        // every point on one straight line, never back along it
+        track.forEach((P, i) => { const w = wander(P); assert.ok(w.dev < 0.5 + 0.002 * w.L && w.back < 0.5, `${name}, ${at}: point ${i} is off its line by ${w.dev.toFixed(1)} of ${w.L.toFixed(0)}, back ${w.back.toFixed(1)}`); });
+        // the zoom one way
         let turns = 0, dir = 0;
         for (let i = 1; i < ks.length; i++) { const d = Math.sign(ks[i] - ks[i - 1]); if (Math.abs(ks[i] - ks[i - 1]) > 1e-9 * ks[i]) { if (dir && d !== dir) turns++; dir = d; } }
-        assert.ok(turns <= (plan.arc ? 1 : 0), `${name}, ${at}: the zoom turns back ${turns} times`);
+        assert.equal(turns, 0, `${name}, ${at}: the zoom turns back ${turns} times`);
         // no frame jumps, the stall's and the late first frame's included: a frame moves the landing point no more than STALL_MAX of the
         // quintic's top speed (1.875 times its mean) allows, times the zoom's own lead (zf)
         const L = track[0], span = Math.max(1, Math.hypot(L[0][0] - L[L.length - 1][0], L[0][1] - L[L.length - 1][1])), zr = b.k / a.k, zf = Math.abs(zr - 1) < 1e-9 ? 1 : (Math.abs(Math.log(zr)) * Math.max(zr, 1)) / Math.abs(zr - 1), cap = (1.875 * STALL_MAX * zf) / ms;   // (zf: the plain glide's screen pace runs ahead of its eased progress by up to this, the zoom on a log scale)
@@ -435,8 +434,8 @@ test('the move in from a case card\'s whole patient lands straight on every scre
         if (typeof cam !== 'string' || /^(lobule|sinusoid)/.test(cam)) return;
         const box = cam === 'fit' ? FIT_BOX : regionBox(cam, REGIONS);
         if (!box) return;
-        const b = framing(box, scr, s.kMax || 3.2), p = camPath(fit, b, vb, wMax);
-        judge((u) => p.at(u), fit, b, vb, Math.max(wMax, vb.w / b.k), p.arc, `${name}, ${id} ${i}, in from the case card`);
+        const b = framing(box, scr, s.kMax || 3.2);   // (a slide's move, the move in from a case card's whole patient too: the plain glide)
+        judge((u) => lerpVT(fit, b, u), fit, b, vb, Math.max(wMax, vb.w / b.k), false, `${name}, ${id} ${i}, in from the case card`);
         n++;
       });
     }
