@@ -10,7 +10,7 @@
 
 import { h, fmt, icon, toast, swapText, foldHidden, hasBox } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvBlocked, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvBlocked, NOT_SHOWN, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams, setViewKey } from './store.js';
 import { shownOr } from './shown.js';
@@ -230,6 +230,7 @@ export function createHvpgProcedure() {
     // Before any measurement, with the readouts on show (Settings, or measured once for this patient), the three read live,
     // the free and wedged pressures as the bar reads them and the HVPG as their difference, so the row and the bar agree (sweep
     // batch 03, shots 05 and 30: dashes here beside HVPG 0.9 on the bar).
+    const blockedNow = hvBlocked(st.params);
     const open = ph === 'idle' && !!st.frame?.metrics && !hiddenNow(st)?.has('trueHVPG') && !hvBlocked(st.params);   // (a blocked vein: dashes, as after the abort)
     let v = values();
     if (open) { const f1 = Math.round(shownOr('fhvp', v.fhvp) * 10) / 10, w1 = Math.round(shownOr('whvp', v.whvp) * 10) / 10; openV.fhvp = f1; openV.whvp = w1; openV.hvpg = Math.round((w1 - f1) * 10) / 10; v = openV; }
@@ -238,7 +239,9 @@ export function createHvpgProcedure() {
     else { shown.fhvp = ph !== 'idle' && ph !== 'enter' && ph !== 'abort'; shown.whvp = ph === 'result' || (ph === 'wedge' && t >= T.callout); shown.hvpg = ph === 'result' && (t0 == null || t >= T.sum); }
     for (let ki = 0; ki < 3; ki++) {
       const k = KEYS3[ki];
-      const txt = shown[k] ? fmt(v[k], 1) : NOT_SHOWN;
+      // (A vein that cannot be catheterized, Budd–Chiari, says so in each reading's place; a dash is a reading not yet taken.)
+      const nm = !shown[k] && blockedNow, txt = shown[k] ? fmt(v[k], 1) : nm ? NOT_MEASURABLE : NOT_SHOWN;
+      dataSoon(vals[k], 'nm', nm ? '1' : '');
       if (valW[k].text !== txt) {
         valW[k].set(txt);
         // The difference arrives after the two readings have settled: it fades and rises in, never pops. (Not a live reading:
