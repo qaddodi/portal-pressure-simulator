@@ -9,7 +9,7 @@ export default [
   { file: 'src/ui/sinusoid-view.js', need: [/lymphText\(m\.lymph\)\}~\$\{LYMPH_UNIT\}/, 'One number on a slide (the sinusoid\'s lymph label prints mL/day through lymph-day.js)'] },
   { file: 'src/ui/actions.js', need: [/lymphText\(m\.lymph\)/, 'One number on a slide (the lobule\'s lymph card prints mL/day through lymph-day.js)'] },
   { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\), ref, 0\)/, 'One number on a slide (a time-lapse\'s tiles are set at once, never through the follower that lags the chart and the figure)'] },
-  { file: 'src/ui/decks/ascites.js', forbid: [/portal tracts carry many times their usual flow/, 'Words match the model (the overrun slide\'s liver lymph is lower than the first lymph slide\'s: the ascites has raised the belly pressure)'] },
+  { file: 'src/ui/decks/ascites.js', need: [/portal tracts carry many times their usual flow/, 'Words match the model (16 Nov 2026, lymph-model.test.js: the liver\'s lymph rises with the sinusoidal pressure and the lymphatics carry many times the healthy flow at their capacity)'] },
   // fluid-window
   { file: 'src/ui/presenter*', forbid: [/!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'The fluid balance\'s day card (tool { kind: (no tiles stand beside any instrument now (7 Nov 2026))'] },
   { file: 'styles/app-*.css', need: [/\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'The fluid balance\'s day card (tool { kind: (hidden really hides the flex rows)'] },

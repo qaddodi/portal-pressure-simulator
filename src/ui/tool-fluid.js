@@ -16,6 +16,7 @@ import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';
 import { onFontsLoaded } from './font-arrival.js';
 import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
+import { tissueP, sinusoidPull, pushOfHepLymph } from '../engine/lymph.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -40,26 +41,27 @@ export function fluidOf(src) {
   return { hep, spl, made, cap, carried, spare: Math.max(0, cap - made), over, back, drained, net, perDay: net * 1440 };
 }
 
-/** The forces across the sinusoid wall (mmHg), as the engine's Starling step weighs them (engine.js starling): the pressure
- *  pushing fluid out (the sinusoids' pressure, a mix of the two lobes' sinusoids and central veins, less the pressure in the
- *  belly) against the blood's protein pulling it back in (the oncotic gap across the wall, times its reflection coefficient).
- *  The liver's lymph is 0.5 + 0.45 × the push beyond the pull and 0.75 (tests/deck-instruments.test.js checks it against the engine). */
+/** The forces across the sinusoid wall (mmHg), as the engine's Starling step weighs them (engine.js starling, LYMPH): the pressure
+ *  pushing fluid out (the sinusoids' pressure, a mix of the two lobes' sinusoids and central veins, less the liver tissue's, which rises
+ *  by only a share of the belly's pressure: tissueP) against the blood's protein pulling it back in (the oncotic gap across the wall,
+ *  times its reflection coefficient: sinusoidPull). The liver's lymph is hepLymphOf(push, pull) (tests/deck-instruments.test.js checks it
+ *  against the engine). */
 export function sinusoidForces(P, params, iap) {
   if (!P || !params) return null;
   const at = (id) => P[NI[id]];
-  const out = 0.6 * (0.7 * at('SIN_R') + 0.3 * at('CV_R')) + 0.4 * (0.7 * at('SIN_L') + 0.3 * at('CV_L')) - (iap ?? 5);
-  const pic = 25 * ((params.albumin ?? 4) / 4), sig = 0.1 + 0.5 * (params.cirrhosis ?? 0), pull = sig * (pic - pic * (1 - sig) * 0.9);
+  const out = 0.6 * (0.7 * at('SIN_R') + 0.3 * at('CV_R')) + 0.4 * (0.7 * at('SIN_L') + 0.3 * at('CV_L')) - tissueP(iap);
+  const pull = sinusoidPull(params.albumin ?? 4, 0.1 + 0.5 * (params.cirrhosis ?? 0));
   return Number.isFinite(out) && Number.isFinite(pull) ? { out, pull } : null;
 }
 
 /** The forces at a slide's state, from its fingerprint (worker-core.js: the liver's lymph and the albumin; the cirrhosis from
- *  the slide's params): the push read back from the engine's own liver lymph, which it sets (0.5 + 0.45 × the push beyond the
- *  pull and 0.75), so every screen shows the same number for the same slide, whatever the breath at the moment. null where
- *  the push is below that threshold (the lymph is at its floor and does not tell the push); the live frames show it then. */
+ *  the slide's params): the push read back from the engine's own liver lymph, which it sets (pushOfHepLymph, the inverse of
+ *  hepLymphOf), so every screen shows the same number for the same slide, whatever the breath at the moment. null where the
+ *  lymph is at its healthy floor (it does not tell the push there); the live frames show it then. */
 export function pinnedForces(fp, params) {
-  if (!fp || !params || !Number.isFinite(fp.hepLymph) || fp.hepLymph <= 0.5 + 1e-9) return null;
-  const pic = 25 * ((fp.salb ?? params.albumin ?? 4) / 4), sig = 0.1 + 0.5 * (params.cirrhosis ?? 0), pull = sig * (pic - pic * (1 - sig) * 0.9);
-  return { out: (fp.hepLymph - 0.5) / 0.45 + pull + 0.75, pull };
+  if (!fp || !params || !Number.isFinite(fp.hepLymph)) return null;
+  const pull = sinusoidPull(fp.salb ?? params.albumin ?? 4, 0.1 + 0.5 * (params.cirrhosis ?? 0)), out = pushOfHepLymph(fp.hepLymph, pull);
+  return out == null ? null : { out, pull };
 }
 
 /** The bars' segments, as fractions of the scale they share (the largest of made, drained and the lymphatics' capacity). */

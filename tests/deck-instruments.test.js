@@ -11,6 +11,7 @@ import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL, wordSize } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
+import { LYMPH, hepLymphOf } from '../src/engine/lymph.js';
 import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
@@ -94,7 +95,7 @@ test('V27: the forces across the sinusoid wall give the engine\'s liver lymph', 
   for (const m of st) {
     const e = new Engine(); e.restore(m.snap);
     const fo = sinusoidForces(e.P, e.params, e.iap);
-    near(0.5 + 0.45 * Math.max(0, fo.out - fo.pull - 0.75), e.starling().hep, 1e-9, 'liver lymph from the forces');
+    near(hepLymphOf(fo.out, fo.pull), e.starling().hep, 1e-9, 'liver lymph from the forces');
   }
 });
 
@@ -108,7 +109,7 @@ test('V27: at rest the forces come from the slide\'s own state, the same on ever
     near(pf.pull, lf.pull, 1e-9, 'the pull');
     near(pf.out, lf.out, 0.05, 'the push, as the model has it at that moment');
   }
-  if (healthy.fp.hepLymph <= 0.5 + 1e-9) assert.equal(pinnedForces(healthy.fp, {}), null, 'lymph at its floor: the live frames show the push');
+  if (healthy.fp.hepLymph <= LYMPH.hepBase + 1e-9) assert.equal(pinnedForces(healthy.fp, {}), null, 'lymph at its floor: the live frames show the push');
 });
 
 test('V21: the calipers read the window\'s extremes, on their own samples, with the reading\'s own index', () => {
