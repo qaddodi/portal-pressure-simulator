@@ -42,6 +42,12 @@ const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centi
 // stent beyond (Borda–Carnot, ½ρ(v_jet − v)², with ½ρ = kin / K). So a mild pinch costs little, and a tight one
 // throttles the stent while the jet through it runs fast, as on Doppler.
 const PINCH = 0.125;
+/** mmHg of hepatic venous rise the sinusoids still dilate with (a tense belly, a little fluid); only a congested outflow beyond it is taken off. */
+const CONGESTED_FROM = 4;
+/** The cirrhosis slider (0 to 1) from which the sinusoids no longer swell with congestion at all: a healthy liver's congested sinusoids do (congestive hepatopathy), a scarred one's do not, in between by degrees. */
+const SCARRED_FROM = 0.3;
+/** The part of a hepatic venous rise that is congestion: nothing under CONGESTED_FROM, then all of it from twice that, by a smooth step (no kink for the solver). */
+const congestedRise = (rise) => { const x = Math.min(1, Math.max(0, (rise - CONGESTED_FROM) / CONGESTED_FROM)); return rise * x * x * (3 - 2 * x); };
 const stentConductance = (tract, d, q, visc, s = 0) => {
   const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = TIPS_R.kin * Math.abs(q) / (A * A);
   return 1 / (tract * visc + wall + kq + pinchResistance(wall, kq, s));
@@ -566,9 +572,16 @@ export class Engine {
         case 'liver':
           R *= this.zoneMult(e.lobe, e.zone);
           if (e.zone === 'sin' || e.zone === 'post') {
-            // Congested sinusoids dilate; capillarized (cirrhotic) sinusoids cannot.
+            // Congested sinusoids dilate; capillarized (cirrhotic) sinusoids cannot. What dilates them is the pressure above the pressure the whole liver
+            // drains into: a rise of the central venous pressure above its baseline, read at the suprahepatic IVC (right heart failure, constriction, an IVC web; not a TIPS, which only raises the hepatic vein it joins, and not a hepatic vein block, where the catheter reads the shut vein) lifts
+            // every sinusoid together, and the liver, held by its capsule, does not swell with it (the varix above takes the same rise off its own wall).
+            // Without this a congested outflow wiped out the HVPG of a cirrhotic liver: 6.4 mmHg at 40% on the slider fell to 2 with the right atrium at 24,
+            // where in patients the gradient follows the sinusoidal resistance and dips only a little with the lower inflow.
             const kd = 0.08 * (1 - s);
-            if (kd > 0) R *= tubeResistanceFactor(P[f], P[t], this.Pbase[f], this.Pbase[t], kd);
+            if (kd > 0) {
+              const hv = this.ni.IVCS, rise = congestedRise(P[hv] - this.Pbase[hv]) * Math.min(1, s / SCARRED_FROM);
+              R *= tubeResistanceFactor(P[f] - rise, P[t] - rise, this.Pbase[f], this.Pbase[t], kd);
+            }
           }
           break;
         case 'wedge': {
