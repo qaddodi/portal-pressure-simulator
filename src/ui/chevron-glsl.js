@@ -91,7 +91,7 @@ export function headInksGLSL(orange) {
 // answer equally (CHEV_FLIP, so a vessel whose colour eases never pops and one held anywhere has a head that shows): a forward head near-black on a light lumen and cream on a dark one; a reversed head orange on both (cream on an
 // orange lumen); the rim sepia on a light lumen and cream on a dark one (never white on a bright vessel).
 void chevInks(vec3 vc, float rv, out vec3 core, out vec3 rim) {
-  float rk = origin == 1 ? rv * (1.0 - blendA.z) : rv;
+  float rk = origin == 1 ? rv * (1.0 - blendA.y) : rv;
   float dark = 1.0 - smoothstep(${CHEV_FLIP[0]}, ${CHEV_FLIP[1]}, dot(pow(max(vc, vec3(0.0)), vec3(2.2)), vec3(0.2126, 0.7152, 0.0722)));
   float warm = rk * chevOrange(vc);
   vec3 ink = mix(chevInk, vc * 0.3, 0.2);

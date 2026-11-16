@@ -130,7 +130,7 @@ export function deviceInfo() {
     release: RELEASE, preview: badge ? badge.textContent.trim().replace(/\s+/g, ' ') : '', when: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
     ua: navigator.userAgent, screen: `${innerWidth}x${innerHeight}`, dpr: devicePixelRatio, hz: 0, renderer,
     look: `stage ${tag?.dataset.renderer || '?'}, quality step ${tag?.dataset.quality ?? '?'}, look ${currentLook() || 'System (follows the device)'}${cap}`,
-    mode: `mode ${st.mode}, view ${st.lobule ? 'lobule' : st.view}, patient ${st.presetId || '?'}, model ${st.running ? 'running' : 'paused'}, blood ${st.layers?.flow ? 'on' : 'off'}`,
+    mode: `mode ${st.mode}, view ${st.lobule ? 'lobule' : st.view}, patient ${st.presetId || '?'}, model ${st.running ? 'running' : 'paused'}, chevrons ${st.blood?.chevrons ? 'on' : 'off'}`,
   };
 }
 

@@ -44,8 +44,8 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { F_RING } from './veins-mesh-glsl.js';
-import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
-import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
+import { PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling } from './frame.js';
 import { figureDensity } from './pixel-budget.js';
@@ -2084,8 +2084,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // Blood: each vessel's stream advances at a display speed from the model's flows.
     const st = store.get(), b = st.blood || NO_BLOOD;
-    const bloodOn = !m.hide && st.layers?.flow !== false, chev = !m.hide && !!b.chevrons;
-    const pxW = 1 / (k * V.k), s0 = SLOT * (pxW * 8 > SLOT * 2 ? 4 : pxW * 8 > SLOT ? 2 : 1);
+    const chev = !m.hide && !!b.chevrons;
     const ease = -Math.expm1(-dt / 0.5);
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
     const vS = 15 * Math.sqrt(fr);
@@ -2113,15 +2112,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         flowData[o + 28] = mo.lyD; flowData[o + 29] = lyStill ? (lyS < 0 ? -1e-3 : 1e-3) : lyS;
       }
     }
-    if (!flowSame && (bloodOn || chev || origin)) for (const t of tubeSet) {
-      let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
+    if (!flowSame && (chev || origin)) for (const t of tubeSet) {
+      let v, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
       const lv = t.kind;
       if (lv === 's0' || lv === 's1' || lv === 's2') {
-        v = vS * (lv === 's0' ? 1 : lv === 's1' ? 1.45 : 2.05); occ = clamp(0.5 * fr ** 0.6, 0.06, 0.95); f1 = lv === 's2' ? 1 : 0;
+        v = vS * (lv === 's0' ? 1 : lv === 's1' ? 1.45 : 2.05); f1 = lv === 's2' ? 1 : 0;
         stasis = 1 - smooth(0.12, 0.45, fr); oe = LOBE.q;
-      } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
-      else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
-      else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
+      } else if (lv === 'an') { v = 0.35 * vS * t.sign; strength = 0.6; oe = LOBE.q; }
+      else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
+      else if (lv === 'tw') { v = 30 * Math.sqrt(ar); f0 = 1; oe = LOBE.a; }
       else {   // vessels seen end-on carry no streaks (lymph moves as the drops on the overlay); the portal venule, arteriole and central vein carry their blood's origin
         const ke = END_ON_EDGE[lv];
         if (origin && origins && ke !== undefined) putOrigin(t.id * FLOW_TEXELS * 4, ke, t);
@@ -2132,12 +2131,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       sm.v = Math.sign(v) !== Math.sign(sm.v) ? v : sm.v + (v - sm.v) * ease;
       sm.D = (((sm.D + sm.v * dt) % PERIOD) + PERIOD) % PERIOD;
       // Density and stasis ease the same way, so the shimmer thickens or thins instead of popping.
-      sm.occ = sm.occ == null ? occ : sm.occ + (occ - sm.occ) * ease;
       sm.st = sm.st == null ? stasis : sm.st + (stasis - sm.st) * ease;
       sm.drift = ((sm.drift || 0) + sm.st * dt * DRIFT_RATE) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
       sm.rev += (rev - sm.rev) * ease;
-      const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
-      flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * laneSum(Rm, pxW)) / s0; flowData[o + 3] = sm.st;
+      const o = t.id * FLOW_TEXELS * 4;
+      flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 3] = sm.st;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       flowData[o + 14] = sm.drift;
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
@@ -2153,7 +2151,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The blood's arguments, one object kept and written in place: veins-gl reads it within the call, and its kept pair for a later repaint holds this
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
-    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; if (biOn && flowA > 0.002) blood.on = true; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
+    blood.alpha = flowA; blood.on = (lyOn || biOn) && flowA > 0.002; blood.chev = chev && flowA > 0.002; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
     blood.originCol = originsPass ? bc.firstCol : bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
@@ -2711,7 +2709,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const CV_FILL = 0.55;
   // How solid the scar inside the vein draws: 30% (faded by 70%, Mohammad 12 Nov), so the lumen and the blood show through it.
   const CV_SCAR_ALPHA = 0.3;
-  const fxMovesArg = { lymph: false, flat: false, hide: false, flow: undefined };
+  const fxMovesArg = { lymph: false, flat: false, hide: false };
   const fxDc = ['', '', '', ''], fxKNow = [], fxKWas = [];
   const fxLymph = { drops: null, beadRings: null, erase: null, eraseAdd: 0, ringHalf: 0, line: null, colours: { ly: [0, 0, 0, 0], ring: [0, 0, 0, 0], bead: [0, 0, 0, 0], line: [0, 0, 0, 0] } }, fxNone = new Float32Array(0);
   const fxLineCol = [0, 0, 0, 0];
@@ -2725,7 +2723,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Hosted: at the vessels' canvas's density, as drawGL sizes it.)
     const hosted = g === fxHostGL, vk = hosted ? dpr * (gl.software ? 0.5 : 1) : dpr;
     const fw = hosted ? Math.max(1, Math.round(W * vk)) : canvasPx(W, dpr), fh = hosted ? Math.max(1, Math.round(H * vk)) : canvasPx(H, dpr), G = geo, m = model;
-    fxMovesArg.hide = m.hide; fxMovesArg.flow = store.get().layers?.flow;
+    fxMovesArg.hide = m.hide;
     // SOS: the fibrosis inside the central vein. The vein keeps its wall (where the sinusoids end); the scar fills in from it, so the open lumen narrows.
     const zP = rzOf(), plugOn = !m.hide && m.fibPost > 0.05, plugGrow = plugOn ? scarGrowth(zP.fibPost) : 0;
     const plugWall = plugOn ? radiusAt(G.cv, 0) : 0, plugOpen = plugWall * (1 - CV_FILL * plugGrow), plugTok = plugOn ? tk('--lz-septum') : '';

@@ -39,8 +39,7 @@ export function headKeep(j, n0, lv) {
 }
 
 /**
- * The quads' vertex shader. zoom: ZOOM_VS (pxW and the composite's zoom outputs, which the composite build declares as inputs);
- * along: ALONG_GLSL; rows: ROWS_GLSL (radAt, flowD, rootDD); orange: CHEV_ORANGE_GLSL; nSamples: N_SAMPLES; pitch: the text of
+ * The quads' vertex shader. along: ALONG_GLSL; rows: ROWS_GLSL (radAt, flowD, rootDD); orange: CHEV_ORANGE_GLSL; nSamples: N_SAMPLES; pitch: the text of
  * chevron-glsl.js chevLevel and chevKeep (CHEV_PITCH_GLSL).
  */
 // (15 Nov 2026, owner: F16 and the thin-vessel rule. A head on a vessel whose blood stands (shown speed under 0.5, where heads used to fade out) does not vanish:
@@ -48,7 +47,7 @@ export function headKeep(j, n0, lv) {
 // heads at all: none under THIN_LO CSS px of radius (3 px across), full from THIN_HI (5 px across), whatever the screen's density. Both live here, in the quads,
 // never in the composite's own heads, which only a frame without quads uses.)
 export const STILL_A = 0.3, THIN_LO = 1.5, THIN_HI = 2.5;
-export function headVS({ zoom, along, rows, orange, nSamples, pitch = CHEV_PITCH_GLSL }) {
+export function headVS({ along, rows, orange, nSamples, pitch = CHEV_PITCH_GLSL }) {
   // alloc-rare: assembles the shader text once when the renderer's programs are made (veins-gl.js), never per frame
   return `#version 300 es
 precision highp float;
@@ -65,9 +64,9 @@ uniform highp float bT;
 uniform int still;
 uniform float cssPx;
 uniform vec3 chevInk, chevLight, revCol, inkLight;
-uniform vec3 blendA;                   // (the origin lens's share, in z: chevInks)
+uniform vec2 blendA;                   // (the chevrons' share, in x, and the origin lens's, in y: chevInks)
 uniform int origin;
-${zoom}
+uniform float pxW;                     // world units per device pixel
 ${along}
 ${rows}
 ${headInksGLSL(orange)}
@@ -78,7 +77,6 @@ flat out vec3 hInk, hRim;              // the colours of its core and of its rim
 const int N_LAST = ${nSamples - 1};
 const float STILL_A = ${STILL_A.toFixed(2)}, THIN_LO = ${THIN_LO.toFixed(2)}, THIN_HI = ${THIN_HI.toFixed(2)};   // (blood-heads.js)
 void main() {
-  zoomOut();
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // (no head: outside the clip box, nothing drawn)
   hC = vec4(0.0); hS = vec4(0.0); hInk = vec3(0.0); hRim = vec3(0.0);
   int id = int(head.x + 0.5);
@@ -259,7 +257,7 @@ void main() {
     else dh = length(max(max(hh.xy - w, w - hh.zw), 0.0)) - hr;
     c *= smoothstep(-pxW, pxW, dh);
   }
-  float k = vis * flowA * blendA.y;
+  float k = vis * flowA * blendA.x;
   float ar = clamp(c.y * 0.75 * k, 0.0, 1.0), ac = clamp(c.x * k, 0.0, 1.0);
   // (The composite's two mixes, rim then core, as one premultiplied head; at the lumen's opacity.)
   vec4 hd = over(vec4(hInk * ac, ac), vec4(hRim * ar, ar)) * v.a;
