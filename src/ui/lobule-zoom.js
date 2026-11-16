@@ -1513,9 +1513,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         let poly = [];
         if (P1 && sideOf(leaf, P1) === side) {
           const chain = [P1, leaf]; if (P2 && sideOf(P1, P2) === side) chain.unshift(P2);
-          chain.forEach((T, ci) => { const Q = lanePts(T, side, 0).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.5); poly = poly.concat(ci === 0 || !poly.length ? Q : Q.slice(1)); });
+          chain.forEach((T, ci) => { const Q = lanePts(T, side, 0).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.25); poly = poly.concat(ci === 0 || !poly.length ? Q : Q.slice(1)); });
         } else {
-          poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.5);   // (in the crotch of a pair: starts a little past it)
+          poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.25);   // (in the crotch of a pair: starts a little past it)
         }
         if (poly.length < 3) return;
         // the plate's centre on the inlet
@@ -1541,15 +1541,24 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       });
       // per half edge: one duct from the middle of the edge to the corner's ductule, just outside the lymphatic; it runs under the inlet venule, the lymphatic and the portal venule's disc
       // where the way to the ductule crosses them. Both halves of an edge meet at its middle, so the ducts join the ductules of neighbouring portal tracts end to end.
-      const mids = new Map();
+      const mids = new Map(), mains = [];
       for (const hf of halfInfo.values()) {
-        const { inl, conn } = hf, tr = triads[inl.tri], o = R * 0.055, iEnd = Math.round(0.16 * (N - 1)), leg = [];
+        const { inl, conn } = hf, tr = triads[inl.tri], o = R * 0.055, leg = [];
+        // (the duct runs straight along the edge past every canal that joins it, so each canal meets it square; it turns for the ductule only beyond the last)
+        const icMin = Math.min(...conn.map((c) => c.ic)), iEnd = Math.max(Math.round(0.1 * (N - 1)), icMin - Math.round(0.06 * (N - 1)));
         const outAt = (i) => { const n = outN(inl, i), q = inl.pts[i]; return [q[0] + n[0] * o, q[1] + n[1] * o]; };
         for (let i = N - 1; i >= iEnd; i--) leg.push(outAt(i));
-        const Pe = leg[leg.length - 1], Pp = leg[leg.length - 3], tc = unit(Pe[0] - Pp[0], Pe[1] - Pp[1]), D = tr.bd;
-        const P1c = [Pe[0] + tc[0] * R * 0.05, Pe[1] + tc[1] * R * 0.05], u1 = unit(P1c[0] - D[0], P1c[1] - D[1]), P2c = [D[0] + u1[0] * R * 0.05, D[1] + u1[1] * R * 0.05];
-        for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; leg.push([v * v * v * Pe[0] + 3 * v * v * u * P1c[0] + 3 * v * u * u * P2c[0] + u * u * u * D[0], v * v * v * Pe[1] + 3 * v * v * u * P1c[1] + 3 * v * u * u * P2c[1] + u * u * u * D[1]]); }
-        const legT = add('bh', curve((u) => at(smoothPoly(leg, 2), u)), { tri: tr.i, lymph: true, bile: true });
+        const legS = smoothPoly(leg, 2), Pe = legS[legS.length - 1], Pp = legS[legS.length - 3], tc = unit(Pe[0] - Pp[0], Pe[1] - Pp[1]), D = tr.bd;
+        if (inl === inlets[tr.i * 2]) {
+          // the ductule sits on the other edge's side: the duct bends in under the portal venule's disc and comes out of it straight at the ductule
+          const Cn = [tr.x, tr.y], dl = Math.hypot(Cn[0] - Pe[0], Cn[1] - Pe[1]), Q = [Pe[0] + tc[0] * dl * 0.45, Pe[1] + tc[1] * dl * 0.45];
+          for (let k = 1; k <= 10; k++) { const u = k / 10, v = 1 - u; legS.push([v * v * Pe[0] + 2 * v * u * Q[0] + u * u * Cn[0], v * v * Pe[1] + 2 * v * u * Q[1] + u * u * Cn[1]]); }
+          for (let k = 1; k <= 8; k++) legS.push([lerp(Cn[0], D[0], k / 8), lerp(Cn[1], D[1], k / 8)]);
+        } else {
+          const P1c = [Pe[0] + tc[0] * R * 0.04, Pe[1] + tc[1] * R * 0.04], u1 = unit(P1c[0] - D[0], P1c[1] - D[1]), P2c = [D[0] + u1[0] * R * 0.04, D[1] + u1[1] * R * 0.04];
+          for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; legS.push([v * v * v * Pe[0] + 3 * v * v * u * P1c[0] + 3 * v * u * u * P2c[0] + u * u * u * D[0], v * v * v * Pe[1] + 3 * v * v * u * P1c[1] + 3 * v * u * u * P2c[1] + u * u * u * D[1]]); }
+        }
+        const legT = add('bh', curve((u) => at(legS, u)), { tri: tr.i, lymph: true, bile: true });
         join(D[0], D[1], [tr.bdT, legT], R * 0.004);
         mids.set(inl.id, legT);
         for (const c of conn) {
@@ -1557,8 +1566,57 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           const cp = [...c.pts, [c.P[0], c.P[1]], [c.P[0] + c.nO[0] * R * 0.03, c.P[1] + c.nO[1] * R * 0.03], Lp];
           const t = add('bs', curve((u) => at(smoothPoly(cp, 1), u)), { lymph: true, bile: true });
           join(Lp[0], Lp[1], [legT, t], R * 0.003);
+          mains.push(t);
         }
       }
+      // Small connecting ducts inside the lobule: a fine channel along the other side of each plate, tied to its plate's main channel by short cross-ducts at its start,
+      // middle and end (the canalicular network). A cross-duct that would pass under a sinusoid is not drawn, and a fine channel that cannot be tied at both ends is left out.
+      const sinT = tubes.filter((t) => t.kind === 's0' || t.kind === 's1' || t.kind === 's2' || t.kind === 'an');
+      const clear = rsN * 1.4 + 1;
+      const clearOf = (a, b) => { for (let k = 1; k < 8; k++) { const x = lerp(a[0], b[0], k / 8), y = lerp(a[1], b[1], k / 8); for (const T of sinT) for (const q of T.pts) if (Math.abs(q[0] - x) < clear && Math.abs(q[1] - y) < clear && Math.hypot(q[0] - x, q[1] - y) < clear) return false; } return true; };
+      // (a cross-duct runs across its plate, near square to its channel, and crosses no other bile channel)
+      const bileT = () => tubes.filter((t) => t.bile && t.kind === 'bs');
+      const segX = (a, b, c, d) => { const r1 = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]), r2 = (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0]), r3 = (d[0] - c[0]) * (a[1] - c[1]) - (d[1] - c[1]) * (a[0] - c[0]), r4 = (d[0] - c[0]) * (b[1] - c[1]) - (d[1] - c[1]) * (b[0] - c[0]); return r1 * r2 < 0 && r3 * r4 < 0; };
+      const crossesBile = (a, b, skip) => { const u = [lerp(a[0], b[0], 0.06), lerp(a[1], b[1], 0.06)], v = [lerp(a[0], b[0], 0.94), lerp(a[1], b[1], 0.94)]; for (const T of bileT()) { if (skip.includes(T)) continue; for (let k = 1; k < T.pts.length; k++) if (segX(u, v, T.pts[k - 1], T.pts[k])) return true; } return false; };
+      const rungFrom = (pts, i, S) => {
+        const p = pts[i], cand = [], tg = unit(pts[Math.min(N - 1, i + 1)][0] - pts[Math.max(0, i - 1)][0], pts[Math.min(N - 1, i + 1)][1] - pts[Math.max(0, i - 1)][1]);
+        for (const M of mains) { const j = nearIdx(M.pts, p[0], p[1]), q = M.pts[j], d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < R * 0.14 && d > R * 0.008) cand.push({ M, j, q, d }); }   // (the plate's own channel is across the plate; a nearer one is across a sinusoid)
+        cand.sort((u, v) => u.d - v.d);
+        if (!cand.length) dbg.cand0++; else dbg.candN++;
+        for (const c of cand.slice(0, 6)) { const dv = unit(c.q[0] - p[0], c.q[1] - p[1]); if (Math.abs(dv[0] * tg[0] + dv[1] * tg[1]) < 0.55 && clearOf(p, c.q) && !crossesBile(p, c.q, [c.M, S].filter(Boolean))) return c; }
+        dbg.blocked++;
+        return null;
+      };
+      let nFine = 0, nRung = 0; const dbg = { short: 0, noTie: 0, cand0: 0, candN: 0, blocked: 0 };
+      L0.forEach((leaf, li) => {
+        const e = leaf.edge, k = leaf.k ?? (li % N0), h = k < N0 / 2 ? 0 : 1, A = C[e], B = C[(e + 1) % 6], ed = unit(B[0] - A[0], B[1] - A[1]), want = h === 0 ? 1 : -1;
+        const P1 = leaf.parent != null ? tubes[leaf.parent] : null, P2 = P1 && P1.parent != null ? tubes[P1.parent] : null;
+        const q0 = leaf.pts[0], q1 = leaf.pts[1], [tx, ty] = unit(q0[0] - q1[0], q0[1] - q1[1]);
+        const side = (-ty * ed[0] + tx * ed[1]) * want >= 0 ? -1 : 1;   // (the other side: the plate's bare side)
+        const inBand = (q) => { const d = Math.hypot(q[0] - cx, q[1] - cy); return d > R * 0.3 && d < R * 0.78; };
+        let poly = [];
+        if (P1 && sideOf(leaf, P1) === side) {
+          const chain = [P1, leaf]; if (P2 && sideOf(P1, P2) === side) chain.unshift(P2);
+          chain.forEach((T, ci) => { const Q = lanePts(T, side, 0).filter(inBand); poly = poly.concat(ci === 0 || !poly.length ? Q : Q.slice(1)); });
+        } else poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter(inBand);
+        if (poly.length < 6) { dbg.short++; return; }
+        // (sampled as the tube will be, so the cross-ducts meet it on its own course)
+        const cS = curve((u) => at(smoothPoly(poly, 1), u)), P = cS.pts, ties = [];
+        for (const i0 of [0, N - 1]) {
+          let got = null;
+          for (const di of [0, 2, 4, 6]) { const i = i0 === 0 ? i0 + di : i0 - di; got = rungFrom(P, i, null); if (got) { got.i = i; break; } }
+          if (!got) { dbg.noTie++; return; }
+          ties.push(got);
+        }
+        const S = add('bs', cS, { lymph: true, bile: true, fine: true }); nFine++;
+        const mid = rungFrom(P, N >> 1, S); if (mid) { mid.i = N >> 1; ties.push(mid); }
+        for (const c of ties) {
+          const p = P[c.i];
+          const t = add('bs', curve((u) => [lerp(p[0], c.q[0], u), lerp(p[1], c.q[1], u)]), { lymph: true, bile: true, fine: true, rung: true });
+          join(p[0], p[1], [S, t], R * 0.002); join(c.q[0], c.q[1], [c.M, t], R * 0.002); nRung++;
+        }
+      });
+      if (typeof window !== 'undefined') window.__bileCounts = { mains: mains.length, fine: nFine, rungs: nRung, ...dbg, sinT: sinT.length, clear };
       for (let e = 0; e < 6; e++) { const a = mids.get(inlets[e * 2].id), b = mids.get(inlets[((e + 1) % 6) * 2 + 1].id); if (a && b) join(a.pts[0][0], a.pts[0][1], [a, b], R * 0.0036); }
     }
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
