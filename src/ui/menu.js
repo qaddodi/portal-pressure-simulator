@@ -171,7 +171,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
     const r = resumeOf(d, lib, script);
     const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id, r?.at ?? 0); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : levelWord(d.level, lib.levels),
+      script ? h('span', { class: 'um-m' }, `${d.steps ? d.steps.length : lib.count(d.deck)} slides`) : levelWord(d.level, lib.levels),
       script ? null : r ? h('span', { class: 'um-m um-res' }, `Resume ${r.at + 1} / ${r.n}`) : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
@@ -194,7 +194,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
     return li;
   }
   const deckPreview = (d, lib, r = resumeOf(d, lib)) => h('div', { class: 'um-pv-in pt' },
-    h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
+    h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${lib.count(d)} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,
     h('div', { class: 'um-acts' },
@@ -204,7 +204,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and discussion questions, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${s.steps ? s.steps.length : lib.count(s.deck)} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),

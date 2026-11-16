@@ -21,6 +21,7 @@ import { createTraceGL } from './trace-gl.js';
 import { drawMonitor, C, SEV_C, cell, fm1, HVPG_TEXT } from './monitor.js';
 import { rateOf } from './table-marks.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
+import { procPlay } from './procedure-names.js';
 import { reduceMotionMQ } from './motion.js';
 import { createIrPpg } from './ir-ppg.js';
 import { createSwap } from './monitor-takeover.js';
@@ -79,7 +80,7 @@ export function createHvpgProcedure() {
   // The treatments played on the same anatomy (proc-anim.js): each catheter on its own route, the model changed when it ends.
   // One the patient cannot have (a TIPS already in, a shunt already closed) stays dimmed, and a tap says why; BRTO and BATO
   // are only there while the patient has gastric varices to treat.
-  const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': `Play ${PROCS[k].name}`,
+  const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': procPlay(k),
     onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
   // The PPG by interventional radiology, a measurement played the same way (ir-ppg.js): its monitor stands in the HVPG tracing's place while it runs and after it.
   const ir = createIrPpg({ busy: () => (t0 != null && t < tEnd()) || !!proc, onChange: () => paintSide() });

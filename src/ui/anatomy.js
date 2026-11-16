@@ -745,7 +745,10 @@ export const PELVIC_C = 1072, CAVITY_LOW = 0.25 * 954 + 0.75 * PELVIC_C;
 // two outlines are written once per step when the module loads and looked up after (a frame builds no string). A value between two
 // steps lands on the nearer one (round half up, as the stage's own step does).
 const BULGE_MAX = 34;
-const flankText = (b) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 ${PELVIC_C} 954 ${PELVIC_C} ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+// (The wall follows the bowel and colon, with a thumb's width to spare, not the ribs' width: it ran 80 units past the colon's edge, so the pool stood as a
+// bowl wider than the belly it fills, a block behind the figure. 16 Nov 2026, the play-test of constrictive pericarditis, Budd-Chiari, IVC web, SOS.)
+const FLANK_FOOT = 434, FLANK_X = [330, 392];   // (the left flank's feet, and its two control points' x at bulge 0: y 610 and 800)
+const flankText = (b) => `M336 470 C ${FLANK_X[0] - b} 610 ${FLANK_X[1] - b} 800 ${FLANK_FOOT - b * 0.4} 954 C 500 ${PELVIC_C} 924 ${PELVIC_C} ${1424 - FLANK_FOOT + b * 0.4} 954 C ${1424 - FLANK_X[1] + b} 800 ${1424 - FLANK_X[0] + b} 610 1088 470`;
 const outlineText = (b) => `M336 440 L${flankText(b).slice(1)} L1088 440 Z`;
 const FLANKS = [], OUTLINES = [];
 for (let i = 0; i <= BULGE_MAX * 2; i++) { FLANKS.push(flankText(i / 2)); OUTLINES.push(outlineText(i / 2)); }
@@ -771,8 +774,8 @@ export function cavityHalfWidthsInto(out, b, y0, h) {
   // The left half of the outline from the top of the flank down to the floor's lowest point (x 712): its flank cubic, then the
   // first half of the floor's.
   const xs = hwXs, ys = hwYs, K = HW_K;
-  for (let i = 0; i <= K; i++) { const t = i / K; xs[i] = cub(336, 324 - b, 330 - b, 372 - b * 0.4, t); ys[i] = cub(470, 610, 780, 954, t); }
-  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs[K + i] = cub(372 - b * 0.4, 470, 954, 1052 + b * 0.4, t); ys[K + i] = cub(954, PELVIC_C, PELVIC_C, 954, t); }
+  for (let i = 0; i <= K; i++) { const t = i / K; xs[i] = cub(336, FLANK_X[0] - b, FLANK_X[1] - b, FLANK_FOOT - b * 0.4, t); ys[i] = cub(470, 610, 800, 954, t); }
+  for (let i = 1; i <= K; i++) { const t = 0.5 * i / K; xs[K + i] = cub(FLANK_FOOT - b * 0.4, 500, 924, 1424 - FLANK_FOOT + b * 0.4, t); ys[K + i] = cub(954, PELVIC_C, PELVIC_C, 954, t); }
   const yEnd = ys[HW_M - 1];
   let j = 0;
   for (let i = 0; i < n; i++) {

@@ -190,7 +190,7 @@ export const EDGES = [
   // (Budd–Chiari) and the cava below them is open. The IVC node is the one below the hepatic veins.
   { id: 'DIPS', from: 'PVH', to: 'IVCI', kind: 'shunt', shunt: 'dips', label: 'DIPS' },
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
-  { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
+  { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal shunt (DSRS)' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
   // The Meso-Rex bypass: a vein graft from the superior mesenteric vein, upstream of the clotted portal trunk, to the left portal
   // vein at the Rex recess (its umbilical part). The one shunt that joins two portal vessels: it is not in PORTOSYSTEMIC_EDGES, so

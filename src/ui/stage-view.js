@@ -198,7 +198,7 @@ export function createView(st, live) {
         if (xfSolveSlice(x.lab, XF_SLICE_MS)) { x.pending = false; x.landAt = p; x.sigTap = live.solvedFor?.sig || null; }
       }
     }
-    const m = viewXfMix(p, x.landAt, XF_MIX);
+    const m = viewXfMix(p, x.landAt, XF_MIX, true);
     xfLayer(m.n);
     live.labelGL.crossfade(m.o, m.n);
     if (p >= 1 || live.morph === live.morphTarget) viewXfEnd();

@@ -49,6 +49,13 @@
 .app.pz-hi .pz-bar .ib { color: var(--text); }
 .pz-bar.pzb-pill { left: auto; right: var(--pz-cm); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0; overflow: visible; border-radius: var(--r-sheet); }   /* (a wide screen: the phone's pill at the lower right, with back and next) */
 .pz-bar.pzb-pill .ib { width: 44px; height: 44px; }
+/* The views of a slide with several (presenter-scales.js): short strokes under the slide count (no dots, his rule), the one on show full. Opacity only. */
+.pz-bar .pzb-n { position: relative; }
+.pzb-pips { position: absolute; left: 0; right: 0; bottom: 5px; display: flex; justify-content: center; gap: 4px; opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.pzb-pips[data-n="2"], .pzb-pips[data-n="3"] { opacity: 1; }
+.pzb-pips[data-n="2"] i:nth-child(3) { display: none; }
+.pzb-pips i { width: 11px; height: 3px; border-radius: 2px; background: currentColor; opacity: .3; transition: opacity var(--d-small) var(--ease); }
+.pzb-pips[data-at="0"] i:nth-child(1), .pzb-pips[data-at="1"] i:nth-child(2), .pzb-pips[data-at="2"] i:nth-child(3) { opacity: 1; }
 .pz-bar.pzb-pill .pzb-n { font-size: clamp(14px, calc(1.6 * var(--pzh)), 17px); }
 /* The pill's hover, pressed and current highlights follow its curve: each button's box is the pill's 44 px (its tap target, 1 px over the border on each side), a 4 px clear border keeps the highlight 4 px inside the pill's edge, and the highlight's radius is the pill's less that 4 (concentric), so it never touches or crosses the curve. */
 .pz-bar.pzb-pill > :is(.ib, button.pzb-n), .pz.stack .pz-bar > :is(.ib, button.pzb-n) { border: 4px solid transparent; background-clip: padding-box !important; border-radius: var(--r-sheet); }   /* (!important: the buttons' background shorthands would reset the clip) */
@@ -520,6 +527,19 @@
 .pz-mon { flex: none; margin-top: 14px; }
 .pz-mon .hvpg-box { height: clamp(150px, calc(24 * var(--pzh)), 280px); }
 .pz.pz-card:not(.stack) .pz-text .pz-mon .hvpg-box { height: max(var(--mon-min, 132px), calc(clamp(150px, calc(24 * var(--pzh)), 280px) * var(--pz-bk, 1) * var(--pz-bk, 1))); }   /* (never below what the tracing needs to draw its grid and trace) */   /* (when the cards stack the words' monitor gives way with their text, and faster: a chart reads at a smaller size than words; presenter.js layout) */
+/* The readings a card takes one Next at a time (tool-hvpg.js): numbered steps under the tracing, the ones taken filled and the next one named. Opacity only. */
+.mon-steps { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; line-height: 1.2; color: var(--text-2); }
+.mon-steps[hidden] { display: none; }
+.mon-steps li { display: flex; align-items: center; gap: 6px; opacity: .55; transition: opacity var(--d-small) var(--ease); }
+.mon-steps li[data-state="done"] { opacity: .85; }
+.mon-steps li[data-state="now"] { opacity: 1; font-weight: 600; color: var(--text); }
+.ms-dot { position: relative; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 12px; }
+.ms-dot b { position: relative; font-weight: 600; }
+.ms-fill { position: absolute; inset: -1px; border-radius: 50%; background: var(--accent-soft); border: 1px solid var(--accent); opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.mon-steps li:is([data-state="now"], [data-state="done"]) .ms-fill { opacity: 1; }
+.mon-steps .ms-next { margin-left: auto; opacity: 1; display: grid; font-weight: 500; color: var(--text-2); }
+.ms-next > span { grid-area: 1 / 1; text-align: right; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.mon-steps[data-at="0"] .ms-h0, .mon-steps[data-at="1"] .ms-h1 { opacity: 1; }
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }

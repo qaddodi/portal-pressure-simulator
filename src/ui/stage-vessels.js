@@ -20,7 +20,7 @@ import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
 const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while the EUS-PPG scope is in front of them (a faint ghost of them stays)
 import { createSweepClient } from './sweep-client.js';
 import { clamp } from './util.js';
-import { frontKey, fronted } from './collateral-front.js';
+import { frontAlpha, frontKey, frontP, fronted } from './collateral-front.js';
 import { FRONT_MAX_MS, changeDrawn, easingFront, edgeHops, frontDelay } from './change-order.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
@@ -752,6 +752,7 @@ export function createVessels(st, live) {
       // switch's midpoint.)
       if (kind === 'v' && ANAT_HIDDEN.has(id)) alpha *= clamp(2 * T0 - 1, 0, 1);
       if (x.reveal?.fade) { const u = easeInOut(clamp((now - x.reveal.t0) / x.reveal.dur, 0, 1)); alpha *= x.reveal.out ? 1 - u : u; }
+      else if (fronted(x)) alpha *= frontAlpha(frontP(x.reveal, now), x.reveal.out);   // (a collateral's closing front leaves a hairline: it fades with the front, never goes in one frame)
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
       const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a

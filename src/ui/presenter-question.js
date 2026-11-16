@@ -138,7 +138,7 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
-    // (a time-lapse's words start at its start state; the days carry them to the end: presenter-case.js chipsTo)
+    // (a time-lapse's words are typeset from its end state; presenter-case.js chipsTo lands them there if that was not ready)
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -166,6 +166,7 @@ export function createQuestion(st, live) {
   live.variantWords = variantWords;
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i, wst = live.keepArgs?.s === s && live.keepArgs.lap ? live.keepArgs.now : st) {
+    if (s.lapse && s.line) wst = live.states[live.stateOf[i]] || wst;   // (the words of a time-lapse slide state where the days end, from the first frame: presenter-case.js chipsTo)
     const { text, panel } = live.ui;
     evDrop();   // (the last slide's graph is let go)
     paintScales(s, i);

@@ -6,12 +6,13 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { sinusoidSupported } from './gl-support.js';
+import { keyLabel } from './platform-keys.js';
 import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
@@ -94,6 +95,7 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { procLabel } from './procedure-names.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
@@ -306,7 +308,8 @@ async function main() {
     marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
-    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
+    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -828,7 +831,7 @@ function doAction(a) {
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
-  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: procLabel('band'), valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
@@ -851,7 +854,7 @@ function shuntHint(only, fine) {
   SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
   SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
   SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
-  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a distal splenorenal shunt (DSRS).');
   SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
   return SHUNT_LINES;
 }
@@ -1278,13 +1281,20 @@ function renderBanner() {
   if (s0.compareSnap) {
     const names = s0.compareSnap.names || CMP_NAMES;
     cmpWords(s0.compareSnap.when, names[0], names[1]);
+    const cur = s0.compareView || 'B';
+    // (The same switch with the same words keeps its elements: Then, Now and Change only move the pressed mark, so the selection glides from one to the next (seg-glide.js);
+    // a new switch for each press put the piece down on the new choice with nothing to glide from. Play-test, Mac, 16 Nov 2026.)
+    if (bannerSeg && bannerSeg.isConnected && bannerSeg.parentNode === el && bannerSeg._words === cmpLabel + '|' + cmpNA + '|' + cmpNB) {
+      for (let i = 0; i < 3; i++) bannerSeg.children[i].setAttribute('aria-pressed', cur === 'ABD'[i] ? 'true' : 'false');
+      return renderBannerBadge(s0);
+    }
     bannerLabel = h('span', CMP_LABEL, cmpLabel);
     CMP_SEG['aria-label'] = cmpAria;
-    const cur = s0.compareView || 'B';
     CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
     CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
     CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
     bannerSeg = h('div', CMP_SEG);
+    bannerSeg._words = cmpLabel + '|' + cmpNA + '|' + cmpNB;
     for (let i = 0; i < 3; i++) {
       const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
       b.addEventListener('click', CMP_CLICK[i]);
@@ -1299,6 +1309,9 @@ function renderBanner() {
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
+  renderBannerBadge(s0);
+}
+function renderBannerBadge(s0) {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
@@ -1327,6 +1340,7 @@ function wireTopbar() {
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
+  { const b = $('#btnPalette'); b.title = `Search (${keyLabel('Ctrl/⌘ K')})`; const k = b.querySelector('kbd'); if (k) k.textContent = keyLabel('Ctrl/⌘ K'); }   // (the page's own text says Ctrl K: a Mac reads ⌘ K)
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat({ focus: true }) : openTreat()));
   // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
   $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory({ focus: true }) : openHistory()));
@@ -1756,6 +1770,8 @@ function setPanelTab(tab) {
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
 let panelSheet = null, treatSheet = null, dockSheet = null;
+// A card's rest shift (px along x, none along y), for the camera's framing: where it comes to when its glide aside ends.
+const restShift = (el, x) => { const v = `${Math.round(x)} 0`; if (el.dataset.restTranslate !== v) el.dataset.restTranslate = v; };
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -1837,6 +1853,9 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
+    // they come to rest, so it does not follow the glide: util.js translateRest.)
+    if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets rest 8 px above the dock's top edge (the play bar, the timeline, the readouts and the tab row stay
@@ -2353,10 +2372,10 @@ const PRESENT_KEYS = [
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
   const groups = [
-    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'],
+    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
+      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
       ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];

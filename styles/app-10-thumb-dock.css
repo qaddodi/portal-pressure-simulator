@@ -79,7 +79,7 @@
 @keyframes thumbOut { to { opacity: 0; translate: 0 var(--thumb-rise, 24px); } }
 /* (Only a menu that opens from the dock, class from-dock (util.js popover), rises and sinks this way: the Colored-by menu
    from the top bar of an upright iPad had slid up from under its spot, its card cut away but its shadow showing, 17 Oct.) */
-.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { translate: 0 var(--sink, 0px); }
+.app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { translate: var(--occ-x, 0px) var(--sink, 0px); }   /* (--occ-x: the glide aside for the card to its right, app-07-floating.css) */
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui:not(.side)) { clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% - var(--sink, 0px) + 8px), var(--r-sheet) calc(100% - var(--sink, 0px) + 8px), calc(var(--r-sheet) * .5) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% - var(--sink, 0px) + 8px + var(--r-sheet) * .5), 0 calc(100% - var(--sink, 0px) + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px)); }
 /* (A menu is drawn above the whole app, the tab row included, and sits on the tab row's top edge like the cards: its cut runs
    across its whole shadow on that line, so it casts nothing on the tab row beside it either; a phone's sheet too.) */
@@ -522,7 +522,7 @@
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.k, .v) { flex: none; overflow: visible; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin span { display: inline; }
   .app:not(.thumb):not(.presenting) .vdock .tl-pin { width: auto; height: 34px; padding: 0 10px; gap: 6px; margin-left: 4px; border: 1px solid var(--border); color: var(--text); font-weight: 600; }
-  .app:not(.thumb):not(.presenting) .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+  .app:not(.thumb):not(.presenting) .vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }
   .app:not(.thumb):not(.presenting) .vdock .readouts:not(.all) .metric :is(.v, .unit) { overflow: visible; }
   .app:not(.thumb):not(.presenting) .vdock .stage-bar.bottom { height: 52px; min-height: 52px; padding-right: 12px; }   /* (Compare ends 12 px before the divider, the gap between the bar's other controls: it was 4, sweep 16 Oct) */
   .app:not(.thumb):not(.presenting) .vdock .timeline .tl-jumps { margin-left: 0; }

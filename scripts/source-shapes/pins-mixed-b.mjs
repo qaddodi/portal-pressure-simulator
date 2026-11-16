@@ -320,4 +320,12 @@ export default [
   { file: 'src/ui/chart-looks/path.js', forbid: [/tok\('border-strong'\)/, 'A path figure\'s quiet lines are the third text ink at about half, never the pale border colour (7c)'] },
   { file: 'src/ui/chart-looks/path.js', forbid: [/opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'An unlit word or line in a path figure keeps at least UNLIT (70%) of its colour (7c)'] },
   { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\) \|\| unitNow\(\);/, 'A figure label on a slide always carries its unit (B2); off a slide the unit is said once, in the legend'] },
+  { file: 'src/ui/presenter.js', need: [/const toolStep = \(d\) => shown\?\.i === want && !!ui\?\.tools\?\.canStep\(d\);/, 'A swipe for a Next that only takes the data card\'s next reading lifts no card (Varices 6/11: the upper card moved and sprang back)'] },
+  { file: 'src/ui/tool-hvpg.js', need: [/class: 'mon-steps'/, 'The HVPG tracing card shows its readings as numbered steps, one for each Next (Varices 6/11)'] },
+  { file: 'src/ui/presenter-scales.js', need: [/class: 'pzb-pips'[^\n]*h\('i'\), h\('i'\), h\('i'\)/, 'A slide with several views shows them as short strokes under the count, the one on show full (Collaterals 2/11: the views were unseen)'] },
+  { file: 'styles/app-05-presenter-cards.css', need: [/\.pzb-pips \{[^}]*transition: opacity var\(--d-small\) var\(--ease\); \}/, 'The view dots fade, never pop'] },
+  { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\)/, 'While the days play, the sentence and the tiles take the chart head\'s own number (the trail at this share), so they never disagree with the chart (Choose the treatment 3)'] },
+  { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && s\.line\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'The words of a time-lapse slide are typeset from its end state, from the first frame (Two lesions 3: "ending at 21.2" before 18.6; Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
+  { file: 'src/ui/presenter-case.js', need: [/chipsTo\(s, end\.fp\);/, 'A time-lapse slide lands its words on the end state as the days start, and no step of the days moves them again'], },
+  { file: 'src/ui/presenter-case.js', forbid: [/if \(s\.lapse\) chipsTo\(s, f\);/, 'The words never ride the days'] },
 ];
