@@ -425,7 +425,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   forbid('src/ui/lobule-zoom*', /k === 'lymph' && !live\.lymphOn/, 'a label tests its layer through labelLayerOff, not by hand');
   need('src/ui/lobule-zoom*', [
     [/if \(!layerOn\('zones'\)\) \{ for \(let i = 0; i < zoneEls\.length; i\+\+\) fadeOut\(zoneEls\[i\]\); return NO_BOXES; \}/, 'Zones off: every zone name fades out where it stands'],
-    [/if \(labelLayerOff\(k\) \|\|/, "the layout fades a layer's station label out through the one table (LAB_LAYER)"],
+    [/if \(labelLayerOff\(k\)[) ]/, "the layout fades a layer's station label out through the one table (LAB_LAYER)"],
     [/for \(let i = 0; i < LAYERS\.length; i\+\+\) if \(f\.ly\[i\] !== layerOn\(LAYERS\[i\]\)\) return false;/, "a layer's switch starts the layout over"],
     [/const off = !e\.isConnected \|\| gone\(e\)/, 'the GPU fades a name whose element is gone (capSync)'],
   ]);

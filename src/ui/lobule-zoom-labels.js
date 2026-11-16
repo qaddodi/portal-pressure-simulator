@@ -82,7 +82,7 @@ export function createLobuleLabels(st, live) {
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
     else setLab('lymph', 'Lymphatic', 'Lymph', shown(stLy, m.lymph, 1), lymphUnit(Math.round(m.lyProt * 100)), '', null);
-    // The arteriole and the ductule: named only while a slide's term points at them (see named()).
+    // The arteriole and the ductule: named, with no reading (the model has no pressure of their own); a slide's term ranks them up (named()).
     setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
     setLab('bd', 'Bile ductule', 'Ductule', '', '', '', 'var(--bile-duct)');
     if (live.sinTo || live.sinU > 0) live.sv.setModel(m);

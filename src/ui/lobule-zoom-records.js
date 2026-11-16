@@ -411,7 +411,7 @@ export function createLobuleRecords(st, live) {
     for (let ki = 0; ki < LAY_ORDER.length; ki++) {
       const k = LAY_ORDER[ki], L = labs[k];
       if (!L) continue;
-      if (labelLayerOff(k) || ((k === 'ha' || k === 'bd') && !named(k))) { fadeOut(L.el); leadOff(L); continue; }
+      if (labelLayerOff(k)) { fadeOut(L.el); leadOff(L); continue; }   // (the arteriole and the ductule are named always, 16 Nov 2026; left out first where room is short: dropCost)
       // (Shown to be measured; one that was hidden and stays out is hidden again before anything is drawn.)
       L.peek = isHid(L.el); setHid(L.el, false);
       shK[ns] = k; shL[ns] = L; ns++;

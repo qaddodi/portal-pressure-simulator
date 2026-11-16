@@ -109,18 +109,16 @@ export function addBile(g) {
   return plates;
 }
 
-/** The Bile layer's moving marks, written into the lobule's flow rows (as the lymph's: a dash phase and pitch, the protein for the core, the
- *  dark theme's flag, -1 marking a lymph-style row, and the compositor's stream in floats 28 and 29). Only the edge ducts move, slowly, toward
- *  the ductule; the plate channels stay still (bile moves by diffusion there and starts to flow in the ductules, as the Sinusoid view draws it). */
-export function bileFlowInto(flowData, tubeSet, motionOf, { R, dt, protein, dark, still, texels, period }) {
-  const pitch = R * 0.06, v = R * 0.021;
+/** The Bile layer's arrowheads, written into the lobule's flow rows: f0 = the phase (world units, within a pitch), the pitch, 0, the dark
+ *  theme's flag; f1.x = -2 (a bile row: tube-lumen-glsl.js draws its arrowheads, never streaks or dashes), strength 1. Every bile vessel, the
+ *  plate channels too, runs toward its row's end (the ductule) at one speed, the heads far apart (sparser than the blood's chevrons). */
+export function bileFlowInto(flowData, tubeSet, motionOf, { R, dt, dark, still, texels }) {
+  const pitch = R * 0.14, v = R * 0.03;
   for (const t of tubeSet) {
-    if (t.kind !== 'bh') continue;
+    if (!t.bile) continue;
     const mo = motionOf(t), o = t.id * texels * 4;
     mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (still ? 0 : dt * v)) % pitch) + pitch) % pitch;
-    flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = protein; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 6] = 1;
-    mo.lyD = ((((mo.lyD ?? (t.id * 977) % period) + (still ? 0 : v * 0.5 * dt)) % period) + period) % period;
-    flowData[o + 28] = mo.lyD; flowData[o + 29] = still ? 1e-3 : v * 0.5;
+    flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = 0; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -2; flowData[o + 6] = 1;
   }
 }
 
