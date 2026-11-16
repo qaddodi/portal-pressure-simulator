@@ -49,7 +49,7 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
     lpv: P ? P[NI.LPV] : null, lhv: P ? P[NI.LHV] : null,   // (the EUS needle's two veins: the readings the EUS-PPG takes)
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: params?.albumin, sigma: a.lymphSigma, lymphProt: a.lymphProt, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[NI.SIN_R] : null, cv: P ? P[NI.CV_R] : null, int: P ? P[NI.INT] : null, varix: m.varix.d, redWale: m.varix.redWale === true, varixAir: m.varix.air, wall: m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk?.index, liver: m.liverPerfPct, lsm: m.lsm, ssm: m.ssm, pvVel: m.pvVelMean, map: m.map, sbp: m.sbp, dbp: m.dbp, rpp: m.rpp, hr: m.hr, hb: m.blood?.hb, hbTo: m.blood?.hbSettled, co: m.co, bv: m.blood?.volume,
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk?.index, liver: m.liverPerfPct, lsm: m.lsm, scar: m.scar, ssm: m.ssm, pvVel: m.pvVelMean, map: m.map, sbp: m.sbp, dbp: m.dbp, rpp: m.rpp, hr: m.hr, hb: m.blood?.hb, hbTo: m.blood?.hbSettled, co: m.co, bv: m.blood?.volume,
     svr: m.svr, spl: m.splanchnicIn,   // (the systemic vascular resistance, (MAP − RA) ÷ CO in mmHg·min/L, and the splanchnic arterial inflow in L/min: the change-from-healthy chart, tool-shift.js)
     rih: P && Q ? liverRes(P, Q) : null,
     lymphCap: a.lymphCap, lymphOver: fluid?.excess, lymphBack: fluid ? fluid.bulk + fluid.water : undefined, lymphNet: fluid?.net,

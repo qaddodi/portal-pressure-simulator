@@ -58,8 +58,8 @@ export const RECOMPENSATION = {
     },
     {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', data: 'tiles',
-      tool: { kind: 'criteria', title: 'Recompensation', lead: 'All four; rows 2 and 3 for >6 months.', rule: 'Baveno VIII 7.4', rows: ['**Cause** removed, controlled or suppressed', ['No **ascites** off diuretics, no **HE** off prophylaxis', 'asc', '<', 0.15],
-        'No variceal **rebleeding** (carvedilol allowed)', 'Liver function back to **Child–Pugh A5 or A6**'] }, tiles: ['asc', 'salb'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Recompensation', lead: 'All three; row 2 for >6 months.', rule: 'Baveno VIII 7.4', rows: ['**Cause** removed, controlled or suppressed', ['No **ascites** off diuretics, no **HE** off prophylaxis, no variceal **rebleeding** (carvedilol allowed)', 'asc', '<', 0.15],
+        'Liver function back to **Child–Pugh A5 or A6**'] }, tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'He is off diuretics, and ascites has not recurred on imaging. With the cause removed and Child–Pugh A5 or A6, this must last >6 consecutive months for recompensation.',
       notes: 'Source: Baveno VIII 7.4. Baveno VIII requires all of: the cause removed, controlled or suppressed; no ascites on imaging off diuretics and no clinical HE off lactulose, rifaximin or LOLA; after a variceal bleed, no recurrent variceal bleeding (carvedilol or an NSBB may be continued); these for >6 consecutive months; and liver function back to Child–Pugh A5 or A6. Recompensation means the disease behaves as compensated cirrhosis again; it is not a cure. The cirrhosis persists and still needs follow-up every 6 months with hepatocellular carcinoma (HCC) surveillance and, while CSPH persists, the NSBB. If the cause recurs, decompensation can follow.',

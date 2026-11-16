@@ -7,7 +7,7 @@
 
 import { h, icon, toast } from './util.js';
 import { glWords } from './gl-words.js';
-import { hvpgSev, hvpgWord, EUS_LINE_NOTE, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { hvpgSev, hvpgWord, EUS_LINE_NOTE, EUS_SITE_NOTE, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { store, logAction, setViewKey } from './store.js';
 import { dataSoon, propSoon, attrSoon } from './class-soon.js';
 import { MEASURES, READS, playProcedure, procRunning } from './proc-anim.js';
@@ -25,7 +25,7 @@ const SLIDE = { procedure: 'eus' };   // (the monitor's measurement: the EUS-PPG
 const r1 = (v) => Math.round(v * 10) / 10;
 const IDLE = 'EUS-guided portal pressure gradient: portal and hepatic vein pressures measured transgastrically with one needle.';
 // (The technique's card text, for the button's tooltip: site, reference, conditions and limitations, EUS_LINE_NOTE. R09/§6.2.)
-const TECHNIQUE = `${IDLE} Site: left portal vein (LPV) minus left hepatic vein (LHV), through the stomach. ${EUS_LINE_NOTE}`;
+const TECHNIQUE = `${IDLE} Site: left portal vein (LPV) minus left hepatic vein (LHV), through the stomach. ${EUS_SITE_NOTE} ${EUS_LINE_NOTE}`;
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT);
 // (Read on the HVPG's cut-offs, as EUS-PPG series do: 5 and over portal hypertension, 10 and over clinically significant.)
 

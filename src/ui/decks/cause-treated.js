@@ -140,7 +140,7 @@ export const CAUSE_TREATED = {
       // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read stiffness
       // against the HVPG and the platelets. The dots are the two hepatitis C patients' visits, one walk each; the ring is the second
       // patient two years on, in the same state as that slide.)
-      id: 'relation', preset: 'csph', params: { cirrhosis: 0.75 }, days: 730, ramp: { cirrhosis: [0.75, 0.57] }, cam: 'liver',
+      id: 'relation', preset: 'csph', params: { cirrhosis: 0.75 }, relax: RELAX, days: 730, ramp: { cirrhosis: [0.75, 0.57] }, cam: 'liver',
       tool: { kind: 'curve', x: 'lsm', xCuts: [10], cuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 0.85, step: 0.05, days: 365, lines: ['hvpg', 'plt'],
         dots: [{ slide: 'before', name: 'First patient', on: [0], walk: 'first' }, { slide: 'year1', on: [0], walk: 'first' }, { slide: 'year2', name: 'CSPH gone', on: [0], walk: 'first' },
           { slide: 'high', name: 'Higher start', on: [0], walk: 'second' }, { slide: 'high2', name: 'CSPH persists', on: [0], walk: 'second' }] },

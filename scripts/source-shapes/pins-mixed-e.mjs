@@ -314,7 +314,7 @@ export default [
   { file: 'src/ui/main.js', need: [/fine \? 'Click the ' : 'Tap the '/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'hepatic vein'\), ' makes a TIPS\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
-  { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'left renal vein'\), ' makes a Warren shunt\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
+  { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'left renal vein'\), ' makes a distal splenorenal shunt \(DSRS\)\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/fine \? h\('div', NOATTR, 'Esc cancels\.'\) : null/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/shuntHint\(only, matchMedia\('\(hover: hover\) and \(pointer: fine\)'\)\.matches\)/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'index.html', forbid: [/Live instrument workspace/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },

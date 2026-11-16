@@ -1083,7 +1083,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (!e || e.t !== t) { e = { t, v: rgbaOf(t) }; INK.set(n, e); }   // alloc-rare: when a css colour is first read or changes
     return e.v;
   };
-  const PUT = { x: 0, y: 0, off: null, show: 1, now: 0 }, NO_OFF = [0, 0, 1];
+  const PUT = { x: 0, y: 0, off: null, show: 1, now: 0, fade: false }, NO_OFF = [0, 0, 1];
   const LEGLINES = [[['Protein', 'name']]];   // (one list, so the legend's words are not set again each frame)
   let legDotFor = null, legDecor = null;
   const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, cut: false, of: null, follow: false, sg: 0, colour: null };
@@ -1109,6 +1109,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const now = easeNow();
     LEAD_LOOK.line = inkOf('--leader'); LEAD_LOOK.fill = inkOf('--stage-bg'); LEAD_LOOK.halo = LEAD_LOOK.fill; LEAD_LOOK.ring = inkOf('--text-2');
     cap.leadLook(LEAD_LOOK);
+    // (A name a new layout puts in another place fades there, out where it stood and in at its new place, unless the view is moving it with the camera: label-captions.js moveFade.)
+    PUT.fade = !dive && (!VW.vel || calm(VW.vel));
     for (const key in regions) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
@@ -1127,7 +1129,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (LL.sig && LEG.w && cap.hasLook('legend')) {
       const wsz = cap.measure('legend', LEGLINES), ww = wsz[0], dd = LL.dot ? LL.dot.d + LL.gap : 0;
       const left = LEG.x + LL.px;
-      PUT.x = left + dd + ww / 2; PUT.y = LEG.y + LEG.h / 2; PUT.off = NO_OFF; PUT.show = 1; PUT.now = now;
+      PUT.x = left + dd + ww / 2; PUT.y = LEG.y + LEG.h / 2; PUT.off = NO_OFF; PUT.show = 1; PUT.now = now; PUT.fade = false;   // (the legend sits in its card)
       cap.put('legend', PUT);
       if (LL.dot && LL.dot !== legDotFor) {
         legDotFor = LL.dot;

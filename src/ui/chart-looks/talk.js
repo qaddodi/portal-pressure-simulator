@@ -65,8 +65,10 @@ export const TALK = {
   // a series line and its points (a ring of the panel's tone round each), the colour given by the builder (data-p-c)
   'talk.line': { base: { fill: 'none', stroke: param('c'), width: 2.25, join: 'round', cap: 'round' } },
   'talk.dot': { base: { fill: param('c'), stroke: tok('surface-2'), width: 2 } },
-  // FHVP: a dashed neutral reference
-  'talk.line.free': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5, dash: [4, 4], join: 'round', cap: 'round' } },
+  // FHVP: a neutral reference line (told apart by its colour: no dashes on a moving trace)
+  'talk.line.free': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5, join: 'round', cap: 'round' } },
+  // a point whose neighbour's dot would cover it (the PV and the WHVP a mmHg apart): a ring round the other's dot
+  'talk.dot.ring': { base: { fill: 'none', stroke: param('c'), width: 2 } },
   // the right column: a swatch, the line's name in the text colour, its last value
   'talk.swatch': { base: { fill: param('c'), stroke: 'none' } },
   'talk.swatch.gap': { base: { fill: param('c'), fillOpacity: 0.6, stroke: 'none' } },

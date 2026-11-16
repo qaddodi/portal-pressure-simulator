@@ -41,7 +41,7 @@ export const KIDNEY = {
   objectives: [
     'Define the abdominal perfusion pressure (APP) as the MAP minus the intra-abdominal pressure (IAP), and say what it does not measure',
     'Explain how tense ascites lowers the APP and large-volume paracentesis (LVP) with albumin raises it',
-    'State when carvedilol is dose-reduced or stopped (MAP <65 mmHg or HRS-AKI) and when it is restarted',
+    'State when carvedilol is dose-reduced or stopped (systolic <90 mmHg, MAP <65 mmHg or HRS-AKI) and when it is restarted',
     'Name the drugs for HRS-AKI, and the renal assessment before a TIPS',
   ],
   checks: [

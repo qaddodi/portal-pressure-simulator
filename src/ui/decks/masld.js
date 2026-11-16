@@ -63,7 +63,7 @@ export const MASLD = {
       ask: ['A man with MASH, a BMI of 36 and an LSM of 27 kPa. Is CSPH ruled in?', 'Not by the 25 kPa rule, which is for a BMI <30. ANTICIPATE-NASH decides: ≥75% means CSPH.'],
     },
     {
-      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
+      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.42 }, relax: 365, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
       vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has an LSM of 15 kPa and platelets of 160,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
       kicker: STIFF, site: 'sin', title: 'Without CSPH, a falling LSM can be followed', cite: 'Baveno VIII 1.15, 2.6',
       line: 'In another patient, an LSM of {lsm} with platelets of {plt} rules CSPH out. Without CSPH, Baveno VIII reads a large, confirmed fall in LSM as possible fibrosis regression.',
@@ -71,7 +71,7 @@ export const MASLD = {
       ask: ['Which patients does the regression statement cover?', 'Patients with MASLD-related cACLD without CSPH.'],
     },
     {
-      id: 'regress', days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
+      id: 'regress', days: 365, ramp: { cirrhosis: [0.42, 0.32] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and LSM over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: STIFF, site: 'sin', title: 'A 12% weight loss can lower the LSM by 30%', cite: 'Baveno VIII 2.13, 2.6',
       line: 'After 1 year, his LSM has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',

@@ -924,6 +924,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (keyStops: whether the figure (its vessels and organs, one stop) and its labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
   // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
   let keyStops = true;
+  // (circWait: the Circuit asked for while the lobule or the sinusoid is still covering the anatomy; the rise begins the change once it has landed, circGo.)
+  let circWait = false;
   let lobAsk = 0, lobSelf = false;   // (a Circuit's way to the lobule: diveToLobule; any other view asked for ends it)
   store.on('view', () => { if (!lobSelf) lobAsk++; });
   let sinMoveGen = 0;   // (the newest dive into or out of the sinusoid view: an older one, still waiting on its zoom, stops there rather than finishing over it)
@@ -1398,6 +1400,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
       if (riseUsed) riseUsed = false;   // (the rise already landed on the slide's own framing)
       else if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else riseFitAsk ||= readFrame(riseFitRead); }   // (its fit read first in the next frame)
+      if (circWait) nextFrame(circGo);   // (the Circuit was asked for over the rising lobule: its change begins now the anatomy is the whole view, in the next frame)
     }
   }
   function lobuleBackstop() {
@@ -1406,6 +1409,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelFrame(lobAnim); lobuleStep(0, true);
   }
   let lobEnd = 0;
+  // (The lobule, or a dive or a rise of it, still stands over the anatomy: the Circuit's change waits for the anatomy to be the whole view.)
+  const lobuleCovers = () => lobuleOn || lobU > 0 || diveT > 0 || !!lz?.isOpen();
+  let circT = 0;
+  function circGo() {
+    if (!circWait) return;
+    if (store.get().view !== 'circuit') { circWait = false; return; }
+    if (lobuleCovers()) return;
+    circWait = false; stageScope.clear(circT);
+    setViewTo('circuit');
+  }
+  function circForce() { if (!circWait) return; circWait = false; if (store.get().view === 'circuit') setViewTo('circuit', true); }
   function liverBox() {
     if (!liverBB && organEls.liver) { const b = elBoxInto(organEls.liver, EBOX); if (b?.width) { liverBBox.x = b.x; liverBBox.y = b.y; liverBBox.w = b.width; liverBBox.h = b.height; liverBB = liverBBox; } }   // (in script: elBox)
     return liverBB;
@@ -1529,7 +1543,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
-  function closeLobule() { stageScope.clear(lobuleRetryT); setLobule(false); }
+  function closeLobule() { stageScope.clear(lobuleRetryT); setLobule(false); if (circWait) nextFrame(circGo); }   // (nothing to rise from: the Circuit's wait ends at once)
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => { if (!store.get().lobule) setViewKey('lobule'); };
   // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
@@ -2877,6 +2891,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── Public API ────────────────────────────────────
   const SCOPE_TMP = [0, 0];   // (scopeRingInto's scratch pair)
+  // The Circuit's way to the lobule or the sinusoid: the figure turns to the anatomy in view first, and the dive is asked for once it has landed (play-test A2, 16 Nov 2026: the
+  // store said lobule over a circuit that was still turning, and the figure stood empty with its old labels for about a second). A view asked for meanwhile ends the wait:
+  // false then, true when the anatomy is back and nothing else was asked.
+  async function turnToAnatomy() {
+    const me = ++lobAsk; lobSelf = true; setViewKey('anatomy'); lobSelf = false;
+    const t0 = performance.now(), turn = () => new Promise((r) => stageScope.timer(r, 60));   // (each turn re-reads lobAsk: a newer ask ends this wait)
+    await turn();
+    while (me === lobAsk && (morph !== morphTarget || viewXf) && performance.now() - t0 < 6000) await turn();
+    return me === lobAsk && !store.get().lobule;
+  }
+  function setViewTo(v, force = false) {
+    const target = v === 'circuit' ? 1 : 0;
+    if (target === 0) circWait = false;   // (a view asked for after the Circuit's wait ends it: the anatomy is where the lobule is rising to)
+    if (target === morphTarget) return;
+    // One hop at a time (view-switch hand-off, 16 Nov 2026): the lobule or the sinusoid is a zoom over the anatomy, and the Circuit is the anatomy turned, so out of
+    // either the figure first rises to the anatomy in view (its own continuous zoom, its names riding the figure) and the change to the Circuit begins as that
+    // lands (circGo), the one move it always was. Begun together, the rise's cover and the morph's ghosts were on screen at once: the lobule cut out in a frame,
+    // then the Circuit stood on a faded anatomy with its captions.
+    if (target === 1 && !force && lobuleCovers()) { circWait = true; stageScope.clear(circT); circT = stageScope.timer(circForce, 6000); return; }   // (the backstop: a rise that never lands must not leave the Circuit unasked for)
+    // (The dive into the lobule never moves the anatomy's own framing.)
+    const fromLobule = lobuleOn || lobU > 0, at = vt;
+    morphTarget = target; handed = false;
+    lastT = performance.now() - 16;   // (a figure that slept before the tap has a stale clock: its first frame of the change took the 0.1 s clamp, a lurch; it starts at one frame)
+    syncSemantic();
+    // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
+    // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
+    const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
+    const d = wasOut ? circWhole() : defaultVT(target === 1);
+    if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
+    else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
+    // (The change between the views carries the camera, the ghosts of the old labels and the new view's labels on its one clock: viewXfStart.)
+    if (F && labelGL && !labelGL.lost && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) { viewXfStart(d); return; }
+    if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, VIEW_CHANGE_S * 1000);
+    // (No morph to ride here: a catheter or a lobule. The labels are laid out afresh for the new view.)
+    if (F) { labelKey = null; solveAsked = true; }
+  }
   return {
     update,
     // The scope view (scope-lens.js, mock C1): the ring on the varices, one of the figure's marks; where it is on screen; the lens's hooks.
@@ -2899,26 +2949,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glass: glassAdd,
     blurWhy,
     glassBox,
-    setView(v) {
-      const target = v === 'circuit' ? 1 : 0;
-      if (target === morphTarget) return;
-      // (The dive into the lobule never moves the anatomy's own framing.)
-      const fromLobule = lobuleOn || lobU > 0, at = vt;
-      morphTarget = target; handed = false;
-      lastT = performance.now() - 16;   // (a figure that slept before the tap has a stale clock: its first frame of the change took the 0.1 s clamp, a lurch; it starts at one frame)
-      syncSemantic();
-      // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
-      // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
-      const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
-      const d = wasOut ? circWhole() : defaultVT(target === 1);
-      if (target === 0) { homeAt = d; fitted = true; }   // back to the anatomy: always its home framing
-      else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
-      // (The change between the views carries the camera, the ghosts of the old labels and the new view's labels on its one clock: viewXfStart.)
-      if (F && labelGL && !labelGL.lost && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) { viewXfStart(d); return; }
-      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, VIEW_CHANGE_S * 1000);
-      // (No morph to ride here: a catheter or a lobule. The labels are laid out afresh for the new view.)
-      if (F) { labelKey = null; solveAsked = true; }
-    },
+    setView: setViewTo,
     relayout() { refreshCTM(); if (F) updateLabels(F, true); },
     // How often the labels were laid out, skipped or only had their values refreshed, and the time spent (for perf checks).
     labelStats: () => ({ ...stats }),
@@ -3182,7 +3213,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** What is left of the glide under way, and its whole length, ms ({ left: 0, ms: 0 } at rest): a slide's cards come in over its last part. */
     glideLeft: () => (vtGliding || viewXf ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
     /** The change between Anatomy and Circuit is still under way (the figure morphing, or its landing not yet done): a slide's next step waits for it to land. */
-    viewChanging: () => !!viewXf || morph !== morphTarget,
+    /** Where the change between Anatomy and Circuit is headed now (0 Anatomy, 1 Circuit): the Circuit's wait behind a rising lobule has not set it yet. For the checks. */
+    morphTargetNow: () => morphTarget,
+    viewChanging: () => !!viewXf || morph !== morphTarget || circWait,   // (circWait: the Circuit's change is still to begin, behind the rise out of the lobule)
     /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
     drifting: () => drifting,
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
@@ -3295,15 +3328,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  the store said lobule over a circuit that was still turning, and the figure stood empty with its old labels for about a second). A view asked for meanwhile ends the wait. */
     async diveToLobule() {
       if (store.get().view !== 'circuit') { setViewKey('lobule'); return; }
-      const me = ++lobAsk; lobSelf = true; setViewKey('anatomy'); lobSelf = false;
-      const t0 = performance.now(), turn = () => new Promise((r) => stageScope.timer(r, 60));   // (each turn re-reads lobAsk: a newer ask ends this wait)
-      await turn();
-      while (me === lobAsk && (morph !== morphTarget || viewXf) && performance.now() - t0 < 6000) await turn();
-      if (me === lobAsk && !store.get().lobule) setViewKey('lobule');
+      if (await turnToAnatomy()) setViewKey('lobule');
     },
-    /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
+    /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid.
+     *  From the Circuit it is three moves, the first the turn to the anatomy (as diveToLobule: the sinusoid is never asked for over a circuit that is still turning). */
     async diveToSinusoid() {
       const me = ++sinMoveGen;
+      if (store.get().view === 'circuit' && !(await turnToAnatomy())) return;
+      if (me !== sinMoveGen) return;
       if (!lobuleOn && diveT === 0 && morphTarget === 0 && !reduceMotion.matches) {
         setViewKey('lobule');
         const t0 = performance.now();
@@ -3313,10 +3345,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       setViewKey('sinusoid');
     },
-    /** From the sinusoid view out to the anatomy in three steps: out of the sinusoid, back to the lobule's normal framing, then out of the lobule. */
+    /** From the sinusoid view out to the anatomy in one glide: the zoom out of the sinusoid eases in only, and the rise out of the lobule begins in the frame it lands, carrying
+     *  straight on from it (Mohammad, 16 Nov 2026: "sinusoid to anatomy should be one glide if possible"; it was three steps with a stop at each). When the lobule is not at its
+     *  fit (panned or zoomed before the sinusoid), the old steps remain: back to the fit first, then the rise. */
     async exitSinusoid() {
       const me = ++sinMoveGen;
       if (!store.get().sinusoid || !lz?.sinusoidOpen()) { setViewKey('anatomy'); return; }
+      if (lz.atFitNow() && lz.chainOut(() => { if (me === sinMoveGen && store.get().lobule && !store.get().sinusoid) setViewKey('anatomy'); })) { setViewKey('lobule'); return; }
       setViewKey('lobule');
       const t0 = performance.now(), wait = (ms) => new Promise((r) => stageScope.timer(r, ms));
       while ((lz.sinBusy() || lz.sinusoidOpen()) && performance.now() - t0 < 4000) await wait(60);

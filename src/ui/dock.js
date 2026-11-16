@@ -93,7 +93,7 @@ export const TILES = [
   { id: 'shunt', ...fromTile('shunt'), group: 'flow', k: 'Portal blood shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100,
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
-  { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => wallShare(m.varix) * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal variceal wall stress (Laplace: pressure × radius ÷ wall thickness; an educational index, not a measured quantity), as a % of the stress at which the varix ruptures in the model. ' + WALL_MEANING,
+  { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => wallShare(m.varix) * 100, d: 0, u: '%', ux: ' of rupture threshold', title: 'Modeled esophageal variceal wall stress (Laplace: pressure × radius ÷ wall thickness; an educational index, not a measured quantity), as a % of the stress at which the varix ruptures in the model. ' + WALL_MEANING,
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (wallShare(m.varix) >= 0.9 ? 'critical' : wallShare(m.varix) >= 0.7 ? 'danger' : wallShare(m.varix) >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale signs' : m.varix.grade.label),
@@ -110,13 +110,13 @@ export const TILES = [
 // makes. They are not findings, so they stay out of TILES. `v` reads the frame and the store, as the lobule does.
 const lobuleVal = (key, f, st) => lobuleFlows(f, st.healthy)[key];
 export const LOBULE_TILES = [
-  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Sinusoidal blood flow (portal vein plus hepatic artery), % of normal.', why: 'sinFlow', v: (f, st) => lobuleVal('flow', f, st) * 100, d: 0, u: '%',
+  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Sinusoidal blood flow (portal vein plus hepatic artery), as a percentage of the healthy patient\u2019s flow.', why: 'sinFlow', v: (f, st) => lobuleVal('flow', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
-  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Portal venular inflow to the lobule, % of normal (negative = hepatofugal).', why: 'portalIn', v: (f, st) => lobuleVal('portal', f, st) * 100, d: 0, u: '%',
+  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Portal venular inflow to the lobule, as a percentage of the healthy patient\u2019s inflow. Below zero the flow runs backwards (hepatofugal).', why: 'portalIn', v: (f, st) => lobuleVal('portal', f, st) * 100, d: 0, u: '%', ux: ' of healthy', uxs: (v) => (v < -2 ? ' of healthy, reversed' : ' of healthy'),
     scale: [-60, 150], ticks: [0, 50],
     st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Severe' : v < 75 ? 'Low' : 'Normal') },
-  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Hepatic arteriolar inflow to the lobule, % of normal. It rises when portal inflow falls (hepatic arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%',
+  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Hepatic arteriolar inflow to the lobule, as a percentage of the healthy patient\u2019s inflow. It rises when portal inflow falls (hepatic arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
   { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 1,150 mL/day; above about three times that, the excess enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT,
@@ -139,7 +139,7 @@ export const CUTOFFS = [
   ['Portal flow', '≥0.9 L/min and ≥15 cm/s', '<0.9 L/min or <15 cm/s', '<9 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '>75% of normal', '56 to 75%', '≤55%', '—'],
   ['Shunted blood', '<10%', '10 to 29%', '30 to 59%', '≥60%'],
-  ['Varix wall stress (model)', '<40% of rupture', '40 to 69%, or diameter ≥5 mm', '70 to 89%', '≥90%'],
+  ['Varix wall stress (model)', '<40% of rupture threshold', '40 to 69%, or diameter ≥5 mm', '70 to 89%', '≥90%'],
   ['Ascites', 'None', 'Grade 1', 'Grade 2 or 3', '—'],
   ['Spleen length', '≤13 cm', '13.1 to 16 cm', '>16 cm', '—'],
 ];
@@ -220,13 +220,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // The bar's HVPG and PPG are plain readouts for now: no tap action, button or focus stop (the Readouts tab's tiles still open "why").
     const inert = BAR_INERT.has(t.id);
     // (The tile's markup is the one readout tile, tile-el.js, as Tests › Readouts builds it.)
-    const { el, val, tr, st, cmp, fill } = tileEl(t, { inert, primary: PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id), unit: !shared, width: true });
+    const { el, val, tr, st, cmp, fill, ux } = tileEl(t, { inert, primary: PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id), unit: !shared, width: true });
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
     if (inert) { /* readout only */ }
     else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
-    tileEls[t.id] = { el, t, val, tr, st, cmp, cmpW: glWords(cmp), cmpCls: '', fill, histT: [], histV: [], sev: null, trend: '', ariaTxt: '', kBar: 'bar:' + t.id, kFill: 'fill:' + t.id,
+    tileEls[t.id] = { el, t, val, tr, st, cmp, ux, uxW: t.ux || '', cmpW: glWords(cmp), cmpCls: '', fill, histT: [], histV: [], sev: null, trend: '', ariaTxt: '', kBar: 'bar:' + t.id, kFill: 'fill:' + t.id,
       fkOn: false, fkV: null, fkF: null, vsV: NaN, vsD: 0, vsOut: NaN,
       stS: null, stUn: null, ariaK: NaN, ariaS: null, ariaT: null, ariaV: null, ariaAsk: false };
     const x = tileEls[t.id];
@@ -241,7 +241,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     x.ariaPass = () => {
       x.ariaAsk = false;
       const v = x.ariaV, s = x.ariaS;
-      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.ariaT ? `, ${x.ariaT === 'up' ? 'rising' : 'falling'}` : ''}`;
+      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${x.uxW}, ${s}`}${x.ariaT ? `, ${x.ariaT === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; attrSoon(el, 'aria-label', aria); }
     };
     return el;
@@ -414,6 +414,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const vs = x.vsOut, sf = t.ss && narrow.matches ? t.ss : t.s;
         s = measured ? 'Measured' : lz ? sf(vs, f, st0) : sf(vs, m);
         sev = lz ? t.st(vs, f, st0) : t.st(vs, m);
+        // (A flow that can run backwards names its direction beside the number: "−21% of healthy, reversed". Written only when the words change, by the cross-fade.)
+        if (t.uxs && x.ux) { const w = t.uxs(vs); if (w !== x.uxW) { x.uxW = w; swapText(x.ux, w); } }
         const w = pos(t, shownState.or(x.kFill, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
@@ -505,7 +507,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Every readout the bottom bar used to carry, live, in its own tab.
   const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show, onFromReadings });
   const instruments = [
-    pressure, createPressureTime({ marks }),
+    pressure, createPressureTime({ marks, smooth: true }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
     createHvpgProcedure(),
     lazyPane({ id: 'doppler', label: 'Doppler', handle: lazy.doppler, cls: 'dop', history: 2000, slim: dopplerSlim, onReady: () => { fitHeight(); queueRefresh(); } }),
