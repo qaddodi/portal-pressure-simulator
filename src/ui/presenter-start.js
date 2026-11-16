@@ -23,7 +23,7 @@ import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 
 export function createStart(st, live) {
-  const { patientHistory, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
+  const { patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
   // ── Start and stop ──
   function build() {
     const tiles = bigTiles();
@@ -374,6 +374,7 @@ export function createStart(st, live) {
       if (b.history) patientHistory?.load(b.history);   // (the History list and the undo stack come back with the patient: the slides' own changes were never the viewer's)
       store.set({ presetId: b.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1, speed: b.speed || 1, lastHVPG: b.lastHVPG ?? null, hvpgMeasured: !!b.hvpgMeasured });
       host.send({ type: 'run', running: b.running !== false, clock: b.clock || 'hemo', speed: b.speed || 1 });
+      restartTraces?.();   // (the Over time and Doppler traces held the talk's last patient: they start over with the viewer's own, as a patient pick does)
     } else {
       host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
       await loadPreset?.('healthy');

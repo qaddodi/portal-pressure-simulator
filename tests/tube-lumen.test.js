@@ -61,12 +61,10 @@ test('the lumen shader passes the lint, with and without the dye and origin swit
 });
 
 test('it runs the compositor\'s lumen section (blood, origin, dye) and declares no flow target', () => {
-  for (const call of ['bloodAt(', 'originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'flowD(']) assert.ok(LUMEN.includes(call), `${call} is called`);
+  for (const call of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'flowD(']) assert.ok(LUMEN.includes(call), `${call} is called`);
   assert.ok(!/\bgbuf2?\b/.test(LUMEN), 'no gbuf');
   assert.ok(!/\bhalfL\b/.test(LUMEN), 'no half-size streak layer');
-  // The three blood styles are the uniform's, as in the compositor: styles 1, 2 and 3 are all in the text.
-  assert.ok(/uniform int bloodStyle;/.test(LUMEN));
-  for (const n of [1, 2, 3]) assert.ok(LUMEN.includes(`bloodStyle == ${n}`), `blood style ${n} is in bloodAt`);
+  assert.ok(!/bloodAt|bloodStyle/.test(LUMEN), 'no streak shader (the Streaks option is gone)');
 });
 
 test('it takes the vessel\'s colour and opacity from the shared vesAttrs, not a copy', () => {
@@ -87,9 +85,9 @@ test('every uniform it shares with the compositor has the compositor\'s type', (
     shared++;
     assert.equal(type, comp.get(name), `${name}: ${type} here, ${comp.get(name)} in COMP_FS`);
   }
-  assert.ok(shared >= 20, `the two share their lumen uniforms (${shared})`);
+  assert.ok(shared >= 15, `the two share their lumen uniforms (${shared})`);
   // The uniforms the compositor's lumen text needs are all declared here (the compile check judges the rest).
-  for (const n of ['flow', 'rad', 'tube', 'dye', 'pxW', 'bT', 'clock', 'originCol', 'dyeCol', 'inkLight', 'inkDark', 'noiseT', 'bloodStyle', 'lenOn', 'origin', 'dyeOn', 'blood', 'blendA', 'flowA']) {
+  for (const n of ['flow', 'rad', 'tube', 'dye', 'pxW', 'bT', 'clock', 'originCol', 'dyeCol', 'inkLight', 'inkDark', 'origin', 'dyeOn', 'blood', 'blendA', 'flowA']) {
     assert.ok(mine.has(n), `${n} is declared`);
   }
   // ...and those the vessel's colour and opacity need are tubeLeanFS's, by name.
@@ -196,13 +194,12 @@ test('past a vessel\'s clipped end the lumen ends in a round cap, as the vessel 
   assert.equal(near.coverage, 1);
 });
 
-test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their vRad and take the wall: no streak', () => {
+test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their vRad and take the wall', () => {
   const R = 5;
   for (const g of [[0, 1], [0.6, 0.8], [-1, 0], [0, 0]]) {
     const t = tubeLumenJS({ vI: 20, vD: -0.1, vG: g, vRad: 4 * R, ba: [1, 0], len: 100, aa: 1, R });
     assert.equal(t.web, true);
     assert.equal(t.y, 1, 'across is the wall');
-    assert.equal(1 - smoothstep(0.7, 1, Math.abs(t.y)), 0, 'bloodAt\'s wall term is 0 there');
   }
   // A strip is never taken for one: its vRad is the radius radAt gives (within the interpolation), from the axis to the wall.
   for (const f of [0, 0.4, 0.99]) {
@@ -210,21 +207,15 @@ test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their
     assert.equal(t.web, false);
     assert.ok(Math.abs(t.y - f) < 1e-9);
   }
-  // Without the rule, dividing the unit direction by the radius would have put the web's pixels on the axis, where the streaks are.
-  assert.ok(1 - smoothstep(0.7, 1, 1 / R) > 0.9);
-  // bloodAt's text is the one with that wall term, whose glow along the axis is multiplied by it, and the shader says what it does with a web.
-  assert.ok(LUMEN.includes('float wall = 1.0 - smoothstep(0.7, 1.0, ay);'));
-  assert.ok(/float a = clamp\(streak \* \(0\.32 \+ 0\.26 \* dens\) \+ glowCore, 0\.0, 0\.75\) \* wall/.test(LUMEN));
   assert.ok(LUMEN.includes(`bool web = vRad > ${WEB_RATIO}.0 * R1;`));
 });
-function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 test('the compile list names the lumen programs (the web\'s waits for its vertex shader)', () => {
   const have = new Set([...programs().map((p) => p.name), ...(programs.skipped || []).map((s) => s.name)]);
   assert.ok([...have].some((n) => n.includes('tubeLumen')), 'tubeLumen is listed');
   assert.ok([...have].some((n) => n.includes('tubeWebLumen')), 'tubeWebLumen is listed');
   const built = programs().filter((p) => p.name.includes('tubeLumen'));
-  for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('bloodAt(')); }
+  for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('originAt(')); }
 });
 
 test('lymph with a stream is drawn as faint teal chevrons (the bile arrows\' head and size rule), in an ink that contrasts with the channel; a row with none keeps its dashes', () => {
@@ -277,10 +268,3 @@ test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the
   }
 });
 
-test('V7: blood that shows trouble is wired in for style P only, and `still` is a uniform of the compositor\'s type', () => {
-  assert.ok(LUMEN.includes('vec4 troubleAt('), 'blood-trouble.js\'s text is included');
-  assert.ok(LUMEN.includes('if (bloodStyle == 3) { tr = troubleAt(id1, s1, y1, R1, len1, f0.y, f1.w > 0.5); f0.z *= tr.z; }'));
-  assert.ok(LUMEN.includes('bloodAt(id1, tr.x, tr.y, col, f0, f1, len1, R1, vc1)'));
-  assert.equal(uniformTypes(LUMEN).get('still'), 'int');
-  assert.equal(uniformTypes(gl.COMP_FS()).get('still'), 'int');
-});

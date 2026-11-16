@@ -24,12 +24,15 @@ export default [
   // Readouts tile names wrap, never an ellipsis
   { file: 'styles/app-09-tests.css', need: [/\.rp-tiles \.metric \.k \{ white-space: normal; overflow: visible; text-overflow: clip;/, 'A Readouts tile\'s name wraps and is never cut ("Abdominal per…", 16 Nov 2026)'] },
   // Doppler: Pulsatility is worked out from the Max and Trough shown beside it, and a portal vein's two are its median beat's
-  { file: 'src/ui/doppler.js', need: [/pulsatility\(shownV\(hiV\), shownV\(loV\)\)/, 'The Pulsatility tile follows its formula from the rounded numbers beside it (36, 21 and 0.17 did not agree, 16 Nov 2026)'] },
+  { file: 'src/ui/doppler.js', need: [/pulsatility\(shownV\(hiB\), shownV\(loB\)\)/, 'The Pulsatility tile follows its formula from the rounded numbers beside it (36, 21 and 0.17 did not agree, 16 Nov 2026)'] },
   { file: 'src/ui/doppler.js', need: [/beatwise \? r\.beatHi : r\.vmax/, 'A portal vein\'s Max and Trough are its median beat\'s, the beat Pulsatility and the calipers read'] },
   { file: 'src/ui/doppler.js', need: [/CI: 'Congestion index \(CI\)/, 'CI is spelled out where it is hovered, with the same kind of tooltip as Max'] },
   // the HVPG tracing has a time axis (seconds along its bottom, numbers where they clear the stage words)
   { file: 'src/ui/hvpg-proc.js', need: [/secs: true,/, 'The HVPG tracing\'s script asks for the seconds axis (tester, 16 Nov 2026: only stage words along the bottom)'] },
   { file: 'src/ui/monitor.js', need: [/if \(S\.secs\) \{/, 'The catheter monitor draws a seconds axis for a script that asks for one'] },
+  // the traces start over with the viewer's own patient when a talk ends
+  { file: 'src/ui/presenter-start.js', need: [/restartTraces\?\.\(\);/, 'The Over time and Doppler traces start over when the viewer\'s own patient comes back after a talk (the talk\'s last patient was drawn for 15 s, 16 Nov 2026)'] },
+  { file: 'src/ui/doppler.js', need: [/Math\.abs\(BEAT_MEAN\[i\] - level\) < Math\.abs\(BEAT_MEAN\[pick\] - level\)/, 'The typical beat is the one nearest the window\'s mean, so Max and Trough stand either side of the Speed shown'] },
   // the pin toasts do not repeat the compare bar's label
   { file: 'src/ui/timeline.js', forbid: [/toast\(`Comparing with/, 'The toast that pins a moment does not repeat the label the compare bar shows'] },
 ];
