@@ -95,6 +95,7 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
@@ -508,7 +509,9 @@ async function main() {
         if (sw && await holdsMine(sw)) return;
         if (offered) return;
         offered = true;
-        const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
+        // (Held while a talk plays, and put up again once it ends if it was taken away by one: it stood over a slide's teaching card and its tag, 16 Nov 2026.)
+        const retry = () => setTimeout(offer, 30000);
+        const offer = () => { if (presenter.active()) { retry(); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]], holdInTalk: true, onClose: (why) => { if (why === 'held') retry(); } }); };
         offer();
       });
     }
@@ -903,8 +906,8 @@ function buildHud() {
     sendBeat(); syncBloodBtn();
     redraw();
   });
-  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint.
-  document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
+  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. (No class on the root for it: the old `chip-open` stayed there after the menu closed, 16 Nov 2026; the rules read aria-expanded alone.)
+  for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
   // Press and hover on every other control eases and answers a finger (app.css, html.press-fx).
   document.documentElement.classList.add('press-fx');
   document.documentElement.classList.add('model-contain');
@@ -1841,6 +1844,31 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // The free stage (free-stage.js): the window less the open cards, the bars and the view switch, from the cards' resting boxes. Each side card
+    // counts only on the rows it reaches, so a piece clears the cards that are really beside it (the zoom pill did not move for Treat, which ends
+    // 160 px above it). Written on the root, where the toasts and the menus (outside .app) read it too.
+    const aw = ar.width || innerWidth, ah = ar.height || innerHeight, blocks = [];
+    const rowsOf = (el) => { const q = readBox(el); return [q.top - ar.top, q.bottom - ar.top]; };
+    if (wide) {
+      if (panelOcc) { const [y0, y1] = rowsOf($('#panel')); blocks.push(sideBlock('r', panelOcc, y0, y1)); }
+      if (instrOcc) { const [y0, y1] = rowsOf(ws); blocks.push(sideBlock('r', panelOcc + instrOcc, y0, y1)); }
+      if (treatOcc) { const [y0, y1] = rowsOf(!tc.hidden ? tc : hc); blocks.push(sideBlock('r', panelOcc + instrOcc + treatOcc, y0, y1)); }
+      // (The vessel's card on the left shelf: its box holds still while it fades in and out, so it counts where it rests.)
+      const lc = card?.el;
+      if (lc && !lc.hidden && !lc.classList.contains('docked') && !lc.classList.contains('ac-leaving')) {
+        const q = readBox(lc);
+        if (q.width && q.height) blocks.push(sideBlock('l', q.right - ar.left + gap, q.top - ar.top, q.bottom - ar.top));
+      }
+    }
+    const fs = freeStageOf(aw, ah, tbH, bot, blocks);
+    const footY1 = ah - bot - 8, zoomEl = $('#zoomPill'), zoomH = (zoomEl && readMetric(zoomEl, 'offsetHeight')) || 176;
+    fs.foot = [footY1 - FOOT_BAND, footY1];   // (where a toast and the corner credit stand)
+    fs.zoom = [footY1 - zoomH, footY1];   // (the zoom pill's rows)
+    fs.top = [tbH + 6, tbH + 6 + 48];   // (the Compare banner's rows, under the top bar)
+    setFreeStage(fs);
+    const rootVars = { '--fs-t': px(fs.t), '--fs-b': px(fs.b), '--fs-h': px(fs.h), '--fs-l': px(fs.l), '--fs-r': px(fs.r) };
+    for (const [k, [y0, y1]] of [['foot', fs.foot], ['zoom', fs.zoom], ['top', fs.top]]) { const bd = bandOf(fs, y0, y1); rootVars[`--fs-${k}-l`] = px(bd.l); rootVars[`--fs-${k}-r`] = px(bd.r); }
+    for (const k in rootVars) if (pubVals[k] !== rootVars[k]) { pubVals[k] = rootVars[k]; document.documentElement.style.setProperty(k, rootVars[k]); changed = true; }
     // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
     // they come to rest, so it does not follow the glide: util.js translateRest.)
     if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
@@ -1876,6 +1904,7 @@ function wireFloating() {
   const soon = () => restTask(publish);
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
+  if (card?.el) ro.observe(card.el);   // (the vessel card on the left shelf is as tall as its words: the free stage's rows follow it)
   // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
   // card, the credit, the labels' blockers and the framing were measured and placed again as the menus faded back in, a
   // beat after each pan or pinch, and the figure hitched (Mohammad, 21 Oct: "the hitch syncs with the menu fading back in").)
@@ -2527,10 +2556,10 @@ function armFeedbackAsk() {
   // (The card's answers and options are made once, with the timer, not each time it asks.)
   const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
-    sticky: true,
+    sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
-      if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+      if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
       try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };

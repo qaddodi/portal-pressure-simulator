@@ -74,7 +74,7 @@ export default [
   { file: 'src/ui/util.js', need: [/const close = \(why = 'user'\) => \{[^}]*onClose\?\.\(why\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', need: [/t\.addEventListener\('click', \(\) => close\(\)\);/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', forbid: [/addEventListener\('click', close\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', need: [/if \(why === 'pushed'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
+  { file: 'src/ui/main.js', need: [/if \(why === 'pushed' \|\| why === 'held'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   // glass-gl
   { file: 'styles/app-*.css', need: [/:root \{ --pz-frost: 66%; \}/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
   { file: 'styles/app-*.css', need: [/\.cl-glass \{[^}]*background: var\(--glass-tint\);/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
