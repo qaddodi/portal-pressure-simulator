@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
@@ -94,6 +94,7 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { procLabel } from './procedure-names.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
@@ -306,7 +307,8 @@ async function main() {
     marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
-    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
+    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -828,7 +830,7 @@ function doAction(a) {
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
-  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: procLabel('band'), valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
@@ -851,7 +853,7 @@ function shuntHint(only, fine) {
   SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
   SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
   SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
-  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a distal splenorenal shunt (DSRS).');
   SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
   return SHUNT_LINES;
 }

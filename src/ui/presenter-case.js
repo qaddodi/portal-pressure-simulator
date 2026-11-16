@@ -14,7 +14,7 @@ import { tileShown } from './table-marks.js';
 import { clamp, h } from './util.js';
 
 export function createCase(st, live) {
-  const { CATH_SETTLE_MS, applyState, bedside, caseGone, cath, drawn, evKept, figureIn, host, lapseText, loading, morphTo, paintChrome, pushEnd, pushTo, releaseData, stage, stateReady, stopLapse, toAnatomy, until, view, waitCut } = st;
+  const { CATH_SETTLE_MS, announce, applyState, bedside, caseGone, cath, drawn, evKept, figureIn, host, lapseText, loading, morphTo, paintChrome, pushEnd, pushTo, releaseData, stage, stateReady, stopLapse, toAnatomy, until, view, waitCut } = st;
   // (Where its lines start: the state the slide opened on, its before state on a slide whose own patient has had it. Where they end, when the
   // slide's own state has it done (its scale then holds both); else the scale holds the start, and a fall from it.)
   function evStart(st) {
@@ -162,8 +162,9 @@ export function createCase(st, live) {
     // Lifting works from the moment the card is up: a tap, Next or a swipe anywhere fades it out at once, as a fling does, even
     // while the patient still loads behind it (the slide goes on into this same slide, its cards once loading ends). After
     // that Next and a swipe act as on any other slide.
-    const card = live.caseCard = { c, ms, lifted: false };
+    const card = live.caseCard = { c, ms, lifted: false, i: live.want };   // (i: the slide it came up for: slide-say.js, the reader's line)
     live.caseLift = () => caseGone(card);
+    announce();   // (the card is the slide's first screen: the reader is told the slide now, not once its cards land)
     return card;
   }
   async function caseRun(s, si, st, cut, own = false, swapping = null) {

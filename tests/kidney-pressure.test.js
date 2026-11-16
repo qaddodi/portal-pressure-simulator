@@ -115,8 +115,7 @@ test('the kidney talk types the same two rules as the module (a deck is one file
 // rule of scripts/clinical-wording.mjs, run by npm run lint, walks every string in src/; this keeps the test of it near the quantity).
 test('no learner text calls MAP − IAP a renal perfusion pressure or an RPP', async () => {
   const { check } = await import('../scripts/clinical-wording.mjs');
-  const { SPOKEN } = await import('../src/ui/readouts-text.js');
-  for (const w of [TILE.rpp.t, TILE.rpp.long, METRICS.rpp.label, SPOKEN.rpp, DOCK_TILES.find((t) => t.id === 'rpp').k, DOCK_TILES.find((t) => t.id === 'rpp').title]) assert.deepEqual(check(w).map((h) => h.rule), [], w);
+  for (const w of [TILE.rpp.t, TILE.rpp.long, METRICS.rpp.label, DOCK_TILES.find((t) => t.id === 'rpp').k, DOCK_TILES.find((t) => t.id === 'rpp').title]) assert.deepEqual(check(w).map((h) => h.rule), [], w);
   const { DECKS } = await import('../src/ui/decks.js');
   const bad = [];
   for (const d of DECKS) for (const sl of d.slides) for (const f of ['kicker', 'title', 'line', 'notes', 'caveat']) if (typeof sl[f] === 'string' && /\b[Rr]enal perfusion pressure\b|\bRPP\b/.test(sl[f])) bad.push(`${d.id}/${sl.id}.${f}`);
