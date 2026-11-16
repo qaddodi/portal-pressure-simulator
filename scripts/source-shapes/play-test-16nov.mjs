@@ -30,4 +30,7 @@ export default [
   // The Circuit's zone bands and dots come in over the second half of the change (a ramp of t from 0.5), never with the first: a faint panel showed over the plate.
   { file: 'src/ui/stage-frame.js', need: [/const ma = t <= 0\.5 \? 0 : t >= 1 \? 1 : /, 'the map fades in only after the organs are mostly gone'] },
   { file: 'src/ui/stage-frame.js', forbid: [/if \(MAP\.a !== t\)/, 'the map\'s opacity is not the morph\'s t itself'] },
+  // A shortcut label names the device's own modifier (platform-keys.js keyLabel): the guide's rows and the Search button never write Ctrl or ⌘ by hand.
+  { file: 'src/ui/main.js', forbid: [/\['Ctrl\/⌘/, 'a Guide row writes Ctrl/⌘ by hand: wrap it in keyLabel so a Mac reads ⌘'] },
+  { file: 'src/ui/main.js', need: [/b\.title = `Search \(\$\{keyLabel\('Ctrl\/⌘ K'\)\}\)`/, 'the Search button is named for the device'] },
 ];

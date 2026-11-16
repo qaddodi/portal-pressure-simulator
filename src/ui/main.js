@@ -12,6 +12,7 @@ import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { sinusoidSupported } from './gl-support.js';
+import { keyLabel } from './platform-keys.js';
 import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
@@ -1327,6 +1328,7 @@ function wireTopbar() {
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
+  { const b = $('#btnPalette'); b.title = `Search (${keyLabel('Ctrl/⌘ K')})`; const k = b.querySelector('kbd'); if (k) k.textContent = keyLabel('Ctrl/⌘ K'); }   // (the page's own text says Ctrl K: a Mac reads ⌘ K)
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat({ focus: true }) : openTreat()));
   // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
   $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory({ focus: true }) : openHistory()));
@@ -2358,10 +2360,10 @@ const PRESENT_KEYS = [
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
   const groups = [
-    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'],
+    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
+      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
       ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
