@@ -23,7 +23,10 @@ export const WORDS_MIN_PX = 12;
 /** The sideways steps, tried in order. put(tk, bk) sets the words and says whether the pair of cards now fits; smallest() is the card's smallest
  *  lettering on the screen, px. A step is kept only while that is 12 px; where none fits the pair the words stay at the last step kept (null: not
  *  even the first keeps 12 px, the caller leaves them at Compact). Returns { below: fits, last: [tk, bk] | null }. */
-export function sidewaysWords(put, smallest) {
+export function sidewaysWords(put, smallest, own) {
+  // (own: { clear(), restore() }: the card's zoom from an earlier, larger fit, taken off while the steps are judged and put back where none is kept. A step is
+  // judged at its own size: with Regular's 0.984 still on it, Circulation 3 on a 844 x 390 phone read 11.8 px at the first step and kept none.)
+  own?.clear();
   let last = null, below = false;
   for (const [tk, bk] of SIDEWAYS_WORDS) {
     below = put(tk, bk);
@@ -31,5 +34,10 @@ export function sidewaysWords(put, smallest) {
     last = [tk, bk];
     if (below) break;
   }
+  if (!last) own?.restore();
   return { below, last };
 }
+
+/** How far a stacked pair of cards that overshoots the screen by `over` px may rise into its top margin: the overshoot, and no more than the margin
+ *  less `keep` px (never closer than that to the top). 0 where it fits. (A phone on its side, presenter.js layout: the pair's last few px.) */
+export const pairRise = (over, top, keep) => Math.max(0, Math.min(over, top - keep));
