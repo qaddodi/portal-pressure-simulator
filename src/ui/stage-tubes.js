@@ -8,7 +8,7 @@ import { deltaColor, dropColor, flowColor, heatColor, oxygenColor, pressureColor
 import { follow2 } from './display-state.js';
 import { fluidTarget } from './fluid-step.js';
 import { flareScale, sideEndScale } from './fork-joins.js';
-import { cancelFrame, inMotion, mayTask } from './frame.js';
+import { cancelFrame, settling, mayTask } from './frame.js';
 import { overMemory as gpuOverMemory } from './gpu-budget.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
@@ -85,7 +85,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   // (The function waiting is handed on as the timer's own argument, so no closure is made to carry it.)
   const IDLE_ASK = { timeout: 600 }, lobuleNoop = () => {};
-  function prepIdleGo(fn) { if (sinceInput() < 700 || inMotion()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  function prepIdleGo(fn) { if (sinceInput() < 700 || settling()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);

@@ -47,7 +47,7 @@ import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling } from './frame.js';
 import { figureDensity } from './pixel-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -2212,7 +2212,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     spareT = 0;
     const g = tissueGLOn(), G = geo, m = model;
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
-    if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
+    if (handOn() || gliding || settling()) { spareSoon(); return; }   // (settling: not while a slide's cards come in, frame.js holdMotion, nor through a slide change, beginChange)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = lzDensity(...hostSize()), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap, seenCap(G));

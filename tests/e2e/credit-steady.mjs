@@ -33,7 +33,7 @@ for (const v of VIEWS) {
     await page.waitForFunction(() => window.pps?.stage, null, { timeout: 30000 });
     if (view) { await page.waitForTimeout(800); await page.click(`#viewSeg button:has-text("${view}")`); }
     // (A deck opened by its link: from when it is up and its first slide has settled.)
-    if (url.includes('script=')) await page.waitForFunction(() => document.getElementById('app').classList.contains('presenting') && !document.getElementById('app').classList.contains('pz-moving'), null, { timeout: 90000 });
+    if (url.includes('script=')) await page.waitForFunction(() => document.getElementById('app').classList.contains('presenting') && !document.getElementById('app').hasAttribute('data-pz-moving'), null, { timeout: 90000 });
     await page.waitForTimeout(4000);
     const a = await spot(page);
     await page.waitForTimeout(2000);

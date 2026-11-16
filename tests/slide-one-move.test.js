@@ -14,7 +14,7 @@ const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const 
 
 
 test('the change of patient starts with the glide, and is awaited only once the cards are in', () => {
-  const start = run.indexOf("morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));");
+  const start = run.indexOf("morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.toggleAttribute('data-pz-morph-under', false));");
   const glide = run.indexOf('else if (cam) { if (prepWith)');
   const cards = run.indexOf('bare = false; cardsIn({ i: to, gen: g });');
   const awaited = run.indexOf('if (morphP) { if (!await morphP) return; shownState = own ? -1 : si; ui?.tools.hold(false); }');

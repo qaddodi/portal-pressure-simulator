@@ -126,7 +126,7 @@ export default async function register({ DEVICES, check, device, gotoSlide, inst
   if (device === 'phone') await check(device, 'The credit holds its spot while numbers tick, and keeps off the lobule', async (page) => {
     // (on an upright iPad: an iPhone carries the credit in the teaching card's foot, so the figure's credit is a tablet's and a laptop's)
     const restore = await instantMotionOn(page);
-    const shown = () => page.waitForFunction(() => { const c = document.querySelector('.stage-credit'); return c.matches('.placed:not(.moving), .covered') && !document.querySelector('#app.pz-moving'); }, null, { timeout: 60000 });
+    const shown = () => page.waitForFunction(() => { const c = document.querySelector('.stage-credit'); return c.matches('.placed:not(.moving), .covered') && !document.querySelector('#app[data-pz-moving]'); }, null, { timeout: 60000 });
     await gotoSlide(page, server.url, 'circuit', 6);   // (reached at the phone's size, then turned into an iPad: a slide reached at 3x iPad size outran the wait)
     await page.setViewportSize({ width: 1024, height: 1366 });
     await page.waitForTimeout(1000); await quiet(page); await shown();

@@ -6,9 +6,9 @@
 // screen through the measurement. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
 // never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
 // in at its final spot, never moving while visible) after the cards are in and the camera has settled.
-// A change of patient eases on the live model after the zoom (lesions grow, pressures travel; .app.pz-morph while it runs) and
+// A change of patient eases on the live model after the zoom (lesions grow, pressures travel; .app[data-pz-morph] while it runs) and
 // the data card stays out until it has settled (where the figure can move smoothly while its organs change, it eases under the
-// zoom instead, .app.pz-morph-under, and the cards may come in over its end); a newer slide asked for mid-way eases on from there: the portal pressure
+// zoom instead, .app[data-pz-morph-under], and the cards may come in over its end); a newer slide asked for mid-way eases on from there: the portal pressure
 // never jumps between frames.
 // The data card leaves at the same moment as the teaching card, with the same ease and pace (never left standing, never drifting the other way). Real motion, stepping with Next through a deck, sampled every frame.
 //
@@ -52,13 +52,13 @@ await page.evaluate(() => {
       if (p && p.vis && vis && still && Math.hypot(r.left - p.x, r.top - p.y) > 30) window.__bad.push('catheter reading jumped to a new spot');
       at.set(el, { x: r.left, y: r.top, vis });
     }
-    if (app.classList.contains('pz-morph-under')) window.__morphSeen++;
-    if (app.classList.contains('pz-morph')) {
+    if (app.hasAttribute('data-pz-morph-under')) window.__morphSeen++;
+    if (app.hasAttribute('data-pz-morph')) {
       window.__morphSeen++;
       const dc = document.querySelector('.pz-data');
       if (dc && !dc.hidden && !dc.classList.contains('pz-hide')) window.__bad.push('data card on screen while the patient was still changing');
     }
-    const held = app.classList.contains('pz-moving'), op = +getComputedStyle(cr).opacity, r = cr.getBoundingClientRect();
+    const held = app.hasAttribute('data-pz-moving'), op = +getComputedStyle(cr).opacity, r = cr.getBoundingClientRect();
     if (held) { heldAt ||= performance.now(); if (performance.now() - heldAt > 400 && op > 0.02) window.__bad.push('corner credit visible during the slide change'); } else heldAt = 0;
     if (op > 0.02) window.__creditSeen++;
     if (last && last.op > 0.05 && op > 0.05 && Math.hypot(r.left - last.x, r.top - last.y) > 4) window.__bad.push('corner credit moved while visible');
@@ -106,7 +106,7 @@ for (let i = 1; i <= steps; i++) await gotoSlide(page, server.url, deck, i);
 await page.waitForTimeout(8000);
 // Retarget: back to the first slide, and forward again while that change of patient is still easing.
 await page.evaluate(() => window.pps.presenter.go(0));
-const mid = await page.waitForFunction(() => /\bpz-morph(-under)?\b/.test(document.getElementById('app').className), null, { timeout: 8000 }).then(() => true, () => false);
+const mid = await page.waitForFunction(() => document.getElementById('app').hasAttribute('data-pz-morph') || document.getElementById('app').hasAttribute('data-pz-morph-under'), null, { timeout: 8000 }).then(() => true, () => false);
 if (mid) { await page.waitForTimeout(500); await page.evaluate((k) => window.pps.presenter.go(k), steps); }
 await page.waitForFunction(() => !window.pps.presenter.busy(), null, { timeout: 90000 });   // (a runner without a GPU draws the lobule a few frames a second)
 await page.waitForTimeout(1500);
