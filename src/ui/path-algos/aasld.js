@@ -3,7 +3,7 @@
 // 15 to <20 with platelets <110. The text of 4.2 says "platelets >150" for the rule-out and "LSM >25" for the first rule-in, while its guidance
 // statement 7 says "≥25"; the card follows the figure, so a patient at exactly platelets 150 is ruled out and one at exactly LSM 25 is ruled in.
 // LSM by transient elastography; the model's live LSM and platelets ride the card.
-import { inheritTone } from './helpers.js';
+import { inheritTone, NONE } from './helpers.js';
 
 const num = (v, d) => (v != null && Number.isFinite(+v) ? +v : d);
 
@@ -33,7 +33,7 @@ function reading(key, p) {
   return { head: 'Not settled', tone: 'warn', stmt: 'Fig. 3', why: `${both} meets neither side.`, next: 'Spleen stiffness or HVPG can settle it.' };
 }
 
-const chips = (p) => [`LSM ${p.lsm} kPa`, `Platelets ${p.plt}`];
+const chips = (p, tiled = NONE) => [!tiled.has('lsm') && `LSM ${p.lsm} kPa`, !tiled.has('plt') && `Platelets ${p.plt}`].filter(Boolean);
 
 function patientFor(tool, fp, shown = (k, v) => v) {
   const base = tool?.patient || {};

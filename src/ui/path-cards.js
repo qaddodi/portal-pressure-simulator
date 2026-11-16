@@ -1,6 +1,6 @@
 // The guideline path card's other kinds (7 Nov 2026): the score card and the checklist (kind 'score', allOf for the checklist), the grid
 // (kind 'grid') and the ladder (kind 'ladder'). The tree kinds are drawn by tool-path.js; this module lays these out and builds their
-// model, and tool-path.js keeps the head (the source's pill and the patient's chips), the rule and the foot.
+// model, and tool-path.js keeps the head (the patient's chips the header tiles do not show, often none), the rule and the foot (the figure's number and the source's pill, 16 Nov 2026).
 //   score    rows of answers to choose from (the chosen one lit), the total on a bar of zones, the verdict and what to do next
 //   grid     two questions, one cell (the column and the row headers, the cells, the lit one in its own colour), then the reading
 //   ladder   the stages as steps (a staircase across on a Mac, a stack on a phone), the lit stage with what it means, and the way back

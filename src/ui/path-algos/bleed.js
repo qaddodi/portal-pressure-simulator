@@ -1,7 +1,7 @@
 // Acute variceal bleeding from an oesophageal varix or GOV1: Baveno VIII Fig. 3 and 5.4, 5.16, 5.18, 5.20, 5.31, 5.35 to 5.37. Three leaf columns (E3, 7 Nov 2026):
 // the gastric half of the figure (GOV2, IGV1; 5.39 to 5.41) is its own chart, gastric.js. Patient { src: 'ov', cp, active, hvpg, ctrl, fit }.
 import { PTIPS_HVPG } from '../../engine/pressure-cuts.js';
-import { inheritTone, cpClass } from './helpers.js';
+import { inheritTone, cpClass, NONE } from './helpers.js';
 
 const tree = inheritTone({
   id: 'root', t: 'Suspected variceal bleeding', r: 'Esophageal varix or GOV1', s: 'Vasoactive drug, antibiotics, restrictive transfusion. Endoscopy within 12 h. Band ligation.', stmt: '5.18', tone: 'n', kids: [
@@ -39,7 +39,7 @@ export default {
       default: return { head: 'Covered stent, then salvage TIPS', tone: 'bad', stmt: '5.35, 5.36', why: 'Band ligation did not control the bleeding.', next: 'A dedicated covered self-expanding metal stent is preferred over balloon tamponade as a bridge to TIPS or liver transplant. Evaluate for transplant.' };
     }
   },
-  chips: (p) => ['Esophageal or GOV1', `Child–Pugh ${cpClass(p.cp)}${p.cp}`, p.hvpg != null && `HVPG ${p.hvpg}`, p.active ? 'Active bleeding' : 'No active bleeding', p.ctrl ? 'Controlled' : 'Not controlled', !p.fit && 'Not a TIPS candidate'].filter(Boolean),
+  chips: (p, tiled = NONE) => ['Esophageal or GOV1', `Child–Pugh ${cpClass(p.cp)}${p.cp}`, p.hvpg != null && !tiled.has('hvpg') && `HVPG ${p.hvpg}`, p.active ? 'Active bleeding' : 'No active bleeding', p.ctrl ? 'Controlled' : 'Not controlled', !p.fit && 'Not a TIPS candidate'].filter(Boolean),
   patientFor(t, fp, shown = (k, v) => v) {
     const base = { ...(t?.patient || {}) };
     const live = (k, v) => (fp && Number.isFinite(fp[k]) ? shown(k, fp[k]) : v);
