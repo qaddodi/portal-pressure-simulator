@@ -166,7 +166,9 @@ export default [
   { file: 'src/ui/lobule-zoom*', need: [/\(nameless && lead > LONG_LEAD \? 1e6/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
   { file: 'src/ui/lobule-zoom*', need: [/const dropCost = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
   { file: 'src/ui/lobule-zoom*', need: [/placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
-  { file: 'src/ui/lobule-zoom*', need: [/if \(!ringDepth\(lesion, zBox\)\) \{ at = j; break; \}/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
+  { file: 'src/ui/lobule-zoom*', need: [/const at = zoneSpot\(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes\.length\);/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
+  { file: 'src/ui/lobule-zoom*', need: [/if \(at < 0\) \{ fadeOut\(z\); continue; \}/, 'A zone name keeps off the lesion ring and off every zone name already placed (lobule-zone-spot.js):'] },
+  { file: 'src/ui/lobule-zone-spot.js', need: [/if \(ringDepth\(box\)\) continue;[\s\S]*?overlapLRTB\(box, placed\[i\]\) > 0/, 'A zone name keeps off the lesion ring and off every zone name already placed (lobule-zone-spot.js):'] },
   { file: 'src/ui/stage*', need: [/base - f \* \(LOW\.test\(r\.t\[from\]\) \? X_HEIGHT : 0\.72\) - halo/, 'A leader reaches its label and stops on the edge of what is seen of it:'] },
   // lobule-since
   { file: 'src/ui/lobule-zoom*', need: [/M === 'pressure' \|\| M === 'delta' \|\| M === 'since' \|\| M === 'heat'/, 'A change-since slide (lens \'since\', ext-highlights.js) in the lobule views: (the Change colours serve the lens)'] },
