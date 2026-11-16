@@ -26,7 +26,7 @@ export const ENDOSCOPY = {
     {
       id: 'size', preset: 'cirr-decomp', ...SAME, tool: SCOPE,
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis has ascites that is controlled on spironolactone and furosemide. He is undergoing surveillance endoscopy, and his varices are to be sized.',
-      compare: [{ label: 'Small', preset: 'csph' }, { label: 'Large', own: true }],
+      compare: [{ label: 'Small', preset: 'csph', title: 'A small varix is narrower and straighter than a large one' }, { label: 'Large', own: true }],
       kicker: 'Size and signs',
       title: 'A large varix is wider and more tortuous than a small one',
       line: 'A varix <5 mm is small and one ≥5 mm is large; this one measures {varix}.',

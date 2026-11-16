@@ -69,7 +69,7 @@ export const TWO_LESIONS = {
     {
       id: 'unclot', params: { thrombus: { PV_TRUNK: 0 } }, days: 90, lapse: { seconds: 8 }, cam: 'portal', labels: ['CONF'], tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'pv'], keepTiles: true, title: 'The PPG and portal pressure over three months' }, data: 'tiles', tiles: ['ppg', 'pv'], key: ['ppg'], delta: 'both',
       kicker: 'Take them out', site: 'pre', title: 'Recanalizing the vein lowers the PPG and leaves the congestion',
-      line: 'With the vein open, portal flow returns to {pvFlow} and the PPG falls to {ppg}. The right atrium stays at {ra}, so the portal vein pressure stays at {pv}.',
+      line: 'With the vein open, portal flow returns to {pvFlow} and the PPG falls to {ppg}. The right atrium is still high, {ra}, so the portal pressure falls only to {pv}.',
       notes: 'The vein is open, and the congestion is not touched. The pressures that came from the heart stay where they were: the FHVP, the WHVP and the portal vein pressure all remain high, and the ascites with them. Baveno VIII 9.20 keeps anticoagulation for ≥6 months and considers long-term use, whether or not the vein recanalizes (9.19 sets who is anticoagulated). Open on imaging does not mean stop.',
       ask: ['The portal vein is open at 6 months. Is anticoagulation stopped on that basis?', 'No. Baveno VIII 9.20: ≥6 months, and consider long-term use whether or not the vein recanalizes.'],
     },
@@ -83,10 +83,10 @@ export const TWO_LESIONS = {
     {
       id: 'together', params: { ...CLOT, ...SQUEEZE }, action: { kind: 'retain', mL: FLUID }, days: 90, lens: 'heat', cam: 'route', labels: ['CONF', 'RHV', 'RA'], sites: ['pv', 'ra'], data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       compare: [{ label: 'Both', own: true }, { label: 'Clot only', short: 'Clot', slide: 'clot' }, { label: 'Congestion only', short: 'Heart', slide: 'unclot' }, { label: 'Cirrhosis only', short: 'Neither', slide: 'base' }],
-      kicker: 'Together', site: 'cardiac', title: 'With both lesions, the HVPG falls to <10 mmHg and the PPG is unchanged',
+      kicker: 'Together', site: 'cardiac', title: 'With both lesions, the HVPG falls to <10 mmHg and the PPG stays near its baseline',
       line: 'The clot raises the PPG and congestion lowers it, so it is {ppg}, close to {ppg@base} before either. The HVPG is {hvpg}, with a portal vein pressure of {pv}.',
       notes: 'Put both lesions back and press the buttons. The clot raises the PPG and lowers the HVPG; congestion lowers both gradients; together the HVPG falls well under the CSPH line and the PPG sits near where cirrhosis alone put it, while the portal vein pressure and the ascites are the highest of the four. Neither gradient flags the problem. What does is the absolute pressures: the portal vein, the FHVP and the right atrium. The two lesions act at opposite ends of the liver, so they add on the pressures and partly cancel on the gradients.',
-      ask: ['With both lesions the PPG is unchanged from the cirrhosis alone. Is the portal pressure the same?', 'No. The portal vein pressure is far higher. The two lesions cancel on the PPG, which is a difference, not a level.'],
+      ask: ['With both lesions the PPG is close to that of the cirrhosis alone. Is the portal pressure the same?', 'No. The portal vein pressure is far higher. The two lesions cancel on the PPG, which is a difference, not a level.'],
     },
     {
       id: 'measure', cam: 'route', labels: ['CONF', 'RHV', 'RA'], sites: ['pv', 'ra'], data: 'tiles', tiles: ['fhvp', 'ra'], key: ['ra'],

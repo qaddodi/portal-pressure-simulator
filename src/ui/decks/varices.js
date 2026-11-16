@@ -75,7 +75,7 @@ export const VARICES = {
     },
     {
       id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['varix'], key: ['ppg'],
-      compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari' }],
+      compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari', site: 'post', kicker: 'Budd–Chiari syndrome', title: 'In Budd–Chiari syndrome a portal pressure gradient forms, and varices develop', line: 'The block lies between the liver and the heart, so the portal pressure is high while the azygos and the right atrium stay at normal pressure: the PPG is {ppg} and the varix measures {varix}.' }],
       kicker: 'Heart failure', site: 'cardiac', title: 'Varices are rare in heart failure because there is no portal pressure gradient',
       vignette: 'A 73-year-old man with severe TR has ascites, leg edema and an elevated JVP. Screening EGD shows no varices.',
       line: 'Collaterals need a portal pressure gradient, and in heart failure portal and systemic venous pressures are both high, so the PPG is {ppg} and varices are rare.',

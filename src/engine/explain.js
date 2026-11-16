@@ -169,7 +169,12 @@ function buildSentence(def, cur, base, cs) {
 export function formula(eng, id, m = null) {
   const P = eng.P, ni = eng.ni, Q = eng.Q, ei = eng.ei;
   const wu = (dp, q) => (q > 1e-6 ? dp / (q * 0.06) : Infinity);
-  if (m && id === 'hvpg') return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal ≤5)`;
+  if (m && id === 'hvpg') {
+    // (The figure's sinusoid label less its hepatic vein label can read a few tenths above the HVPG in a liver with open sinusoids: the wedged catheter also reads the central
+    // vein that drains them, which sits lower. Said where the two meet, not left as a mismatch: play-test A9, 16 Nov 2026.)
+    const d = P[ni.SIN_R] - P[ni.RHV];
+    return `HVPG = WHVP − FHVP = ${m.whvp.toFixed(1)} − ${m.fhvp.toFixed(1)} = ${m.hvpg.toFixed(1)} mmHg  (normal ≤5)${d - m.hvpg >= 0.2 ? `. The sinusoid label minus the hepatic vein label reads ${d.toFixed(1)}: the wedged catheter also reads the central vein that drains the sinusoids, so with open sinusoids the HVPG sits a little under that difference.` : ''}`;
+  }
   if (m && id === 'ppg') return `PPG = portal vein − IVC = ${m.pv.toFixed(1)} − ${m.ivc.toFixed(1)} = ${m.ppg.toFixed(1)} mmHg  (normal <6)`;
   if (id === 'pv' || id === 'hvpg' || id === 'ppg') {
     const q = Q[ei.SIN_RR] + Q[ei.SIN_LL];

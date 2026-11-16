@@ -923,6 +923,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (keyStops: whether the figure (its vessels and organs, one stop) and its labels are keyboard stops. A talk turns them off: its figure is read-only and focus never
   // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
   let keyStops = true;
+  let lobAsk = 0, lobSelf = false;   // (a Circuit's way to the lobule: diveToLobule; any other view asked for ends it)
+  store.on('view', () => { if (!lobSelf) lobAsk++; });
   let sinMoveGen = 0;   // (the newest dive into or out of the sinusoid view: an older one, still waiting on its zoom, stops there rather than finishing over it)
   let baseLiver = null, liverKey = '', islSrc = null, nodKey = null, islOn = null;   // (nodKey, islOn: what the nodules and the islands were last written for)
   // The diseased liver's outline without its nodular bulges and notches, for the diaphragm: one smooth dome the nodules
@@ -2245,7 +2247,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // want skipped it and it stayed on screen, whole, until the next layout.)
   let laidFrame = 0;
 
-  const { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean: beatMean$, blockersRead: blockersRead$, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor: labelAnchor$, labelHidden, layerMode: layerMode$, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead: readBlockersRead$, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem } = createLabelItems({ E, EI, EV, LINE_H, NI, REF, STENT_FACTORS, arcMid, breath, cath, cssNum, dopGateOf, dpr, explain, fontPx, geo, lensNow, lineW, mix3, nextFrame, noGlows, nodePos, pinned, quietFx, revShown, scan, setGlowSrc, sites, stageBox, svg, termTone, textW, toRGB, update, updateLabels, worldToLocalInto, wrap }, live);
+  const { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean: beatMean$, blockersRead: blockersRead$, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor: labelAnchor$, labelHidden, layerMode: layerMode$, leadRectOf, leaderEnd, nodeItem, oneLine, oneName, pzInset, readBlockersRead: readBlockersRead$, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem } = createLabelItems({ E, EI, EV, LINE_H, NI, REF, STENT_FACTORS, arcMid, breath, cath, cssNum, dopGateOf, dpr, explain, fontPx, geo, lensNow, lineW, mix3, nextFrame, noGlows, nodePos, pinned, quietFx, revShown, scan, setGlowSrc, sites, stageBox, svg, termTone, textW, toRGB, update, updateLabels, worldToLocalInto, wrap }, live);
   function layerMode(...a) { return layerMode$(...a); }   // <stage-split stub>
   function beatMean(...a) { return beatMean$(...a); }   // <stage-split stub>
   function blockersRead(...a) { return blockersRead$(...a); }   // <stage-split stub>
@@ -2411,7 +2413,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // (The solver keeps what a layout carries from label to label in two records written in place: the live layout's and the solve ahead's.)
   let lbkNum = NaN, lbkStr = '', labelSolSpare = new Map();
-  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stationRev, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
+  const { layoutLabelsGen: layoutLabelsGen$ } = createLabelSolve({ ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, oneName, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stationRev, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn }, live);
   function* layoutLabelsGen(...a) { return yield* layoutLabelsGen$(...a); }   // <stage-split stub>
   // A station's marker (its dot, its label, the Δ ring) shows only while a vessel is drawn at it (circuit-nodes.js): a vessel the
   // plate leaves out, or one still closed, leaves no dot floating where it would end, and one that draws on or retracts brings
@@ -3289,6 +3291,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The presenter's glide inside the lobule (a station focus, the zoom back to the fit) is still moving: false once it has landed. */
     lobuleGlide: () => !!lz?.glideBusy?.(),
     lobuleSettled: () => !diveWait && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
+    /** The Lobule button. From the Circuit the figure turns to the anatomy in view first, then dives, two moves like the two it is (play-test A2, 16 Nov 2026:
+     *  the store said lobule over a circuit that was still turning, and the figure stood empty with its old labels for about a second). A view asked for meanwhile ends the wait. */
+    async diveToLobule() {
+      if (store.get().view !== 'circuit') { setViewKey('lobule'); return; }
+      const me = ++lobAsk; lobSelf = true; setViewKey('anatomy'); lobSelf = false;
+      const t0 = performance.now(), turn = () => new Promise((r) => stageScope.timer(r, 60));   // (each turn re-reads lobAsk: a newer ask ends this wait)
+      await turn();
+      while (me === lobAsk && (morph !== morphTarget || viewXf) && performance.now() - t0 < 6000) await turn();
+      if (me === lobAsk && !store.get().lobule) setViewKey('lobule');
+    },
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
       const me = ++sinMoveGen;

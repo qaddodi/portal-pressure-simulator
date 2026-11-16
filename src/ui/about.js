@@ -33,7 +33,7 @@ const VESSEL = {
   ILI_IVC: 'The iliac veins joining to form the IVC.',
   LRV_IVC: 'The left renal vein: the usual outflow of spontaneous splenorenal and gastrorenal shunts.',
   RRV_IVC: 'The right renal vein.',
-  V_KID_L: 'Left renal venules.', V_KID_R: 'Right renal venules.',
+  V_KID_L: 'The veins inside the left kidney, draining into the left renal vein.', V_KID_R: 'The veins inside the right kidney, draining into the right renal vein.',
   V_LOW: 'Valved veins of the lower extremities: flow runs only toward the heart.',
   EPI_ILI: 'Abdominal-wall veins draining down to the iliac veins. With the paraumbilical vein open they form the caput medusae.',
   EPI_SVC: 'Abdominal-wall veins draining up to the superior vena cava.',

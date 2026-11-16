@@ -250,7 +250,9 @@ export function dirAbs(k, f) {
   return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
 }
 // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
-export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, eus: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, pvVel: 2, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
+// (The right-sided pressures, RA and the IVC, take 2 mmHg: a catheter reads them to within that, and a clot in cirrhosis, which fills the plasma
+// a little as the ascites forms, moved the right atrium 3.7 to 4.8 and put an arrow on a row that has no cardiac lesion, play-test B16, 16 Nov 2026.)
+export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: 2, ra: 2, hvpg: .5, eus: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, pvVel: 2, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
 export function dirRel(k, f, ref) {
   const a = atShown(k, fpv(k, f)), b = atShown(k, fpv(k, ref));
   if (a == null || b == null) return 0;

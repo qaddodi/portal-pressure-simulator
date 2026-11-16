@@ -881,7 +881,7 @@ function renderPaintHint() {
 }
 let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { stage.askSinusoid(false); setViewKey('lobule'); }   // (a sinusoid still waiting on the dive is called off too)
+function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (a sinusoid still waiting on the dive is called off too)
 
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;

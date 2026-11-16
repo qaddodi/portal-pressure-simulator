@@ -93,7 +93,7 @@ export const BUDD_CHIARI = {
     },
     {
       id: 'shunt', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, lens: 'flow',
-      compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60 }, { label: 'DIPS', own: true }],
+      compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60, title: 'A TIPS cannot decompress the liver when no hepatic vein can be recanalized', line: 'A TIPS starts in a hepatic vein, and none can be used, so the portal pressure stays at {pv}.' }, { label: 'DIPS', own: true }],
       tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
       kicker: 'Stepwise management', site: 'post', title: 'When no vein can be recanalized, a DIPS decompresses the liver',
       line: 'In another patient no hepatic vein can be recanalized. A TIPS starts in a hepatic vein, so a DIPS from the IVC lowers portal pressure to {pv}.',

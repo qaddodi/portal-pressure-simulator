@@ -88,6 +88,7 @@ function* stepExtras(e, st) {
 // again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
 // over are cleared as a load clears them.
 const KEPT_MAX = 24;
+export const WARM_DT = 0.008, WARM_STEPS = 1500;   // (a loaded patient's run-in at the bedside clock: 12 s, the steps of the 4× clock, whose means differ by about 0.01 mmHg, see hemoStep)
 const REFS = ['refP', 'refQ', 'Vbase'];
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
@@ -507,6 +508,10 @@ export function createCore(post) {
       stateChanged();
       endTransitions();
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+      // The patient opens at its bedside rest (play-test A1, 16 Nov 2026): the settle that made it runs without the breath and the pulse, and the
+      // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s after it
+      // was chosen (Decompensated 16.7, then 16.0). Twelve seconds of the live clock's own steps, before the page is told, start it there.
+      if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
     reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },

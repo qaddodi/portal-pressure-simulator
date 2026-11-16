@@ -65,6 +65,9 @@ export function createLabelItems(st, live) {
   const edgeVel = meanVel;
   // Blood entering a node per minute (L/min), from every model vessel.
   function throughput(Q, id) {
+    // (The portal vein's station reads the portal vein's flow, the tile's "Portal flow" and the words'. Its confluence's own inflow runs about 0.2 L/min higher
+    // where a coronary vein drains the trunk before the hilum, so "PV 0.7" stood beside "portal inflow falls to 0.5": play-test B18/B19, 16 Nov 2026.)
+    if (id === 'CONF') return Q[EI.PV_TRUNK] * 0.06;
     let sum = 0;
     for (let k = 0; k < EDGES.length; k++) {
       const e = EDGES[k];
@@ -172,9 +175,27 @@ export function createLabelItems(st, live) {
       it.lines = [it.lines[0], val]; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = 1;
       return true;
     }
+    // (A reading is never cut to its name alone: a name with no number says nothing, and the number is there to read (play-test A3, 16 Nov 2026:
+    // "Right sinusoids", "PV", "LGV" and "RHV" stood bare). Where "Azygos 6.7" has no room either, the label is let go whole.)
+    if (it.lines.some((l) => l.some((r) => r.cls === 'lb-val'))) return false;
     const rev = it.lines.flat().find((r) => r.cls === 'lb-rev');
     it.lines = [[it.lines[0][0], ...(rev ? [{ ...rev, gap: 4 }] : [])]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = 2;
     return true;
+  }
+  // One name rule, as the one unit rule: where any reading took its abbreviation for room ("RPV 9.8"), every reading that has one does, so the figure never
+  // mixes "PV" with "Right hepatic vein" (play-test A3, 16 Nov 2026). Narrower only, toward its station; recorded in the solution so a carry keeps it.
+  function oneName(out, sols) {
+    const named = out.filter((it) => it.node && it.src && !it.hide && it.canShort);
+    if (!named.some((it) => it.abbr)) return;
+    for (const it of named) {
+      if (it.abbr) continue;
+      const w0 = it.w;
+      shortenTo(it, it.short || 0, true);
+      if (!it.abbr) continue;
+      it.x += it.dir?.includes('W') ? w0 - it.w : it.dir?.includes('E') ? 0 : (w0 - it.w) / 2;
+      const sol = sols.get(it.key);
+      if (sol && !sol.drop) sol.abbr = true;
+    }
   }
   const shortenTo = (it, lvl, abbr = false) => { if (abbr) abbrevName(it); while ((it.short || 0) < lvl && shortenItem(it, false)); };
   // A Circuit reading set on one line, its name then its value (a rescued reading where two lines have no room: layoutLabels).
@@ -506,5 +527,5 @@ export function createLabelItems(st, live) {
     for (let k = 0; k < rs.length; k++) { const r = rs[k]; outer.x0 = Math.min(outer.x0, r.x0); outer.y0 = Math.min(outer.y0, r.y0); outer.x1 = Math.max(outer.x1, r.x1); outer.y1 = Math.max(outer.y1, r.y1); }
     return edgeOfRects(rs, outer, it.ax, it.ay) || (SEEN_XY.x = it.ax, SEEN_XY.y = it.ay, SEEN_XY);
   };
-  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem };
+  return { ANAT_EXTRA, ANAT_PRI, BLOCK_IO, beatMean, blockersRead, calloutBoxes, calloutSig, changeRef, hasVarices, isImaging, labelAnchor, labelHidden, layerMode, leadRectOf, leaderEnd, nodeItem, oneLine, oneName, pzInset, readBlockersRead, ripple, scanItem, seenEnd, shortenItem, shortenTo, sigFold, stationRev, velItem };
 }
