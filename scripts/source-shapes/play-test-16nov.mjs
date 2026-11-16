@@ -33,4 +33,9 @@ export default [
   // A shortcut label names the device's own modifier (platform-keys.js keyLabel): the guide's rows and the Search button never write Ctrl or ⌘ by hand.
   { file: 'src/ui/main.js', forbid: [/\['Ctrl\/⌘/, 'a Guide row writes Ctrl/⌘ by hand: wrap it in keyLabel so a Mac reads ⌘'] },
   { file: 'src/ui/main.js', need: [/b\.title = `Search \(\$\{keyLabel\('Ctrl\/⌘ K'\)\}\)`/, 'the Search button is named for the device'] },
+  // Entering the Sinusoid view: the cards leave by a fade (display is a discrete transition), as they come back; only the top bar's own pieces drop at once (topbar-motion.js ghosts them).
+  { file: 'styles/app-03-layouts.css', need: [/#app\.sin-focus :is\(#dock, #panel, #treatCard, #stageCenter\) \{ display: none !important; opacity: 0; pointer-events: none; transition: opacity [^;]*display [^;]*allow-discrete; \}/, 'the cards fade out of the sinusoid view'] },
+  { file: 'styles/app-03-layouts.css', forbid: [/#app\.sin-focus :is\([^)]*#dock[^)]*\) \{ display: none !important; \}/, 'the cards are hidden by display alone: they pop out'] },
+  // The zoom pill's box changes size by a glide; under Reduce Motion by a short fade, never in one frame.
+  { file: 'src/ui/plate-glide.js', need: [/if \(still\.matches\) \{ host\.animate\(\[\{ opacity: 0\.4 \}, \{ opacity: 1 \}\]/, 'a box that changes size under Reduce Motion fades in, it does not snap'] },
 ];
