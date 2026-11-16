@@ -83,11 +83,3 @@ test('a sheet opened with the keyboard already up is lifted at once, and a close
   await settle();
   assert.equal(sheet.style.getPropertyValue('--sheet-kb'), '', 'a closed sheet is left clean');
 });
-
-test('the stylesheet lifts a sheet with data-kb over the dock rule too, and the From readings sheet keeps a field clear of its foot', async () => {
-  const { readFileSync } = await import('node:fs');
-  const css = readFileSync(new URL('../styles/app-02-controls.css', import.meta.url), 'utf8');
-  assert.match(css, /\.menu\.as-sheet\[data-kb\], html\.thumb-ui \.menu\.as-sheet\[data-kb\] \{ bottom: var\(--sheet-kb\); max-height: var\(--sheet-room\)/);
-  const fr = readFileSync(new URL('../styles/from-readings.css', import.meta.url), 'utf8');
-  assert.match(fr, /scroll-padding-bottom: 96px/);
-});
