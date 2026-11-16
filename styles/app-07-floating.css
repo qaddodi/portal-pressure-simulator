@@ -444,10 +444,12 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 @media (hover: hover) { .zoom-pill .ib { --hv-bg: var(--surface-3); } .zoom-pill .ib:hover::before { opacity: 1 } }
 /* On a pointer device (a trackpad or wheel zooms) the pill rests at low ink and comes to full ink under the pointer, with focus, or while
    the view is away from its fit, where Fit is the button that matters (looks review L6). Touch keeps it at full: it is a real control there.
+   The rest ink is .7, not .5 (16 Nov 2026, style play-test: the + and − "disappear and leave an empty capsule"): muted ink (--text-2) at .5 over the glass was
+   2.5:1 in Light and Soft and 3.0:1 in Dark, under the 3:1 a control's glyph needs; at .7 every look holds 3.9:1 or more.
    The ink is dimmed, never the pill: its glass stays whole, so the figure never shows through it (a pill at half opacity let the vessels
    and arrows under it through, unfrosted). */
 @media (hover: hover) and (pointer: fine) {
-  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .5; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
+  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .7; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
   .zoom-pill:hover .ib:not(:disabled), .zoom-pill:focus-within .ib:not(:disabled), .stage-wrap.off-home .zoom-pill .ib:not(:disabled) { opacity: 1; }
 }
 .zoom-pill .stage-rotate { display: inline-grid; }
