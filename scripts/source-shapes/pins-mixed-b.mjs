@@ -333,4 +333,6 @@ export default [
   { file: 'styles/app-*.css', need: [/\.pz:not\(\.stack\) \.pz-panel\.pz-grows \{ top: calc\(50% - \(var\(--pz-cm\) \+ 44px\) \/ 2 - var\(--pz-open-h\) \/ 2\); \}/, 'The quick check, a centred card that grows, hangs from its open height centred above the nav pill; the full-panel top rule (0,3,0) beat the grows rule and left it running under the pill (Choose the treatment 14)'] },
   { file: 'src/ui/tool-fluid.js', need: [/net = r1\(shownOut - shownPull\)/, 'The Starling net filtration is the difference of the two forces as printed, so ΔP 1.3 − σΔπ 0.5 never reads 0.9 (Circulation 6)'] },
   { file: 'src/ui/talk-trace.js', need: [/un\[i\] \/ uMax/, 'The milestones chart spaces its points by visit, so time between visits reads as distance and one visit carries one day name, never "Day 0" twice (talk chart play-test, 16 Nov)'] },
+  { file: 'src/ui/decks/treatment.js', need: [/lines: \['hvpg'\], gap: true,/, 'Lowering portal pressure 11: carvedilol and propranolol lie about 1 mmHg apart, so the band between the two lines is shaded and the slide\'s claim shows (tester, 16 Nov)'] },
+  { file: 'src/ui/tool-curve.js', need: [/class: 'pcv-gap', 'data-look': 'cv\.gap'/, 'A curve chart with gap: true shades the band between its two swept lines'] },
 ];
