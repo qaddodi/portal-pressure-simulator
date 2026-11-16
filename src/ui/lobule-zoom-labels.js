@@ -616,7 +616,7 @@ export function createLobuleLabels(st, live) {
   // A name in LAYERS is a layer and live.<name>On its switch. A name that belongs to a layer shows only while it is on and fades out and in with it:
   // the zone names ('zones') and the station labels in LAB_LAYER. A new layer is its name here, its labels in LAB_LAYER and its switch on live;
   // the layout starts over when a layer switches (sameBase) and fades every name of a layer that is off (placeZones, labelLayerOff).
-  const LAYERS = ['zones', 'lymph'];
+  const LAYERS = ['zones', 'lymph', 'bile'];
   const LAB_LAYER = { lymph: 'lymph' };   // (a station label: the layer it belongs to; the others are always there)
   const layerOn = (name) => !!live[name + 'On'];
   const labelLayerOff = (k) => { const n = LAB_LAYER[k]; return !!n && !layerOn(n); };

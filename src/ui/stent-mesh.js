@@ -20,6 +20,11 @@ const step01 = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3
 export const graftAlpha = (lam) => 0.86 * (0.1 + 0.9 * step01((lam - 0.45) / 0.45));
 /** The light levels the graft is cut at; each fill covers where the light is at least its level. */
 export const GRAFT_LEVELS = [0.45, 0.55, 0.65, 0.75, 0.84];
+/** The graft's far-end fade: its length in the mocks' units (a twelfth of the half-width; 24 is two half-widths), the number of overlapping fills it is built of, and its profile. */
+export const GRAFT_FADE_U = 24;
+export const GRAFT_FADE_STEPS = 20;
+/** The share of the graft's opacity left in the m-th stretch of the fade (m = 0 .. GRAFT_FADE_STEPS + 1): 1 before the fade, 0 at its very end, a smooth step between. */
+export const graftFade = (m) => 1 - step01(m / (GRAFT_FADE_STEPS + 1));
 const RING_STEPS = 40;   // (points per half ring: about 16 per crown, so a crown is a round turn at any zoom, never a corner; 18 drew them as kinks, 13 Nov 2026)
 
 /**
@@ -93,23 +98,42 @@ export function stentLookD(f, A, bare = A, k = 1) {
     for (let i = 0; i <= n; i++) { const v = Math.sin(t0 + (t1 - t0) * i / n); o.push(f(at(v), v)); }
     return o;
   };
+  // The graft's far end fades out (Mohammad, 16 Nov 2026: "fade the cover so it doesn't have this sharp kinda edge"): over its last GRAFT_FADE_U units its transmittance falls
+  // smoothly to clear, so it thins away where the stent leaves the tract instead of stopping in a hard cut. The wires are untouched. Every fill below is one of a staircase of
+  // prefix fills (all from the band, the m-th ending at e_m, the last at the graft's end): where the fills laid over one another stop one by one, the opacity steps down, finely
+  // enough (GRAFT_FADE_STEPS) that the steps are never seen, and every fill's start edge lies on the band's, so there is no seam. In log transmittance the fills add, so the
+  // light levels (lit side more white) and the fade multiply: where the m-th stretch of the fade lies in light level j the cover's opacity is graftAlpha(level) x graftFade(m),
+  // L(m, j) = -ln(1 - that) its log transmittance, and fill (j, m) is the second difference of L, so the fills over any point add up to exactly that.
+  const fadeL = Math.min(GRAFT_FADE_U * u, 0.4 * (s1 - SB)), eFade0 = s1 - fadeL, K = GRAFT_FADE_STEPS;
   const levels = [0, ...GRAFT_LEVELS];
-  let below = 0;   // (the opacity the fills under this one already give)
+  const wants = levels.map((lvl, j) => graftAlpha(j === 0 ? 0 : (lvl + (levels[j + 1] ?? 1)) / 2));
+  const Lg = (j, m) => (j < 0 ? 0 : -Math.log(1 - wants[j] * graftFade(m)));   // (the log transmittance of level j in the m-th stretch of the fade)
   for (let j = 0; j < levels.length; j++) {
-    const lvl = levels[j], next = levels[j + 1] ?? 1, want = graftAlpha(j === 0 ? 0 : (lvl + next) / 2);
-    const op = Math.max(0, 1 - (1 - want) / (1 - below)); below = want;
-    if (!(op > 0.004) || sMax <= SB) continue;
-    const hiE = [], loE = [], sp0 = edgeOf(lvl, SB), start = [];
+    const lvl = levels[j];
+    if (sMax <= SB) continue;
+    const grid = [], sp0 = edgeOf(lvl, SB), start = [];
     if (sp0) start.push(...arcAt(sp0[0], sp0[1], startAt));
     for (let a = Math.min(sMax, SB + BOW); ; a = Math.min(sMax, a + step)) {
       const sp = edgeOf(lvl, a);
-      if (sp) { hiE.push(f(a, sp[1])); loE.push(f(a, sp[0])); }
+      if (sp) grid.push([a, f(a, sp[1]), f(a, sp[0])]);
       if (a >= sMax) break;
     }
-    if (hiE.length < 2) continue;
-    const spEnd = edgeOf(lvl, sMax), cap = [];
-    if (spEnd) cap.push(...arcAt(spEnd[1], spEnd[0], (v) => Math.max(sMax, endAt(v))));
-    out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(3)]);
+    if (grid.length < 2) continue;
+    for (let m = 0; m <= K; m++) {
+      const op = 1 - Math.exp(-(Lg(j, m) - Lg(j - 1, m) - Lg(j, m + 1) + Lg(j - 1, m + 1)));
+      if (!(op > 0.0003)) continue;
+      const em = m === K ? s1 : eFade0 + fadeL * m / K, ae = Math.min(em, sMax);
+      if (ae <= SB + BOW) continue;
+      const hiE = [], loE = [];
+      for (const [a, hi, lo] of grid) { if (a > ae - 1e-6) break; hiE.push(hi); loE.push(lo); }
+      const spE = edgeOf(lvl, ae);
+      if (!spE) continue;
+      let cap;
+      if (ae >= sMax) cap = arcAt(spE[1], spE[0], (v) => Math.max(sMax, endAt(v)));   // the graft's own clean end (or the unrolling front)
+      else cap = [f(ae, spE[1]), f(ae, spE[0])];   // a step of the fade: straight across
+      if (!hiE.length) continue;
+      out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(4)]);
+    }
   }
   // the gold band where the graft starts (bowed with the cylinder), and the gold tab near the far end
   if (e >= SB) {

@@ -63,7 +63,7 @@ export async function captureLobule({ lymph = false, W = 1440, H = 900 } = {}) {
   const { createVeinsGL, binVeins } = await import(ROOT + 'src/ui/veins-gl.js');
   const { createLobuleZoom } = await import(ROOT + 'src/ui/lobule-zoom.js');
   const { store } = await import(ROOT + 'src/ui/store.js');
-  store.set({ lobuleLayers: { ...store.get().lobuleLayers, lymph } });
+  store.set({ lobuleLayers: { ...store.get().lobuleLayers, lymph, bile: lymph } });   // (--lymph: the Lymph and the Bile layers on, every vessel the lobule draws)
   const wrap = page.document.getElementById('stageView');
   const cv = page.document.createElement('canvas'); cv.width = W; cv.height = H; wrap.append(cv);
   const veins = createVeinsGL(cv, { tubes: 220, force: true, who: 'stage' });
