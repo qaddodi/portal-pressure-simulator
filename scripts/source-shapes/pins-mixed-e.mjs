@@ -64,7 +64,7 @@ export default [
   { file: 'src/ui/main.js', need: [/const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'styles/app-*.css', need: [/:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/frame.js', need: [/const figOpts = \{ move: 1, glow: 1, cap: capDefault,/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
-  { file: 'src/ui/frame.js', need: [/const capDefault = isPhone\(\) \? 0\.5 : 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the device default: 0.5 MP on a phone, 1.5 on a Mac and an iPad)'] },
+  { file: 'src/ui/frame.js', need: [/const capDefault = 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the default: 1.5 MP on every device, a phone too since 16 Nov 2026)'] },
   { file: 'src/ui/stage*', need: [/const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/stage*', need: [/const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/trace-gl.js', need: [/webglcontextrestored/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (trace-gl.js: no restore)'] },
