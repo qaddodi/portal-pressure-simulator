@@ -36,7 +36,7 @@
 //                'varices_medium_large' 'gastric_varices' 'acute_bleed' (acute variceal or GI bleeding) 'tips' (a TIPS in place) 'no_tips'
 //                'varices_high_risk' (≥5 mm or red wale signs) 'varices_present' 'albumin_lt' (value g/dL) 'platelets_ge' (value ×1000/µL)
 //                'ascitic_protein_lt' (value g/dL) 'diuretics' 'decompensated' (ascites or a bleed now, or a case author's history)
-//              A rule whose fact the model holds must use its test, never null (tests/trial-fit-checkable.test.js, TC-F1). Cirrhosis and no TIPS are
+//              A rule whose fact the model holds must use its test, never null (tests/trial-fit-checkable.test.js, TC-fit-1). Cirrhosis and no TIPS are
 //              context (trial-fit.js CONTEXT_TESTS): they can exclude but are not counted as evidence of a likeness.
 //   note       one caveat a learner should keep, or null
 //   verified   the reviewer's verification level for the trial, short

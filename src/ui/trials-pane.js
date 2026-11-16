@@ -12,7 +12,7 @@
 //           (endpoint, the arms' numbers, bars that grow, the effect, the caveat), the entry rules against this patient as a checklist (TC-L3),
 //           the Model line (the model runs the treatment on a copy of this patient), Baveno VIII in short (TC-T2) and the source.
 //   Forest  every trial's primary ratio on one log scale, grouped by kind (trial-forest.js), the closest trials in full ink (TC-V4).
-// Whether a patient fits is trial-fit.js, with the case history of the preset and of this session (TC-F3). A trial's numbers are its own, never
+// Whether a patient fits is trial-fit.js, with the case history of the preset and of this session (TC-fit-3). A trial's numbers are its own, never
 // the model's; the Model line is the one place a model number sits beside a trial, and it says so.
 //
 // Motion (TC-M1-M5, nothing pops): rows are kept nodes, keyed by section and trial, and placed with reconcile (util.js): a row that comes rises
@@ -36,7 +36,7 @@ import { TRIAL_IDS, trialOf, trialSource, bavenoLine } from './trials.js';
 import { fitTrial, failedRows, openDefining, groupOf, countWords, possiblyWords, whyNot, lcFirst, stillNeeded, FITS_HEAD, FITS_WORDS, NOT_IN_MODEL } from './trial-fit.js';
 import { createForest, ratiosOf, ratioText } from './trial-forest.js';
 import { createTrial } from './tool-trial.js';
-import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev, hvBlocked, NOT_MEASURABLE, PTIPS_HVPG } from '../engine/pressure-cuts.js';
 import { PRESETS } from '../engine/scenario.js';
 
 export const GROUPS = Object.freeze([['fits', FITS_HEAD], ['possible', 'Possibly fits'], ['no', 'Not this patient'], ['unknown', 'Cannot tell from the model']]);
@@ -76,7 +76,7 @@ export function patientFacts(m, p, st) {
   return { hvpg, blocked, varix, ascites: asc };
 }
 
-/** The case history fitTrial reads (TC-F3): the preset's own (scenario.js `facts`), and this session's, once it has shown ascites or a bleed.
+/** The case history fitTrial reads (TC-fit-3): the preset's own (scenario.js `facts`), and this session's, once it has shown ascites or a bleed.
  *  A preset that says decompensated wins (it is the case's history); a session that saw a decompensation says so next; else the preset's word. */
 export function historyOf(presetId, seenDecomp) {
   const pf = PRESETS.find((x) => x.id === presetId)?.facts;
@@ -161,7 +161,7 @@ export function today531(hvpg, bleeding) {
   if (!Number.isFinite(hvpg)) return 'This patient: HVPG not measured.';
   const v = `HVPG ${fmt(hvpg, 1)} mmHg`;
   if (!bleeding) return `The HVPG rule applies at a bleed. This patient: ${v}.`;
-  return hvpg >= 20 ? `This patient is bleeding with ${v}: meets the HVPG rule.` : `This patient is bleeding with ${v}: under the HVPG rule.`;
+  return hvpg >= PTIPS_HVPG ? `This patient is bleeding with ${v}: meets the HVPG rule.` : `This patient is bleeding with ${v}: under the HVPG rule.`;
 }
 
 export function createTrialsPane() {
@@ -256,7 +256,7 @@ export function createTrialsPane() {
   // (Which of the trials' HVPG entry values the HVPG has reached: a count, so a change of it changes a verdict.)
   let cuts = null;
   function crossings(v) {
-    if (!cuts) { cuts = [20]; for (const id of TRIAL_IDS) for (const e of trialOf(id)?.entry || []) if (e?.test === 'hvpg_ge' && Number.isFinite(e.value)) cuts.push(e.value); }   // alloc-rare: once, from the trial list (20: Baveno VIII 5.31's line)
+    if (!cuts) { cuts = [PTIPS_HVPG]; for (const id of TRIAL_IDS) for (const e of trialOf(id)?.entry || []) if (e?.test === 'hvpg_ge' && Number.isFinite(e.value)) cuts.push(e.value); }   // alloc-rare: once, from the trial list (PTIPS_HVPG: Baveno VIII 5.31's line)
     let n = 0;
     if (Number.isFinite(v)) for (let i = 0; i < cuts.length; i++) if (v >= cuts[i]) n++;
     return n;
@@ -474,7 +474,7 @@ export function createTrialsPane() {
       if (!r?.base || !r?.rx) { say(`HVPG now ${hvNow}.`, evl); return; }
       // (A TIPS lowers the portal pressure gradient, which the HVPG does not see: its line leads with the PPG.)
       const tips = !!rx.patch.tips, sev = tips ? ppgSev : hvpgSev, k0 = tips ? 'ppg' : 'hvpg';
-      // (TC-F4: the line starts from the value the card shows, the live frame's, and takes only the change from the settled copies, so its first
+      // (TC-fit-4: the line starts from the value the card shows, the live frame's, and takes only the change from the settled copies, so its first
       // number is the head line's and the rules', never the settled copy's 11.5 beside a card that reads 11.1.)
       const B = liveBase(r.base), at = (k) => B[k] + (r.rx[k] - r.base[k]);
       const from = B[k0], to = at(k0);

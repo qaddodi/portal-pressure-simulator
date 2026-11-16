@@ -26,7 +26,7 @@
 //   diuretics              on spironolactone and furosemide (params.diuretics; the model has no dose)
 //   decompensated          decompensated now or before: ascites or a bleed now is 'yes'; otherwise only a case author's fact answers (the inverse of
 //                          compensated)
-// CONTEXT rules (TC-F2, trials card review 15 Nov 2026): cirrhosis and "no TIPS in place" are true of nearly every patient in the app, so they can keep a
+// CONTEXT rules (TC-fit-2, trials card review 15 Nov 2026): cirrhosis and "no TIPS in place" are true of nearly every patient in the app, so they can keep a
 // patient out (no cirrhosis, a TIPS already in) but are no evidence that a patient is like the trial's. They are defining (a full match still needs them)
 // but are not counted in `met` and `of`: a trial whose only met rules are context reads "Cannot tell", never "Possibly fits". A record may mark any
 // other rule `context: true`; a test in CONTEXT_TESTS is context unless its record says `context: false`.
@@ -35,7 +35,7 @@
 // supply stays unknown, and a row that rests on one says so in its value ("case history") and in `source: 'case'`; a row that rests on the model's own
 // numbers has `source: 'model'`. Only real booleans count as a fact. A preset carries the same fact as its case history (scenario.js `facts`), and the
 // Tests card adds the session's own: once this patient has shown ascites or a bleed, `{ decompensated: true, source: 'session' }`, whose rows read
-// "Decompensated earlier in this session" and carry `source: 'session'` (TC-F3). Each row also names its test (`test`, null when unchecked).
+// "Decompensated earlier in this session" and carry `source: 'session'` (TC-fit-3). Each row also names its test (`test`, null when unchecked).
 // A rule may also carry `minor: true`: fine print that does not define who was enrolled (an age band, a platelet floor, the timing of
 // randomization, the treatment given first). Every other rule is a defining rule: the population itself.
 // Each rule comes back with its state for this patient: 'yes' (met), 'no' (not met) or 'na' (the model cannot tell), and the model's value in
@@ -60,7 +60,7 @@ const varixLabel = (vx) => vx?.grade?.label ?? (Number.isFinite(vx?.d) ? varixGr
 const ascitesGradeOf = (a) => (a && Number.isFinite(a.grade) ? a.grade : null);
 const ascitesWords = (a) => (ascitesGradeOf(a) ? `Ascites ${one((a.volume || 0) / 1000)} L` : 'No ascites');
 const isBool = (v) => v === true || v === false;
-// (Where a past decompensation is known from: the case author's history, or this session, which saw ascites or a bleed earlier (TC-F3).)
+// (Where a past decompensation is known from: the case author's history, or this session, which saw ascites or a bleed earlier (TC-fit-3).)
 const before = (facts) => (facts?.source === 'session' ? 'Decompensated earlier in this session' : 'Decompensated before (case history)');
 
 // Each test: (rule, metrics, params) → [state, value]. A fact the record does not carry answers 'na'.
@@ -126,7 +126,7 @@ const TESTS = {
 };
 /** The test names fitTrial knows. */
 export const FIT_TESTS = Object.freeze(Object.keys(TESTS));
-/** Tests that are context, not evidence (TC-F2): true of nearly every patient the app shows. */
+/** Tests that are context, not evidence (TC-fit-2): true of nearly every patient the app shows. */
 export const CONTEXT_TESTS = Object.freeze(new Set(['cirrhosis', 'no_tips']));
 /** Whether an entry rule is context: its record's word, else its test's. */
 export const isContext = (e) => (typeof e?.context === 'boolean' ? e.context : CONTEXT_TESTS.has(e?.test));
@@ -185,7 +185,7 @@ export function whyNot(fit) {
 
 /** The rows that are open: a rule the model cannot check, defining rules first. */
 export const openRows = (fit) => fit.rows.filter((r) => r.state === 'na').sort((a, b) => Number(b.defining) - Number(a.defining));
-/** The defining rules that are open: what a "Possibly fits" or "Cannot tell" line names (fine print waits for the open trial, TC-F5). */
+/** The defining rules that are open: what a "Possibly fits" or "Cannot tell" line names (fine print waits for the open trial, TC-fit-5). */
 export const openDefining = (fit) => fit.rows.filter((r) => r.state === 'na' && r.defining);
 
 /** A slide's patient (its fingerprint, fingerprint.js: hvpg, varix and gv diameters in mm, asc in mL) in the shape fitTrial reads, so a deck's

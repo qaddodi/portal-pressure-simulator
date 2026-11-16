@@ -85,7 +85,7 @@ const P = (patch) => (p) => deepMerge(p, patch);
 export const MEAL_TONE = 0.58, MEAL_BLUNT = 1.36;
 
 // Each preset: patch applied to defaultParams(), plus chronic days on the disease clock. `facts`: the case's history the model does not hold
-// (trial-fit.js), so far only whether the patient has ever decompensated (ascites, a variceal bleed): the Tests card's trials read it (TC-F3).
+// (trial-fit.js), so far only whether the patient has ever decompensated (ascites, a variceal bleed): the Tests card's trials read it (TC-fit-3).
 export const PRESETS = [
   { id: 'healthy', group: 'Normal', label: 'Healthy', apply: P({}), days: 0,
     summary: 'Normal adult at rest. HVPG in the normal 1 to 5 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.',
