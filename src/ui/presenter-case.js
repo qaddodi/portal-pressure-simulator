@@ -6,11 +6,8 @@ import { nb } from './glue.js';
 import { readMetric, readStyle } from './layout-snap.js';
 import { fadeMs as fadeLen, reduceMotionMQ as reduce } from './motion.js';
 import { liveFp } from './presenter-cards.js';
-<<<<<<< ours
-=======
 import { trailReading } from './flow-time.js';
 import { rich } from './presenter-words.js';
->>>>>>> theirs
 import { glideOpacity, glideStop, glideTranslate } from './script-glide.js';
 import { figureHooks } from './slide-ext.js';
 import { store } from './store.js';
@@ -60,11 +57,6 @@ export function createCase(st, live) {
     const i = live.slides.indexOf(s), base = i > 0 ? live.refOf({ delta: s.hvpgResp }, i)?.hvpg : null;
     return base > 0 && f.hvpg != null ? { ...f, hvpgFall: ((base - f.hvpg) / base) * 100, respFrom: base, respAt: tileShown('hvpg', f.hvpg) } : { ...f, hvpgFall: null, respFrom: null, respAt: null };
   }   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
-<<<<<<< ours
-  // (A time-lapse's words are typeset from its END state and stay there: the sentence is the claim the slide makes about where the days end, so its
-  // numbers and the zone or cut-off it names agree on every frame. They rode the days for a day, 16 Nov 2026, and said "LSM of 30.0 kPa is in the
-  // indeterminate zone" three seconds in; the tiles and the chart carry the days.)
-=======
   // The words of a time-lapse slide state where the days end (Two lesions 3, play-test 16 Nov 2026: "ending at 21.2 mmHg" for ten seconds, then 18.6; Carvedilol 3:
   // "LSM 17.1 kPa, which meets ≥25 kPa"): their pills take the end state's number from the first frame, here when the end is ready if the line was typeset
   // before it was (presenter-question.js textIn types it from the end state when that is ready). Only the tiles and the chart move with the days.
@@ -81,7 +73,6 @@ export function createCase(st, live) {
       if (el.dataset.rate !== n.dataset.rate) { if (n.dataset.rate) el.dataset.rate = n.dataset.rate; else delete el.dataset.rate; }
     });
   }
->>>>>>> theirs
   function dataTo(s, f, ref, ms) {
     if (!live.ui) return;
     if (s.data) live.ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on, true);   // (live: held while the card moves, R19)

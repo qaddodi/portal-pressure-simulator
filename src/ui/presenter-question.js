@@ -138,11 +138,7 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
-<<<<<<< ours
-    // (a time-lapse's words are its end state's and stay there: presenter-case.js)
-=======
     // (a time-lapse's words are typeset from its end state; presenter-case.js chipsTo lands them there if that was not ready)
->>>>>>> theirs
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
