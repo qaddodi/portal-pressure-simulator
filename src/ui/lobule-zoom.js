@@ -1598,7 +1598,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (each level is a gap between two rings of hepatocytes, so a link runs between the cells, never across one)
       const LEVELS = [0.38, 0.47, 0.56, 0.65, 0.74, 0.83].map((f) => rcv0 * 1.55 + (Math.round((R * f - rcv0 * 1.55) / cl - 0.5) + 0.5) * cl), links = [];
       let nLink = 0;
-      for (let lv = 0; lv < LEVELS.length; lv++) {
+      const LINKS = false;   // (off, 16 Nov: the cross-links and tributaries made the lobule busy)
+      for (let lv = 0; LINKS && lv < LEVELS.length; lv++) {
         const rr = LEVELS[lv], row = [];
         for (const M of mains) { const q = ptAt(M, rr); if (q) row.push({ M, q, a: Math.atan2(q[1] - cy, q[0] - cx) }); }
         row.sort((u, v) => u.a - v.a);
@@ -1625,7 +1626,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const linkedAt = new Set(links.flatMap((t) => t.keys || []));
       const hugT = rsN * 1.15 + rs0 * 0.35;
       let nTrib = 0;
-      for (let lv = 0; lv < LEVELS.length && nTrib < 14; lv++) {
+      for (let lv = 0; LINKS && lv < LEVELS.length && nTrib < 14; lv++) {
         const rr = LEVELS[lv];
         mains.forEach((M, mi) => {
           if (nTrib >= 14 || (mi * 7 + lv * 3) % 5 !== 0) return;
