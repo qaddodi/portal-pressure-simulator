@@ -33,6 +33,7 @@ import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
 import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
+import { DIAL_VB, dialTickRadius } from './dial-geometry.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -653,7 +654,7 @@ function iapDial() {
   const C = 64, R = 56, TX = 42;   // pivot on the flat (belly) side, ring radius, the text column
   const pt = (v, r) => { const t = Math.PI / 2 + (v / IAP_MAX) * Math.PI; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
   const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
-  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
+  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: `${DIAL_VB[0]} 0 ${DIAL_VB[2]} 128`, preserveAspectRatio: 'xMidYMid meet' });
   const live = [];
   for (const [a, b, sev] of IAP_BANDS) {
     const a1 = a ? a + 0.3 : a, b1 = b < IAP_MAX ? b - 0.3 : b, d = arc(a1, b1, R);
@@ -694,8 +695,11 @@ function iapDial() {
     key.setAttribute('font-size', fk.toFixed(2)); unit.setAttribute('font-size', fu.toFixed(2)); word.setAttribute('font-size', fw.toFixed(2));   // (a model's size is its attribute: the table sets none for these)
     const yu = 74 + 0.72 * fu, yw = yu + 3.5 + 0.72 * fw;
     unit.setAttribute('y', yu.toFixed(2)); word.setAttribute('y', yw.toFixed(2));
+    // (The 12 and 20 stand outside the ring, at the type size the screen asks for. A small dial makes that size large in the drawing, and the
+    // "12", on the ring's far left, ran past the drawing's left edge and was cut there: so the ring's radius they stand at is held to what keeps
+    // the whole word inside, DIAL_LEFT of the edge, as near the ring as that needs. 16 Nov 2026, the Ascites card's play-test.)
     for (const [v, tl] of tls) {
-      const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
+      const [lx, ly] = pt(v, dialTickRadius(v, ft, IAP_MAX, C, R));
       tl.setAttribute('font-size', ft.toFixed(2)); tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
     }
     gl.relook();   // (the new type sizes are styles: the model's looks are read again, between frames)

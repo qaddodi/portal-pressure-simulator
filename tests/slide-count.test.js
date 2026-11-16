@@ -15,3 +15,13 @@ test('a deck that already carries its outline (mine) is counted as it stands', (
   assert.equal(slideCount({ ...d, mine: true }), d.slides.length);
   assert.equal(slideCount({ slides: [] }), 0);
 });
+
+test('the denominator is one number for the whole deck: the slide list the presenter holds is exactly slideCount long, for every deck and the demo', async () => {
+  const { oneLadder } = await import('../src/ui/teach-extras.js');
+  for (const d of [...DECKS, DEMO_ALL]) {
+    const held = withOverview(d).slides.map(oneLadder);   // (what presenter-start.js holds: each step after the outline is one-to-one, so the count stays)
+    assert.equal(held.length, slideCount(d), `${d.id}: the pill's n`);
+    assert.equal(slideCount(d), slideCount(d), 'no hidden state');
+    assert.equal(slideCount(d), d.slides.length + 1 + (d.checks?.length ? 1 : 0), `${d.id}: the deck's slides, the outline and one quick check`);
+  }
+});

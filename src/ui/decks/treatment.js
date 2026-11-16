@@ -100,7 +100,7 @@ export const TREATMENT = {
       tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.05, lines: ['hvpg'], label: 'HVPG before the drug',
         against: [{ label: 'Carvedilol', params: CARV, pair: true, own: 'No change' }, { label: 'Propranolol', params: PROP, pair: true }], zone: { fall: 10, under: 12, label: 'Response' } },
       kicker: 'Summary', site: 'sin', title: 'Carvedilol lowers the HVPG further from any starting point',
-      line: 'The dashed diagonal is no change. From {hvpg}, carvedilol lowers her HVPG to {hvpg@carv} and propranolol to {hvpg@prop}, both within the response zone.',
+      line: 'The dashed diagonal is no change. In the first patient, with MASH cirrhosis, carvedilol lowers the HVPG from {hvpg} to {hvpg@carv} and propranolol to {hvpg@prop}, both within the response zone.',
       notes: 'Each point is this patient with more or less fibrosis, the HVPG read before a drug (across) and on it (up). The dashed diagonal is no change. The green zone is a response: a fall of 10% or more from baseline, or to 12 mmHg or less, which Baveno VIII carries from Baveno V and VI. Carvedilol lies below propranolol all the way along, because it also lowers the sinusoidal tone. In the model every patient responds to some degree; in practice about half do not respond to propranolol, which is why the HVPG fall, not the heart rate, is the measure. One model patient per point: real responses vary far more. (Baveno VIII Table 3; AASLD 2024 statement 12, carvedilol at CSPH.)',
       ask: ['Her HVPG falls from 16.5 to 15.5 mmHg on propranolol. Has she responded?', 'No. That is a 6% fall and still >12 mmHg; a response needs a fall of ≥10% or a gradient ≤12 mmHg.'],
     },
