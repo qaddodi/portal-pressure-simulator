@@ -6,7 +6,7 @@ import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
 import { D_SMALL, D_SURFACE, easeArrive } from './ease.js';
 import { inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
-import { explainText } from './label-explain.js';
+import { explainText, DIM_ALPHA } from './label-explain.js';
 import { overlapLRTB } from './label-place.js';
 import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
@@ -354,7 +354,7 @@ export function createLobuleLabels(st, live) {
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
-  // A presenter slide that lights lobule terms dims every other label and zone name to 35 % (app.css, dimmed): they keep their places and their room.
+  // A presenter slide that lights lobule terms dims every other label and zone name to DIM_ALPHA (label-explain.js; app.css, dimmed): they keep their places and their room.
   const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
   const litOf = () => {
     if (!live.appEl?.isConnected) live.appEl = document.querySelector('.app');
@@ -800,7 +800,7 @@ export function createLobuleLabels(st, live) {
     cap.paint();
   }
   // A label a slide's words leave unlit fades out (app.css, the presenting app's data-lit): the same test, on the lit terms kept.
-  const DIM_A = 0.35;   // (an unlit name's alpha on a slide that lights terms: Mohammad's pick 14.3 B)
+  const DIM_A = DIM_ALPHA;   // (an unlit name's alpha on a slide that lights terms: label-explain.js, the CSS's --label-dim)
   // (The leaders in this layer fade with their names: a class on each, as the sheet's presenting-and-lit rule set their strength, read again by the picture.)
   const syncDim = () => { for (const k in labs) { const L = labs[k]; if (!L.line) continue; const d = dimmed(L.el.dataset.target); classSoon(L.line, 'lz-dim', d); classSoon(L.dotEl, 'lz-dim', d); } };
   // Which labels a lit slide leaves unlit, as a bit for each of LAB_KEYS: a slide's words lighting other terms change the layout (an unlit name keeps off the hexagon, records solve).

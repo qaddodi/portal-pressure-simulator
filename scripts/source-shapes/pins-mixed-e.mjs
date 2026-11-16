@@ -1,5 +1,9 @@
 // Pins moved out of source-regex tests (B6 slimming, 15 Nov 2026): each keeps its one-line reason. Pattern gone = the code it guarded changed: look before editing the rule.
 export default [
+  // label-dim-contrast (16 Nov 2026): one dim value for every label a slide does not light, 3:1 over the vessels
+  { file: 'styles/tokens.css', need: [/--label-dim: \.65;/, 'A dimmed label reads 3:1 over the vessels (tests/label-dim-contrast.test.js measures DIM_ALPHA, which equals this token)'] },
+  { file: 'styles/app-*.css', forbid: [/\.(?:spot-dim|unlit)[^{]*\{ opacity: \.35; \}/, 'A dimmed label takes var(--label-dim), never its own number'] },
+  { file: 'src/ui/sinusoid-view.js', forbid: [/\? 1 : 0\.35;/, 'A dimmed sinusoid name takes DIM_ALPHA (label-explain.js), never its own number'] },
   // slide-one-number (16 Nov 2026, play-test, Ascites: one value, one number on every screen)
   { file: 'src/ui/stage.js', need: [/import \{ breath \} from '\.\/slide-read\.js'/, 'One number on a slide (the anatomy\'s stations and the lobule share one tolerance, slide-read.js)'] },
   { file: 'src/ui/stage.js', forbid: [/const breath = /, 'One number on a slide (no second copy of the tolerance)'] },
