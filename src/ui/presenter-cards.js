@@ -295,7 +295,7 @@ export function bigTiles() {
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
-    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }   // (recs §8: the tiles they wrote are replaced; their GPU words, scope picture and followers go with them)
+    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); if (p.T?.bp) { ts.drop('map.s'); ts.drop('map.d'); } }   // (the pressure's systolic and diastolic followers go with its mean: left behind they glided the next card's 120/80 from the last card's pair, beside a mean that had started afresh, 16 Nov 2026) (recs §8: the tiles they wrote are replaced; their GPU words, scope picture and followers go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });

@@ -23,7 +23,7 @@ try {
   await page.waitForFunction(() => (window.pps.store.get().frame?.slow?.ascites || 0) > 800, null, { timeout: 60000 });
   await page.evaluate(() => window.pps.store.set({ running: false }));
   // (The moving blood off: its frames are drawn with the clock at each look, so they would differ from any picture drawn before.)
-  await page.evaluate(() => { const s = window.pps.store.get(); window.pps.store.set({ layers: { ...s.layers, flow: false }, blood: { ...s.blood, chevrons: false } }); });
+  await page.evaluate(() => { const s = window.pps.store.get(); window.pps.store.set({ blood: { ...s.blood, chevrons: false } }); });
   await page.waitForTimeout(4000);
   for (const [what, act] of [['draining', { kind: 'paracentesis', mL: 6000, albumin: true }]]) {
     await page.evaluate((a) => window.pps.host.send({ type: 'action', action: a }), act);

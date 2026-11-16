@@ -34,7 +34,7 @@ test('only the camera\'s own bumps of the version are left out of the model\'s: 
 test('the flow is not worked out or sent again on a paused pan, but is with a new GL context or while its marks fade', () => {
   assert.match(gl, /const flowSame = panOnly && g === flowG && (?:live\.)?flowA === flowAt;/);
   assert.match(gl, /if \(!flowSame\) \{ g\.setFlow\(flowData\); flowG = g; flowAt = (?:live\.)?flowA; \}/);
-  assert.match(gl, /if \(!flowSame && \(bloodOn \|\| chev \|\| origin\)\) for \(const t of tubeSet\)/);
+  assert.match(gl, /if \(!flowSame && \(chev \|\| origin\)\) for \(const t of tubeSet\)/);
 });
 
 test('the surface pass is still counted for the ?perf readout', () => {

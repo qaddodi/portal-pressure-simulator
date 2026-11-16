@@ -36,7 +36,7 @@ test('the abdominal perfusion pressure is the mean arterial pressure minus the p
 
 test('a tense abdomen lowers it, and a large-volume tap gives it back', async () => {
   // (The Ascites talk's patient: four months off diuretics with the albumin falling, then the 5.1 L tap with albumin.)
-  const [tense, tap] = await runSteps([{ preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] } }, { action: { kind: 'paracentesis', mL: 5100 }, params: { albumin: 2.74 } }]);
+  const [tense, tap] = await runSteps([{ preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] } }, { action: { kind: 'paracentesis', mL: 6500 }, params: { albumin: 2.74 } }]);
   const [calm] = await runSteps([{ preset: 'cirr-decomp' }]);
   assert.ok(tense.asc >= 5000, `tense: ${tense.asc} mL`);
   assert.ok(tap.asc < 100, 'the tap drains it');

@@ -59,12 +59,12 @@ test('a run of k = 0 … ceil(len / P) + 2 from one spacing before the start cov
   }
 });
 
-const heads = COMP_FS(false, false, true), full = COMP_FS(), plain = COMP_FS(true);
-const vs = headVS({ zoom: 'uniform float pxW; void zoomOut() {}', along: '', rows: '', orange: '', nSamples: 64 });
+const heads = COMP_FS(false, true), full = COMP_FS(), plain = COMP_FS(true);
+const vs = headVS({ along: '', rows: '', orange: '', nSamples: 64 });
 
 test('the heads\' build is the composite\'s text with its own main, and the composite leaves the heads to the quads', () => {
   assert.equal((heads.match(/\bvoid main\(\)/g) || []).length, 2, 'the composite\'s main and the quads\' main');
-  assert.match(heads, /#if 0[^\n]*\nvoid main\(\) \{\n#if STREAK/, 'the composite\'s own main left out');
+  assert.match(heads, /#if 0[^\n]*\nvoid main\(\) \{\n/, 'the composite\'s own main left out');
   assert.match(heads, /#endif\n\nflat in vec4 hC;/);
   for (const s of [full, plain]) {
     assert.equal((s.match(/\bvoid main\(\)/g) || []).length, 1);

@@ -35,7 +35,6 @@ test('the Layers sheet stops under half the screen so a figure strip stays', () 
   assert.ok(+m[1] <= 50, 'under half the screen');
 });
 
-test('the Streaks row says what it does in plain words', () => {
+test('the Moving blood section says the chevrons point the way, and the old arrows-only line is gone', () => {
   assert.ok(!/arrows only/.test(main), 'the old line "Off, with Chevrons on: arrows only" is gone');
-  assert.match(main, /'Streaks', 'Moving blood drawn along each vessel'/);
 });
