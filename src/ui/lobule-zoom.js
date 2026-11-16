@@ -59,6 +59,7 @@ import { classSoon, classHas, textSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, createGlideTracker, lobuleMs, LOBULE_MS_MAX, D_SMALL } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
+import { TRIAD_A, TRIAD_D } from './lobule-tract-labels.js';
 import { camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
 import { diveMapInto } from './dive-map.js';
@@ -105,8 +106,7 @@ function curve(f, m = 160) {
   return { pts, len };   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 }
 // The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
-// far round either side of the outward direction, and the lymphatic straight out.
-const TRIAD_D = 0.09, TRIAD_A = 0.98;
+// far round either side of the outward direction, and the lymphatic straight out (TRIAD_D, TRIAD_A: lobule-tract-labels.js, its labels' spokes).
 // (A vessel seen end-on: a disc.)
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 // The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
