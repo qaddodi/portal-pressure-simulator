@@ -547,6 +547,7 @@ export function createVessels(st, live) {
   // so the colour falls at the waist. Null for any other (the plain mix by arc, as before): a strand, a tributary drawn into a trunk, a liver branch, a vessel with no stenosis. The cava drawn as one takes each stretch's own.
   const alongK = new Float64Array(N_SAMPLES), alongBuf = new Float32Array(N_SAMPLES);
   const oxKeyOf = (it) => (it.kind === 'v' && it.x.oxRamp && !it.ra ? it.x.oxRamp * (1 + Math.round(oxRampOf(geo[it.x.e.id]?.len || 0) * 1e3)) : 0);   // (the oxygen lens's ramp into a junction, x.oxRamp: its key, 0 for none; pressure-along.js oxygenAlong)
+  const alongLoss = { jet: 0, ends: 0, at: 0, dir: 1, set(x) { this.jet = x.lsJ; this.ends = x.lsE; this.at = x.lsAt; this.dir = x.lsDir; return this; } };   // (a stent's local losses, read at once by alongCurve)
   function alongStenosis(it) {
     if (it.kind !== 'v') return null;
     const fa = it.x.stenF, fb = it.ra?.stenF, f = it.f;
@@ -555,7 +556,7 @@ export function createVessels(st, live) {
       const u = i / (N_SAMPLES - 1);
       alongK[i] = !it.ra ? fa(u) : u < f ? (fa ? fa(u / f) : 1) : fb ? fb((u - f) / (1 - f)) : 1;
     }
-    return alongCurve(alongK, alongBuf);
+    return alongCurve(alongK, alongBuf, !it.ra && it.x.lsJ + it.x.lsE > 0 ? alongLoss.set(it.x) : null);
   }
   const alongOf = (it) => (oxKeyOf(it) ? oxygenAlong(it.x.oxRamp, geo[it.x.e.id]?.len || 0, alongBuf) : alongStenosis(it));
   function sendRadii(items) {
