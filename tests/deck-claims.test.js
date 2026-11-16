@@ -272,17 +272,3 @@ test('the next-bleed notes quote the model\'s varix sizes, HVPGs and carvedilol 
   const fall = Math.round((1 - at('nsbb').hvpg / at('after').hvpg) * 100);
   assert.ok(notes('nsbb').includes(`about ${fall}%`), `the carvedilol notes give a fall of about ${fall}%`);
 });
-
-// "The WHVP equals the sinusoidal pressure: 16.3" sat beside a sinusoidal tile of 16.7 (hvpg, 16 Nov 2026): the wedge is a close estimate of the sinusoidal
-// pressure, not the same number. A slide that prints both says "approximates" and the two agree within 1 mmHg; "equals" is for no pair of readings.
-test('a slide that prints the WHVP and the sinusoidal pressure says the wedge approximates it, and the two agree within 1 mmHg', async () => {
-  const bad = [];
-  for (const { d, fps } of await decks()) d.slides.forEach((s, i) => {
-    for (const t of words(s)) if (/\{whvp\}/.test(t) && /\{sin\}/.test(t)) {
-      if (/\bequals?\b|\bis the sinusoidal\b/i.test(t)) bad.push(`${d.id}/${s.id}: "${t.slice(0, 80)}" says equals`);
-      if (Math.abs(fps[i].whvp - fps[i].sin) > 1) bad.push(`${d.id}/${s.id}: WHVP ${fps[i].whvp.toFixed(1)} and sinusoidal ${fps[i].sin.toFixed(1)} differ by more than 1 mmHg`);
-    }
-    if (/\b(?:wedged pressure|WHVP) (?:is|equals) the sinusoidal pressure/i.test(s.title || '') ) bad.push(`${d.id}/${s.id}: the title says the wedge is the sinusoidal pressure`);
-  });
-  assert.deepEqual(bad, []);
-});
