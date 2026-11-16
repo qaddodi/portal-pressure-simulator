@@ -66,8 +66,8 @@ export const ASCITES = {
       id: 'overrun', terms: { lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', layers: ['lymph'],
       data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'When the lymphatics are overrun, lymph weeps from the liver',
-      line: 'At a sinusoidal pressure of {sin}, the lymphatics along the portal tracts carry many times their usual flow and still fall behind. The rest weeps from the liver surface.',
-      notes: 'The lymphatics along the portal tracts dilate and carry many times their usual flow before they are overwhelmed. Past that point the excess lymph weeps from the liver surface into the peritoneal cavity, and the ascites in the data card builds. Compare the first lymph slide, where the same lymphatics drained almost all the filtrate.',
+      line: 'At a sinusoidal pressure of {sin}, the lymphatics along the portal tracts are at their full capacity and still fall behind. The rest weeps from the liver surface.',
+      notes: 'The lymphatics along the portal tracts dilate and carry more than their usual flow, up to their capacity, before they are overwhelmed. In the model the liver\'s own lymph is lower here than on the first lymph slide, because the ascites has raised the intra-abdominal pressure, which opposes filtration; the lymph from the liver and the intestine together now exceeds what the lymphatics can carry. Past that point the excess lymph weeps from the liver surface into the peritoneal cavity, and the ascites in the data card builds. Compare the first lymph slide, where the same lymphatics drained almost all the filtrate.',
       ask: ['What happens to the lymph that the portal-tract lymphatics cannot carry?', 'It weeps from the liver surface into the peritoneal cavity.'],
     },
     {
