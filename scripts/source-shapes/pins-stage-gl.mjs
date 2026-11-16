@@ -106,7 +106,7 @@ export default [
   { file: 'styles/app-*.css', forbid: [/\.tl-(?:track|rail|marks|core|tags)\b/, 'the timeline bar (the event track) is gone: History is the one list of what happened'] },
   { file: 'src/ui/stage*', need: [/let SOFTWARE = [\s\S]*let OVER_ON = [\s\S]*if \(OVER_ON\) overWatch\(\);/, 'the stage is made in one long function: OVER_ON is set above the read that starts the overlays\' watch, or the page stops at startup (d213d755, 31 Oct)'] },
   { file: 'src/ui/stage*', exactly: [/(^|[^.\w$])vt = /m, 2, 'the camera has one writer: `vt` is assigned only by its declaration and writeVT (S6.6)'] },
-  { file: 'src/ui/stage*', need: [/function writeVT\(v\) \{ vt = v; CTM = null; \}/, 'writeVT drops the transform with the camera, so one made for another view is never read after a move'] },
+  { file: 'src/ui/stage*', need: [/function writeVT\(v\) \{\n\s+if \(!lockedWrite\(camLock, handNow\)\) return;\n\s+vt = v; CTM = null;\n\s+\}/, 'writeVT drops the transform with the camera, so one made for another view is never read after a move; and it asks the slide camera\'s lock first, so nothing else moves the camera during a slide\'s move (slide-cam.js, 16 Nov 2026)'] },
   { file: 'src/ui/stage*', need: [/set vt\(v\) \{ writeVT\(v\); \}/, 'the live record\'s vt setter is writeVT'] },
   ...stageParts().map((f) => ({ file: f, forbid: [/\b(?:let|var|const)\s+vt\b/, 'no stage part keeps its own copy of the camera between frames'] })),
   { file: 'src/ui/stage-labels.js', between: ['function stentReady', 'function labelSig'], need: [/x\.reveal[\s\S]*f\.morphing[\s\S]*x\.width !== x\.wT[\s\S]*STENT_CALM_MS/, 'a TIPS or DIPS velocity callout waits until the stent has grown in and the morph is done: the reading swings meanwhile (14 Oct)'] },

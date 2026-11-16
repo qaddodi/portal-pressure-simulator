@@ -12,7 +12,9 @@ export function createGlideLabels(st, live) {
   // runs in slices, one a frame of the glide, at that end; landAt: the progress it was whole at; n: the new labels' share so far, never less.)
   const glideVT = { k: 1, x: 0, y: 0 };
   let glideXf = null;
-  function atTargetVT(d, fn) {
+  // (A dry solve: the camera's lock lets its write of the view through, as it is put back before anything is drawn: slide-cam.js.)
+  function atTargetVT(d, fn) { return live.camLock ? live.camLock.dry(() => atTargetVTDry(d, fn)) : atTargetVTDry(d, fn); }
+  function atTargetVTDry(d, fn) {
     const keepVT = live.vt, keepGliding = live.vtGliding, keepMove = live.camMove;
     live.glSuppress = true;
     try {

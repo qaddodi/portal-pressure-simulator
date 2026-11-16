@@ -6,6 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
+import { watchSelection } from './selection-live.js';
 import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
@@ -95,6 +96,7 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
 import { procLabel } from './procedure-names.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
@@ -251,6 +253,7 @@ async function main() {
     // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
+  watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
     const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
     // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
@@ -458,6 +461,8 @@ async function main() {
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }] = await Promise.all([import('./cam-gate.js'), import('./decks.js')]); return createCameraGate({ presenter, stage, decks: DECKS })(o); };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -510,7 +515,9 @@ async function main() {
         if (sw && await holdsMine(sw)) return;
         if (offered) return;
         offered = true;
-        const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
+        // (Held while a talk plays, and put up again once it ends if it was taken away by one: it stood over a slide's teaching card and its tag, 16 Nov 2026.)
+        const retry = () => setTimeout(offer, 30000);
+        const offer = () => { if (presenter.active()) { retry(); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]], holdInTalk: true, onClose: (why) => { if (why === 'held') retry(); } }); };
         offer();
       });
     }
@@ -822,12 +829,18 @@ function resetEverything() {
 }
 
 // ── Actions ─────────────────────────────────────────
+const BANDS_MAX = 4;   // (the engine's cap, engine.band)
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   if (a.kind === 'band') {
     const fr = store.get().frame;
     if (fr?.metrics && !varicesPresent(fr, 'VAR')) { toast('No varices to band.'); return; }
+    // (Said every time, from Treat or from the card: the bands show on the endoscopy view and the varices card, which may not be the one open, so the tap answers where it was made.)
+    const placed = Math.round(fr?.bands || 0);
+    const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
+    if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
+    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
@@ -905,8 +918,8 @@ function buildHud() {
     sendBeat(); syncBloodBtn();
     redraw();
   });
-  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint.
-  document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
+  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. (No class on the root for it: the old `chip-open` stayed there after the menu closed, 16 Nov 2026; the rules read aria-expanded alone.)
+  for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
   // Press and hover on every other control eases and answers a finger (app.css, html.press-fx).
   document.documentElement.classList.add('press-fx');
   document.documentElement.classList.add('model-contain');
@@ -1411,7 +1424,7 @@ function presenterSettings() { return []; }
 // up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the default (1.5 MP on every device; a phone's was 0.5 until 16 Nov 2026).
 const MP_STEPS = FIG_STEPS;
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
@@ -1853,6 +1866,31 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // The free stage (free-stage.js): the window less the open cards, the bars and the view switch, from the cards' resting boxes. Each side card
+    // counts only on the rows it reaches, so a piece clears the cards that are really beside it (the zoom pill did not move for Treat, which ends
+    // 160 px above it). Written on the root, where the toasts and the menus (outside .app) read it too.
+    const aw = ar.width || innerWidth, ah = ar.height || innerHeight, blocks = [];
+    const rowsOf = (el) => { const q = readBox(el); return [q.top - ar.top, q.bottom - ar.top]; };
+    if (wide) {
+      if (panelOcc) { const [y0, y1] = rowsOf($('#panel')); blocks.push(sideBlock('r', panelOcc, y0, y1)); }
+      if (instrOcc) { const [y0, y1] = rowsOf(ws); blocks.push(sideBlock('r', panelOcc + instrOcc, y0, y1)); }
+      if (treatOcc) { const [y0, y1] = rowsOf(!tc.hidden ? tc : hc); blocks.push(sideBlock('r', panelOcc + instrOcc + treatOcc, y0, y1)); }
+      // (The vessel's card on the left shelf: its box holds still while it fades in and out, so it counts where it rests.)
+      const lc = card?.el;
+      if (lc && !lc.hidden && !lc.classList.contains('docked') && !lc.classList.contains('ac-leaving')) {
+        const q = readBox(lc);
+        if (q.width && q.height) blocks.push(sideBlock('l', q.right - ar.left + gap, q.top - ar.top, q.bottom - ar.top));
+      }
+    }
+    const fs = freeStageOf(aw, ah, tbH, bot, blocks);
+    const footY1 = ah - bot - 8, zoomEl = $('#zoomPill'), zoomH = (zoomEl && readMetric(zoomEl, 'offsetHeight')) || 176;
+    fs.foot = [footY1 - FOOT_BAND, footY1];   // (where a toast and the corner credit stand)
+    fs.zoom = [footY1 - zoomH, footY1];   // (the zoom pill's rows)
+    fs.top = [tbH + 6, tbH + 6 + 48];   // (the Compare banner's rows, under the top bar)
+    setFreeStage(fs);
+    const rootVars = { '--fs-t': px(fs.t), '--fs-b': px(fs.b), '--fs-h': px(fs.h), '--fs-l': px(fs.l), '--fs-r': px(fs.r) };
+    for (const [k, [y0, y1]] of [['foot', fs.foot], ['zoom', fs.zoom], ['top', fs.top]]) { const bd = bandOf(fs, y0, y1); rootVars[`--fs-${k}-l`] = px(bd.l); rootVars[`--fs-${k}-r`] = px(bd.r); }
+    for (const k in rootVars) if (pubVals[k] !== rootVars[k]) { pubVals[k] = rootVars[k]; document.documentElement.style.setProperty(k, rootVars[k]); changed = true; }
     // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
     // they come to rest, so it does not follow the glide: util.js translateRest.)
     if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
@@ -1888,6 +1926,7 @@ function wireFloating() {
   const soon = () => restTask(publish);
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
+  if (card?.el) ro.observe(card.el);   // (the vessel card on the left shelf is as tall as its words: the free stage's rows follow it)
   // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
   // card, the credit, the labels' blockers and the framing were measured and placed again as the menus faded back in, a
   // beat after each pan or pinch, and the figure hitched (Mohammad, 21 Oct: "the hitch syncs with the menu fading back in").)
@@ -2539,10 +2578,10 @@ function armFeedbackAsk() {
   // (The card's answers and options are made once, with the timer, not each time it asks.)
   const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
-    sticky: true,
+    sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
-      if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+      if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
       try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };

@@ -20,6 +20,7 @@ import { focusIn, focusBack } from './focus-flow.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
 import { readMetric, readBox } from './layout-snap.js';
+import { freeStage, bandWidth } from './free-stage.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
@@ -173,7 +174,7 @@ addEventListener('resize', () => { const wrap = document.getElementById('toastsF
 function toastFit(wrap, t, msg, actions, sub = null) {
   if (!t.isConnected) return;
   const bad = t.classList.contains('bad');
-  const L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: innerWidth });
+  const fs = freeStage(), L = layoutToast({ msg, sub, bad, acts: actions?.map((a) => a[0]), W: fs?.foot ? bandWidth(fs, fs.foot[0], fs.foot[1], 8) + 16 : innerWidth });   // (the room the cards beside the toast's rows leave: free-stage.js)
   t._L = L;
   t.querySelector('.toast-msg').style.fontSize = `${L.px}px`;
   { const s = t.querySelector('.toast-sub'); if (s) s.style.fontSize = '12.5px'; }
@@ -199,17 +200,17 @@ function toastFit(wrap, t, msg, actions, sub = null) {
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null } = NO_TOAST) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null, holdInTalk = false } = NO_TOAST) {
   if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
-  const opts = { actions, sticky, onClose, sub };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const opts = { actions, sticky, onClose, sub, holdInTalk };   // alloc-rare: one record for each message raised (a message, not a frame)
   const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
   restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
-function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
+function toastBuild(msg, kind, { actions, sticky, onClose, sub, holdInTalk }) {
   // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
   // index.html has the one wrap, #toastsFoot; the wrap at the top was taken out.)
   const wrap = document.getElementById('toastsFoot');
@@ -222,9 +223,16 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   if (mark) mark.setAttribute('class', 'toast-ic');
   const t = h('div', { class: kind === 'bad' ? 'toast note bad' : 'toast note', role: kind === 'bad' ? 'alert' : 'status' }, h('span', { class: 'toast-msg' }, mark, msg), sub ? h('span', { class: 'toast-sub' }, sub) : null);
   let timer = 0, gone = false;
-  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
+  let holdMo = null;
+  const close = (why = 'user') => { if (gone) return; gone = true; clearTimeout(timer); holdMo?.disconnect(); onClose?.(why); t.classList.add('leaving'); t.addEventListener('animationend', function gone1(e) { if (e.target !== t) return; t.removeEventListener('animationend', gone1); restPass(away); }); setTimeout(() => restPass(away), 340); };   // (it leaves as its own exit ends, the timer only a fallback: the cards below no longer wait out the timer)   // (the others' places are read in a rest pass, between frames)
   const away = () => dropToast(t);
   t._close = close;
+  // (A prompt that asks for the person's attention (an update, the feedback ask) is held while a talk plays: it stood over a slide's teaching card and its tag, and over
+  // the figure the room is looking at. It leaves as the talk begins, closed with why 'held', and its owner asks again once the talk is over. 16 Nov 2026.)
+  if (holdInTalk) {
+    const app = document.getElementById('app');
+    if (app) { holdMo = new MutationObserver(() => { if (app.classList.contains('presenting')) close('held'); }); holdMo.observe(app, { attributes: true, attributeFilter: ['class'] }); }
+  }
   if (actions?.length) {
     t.classList.add('has-acts');
     t.append(h('span', { class: 'toast-acts' }, ...actions.map(([label, fn]) => {
@@ -408,6 +416,10 @@ export function switchIn(el) {
 // popover; pass false for a menu that lays itself out.
 /** The bottom of what is visible: above the on-screen keyboard on iOS, where innerHeight does not shrink. */
 export const visibleBottom = () => { const v = window.visualViewport; if (!v) return innerHeight; const { offsetTop: top, height } = v; return Math.min(innerHeight, top + height); };   // (the visual viewport's own numbers, not an element's layout)
+/** The lowest a floating menu or card may reach (16 Nov 2026): the free stage's foot, above the bottom bar and the view switch, for one that
+ *  opens from the top bars (the Patients menu and From readings ended 17 px under the play bar at 1024 x 768); the visible bottom for one
+ *  that opens from the dock itself, and before the first layout. */
+export const stageBottom = (anchor) => { const fs = freeStage(), vb = visibleBottom(); return fs && fs.H > 0 && !anchor?.closest?.('.vdock, .thumb-bar') ? Math.min(vb, fs.H - fs.b) : vb; };
 /** The one placer for a floating menu or card beside its button (the popover, the main menu and the Why card; menu motion recs 5, 4 Nov 2026).
  *  Puts el by translate from the window's corner (left and top are never written, so nothing is laid out), clear of the notch (env() is 0
  *  elsewhere), and returns the top it took. side: 'below' | 'above' the button; align: 'start' | 'center' | 'end'; gap: px between the two;
@@ -417,7 +429,7 @@ export const visibleBottom = () => { const v = window.visualViewport; if (!v) re
 export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, margin = 8, edge = null, flip = true } = {}) {
   const r = anchor.getBoundingClientRect();
   // (Layout size, not the rectangle: an entrance may be moving the box.)
-  const w = el.offsetWidth, hh = el.offsetHeight, vb = visibleBottom(), cw = document.documentElement.clientWidth || innerWidth;
+  const w = el.offsetWidth, hh = el.offsetHeight, vb = stageBottom(anchor), cw = document.documentElement.clientWidth || innerWidth;
   const x = align === 'end' ? r.right - w : align === 'center' ? r.left + r.width / 2 - w / 2 : r.left;
   const top0 = edge ?? r.top;
   let y = side === 'above' ? top0 - hh - gap : r.bottom + gap;
@@ -465,7 +477,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
       if (d && d.height && d.left < xl + w0 && d.right > xl && d.top < visibleBottom()) barTop = d.top;
       // A button low on the screen (the deck nav pill's gear on a Mac or iPad) opens it above, at its full height: below
       // it the room was the 160 px floor, which cut Settings off at "Text size on the figure".
-      const below = (barTop ?? visibleBottom()) - r.bottom - 16;
+      const below = (barTop ?? stageBottom(anchor)) - r.bottom - 16;
       if (below < el.scrollHeight && r.top - 16 > below) { at = 'above'; barTop = null; el.style.maxHeight = (r.top - 16) + 'px'; }
       else el.style.maxHeight = Math.max(160, below) + 'px';
     }
@@ -473,7 +485,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     // like the cards and the phone's sheets: it rises from behind the dock and is cut on the dock's top line.
     const bar = anchor.closest('.thumb-bar'), dockEl = bar && bar.closest('.vdock'), tabTop = bar ? (dockEl || bar).getBoundingClientRect().top : null;
     if (bar && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.style.maxHeight = Math.max(160, tabTop - 16) + 'px';
-    const vb = visibleBottom();
+    const vb = stageBottom(anchor);
     // A menu with no height rule of its own (Blood and Colored-by on a phone held sideways: 511-560 px of rows in 284-332 px of
     // room) takes the larger side of its button and scrolls inside it, never off the screen. One that fits is left as it was.
     if (!bar && !el.classList.contains('app-menu')) {
@@ -518,7 +530,13 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   vv?.addEventListener('resize', onVV);
   // (A sheet rests on the page's foot, which iOS leaves under the keyboard: any field in it is kept above the keyboard here, once, for every sheet: sheet-keyboard.js.)
   const kbSheet = asSheet ? keyboardSheet(el) : null;
-  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); kbSheet?.off(); onClose?.(); } };
+  // (A popover is a sheet or a floating card by the window as it is now, not as it was when it opened: crossing the breakpoint, a window dragged
+  // wider with the menu up, takes the other form, and a resize places a floating one again. 16 Nov 2026: a phone sheet stayed on a desktop window.)
+  const mq = sheet ? matchMedia(STACK_MQ) : null;
+  const swap = () => { if (openMenu?.el !== el || mq.matches === asSheet) return; openMenu.swapping = true; closePopover(); popover(anchor, content, { cls, align, place, onClose, sheet, title }); };
+  const onResize = () => { if (!asSheet && openMenu?.el === el) put(); };
+  mq?.addEventListener('change', swap); addEventListener('resize', onResize);
+  openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); mq?.removeEventListener('change', swap); removeEventListener('resize', onResize); kbSheet?.off(); if (!openMenu?.swapping) onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
   // Focus goes in however it was opened (focus-flow.js): from the keyboard to its first control, from a mouse or a finger to the menu itself, so the keys
   // act on it and Tab starts inside it, not on the button behind it. (Whether it was the keyboard is read now: a mouse click moves :focus-visible by the timer.)

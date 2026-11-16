@@ -1,6 +1,7 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { createCallGeoFade } from './call-geo-fade.js';
+import { zoneSpot } from './lobule-zone-spot.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
@@ -650,7 +651,8 @@ export function createLobuleLabels(st, live) {
   const NO_BOXES = [];   // (read, never written: no zone names on show)
   const ZONE_Q = [0.83, 0.51, 0.2];
   const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
-  const zBox = { l: 0, r: 0, t: 0, b: 0 };
+  let zLesion = null;   // (the lesion ring placeZones is placing for, read by zRing)
+  const zRing = (b) => ringDepth(zLesion, b);
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
     // Zones off: each name fades out where it stands and stays in zoneEls (capSync draws from it: a name taken out stayed drawn at its last alpha).
@@ -658,6 +660,7 @@ export function createLobuleLabels(st, live) {
     const { R, cx, cy } = live.geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
     boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
+    zLesion = lesion;
     for (let i = 0; i < 3; i++) {
       const q = ZONE_Q[i];
       let z = zoneEls[i];
@@ -686,8 +689,8 @@ export function createLobuleLabels(st, live) {
       const w = szW, hh = szH;
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
-      let at = -1;
-      for (let j = 0; j < nT; j++) { zBox.l = zTx[j] - w / 2 - hx; zBox.r = zTx[j] + w / 2 + hx; zBox.t = zTy[j] - hh / 2 - hy; zBox.b = zTy[j] + hh / 2 + hy; if (!ringDepth(lesion, zBox)) { at = j; break; } }
+      // (Nor on a zone name already placed: on a zoomed phone two zones' in-view spots were one, and their names stood on each other, lobule-zone-spot.js.)
+      const at = zoneSpot(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes.length);
       if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
       put(z, zTx[at], zTy[at]);

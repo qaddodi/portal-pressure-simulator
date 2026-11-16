@@ -23,6 +23,6 @@ test('only the person\'s own answer counts: a feedback card pushed out by newer 
   // A tap, the ×, a swipe or a button close as the person's own answer (the click handler never passes its event on).
   // The ask records nothing when pushed out, and starts another FEEDBACK_ASK_MIN active minutes.
   const ask = between('function armFeedbackAsk(', 'main().catch(');
-  const pushed = ask.indexOf("if (why === 'pushed')"), record = ask.indexOf("answer(was === 'later'");
+  const pushed = ask.indexOf("if (why === 'pushed' || why === 'held')"), record = ask.indexOf("answer(was === 'later'");
   assert.ok(pushed > 0 && pushed < record, 'checked before anything is recorded');
 });
