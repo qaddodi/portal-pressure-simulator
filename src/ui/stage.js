@@ -1490,7 +1490,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
+  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -3084,7 +3084,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
-    zoomToBox, frameBox,
+    zoomToBox, frameBox, railEnd,
     /** While presenting: a function returning the free rectangles (wrap px, {l, t, r, b}) the camera frames a box into. */
     setFreeArea(fn) { freeArea = fn; },
     /** The free rectangle the last framed box was centred in (for the tests). */
@@ -3170,7 +3170,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
     aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd, zoomSharp,
-    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
+    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true, slide: !!opt.slide }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */

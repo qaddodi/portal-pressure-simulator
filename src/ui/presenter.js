@@ -225,7 +225,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     get keyNow() { return keyNow; }, set keyNow(v) { keyNow = v; },
     get procQueued() { return procQueued; }, set procQueued(v) { procQueued = v; },
     get tileKeys() { return tileKeys; },
-    get alongOk() { return alongOk; }, set alongOk(v) { alongOk = v; }, get caseExit() { return caseExit; }, set caseExit(v) { caseExit = v; },
+    get caseExit() { return caseExit; }, set caseExit(v) { caseExit = v; },
     get clotMarks() { return clotMarks; },
     get markFocus() { return markFocus; },
     get procParked() { return procParked; }, set procParked(v) { procParked = v; },
@@ -363,17 +363,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
   const MORPH_MS = 2000;   // motion-scale: own pace (the patient's change under a slide)
   // A slide change is one move (premium-feel R1). Over the plate the cards come in during the
-  // camera's last three quarters (CARDS_AT: once a quarter of it has run), so it lands on a finished slide, and a change of patient eases under the glide itself, over
+  // camera's move (CARDS_AT: as it sets off), so it lands on a finished slide, and a change of patient eases under the glide itself, over
   // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
   // the widths and colours follow it (display-state.js). Kept serial, as before: the lobule's way in and out, a catheter, a case card
   // over a loading patient, a slide with an instrument (it records the slide's own state), and a figure that cannot move smoothly
   // while its organs change (stage.canDrift: no live GPU organs, so a glide over the changing organs would paint them all each frame;
   // there the change still waits for the landing, over MORPH_ONE_MS).
   // (Quick slide, Mohammad 2 Nov 2026, "Do it" to review/slide-motion-recs-2nov: the screen sat with no card for 0.4 to 0.8 s while the
-  // glide ran. The cards now come in once a quarter of the glide has run (CARDS_AT 0.75 of it left), the smooth-frames gate gives up after
-  // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late.)
+  // glide ran. The cards came in once a quarter of the glide had run, the smooth-frames gate gives up after QUICK_SMOOTH ms, not 700, and the
+  // new card starts its way in at once, not 120 ms late.)
+  // (16 Nov 2026, Sites and causes 2 to 3 on his Mac: the cards' entry, a quarter in plus the smooth-frames gate, made a long frame in the last
+  // fifth of the glide, which landed the rest of the move in one jump. They now start their way in as the glide sets off (CARDS_AT 1: all of
+  // it left), where the quintic barely moves, and stage-glide.js holds any glide through a long frame rather than skipping part of it.)
   const QUICK_SMOOTH = 240;
-  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;   // motion-scale: own pace (the patient's change under a glide)
+  const CARDS_AT = 1, MORPH_ONE_MS = 1200;   // motion-scale: own pace (the patient's change under a glide)
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
@@ -500,8 +503,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const gl = booting ? 0 : ms || 300;
     const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
-    frameTo(cam, s, gl);
-    alongOk = false; caseExit = false;   // (T4: asked of this framing only)
+    frameTo(cam, s, gl, SLIDE_OPT);   // (the slide's one move: stage-glide.js holds every other framing asked while it runs)
+    caseExit = false;   // (asked of this framing only)
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
     // (Timed by the glide itself, camMs or an arc's stretch, never the 1.5 s asked: the camera had landed long before that wait ended.)
     if (early && gl) {
@@ -528,9 +531,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // labels, lit vessels, probe and readings, so none of them stands outside the frame (cam-room.js).
   // The one move to a framing on the plate: the whole figure, or a slide's box (opt.drift: a slow push, see pushTo).
   // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
-  // (T4: a slide's move to its framing from a neighbouring slide, the next or the one before, may follow the vessel both framings sit on:
-  // stage-glide.js, cam-routes.js. Set as the slide's change starts, spent by its framing in camera(); refits never follow a path.)
-  let alongOk = false, caseExit = false;   // (caseExit: the next framing is the move in from a case card's whole patient, spent by camera())
+  // (A slide's move never follows a vessel path: one straight glide, stage-glide.js. The T4 vessel-following glide was taken out on 16 Nov 2026.)
+  const SLIDE_OPT = { slide: true };   // (read only)
+  let caseExit = false;   // (caseExit: the next framing is the move in from a case card's whole patient, spent by camera())
     // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure, guided by Next (his ask, 29 Oct): on the
   // slide, the first Next puts the catheter in, each Next after it plays the next step, and the Next after the last moves on;
   // Back runs the last step backwards, and from the first puts the slide as it was. The teaching card shows the steps as a row
@@ -1001,7 +1004,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   async function transitionRun(to) {
     const g = gen, tx = txn, s = slides[to], cut = () => !deck || want !== to || gen !== g || !txnLive(tx);
-    alongOk = Math.abs(to - lastAt) === 1; caseExit = false;
+    caseExit = false;
+    stage.railEnd?.();   // (the last slide's one move lets go: this slide's framing, catheter or procedure moves are its own)
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
     // slide (summary table included) draws it afresh instead of leaving the half-changed screen.
     stage.handClear?.();   // (a new slide frames the figure itself: a pinch on the last one does not hold)
@@ -1178,7 +1182,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // slide 9, Budd–Chiari). So the catheter sets off once the organs are back on the GPU copy, as every other slide's camera moves over it.
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
-    if (caseCard) { await caseLifted(cut); if (cut()) return; alongOk = false; caseExit = true; }   // (the camera is at the whole patient, not at the last slide's framing: no path along a vessel, and the move in takes the time the move out took)
+    if (caseCard) { await caseLifted(cut); if (cut()) return; caseExit = true; }   // (the camera is at the whole patient, not at the last slide's framing: the move in takes the time the move out took)
     // (The scene's colours cross with the camera's move to the slide, when no change of patient brought them in already.)
     lensGo();
     // One move: over the plate, outside the liver, the cards come in as the glide ends (plate), and a change of patient eases
