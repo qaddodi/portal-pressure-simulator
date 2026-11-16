@@ -129,6 +129,13 @@ export function createLabelDriver(st, live) {
     return h || 1;
   };
   const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0, solves: 0 };   // (solves: the layouts that searched afresh, not carried)
+  // (A scene: what the labels are laid out for as a whole, not for a pan or a tick of a reading: the view, the patient, the stage's size, the text scale,
+  // the slide's stations. The first solve of a scene has no history (stage-label-solve.js `fresh`): the labels of a reload, of a patient or of a view are the
+  // same whatever came before, and a later solve of the scene keeps the slots it had. It lands the scene only with the camera at rest, so a solve in the
+  // middle of the first framing is followed by another with no history.)
+  function labelSceneOf(st, b) { return [live.morphTarget, st.presetId, Math.round(b.width), Math.round(b.height), labelBase(), live.rotU > 0.5, st.presenting ? (st.presentLabels?.join(',') || '*') : '', st.layers.labels, st.labelLevel].join('|'); }
+  const camAtRest = () => (live.morph === 0 || live.morph === 1) && !live.gestureOn() && !live.vtGliding && !live.drifting && !live.zoomBase && !live.viewXf && !store.get().presetLoading;
+  function sceneLanded(sf) { if (sf.scene != null && camAtRest()) { live.labelSceneDone = sf.scene; live.labelFresh = false; live.camTouched = false; } }
   function solCacheKey(sig, sc, th, b, csig, ins) {
     if (live.morph !== 1 || live.morphTarget !== 1 || live.xfSolving || live.viewXf || !(sc > 0)) return null;
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(live.CTM.e / (b.width / 4)), Math.round(live.CTM.f / (b.height / 4)), b.width, b.height, live.rotU > 0.5, live.labelFonts, csig, ins].join('|');
@@ -172,6 +179,7 @@ export function createLabelDriver(st, live) {
     // labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every few frames (widths, geometry).)
     const restView = live.morph === 0 || live.morph === 1;
     const moving = live.gestureOn() || live.vtGliding || live.drifting || !!live.zoomBase;
+    if (moving) live.camTouched = true;   // (the next solve keeps the slots it had: a pan's or a pinch's release does not move the labels across their stations; any other solve has no history)
     if (moving && live.solvedFor && restView && !live.lobuleOn && !live.lz?.isOpen() && !(live.diveT > 0)) {
       if (!live.handRide) { rideKeyInto(rideKeyA, st); live.handRide = true; labelJobDrop(); handRideWatch(); }
       if (rideKeyHeld(st)) { handCarry(); stats.skips++; stats.ms += performance.now() - t0; return; }
@@ -214,8 +222,9 @@ export function createLabelDriver(st, live) {
         const sf = live.solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
         sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = live.morphTarget;
         sf.ck = solCacheKey(sig, sc, th, b, csig, ins);
+        sf.scene = labelSceneOf(st, b); live.labelFresh = sf.scene !== live.labelSceneDone;
         // (A zoom back to a step already solved in the Circuit: its recorded slots are carried, with no solve. They stand only if every label still fits.)
-        if (sf.ck && solCacheTry(sf.ck, f)) { live.solvedFor = sf; live.solveAsked = false; } else {
+        if (sf.ck && solCacheTry(sf.ck, f)) { live.solvedFor = sf; live.solveAsked = false; sceneLanded(sf); } else {
         // (The labels already standing are carried to this frame's camera first: a solve that does not land inside its slice leaves them as
         // they are, so each frame of a zoom or glide that asked for a fresh solve left them one more frame behind the figure, and
         // dropped the sliced solve the next frame. Mohammad, 2 Nov: "the labels and callouts move slower than the figure camera".)
@@ -228,7 +237,7 @@ export function createLabelDriver(st, live) {
           labelTail();
           return;
         }
-        live.solvedFor = sf; live.solveAsked = false; solCachePut(sf);
+        live.solvedFor = sf; live.solveAsked = false; solCachePut(sf); sceneLanded(sf);
         }
       }
       else if (hand || live.reslotted) labelSettleSoon();
@@ -295,7 +304,7 @@ export function createLabelDriver(st, live) {
     cancelMay('label solve');
     try { while (!labelSliceRun(j.g, 1e6)); } catch (e) { live.labelJob = null; live.labelKey = null; throw e; }
     live.labelJob = null;
-    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor);
+    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor); sceneLanded(j.solvedFor);
     live.labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     labelTail();
   }
@@ -316,7 +325,7 @@ export function createLabelDriver(st, live) {
     if (!done && (age > 400 || !live.gestureOn())) { mayTask('label solve', labelJobStep, JOB_NOW); return false; }
     if (!done) return true;
     live.labelJob = null;
-    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor);
+    live.solvedFor = j.solvedFor; live.solveAsked = false; solCachePut(live.solvedFor); sceneLanded(j.solvedFor);
     if (gpuProbe.on) gpuProbe.note(COUNTED.labelSolve);
     live.labelKey = keyInto(labelKeyArr, j.key); stats.layouts++;
     if (j.xfTap) xfMarkCurrent(j.xfTap);

@@ -678,6 +678,7 @@
 /* (A full panel, the six ladders or a table, keeps the cards' one margin at every edge and ends above the nav pill, centred in
    the room over it, so the pill never sits on its corner. The six ladders, .fill, are as tall as their charts and no taller: centred in that room.) */
 .pz:not(.stack) .pz-panel { width: min(1560px, calc(100% - 2 * var(--pz-cm))); top: calc(50% - (var(--pz-cm) + 44px) / 2); max-height: calc(100% - 3 * var(--pz-cm) - 44px); }
+.pz:not(.stack) .pz-panel.pz-grows { top: calc(50% - (var(--pz-cm) + 44px) / 2 - var(--pz-open-h) / 2); }   /* (a card that grows keeps its open height centred above the controls' pill: the rule above won the top, so the quick check hung from the middle and ran under the pill, Choose the treatment 14, 16 Nov 2026) */
 /* The full cards other than the six ladders (the opening outline, a summary table, the closing quick check, the scale, the SAAG plot, the two
    capillary walls, a plane) are a column to read, not a wall: on a laptop or a
    tablet on its side each stays a centred card, a width in the teaching card's body text (--pz-b, so it grows with the words) and never

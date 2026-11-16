@@ -147,6 +147,20 @@ export function cardSize(m, p) {
   return about ? 'x' : cells > SMALL_CELLS ? 'l' : 's';
 }
 
+/** The rows a card is made of, as one word: the bar or the one reading, the readings, the controls and the actions, and how many lines the name takes. Two cards
+ *  with the same shape are the same height on the shelf, where a card is as tall as what it holds. */
+export function cardShape(m, p) {
+  let r = 0, about = 0, c = 0, seg = 0, a = 0, d = 0;
+  for (const v of m.verbs) {
+    if (v.showIf && !v.showIf(p)) continue;
+    if (READ.has(v.type)) r++;
+    else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
+    else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
+    else if (v.type === 'about') about = 1;
+  }
+  return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
+}
+
 export function createCard({ view, stage, ctx, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
@@ -450,15 +464,18 @@ export function createCard({ view, stage, ctx, onDetails }) {
     if (same) for (let i = 0; i < newSelTok.length; i++) if (newSelTok[i] !== lastSelTok[i]) { same = false; break; }
     const tok = lastSelTok; lastSelTok = newSelTok; newSelTok = tok;
     const size = cardSize(m, st.params), wasOpen = !el.hidden && !!model && !leaving;
-    // A switch to a card of another size is the old card going out and the new one coming in: its height never glides (B, 13 Nov).
-    const resized = wasOpen && el.dataset.size !== size;
     el.dataset.card = ns.type || 'vessel';
-    el.dataset.size = size;
     model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0;
     const old = el.querySelector(':scope > .ac-body');
     el.querySelector(':scope > .ac-ghost')?.remove();
     releaseWords(el);   // (the readings of the content being replaced)
     const body = build(m);
+    // The shelf's card is as tall as its words (16 Nov 2026), so a pick of the same size can still be a different height. The shape of the rows says it (cardShape),
+    // worked out from the model with no read of the page. A switch to a card of another size or shape is the old card going out and the new one coming in: its height
+    // never glides (B, 13 Nov).
+    const shape = cardShape(m, st.params);
+    const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
+    el.dataset.size = size; el.dataset.shape = shape;
     const swap = wasOpen && !same && !resized && !!el.animate && !!old;
     if (swap) {
       // Another structure picked while the card is open: the old words fade out 6 px up from a layer that takes no taps, the new ones

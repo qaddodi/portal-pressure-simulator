@@ -353,7 +353,8 @@ test('a TIPS is placed step by step only where a slide teaches the placement; el
   const guided = new Set();
   for (const d of DECKS) for (const s of d.slides) if (procKindOf(s.procedure) === 'tips') guided.add(`${d.id}/${s.id}`);
   assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
-  // (Three of them, and the coil slide after the TIPS slide, go on to read the gradient across the new stent as step 5: MEASURES.tipsgrad.)
+  // (The placement ends with the stent in: no reading follows it. Mohammad, 16 Nov 2026: "Remove the measuring gradient step after TIPS". The gradient across the stent is taught
+  // on its own slide, MEASURES.tipsgrad played alone; no slide chains it after a TIPS, and no slide's notes tell of a "step 5".)
   const thens = [];
   // (The one other chain is a measurement's second reading: the PPG by IR, the IVC then the portal vein, on one slide of the gradients talk.)
   const reads = [];
@@ -362,7 +363,8 @@ test('a TIPS is placed step by step only where a slide teaches the placement; el
     if (s.procedure.kind === 'irivc') { reads.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'irpv'); continue; }
     thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad');
   }
-  assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
+  assert.deepEqual(thens, [], 'no TIPS slide plays a gradient reading after the placement');
+  for (const d of DECKS) for (const s of d.slides) if (procKindOf(s.procedure) === 'tips') assert.ok(!/step 5|gradient across the new stent/i.test(s.notes || ''), `${d.id}/${s.id}: its notes do not describe a measuring step the placement no longer has`);
   assert.deepEqual(reads, ['gradients/how-ppg']);
   for (const d of DECKS) {
     assert.ok(d.slides.filter((s) => procKindOf(s.procedure) === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);

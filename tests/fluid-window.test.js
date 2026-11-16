@@ -113,7 +113,7 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /'Lymph formation, liver \+ gut'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
+  assert.match(src, /'Liver \+ gut lymph'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
 });
 
 test('the card draws each part, and never sets text under 12 px', () => {
@@ -138,7 +138,9 @@ test('a unit in a card title is split out, so the style leaves its case alone', 
   assert.deepEqual(titleParts('Pressure, portal vein to heart'), ['Pressure, portal vein to heart'], 'no unit, no split');
   assert.deepEqual(titleParts('Millimetres and mLs'), ['Millimetres and mLs'], 'a unit is a whole word');
   const ext = (await import('../src/ui/ext-instruments.js')).default.tools.fluid;
-  for (const t of [ext.title({ window: true }), ext.short({ window: true })]) assert.equal(titleParts(t)[1], 'mL/day', `"${t}": the unit is split out, long title and short`);
+  // (16 Nov 2026: the card has two tiles in two units, mL/day and mmHg, so the title names none and each tile prints its own.)
+  for (const t of [ext.title({ window: true }), ext.short({ window: true })]) assert.deepEqual(titleParts(t), ['Fluid balance'], `"${t}": no unit over tiles of two units`);
+  assert.match(readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8'), /h\('small', \{\}, LYMPH_UNIT\)/, 'the lymph tile prints mL/day itself');
 });
 
 // 2 Nov 2026 (move instruments and charts to the GPU): the strip's parts are outlines the GPU draws, points written in place (tool-fluid.js partPts),

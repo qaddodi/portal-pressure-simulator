@@ -271,13 +271,14 @@ export function talkTrace() {
     const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = hostFs(), unitW = Math.ceil(textW('mmHg', fs, 500)) + 2, L = Math.max(Math.ceil(3.3 * fs) + 8, unitW + 8);
     size = `${W}x${HT}`;
     const pts = chain.filter((c) => c.fp), last = pts.length - 1, vfs = 1.5 * fs;
-    const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14,   // (the end value's own width, so it stands inside the card with room to spare)
-       n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
+    const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14;   // (the end value's own width, so it stands inside the card with room to spare)
+    // (Time between visits reads as distance, as on the full chart: the states of one visit stand close, a later visit further on.)
+    const vis = visitsOf(pts), un = visitUnits(vis), uMax = un.at(-1) || 1, X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : un[i] / uMax);
     const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
     const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), R);
     // (The treatments: a bar each, packed on as few rows as keep them clear, between the names and the plot. The card does not grow for them.)
     const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [];
-    const { bars, rows: bRows } = rxBars(runs, X, visitsOf(pts), last, W, (t) => textW(t, 0.9 * fs, 500));
+    const { bars, rows: bRows } = rxBars(runs, X, vis, last, W, (t) => textW(t, 0.9 * fs, 500));
     const rowH = fs + 8, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH + Math.ceil(0.6 * fs);
     const T = T0 + bRows * (fs + 10) + 0.6 * fs + 6, B = HT - fs - 16;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
@@ -285,9 +286,12 @@ export function talkTrace() {
     // (The time under the line: at each milestone and the last point, where it keeps clear of its neighbour.)
     const whenW = (p) => textW(p.when || String(p.n), fs, 500), named = new Set();
     const list = [...new Set([...mi, last])].filter((i) => i >= 0).sort((a, b) => a - b);
+    // (One name for a visit: two points of the same day never carry "Day 0" twice.)
+    const visitNamed = new Set();
     for (let k = list.length - 1, edge = Infinity; k >= 0; k--) {
       const i = list[k], half = whenW(pts[i]) / 2;
-      if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); edge = X(i) - half; }
+      if (visitNamed.has(vis[i])) continue;
+      if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); visitNamed.add(vis[i]); edge = X(i) - half; }
     }
     const panel = plotPanel(sv, 0, T0 - 6, W, HT - 1.5 - (T0 - 6));
     return sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'HVPG over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.mile ? `, ${p.mile}` : ''}, ${fmt(p.fp.hvpg, 1)}`).join('; ')

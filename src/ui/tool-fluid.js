@@ -15,6 +15,7 @@ import { store } from './store.js';
 import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';
 import { onFontsLoaded } from './font-arrival.js';
+import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -79,7 +80,7 @@ export function fluidWords(f) {
  *  sums taken from those parts, so every printed sum is exact (made = liver + gut; overflow = made beyond what the lymphatics
  *  can carry; each day = overflow − taken back). room is what the lymphatics could still take (negative once they are full). */
 export function fluidDay(f) {
-  const r = (x) => Math.round((Math.max(0, x) * 1440) / 10) * 10;
+  const r = lymphDay;   // (the one rounding every lymph reading prints: lymph-day.js, so the lobule's label reads this card's number)
   const liver = r(f.hep), gut = r(f.spl), limit = r(f.cap), back = r(f.back);
   const made = liver + gut, carried = Math.min(made, limit), over = made - carried;
   return { liver, gut, made, limit, carried, over, back, net: over - back, room: limit - made };
@@ -301,7 +302,7 @@ export function createFluid() {
   const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
   const wallHost = h('div', { class: 'gc-tugbox' });
-  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph formation, liver + gut'), h('div', { class: 'gc-n' }, sMade, h('small', {}, 'mL')), plate, sLimit);
+  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Liver + gut lymph'), h('div', { class: 'gc-n' }, sMade, h('small', {}, LYMPH_UNIT)), plate, sLimit);
   const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Net filtration'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
   const tiles = h('div', { class: 'gc-tiles' }, lyTile, wallTile);
   const ansRow = h('div', { class: 'gc-ans' }, h('span', { class: 'gc-t' }, sTitle), sNet);
@@ -498,9 +499,10 @@ export function createFluid() {
       fAt = now; fAvg = fAvg ? { out: fAvg.out + a * (raw.out - fAvg.out), pull: fAvg.pull + a * (raw.pull - fAvg.pull) } : raw;
       fo = fAvg;
     }
-    const net = fo.out - fo.pull;
-    set(fNet, `Hydrostatic ${fmt(Math.max(0, fo.out), 1)} − oncotic ${fmt(fo.pull, 1)} = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'outward' : 'inward'}`);
-    set(wNum, fmt(Math.abs(net), 1)); set(wUnit, net >= 0 ? 'mmHg outward' : 'mmHg inward'); set(wFoot, `ΔP ${fmt(Math.max(0, fo.out), 1)} − σΔπ ${fmt(fo.pull, 1)}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
+    // (The net is the difference of the two numbers as printed, so the page always adds up: ΔP 1.3 − σΔπ 0.5 read "0.9" when the unrounded forces were 1.34 and 0.46.)
+    const r1 = (v) => Math.round(v * 10) / 10, shownOut = r1(Math.max(0, fo.out)), shownPull = r1(fo.pull), net = r1(shownOut - shownPull);
+    set(fNet, `Hydrostatic ${fmt(shownOut, 1)} − oncotic ${fmt(shownPull, 1)} = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'outward' : 'inward'}`);
+    set(wNum, fmt(Math.abs(net), 1)); set(wUnit, net >= 0 ? 'mmHg outward' : 'mmHg inward'); set(wFoot, `ΔP ${fmt(shownOut, 1)} − σΔπ ${fmt(shownPull, 1)}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
     fGoal = { out: Math.max(0, fo.out), pull: fo.pull }; labels(); kick();
   }
   return {

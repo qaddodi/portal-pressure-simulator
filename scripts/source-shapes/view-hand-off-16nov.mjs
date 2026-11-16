@@ -14,4 +14,7 @@ export default [
   { file: 'src/ui/lobule-zoom.js', need: [/const go = sinCarry; sinCarry = null; if \(go\) go\(\);/, 'the rise begins in the frame the sinusoid zoom lands'] },
   { file: 'src/ui/presenter.js', need: [/stage\.exitSinusoid\(\);/, 'a slide leaving the sinusoid for the anatomy is one glide (stage.exitSinusoid)'] },
   { file: 'src/ui/presenter.js', forbid: [/\{ setViewKey\('lobule'\); await waitCut\(60, cut\); await until\(\(\) => cut\(\) \|\| \(!stage\.sinBusy\(\) && !stage\.sinusoidOpen\(\)\), 4000\)/, 'no stop at the lobule between the sinusoid and the anatomy'] },
+  // A late solve's landing (a deck closed onto the free view) crossfades the held ghosts with the new labels on a timed ramp: no one-frame swap.
+  { file: 'src/ui/stage-view.js', need: [/function xfRelStep\(\) \{[\s\S]*?viewXfMix\(u < 0 \? 0 : u, 0, XF_MIX, true\)[\s\S]*?relId = relFrame\(xfRelStep\);/, 'the ghosts give way to the late-landing labels over a timed crossfade'] },
+  { file: 'src/ui/stage-view.js', need: [/xfRelCancel\(\);\n\s*glideXfCut\(\);/, 'the next view change cuts a release ramp under way'] },
 ];

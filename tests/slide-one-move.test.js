@@ -7,7 +7,7 @@ import { createGlow } from '../src/ui/stage-glow.js';
 import { presenterSource } from './split-src.js';
 
 const src = presenterSource();
-const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('function paintOverlays('));
+const run = src.slice(src.indexOf('async function transitionRun('), src.indexOf('const reFit = '));
 const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const cardsEntering ='));
 
 

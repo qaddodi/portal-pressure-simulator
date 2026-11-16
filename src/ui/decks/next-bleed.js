@@ -8,7 +8,7 @@ const BAND = { kind: 'band' };
 // (The varices themselves are seen through the scope ring on the figure, scope-lens.js; the card follows the pressures since the bleed.)
 const SINCE = { kind: 'trace', range: 'talk', since: 'after' };
 // (A time-lapse slide plots its lapse day by day instead: the varix and the HVPG over the ten months, flow-time.js.)
-const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months', scales: { hvpg: [0, 20, 5], varix: [0, 8, 2] } };   // (both axes from zero: the HVPG's small dip would draw as a big fall on an axis from 15, play-test 16 Nov 2026)
+const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months', view: { scales: { hvpg: [0, 20, 5], varix: [0, 8, 2] } } };   // (both axes from zero: the HVPG's small dip would draw as a big fall on an axis from 15, play-test 16 Nov 2026)
 const NONE = { drugs: { propranolol: false, carvedilol: false } };
 // (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a clear response
 // (Baveno VIII Table 3: a fall of 10% or more, or to 12 mmHg or less); the model's usual patient falls about 19%.)

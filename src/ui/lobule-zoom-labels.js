@@ -12,7 +12,9 @@ import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
 import { cancelRest, flushRestAttrs, restAttr, restPass } from './rest-pass.js';
+import { stageScope } from './stage-scope.js';
 import { store } from './store.js';
+import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { geoOf, setGeo, svgModel } from './svg-gl.js';
 import { clamp, fmt, h } from './util.js';
 
@@ -40,7 +42,7 @@ export function createLobuleLabels(st, live) {
     return slot.s;
   };
   const stV = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() }, stD = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() };
-  const stLy = mkSlot(), stFlow = mkSlot(), stO = [mkSlot(), mkSlot(), mkSlot()], stP = [mkSlot(), mkSlot(), mkSlot()];
+  const stFlow = mkSlot(), stO = [mkSlot(), mkSlot(), mkSlot()], stP = [mkSlot(), mkSlot(), mkSlot()];
   const OXY_AT = { triad: 0, sin: 1, cv: 2 };
   // What the station card has to say: the number, its unit, the change and its colour, in one kept record (never an array made for it).
   const reading = { v: '', u: '', d: '', col: null };
@@ -60,8 +62,7 @@ export function createLobuleLabels(st, live) {
   }
   function panel() {
     const m = live.model;
-    // On a slide, once settled the sinusoids read the slide's own value, as its tile does (lobule and sinusoid labels agree with it).
-    { const st = store.get(), fs = st.presenting && st.presentFp?.sin; if (Number.isFinite(fs) && Math.abs(m.P2 - fs) < 0.6) m.P2 = fs; }
+    // (On a slide, the three pressures and the lymph read the slide's own numbers, as its tiles do: lobule-model.js pinToSlide, at the model.)
     // (Written only when its words change: the glide reaches here every frame, so the words are made only when a printed number has changed.)
     let said = live.tissueSaid;
     if (m.hide) { if (say.kind !== 0) { say.kind = 0; said = SAY_HIDE; } }
@@ -82,14 +83,17 @@ export function createLobuleLabels(st, live) {
     station(m, 'cv', m.P3, m.R[2]); setLab('cv', 'Central vein', 'Central vein', reading.v, reading.u, reading.d, reading.col);
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', shown(stLy, m.lymph, 1), lymphUnit(Math.round(m.lyProt * 100)), '', null);
+    else setLab('lymph', 'Hepatic lymph', 'Lymph', lymphShown(m.lymph), lymphUnit(Math.round(m.lyProt * 100)), '', null);   // (mL a day, the fluid balance card's own number and rounding: lymph-day.js)
     // The arteriole and the ductule: named, with no reading (the model has no pressure of their own); a slide's term ranks them up (named()).
     setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
     setLab('bd', 'Bile ductule', 'Bile ductule', '', '', '', 'var(--bile-duct)');
     if (live.sinTo || live.sinU > 0) live.sv.setModel(m);
   }
   const lyUnitSlot = mkSlot();
-  const lymphUnit = (n) => { if (Object.is(lyUnitSlot.q, n) && lyUnitSlot.s !== '') return lyUnitSlot.s; lyUnitSlot.q = n; lyUnitSlot.s = `mL/min · Protein ${n}%`; return lyUnitSlot.s; };
+  const lymphUnit = (n) => { if (Object.is(lyUnitSlot.q, n) && lyUnitSlot.s !== '') return lyUnitSlot.s; lyUnitSlot.q = n; lyUnitSlot.s = `${LYMPH_UNIT} · Protein ${n}%`; return lyUnitSlot.s; };
+  // (The lymph's text, made again only when the day's number changes.)
+  const lyDaySlot = { q: NaN, s: '' };
+  const lymphShown = (v) => { const q = lymphDay(v); if (lyDaySlot.q === q && lyDaySlot.s !== '') return lyDaySlot.s; lyDaySlot.q = q; lyDaySlot.s = lymphText(v); return lyDaySlot.s; };
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
   // What a label's size depends on beyond its own text and classes (see layoutLabels).
@@ -853,7 +857,7 @@ export function createLobuleLabels(st, live) {
     write(g) { for (let i = 0; i < 3; i++) setGeo(callRing, CALL_G[i], g[i]); setGeo(callLine, 'x1', g[3]); setGeo(callLine, 'y1', g[4]); setGeo(callLine, 'x2', g[5]); setGeo(callLine, 'y2', g[6]); leadGL.paint(); },
     isOn: () => classHas(callRing, 'on'), pillOn: () => classHas(callEl, 'on'),
     setOn(on) { classSoon(callLine, 'on', on); classSoon(callRing, 'on', on); runSoon(leadPaint); },
-    schedule: (fn, ms) => setTimeout(fn, ms), cancel: (t) => clearTimeout(t), ms: D_SMALL,
+    schedule: (fn, ms) => stageScope.timer(fn, ms), cancel: (t) => stageScope.clear(t), ms: D_SMALL,   // (a timer of the stage's scope, docs/scheduling.md: not a bare one)
   });
   // A layout's own puts (the zone names, the call-out pill) are marked to fade to their new spot (layFade, set by layoutLabels while the camera is not carrying them).
   let layFade = false;
