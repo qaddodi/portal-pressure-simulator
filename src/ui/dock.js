@@ -3,8 +3,8 @@
 
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving } from './util.js';
-import { bandStep, BAND_RECHECK_MS } from './band-settle.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, recolorWords } from './util.js';
+import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
 import { createPressureTime } from './pressure-time.js';
@@ -234,6 +234,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // (A band waiting for its number to land looks again on a timer, band-settle.js: a paused model sends no frame to look again with.)
     x.bandAsk = 0;
     x.bandCheck = () => { x.bandAsk = 0; if (frame) paintStrip(frame); };
+    x.waitT = 0;   // (when its band began to wait for a number that keeps moving, ms; 0: it is not waiting)
+    x.recolor = () => recolorWords(x.val);   // (the number's GPU words read their ink again once the band's attribute is written: runSoon, below)
     x.ariaPass = () => {
       x.ariaAsk = false;
       const v = x.ariaV, s = x.ariaS;
@@ -275,7 +277,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.to ? '\nThe arrow: the value once plasma volume has re-equilibrated (about a day after a bleed).' : ''}${v.why ? '\nClick for what is driving it.' : ''}` },
       h('span', {}, v.k), pre, val, post, toNum ? h('i', { class: 'v-to', 'aria-hidden': 'true' }, '→', toNum) : null);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
-    return { v, el, val, pre, post, preT: null, bs: NaN, bd: NaN, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
+    // (recolor: the GPU words of its three numbers read their ink again when the red of a reading out of range comes or goes, gl-words.js recolor.)
+    return { v, el, val, pre, post, preT: null, bs: NaN, bd: NaN, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false, badOn: false, recolor: () => { recolorWords(val); recolorWords(pre); recolorWords(post); } };
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
@@ -435,12 +438,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // its cross-fade, so the number and the band never disagree mid-roll (A1, band-settle.js). Reduce Motion: all three at once.
       const g2 = x.live && GAP_ENDS[t.id];
       const moving = numberMoving(x.val) || shownState.isMoving(x.kBar) || !!(g2 && (shownState.isMoving(END_STATE[g2[0]]) || shownState.isMoving(END_STATE[g2[1]])));
-      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, moving, reduce);
-      if (step === 'wait') { if (!x.bandAsk) x.bandAsk = setTimeout(x.bandCheck, BAND_RECHECK_MS); }
-      else if (step !== 'same') {
-        // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
-        if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
-        dataSoon(el, 'sev', sev); x.sev = sev;
+      // (A number that keeps moving past a roll, a live strain, never lands: its band is taken once the number on show has itself entered it, band-settle.js.)
+      const reduce = reduceMotionMQ.matches, waited = x.waitT ? performance.now() - x.waitT : 0;
+      const shownSev = waited >= BAND_LONG_MS && v != null ? (lz ? t.st(shownOf(shownState.or(x.kFill, v), t.d), f, st0) : t.st(shownOf(shownState.or(x.kFill, v), t.d), m)) : null;
+      const step = bandStepFor(x.sev, sev, moving, reduce, waited, shownSev);
+      if (step === 'wait') { if (!x.waitT) x.waitT = performance.now(); if (!x.bandAsk) x.bandAsk = setTimeout(x.bandCheck, BAND_RECHECK_MS); }
+      else {
+        x.waitT = 0;
+        if (step !== 'same') {
+          // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
+          dataSoon(el, 'sev', sev); x.sev = sev;
+          runSoon(x.recolor);   // (after the attribute is written, in the same task: the number is drawn in the band's colour from here on)
+        }
       }
       // (The status word is handed on only when it or its class changed since it was last handed on: swapText returns at once for the same
       // word, but the call made a closure each frame to find that out.)
@@ -462,7 +472,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const t = hid || !Number.isFinite(x.bs) || !Number.isFinite(x.bd) || x.shown == null ? '' : `${Math.round(x.bs)}/${Math.round(x.bd)} (`;
         if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.post, t ? ')' : ''); }
       }
-      classSoon(x.el, 'bad', !hid && x.bad);
+      const badNow = !hid && !!x.bad;
+      classSoon(x.el, 'bad', badNow);
+      if (badNow !== x.badOn) { x.badOn = badNow; runSoon(x.recolor); }
       if (x.toNum) {
         const on = !hid && x.toV != null;
         classSoon(x.el, 'heading', on); classSoon(x.el, 'heading-up', on && x.toUp);
