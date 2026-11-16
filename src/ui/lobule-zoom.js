@@ -1491,10 +1491,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const smoothPoly = (P, n = 1) => { let Q = P; for (let k = 0; k < n; k++) Q = Q.map((q, i) => (i === 0 || i === Q.length - 1 ? q : [(Q[i - 1][0] + 2 * q[0] + Q[i + 1][0]) / 4, (Q[i - 1][1] + 2 * q[1] + Q[i + 1][1]) / 4])); return Q; };
       const sideOf = (ch, par) => { const dP = unit(par.pts[0][0] - par.pts[1][0], par.pts[0][1] - par.pts[1][1]), dC = unit(ch.pts[N - 2][0] - ch.pts[N - 1][0], ch.pts[N - 2][1] - ch.pts[N - 1][1]); return dP[0] * dC[1] - dP[1] * dC[0] >= 0 ? 1 : -1; };
       const lanePts = (T, side, from) => {
-        const P = T.pts, out = [], off = rsN * (rsK[T.kind] || 1) * 1.25 + rs0 * 0.62 + Math.max(2, R * 0.008);
+        const P = T.pts, out = [], off = rsN * (rsK[T.kind] || 1) * 1.25 + rs0 * 0.62 + Math.max(2, R * 0.008), hug = (rsN * (rsK[T.kind] || 1) + rs0 * 0.35) / off;
         for (let i = N - 1 - from; i >= 0; i--) {
           const a = P[Math.min(N - 1, i + 1)], b = P[Math.max(0, i - 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]);
-          out.push([P[i][0] - ty * side * off, P[i][1] + tx * side * off]);
+          out.push(Object.assign([P[i][0] - ty * side * off, P[i][1] + tx * side * off], { bx: P[i][0], by: P[i][1], hug }));   // (with its sinusoid's centre and how close it may hug it)
         }
         return out;
       };
@@ -1518,6 +1518,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.25);   // (in the crotch of a pair: starts a little past it)
         }
         if (poly.length < 3) return;
+        // It starts against its sinusoid, in the space of Disse, and eases out to its lane over the first stretch (never from the middle of the plate).
+        { let sAcc = 0; poly = poly.map((q, i) => { if (i) sAcc += Math.hypot(q[0] - poly[i - 1][0], q[1] - poly[i - 1][1]); if (q.bx == null) return q; const f = lerp(q.hug, 1, smooth(0, R * 0.14, sAcc)); return [q.bx + (q[0] - q.bx) * f, q.by + (q[1] - q.by) * f]; }); }
         // the plate's centre on the inlet
         const nb = L0[li + (h === 0 ? 1 : -1)], mid = jj === N0 / 2 - 1 || !nb || nb.edge !== e ? inl.pts[N - 1] : nb.pts[0];
         const ic = nearIdx(inl.pts, (q0[0] + mid[0]) / 2, (q0[1] + mid[1]) / 2), P = inl.pts[ic], nO = outN(inl, ic), inw = [-nO[0], -nO[1]];
@@ -1587,26 +1589,29 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         dbg.blocked++;
         return null;
       };
-      // Cross-links: like the sinusoids' own cross-links, a short fine duct joins each channel to its neighbour round the lobule, at staggered levels, passing under the
-      // one sinusoid between them. A link that would meet more than one sinusoid, or another bile channel, is not drawn.
-      const sinMain = tubes.filter((t) => t.kind === 's0' || t.kind === 's1' || t.kind === 's2');
+      // Cross-links: where two channels share a plate (no sinusoid between them), a short fine duct joins them across the plate, round the lobule like the sinusoids'
+      // own cross-links, at staggered levels. A link that would meet a sinusoid or another bile channel is not drawn.
+      const sinAll = tubes.filter((t) => t.kind === 's0' || t.kind === 's1' || t.kind === 's2' || t.kind === 'an' || t.kind === 'cv');
       const hits = (P, list) => { let n = 0; for (const T of list) { let hit = false; for (let k = 1; k < T.pts.length && !hit; k++) for (let j = 1; j < P.length && !hit; j++) if (segX(P[j - 1], P[j], T.pts[k - 1], T.pts[k])) hit = true; if (hit) n++; } return n; };
-      const angAt = (T, rr) => { let b = -1, bd = Infinity; for (let i = 0; i < T.pts.length; i++) { const d = Math.abs(Math.hypot(T.pts[i][0] - cx, T.pts[i][1] - cy) - rr); if (d < bd) { bd = d; b = i; } } return bd < R * 0.012 ? b : -1; };
-      const LEVELS = [0.38, 0.47, 0.56, 0.65, 0.74, 0.83], links = [];
+      // where a channel crosses the circle of radius rr (the first crossing from its start), or null
+      const ptAt = (T, rr) => { for (let i = 1; i < T.pts.length; i++) { const p0 = T.pts[i - 1], p1 = T.pts[i], d0 = Math.hypot(p0[0] - cx, p0[1] - cy) - rr, d1 = Math.hypot(p1[0] - cx, p1[1] - cy) - rr; if (d0 * d1 <= 0 && d0 !== d1) { const u = d0 / (d0 - d1); return [lerp(p0[0], p1[0], u), lerp(p0[1], p1[1], u)]; } } return null; };
+      // (each level is a gap between two rings of hepatocytes, so a link runs between the cells, never across one)
+      const LEVELS = [0.38, 0.47, 0.56, 0.65, 0.74, 0.83].map((f) => rcv0 * 1.55 + (Math.round((R * f - rcv0 * 1.55) / cl - 0.5) + 0.5) * cl), links = [];
       let nLink = 0;
       for (let lv = 0; lv < LEVELS.length; lv++) {
-        const rr = R * LEVELS[lv], row = [];
-        for (const M of mains) { const i = angAt(M, rr); if (i >= 0) { const q = M.pts[i]; row.push({ M, i, q, a: Math.atan2(q[1] - cy, q[0] - cx) }); } }
+        const rr = LEVELS[lv], row = [];
+        for (const M of mains) { const q = ptAt(M, rr); if (q) row.push({ M, q, a: Math.atan2(q[1] - cy, q[0] - cx) }); }
         row.sort((u, v) => u.a - v.a);
         for (let k = 0; k < row.length; k++) {
-          if ((k + lv) % 2 !== 0) continue;   // (staggered: each gap is bridged at one level or two, never at all of them)
+          if ((k + lv) % 2 !== 0 && lv % 3 !== 0) continue;   // (staggered: each gap is bridged at one level or two, never at all of them)
           const A = row[k], B = row[(k + 1) % row.length];
           let da = B.a - A.a; if (da < 0) da += TAU;
           if (da * rr > R * 0.2 || da * rr < R * 0.02) continue;
           const P = [];
-          for (let s = 0; s <= 12; s++) { const u = s / 12, an = A.a + da * u, r0 = lerp(Math.hypot(A.q[0] - cx, A.q[1] - cy), Math.hypot(B.q[0] - cx, B.q[1] - cy), u) - R * 0.012 * Math.sin(Math.PI * u); P.push([cx + Math.cos(an) * r0, cy + Math.sin(an) * r0]); }
+          for (let s = 0; s <= 12; s++) { const u = s / 12, an = A.a + da * u, r0 = rr; P.push([cx + Math.cos(an) * r0, cy + Math.sin(an) * r0]); }
           P[0] = A.q; P[12] = B.q;
-          if (hits(P, sinMain) !== 1) continue;
+          if (hits(P, sinAll) !== 0) continue;
+          if (cells.some((c) => Math.abs(Math.hypot(c.x - cx, c.y - cy) - rr) < c.l * 0.4 && P.some((q) => Math.hypot(q[0] - c.x, q[1] - c.y) < Math.min(c.l, c.w) * 0.45))) continue;   // (never over a hepatocyte)   // (only two channels in the same plate, with no sinusoid between them)
           const inner = P.slice(1, 12); let bad = false;
           for (const T of [...mains, ...links]) { if (T === A.M || T === B.M) continue; for (let k2 = 1; k2 < T.pts.length && !bad; k2++) for (let j = 1; j < inner.length && !bad; j++) if (segX(inner[j - 1], inner[j], T.pts[k2 - 1], T.pts[k2])) bad = true; if (bad) break; }
           if (bad) continue;
