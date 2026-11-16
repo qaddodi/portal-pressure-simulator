@@ -590,7 +590,7 @@ export function createLobuleField(st, live) {
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { bs: 0.085, bc: 0.07, bm: 0.27, bh: 0.28, bx: 0.28, s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
+  const Z_OF = { bs: 0.085, bc: 0.07, bm: 0.27, bh: 0.08, bx: 0.28, s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (live.drawKey === '' || cw !== live.dW || ch !== live.dH) return false;
