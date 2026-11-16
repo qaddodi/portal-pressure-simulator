@@ -824,13 +824,21 @@ const finalFrame = finalFrameFor('svg-gl');
 const readDraw = readFrameFor('svg-gl');
 const askDraw = (g) => (g.follows ? finalFrame(g.draw) : readDraw(g.draw));
 const CAM_HOLD_MS = 100;
+/** While the figure's camera moves the card pictures (a chart, a readout) are handed over less often, never held for good: one hand-over at least
+ *  every CAM_BEAT_MS. They were held until the camera stopped, so a slide whose time-lapse moves the camera all through it (Varices 3, lapse cam:
+ *  'varices') froze its chart, its numbers and its day count for the whole lapse, and the lines popped in at the end (Mohammad, 16 Nov 2026).
+ *  moving: the camera moved in the last 200 ms; since: ms since the last hand-over. */
+export const CAM_BEAT_MS = 250;
+export const batchHeld = (moving, since) => moving && since < CAM_BEAT_MS;
 // (The pictures that do not ride the figure, asked together: drawn in one frame on a shared beat, or held while the camera moves: createSvgGL g.paint.)
 const BATCH_MS = 120;
 const batchQ = new Set();
-let batchT = 0;
+let batchT = 0, batchAt = 0;
 function batchRun() {
   batchT = 0;
-  if (cameraMoving()) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
+  const now = performance.now();
+  if (batchHeld(cameraMoving(), now - batchAt)) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
+  batchAt = now;
   for (const g of batchQ) if (!g.ask && !g.dead) g.ask = askDraw(g);
   batchQ.clear();
 }
