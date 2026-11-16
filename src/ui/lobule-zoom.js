@@ -1439,28 +1439,41 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           }
           return out;
         };
+        const lanes = [];
         for (const leaf of L0) {
           const P1 = leaf.parent != null ? tubes[leaf.parent] : null, P2 = P1 && P1.parent != null ? tubes[P1.parent] : null;
           const side = P1 ? sideOf(leaf, P1) : 1, chain = [leaf];
           if (P1) { chain.unshift(P1); if (P2 && sideOf(P1, P2) === side) chain.unshift(P2); }
           let poly = [];
           chain.forEach((T, k) => {
-            let from = 0;
-            if (k === 0) from = T === P2 || (T === P1 && !P2) ? 0 : Math.ceil(0.14 * N);   // (the first tube: from the central vein's rim, or a little past the crotch)
-            let Q = lanePts(T, side, from);
-            if (k === 0 && T.kind === 's2') Q = Q.filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > rcv0 * 1.35);
-            else if (k === 0 && T === P1 && P2 === null) Q = Q.filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > rcv0 * 1.35);
-            poly = poly.concat(k === 0 ? Q : Q.slice(1));
+            const from = k === 0 && T === leaf ? Math.ceil(0.14 * N) : 0;   // (a lane that starts in the crotch of a branch starts a little past it)
+            const Q = lanePts(T, side, from).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.5);   // (halfway out from the central vein: where the bile channels begin)
+            poly = poly.concat(k === 0 || !poly.length ? Q : Q.slice(1));
           });
           if (poly.length < 3) continue;
-          const h = hering[leaf.edge], q0 = poly[poly.length - 1], hp = h.t.pts[Math.min(N - 1, nearOn(h.t, q0[0], q0[1]) + 5)];
-          const full = smoothPoly([...poly, [lerp(q0[0], hp[0], 0.5), lerp(q0[1], hp[1], 0.5)], hp]);
-          const t = add('bs', curve((u) => at(full, u)), { lymph: true, bile: true });
+          lanes.push({ leaf, poly, e: leaf.edge, k: L0.indexOf(leaf) % N0 });
+        }
+        // Neighbours whose lanes face each other (the outer sides of two pairs of sinusoids) join in the plate between them, in one Y, then go out as one to the canal.
+        const hOf = (h, x, y) => h.t.pts[Math.min(N - 1, nearOn(h.t, x, y) + 6)], used = new Set();
+        for (let i = 0; i < lanes.length; i++) {
+          const A = lanes[i], B = lanes[i + 1], h = hering[A.e];
+          if (!used.has(A) && B && B.e === A.e && B.k === A.k + 1 && A.k % 2 === 1) {
+            used.add(A); used.add(B);
+            const a1 = A.poly[A.poly.length - 1], b1 = B.poly[B.poly.length - 1], mx = (a1[0] + b1[0]) / 2, my = (a1[1] + b1[1]) / 2, hp = hOf(h, mx, my), M = [lerp(mx, hp[0], 0.4), lerp(my, hp[1], 0.4)];
+            const ta = add('bs', curve((u) => at(smoothPoly([...A.poly, M]), u)), { lymph: true, bile: true }), tb = add('bs', curve((u) => at(smoothPoly([...B.poly, M]), u)), { lymph: true, bile: true });
+            const tc = add('bm', curve((u) => at([M, [lerp(M[0], hp[0], 0.5), lerp(M[1], hp[1], 0.5)], hp], u)), { lymph: true, bile: true });
+            join(M[0], M[1], [ta, tb, tc], R * 0.0035); join(hp[0], hp[1], [h.t, tc], R * 0.004);
+          }
+        }
+        for (const A of lanes) {
+          if (used.has(A)) continue;
+          const h = hering[A.e], q0 = A.poly[A.poly.length - 1], hp = hOf(h, q0[0], q0[1]);
+          const t = add('bs', curve((u) => at(smoothPoly([...A.poly, [lerp(q0[0], hp[0], 0.5), lerp(q0[1], hp[1], 0.5)], hp]), u)), { lymph: true, bile: true });
           join(hp[0], hp[1], [h.t, t], R * 0.003);
         }
       }
       // Ductular reaction: three short fine ducts curl out of the canal's end beside the tract; they fade in with portal fibrosis.
-      for (let e = 0; e < 6; e++) {
+      for (let e = 0; e < 0; e++) {   // (off: the curls read as stray branches near the tract, 16 Nov)
         const h = hering[e], tr = triads[(e + 1) % 6], base = h.t.pts[N - 1 - 10];
         for (let k = 0; k < 3; k++) {
           const ang = Math.atan2(tr.bd[1] - base[1], tr.bd[0] - base[0]) + (k - 1) * 0.9, L = R * (0.05 + 0.012 * k), ph = r() * TAU;
