@@ -52,7 +52,7 @@ export const TREATMENT = {
     },
     {
       id: 'oct', lens: 'flow', params: { drugs: { carvedilol: false, octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'profile' }, data: 'tiles', key: ['pv'], tiles: ['pvFlow'], delta: 'target',
-      kicker: 'Acute variceal bleeding', site: 'sin', title: 'Octreotide reduces splanchnic inflow',
+      kicker: 'Octreotide', site: 'sin', title: 'Octreotide reduces splanchnic inflow',
       line: 'Octreotide, a somatostatin analog, inhibits the release of splanchnic vasodilatory peptides, so splanchnic inflow falls to {pvFlow}. Its effect on portal pressure is modest and partly transient.',
       notes: 'Suspected variceal bleeding: octreotide at once (a 50 µg bolus, then 25 to 50 µg/h), continued for 2 to 5 days. The full management sequence is in the Acute variceal bleeding talk. Terlipressin and somatostatin are alternatives. Its effect on portal pressure is modest and partly transient, so the model gives it a smaller fall than terlipressin (splanchnic resistance × 1.35 against × 1.9), in line with HVPG studies of somatostatin analogs (Escorsell 2001, Baik 2005). Colored by flow, the portal vein thins.',
       ask: ['How does octreotide lower the portal pressure, and why is the effect modest?', 'It reduces splanchnic inflow; the effect is modest and partly transient.'],
