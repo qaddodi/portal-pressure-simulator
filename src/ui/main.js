@@ -1,6 +1,7 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
+import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
@@ -466,7 +467,10 @@ async function main() {
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
-  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
+  // (The test clock: the page's time on a clock a window that is not in front does not throttle. test-mode.js; ?testclock starts it at boot, the camera gate turns it on for its run.)
+  window.pps.testClock = async (o) => (await import('./test-mode.js')).testClock(o);
+  if (window.ppsTestClock) window.pps.testClock(true);
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS, withTestClock: async (r) => (await import('./test-mode.js')).withTestClock(r) })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
   window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
