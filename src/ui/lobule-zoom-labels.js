@@ -1,6 +1,7 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { createCallGeoFade } from './call-geo-fade.js';
+import { zoneSpot } from './lobule-zone-spot.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
@@ -12,6 +13,7 @@ import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
 import { cancelRest, flushRestAttrs, restAttr, restPass } from './rest-pass.js';
+import { stageScope } from './stage-scope.js';
 import { store } from './store.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { geoOf, setGeo, svgModel } from './svg-gl.js';
@@ -649,7 +651,8 @@ export function createLobuleLabels(st, live) {
   const NO_BOXES = [];   // (read, never written: no zone names on show)
   const ZONE_Q = [0.83, 0.51, 0.2];
   const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
-  const zBox = { l: 0, r: 0, t: 0, b: 0 };
+  let zLesion = null;   // (the lesion ring placeZones is placing for, read by zRing)
+  const zRing = (b) => ringDepth(zLesion, b);
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
     // Zones off: each name fades out where it stands and stays in zoneEls (capSync draws from it: a name taken out stayed drawn at its last alpha).
@@ -657,6 +660,7 @@ export function createLobuleLabels(st, live) {
     const { R, cx, cy } = live.geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
     boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
+    zLesion = lesion;
     for (let i = 0; i < 3; i++) {
       const q = ZONE_Q[i];
       let z = zoneEls[i];
@@ -685,8 +689,8 @@ export function createLobuleLabels(st, live) {
       const w = szW, hh = szH;
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
-      let at = -1;
-      for (let j = 0; j < nT; j++) { zBox.l = zTx[j] - w / 2 - hx; zBox.r = zTx[j] + w / 2 + hx; zBox.t = zTy[j] - hh / 2 - hy; zBox.b = zTy[j] + hh / 2 + hy; if (!ringDepth(lesion, zBox)) { at = j; break; } }
+      // (Nor on a zone name already placed: on a zoomed phone two zones' in-view spots were one, and their names stood on each other, lobule-zone-spot.js.)
+      const at = zoneSpot(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes.length);
       if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
       put(z, zTx[at], zTy[at]);
@@ -856,7 +860,7 @@ export function createLobuleLabels(st, live) {
     write(g) { for (let i = 0; i < 3; i++) setGeo(callRing, CALL_G[i], g[i]); setGeo(callLine, 'x1', g[3]); setGeo(callLine, 'y1', g[4]); setGeo(callLine, 'x2', g[5]); setGeo(callLine, 'y2', g[6]); leadGL.paint(); },
     isOn: () => classHas(callRing, 'on'), pillOn: () => classHas(callEl, 'on'),
     setOn(on) { classSoon(callLine, 'on', on); classSoon(callRing, 'on', on); runSoon(leadPaint); },
-    schedule: (fn, ms) => setTimeout(fn, ms), cancel: (t) => clearTimeout(t), ms: D_SMALL,
+    schedule: (fn, ms) => stageScope.timer(fn, ms), cancel: (t) => stageScope.clear(t), ms: D_SMALL,   // (a timer of the stage's scope, docs/scheduling.md: not a bare one)
   });
   // A layout's own puts (the zone names, the call-out pill) are marked to fade to their new spot (layFade, set by layoutLabels while the camera is not carrying them).
   let layFade = false;

@@ -71,10 +71,9 @@ await page.evaluate(() => {
       const c = camOf();
       if (wasBare && !bare) {
         ride = glide();
-        // (presenter.js CARDS_AT: the cards come in with 0.75 of the glide left, the owner's quick slide of 2 Nov 2026; a small margin for the frame
-        // the check is read in. Earlier than that is a card ahead of its own rule.)
-        if (ride && ride.left > ride.ms * 0.8) window.__bad.push('cards came in before a quarter of the zoom had run (CARDS_AT 0.75)');
-        else if (!ride && cam && moved(c, cam)) window.__bad.push('cards came in before the zoom ended');
+        // (presenter.js CARDS_AT 1: the cards start their way in as the glide sets off, 16 Nov 2026, so their entry's long frame lands where the
+        // glide barely moves; before 16 Nov a quarter of it ran first.)
+        if (!ride && cam && moved(c, cam)) window.__bad.push('cards came in before the zoom ended');
         armed = true;
       } else if (armed && cam && moved(c, cam)) {
         // (Finishing the zoom the cards came in over is the one move; any other is a second.)

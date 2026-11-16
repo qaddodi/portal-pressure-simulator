@@ -97,7 +97,7 @@ export const TREATMENT = {
       // (The relation chart before the summary: this patient's liver with more or less scarring, the HVPG on each drug read against
       // the HVPG before it. At her own 16.5 mmHg the rings are the Propranolol and Carvedilol slides' readings.)
       id: 'relation', preset: 'cirr-decomp', cam: 'liver', glow: ['liver'],
-      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.05, lines: ['hvpg'], label: 'HVPG before the drug',
+      tool: { kind: 'curve', x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 1, step: 0.05, lines: ['hvpg'], gap: true, label: 'HVPG before the drug',
         against: [{ label: 'Carvedilol', params: CARV, pair: true, own: 'No change' }, { label: 'Propranolol', params: PROP, pair: true }], zone: { fall: 10, under: 12, label: 'Response' } },
       kicker: 'Summary', site: 'sin', title: 'Carvedilol lowers the HVPG further from any starting point',
       line: 'The dashed diagonal is no change. In the first patient, with MASH cirrhosis, carvedilol lowers the HVPG from {hvpg} to {hvpg@carv} and propranolol to {hvpg@prop}, both within the response zone.',

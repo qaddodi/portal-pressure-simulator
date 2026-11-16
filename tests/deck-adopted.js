@@ -25,7 +25,7 @@ export const ADOPTED = {
   'variceal-bleed/band': ['question', 'cite'],
   'variceal-bleed/path': ['kind:path', 'tool.patient'],
   'variceal-bleed/path2': ['kind:path', 'tool.patient'],
-  'stiffness/path': ['kind:path', 'whatIf'],
+  'stiffness/path': ['kind:path', 'whatIf', 'caseQ'],
   'circulation/path-ladder': ['kind:path', 'tool.patient'],
   'ascites/path-asc': ['kind:path', 'tool.patient'],
   'ascites/frailty': ['cite'],

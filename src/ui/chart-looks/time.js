@@ -137,6 +137,8 @@ export const TIME = {
   // 7244 .pcv-arrow: which way he went
   'cv.arrow': { base: { stroke: 'none', fill: param('c'), opacity: 0.85 } },
   // 7245-7247 .pcv-zone-*: a guideline zone, a soft band under a dashed edge, its name
+  // the band between two swept lines (tool.gap): a neutral tint over the zone's green
+  'cv.gap': { base: { fill: mix('srgb', tok('text'), 16, 'transparent'), stroke: 'none' } },
   'cv.zone.fill': { base: { fill: mix('srgb', tok('ok'), 12, 'transparent'), stroke: 'none' } },
   'cv.zone.edge': { base: { fill: 'none', stroke: tok('ok'), width: 1.5, dash: [4, 5] } },
   'cv.zone.t': { base: { font: [600, em(1)], fill: mix('oklab', tok('ok'), 80, tok('text')), halo: halo(3) } },

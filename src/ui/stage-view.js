@@ -2,10 +2,10 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { peelAt } from './flow-peel.js';
-import { cancelFrame, cancelMay, mayTask, settleGate } from './frame.js';
+import { cancelFrame, cancelMay, frameFor, mayTask, settleGate } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
-import { reducedMs } from './motion.js';
+import { fadeMs, reducedMs } from './motion.js';
 import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-xf.js';
 import { createGlideLabels } from './glide-labels.js';
 
@@ -76,7 +76,9 @@ export function createView(st, live) {
   // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
   const solveTargetVT = { k: 1, x: 0, y: 0 };
   // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
-  function atTargetStage(d, fn, tgt = live.morphTarget, kept = null) {
+  // (A dry solve: the camera's lock lets its write of the view through, as it is put back before anything is drawn: slide-cam.js.)
+  function atTargetStage(d, fn, tgt = live.morphTarget, kept = null) { return live.camLock ? live.camLock.dry(() => atTargetStageDry(d, fn, tgt, kept)) : atTargetStageDry(d, fn, tgt, kept); }
+  function atTargetStageDry(d, fn, tgt, kept) {
     const keepTgt = live.morphTarget, keepVT = live.vt, keepMorph = live.morph, keepLast = live.lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [], wS = [];
     live.glSuppress = true;
@@ -116,14 +118,30 @@ export function createView(st, live) {
     }
   }
   // (The target's solve landed after the change did: the old view's labels, which rode the figure as ghosts all the while, give way to the new
-  // ones in one frame. No timer fade: a fade after the figure has stopped is what read as a pop (Mohammad, 4 Nov 2026: "nothing arrives then
-  // they show up pop in existence"), and the ghosts stood on the figure until this frame, so there is no empty screen to fade from.)
+  // ones in a timed crossfade, the same law as the change's own (viewXfMix at the start of its clock), so a deck's slide labels and the free view's
+  // are never both at full strength and never swap in one frame (Mohammad, 16 Nov 2026: the slide's label set stacked on the free view's for
+  // seconds, then swapped). The ghosts stood on the figure until now, so there is no empty screen to fade from: that was the 4 Nov rule against
+  // a fade after the figure stopped with nothing standing. Reduce Motion keeps the fade, shorter (fadeMs).)
+  const REL_MS = 520;   // motion-scale: own pace (a fade through fadeMs: the labels' hand-over after a late solve; its law is viewXfMix)
+  const relFrame = frameFor('view release');
+  let relId = 0, relT0 = 0;
+  function xfRelCancel() { if (relId) { cancelFrame(relId); relId = 0; } }
+  function xfRelStep() {
+    relId = 0;
+    const u = (performance.now() - relT0) / fadeMs(REL_MS);
+    if (u >= 1 || !live.labelGL.ghosting) { xfLayer(1); live.labelGL.dropGhosts(); return; }
+    const m = viewXfMix(u < 0 ? 0 : u, 0, XF_MIX, true);
+    xfLayer(m.n); live.labelGL.crossfade(m.o, m.n);
+    relId = relFrame(xfRelStep);
+  }
   function xfRelease() {
     if (!live.xfHold) return;
     live.xfHold = false;
-    xfLayer(1); live.labelGL.dropGhosts();
+    if (!live.labelGL.ghosting) { xfLayer(1); live.labelGL.dropGhosts(); return; }
+    relT0 = performance.now();
+    xfRelStep();
   }
-  const XF_SLICE_MS = 8;   // (a slice of the target's solve in a frame of the change (GPU-drawn): twice the 4 it was lands the Circuit's in half the frames; the ghosts ride until it lands, however late)
+  const XF_SLICE_MS = 8;   // motion-scale: not a move (a time slice). (a slice of the target's solve in a frame of the change (GPU-drawn): twice the 4 it was lands the Circuit's in half the frames; the ghosts ride until it lands, however late)
   let xfKept = null;
   function solveTargetView(d) {
     live.labelKey = null; live.solveAsked = true;
@@ -160,8 +178,11 @@ export function createView(st, live) {
     return done;
   }
   // (A presenter's glide over one view: its labels solved as it sets off for where it lands, the same way: glide-labels.js.)
-  const { glideXfCut, glideXfEnd, glideXfStart, glideXfStep } = createGlideLabels({ XF_SLICE_MS, handRideEnd, labelJobDrop, labelJobStep, labelSliceRun, labelTail, refreshCTM, sitesPaint, updateLabels, xfLayer }, live);
+  const { glideXfCut, glideXfEnd, glideXfStart: glideStart, glideXfStep } = createGlideLabels({ XF_SLICE_MS, handRideEnd, labelJobDrop, labelJobStep, labelSliceRun, labelTail, refreshCTM, sitesPaint, updateLabels, xfLayer }, live);
+  const glideXfStart = (to) => { xfRelCancel(); return glideStart(to); };   // (a ramp under way is cut by the next glide: it freezes its own ghosts)
   function viewXfStart(d) {
+    live.camLock?.release('view');   // (a change of view takes the camera on its own clock: slide-cam.js)
+    xfRelCancel();
     glideXfCut();   // (a presenter's glide's crossfade cut by the change: its new labels stand, and are frozen below)
     live.xfHold = false;
     live.viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
@@ -208,7 +229,7 @@ export function createView(st, live) {
   // not: it has scratch of its own (stage-label-solve.js DRY_SC, segIdxDry). A new framing or stage begins it again (preSlice). (slots, key, slotsTgt, slotsD: the
   // last whole solve and what it was made for, kept while the next is made, so a tap mid-way still finds one; g, gKey, gFrame, d, tgt, k: the solve under way.)
   const pre = { need: true, g: null, key: null, gKey: null, gFrame: '', cur: '', d: null, tgt: 0, k: 1, slots: null, slotsTgt: -1, slotsD: null, tasked: false, kept: null };
-  const PRE_HOLD_MS = 1500, preGate = settleGate(PRE_HOLD_MS);   // (pre.kept: a solve's slices share one end state, as xfKept; the gate: frame.js settleGate)
+  const PRE_HOLD_MS = 1500, preGate = settleGate(PRE_HOLD_MS);   // motion-scale: not a move (a settle gate). (pre.kept: a solve's slices share one end state, as xfKept; the gate: frame.js settleGate)
   const cutSig = (t) => t.slice(t.indexOf('|')), preFrame = (d) => `${Math.round(d.k * 100)},${Math.round(d.x)},${Math.round(d.y)},${stageBox().width},${stageBox().height},${live.rotU > 0.5},${live.labelFonts},${live.calloutSig()},${live.labelIns()}`;
   function preKey(d) { return `${cutSig(labelSig(live.F))}|${preFrame(d)}`; }
   function preAbort() { if (pre.g) { pre.g.return(); pre.g = null; pre.need = true; } pre.kept = null; } function preRetry() { pre.tasked = false; preAsk(); return false; }

@@ -277,7 +277,7 @@ assert.ok(off.every((f) => f.length > (sc.min ?? 10)), 'every frame draws');
 test('the chart lets the picture go with itself, and a chart can be made without one', () => {
   const src = read('../src/ui/pressure-time.js');
   assert.match(src, /still\.drop\(\);/);
-  assert.match(src, /createPressureTime\(\{ marks = \(\) => \[\], stillLayer = true \} = \{\}\)/);
+  assert.match(src, /createPressureTime\(\{ marks = \(\) => \[\], stillLayer = true, smooth: smooth0 = false \} = \{\}\)/);
   assert.match(src, /const still = createStill\(cv, \{ on: stillLayer \}\);/);
   // The panel is drawn once: in the picture, or by the card that draws none.
   assert.equal(src.split('plotFill(').length - 1, 3, 'the general picture, the beat picture and the helper of the two cards with no picture');

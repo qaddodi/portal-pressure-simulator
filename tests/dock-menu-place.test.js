@@ -24,7 +24,7 @@ globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
 globalThis.window ??= globalThis;
 globalThis.Element ??= FakeEl;
-globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
 const body = new FakeEl('body');
 globalThis.document = { documentElement: new FakeEl('html'), body, addEventListener() {}, createElement: (t) => new FakeEl(t), createTextNode: (s) => s, getElementById: () => null };
 globalThis.addEventListener ??= () => {};
