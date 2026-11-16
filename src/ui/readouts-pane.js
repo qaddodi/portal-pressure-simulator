@@ -4,8 +4,8 @@
 // comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
-import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving, bandSwap } from './util.js';
+import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE, NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { h, svgIcon, fmt, clamp, shownOf, countTo, setNone, swapText, fadeIn, putText, numberMoving, bandSwap } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
@@ -127,7 +127,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (v != null && !Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }   // (being worked out again: the last number stays, dimmed, with its word, band and bar: util.js countTo)
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
-      if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
+      if (v == null) { const nm = t.id === 'hvpg' && hvBlocked(store.get().params); x.nm = nm; setNone(x.val, nm ? NOT_SHOWN : '?'); if (!follow) countTo(x.val, null); s = nm ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
         countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
@@ -165,7 +165,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
           if (!was || was === 'none' || sev === 'none') { tileEl.dataset.sev = sev; bandSwap([], () => {}, [x.val]); } else bandSwap([x.val], () => { tileEl.dataset.sev = sev; });   // (the number fades out and back under its band's colour: bandSwap)
         }
       }
-      if (sev === x.sev) { const un = v == null; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
+      if (sev === x.sev) { const un = v == null && !x.nm; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; tileEl.setAttribute('aria-label', aria); }
     }

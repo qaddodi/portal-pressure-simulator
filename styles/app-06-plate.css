@@ -442,6 +442,8 @@
 .hvpg-kv dd[data-sev="ok"] { color: var(--ok-ink); }
 .hvpg-kv dd[data-sev="caution"] { color: var(--caution-ink); }
 .hvpg-kv dd[data-sev="danger"] { color: var(--danger-ink); }
+/* (A vein that cannot be catheterized, Budd–Chiari: each reading says "Not measurable" in the small grey word, on two lines in its column, never a dash.) */
+.hvpg-kv dd[data-nm="1"] { font-size: 12px; font-weight: 600; color: var(--text-3); white-space: normal; max-width: 9ch; line-height: 1.2; }
 /* The four steps, in one row: a numbered dot and a word each. */
 .hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
 .hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 6px; }

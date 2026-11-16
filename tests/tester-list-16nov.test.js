@@ -86,3 +86,23 @@ test('Budd–Chiari: the esophageal varix is sized less by the gradient than in 
   const { m: c, e: ce } = await settled('cirr-decomp', {}, 20);
   assert.ok(ce.varix('VAR', ce.Pf || ce.P).ratio > 1.2, 'cirrhosis keeps its own rule');
 });
+
+// "Not measurable" has to be SEEN, not only in the DOM (tester T04, 16 Nov 2026: the span was there with no width, and the number read "? mmHg"). No unit test has a layout,
+// so this one holds the three things that make the words visible to what draws them, and scripts/blocked-hvpg-visible.mjs measures them in a real page (on request, never in CI).
+test('Budd–Chiari: the HVPG tiles and tab draw their words: no zero-size rule reaches them, the number is a dash, the three readings say it', async () => {
+  const fs = await import('node:fs');
+  const read = (f) => fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  const css = fs.readdirSync(new URL('../styles/', import.meta.url)).filter((f) => f.endsWith('.css')).map((f) => read(`styles/${f}`)).join('\n');
+  // Every rule that draws a status word at size 0 hangs on .unmeas (the phone's one-word swap), so a tile without that class draws its own words.
+  const zero = [...css.matchAll(/([^{}]*\.status[^{}]*)\{[^}]*font-size:\s*0\s*[;}]/g)].map((m) => m[1].trim());
+  assert.ok(zero.length && zero.every((sel) => /\.unmeas/.test(sel)), `zero-size status rules: ${zero.join(' | ')}`);
+  for (const f of ['src/ui/readouts-pane.js', 'src/ui/dock.js']) {
+    const src = read(f);
+    assert.match(src, /v == null && !x\.nm/, `${f}: a blocked HVPG tile is not .unmeas, so its words are drawn at their own size`);
+    assert.match(src, /setNone\(x\.val, nm \? NOT_SHOWN : '\?'\)/, `${f}: the number is a dash, not "?"`);
+    assert.match(src, /nm \? NOT_MEASURABLE : 'Not measured'/, `${f}: the word`);
+  }
+  const proc = read('src/ui/hvpg-proc.js');
+  assert.match(proc, /nm \? NOT_MEASURABLE : NOT_SHOWN/, 'the HVPG tab: FHVP, WHVP and HVPG say it, not a dash');
+  assert.match(css, /\.hvpg-kv dd\[data-nm="1"\]\s*\{[^}]*font-size:\s*12px[^}]*white-space:\s*normal/, 'in a size that fits its column, on two lines');
+});

@@ -869,6 +869,9 @@ export function bandSwap(fades, apply, words = fades) {
 }
 /** How many implicit wrappers putText holds (the teardown checks read it). */
 export const implicitWordsLive = () => implicitW.size;
+/** The glyph a number prints in place of no reading (countTo(el, null)): '?' unless an element asks for another (a reading that cannot be taken at all prints a dash). */
+const nones = new WeakMap();
+export const setNone = (el, glyph) => { if (nones.get(el) !== glyph) nones.set(el, glyph); };
 export const putText = (el, t) => {
   if (typeof t !== 'string') t = t == null ? '' : String(t);   // alloc-rare: only a value that is not already text (the callers pass text)
   if (putPend.has(el)) { putPend.set(el, t); return; }
@@ -1027,7 +1030,7 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
     // them, while the page's words are clear, so the number vanished for the roll's length. Such a number counts up through GPU words instead.)
     if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el) && !wordsOfEl.has(el)) { odoRoll(el, c, c.shown, v); return; }
   }
-  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, '?'); if (was) fadeNum(el); return; }
+  if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, nones.get(el) ?? '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)
     if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
     if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
