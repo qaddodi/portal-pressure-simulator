@@ -19,7 +19,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 const JUNCTION_HAIR = 1e-6;   // (mmHg: how far a junction's pressure sits off the end of its vein it is joined at, so the order along the vein holds)
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
 const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45, tauReopen: 8 };
 // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget.)
 // (tauFall: the time constant, in days of the disease clock, of the FALL of a varix's resting size. The size the pressure sets still
 // rises at once (a bleed's surge, a meal, a Valsalva strain, a worse scar), but a fall in the pressure, from a drug, a TIPS or a cured
@@ -95,6 +95,10 @@ export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5
 // constant is `base + advanced * extra`. These are model choices with no source figure, tuned to relax plausibly. Only the tone is
 // held: the plasma volume (slow.volExtra) still follows the pressure at the base pace, because holding it too would keep the flow
 // through a TIPS stent above the 190 cm/s that the TIPS Doppler talk calls a working stent (tests/tips-doppler.test.js).
+// Partial splenic artery embolization infarcts a share of the spleen's tissue (about 50 to 70 % of its volume is the usual aim) and the dead tissue is absorbed over weeks:
+// the length shrinks by the cube root of what is left and the platelets, which the spleen was pooling, climb with it (play-test, 16 Nov 2026: "embolization does not
+// change the spleen"). It moves on the disease clock like every other change of an organ's size, so it shows in a time-lapse, not in the first minute at the bedside.
+export const SPLEEN_INFARCT = { share: 0.6, tauDays: 14 };
 export const RELAX = { spleenBase: 45, spleenExtra: 165, toneBase: 30, toneExtra: 60, advLow: 0.6, advHigh: 0.85 };
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
@@ -239,6 +243,7 @@ export class Engine {
     this.pi = { vmax: -Infinity, vmin: Infinity, cycleStart: 0, value: 0, lastPh: 0 };
     this.flows = { ascitesRate: 0, hepLymph: 0, splLymph: 0 };
     this.evState = {}; this.evAvg = null;
+    this.vGrow = { VAR: 1, GV: 1 };   // (how far a varix has regrown since it was last closed off, 0 to 1: varixRegrow)
     this.newEvents = [];
     this.eventLog = [];
     this.eventCount = 0;   // every event ever pushed (the log keeps only the last 200)
@@ -269,6 +274,7 @@ export class Engine {
   }
 
   setParams(p) {
+    this.paramsRev = (this.paramsRev | 0) + 1;   // (counts the changes made to the patient: the History's events tell a patient's settling in from a change, events.js)
     const prev = this.params;
     if (prev && this.slow && this.refP) this.holdVarices(prev, p);
     this.params = structuredClone(p);
@@ -362,7 +368,7 @@ export class Engine {
     this.t = 0;
     this.eventLog = [];
     this.newEvents = [];
-    this.evState = {}; this.evAvg = null;
+    this.evState = {}; this.evAvg = null; this.vGrow = { VAR: 1, GV: 1 };
     detectEvents(this, true);
     this.newEvents = [];
     return params;
@@ -964,6 +970,7 @@ export class Engine {
       this.extf.set(this.ext); this.iapf = this.iap;
       this.fillShownJunctionPressures();
     } else this.shownMean(dt);
+    this.varixRegrow(this.quiet ? Infinity : dt);
     // Portal flow and velocity averaged over a few breaths, so the readout's status does not
     // flicker as breathing swings the instantaneous velocity across a cut-off.
     // (At the bedside, the breath and beat means of shownMean, which take the breath out exactly; the 6 s filter let a 4 s breath through at
@@ -1252,6 +1259,7 @@ export class Engine {
     const advanced = clamp((p.cirrhosis - RELAX.advLow) / (RELAX.advHigh - RELAX.advLow), 0, 1);
     const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12 - 0.6 * Math.max(0, P[this.ni.IVCS] - 5)), 9, 22);
     s.spleen += (spTarget - s.spleen) * (spTarget < s.spleen ? 1 - Math.exp(-days / (RELAX.spleenBase + RELAX.spleenExtra * advanced)) : Math.min(1, days / RELAX.spleenBase));   // (the slow fall by the exact exponential, so a long step and many short ones agree)
+    { const target = this.params.splenicRx === 1 ? SPLEEN_INFARCT.share : 0, was = s.spInf || 0; s.spInf = was + (target - was) * (1 - Math.exp(-days / SPLEEN_INFARCT.tauDays)); }   // (the infarcted share of the spleen: SPLEEN_INFARCT)
     // Chronic splanchnic vasodilation & plasma expansion (hyperdynamic circulation)
     const ppg = P[this.ni.CONF] - P[this.ni.IVCS];
     const x = clamp((ppg - 6) / 14, 0, 1);
@@ -1534,6 +1542,14 @@ export class Engine {
     return this.velocity(id) * dopplerK(EDGES[this.ei[id]]);
   }
 
+  /** A varix that was obliterated (BRTO or coils) and is open again regrows to the size the pressure sets over about VARIX.tauReopen
+   *  seconds of model time, instead of taking it in one frame (16 Nov 2026: BRTO switched off took the fundal varices from none to Large with red wale
+   *  signs at once). It is 0 while closed and 1 once regrown; the quiet steps of a settle and the disease clock take it at once. */
+  varixRegrow(dt) {
+    const g = this.vGrow || (this.vGrow = { VAR: 1, GV: 1 });
+    for (const site of ['VAR', 'GV']) g[site] = this.varixObliterated(site) ? 0 : Math.min(1, g[site] + dt / VARIX.tauReopen);
+  }
+
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
    *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough.
    *  A rise is at once; a fall waits for the wall to remodel (VARIX.tauFall, slow.vRest). */
@@ -1560,7 +1576,9 @@ export class Engine {
     // A fall in the pressure waits for the wall (VARIX.tauFall); a varix that has been closed off does not.
     const held = this.varixCut(site) ? null : this.slow.vRest?.[site];
     const rest = held != null && held > grown ? held : grown;
-    const r = site === 'VAR' ? VARIX.r0Healthy + (rest - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : rest;
+    const open = this.vGrow ? this.vGrow[site] : 1;   // (regrowing after a closure: varixRegrow; a smoothstep, so it starts and lands without a corner)
+    const regrown = open >= 1 ? rest : VARIX.r0Healthy + (rest - VARIX.r0Healthy) * open * open * (3 - 2 * open);
+    const r = site === 'VAR' ? VARIX.r0Healthy + (regrown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : regrown;
     // A Warren shunt drops the pressure in them at once, but the wall took weeks to build and takes months to go: they stay as they were,
     // slack under the low pressure (varix: the radius follows the pressure across the wall), and shrink over about three months (vCutStep).
     // Most are small or gone by a year; shunt failure or a stenosis puts the pressure back and they swell again at once.
@@ -1599,7 +1617,7 @@ export class Engine {
     if (!on(p)) { h.VAR = h.GV = null; return; }
     const started = VASO_DRUGS.some((k) => !!p.drugs?.[k] && !prev.drugs?.[k]);
     if (!started) return;
-    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
+    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P, 0, undefined, this.extf || this.ext).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
   }
   /** The diameter (mm) a varix is graded at: its diameter d now, or the size held since a drug was started, whichever is larger (holdVarices). */
   varixGraded(site, d) {
@@ -1621,9 +1639,11 @@ export class Engine {
   /** The varix at the pressures P. air (mmHg) is the pressure of the air in the lumen round it, read view-only: it is taken off the pressure
    *  across the wall and so off the radius seen, and nothing else moves. It is never sent through the solver, which would collapse the varix
    *  and choke its own collateral (the balloon's way; HVPG 16.5 → 18.0 at 20 mmHg). r0: the resting radius, when a caller has it already. */
-  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site)) {
+  varix(site, P = this.P, air = 0, r0 = this.varixTarget(site), ext = this.ext) {
     const i = this.ni[site];
-    const ptm = P[i] - this.ext[i] - air;
+    // (`ext` goes with `P`: the shown means of pressure and of the outside pressure, or this instant's of both. Pressure held at its mean under the breath's
+    // swing of the intrathoracic and abdominal pressure made the drawn and printed diameter swing with every breath, 16 Nov 2026.)
+    const ptm = P[i] - ext[i] - air;
     const ref = this.refP ? this.refP[i] : this.Pbase[i];
     // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
     // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
@@ -1639,9 +1659,9 @@ export class Engine {
   }
 
   /** The diameter (mm) a varix is seen at with 0, 1, … n − 1 mmHg of air in the lumen round it (varix above). The pressures are held. */
-  varixAir(site, P = this.P, n = 21) {
+  varixAir(site, P = this.P, n = 21, ext = this.ext) {
     const r0 = this.varixTarget(site);
-    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0).r);
+    return Array.from({ length: n }, (_, a) => 2 * this.varix(site, P, a, r0, ext).r);
   }
 
   hvpgTrue(P = this.P) {
@@ -1701,7 +1721,8 @@ export class Engine {
     // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
     this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
     this.lv = c.lv || null;
-    this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
+    this.evAvg = null; this.evStart = null;   // (the events' breath average, events.js, starts over from the restored state, which is not a patient settling in)
+    this.vGrow = { VAR: 1, GV: 1 };   // (a restored state shows its varices as they were: varixRegrow)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });

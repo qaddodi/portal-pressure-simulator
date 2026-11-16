@@ -1,6 +1,6 @@
 // Two lobule fixes of 13-14 Nov 2026 (Mohammad: "at the junction of where the lobule veins are crossing the arrows glitch" and "the lobule resolution is different than the anatomy").
 //
-// 1. Density: Settings › Figure size (the pixel budget, 1.5 MP on a Mac and an iPad, 0.5 MP on a phone) held for the anatomy's canvas only (stage-res.js figShare); the lobule and the
+// 1. Density: Settings › Figure size (the pixel budget, 1.5 MP on every device) held for the anatomy's canvas only (stage-res.js figShare); the lobule and the
 //    sinusoid were drawn at the screen's own density whatever it said, so the lobule came out sharper than the anatomy, and several times the pixels. All three now take their density
 //    from the same budget (pixel-budget.js figureDensity).
 // 2. Inlet venules: the two venules of neighbouring portal triads meet in the middle of the edge; each came in 7° off the edge, so the main vessel had a sharp V there, its chevrons

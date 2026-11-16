@@ -119,6 +119,9 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
   const reduce = reduceMotionMQ;
   const sheetMQ = matchMedia(STACK_MQ);
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  // (The menu is a sheet or a popover by the window as it is now: a window that crosses the breakpoint with the menu up closes it and opens it again in the other form, 16 Nov 2026.)
+  let reopen = null;
+  const followMQ = () => reopen?.();
   let el = null, back = null, plate = null, pv = null, coldOpen = false, open = false, hoverT = 0, hideT = 0, pvKey = null, pvTok = 0, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
@@ -128,6 +131,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
     releaseSurface(surf);
     removeEventListener('keydown', typed, true);
     removeEventListener('resize', place);
+    sheetMQ.removeEventListener('change', followMQ); reopen = null;
     vv?.removeEventListener('resize', fitSheet); vv?.removeEventListener('scroll', fitSheet);
     const panel = el, scrim = back, gone = plate, done = () => { panel.remove(); scrim?.remove(); gone?.dispose(); };
     el = back = plate = null;
@@ -639,6 +643,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
         anchor.setAttribute('aria-expanded', 'true');
         claimSurface(surf);
         addEventListener('resize', place);
+        reopen = () => { if (!open || !el || sheetMQ.matches === el.classList.contains('sheet')) return; const keepTab = tab, keepQ = query; close(); setTimeout(() => this.open(keepTab, { query: keepQ }), 0); };
+        sheetMQ.addEventListener('change', followMQ);
         vv?.addEventListener('resize', fitSheet); vv?.addEventListener('scroll', fitSheet);
         if (sheet) { el._top = null; sheetLiftSoon(); }   // (where the sheet's top rests as it opens: the first lift eases from there)
         addEventListener('keydown', typed, true);

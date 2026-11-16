@@ -81,8 +81,8 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // edge that feeds or drains them: the portal venule from the inlet's edge, the arteriole from the arterial one, the central vein from the post-sinusoidal one.
 const END_ON_EDGE = { pv: EI[LOBE.pre], ha: EI[LOBE.a], cv: EI[LOBE.post] };
 const TAU = Math.PI * 2;
-/** The lymph chevrons' spacing along a channel, as a share of the lobule's radius (16 Nov 2026: the old 0.06 was the dashes' and would stack the heads). */
-const LY_PITCH = 0.28;
+/** The lymph chevrons' finest spacing along a channel, as a share of the lobule's radius, and how many times the shader may double it (tube-lumen-glsl.js LYMPH_INK: about 110 CSS px on screen at any zoom). The phase runs over pitch * 2 ** LY_OCT. */
+const LY_PITCH = 0.02, LY_OCT = 5;
 const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~160 vessels, ~260 with the lymphatics, ~320 with the bile too
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
@@ -855,7 +855,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Figure resolution: taken up as the lobule opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "when I check manual 25% for example the lobule doesn't change") waits (lzWant) for the lobule to stand still and whole (not
   // mid-dive, mid-rise or inside a sinusoid), then eases in: resSwap.
-  // The figure's pixel budget (Settings › Figure size, frame.js figOpt('cap'), 1.5 MP on a Mac and an iPad, 0.5 MP on a phone) holds for the lobule as it
+  // The figure's pixel budget (Settings › Figure size, frame.js figOpt('cap'), 1.5 MP on every device) holds for the lobule as it
   // does for the anatomy (14 Nov 2026: the anatomy's canvas was capped and the lobule drawn at the screen's own density whatever the setting, so the two
   // pictures differed in sharpness and the lobule cost far more heat). lzCap is the cap the layers were drawn for, taken up with the scale (lzWant, resSwap).
   let lzK = renderScale(), lzCap = figOpt('cap'), lzWant = null;
@@ -1334,13 +1334,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       let E = side.pts[0], bd = Infinity;
       for (const q of side.pts) { const d = Math.hypot(q[0] - P[0][0], q[1] - P[0][1]); if (d < bd) { bd = d; E = q; } }
       const poly = [E, ...P];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0, sib: t, sibOff: Math.hypot(E[0] - P[0][0], E[1] - P[0][1]) });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       join(E[0], E[1], [side, d], R * 0.004);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
-    for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1, sib: t, sibOff: 0 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
-    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 }); addBile({ tubes, add, join, curve, at, L0, inlets, triads, C, N, N0, R, rsN, rs0, cx, cy });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey); then the Bile layer's vessels (lobule-bile.js), built with the rest, drawn only while it is on
+    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2, sib: t, sibOff: 0 }); addBile({ tubes, add, join, curve, at, L0, inlets, triads, C, N, N0, R, rsN, rs0, cx, cy });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey); then the Bile layer's vessels (lobule-bile.js), built with the rest, drawn only while it is on
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
     // flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). Only where each vessel arrives is kept here; the mask itself is worked out from the radii as drawn (lobule-mouths.js).
     const mouths = new Map();
@@ -2098,11 +2098,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
     const lyOn = lymphOn && !m.hide; const biOn = bileOn && !m.hide; if (!flowSame && biOn) bileFlowInto(flowData, tubeSet, motionOf, { R: G.R, dt, dark, still: reduce.matches, texels: FLOW_TEXELS, cssW: 1 / V.k });   // (the Bile layer: faint arrowheads toward the ductule)
     if (!flowSame && lyOn) {
-      const pitch = G.R * LY_PITCH, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
+      const pitch = G.R * LY_PITCH, ldMod = pitch * 2 ** LY_OCT, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
         const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
-        mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
+        mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % ldMod) + ldMod) % ldMod;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
         flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 5] = 1 / V.k; flowData[o + 6] = 1;   // (o + 5: the CSS px in world units, the chevrons' size rule)
         // The same lymph as the blood's streaks (the Tube's compositor, tube-lumen-glsl.js: a stream in flow texel 7, x the distance now, y the signed speed,
         // never 0, which means none): the distance advances on the blood's convention (modulo PERIOD, no allocation), coloured there by the protein in f0.z.
@@ -2110,6 +2110,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const lyS = (t.kind === 'ly' ? -1 : 1) * lyVw * 0.5;
         mo.lyD = ((((mo.lyD ?? (t.id * 977) % PERIOD) + (lyStill ? 0 : lyS * dt)) % PERIOD) + PERIOD) % PERIOD;
         flowData[o + 28] = mo.lyD; flowData[o + 29] = lyStill ? (lyS < 0 ? -1e-3 : 1e-3) : lyS;
+        // A Disse sleeve is drawn under its sinusoid, so only its rim shows: texel 7 z = the sinusoid's row + 1 and w = how far along the sleeve it starts (0 for the others), so the shader
+        // fits the heads to the rim (tube-lumen-glsl.js). Their heads, sized by the whole sleeve and centred on its axis, lay under the sinusoid: none showed (16 Nov, Mohammad).
+        flowData[o + 30] = t.sib ? t.sib.id + 1 : 0; flowData[o + 31] = t.sibOff || 0;
       }
     }
     if (!flowSame && (chev || origin)) for (const t of tubeSet) {

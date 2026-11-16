@@ -76,7 +76,9 @@ export function createView(st, live) {
   // are drawn), the labels solved whole, and the stage put back, nothing drawn in between.
   const solveTargetVT = { k: 1, x: 0, y: 0 };
   // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
-  function atTargetStage(d, fn, tgt = live.morphTarget, kept = null) {
+  // (A dry solve: the camera's lock lets its write of the view through, as it is put back before anything is drawn: slide-cam.js.)
+  function atTargetStage(d, fn, tgt = live.morphTarget, kept = null) { return live.camLock ? live.camLock.dry(() => atTargetStageDry(d, fn, tgt, kept)) : atTargetStageDry(d, fn, tgt, kept); }
+  function atTargetStageDry(d, fn, tgt, kept) {
     const keepTgt = live.morphTarget, keepVT = live.vt, keepMorph = live.morph, keepLast = live.lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [], wS = [];
     live.glSuppress = true;
@@ -179,6 +181,7 @@ export function createView(st, live) {
   const { glideXfCut, glideXfEnd, glideXfStart: glideStart, glideXfStep } = createGlideLabels({ XF_SLICE_MS, handRideEnd, labelJobDrop, labelJobStep, labelSliceRun, labelTail, refreshCTM, sitesPaint, updateLabels, xfLayer }, live);
   const glideXfStart = (to) => { xfRelCancel(); return glideStart(to); };   // (a ramp under way is cut by the next glide: it freezes its own ghosts)
   function viewXfStart(d) {
+    live.camLock?.release('view');   // (a change of view takes the camera on its own clock: slide-cam.js)
     xfRelCancel();
     glideXfCut();   // (a presenter's glide's crossfade cut by the change: its new labels stand, and are frozen below)
     live.xfHold = false;
