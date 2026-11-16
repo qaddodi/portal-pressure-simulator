@@ -19,6 +19,7 @@ import { restPass } from './rest-pass.js';
 import { classSoon, classNow, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
+import { rideIn, rideOut } from './sheet-ride.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
 import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, RISE_PX } from './ease.js';
@@ -144,6 +145,10 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
+    } else if (sheet) {
+      // (The sheet goes down on the page's frames, from wherever its entrance had got to, so its glass goes with it: sheet-ride.js.)
+      rideOut(panel, reduce.matches);
+      panel.classList.remove('pulling'); panel.classList.add('out');
     } else if (leaveFromHere(panel, () => { panel.classList.remove('pulling'); panel.classList.add('out'); })) gone?.leaveAlong();   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
@@ -627,6 +632,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
         // (In the one sheet layer, cut on the dock's top line, with its scrim: sheet-layer.js.)
         if (sheet) { el.classList.add('sheet'); el.setAttribute('aria-modal', 'true'); back = h('div', { class: 'um-scrim', onclick: () => close() }); sheetLayer().append(back); }
         sheetLayer().append(el);
+        if (sheet) rideIn(el, reduce.matches);   // (its entrance is written in the frames, not run by the compositor: the glass and the words cannot part, sheet-ride.js)
         plate = glassPlate(el) || plateFor(el, 'umenu');   // (its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js)
         openAt = performance.now(); place(); filter(); groupsIn(el);
         anchor.setAttribute('aria-expanded', 'true');

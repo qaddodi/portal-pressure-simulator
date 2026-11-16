@@ -89,13 +89,7 @@
    dock's top line is the sheet layer's (.sheet-layer above), so no move of it, a pull, a let-go, a flick, its entrance or its exit, carries a cut of its own. */
 @keyframes dock-sheet-in { from { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
 @keyframes dock-sheet-out { to { opacity: var(--edge-o, 1); transform: translateY(calc(100% + 8px)); } }
-@media (prefers-reduced-motion: no-preference) {
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { animation-name: dock-sheet-in; }
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation-name: dock-sheet-out; }
-  html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving[data-swiped], html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).pulling { animation: none; }
-}
-/* (W4) With Reduce Motion a menu sheet only fades where it rests, 120 ms each way (--d-flip); a swipe-close is the finger's own move. */
-@media (prefers-reduced-motion: reduce) { html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet) { animation: crossfade var(--d-flip) var(--ease) backwards; } html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet).leaving { animation: crossfade-out var(--d-flip) var(--ease-in) forwards; } html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):is(.leaving[data-swiped], .pulling) { animation: none; } }
+/* (16 Nov 2026) The menu sheets' entrance and exit (Settings, Why?, Layers, History, Blood, the main menu) are no CSS animation: sheet-ride.js writes them in the page's frames, so their glass goes with them; with Reduce Motion it fades (120 ms over the dock). */
 .app.thumb :is(.panel, .treat-card, .instrument-workspace.float-ui) { --card-out: thumbOut; }
 @media (prefers-reduced-motion: no-preference) {
   #app.thumb.panel-open .panel, #app.thumb .treat-card, #app.thumb .instrument-workspace.float-ui.entering { animation: thumbIn var(--d-small) var(--ease) backwards; }
