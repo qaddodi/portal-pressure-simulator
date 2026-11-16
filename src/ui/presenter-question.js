@@ -347,6 +347,8 @@ export function createQuestion(st, live) {
     }
   }
   const fpOf = (id) => { for (let i = 0; i < live.slides.length; i++) if (live.slides[i].id === id) return live.states[live.stateOf[i]]?.fp; return null; };
+  // (A trial tool's patient as enrolled: the state { fp, params } of tool.at, else of the slide its change counts from; null when neither names one.)
+  const enrolledOf = (s, i) => { const d = s.tool?.at ?? deltaOf(s, i), j = d === true ? i - 1 : live.slides.findIndex((x) => x.id === d), st = j >= 0 ? live.states[live.stateOf[j]] : null; return st?.fp ? st : null; };
   setFpAt(fpOf);   // (for {key@slide} in the words: see liveVal)
   // What a deck visuals package's instrument, visual, column or figure hook gets for slide i (slide-ext.js): the slide, its
   // model state (snapshot, params, fingerprint), its extra work (st.extra, see stepOf), the live params (with any what-if slider
@@ -359,6 +361,7 @@ export function createQuestion(st, live) {
       state: st, snap: st?.snap ?? null, params: st?.params ?? null, fp: st?.fp ?? null,
       // (ref: the fingerprint the slide counts its changes from, its delta or its tool's; the beat-by-beat card draws where the patient stood)
       ref: s.tool || s.delta != null ? refOf(s.tool?.delta != null ? { ...s, delta: s.tool.delta } : s, i) : null,
+      enrolled: s.tool?.kind === 'trial' ? enrolledOf(s, i) : null,   // (where a trial card judges its entry rules, never after the treatment: LT-2)
       extra: live.states[i]?.extra ?? null,
       whenExtra: () => stateReady(i).then((x) => x?.extra ?? null),
       liveParams: () => store.get().params,
