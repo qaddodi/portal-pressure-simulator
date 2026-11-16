@@ -48,9 +48,10 @@ test('the trial card is an instrument card: a slide keeps it as its tool, in the
 
 test('the instrument card asks its fit line of the slide\'s own patient (configure(tool, ctx): ctx.fp, ctx.params, the presenter\'s ctxOf)', () => {
   const tt = read('src/ui/tool-trial.js'), pres = presenterSource();
-  assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx, t\?\.facts \?\? null\)/, 'configure asks the fit of the context it is given, with the facts the slide\'s author supplied');
+  assert.match(tt, /configure\(t, ctx = null\) \{[^}]*fitOf\(next, ctx\.enrolled \?\? ctx, t\?\.facts \?\? null\)/, 'configure asks the fit of the context it is given, with the facts the slide\'s author supplied');
   assert.match(read('src/ui/presenter-tools.js'), /inst\.configure\?\.\(t, ctx\)/, 'the instrument path hands every instrument its slide\'s context');
   assert.match(pres, /params: st\?\.params \?\? null, fp: st\?\.fp \?\? null/, 'a context carries the slide\'s own patient');
+  assert.match(pres, /enrolled: s\.tool\?\.kind === 'trial' \? enrolledOf\(s, i\)/, 'and, for a trial card, the patient as enrolled, before the slide\'s treatment (LT-2)');
   const t = TRIALS.predesci, ctx = { fp: { hvpg: 14, varix: 3, gv: 0, asc: 0, redWale: false }, params: { cirrhosis: 1, tips: { on: false } } };
   const CASE = { decompensated: false };
   assert.equal(fitOf(t, ctx).verdict, 'unknown', 'CSPH, small varices, no ascites: the model cannot say he was never decompensated, so no match on its own');
@@ -133,7 +134,7 @@ test('the Landmark trials deck closes on the trials\' ratios on one scale, befor
   assert.ok(i > lastTrial, 'after the last trial slide');
   const f = sl[i];
   assert.equal(f.tool.kind, 'forest');
-  assert.deepEqual(f.tool.highlight, []);
+  assert.equal(f.tool.highlight, undefined, 'no highlight: every row in full ink (`highlight: []` drew nothing, deck-instruments-drawn.test.js)');
   const deckTrials = new Set(sl.filter((s) => s.tool?.kind === 'trial').map((s) => s.tool.id));
   for (const id of f.tool.ids) {
     const t = trialOf(id);

@@ -136,7 +136,7 @@ export const TIPS_CANDIDACY = {
       ask: ['Why does a TIPS add load to a failing heart?', 'It returns portal blood straight to the right atrium, so venous return and preload rise.'],
     },
     {
-      id: 'he', preset: 'cirr-decomp', params: { ...REFRACTORY, ...TIPS8 }, relax: 200, days: 30, lens: 'flow', cam: 'liver', mark: STENT, tool: { kind: 'trial', id: 'rifaximin' }, data: 'tiles', tiles: ['he', 'liver'], key: ['he'],
+      id: 'he', preset: 'cirr-decomp', params: { ...REFRACTORY, ...TIPS8 }, relax: 200, days: 30, lens: 'flow', cam: 'liver', mark: STENT, tool: { kind: 'trial', id: 'rifaximin', at: 'ascites' }, data: 'tiles', tiles: ['he', 'liver'], key: ['he'],
       vignette: 'A 63-year-old woman with refractory ascites had one episode of overt encephalopathy after a GI bleed two years ago. She takes lactulose. MELD 12.',
       caseQ: 'Does that rule out a TIPS?',
       kicker: 'The brain and age', site: 'sin', title: 'A past episode of overt encephalopathy is a reason to prepare, not to refuse', cite: 'Baveno VIII 6.14 to 6.16',

@@ -83,8 +83,8 @@ function clip(s, w, font, meas) {
 
 /**
  * The plot of these trials (records from trials.js) at width W, type size f: { texts: [{ x, y, t, look, anchor }], rects: [{ x, y, w, h, r, look }],
- * lines: [{ x1, y1, x2, y2, look }], hits: [{ id, y, h }] (each row's band, for a tap), H }. opts.highlight: the ids drawn in full ink (the trials
- * that fit the patient; every trial when null), the others quieter and after them in their group. opts.selected: the id with its row marked and
+ * lines: [{ x1, y1, x2, y2, look }], hits: [{ id, y, h }] (each row's band, for a tap), H }. opts.highlight: the ids drawn in full ink, a Set or a
+ * list (the trials that fit the patient; every trial when null or left out), the others quieter and after them in their group. opts.selected: the id with its row marked and
  * its detail line under the axis. opts.notes: { id: words } added to that detail line.
  */
 export function forestLayout(trials, W, f, meas, opts = {}) {
@@ -93,7 +93,9 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
   const say = (x, y, t, look, anchor = 'start') => { if (t) texts.push({ x, y, t, look, anchor }); };
   const fs = f * SM, ip = Math.round(f * 0.5), lh = f * 1.35;
   const font = (wt, s = f) => `${wt} ${s}px Inter`;
-  const lit = (t) => !highlight || highlight.has(t.id);
+  // (highlight as a Set (the Trials tab) or a list of ids (a deck slide's tool): a list was read as a Set, threw, and left a slide's card empty.)
+  const hl = highlight == null ? null : highlight instanceof Set ? highlight : new Set(highlight);
+  const lit = (t) => !hl || hl.has(t.id);
   const list = (trials || []).filter(Boolean);
   // Every ratio, by kind; in each kind the trials that fit first, then the order given.
   const order = (a, b) => (lit(b.t) - lit(a.t)) || (a.i - b.i);

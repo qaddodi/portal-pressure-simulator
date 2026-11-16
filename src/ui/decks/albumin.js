@@ -71,7 +71,7 @@ export const ALBUMIN_DECK = {
       ask: ['A man with refractory ascites cannot have a TIPS and is not a transplant candidate. What does the algorithm offer?', 'A home drainage device instead of repeated LVP, and long-term albumin may help (Baveno VIII 6.10, 6.11).'],
     },
     {
-      id: 'answer', cam: 'fit', tool: { kind: 'trial', id: 'answer' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'], delta: 'tap',
+      id: 'answer', cam: 'fit', tool: { kind: 'trial', id: 'answer', at: 'long' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'], delta: 'tap',
       kicker: 'Long-term albumin', site: 'sin', title: 'ANSWER tested long-term albumin and measured survival',
       line: 'The model shows the serum albumin and the ascites. ANSWER gave albumin to patients with uncomplicated ascites on diuretics and counted deaths to 18 months.',
       notes: 'ANSWER (Caraceni, Lancet 2018) randomized 440 patients at 33 hospitals in Italy to standard care with or without albumin, 40 g twice weekly for 2 weeks and then 40 g weekly, for up to 18 months. All had uncomplicated ascites on an aldosterone antagonist at 200 mg/day or more and furosemide at 25 mg/day or more. Survival at 18 months was 77% with albumin against 66% (hazard ratio 0.62). The trial was open label. Baveno VIII 6.10 is narrower than the trial: it is for recurrent or refractory ascites in a patient who cannot have a TIPS, and it is weak. The model has no deaths, so it cannot repeat the trial.',
@@ -85,7 +85,7 @@ export const ALBUMIN_DECK = {
       ask: ['Does raising a hospitalized patient\'s serum albumin to 3.0 g/dL improve outcomes?', 'No. Infection, renal dysfunction or death occurred in 29.7% against 30.2% (adjusted OR 0.98), and fluid overload was more frequent with albumin.'],
     },
     {
-      id: 'macht', cam: 'fit', tool: { kind: 'trial', id: 'macht' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'], delta: 'tap',
+      id: 'macht', cam: 'fit', tool: { kind: 'trial', id: 'macht', at: 'long' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'], delta: 'tap',
       kicker: 'Long-term albumin', site: 'sin', title: 'MACHT added midodrine to albumin and found no difference',
       line: 'MACHT gave patients with ascites on the transplant list midodrine plus albumin or placebo. Complications and 1-year mortality did not differ.',
       notes: 'MACHT (Solà, J Hepatol 2018) randomized 196 patients with cirrhosis and ascites listed for liver transplantation, double blind, to midodrine 15 to 30 mg a day plus albumin 40 g every 15 days, or to placebos, for up to a year. Renal failure, hyponatremia, infection, hepatic encephalopathy and gastrointestinal bleeding did not differ (P = 0.402), nor did 1-year mortality (P = 0.527). The abstract gives no result per arm, so the card shows none. This regimen is not Baveno VIII 6.10, which concerns albumin alone when a TIPS is not possible.',
