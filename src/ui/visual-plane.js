@@ -199,9 +199,10 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   const boxOf = (text, x, y, anchor) => { const w = est(text, fs, 0.62), x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [x0 - 3, y - fs * 0.8 - 3, x0 + w + 3, y + fs * 0.25 + 3]; };
   const put = (text, x, y, anchor, cls, must = false) => {
     const box = boxOf(text, x, y, anchor);
-    if (!must && taken.some((o) => hit(box, o))) return;
+    if (!must && taken.some((o) => hit(box, o))) return false;
     taken.push(box);
     out.push({ text, x, y, anchor, cls, box });
+    return true;
   };
   const foot = H - PAD - fs * 0.25 - 3, cut = (a, v) => (pl.cuts?.[a] || []).includes(v), ticks = [];
   const tx = (v) => pl.tickText?.[v] ?? String(v);   // (a number's own writing: 150 as 150K)
@@ -212,7 +213,16 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
   for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), tx(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
-  if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
+  // (A cut-off's number stands at the foot of its line, level with the others; where a point lies low in the plot, just beside it, the room under and beside that point is the name's,
+  // so the number takes the line's other end, the top row, if that is free. 16 Nov 2026: Heart failure's dot in the iPhone's lower left corner, a few tenths of a mmHg off, had its name
+  // sent 110 px out on a line, the corner held by the "5" of the HVPG cut-off. A point's box is the small one in keepOff (the names laid out later are wider), so both asks agree.)
+  const lowDot = (x) => keepOff.some((o) => o[2] - o[0] <= 26 && o[3] - o[1] <= 26 && o[3] > foot - fs * 1.2 && x > (o[0] + o[2]) / 2 - 2 && x - (o[0] + o[2]) / 2 < 9 * fs);
+  // (the top row's room nearest the line: its own place if free, else slid along the row, to the right, a character at a time, up to 3 characters' widths)
+  const onTop = (text, x) => { for (let d = 0; d <= 5 * fs; d += fs * 0.5) if (put(text, x + d, PAD + 3 + fs * 0.8, 'middle', 'pze-t on')) return true; return false; };
+  if (part !== 'names') for (const [, text, x, y, anchor] of marks) {
+    if (anchor === 'middle' && y === foot && lowDot(x) && onTop(text, x)) continue;
+    put(text, x, y, anchor, 'pze-t on');
+  }
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
     const forms = [...new Set(a.only ? [a[a.only]] : [a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)

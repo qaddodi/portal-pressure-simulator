@@ -11,12 +11,12 @@ test('the stage is a pure function of (stage 2 ready, stage 3 ready): 3 needs bo
 });
 
 const K = { F_SEL: 1, F_DIFFUSE: 2, F_SHADOW: 4, F_DOTTED: 8, F_NOCASE: 16, F_SPEC: 32, F_EDGE: 64, F_VEIL: 128, F_WHOLE: 256, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 0.5, LUMEN2: 0x8000, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: 'const float EDGE = 1.0;', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 24, S_OFF: 96, ALONG_GLSL: 'float alongAt(int id, float u) { return u; }' };
-const comp = { COMP_FS: (plain, streak, heads, tube) => `// comp ${plain ? 'plain' : 'full'} ${tube}`, COMP_VS: '// vs', COMP_CELL_VS: '// cell vs' };
+const comp = { COMP_FS: (plain, heads, tube) => `// comp ${plain ? 'plain' : 'full'} ${tube}`, COMP_VS: '// vs', COMP_CELL_VS: '// cell vs' };
 
 test('stage3Start starts the six programs by name: the lumen programs on the strip and web vertex shaders, the compositor builds on the compositor\'s', () => {
   const started = [];
   const gl = { deleted: [], deleteProgram(p) { this.deleted.push(p); } };
-  const s = stage3Start(gl, (g, vs, fs) => { const x = { p: { n: started.length }, vs, fs }; started.push(x); return x; }, K, '// zoom', comp);
+  const s = stage3Start(gl, (g, vs, fs) => { const x = { p: { n: started.length }, vs, fs }; started.push(x); return x; }, K, comp);
   assert.deepEqual(Object.keys(s), STAGE3_PROGRAMS);
   assert.equal(started.length, 6);
   assert.equal(s.tubeLumen.fs, s.tubeWebLumen.fs, 'one lumen text');

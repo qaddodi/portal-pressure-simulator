@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WIDE, COMPACT, SIDEWAYS_MAX_H, SIDEWAYS_WORDS, WORDS_MIN_PX, sidewaysWords } from '../src/ui/card-type.js';
+import { WIDE, COMPACT, SIDEWAYS_MAX_H, SIDEWAYS_WORDS, WORDS_MIN_PX, pairRise, sidewaysWords } from '../src/ui/card-type.js';
 
 // A phone held sideways (844 x 390) takes the Mac and iPad landscape layout: the words' card stacked over the data card at the left.
 // For a slide whose data card cannot fit at full size (the Doppler, "The hepatic veins pulse with the right atrium"), the words' card
@@ -69,4 +69,27 @@ test('390 x 844, 1180 x 820 and 1440 x 900 never take the sideways steps and kee
   }
   assert.deepEqual(round(px(820, WIDE.title, WIDE.words)), { title: 28.2, body: 16.7, buttons: 14.6 });
   assert.deepEqual(round(px(900, WIDE.title, WIDE.words)), { title: 30.9, body: 18.3, buttons: 16 });
+});
+
+// 16 Nov 2026, play-test, iPhone 844 x 390, Circulation 3: the words' zoom (0.984) left from Regular's overflowing height was still on the card while the
+// steps were judged, so the first read 11.8 px, none was kept, and the words fell back to Compact (232 px of the 390) over a chart that then ran off the screen.
+test('the steps are judged without the zoom of an earlier, larger fit', () => {
+  let fit = 0.984, cur = -1;
+  const own = { clear: () => { fit = 1; }, restore: () => { fit = 0.984; } };
+  const r = sidewaysWords((tk, bk) => { cur = SIDEWAYS_WORDS.findIndex(([a, b]) => a === tk && b === bk); return cur >= 1; }, () => 12.02 * fit, own);
+  assert.equal(r.below, true); assert.deepEqual(r.last, SIDEWAYS_WORDS[1]); assert.equal(fit, 1, 'the stale zoom stays off while a step is kept');
+  // Without the fix the same card keeps no step at all.
+  fit = 0.984; cur = -1;
+  assert.equal(sidewaysWords((tk, bk) => { cur = SIDEWAYS_WORDS.findIndex(([a, b]) => a === tk && b === bk); return cur >= 1; }, () => 12.02 * fit).last, null);
+  // None kept: the zoom is put back for the Compact fallback.
+  fit = 0.984;
+  assert.equal(sidewaysWords(() => false, () => 11, own).last, null); assert.equal(fit, 0.984);
+});
+
+test('a pair a few px too tall rises into the top margin, never closer than 4 px to the top', () => {
+  assert.equal(pairRise(7, 10, 4), 6);
+  assert.equal(pairRise(3, 10, 4), 3);
+  assert.equal(pairRise(66, 10, 4), 6);
+  assert.equal(pairRise(-5, 10, 4), 0);
+  assert.equal(pairRise(7, 3, 4), 0);
 });

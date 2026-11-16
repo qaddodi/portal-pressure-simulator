@@ -143,4 +143,19 @@ test('the goal\'s name stands where no line does (play-test B12: "Target <12" sa
   assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [60, 30]), [R - 6, 'end', edge + 12], 'a line starting under the edge: at the right');
   assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [110, 30]), [L + 6, 'start', bottom - 6], 'lines under it at both ends: low in the band');
   assert.deepEqual(goalSpot(L, R, f, edge, 120, [108], [110]), [L + 6, 'start', edge + 12], 'a band too short for a second row keeps its first spot');
+  // (A printed value over a line's head, "2.9 mm", stands where the name would: the name moves to the next spot that no value touches.)
+  const tagAt = (x, y) => [x - 30, x + 30, y - 1.8 * f, y - 0.4 * f];
+  const o = { w: 60, start: [tagAt(L + 20, 130)], end: [] };
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [130], [150], o), [R - 6, 'end', edge + 12], 'a value at the start passes the left spot over');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [130], [130], { ...o, end: [tagAt(R, 130)] }), [L + 6, 'start', bottom - 6], 'values at both ends: low in the band');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [50, 20], [60, 30], { w: 60, start: [tagAt(L + 20, 70)], end: [] }), [L + 6, 'start', edge + 12], 'a value that stands above the name does not move it');
+});
+
+test('the graph\'s readings take the settled state\'s numbers by its last seconds, so its head ends on the one number the card prints (play-test B12: 8.2 against 7.6)', async () => {
+  const { endMix } = await import('../src/ui/event-graph.js');
+  assert.equal(endMix(0, 20), 0); assert.equal(endMix(14, 20), 0, 'the model\'s own course for the first 70%');
+  assert.equal(endMix(20, 20), 1, 'whole at the end');
+  let last = 0;
+  for (let t = 0; t <= 20; t += 0.5) { const w = endMix(t, 20); assert.ok(w >= last - 1e-12 && w <= 1, 'one smooth rise'); last = w; }
+  assert.ok(endMix(17, 20) > 0.1 && endMix(17, 20) < 0.9, 'in between mid-glide');
 });

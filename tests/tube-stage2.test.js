@@ -23,7 +23,7 @@ test('stage2Start starts the five programs by name; stage2Finish gives them back
   const started = [];
   const gl = { deleted: [], deleteProgram(p) { this.deleted.push(p); } };
   const start = (g, vs, fs) => { const s = { p: { n: started.length }, vs, fs }; started.push(s); return s; };
-  const s = stage2Start(gl, start, K, '// zoom');
+  const s = stage2Start(gl, start, K);
   assert.deepEqual(Object.keys(s), STAGE2_PROGRAMS);
   assert.equal(started.length, 5);
   assert.equal(s.tubeLean.vs, s.tubeDepth.vs, 'the strip programs share a vertex shader');
