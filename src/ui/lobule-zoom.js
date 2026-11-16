@@ -1552,10 +1552,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         for (let i = N - 1; i >= iEnd; i--) leg.push(outAt(i));
         const legS = smoothPoly(leg, 2), Pe = legS[legS.length - 1], Pp = legS[legS.length - 3], tc = unit(Pe[0] - Pp[0], Pe[1] - Pp[1]), D = tr.bd;
         if (inl === inlets[tr.i * 2]) {
-          // the ductule sits on the other edge's side: the duct bends in under the portal venule's disc and comes out of it straight at the ductule
-          const Cn = [tr.x, tr.y], dl = Math.hypot(Cn[0] - Pe[0], Cn[1] - Pe[1]), Q = [Pe[0] + tc[0] * dl * 0.45, Pe[1] + tc[1] * dl * 0.45];
-          for (let k = 1; k <= 10; k++) { const u = k / 10, v = 1 - u; legS.push([v * v * Pe[0] + 2 * v * u * Q[0] + u * u * Cn[0], v * v * Pe[1] + 2 * v * u * Q[1] + u * u * Cn[1]]); }
-          for (let k = 1; k <= 8; k++) legS.push([lerp(Cn[0], D[0], k / 8), lerp(Cn[1], D[1], k / 8)]);
+          // the ductule sits on the other edge's side: the duct curves round the outside of the portal venule's disc, between it and the lymphatic, into the ductule
+          const bis = [Math.cos(tr.a), Math.sin(tr.a)], M = [tr.x + bis[0] * R * 0.064, tr.y + bis[1] * R * 0.064];
+          let tM = [-bis[1], bis[0]]; if (tM[0] * (D[0] - Pe[0]) + tM[1] * (D[1] - Pe[1]) < 0) tM = [-tM[0], -tM[1]];
+          const bez = (A, a1, b1, B) => { for (let k = 1; k <= 12; k++) { const u = k / 12, v = 1 - u; legS.push([v * v * v * A[0] + 3 * v * v * u * a1[0] + 3 * v * u * u * b1[0] + u * u * u * B[0], v * v * v * A[1] + 3 * v * v * u * a1[1] + 3 * v * u * u * b1[1] + u * u * u * B[1]]); } };
+          const d1 = Math.hypot(M[0] - Pe[0], M[1] - Pe[1]), d2 = Math.hypot(D[0] - M[0], D[1] - M[1]);
+          bez(Pe, [Pe[0] + tc[0] * d1 * 0.45, Pe[1] + tc[1] * d1 * 0.45], [M[0] - tM[0] * d1 * 0.45, M[1] - tM[1] * d1 * 0.45], M);
+          bez(M, [M[0] + tM[0] * d2 * 0.45, M[1] + tM[1] * d2 * 0.45], [D[0] + (M[0] - D[0]) * 0.3 + tM[0] * 0, D[1] + (M[1] - D[1]) * 0.3], D);
         } else {
           const P1c = [Pe[0] + tc[0] * R * 0.04, Pe[1] + tc[1] * R * 0.04], u1 = unit(P1c[0] - D[0], P1c[1] - D[1]), P2c = [D[0] + u1[0] * R * 0.04, D[1] + u1[1] * R * 0.04];
           for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; legS.push([v * v * v * Pe[0] + 3 * v * v * u * P1c[0] + 3 * v * u * u * P2c[0] + u * u * u * D[0], v * v * v * Pe[1] + 3 * v * v * u * P1c[1] + 3 * v * u * u * P2c[1] + u * u * u * D[1]]); }
