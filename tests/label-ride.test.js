@@ -13,7 +13,9 @@ test('a presenter move rides no label: they are pose-driven, and never faded for
 });
 
 test('each frame of the glide carries them on the GPU; the landing ends the ride before the labels are laid out again', () => {
-  assert.match(st, /applyVT\(\); (?:live\.)?CTM = null;\n\s+if \((?:live\.)?rideCTM\) rideStep\(\);/);
+  // (16 Nov 2026: every glide, a slide's and any other, hands its frame to followCam, whose first step is the ride: stage-glide.js)
+  assert.match(st, /applyVT\(\); (?:live\.)?CTM = null;\n\s+followCam\(u\);/);
+  assert.match(st, /function followCam\(u\) \{\n\s+if \((?:live\.)?rideCTM\) rideStep\(\);/);
   const settle = st.match(/function camSettle\(\) \{[\s\S]*?\n {2,4}\}\n/)[0];
   assert.ok(settle.indexOf('rideStop();') > 0 && settle.indexOf('rideStop();') < settle.indexOf('updateLabels(live.F)'));
 });
