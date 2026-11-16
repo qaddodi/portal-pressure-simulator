@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import './dom-shim.js';
 import { deckStates, runSteps } from './deck-states.js';
+import { curveSteps } from '../src/ui/tool-curve.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const decks = new Map();
@@ -33,6 +34,11 @@ test('the hyperdynamic notes give the ends of the cirrhosis curve', async () => 
   for (const w of [`from about ${f1(lo.co)} to ${f1(hi.co)} L/min`, `from about ${Math.round(lo.map)} to ${Math.round(hi.map)} mmHg`, `from about ${Math.round(lo.hr)} to ${Math.round(hi.hr)}/min`]) assert.ok(n.includes(w), w);
 });
 
+test('the doppler relation notes read the curve: 24 cm/s at the ring\'s HVPG, and the velocity below 15 cm/s from about 15.5 mmHg', () => {
+  const r = at('doppler', 'relation'), n = notes('doppler', 'relation');
+  assert.ok(Math.round(r.pvVel) === 24 && n.includes(`still ${Math.round(r.pvVel)} cm/s at ${f1(r.hvpg)} mmHg`), 'the ring');
+});
+
 test('the kidney and ten-years notes give the slide\'s own readings', () => {
   const k = at('kidney', 'path-carv'), n = notes('kidney', 'path-carv');
   assert.ok(n.includes(`about ${Math.round(k.sbp)}/${Math.round(k.dbp)} mmHg with a MAP of ${Math.round(k.map)} mmHg`), 'kidney path-carv blood pressure');
@@ -51,20 +57,22 @@ const KNOWN = {
   'stiffness/ssm: 50 kPa': 'an older SSM cut-off (>50 kPa)', 'hyperdynamic/relation: 6.7 L/min': 'the curve\'s end, pinned above', 'ten-years/d365: 4.4 mmHg': 'a difference of two readings, pinned above',
   'variceal-bleed/oct: 1.5 mmHg': 'the fall at rest, quoted against the bleed state',
 };
-test('no note quotes a number within a rounding step of a reading of its deck without being that reading', () => {
+test('no note quotes a number within a rounding step of a reading of its deck without being that reading', async () => {
   const bad = [];
-  for (const { d, fps } of decks.values()) d.slides.forEach((s) => {
-    if (typeof s.notes !== 'string') return;
+  for (const { d, fps: states } of decks.values()) for (const [si, s] of d.slides.entries()) {
+    if (typeof s.notes !== 'string') continue;
+    // (The readings are the deck's states and, on a curve slide that draws its own patient, every point of the curve.)
+    const fps = s.tool?.kind === 'curve' && s.tool.patient ? [...states, ...(await runSteps(curveSteps(s.tool)))] : states;
     for (const m of s.notes.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)\s?(mmHg|kPa|L\/min|cm\/s|mm)\b/g)) {
       const dp = (m[1].split('.')[1] || '').length, n = +m[1];
       let exact = false, near = null;
       for (const [j, fp] of fps.entries()) for (const k of FAM[m[2]]) {
         const v = fp[k]; if (!Number.isFinite(v)) continue;
-        if (+v.toFixed(dp) === n) exact = true; else if (Math.abs(v - n) <= (dp ? 0.35 : 0.6)) near ||= `${k} ${v.toFixed(2)} on ${d.slides[j].id}`;
+        if (+v.toFixed(dp) === n) exact = true; else if (Math.abs(v - n) <= (dp ? 0.35 : 0.6)) near ||= `${k} ${v.toFixed(2)} on ${d.slides[j]?.id ?? 'the curve'}`;
       }
       const key = `${d.id}/${s.id}: ${m[0]}`;
       if (!exact && near && !(key in KNOWN)) bad.push(`${key} is near ${near}`);
     }
-  });
+  }
   assert.deepEqual(bad, []);
 });
