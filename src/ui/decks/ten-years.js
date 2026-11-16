@@ -60,7 +60,7 @@ export const TEN_YEARS = {
       id: 'd365', tick: 'HVPG', days: 14, cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
       kicker: 'Year 2', site: 'sin', title: 'Year 2: HVPG measurement confirms CSPH',
       line: 'The HVPG is {hvpg}, up from {hvpg@d0} at diagnosis and past the {>=10 mmHg} where CSPH begins. Varices and decompensation are now possible.',
-      notes: 'Here the HVPG is measured as well, as in a study, to show the effect of carvedilol on it; in practice the LSM and platelets were enough to start carvedilol. Over two years the gradient has risen by about 4.5 mmHg, to over 13 mmHg. From about 12 mmHg the risk of variceal bleeding climbs, and the risk of ascites and other decompensation rises with each mmHg. Repeat HVPG measurements are not routine; in practice LSM, platelet count and endoscopy track this rise, and grade 1 ascites, seen only on ultrasound, may already be present without constituting decompensation.',
+      notes: 'Here the HVPG is measured as well, as in a study, to show the effect of carvedilol on it; in practice the LSM and platelets were enough to start carvedilol. Over two years the gradient has risen by about 4.4 mmHg, to 12.8 mmHg. From about 12 mmHg the risk of variceal bleeding climbs, and the risk of ascites and other decompensation rises with each mmHg. Repeat HVPG measurements are not routine; in practice LSM, platelet count and endoscopy track this rise, and grade 1 ascites, seen only on ultrasound, may already be present without constituting decompensation.',
       ask: ['His HVPG is 13 mmHg and he feels well. Does he need a drug?', 'Yes. Baveno VIII recommends carvedilol at CSPH, to prevent decompensation.'],
     },
     {
@@ -89,7 +89,7 @@ export const TEN_YEARS = {
       id: 'bleed', tick: 'Year 8', milestone: 'Bleed', days: 700, action: [BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'trace', range: 'talk' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'diuretics',
       kicker: 'Year 8', site: 'sin', title: 'Year 8: a first variceal bleed despite carvedilol',
       line: 'He has hematemesis from a {varix} varix. Octreotide or terlipressin, ceftriaxone and band ligation control it. He was already taking carvedilol. What prevents rebleeding?',
-      notes: 'The acute bleed is managed as in the Acute variceal bleeding talk: a vasoactive drug, antibiotic prophylaxis and endoscopy within 12 hours. The decision here comes afterward, once he is stable. He bled despite carvedilol, so the question is whether carvedilol has failed. He is Child–Pugh B 8 with no active bleeding at endoscopy, and his HVPG, about 14 mmHg, is under the 20 mmHg of the third criterion, so he is not a preemptive TIPS candidate (Baveno VIII 5.31).',
+      notes: 'The acute bleed is managed as in the Acute variceal bleeding talk: a vasoactive drug, antibiotic prophylaxis and endoscopy within 12 hours. The decision here comes afterward, once he is stable. He bled despite carvedilol, so the question is whether carvedilol has failed. He is Child–Pugh B 8 with no active bleeding at endoscopy, and his HVPG, about 15 mmHg, is under the 20 mmHg of the third criterion, so he is not a preemptive TIPS candidate (Baveno VIII 5.31).',
       ask: ['A man bleeds from varices while taking carvedilol. Has carvedilol failed?', 'Not on that fact alone. Baveno VIII 4.8 combines carvedilol with banding whether or not he was taking carvedilol before.'],
     },
     {
