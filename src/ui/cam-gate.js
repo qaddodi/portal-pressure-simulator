@@ -12,6 +12,7 @@ import { judgeSlideMove } from './slide-cam.js';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function createCameraGate({ presenter, stage, decks }) {
+  if (!presenter || !stage) throw new Error('cameraGate: the presenter and the stage are not ready yet');
   // (Waits until the slide has landed: no slide change running, no camera moving, for 400 ms. A case or question card is tapped away and a
   // time-lapse is sped to its end, as a person would; `lifted` says a card was, so its move's start is not counted from the press.)
   async function settled(limit = 30000) {
@@ -38,18 +39,26 @@ export function createCameraGate({ presenter, stage, decks }) {
       if (s.lifted) for (let i = fails.length - 1; i >= 0; i--) if (/after the press/.test(fails[i])) fails.splice(i, 1);
       if (n > 0) fails.push('a second slide move for one press');
       if (tr.blocked.length) fails.push(`refused writes (no effect on the move, but someone tried): ${[...new Set(tr.blocked.map((b) => b.who))].join(', ')}`);
-      out.push({ at, fails, ms: tr.plan?.ms, start: tr.press != null && tr.frames[0] ? Math.round(tr.frames[0][0] + tr.t0 - tr.press) : null, stalls: tr.stalls || [], held: tr.held.length, end: tr.end });
+      // (a late start lists the change's steps, each from the press, so the step that held it is named)
+      if (fails.some((f) => /after the press/.test(f)) && tr.steps?.length) fails.push(`steps: ${tr.steps.map(([p, t]) => `${p} ${t}`).join(', ')}, camera ${Math.round(tr.t0 - tr.press)}`);
+      out.push({ at, fails, ms: tr.plan?.ms, start: tr.press != null && tr.frames[0] ? Math.round(tr.frames[0][0] + tr.t0 - tr.press) : null, stalls: tr.stalls || [], held: tr.held.length, end: tr.end, steps: tr.steps || null });
     });
   }
+  // (decks: the app's list of decks (decks.js DECKS, an array) or a map by id; each named by its own id.)
+  const byId = new Map((Array.isArray(decks) ? decks : Object.values(decks)).filter((d) => d?.id).map((d) => [d.id, d]));
   return async function cameraGate({ decks: ids = null, back = true } = {}) {
-    const list = (ids || Object.keys(decks)).filter((id) => decks[id]);
+    const list = [].concat(ids || [...byId.keys()]);
+    const unknown = list.filter((id) => !byId.has(id));
+    if (unknown.length) throw new Error(`cameraGate: no deck named ${unknown.join(', ')} (the ids: ${[...byId.keys()].join(', ')})`);
     const moves = [];
     for (const id of list) {
-      await presenter.start(id, 0);
-      await settled();
-      const n = presenter.count?.() ?? (decks[id].slides || []).length;
+      // (a deck that does not open within a minute is reported, and the walk goes on to the next)
+      const opened = await Promise.race([Promise.resolve(presenter.start(id, 0)).then(() => true, () => false), sleep(60000).then(() => false)]);
+      if (!opened || !(await settled(60000)).ok || presenter.position?.()?.id !== id) { moves.push({ at: `${id}`, fails: ['the deck did not open'] }); continue; }
+      const n = presenter.count?.() ?? 0;
       for (let i = 1; i < n; i++) await step(id, i - 1, i, moves);
       if (back) for (let i = n - 2; i >= 0; i--) await step(id, i + 1, i, moves);
+      console.log(`cameraGate: ${id} done (${moves.filter((m) => m.at.startsWith(id + ' ') && m.fails.length).length} failing)`);
     }
     presenter.stop?.();
     const bad = moves.filter((m) => m.fails.length);

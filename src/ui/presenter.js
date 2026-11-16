@@ -509,6 +509,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const gl = booting ? 0 : ms || 300;
     const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
+    stage.camSteps?.(txn?.trail);   // (the change's steps so far, kept with the move's record: where a late start spent its time, pps.cameraGate)
     frameTo(cam, s, gl, SLIDE_OPT);   // (the slide's one move: stage-glide.js holds every other framing asked while it runs)
     caseExit = false;   // (asked of this framing only)
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)

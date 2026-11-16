@@ -3180,7 +3180,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
     /** The slide camera's recorded moves, frame by frame (slide-cam.js: plan, frames, held and refused writes, a move after the landing), for its judge. */
-    cameraTraces: (clear) => camLock.traces(clear),
+    cameraTraces: (clear) => camLock.traces(clear), camSteps: (trail) => camLock.steps(trail),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM?.slice() ?? null : null),   // (a copy: glM is kept and written in place by the next draw)
     /** For the checks: the vessel canvas as it stands (mid-gesture too), then after a whole redraw of it at the same view
