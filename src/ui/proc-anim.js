@@ -757,7 +757,7 @@ const BACK_SPEED = 1.6, RUSH_SPEED = 6, AUTO_HOLD = 1600, LAND_MS = 160, STILL_M
  * before its start. park (stepped only): the run starts already standing at stop `to`, the clock there, without playing the steps before it and without calling apply()
  * (the model already has the change: Back onto a played-through slide, his ask, 10 Nov 2026); going back past T.apply still calls unapply(). Returns { next, back, to, stop({ home }), running, at, step }.
  */
-export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null, hold = false, onHold = null, from = 0, park = false } = {}) {
+export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null, hold = false, onHold = null, from = 0, park = false, quiet = false } = {}) {
   const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
   // (hold: the last step stops where the stent is in and the balloon down, the catheter still in, for a reading to go on from there (release); from: the place, u,
   // a reading goes on from.)
@@ -769,7 +769,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
   const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0, fade: 0 };
-  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : P.columnColor || 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, fade: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : P.columnColor || 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, fade: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: !quiet, follow: false };   // (quiet: a measurement the learner starts from a card stands alone, as the HVPG catheter's readings do: the figure's names fade away while the needle works, setCatheter, and come back after)
   // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const t00 = park ? goal : from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0;   // (a parked run starts at its stop)

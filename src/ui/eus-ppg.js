@@ -69,6 +69,7 @@ export function createEusPpg() {
     tk.start();
     mon.configure({ kind: 'reading' }, { slide: { ...SLIDE }, fp }); pinLive();   // (a new run: the monitor starts afresh, waiting for the needle)
     run = playProcedure(stageRef, 'eus', {
+      quiet: true,   // (the figure's names crowded the needle's path: they fade away for the run, as under the HVPG catheter, and return after)
       read: () => store.get().frame,
       onFrame: (f, t) => mon.procAt('eus', t),
       onStep: (k) => { step = k; paint(); },
