@@ -1091,7 +1091,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // The Over time and Doppler traces record every frame from the start, open or not (main.js feeds
   // them even the frames it does not paint), so they already hold data when the learner opens them.
   // Both keep a fixed window (seconds of samples, two minutes of bins), so memory stays flat.
-  function ingest(f) { byId.scope.ingest(f); byId.doppler.ingest(f); }
+  function ingest(f) { byId.scope.ingest(f); byId.doppler.ingest(f); profile.fill?.(f); }
   function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
   /** A new patient's traces open with the steady state's last seconds already drawn (backfill.js); what they have recorded since stays. */
   function backfillTraces(hs) { byId.scope.backfill(hs); byId.doppler.backfill(hs); }

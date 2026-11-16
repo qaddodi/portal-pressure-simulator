@@ -75,3 +75,41 @@ test('a phone on its side: only the top-bar pieces over the figure column cover 
   assert.equal(topOverColumn([300, 500, 60], { ...ins, t: 20 }), 60, 'a piece over the column counts, and never lowers the inset');
   assert.equal(topOverColumn([], { ...ins, t: 20 }), 20);
 });
+
+// 16 Nov 2026, camera fit with panels open: the room is the largest free rectangle, not four edges each at the furthest card.
+import { largestFreeRect, roomiest, roomScore } from '../src/ui/card-clear.js';
+test('Tests alone in a tall window: the figure takes the room beside the 560 px card, not the strip under it (C9)', () => {
+  // 1250 x 1043 stage: top bar 64, vitals dock band 130; Tests 500 wide from the right (12 px margin), 560 high from the top bar.
+  const W = 1250, H = 1043, tests = [738, 66, 1238, 626];
+  const fr = largestFreeRect(W, H, 64, 130, [tests]);
+  assert.equal(fr.r, W - 738, 'the free room ends where the card begins');
+  assert.equal(fr.l, 0);
+  assert.equal(fr.t, 64);
+  assert.equal(fr.b, 130, 'full height down to the dock');
+  const strip = roomScore(W, H - 626 - 8 - 130);
+  assert.ok(fr.score > 2 * strip, 'much roomier than the strip under the card');
+});
+test('Treat at the top right over a Tests sheet across the bottom: the gap beside Treat wins (issue 9)', () => {
+  const W = 1440, H = 900, treat = [1028, 60, 1428, 400];
+  const fr = largestFreeRect(W, H, 56, 460, [treat]);   // (Tests as the bottom band: 460 px)
+  assert.equal(fr.l, 0);
+  assert.equal(fr.r, W - 1028);
+  assert.equal(fr.b, 460);
+  assert.ok(fr.score > roomScore(W, H - 56 - 460 - (400 - 56)), 'beats the 130 px strip under Treat');
+});
+test('no side card: the room is the whole stage between the bands', () => {
+  assert.deepEqual(largestFreeRect(800, 600, 50, 100, []), { l: 0, t: 50, r: 0, b: 100, score: roomScore(800, 450), area: 800 * 450 });
+});
+test('two cards at the sides with the figure between them: the column between wins', () => {
+  const fr = largestFreeRect(1400, 800, 60, 100, [[10, 60, 400, 700], [1000, 60, 1390, 700]]);
+  assert.equal(fr.l, 400); assert.equal(fr.r, 400);
+});
+test('roomiest keeps the edges\' way unless the free rectangle is clearly roomier, and leaves a phone alone', () => {
+  const edges = () => ({ t: 64, b: 130, l: 0, r: 512, W: 1250, H: 1043 });
+  const tall = roomiest({ ...edges(), r: 0, t: 634 }, 1250, 1043, 64, 130, [[738, 66, 1238, 626]]);
+  assert.deepEqual([tall.l, tall.t, tall.r, tall.b], [0, 64, 512, 130], 'the strip under the card gives way to the room beside it');
+  const same = roomiest(edges(), 1250, 1043, 64, 130, [[738, 66, 1238, 977]]);
+  assert.deepEqual([same.l, same.t, same.r, same.b], [0, 64, 512, 130], 'a card to the bottom: the edges\' way already is the free room');
+  const phone = { t: 96, b: 400, l: 0, r: 0, W: 390, H: 844 };
+  assert.deepEqual(roomiest({ ...phone }, 390, 844, 96, 400, []), phone, 'no side card, no change');
+});

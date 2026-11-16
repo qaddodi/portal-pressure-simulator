@@ -2457,6 +2457,8 @@ function firstRun() {
 // first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
+// Whether a sheet covers the lower part of the figure (a phone's Tests, patient chart, Treat or History), as the camera's framing counts it.
+const sheetOverFigure = () => isPhone() && (app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen());
 function showFirstHint() {
   if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
@@ -2464,12 +2466,18 @@ function showFirstHint() {
   try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
-    if (store.get().selection || presenter.active()) return;
+    if (store.get().selection || presenter.active() || sheetOverFigure()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
     const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
+    // A sheet over the figure (Tests, the chart, Treat or History on a phone) takes the hint away: it sat over the strip of figure the sheet left.
+    // Like a talk it is not counted as read: it comes again on a later visit.
+    const onOcc = () => { if (sheetOverFigure()) close('talk'); };
+    addEventListener('pps:occ', onOcc);
+    const offOcc = () => removeEventListener('pps:occ', onOcc);
+    const offBase = off; off = () => { offBase(); offOcc(); };
     // A talk beginning takes the hint away with the Explore screen it spoke of (it stayed over the slides, sticky). It is not counted as
     // read: a person who went straight to a talk meets it on their next visit to Explore.
     offTalk = store.on('presenting', (on) => { if (on) close('talk'); });
