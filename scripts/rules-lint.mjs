@@ -622,6 +622,15 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/const c = calmOf\(key\);/, 'the series asks for the trace it draws'],
   ]);
   forbid('src/ui/pressure-time.js', /for \(const k of days\.length \? Object\.keys/, 'calmDays does not calm every trace on every new day');
+  // 4. A deck's slide states are worked out behind the Present menu (the 3 to 8 s wait after the press was the first slide's patient): the row under the pointer or
+  // focus warms its deck, the cache holds the states from the start of the work (so a press joins it, never a second sequence), and a start takes them.
+  need('src/ui/menu.js', [[/for \(const ev of \['pointerenter', 'focus', 'pointerdown'\]\) row\.addEventListener\(ev, \(\) => lib\.warm\?\.\(d\.id\)/, 'a deck row warms its deck as the pointer, focus or a touch reaches it']]);
+  need('src/ui/presenter-library.js', [[/testing: live\.TESTING, start, warm,/, 'the library offers warm to the menu']]);
+  need('src/ui/presenter.js', [
+    [/const key = d\.mine \? null : d\.id, c = getCalc\(\); if \(key\) cache\.set\(key, \{ states: mine \}\);/, 'the cache holds a deck\'s states from the start of the work: a start while it runs adopts the same array'],
+    [/const hit = key && cache\.get\(key\);[^\n]*\n\s+if \(hit\) \{ states = hit\.states; waiters = \[\]; return; \}/, 'prepare takes the states a warm or an earlier talk made, finished or not'],
+    [/if \(sl\?\.\[0\]\?\.preset\) solve\(d, sl, \[\], solvePlan\(sl\)\);/, 'only a deck whose first slide names its patient is warmed (the calc needs nothing of the viewer\'s own)'],
+  ]);
 }
 
 // Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit

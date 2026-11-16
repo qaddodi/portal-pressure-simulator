@@ -74,6 +74,8 @@ import { tileVal, liveFp, PT_FREE, ptPush, sv, glBox, fitted, fitNow, est, fitCh
 import { LOBULE_CAM, lensSpec, PRESSURE_KEY, keyNodes, TARGETS, EDGE_TONE, VAL_TONE, rateTone, slideLens, SITE_NODE, slideTargets } from './presenter-words.js';
 import { createLibrary } from './presenter-library.js';
 import { createStart } from './presenter-start.js';
+import { instrumentOf } from './slide-instrument.js';
+import { oneLadder } from './teach-extras.js';
 import { createScales } from './presenter-scales.js';
 import { createLadders } from './presenter-ladders.js';
 import { createZoom } from './presenter-zoom.js';
@@ -285,57 +287,55 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
     slides.forEach((s, i) => { if (changes(s) || i === 0) last = i; stateOf[i] = last; });
-    // Patients a visual compares that no slide shows ({ preset, params?, days? } rows): computed after the slides, each fresh.
-    // (And the patients a compare slide's buttons switch to: { label, preset }.)
-    const extraRows = slides.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
-    const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()];
-    extraOf = new Map(extra.map((o, k) => [xKey(o), slides.length + k]));
-    const hit = key && cache.get(key);
+    const pl = solvePlan(slides);
+    extraOf = new Map(pl.extra.map((o, k) => [xKey(o), slides.length + k]));
+    const hit = key && cache.get(key);   // (a deck warmed ahead from the Present menu, or presented before: its states, and those still being computed, are this talk's)
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))];
-    const presetAt = []; let pid = store.get().presetId;
-    slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
-    extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
-    const deckNow = deck;
-    // The preparation failed (a rejected snapshot, a sequence that threw, or slides that could not be computed): this talk's
-    // waiters are settled with nothing (never left parked), and the show ends with a word rather than holding its cover up.
-    const prepFailed = () => {
+    solve(deck, slides, mine, pl);
+  }
+  // The calc's steps for a list of slides: each slide's model step, then the patients a visual compares that no slide shows (and a compare slide's buttons switch to), each fresh.
+  function solvePlan(sl) {
+    const extraRows = sl.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
+    const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()], presetAt = []; let pid = store.get().presetId;
+    sl.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
+    extra.forEach((o, k) => { presetAt[sl.length + k] = o.preset; });
+    return { extra, presetAt, steps: [...sl.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))] };
+  }
+  // Computes a deck's states into `mine`; the cache has it from the start, so a start while it runs joins it (prepare adopts the same array, and the waiters it leaves are
+  // settled here as each state arrives). A deck that is not the one on show only fills the cache. A failure settles the talk's waiters with nothing and ends it with a word.
+  async function solve(d, sl, mine, pl) {
+    const key = d.mine ? null : d.id, c = getCalc(); if (key) cache.set(key, { states: mine });
+    const failed = () => {
+      if (key && cache.get(key)?.states === mine) cache.delete(key);
       if (c.broken) { c.kill(); if (calc === c) calc = null; }
-      if (states !== mine || deck !== deckNow) return;
+      if (states !== mine || deck?.id !== d.id) return;
       for (const w of waiters) w.res(null);
-      waiters = [];
-      stop();
-      toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
+      waiters = []; stop(); toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
     };
-    (async () => {
-      try {
-      const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
+    try {
+      const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; });
-      const end = await c.sequence(steps, first, (m) => {
-        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
-        if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
-        if (m.before) st.before = { ...m.before, presetId: presetAt[m.i] };
+      const end = await c.sequence(pl.steps, first, (m) => {
+        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: pl.presetAt[m.i] };
+        if (m.start) st.start = { ...m.start, presetId: pl.presetAt[m.i] };
+        if (m.before) st.before = { ...m.before, presetId: pl.presetAt[m.i] };
         if (m.extra) st.extra = m.extra;
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
         waiters = waiters.filter((x) => x.i !== m.i);
       });
-      if (end?.type !== 'error') {
-        if (key) cache.set(key, { states: mine });
-        // (A data-card chart that runs its own points (a curve over model days) starts now, behind the talk, so it is ready by
-        // its slide: slide-ext.js tools' warm.)
-        // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
-        // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
-        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
-        return;
-      }
-      // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
-      // engine, and the show ends with a word rather than holding its cover up for ever.
-      prepFailed();
-      } catch (err) { console.error(err); prepFailed(); }
-    })();
+      // (Only the working set, the slide shown and its neighbours, warms its data-card charts now; the rest are warmed by the slide preparation as the talk reaches them: recs-production-120hz §16, B16.)
+      if (end?.type !== 'error') { if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) <= 2) safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); }); return; }
+      failed();   // (the slides could not be computed, most often a page left open across an update: the next try starts a fresh engine)
+    } catch (err) { console.error(err); failed(); }
+  }
+  // A deck's states computed ahead, behind the Present menu (the row the pointer or focus is on): the 3 to 8 s wait after the press was the first slide's patient being
+  // worked out. Only a deck whose first slide names its patient (the calc needs nothing of the viewer's own), with no talk on, once.
+  function warm(id) {
+    const d = typeof id === 'string' && !deck && !cache.has(id) ? DECKS.find((x) => x.id === id) : null, sl = d?.slides?.length ? withOverview(d).slides.map(oneLadder).map(zoneCam).map(instrumentOf) : null;
+    if (sl?.[0]?.preset) solve(d, sl, [], solvePlan(sl));
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
   // it was last presented with, so the values in the handout's words are the ones its slides show.
@@ -2204,7 +2204,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     setTimeout(() => c.remove(), 700);   // (after its fade, Reduce Motion too)
   }
 
-  const { library, readLink } = createLibrary({ deckNumbers, fromScript, pview, rerenderHome, start }, live);
+  const { library, readLink } = createLibrary({ deckNumbers, fromScript, pview, rerenderHome, start, warm }, live);
 
 
   return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,
