@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dataPlan, textPlan, keepData, keepText, eases, cardSnap, cardChanged, cardBack } from '../src/ui/card-keep.js';
+import { dataPlan, textPlan, keepData, keepText, eases, carries, cardSnap, cardChanged, cardBack } from '../src/ui/card-keep.js';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { presenterSource } from './split-src.js';
 
@@ -248,7 +248,8 @@ test('in the shipped decks the rule keeps cards between consecutive slides, and 
         assert.ok(!own(a) && !own(b), `${d.id} ${i}: no slide with its own order of cards`);
         // (A time-lapse keeps only a card that reads the live model, with the patient staying into it.)
         if (a.lapse) assert.ok(eases(a.tool), `${d.id} ${i}: a time-lapse's card that stays reads the live model`);
-        if (b.lapse) assert.ok(!swap && eases(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);
+        // (or the chart that holds across the talk, tool-shift.js: drawn from the deck's states, it plays the days itself)
+        if (b.lapse) assert.ok((!swap && eases(b.tool)) || carries(b.tool), `${d.id} ${i}: a time-lapse keeps its card only with the patient staying and a card that eases`);
         if (swap) assert.ok(eases(b.tool), `${d.id} ${i}: a recording instrument is never kept through a new patient`);
       }
     }
