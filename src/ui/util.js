@@ -198,17 +198,17 @@ function toastFit(wrap, t, msg, actions, sub = null) {
 // exists, it closes the card as soon as it is built. ?restpass=0 runs it on a plain zero timer instead, still never in a frame.)
 const toastBuildRest = (job) => { job.close = toastBuild(job.msg, job.kind, job.opts); if (job.early) job.close(job.early); };
 const NO_TOAST = Object.freeze({}), NOOP_CLOSE = () => {};
-export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null } = NO_TOAST) {
+export function toast(msg, kind = '', { actions = null, sticky = false, onClose = null, present = false, sub = null, life = 0 } = NO_TOAST) {
   if (!msg) return NOOP_CLOSE;
   // While presenting, the projected figure stays clear: only errors, cards with buttons and what the presenter asked for
   // (present: a link copied, a slide number typed) show.
   if (kind !== 'bad' && !actions?.length && !present && document.getElementById('app')?.classList.contains('presenting')) return NOOP_CLOSE;
-  const opts = { actions, sticky, onClose, sub };   // alloc-rare: one record for each message raised (a message, not a frame)
+  const opts = { actions, sticky, onClose, sub, life };   // alloc-rare: one record for each message raised (a message, not a frame)
   const job = { msg, kind, opts, close: null, early: null };   // alloc-rare: one record for each message raised
   restPass(() => toastBuildRest(job));   // alloc-rare: one closure for each message raised
   return (why = 'user') => { if (job.close) job.close(why); else job.early ||= why; };   // alloc-rare: the close handed back with each message raised
 }
-function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
+function toastBuild(msg, kind, { actions, sticky, onClose, sub, life: ownLife = 0 }) {
   // (Every message is a note (Mohammad, 13 Nov 2026, "new pop up for everything"): at the foot, a dot or the error's mark, the words, the buttons under them, no ×.
   // index.html has the one wrap, #toastsFoot; the wrap at the top was taken out.)
   const wrap = document.getElementById('toastsFoot');
@@ -257,7 +257,8 @@ function toastBuild(msg, kind, { actions, sticky, onClose, sub }) {
   restPass(() => toastFit(wrap, t, msg, actions, sub));
   // A toast with buttons stays until it is dismissed or its button is pressed (WCAG 2.2.1: a keyboard or switch user needs more than 9 s to tab down to it,
   // and a missed update offer never comes back); one without lasts a few seconds, and stays while the pointer or the keyboard is on it.
-  const keep = sticky || !!actions?.length, life = sub ? 5200 : 4200, arm = () => { clearTimeout(timer); if (!keep && !gone) timer = setTimeout(close, life); };
+  // (`life`: an offer that is not an update or an error, a feedback ask, lasts that long though it has buttons, and stays while the pointer or the keyboard is on it, so it never sits over a slide for good.)
+  const keep = (sticky || !!actions?.length) && !ownLife, life = ownLife || (sub ? 5200 : 4200), arm = () => { clearTimeout(timer); if (!keep && !gone) timer = setTimeout(close, life); };
   t.addEventListener('pointerenter', () => clearTimeout(timer)); t.addEventListener('focusin', () => clearTimeout(timer));
   t.addEventListener('pointerleave', arm); t.addEventListener('focusout', arm);
   arm();
