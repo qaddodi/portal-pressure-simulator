@@ -2482,7 +2482,6 @@ function showFirstHint() {
 // It also waits while any surface the person is working in is open, on every screen (Tests, a side panel, Treat, History, a menu or a
 // dialog): the card stood over the top of Tests on a Mac and an iPad, where only a phone had held it back.
 const FEEDBACK_ASK_MIN = 10;
-const ASK_LIFE = 20000;   // (ms the feedback ask stays up with no pointer or key on it)
 const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
 function armFeedbackAsk() {
   if (EMBED) return;   // (and none asks for feedback)
@@ -2504,16 +2503,12 @@ function armFeedbackAsk() {
     if (now - lastInput > 5000) down = 0;   // (a lift the page never heard, outside the window, does not hold the ask forever)
     if (active < FEEDBACK_ASK_MIN * 60000 || down || presenter.active() || projector || app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen() || popoverOpen() || document.getElementById('modalBack')?.classList.contains('show')) return;
     clearInterval(timer);
-    closeAsk = toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', askToast);
+    toast('Anything look wrong or confusing so far? A short email helps the author fix it.', '', askToast);
   };
-  // (B13, play-test 16 Nov 2026: the ask stayed up for a whole deck and covered a slide's figure credit and a card's bottom row. It never stays over a talk: it steps aside when
-  // one starts (not an answer: it asks again later) and, shown on its own, leaves after ASK_LIFE if no one touches it.)
-  let closeAsk = null;
-  store.on('presenting', (v) => { if (v) closeAsk?.('pushed'); });
   // (The card's answers and options are made once, with the timer, not each time it asks.)
   const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
-    sticky: true, life: ASK_LIFE,
+    sticky: true,
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
       if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)

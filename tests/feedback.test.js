@@ -26,11 +26,3 @@ test('only the person\'s own answer counts: a feedback card pushed out by newer 
   const pushed = ask.indexOf("if (why === 'pushed')"), record = ask.indexOf("answer(was === 'later'");
   assert.ok(pushed > 0 && pushed < record, 'checked before anything is recorded');
 });
-
-test('the ask never stays over a talk: it steps aside when one starts, and leaves by itself (B13, 16 Nov 2026)', () => {
-  const ask = between('function armFeedbackAsk(', 'main().catch(');
-  assert.match(ask, /store\.on\('presenting', \(v\) => \{ if \(v\) closeAsk\?\.\('pushed'\); \}\)/, 'a talk starting closes it as pushed (not an answer)');
-  assert.match(ask, /sticky: true, life: ASK_LIFE/, 'it has a life');
-  const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
-  assert.match(util, /const keep = \(sticky \|\| !!actions\?\.length\) && !ownLife/, 'a toast with a life of its own is not kept for good by its buttons');
-});

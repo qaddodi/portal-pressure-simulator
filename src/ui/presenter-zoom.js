@@ -836,6 +836,9 @@ export function createZoom(st, live) {
       }
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
+      // (7d, play-test 16 Nov 2026: a centred card that grows as an answer opens re-centres, so everything moved 26 px. Its height with every answer open is kept, --pz-open-h, and the CSS
+      // hangs its top at the place that height centres on (.pz-panel.pz-grows), so an answer opening only lengthens it downward: the top and everything above the answer stay still.)
+      if (el.classList.contains('pz-panel')) { if (all) el.style.setProperty('--pz-open-h', `${readMetric(el, 'offsetHeight')}px`); else el.style.removeProperty('--pz-open-h'); el.classList.toggle('pz-grows', !!all); }
       if (all) { all.classList.remove('pzc-all'); void readMetric(all, 'offsetHeight'); all.classList.remove('pzc-still'); }
       if (split) {
         measureUnder(el);   // (once, at the fit it ends with)
