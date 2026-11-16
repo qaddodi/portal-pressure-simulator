@@ -54,6 +54,15 @@ export const CAUDATE = {
   outline: 'M573.0 401.0 C571.7 395.7 573.1 389.5 573.2 383.7 C573.3 377.9 573.3 372.2 573.4 366.4 C573.5 360.6 573.4 354.9 573.6 349.1 C573.7 343.3 573.7 337.5 574.4 331.8 C575.0 326.1 575.6 320.1 577.4 314.8 C579.3 309.5 581.9 301.5 585.6 299.9 C589.4 298.2 596.3 301.5 599.9 304.9 C603.6 308.3 605.4 315.1 607.3 320.5 C609.2 325.9 610.4 331.6 611.5 337.3 C612.6 342.9 613.3 348.7 613.8 354.4 C614.3 360.2 614.5 365.9 614.4 371.7 C614.2 377.5 614.0 383.3 613.1 388.9 C612.2 394.6 611.6 400.9 609.1 405.7 C606.5 410.6 602.7 416.2 598.0 417.9 C593.3 419.5 585.1 418.3 581.0 415.4 C576.8 412.6 574.3 406.3 573.0 401.0 Z',
   arrows: [[594, 297, 594, 281], [590, 418, 590, 434]],
 };
+/** The plate box (world units) the caudate lobe fills at its fullest (grown about its anchor, as Budd–Chiari grows it) with its enlargement
+ *  arrows: what a camera frames for a slide that shows it, so the lobe is never cut off at the frame's edge. */
+export function caudateBox() {
+  const n = CAUDATE.outline.match(/-?\d+(?:\.\d+)?/g).map(Number), [ax, ay] = CAUDATE.anchor, [gx, gy] = CAUDATE.grow;
+  const xs = [], ys = [];
+  for (let i = 0; i + 1 < n.length; i += 2) { xs.push(ax + (n[i] - ax) * (1 + gx)); ys.push(ay + (n[i + 1] - ay) * (1 + gy)); }
+  for (const [x1, y1, x2, y2] of CAUDATE.arrows) { xs.push(x1, x2); ys.push(y1, y2); }
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);

@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { slideTargets, camOn } from '../src/ui/presenter.js';
 import { isCamOn, regionBox, unionBox, growBox } from '../src/ui/cam-frame.js';
-import { ORGANS } from '../src/ui/anatomy.js';
+import { ORGANS, caudateBox } from '../src/ui/anatomy.js';
 import { pathCmds, flattenCmds } from '../src/ui/shape-gl.js';
 import { beatCount, beatView } from '../src/ui/slide-beats.js';
 import { anchorsOf, missed, roomFor, vesselRun, middleOf, stationAnchor, ROOM, INSET } from '../src/ui/cam-room.js';
@@ -24,7 +24,7 @@ const polyBox = (d) => {
   const pts = flattenCmds(pathCmds(d), 1).flatMap((p) => Array.from({ length: p.pts.length / 2 }, (_, i) => [p.pts[2 * i], p.pts[2 * i + 1]]));
   return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
 };
-const organBox = (id) => (id === 'liver' ? REGIONS.liver : ORGANS.find((o) => o.id === id) ? polyBox(ORGANS.find((o) => o.id === id).d) : null);   // (the caudate lobe lies inside the liver's region)
+const organBox = (id) => (id === 'liver' ? REGIONS.liver : id === 'caudate' || id === 'caudate-lobe' ? caudateBox() : ORGANS.find((o) => o.id === id) ? polyBox(ORGANS.find((o) => o.id === id).d) : null);   // (the caudate lobe: its own box, stage.focusBox)
 const union = (boxes) => boxes.filter(Boolean).reduce((a, b) => (a ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])] : b), null);
 const runBox = (id) => { const r = vesselRun(id); return r ? union(r.map(([x, y]) => [x, y, x, y])) : null; };
 
