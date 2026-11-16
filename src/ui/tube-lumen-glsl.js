@@ -61,7 +61,7 @@ const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
  * The ink runs from a cool, pale-protein tone at 0 % protein to albumin amber at 100 %.
  */
 export const LYMPH_INK = {
-  onLight: { low: [0.16, 0.30, 0.24], high: [0.52, 0.26, 0.0] },     // the ink on a light channel: deep blue-green at 0 %, dark amber-brown at 100 %
+  onLight: { low: [0.0, 0.42, 0.5], high: [0.6, 0.36, 0.02] },      // the ink on a light channel: a clear teal at 0 %, amber at 100 % (16 Nov: the deep blue-green read grey on the light sleeves)
   onDark: { low: [0.82, 0.96, 0.96], high: [1.0, 0.84, 0.32] },      // the ink on a dark channel: pale cyan at 0 %, bright gold at 100 %
   luma: [0.45, 0.6],     // the channel's luma (of vc): under the first it is dark (light ink), over the second light (dark ink), eased between
   ramp: [0.1, 0.9],      // protein 0 … 1 (lyProt 0.42 … 0.84): the low ink below the first, the high above the second

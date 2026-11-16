@@ -709,7 +709,7 @@ export default [
   { file: 'src/ui/lobule-paint.js', need: [/c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22:'] },
   { file: 'src/ui/lobule-zoom*', need: [/const rs = g\.rs0 \* SIN_NARROW \//, 'Fable review (16 Oct), graphics G18, G20, G21 and G22: (drawn narrower)'] },
   { file: 'src/ui/lobule-zoom*', need: [/const sinP = \[\.\.\.L0, \.\.\.L1, \.\.\.L2\]\.map\(\(t\) => \(\{ rs: rsN \*/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22: (the cells are laid out against the narrower lumen)'] },
-  { file: 'src/ui/lobule-zoom*', need: [/const lyOff = rsN \+ rs0 \* 1\.1;/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22: (the space of Disse keeps its gap from the sinusoid wall)'] },
+  { file: 'src/ui/lobule-zoom*', need: [/const lyOff = 0;/, 'Wet Disse (Mohammad, 16 Nov 2026, replaces the 16 Oct gap of G18, G20-G22): the space of Disse is a sleeve centred on its sinusoid, drawn under it'] },
   { file: 'src/ui/lobule-zoom*', need: [/return segOf\(t\) === 'sin' \? sinDull\(c\) : c;/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22: (the GPU sinusoids)'] },
   { file: 'src/ui/lobule-zoom*', need: [/const quietCopy = \(t, bg\) => \{[\s\S]*?gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22:'] },
   { file: 'src/ui/lobule-zoom*', need: [/if \(q && q\.k === k && q\.cv\.src === t\.cv && q\.cv\.width\) return q;/, 'Fable review (16 Oct), graphics G18, G20, G21 and G22: (kept while the tile and the tone are the same)'] },

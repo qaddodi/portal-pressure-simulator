@@ -9,7 +9,7 @@ import { FX_GPU } from './fx-gl.js';
 import { LIGHT } from './light.js';
 import { flareAt } from './lobule-mouths.js';
 import { FADE_MID, FIELD_RS, NEIGHBOUR_FLAT, SIN_NARROW, dullSinusoidInto, fadeOuter, fieldBlend, fieldDof, greyStep, neighbourBlur, surroundGrade } from './lobule-look.js';
-import { lensModeOf, lobuleStateInto, lymphRate } from './lobule-model.js';
+import { disseJ, lensModeOf, lobuleStateInto, lymphRate } from './lobule-model.js';
 import { fibrousBand, fibrousCuff, fibrousTract, scarGrowth } from './lobule-paint.js';
 import { lerp } from './num.js';
 import { isGreyLens } from './organ-dim.js';
@@ -430,9 +430,9 @@ export function createLobuleField(st, live) {
     }, 0));
   }
   // (The model's values now, written in place into the target record each frame; the eased ones are a record of their own.)
-  const rzTg = { sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0 };
-  const rzFill = (o, m) => { o.sin = m.zone.sin; o.congU = m.congU; o.fibPre = m.fibPre; o.fibPost = m.fibPost; o.art = m.art; o.lr = lymphRate(m); return o; };
-  const rzOf = () => live.rz || (live.rz = rzFill({ sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0 }, live.model));   // alloc-once: the eased values are made with the first reading, and again after a reset
+  const rzTg = { sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0, p1: 0, p3: 0, iap: 0, alb: 0, sg: 0 };
+  const rzFill = (o, m) => { o.sin = m.zone.sin; o.congU = m.congU; o.fibPre = m.fibPre; o.fibPost = m.fibPost; o.art = m.art; o.lr = lymphRate(m); o.p1 = m.P1; o.p3 = m.P3; o.iap = m.iap ?? 5; o.alb = m.alb ?? 4; o.sg = m.sigma ?? 0.15; return o; };
+  const rzOf = () => live.rz || (live.rz = rzFill({ sin: 0, congU: 0, fibPre: 0, fibPost: 0, art: 0, lr: 0, p1: 0, p3: 0, iap: 0, alb: 0, sg: 0 }, live.model));   // alloc-once: the eased values are made with the first reading, and again after a reset
   function easeRadii(dt) {
     const tg = rzFill(rzTg, live.model);
     if (!live.rz) { rzOf(); return false; }
@@ -461,14 +461,14 @@ export function createLobuleField(st, live) {
       // The arteriole's twig into zone 1 is a fine, faint thread (6 Nov: at 0.0055 it read as a thick red bar; see TW_ALPHA).
       case 'tw': return Math.max(0.8, R * 0.0026 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyWr(m.lr, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
+      // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
+      // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
+      case 'ly': { const j = disseJ(m, t.rho[i]); return rs * (t.lvl === 2 ? 1.3 : t.lvl === 1 ? 1.15 : 1) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;
     }
   }
-  // The space of Disse narrows to nothing as it nears the central vein.
-  const lyTaper = (rho) => 0.06 + 0.94 * smooth(0.13, 0.42, rho);
   // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
   const lyWr = (lr, k) => 1 + k * smooth(1, 4, lr) - 0.12 * (1 - smooth(0.3, 1, lr));
   // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
@@ -480,7 +480,7 @@ export function createLobuleField(st, live) {
   const lyF = (m) => smooth(1, 4, lymphRate(m));
   const lyProt = (m) => clamp((m.lyProt - 0.42) / 0.42, 0, 1);
   // (The lymph's colour at three depths of protein, light and dark; written into the caller's own triple.)
-  const LY_LIGHT = { lo: [0.92, 0.94, 0.88], mid: [0.88, 0.92, 0.82], hi: [0.82, 0.89, 0.74] }, LY_DARK = { lo: [0.72, 0.76, 0.69], mid: [0.7, 0.77, 0.66], hi: [0.64, 0.75, 0.58] };
+  const LY_LIGHT = { lo: [0.8, 0.91, 0.92], mid: [0.76, 0.9, 0.91], hi: [0.72, 0.88, 0.9] }, LY_DARK = { lo: [0.13, 0.33, 0.37], mid: [0.14, 0.36, 0.4], hi: [0.15, 0.39, 0.43] };   // (the lymph's teal, the hue of the app's --tr-ivc)
   function lyInkInto(out, m, dark) {
     const p = lyProt(m), c = dark ? LY_DARK : LY_LIGHT;
     if (p < 0.45) { const u = p / 0.45; for (let i = 0; i < 3; i++) out[i] = lerp(c.lo[i], c.mid[i], u); }
@@ -491,7 +491,7 @@ export function createLobuleField(st, live) {
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   const TW_ALPHA = 0.45;   // the arteriole's twig, faint: zone 1's arterial inflow is a hint beside the portal inflow, not a second vessel
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.5, lt: 0.8, lv: 1.1 };
+  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.2, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -582,9 +582,9 @@ export function createLobuleField(st, live) {
   // (style: the lobule's streaks are blood look D, as the anatomy's: the baked tile read twice a pixel, blood-tile.js; Mohammad, 5 Nov 2026.)
   const bloodArg = { alpha: 0, on: false, chev: false, look: '', origin: false, clock: 0, style: STYLE_D, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   const selWas = [];   // (the ids of the selection the attributes were last made for)
-  const LYD = [0, 0, 0], DISSE_DEEP = [0.79, 0.86, 0.74], DISSE_DEEP_DARK = [0.62, 0.7, 0.58];
+  const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
+  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (live.drawKey === '' || cw !== live.dW || ch !== live.dH) return false;

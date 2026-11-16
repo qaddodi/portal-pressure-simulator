@@ -1305,7 +1305,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // lymphatic vessel in each portal tract.
     // The portal tract's own lymphatic, end-on beside the venule (on its outer side, away from the arteriole and ductule).
     for (const tr of triads) { const d = R * TRIAD_D; tr.lv = add('lv', dot(tr.x + Math.cos(tr.a) * d, tr.y + Math.sin(tr.a) * d), { tri: tr.i, lymph: true }); }   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-    const lyOff = rsN + rs0 * 1.1;   // (rs0 × 2.1 before the sinusoids narrowed: the same gap from their wall)
+    const lyOff = 0;   // (Wet Disse, 16 Nov 2026: the space of Disse is a sleeve centred on its sinusoid, drawn under it)
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // Along each edge, from its midpoint to the triad at either end, in the portal tract just outside
     // the inlet venule: its course offset outward (so the venule stays in view, the lymph beneath it),
@@ -2022,7 +2022,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (lymphOn) {
           LY = lyInkInto(LY_TMP, m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
           // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
-          const deep = dark ? DISSE_DEEP_DARK : DISSE_DEEP, f = 0.45 * lyF(m);
+          const deep = dark ? DISSE_DEEP_DARK : DISSE_DEEP, f = 0.85 * lyF(m);
           for (let i = 0; i < 3; i++) LYD[i] = lerp(LY[i], deep[i], f);
         }
         const greyed = origin && lk >= 1;
@@ -2037,7 +2037,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           // Every vessel seen end-on (those two, the arteriole, the bile ductule: a disc, a vessel cut across) gets the long vessels' pale band just
           // inside its wall instead (F_RING), all round, so it reads as the cut end of a tube (recommendations/picture-blood-fills-look.md, item 9).
           const endOn = t.kind === 'cv' || t.kind === 'pv' || t.kind === 'ha' || t.kind === 'bd';
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           // (Row layout: the vessel's two end colours around its wall, then alpha, 1, depth, flags; its length; its outline.)
           if (isBd) { put3(o, BD_FILL); put3(o + 4, BD_FILL); }
           else if (isArt) { put3(o, art); put3(o + 4, art); }
