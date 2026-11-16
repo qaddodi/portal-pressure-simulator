@@ -22,7 +22,7 @@ The depth and stencil are one DEPTH24_STENCIL8 buffer on the layer's own framebu
 
 Mohammad's brief (10 Nov): that depth tube with smoothed joints, a cel-shaded cartoon look and a black outline.
 The plan is `docs/recommendations/tube-renderer-plan.md`; this file says what was built. Built by four threads: A `src/ui/tube-geo.js`
-(the geometry and the strip's vertex shader), B `src/ui/tube-cel-glsl.js` (`celShade`), C `src/ui/blood-particles.js` (blood style 3, P),
+(the geometry and the strip's vertex shader), B `src/ui/tube-cel-glsl.js` (`celShade`), C (`src/ui/blood-particles.js`, blood style 3, P: deleted with the Streaks option, 16 Nov 2026),
 D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js`, the picking in `veins-gl.js`).
 
 ## The seam
@@ -94,7 +94,7 @@ is each row's `z`: `zK` 1, `hK` 0.008, `hRef` 22 (the largest radius, 21.42, `no
 `?perf`: `vessels: tube` and the gauge `lobule vessel renderer`. `tests/tube-lobule-programs.test.js`.
 Under Tube the lobule's paths: a whole draw is the Tube pass; `drawRows` (the pulse and every recolour) draws the changed rows' cells by `meshCellsPass` (most cells: a whole draw); the pinch's
 lower layer and the one-pass zoom frames are off while a geometry renderer draws (`!meshUse()` guards), so a zoom frame is a whole Tube draw; the kept picture and `keepBlood` read the layer and the flow
-targets (same encodings) and the composite's blood style P through `compBind`, which the half-size streak program and the wide copy's draws share.
+targets (same encodings) through `compBind`, which the wide copy's draws share. (The blood styles and the half-size streak program went with the Streaks option, 16 Nov 2026.)
 
 ## The varyings and the exact skirt (brief S2-A, for stage 2)
 
@@ -160,13 +160,13 @@ the Tube's others and finished apart from them; `MG.gen` counts a binning).
 ## Stage 3: the lumen layer (brief S3-D, 10 Nov 2026)
 
 **What it is.** Stage 3 is stage 2 plus a lumen layer: the blood, the dye and the origin tint are drawn by the Tube's own lumen programs into a texture of their
-own, and the compositor reads that texture (`lumenL`) in place of its lumen section, the second flow target (`gbuf2`) and the half-size streak pass. The Tube
+own, and the compositor reads that texture (`lumenL`) in place of its lumen section, the second flow target (`gbuf2`). (The half-size streak pass no longer exists.) The Tube
 is at stage 3 when stage 2 is drawing webs and the six stage 3 programs are ready (`tubeStage(ready, ready3)` in `tube-stage2.js`; no address keeps stage 2 any more, `?tube=2` is gone).
 A failed stage 3 program leaves stage 2, never the classic pass (`finishTube3` is separate from `finishTube2` and from `finishTube`; `meshUse` names none of them).
 
 **Programs** (`stage3Sources`, `stage3Start`, `stage3Finish` in `tube-stage2.js`, started with the stage 2 four, one compile for the strip's and the web's lumen fragment
 shader, the shader objects shared by text): `tubeLumen` (`tubeStripVS` + `tubeLumenFS`), `tubeWebLumen` (`tubeWebVS` + `tubeLumenFS`), and the compositor's Tube builds
-beside the four it has: `compTube`, `compTubeCell`, `plainTube`, `plainTubeCell` (`COMP_FS(plain, false, false, 1)` over `COMP_VS` / `COMP_CELL_VS`, now exported). The streak build is not
+beside the four it has: `compTube`, `compTubeCell`, `plainTube`, `plainTubeCell` (`COMP_FS(plain, false, 1)` over `COMP_VS` / `COMP_CELL_VS`, now exported).
 needed. The arrowheads' quads program is the compositor's own heads build, reused: it reads `gbuf` only.
 
 **The lumen layer** (`createLumenTarget`): one `RGBA8` texture and a `DEPTH_COMPONENT24` renderbuffer on a framebuffer of their own, the vessel layer's size
@@ -202,8 +202,7 @@ still-lumen signature includes the stage so a lumen drawn the other way is drawn
 
   When stage 3 failed, the stage 2 gauge adds `, stage 3: <programs> failed`.
 
-**Known differences (stage 3).** The three under "Joins made of geometry". The blood shows in the lumen in front, at that vessel's opacity (as it did, read from geometry). No half-size
-streak pass in Tube. Where a see-through vessel of a later tier lies over a lumen, the lumen under it shows no moving blood (only the surface in front draws blood). The lumen layer is a second
+**Known differences (stage 3).** The three under "Joins made of geometry". The blood shows in the lumen in front, at that vessel's opacity (as it did, read from geometry). Where a see-through vessel of a later tier lies over a lumen, the lumen under it shows no moving blood (only the surface in front draws blood). The lumen layer is a second
 pass over the same geometry on every blood frame; its cost is the `lumen layer` row.
 
 **Tests.** `tests/tube-stage3.test.js` (the stage choice as a pure function, the programs' start and finish, the target, the lumen pass's draw order, the
@@ -366,13 +365,13 @@ owner of `veins-gl.js` exports it (the list reads `VESSEL_VS` and `COMP_VS`). `t
 declarations, in pieces in `COMP_U` so `COMP_FS` lays each where it stood), `compConsts()`, `compBasics()` (`hsh`, `h01`, `over`), `compBloodFns()`
 (the noise styles, the particles, `radAt`, `flowD`, `flowDrift`, `rootDD`, `lymphAt`, `castAt`, `bloodAt`, `originAt`), `compBendFn()`, `compDyeFns()`,
 and `compLumenFns()` for another shader. `N_SAMPLES`, `ORIGIN_GREY`, `LANE_K`, `S_OFF`, `ALONG_GLSL` and `ROWS_GLSL` moved with them (veins-gl.js
-re-exports what it exported). Functions that read `gbuf`, `gbuf2`, `base` or `halfL` are only `main`, which stays. A shader that includes the text
+re-exports what it exported). Functions that read `gbuf`, `gbuf2` or `base` are only `main`, which stays. A shader that includes the text
 needs `#define PLAIN 0|1` before it. `tests/comp-fs-old-builds.test.js` holds the four old builds byte for byte.
 
-**Part 2.** `COMP_FS(plain, streak, heads, tube = 1)`:
+**Part 2.** `COMP_FS(plain, heads, tube = 1)` (the `streak` argument went with the Streaks option, 16 Nov 2026):
 
 - A new `uniform sampler2D lumenL;` (premultiplied colour of the lumen in front, alpha its coverage x the vessel's opacity), read at the texel `base`
-  is read at (filtered at `lowUV` on a tier frame, as `base` is). `gbuf2`, `halfL`, the blood's helpers and the dye's are not in the text.
+  is read at (filtered at `lowUV` on a tier frame, as `base` is). `gbuf2`, the blood's helpers and the dye's are not in the text.
 - The lumen section is one mix. With `vis = clamp(L.a / max(v.a, 1e-3), 0, 1)` (the lumen's share of the layer's alpha, which is what `vis` was) and
   `F = min(L.rgb / max(L.a, 1e-4), 1)`: `col = mix(col, F, vis)`, `col` the layer's colour `v.rgb / v.a`. The old section applied each effect as
   `col = mix(col, X, k * vis)`; with the effects folded into `F` the lumen is `F` where it covers whole (vis 1: the interior, and a whole ghosted
@@ -381,7 +380,7 @@ needs `#define PLAIN 0|1` before it. `tests/comp-fs-old-builds.test.js` holds th
 - `bloodOnly`: a pixel with `L.a == 0` is left as drawn (the layer the blood is in). `stillOn`: the row in front is read from `gbuf` and the same
   `flow` column test is made (no second row). The arrowheads the compositor draws itself (`chevQuad` 0) keep their text and read `gbuf` for the row, arc,
   across and share. So `gbuf` is read once, only for those two uses.
-- `streak` is ignored with `tube` (the Tube has no half-size pass); `heads` ignores `tube` (the quads read `gbuf` and `gbuf2` and draw the same heads).
+- `heads` ignores `tube` (the quads read `gbuf` and `gbuf2` and draw the same heads).
 
 ## Surgical sutures (13 Nov 2026, S1 of the suture mocks)
 
