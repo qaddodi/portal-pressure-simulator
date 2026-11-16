@@ -165,13 +165,22 @@ export function translateInto(t, out) {
 
 /** The inline transform and translate of one element, read as numbers and kept: parsed again only when the text changed. */
 export class Inline {
-  constructor() { this.ts = UNSET; this.tok = true; this.tx = 0; this.ty = 0; this.us = UNSET; this.uok = true; this.ux = 0; this.uy = 0; }
+  constructor() { this.ts = UNSET; this.tok = true; this.tx = 0; this.ty = 0; this.us = UNSET; this.uok = true; this.ux = 0; this.uy = 0; this.bt = UNSET; this.bu = UNSET; }
 }
 /** The element's inline transform (str) as a translation: true with m.tx, m.ty set, or false when it is anything else. */
 export function inlineShift(m, str) {
   if (str !== m.ts) { m.ts = str; m.tok = shiftInto(str, PAIR); m.tx = PAIR[0]; m.ty = PAIR[1]; }
   return m.tok;
 }
+/** An inline transform that is no translation, as a reason to read the page: true the first time that text is seen on the element, false for
+ *  the same text again. The page read with it holds it already (a motion that cannot be followed from the numbers asked for a read in every
+ *  frame it stood, and a view switch read the glasses' boxes and styles on most frames: play-test, 16 Nov 2026); a change of the text is a new
+ *  reason, and so is its return after a translation. Call it only when inlineShift answered false; inlineShiftOk clears it. */
+export function inlineShiftNew(m, str) { if (m.bt === str) return false; m.bt = str; return true; }
+export function inlineShiftOk(m) { m.bt = UNSET; }
+/** The same for the inline translate property. */
+export function inlineTranslateNew(m, str) { if (m.bu === str) return false; m.bu = str; return true; }
+export function inlineTranslateOk(m) { m.bu = UNSET; }
 /** The element's inline translate property (str): true with m.ux, m.uy set, or false. */
 export function inlineTranslate(m, str) {
   if (str !== m.us) { m.us = str; m.uok = translateInto(str, PAIR); m.ux = PAIR[0]; m.uy = PAIR[1]; }
