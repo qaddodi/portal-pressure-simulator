@@ -1487,11 +1487,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // tract's bile ductule. Plates near the middle of an edge end blind (the watershed); no ring, no branching inside the lobule.
     if (BILE === 'f') {
       const unit = (x, y) => { const L = Math.hypot(x, y) || 1; return [x / L, y / L]; };
-      const rsK = { s0: 1, s1: 1.15, s2: 1.3 }, off0 = rsN * 2.25;
+      const rsK = { s0: 1, s1: 1.15, s2: 1.3 };   // (clear of the sinusoid, its wall and its widest Wet Disse sleeve, so no stretch hides under it)
       const smoothPoly = (P, n = 1) => { let Q = P; for (let k = 0; k < n; k++) Q = Q.map((q, i) => (i === 0 || i === Q.length - 1 ? q : [(Q[i - 1][0] + 2 * q[0] + Q[i + 1][0]) / 4, (Q[i - 1][1] + 2 * q[1] + Q[i + 1][1]) / 4])); return Q; };
       const sideOf = (ch, par) => { const dP = unit(par.pts[0][0] - par.pts[1][0], par.pts[0][1] - par.pts[1][1]), dC = unit(ch.pts[N - 2][0] - ch.pts[N - 1][0], ch.pts[N - 2][1] - ch.pts[N - 1][1]); return dP[0] * dC[1] - dP[1] * dC[0] >= 0 ? 1 : -1; };
       const lanePts = (T, side, from) => {
-        const P = T.pts, out = [], off = off0 * (rsK[T.kind] || 1) / 1;
+        const P = T.pts, out = [], off = rsN * (rsK[T.kind] || 1) * 1.25 + rs0 * 0.62 + Math.max(2, R * 0.008);
         for (let i = N - 1 - from; i >= 0; i--) {
           const a = P[Math.min(N - 1, i + 1)], b = P[Math.max(0, i - 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]);
           out.push([P[i][0] - ty * side * off, P[i][1] + tx * side * off]);
@@ -1501,7 +1501,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const nearIdx = (pts, x, y) => { let b = 0, bd = Infinity; for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - x, pts[i][1] - y); if (d < bd) { bd = d; b = i; } } return b; };
       // the inlet's outward normal at point i (away from the central vein)
       const outN = (inl, i) => { const a = inl.pts[Math.max(0, i - 1)], b = inl.pts[Math.min(N - 1, i + 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]); let nx = -ty, ny = tx; if (nx * (inl.pts[i][0] - cx) + ny * (inl.pts[i][1] - cy) < 0) { nx = -nx; ny = -ny; } return [nx, ny]; };
-      const J = N0 === 8 ? 3 : 2, rIn = R * 0.012;
+      const J = N0 / 2, rIn = R * 0.012;   // (every plate's channel reaches the edge duct: none ends blind)
       const halfInfo = new Map();   // inlet id -> { inl, e, h, conn: [{ic, canal}] }
       L0.forEach((leaf, li) => {
         const e = leaf.edge, k = leaf.k ?? (li % N0), h = k < N0 / 2 ? 0 : 1, jj = h === 0 ? k : N0 - 1 - k;
