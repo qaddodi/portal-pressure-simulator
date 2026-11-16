@@ -73,6 +73,7 @@ import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
+import { focusBack } from './focus-flow.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { createSampleOwing } from './frame-samples.js';
@@ -1357,7 +1358,7 @@ function openSettings(anchor, withSearch = false) {
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
-      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyBody()) }),
+      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),
       fullscreenControl()),
     menuSection('Appearance',
@@ -1664,10 +1665,8 @@ function syncPanelToggle() {
 // (Safari does not focus a clicked button, so the card's own button stands in for the opener.) A card put away because
 // another opens keeps focus where it is.
 function giveFocusBack(card, to) {
-  const a = document.activeElement;
-  if (a && a !== document.body && !card.contains(a)) return;
-  // (A button that is not drawn takes no focus: focus() leaves it where it is, with no box read to ask first.)
-  if (to?.isConnected) to.focus(FOCUS_NO_SCROLL);
+  // (A button that is not drawn takes no focus, and a card opened by a click on the figure has no opener: focus-flow.js hands it to the figure, never the page.)
+  focusBack(card, to);
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
@@ -1849,6 +1848,10 @@ function wireFloating() {
     const ac = card?.el, acUp = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') + 8 : 0;
     const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8 + acUp);
     if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
+    // (While a talk plays, the deck's own controls fill the foot of the screen (the slide pill and Exit, under the card on a phone): the toasts it lets through, errors
+    // and cards with buttons, come down from the top bars instead, never over a control or the card's words (B20, 16 Nov 2026). --toast-top: the top bar's foot.)
+    const toastTop = px(Math.max(0, readBox(tb).bottom) + 8);
+    if (pubVals.toastTop !== toastTop) { pubVals.toastTop = toastTop; document.documentElement.style.setProperty('--toast-top', toastTop); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }

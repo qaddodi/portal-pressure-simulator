@@ -507,7 +507,7 @@ export function createQuestion(st, live) {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: NOT_MEASURABLE }, noneEl(), h('span', { class: 'sr-only' }, NOT_MEASURABLE_LC));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return pendEl();
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
-      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
+      if (isRef(r, n)) return h('td', { class: k === 'map' ? 'num ref bp' : 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
       // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
@@ -515,7 +515,7 @@ export function createQuestion(st, live) {
       // (miss, missPart: a gradient that does not span this patient's resistance, or spans only part of it (the Gradients talk's summary): its arrow
       // dimmed, with an outlined tag that says so.)
       const miss = r.miss.includes(k) ? 'Misses' : r.missPart.includes(k) ? 'Misses part' : '';
-      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (miss ? ' miss' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: miss ? `${v}, ${miss.toLowerCase()} the resistance` : v },
+      return h('td', { class: 'num dir' + (k === 'map' ? ' bp' : '') + (d ? '' : ' zero') + (rel ? ' rel' : '') + (miss ? ' miss' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: miss ? `${v}, ${miss.toLowerCase()} the resistance` : v },
         arrowEl(d), miss ? h('span', { class: 'pz-miss', 'aria-hidden': 'true' }, miss) : null, h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}${miss ? `, ${miss.toLowerCase()} the resistance` : ''}`));
     };
     // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,

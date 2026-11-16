@@ -38,10 +38,10 @@ test('a menu: named, focused from the keyboard, focus handed back; a dialog trap
   const u = read('src/ui/util.js');
   const pop = u.slice(u.indexOf('export function popover('), u.indexOf('export function fadeWhileMore'));
   assert.match(pop, /role: 'dialog', 'aria-modal': asSheet \? 'true' : null, 'aria-label': anchor\.getAttribute\?\.\('aria-label'\)/);   // (a phone's sheet is modal for a screen reader: SHELL-7)
-  assert.match(pop, /if \(anchor\.matches\?\.\(':focus-visible'\)\) setTimeout\(/);
+  assert.match(pop, /const byKey = !!anchor\.matches\?\.\(':focus-visible'\);\n\s+setTimeout\(\(\) => \{ if \(openMenu\?\.el === el\) focusIn\(el, \{ keyboard: byKey \}\)/);   // (16 Nov 2026: focus goes in however it was opened: the keyboard to the first control, a mouse or finger to the menu itself, focus-flow.js)
   const close = u.slice(u.indexOf('export function closePopover'), u.indexOf('/** Over the thumb dock'));
-  assert.match(close, /el\.contains\(document\.activeElement\) && openMenu\.anchor\.isConnected\) openMenu\.anchor\.focus/);
-  assert.ok(close.indexOf('anchor.focus') < close.indexOf('el.inert = true'), 'focus moves before the menu goes inert');
+  assert.match(close, /focusBack\(el, openMenu\.anchor\)/);
+  assert.ok(close.indexOf('focusBack(') < close.indexOf('el.inert = true'), 'focus moves before the menu goes inert');
   const open = u.slice(u.indexOf('export function openModal'), u.indexOf('export const isModalOpen'));
   assert.match(open, /if \(!back\.classList\.contains\('show'\)\) modalReturn = /);
   assert.match(open, /appEl\.inert = true/);

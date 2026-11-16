@@ -32,8 +32,8 @@
 .app:not(.presenting) .vdock:not(.mini) > .nb-views { bottom: calc(100% + 8px); }   /* (8 px above the play bar) */
 .nb-views #viewSeg { position: relative; display: flex; gap: 2px; min-width: 0; height: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .nb-views #viewSeg button { position: relative; flex: 0 0 auto; min-width: 0; min-height: 0; height: 30px; padding: 0 14px; border-radius: 15px; font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; white-space: nowrap; }
-/* (The painted pill is 30 px; the touch reaches 6 px past it above and below, to the pill's edge, unseen.) */
-.nb-views #viewSeg button::after { content: ""; position: absolute; inset: -6px 0; }
+/* (The painted pill is 30 px; the touch reaches 7 px past it above and below, 44 px in all, unseen.) */
+.nb-views #viewSeg button::after { content: ""; position: absolute; inset: -7px 0; }
 .nb-views #viewSeg button[aria-pressed="true"] { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; color: var(--text); }
 /* (The gliding piece, seg-glide.js, wears this look: a 30 px pill tinted with the text colour. While the pill folds it travels on the fold's clock, below.) */
 .nb-views #viewSeg.seg-glide::before { background: color-mix(in srgb, var(--text) 9%, transparent); box-shadow: none; border-radius: 15px; }
@@ -606,3 +606,6 @@
   @keyframes shimmer { }
 }
 
+html.thumb-ui :where(.tl-split .ib.play, .tl-ff, .lens-btn, .card-close, .pal-x, .sheet-head .ib, .um-x, .um-link) { position: relative; }   /* (play-test C6, 16 Nov 2026: a phone's controls are 44 px to touch: the ones painted smaller keep their look and take an invisible 44 px box centred on them, by the layout and not the pointer; the speed chip and the pin keep their own, their ::after and border being taken) */
+html.thumb-ui :is(.tl-split .ib.play, .tl-ff, .lens-btn, .card-close, .pal-x, .sheet-head .ib, .um-x, .um-link)::after { content: ''; position: absolute; inset: auto; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); translate: -50% -50%; background: none; border: 0; }
+html.thumb-ui #labels .lb-pick { stroke: transparent; stroke-width: 24px; stroke-linejoin: round; }   /* (a label the GPU draws: a transparent stroke on its pointer rect reaches 12 px past it all round; the rect's size, which the label solver and the credit read, is the same) */

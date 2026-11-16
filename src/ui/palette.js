@@ -19,13 +19,17 @@ import { SURGICAL, SURGICAL_BY_ID, shuntName, surgicalVerbs } from './surgical-s
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
+const EMPTY_ORDER = ['Treat', 'Go to', 'Patient', 'Time', 'Present'];
 const FOCUS_NO_SCROLL = Object.freeze({ preventScroll: true });
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
+
+// (A phone's field is narrow: its words are short enough for the width and the field ends one that still overflows in an ellipsis, never mid-letter.)
+const placeholderFor = () => innerWidth < 600 ? 'Vessel, patient or treatment' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…';
 
 export function createPalette({ ctx }) {
   const surgical = surgicalVerbs({ store, updateParams, select: (sel) => ctx.select(sel), toast });
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: placeholderFor(), 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
   const list = h('div', { class: 'pal-list glides', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
   const hl = h('div', { class: 'pal-glide', 'aria-hidden': 'true' });   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
@@ -41,13 +45,15 @@ export function createPalette({ ctx }) {
   function commands() {
     const st = store.get();
     const cmds = [];
-    const add = (group, title, run, { kw = '', num = null, hint = '' } = {}) => cmds.push({ group, title, run, kw: norm(title + ' ' + kw), num, hint });
+    // (when: false leaves a command out: a take-down is offered only for what is in place, so "Remove TIPS" never shows for a patient with no TIPS.)
+    const add = (group, title, run, { kw = '', num = null, hint = '', when = true } = {}) => { if (when) cmds.push({ group, title, run, kw: norm(title + ' ' + kw), num, hint }); };
+    const P = st.params;
     // Parameters with a number
     add('Change', 'Cirrhosis', (n) => updateParams((p) => { p.cirrhosis = Math.min(1, Math.max(0, (n ?? 60) / 100)); return p; }, { label: 'Cirrhosis' }), { num: '%', kw: 'liver fibrosis', hint: 'cirrhosis 60 → 60%' });
     add('Treat', 'TIPS', (n) => updateParams({ tips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'TIPS' }), { num: 'mm', kw: 'stent shunt transjugular', hint: 'tips 8 → an 8 mm stent' });
-    add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down' });
+    add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down', when: !!P.tips?.on });
     add('Treat', 'DIPS', (n) => updateParams({ dips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'DIPS' }), { num: 'mm', kw: 'stent shunt direct intrahepatic caudate budd chiari', hint: 'dips 8 → an 8 mm stent' });
-    add('Treat', 'Remove DIPS', () => updateParams({ dips: { on: false } }, { label: 'Remove DIPS' }), { kw: 'take down' });
+    add('Treat', 'Remove DIPS', () => updateParams({ dips: { on: false } }, { label: 'Remove DIPS' }), { kw: 'take down', when: !!P.dips?.on });
     add('Change', 'Serum albumin', (n) => updateParams({ albumin: Math.min(5, Math.max(1.5, n ?? 3)) }, { label: 'Serum albumin' }), { num: 'g/dL', kw: 'protein oncotic' });
     add('Change', 'Right-heart contractility', (n) => updateParams({ contractility: Math.min(1.6, Math.max(0.15, (n ?? 50) / 100)) }, { label: 'Contractility' }), { num: '%', kw: 'heart failure rv' });
     add('Change', 'Tricuspid regurgitation', (n) => updateParams({ tr: Math.min(1, Math.max(0, (n ?? 80) / 100)) }, { label: 'TR' }), { num: '%', kw: 'tr heart valve' });
@@ -71,7 +77,7 @@ export function createPalette({ ctx }) {
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
     // The surgical shunts, as the Treat card's Procedures tab makes them (surgical-shunts.js), each with its take-down.
     for (const x of SURGICAL) add('Treat', shuntName(x), () => surgical.placeShunt(x.id), { kw: `${x.kw} ${x.sub}` });
-    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}` });
+    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}`, when: SURGICAL_BY_ID[id].key === 'portocaval' ? !!P.portocaval : SURGICAL_BY_ID[id].on(P) });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time
@@ -109,7 +115,12 @@ export function createPalette({ ctx }) {
     const num = numM ? parseFloat(numM[0]) : null;
     const words = norm(q.replace(/-?\d+(\.\d+)?/g, ' ')).split(/\s+/).filter(Boolean);
     const cmds = commands();
-    if (!words.length && num == null) return cmds.filter((c) => ['Time', 'Treat'].includes(c.group)).slice(0, 10).map((c) => ({ c, num: null }));
+    // (An empty field offers a few of each thing its placeholder names, not one group: treatments, structures, patients, time, talks.)
+    if (!words.length && num == null) {
+      const left = { Treat: 3, 'Go to': 2, Patient: 2, Time: 2, Present: 1 }, out = [];
+      for (const c of cmds) if (left[c.group] > 0) { left[c.group]--; out.push({ c, num: null }); }
+      return out.sort((a, b) => EMPTY_ORDER.indexOf(a.c.group) - EMPTY_ORDER.indexOf(b.c.group));
+    }
     const scored = [];
     for (const c of cmds) {
       let score = 0, ok = true;
@@ -228,6 +239,7 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     clearTimeout(leaveT); back.classList.remove('leaving');
+    input.placeholder = placeholderFor();
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
     if (document.documentElement.classList.contains('thumb-ui')) { rideStop(box); rideIn(box, reduceMotionMQ.matches, D_SMALL, 8); }   // (the Search sheet rises from behind the dock on the page's frames, so its glass and its words are one piece: sheet-ride.js)
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
