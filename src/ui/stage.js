@@ -1,6 +1,7 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
+import { breath } from './slide-read.js';
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
@@ -146,6 +147,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
+    labelFresh: false, labelSceneDone: null, camTouched: false,   // (the labels' history-free solve: stage-labels.js labelSceneOf)
     caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
     scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
@@ -2053,7 +2055,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let slideFp = null;
   store.on('presentFp', () => { slideFp = null; });
   const pinned = () => (store.get().presenting ? slideFp || store.get().presentFp : null);
-  const breath = (v) => Math.max(0.8, Math.abs(v) * 0.08);   // (how far the live model may breathe from a pinned number and still read it)
   const { LABEL_GLIDE_MS, siteLeave, sitesPaint: sitesPaint$ } = createSitesPaint({ NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, buildSegs, easeFrame, easeInOut, late, lineHits: (r, m, skip) => lineHits(r, m, skip), nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto }, live);
   function sitesPaint(...a) { return sitesPaint$(...a); }   // <stage-split stub>
   const { scan, scanCardsRead, scanPaint, scanTick, scanTipLocal, setScanProbe } = createScan({ NO_LIST, SCAN_BOX, gMatrix, late, nextFrame, organEls, organG, readFrame, refreshCTM, sites, stageBox, viewMoving, watch }, live);
@@ -3022,7 +3023,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     normalOutline(ids) { normal.want = !!ids?.includes('spleen'); normalSync(); },
     ripple(from, to) { ripple(from, to); },
     changeRef(P) { changeRef(P); },
-    siteFp(fp) { slideFp = fp; if (sites.list) sites.fp = fp; },   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
+    siteFp(fp) { if (fp && store.get().presenting) store.set1('presentFp', fp); slideFp = fp; if (sites.list) sites.fp = fp; },   // (the lobule's labels read the same fingerprint, from the store: lobule-model.js pinToSlide)   // (the numbers the slide's tiles now show: a what-if, a time-lapse)
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (fp) slideFp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const [k, el] of [...sites.made]) siteLeave(k, el); else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'); a treatment's
      *  shots are 'way' (its whole route) and 'tip' (the stretch it works on). arc: a long move pulls back and comes in. */
@@ -3269,7 +3270,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
     resZigs: () => [...resMade.values()].flatMap((g) => { const p = g.cur?.pts ? Array.from(g.cur.pts) : [], out = []; for (let i = 0, o = 0; i < g.lens.length; o += g.lens[i], i++) out.push({ pts: p.slice(o, o + g.lens[i]), band: g._bandPx || 0 }); return out; }),   // (for tests: each zigzag, world, and its half band in px)
-    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
+    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)), zones: (live.zoneRects || []).map((r) => [r.x0, r.y0, r.x1, r.y1]) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     /** For ?lap's restore drill: whether the GPU figure is up and how many times its screen was copied onto the canvas (the frame end's one write; it counts on across a restore). */
     figureShows: () => ({ gl: wrap.classList.contains('gl-on'), lost: !!veins?.lost, shows: veins?.screenShows ?? 0 }),

@@ -19,6 +19,7 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
+import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { stageCovered } from './seen.js';
 import { diveAlong } from './dive-map.js';
 import { h, fmt, clamp, lerp } from './util.js';
@@ -717,7 +718,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   function lymphTxt(slot, tall) {   // the lymph's reading on one line (the no-break space before the dot keeps the caption from splitting it)
     const m = model;
     if (m.hide) return '?';
-    if (LV[slot] !== m.lymph || LV2[slot] !== m.lyProt) { LV[slot] = m.lymph; LV2[slot] = m.lyProt; LS[slot] = `${fmt(m.lymph, 1)}~mL/min${tall ? ' ' : '\u00a0'}· Protein ${Math.round(m.lyProt * 100)}%`; }   // alloc-rare: when the number changed
+    if (LV[slot] !== m.lymph || LV2[slot] !== m.lyProt) { LV[slot] = m.lymph; LV2[slot] = m.lyProt; LS[slot] = `${lymphText(m.lymph)}~${LYMPH_UNIT}${tall ? ' ' : '\u00a0'}· Protein ${Math.round(m.lyProt * 100)}%`; }   // alloc-rare: when the number changed
     return LS[slot];
   }
   const PV = new Float64Array(2).fill(NaN), PS = [];
@@ -1178,7 +1179,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     LKN[n++] = Math.round(VW.fe.l); LKN[n++] = Math.round(VW.fe.t); LKN[n++] = Math.round(VW.fe.r); LKN[n++] = Math.round(VW.fe.b);
     for (let i = 0; i < VW.ins.length; i++) LKN[n++] = Math.round(VW.ins[i]);
     LKN[n++] = Math.round(S.lum * 1000); LKN[n++] = S.act > 0.5 ? 1 : 0; LKN[n++] = Math.round(S.por * 20); LKN[n++] = m.hide ? 1 : 0;
-    LKN[n++] = Math.round(m.P2 * 10); LKN[n++] = Math.round(m.lymph * 10); LKN[n++] = Math.round(m.lyProt * 100); LKN[n++] = Math.round(m.P1 * 10); LKN[n++] = Math.round(m.P3 * 10);
+    LKN[n++] = Math.round(m.P2 * 10); LKN[n++] = lymphDay(m.lymph); LKN[n++] = Math.round(m.lyProt * 100); LKN[n++] = Math.round(m.P1 * 10); LKN[n++] = Math.round(m.P3 * 10);
     LKN[n++] = phoneMQ.matches ? 1 : 0; LKN[n++] = Math.round(labelK() * 1000);
     let same = lkValid && lkGeo === geoKey && lkBlock === blockKey();
     for (let i = 0; same && i < n; i++) if (LKN[i] !== LKP[i]) same = false;
@@ -1191,7 +1192,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const DN = new Float64Array(8), DP = new Float64Array(8);
   function descChanged() {
     const m = model;
-    DN[0] = Math.round(S.por * 4); DN[1] = S.col > 0.15 ? 1 : 0; DN[2] = S.act > 0.4 ? 1 : 0; DN[3] = m.hide ? 1 : 0; DN[4] = Math.round(m.P2); DN[5] = Math.round(m.lymph * 10); DN[6] = Math.round(m.lyProt * 100);
+    DN[0] = Math.round(S.por * 4); DN[1] = S.col > 0.15 ? 1 : 0; DN[2] = S.act > 0.4 ? 1 : 0; DN[3] = m.hide ? 1 : 0; DN[4] = Math.round(m.P2); DN[5] = lymphDay(m.lymph); DN[6] = Math.round(m.lyProt * 100);
     let same = descValid;
     for (let i = 0; same && i < 7; i++) if (DN[i] !== DP[i]) same = false;
     if (same) return false;
@@ -1310,7 +1311,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`]; // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and its proteins pass through the open pores into the space of Disse.'
       : S.por > 0.25 ? 'Many of its fenestrae have closed: less protein crosses into the space of Disse.' : 'Its fenestrae have closed (capillarization): protein no longer crosses the wall.');
-    if (!m.hide) parts.push(`Hepatic lymph ${fmt(m.lymph, 1)} milliliters per minute, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
+    if (!m.hide) parts.push(`Hepatic lymph ${lymphText(m.lymph)} milliliters a day, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     if (S.col > 0.15) parts.push('Collagen fills the space of Disse and the hepatocytes have lost their microvilli.');
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, depositing collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' '); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)

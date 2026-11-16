@@ -146,7 +146,8 @@ export const comparisonOf = (t) => (t.arms || []).map((a, i) => (i ? a.label.cha
 /** The row's numbers in words (TC-L2, A5): ["16%", " vs 27% decompensated"]; a trial with no per-arm result reads its outcome word alone. */
 export function ratesOf(t) {
   const tr = treatArm(t);
-  if (!tr) return [t.outcome ? t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1) : '', ''];
+  // (A trial that reported no result per arm (MACHT) gives what it did report: its effect, "No difference (P = 0.402)", not an empty row.)
+  if (!tr) return [t.arms.length ? (t.outcome ? t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1) : '') : (t.effect || ''), ''];
   const rest = others(t);
   return [`${tr.rate}%`, `${rest.length ? ` vs ${rest.map((a) => `${a.rate}%`).join(' / ')}` : ''}${t.outcome ? ` ${t.outcome}` : ''}`];
 }
