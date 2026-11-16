@@ -27,7 +27,7 @@ import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { TILE } from './table-marks.js';
-import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgSev, ppgSev, pvSev, hvBlocked, HVPG_WORDS, PPG_WORDS, PV_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgSev, ppgSev, pvSev, hvBlocked, HVPG_WORDS, PPG_WORDS, PV_WORDS, NOT_MEASURABLE, NOT_MEASURABLE_WHY } from '../engine/pressure-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
@@ -530,7 +530,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const INFO = {
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
-    hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
+    hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : hvBlocked(st.params) ? NOT_MEASURABLE_WHY : 'Not measured'; }],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVelMean ?? f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],

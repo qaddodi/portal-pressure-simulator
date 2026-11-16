@@ -8,6 +8,7 @@ import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
 import { watchSelection } from './selection-live.js';
 import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { hvBlocked } from '../engine/pressure-cuts.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
@@ -2378,7 +2379,7 @@ function flipProjector() {
 }
 function updateProjector(f) {
   if (!bigEl) return;
-  const hid = hiddenNow()?.has('trueHVPG'), v = hid ? '—' : fmt(f.metrics.hvpg, 1), u = hid ? 'not measured' : 'mmHg';
+  const hid = hiddenNow()?.has('trueHVPG'), v = hid ? '—' : fmt(f.metrics.hvpg, 1), u = hid ? (hvBlocked(store.get().params) ? 'not measurable' : 'not measured') : 'mmHg';
   // Rebuilt only when it reads differently: new nodes on every model frame restyled the page each time.
   if (bigEl.shown === v + u) return;
   bigEl.shown = v + u;

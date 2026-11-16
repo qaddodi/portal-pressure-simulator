@@ -2,6 +2,7 @@
 
 import { defaultParams, deepMerge } from '../engine/scenario.js';
 import { runSoon } from './class-soon.js';
+import { hvBlocked } from '../engine/pressure-cuts.js';
 
 const listeners = new Map();
 const gone = new Map();   // (B9: key -> the listeners unsubscribed from it while a change is being told; that change skips them, only for that key. Emptied when the telling ends.)
@@ -189,9 +190,15 @@ export const store = {
  *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient (or Settings › Always show HVPG is on). A Presenter script or
  *  the tour shows it as it is. */
 let hidCache = { base: undefined, set: null };
+// (A patient whose hepatic veins are thrombosed (Budd–Chiari) has no HVPG to measure: the catheter cannot enter, pressure-cuts.js hvBlocked. Its true HVPG stays hidden in Explore
+// whatever has been measured or switched on, so the readouts, cards, chart and screen-reader text all say "not measured" together, as the Tests dock already said "Not measurable".
+// Read per params object: one test per change of patient, not per frame.)
+let blockedFor = { params: null, on: false };
+const blockedNow = (params) => { if (blockedFor.params !== params) blockedFor = { params, on: !!params && hvBlocked(params) }; return blockedFor.on; };
 export function hiddenNow(st = state) {
   const base = st.hiddenReadouts;
-  if (st.mode !== 'explore' || st.hvpgMeasured || st.showHvpg || st.presenting || base?.has('trueHVPG')) return base;
+  if (st.mode !== 'explore' || st.presenting || base?.has('trueHVPG')) return base;
+  if ((st.hvpgMeasured || st.showHvpg) && !blockedNow(st.params)) return base;
   if (hidCache.base !== base || !hidCache.set) hidCache = { base, set: new Set([...(base || []), 'trueHVPG']) };   // alloc-rare: when the view's hidden set changes, not per frame
   return hidCache.set;
 }

@@ -143,7 +143,7 @@ export const TILE = {
   gv: { t: 'Gastric varix', n: 'Fundal', s: 'Fundal, diameter', u: 'mm', better: -1 },
   spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1, long: 'Spleen length. Splenomegaly >13 cm; splenic sequestration lowers the platelet count.' },
   plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
-  pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min', long: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). Normal ≥0.9 L/min at ≥15 cm/s (Doppler).' },
+  pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min', long: 'Portal blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). With the main portal vein clotted it is the flow the cavernoma carries around the clot. Normal ≥0.9 L/min at ≥15 cm/s (Doppler).' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
   liver: { t: 'Liver blood flow, % of healthy', n: 'Liver flow vs healthy', s: 'Portal + arterial, % of healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
   shunt: { t: 'Portal blood shunted', n: 'Portal blood shunted', s: '% of portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
@@ -246,7 +246,7 @@ export function dirAbs(k, f) {
   const v = atShown(k, fpv(k, f));
   if (RAW[k]) return v > RAW[k][1] ? 2 : v > RAW[k][0] ? 1 : 0;
   // Portal flow: reduced under 0.9 L/min; stasis (under 9 cm/s) or reversed is past the red line; above the fasting range after a meal or a TIPS.
-  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < FLOW_CUTS.stasis) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;
+  if (k === 'pvFlow') return v < -0.02 || (f.pvVel != null && Math.abs(f.pvVel) < FLOW_CUTS.stasis && v < 0.9) ? -2 : v < 0.9 ? -1 : v > 1.3 ? 1 : 0;   // (stasis in the trunk is not stasis of the portal flow when a cavernoma carries it)
   if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
   // Output and volume: only a low one is flagged (↓↓); a high one is information, as its tile's gray reads it, like a slow heart rate.
   if (k === 'co' || k === 'bv') return rateOf(k, { ...f, [k]: tileShown(k, fpv(k, f)) })[0] === 'hi' ? -2 : 0;
