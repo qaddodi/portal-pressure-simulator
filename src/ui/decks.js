@@ -207,6 +207,11 @@ export function withOverview(d) {
   return { ...d, slides: [open, place(firstNow), ...rest.map(place), ...check] };
 }
 
+// How many slides the presenter shows for a deck: the deck's own plus the outline slide before them and the quick check after them. Every
+// count a person reads (the Present menu, a row's resume point, the handout) comes from here, never from `slides.length` plus a number.
+// (`mine`: a deck whose slides already carry the outline, as presenter.js makes it for a script the person imported.)
+export const slideCount = (d) => (d?.slides?.length ? (d.mine ? d : withOverview(d)).slides.length : 0);
+
 // The site tag by a slide's title: the level of its block (its site), on the slides of a deck that teaches more than one
 // level, so the learner always knows which type of portal hypertension the slide is about. A deck about cirrhosis alone
 // (every site sinusoidal) carries none, nor does a slide whose level rail already marks the block, or a visual.

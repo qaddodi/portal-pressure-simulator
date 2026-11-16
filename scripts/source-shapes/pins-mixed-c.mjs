@@ -199,7 +199,7 @@ export default [
   { file: 'src/ui/stage*', need: [/if \((?:live\.)?(?:live\.)?viewXf\) return;/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   { file: 'src/ui/stage*', need: [/if \((?:live\.)?camMove\) \{ if \(!(?:live\.)?vtGliding\) camSettle\(\); return; \}/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   { file: 'src/ui/stage*', need: [/writeVT\(u >= 1 \? \{ \.\.\.viewXf\.to \} : viewXfCameraInto\((?:live\.)?viewXf, u, /, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
-  { file: 'src/ui/stage*', need: [/const m = viewXfMix\(p, x\.landAt, XF_MIX\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
+  { file: 'src/ui/stage*', need: [/const m = viewXfMix\(p, x\.landAt, XF_MIX, true\);\s*xfLayer\(m\.n\);\s*(?:live\.)?labelGL\.crossfade\(m\.o, m\.n\);/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   { file: 'src/ui/stage*', forbid: [/XF_FADE_MS|xfRamp/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   { file: 'styles/app-*.css', forbid: [/(?:live\.)?morph-fade/, 'The change between the Anatomy and the Circuit drawn on the GPU (2 Nov 2026, "Anatomy to circuit is so laggy"):'] },
   // over-records

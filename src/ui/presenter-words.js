@@ -344,4 +344,7 @@ export function paintClauses(line, n) {
     if (on) c.removeAttribute('aria-hidden'); else c.setAttribute('aria-hidden', 'true');
   }
 }
+/** Whether a line applies a rule to a value ("Her LSM is now {lsm}, which meets {>=25 kPa}"): it holds a cut-off pill. Such a sentence is true or false of one value, so on a time-lapse
+ *  slide its numbers are the end state's from the first frame and never ride the days (a sentence reading "LSM 17.1 kPa, which meets ≥25 kPa" is false on screen). */
+export const rulesLine = (t) => /\{[<>≥≤]=?[^}]*\}/.test(t || '');
 export const setFpAt = (v) => { fpAt = v; };

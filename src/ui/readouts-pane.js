@@ -12,7 +12,6 @@ import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js';
 import { tileEl } from './tile-el.js';
-import { phrase, readoutsSentence, patientLabel } from './readouts-text.js';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -63,13 +62,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const section = (g, label, kids) => h('section', { class: 'rp-group', 'data-group': g, 'aria-label': label },
     h('h3', { class: 'rp-cap' }, label), h('div', { class: 'rp-tiles' }, kids));
   const byId = Object.fromEntries(vitals.map((v) => [v.id, v]));
-  // Copy as text (F14): the readings past a cut-off as one sentence, shown as it will be copied; the button copies it.
-  const quote = h('p', { class: 'rp-quote', id: 'rpQuote' }, 'No readings yet.');
-  const copied = h('span', { class: 'rp-copied', role: 'status' });
-  const copyBtn = h('button', { type: 'button', class: 'btn sm rp-copy-btn', 'aria-describedby': 'rpQuote' }, 'Copy as text');
-  const copyBox = h('section', { class: 'rp-group rp-copy', 'aria-label': 'Copy as text' }, h('h3', { class: 'rp-cap' }, 'Abnormal readings'), quote, h('div', { class: 'rp-copy-row' }, copied, copyBtn));
   const el = h('div', { class: 'dock-pane', 'data-pane': 'readouts' },
-    copyBox,
     groups.map(([g, label]) => section(g, label, tiles.filter((t) => t.group === g).map(tile))),
     section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))),
     // (A second door to From readings, where readings live: the patient menu's top row is the first. Review U13.)
@@ -211,54 +204,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const aria = `${x.v.title}: ${none ? 'not measured' : `${x.v.s ? bpText(x.r?.s, x.r?.d, r.v) : fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; x.el.setAttribute('aria-label', aria); }
     }
-    if (!follow) paintQuote(now);
   }
-
-  // ── Copy as text ──────────────────────────────────
-  // The readings past a cut-off, as the tiles print them (their shown number and their band word), in the order of the tab: the tiles, then the
-  // systemic values. A reading that is not measured (HVPG before the catheter) is left out, as it is from the tiles' own count.
-  function sentence() {
-    const f = lastF;
-    if (!f) return '';
-    const m = f.metrics, hidden = hiddenNow(), out = [];
-    for (const x of Object.values(els)) {
-      const t = x.t, v = tileShown(x, hidden);
-      if (v == null || !Number.isFinite(v)) continue;
-      const vs = shownOf(v, t.d);
-      if (t.st(vs, m) === 'ok') continue;
-      out.push(phrase({ id: t.id, v: vs, d: t.d, u: t.u, ux: t.ux || '', word: t.s(vs, m) }));
-    }
-    for (const x of vitEls) {
-      const v = x.shown;
-      if (hidden?.has(x.v.hideKey) || !Number.isFinite(v)) continue;
-      const [cls, word] = RATE[x.v.id](shownOf(v, x.v.d), x.v.s ? { sbp: x.r?.s } : {});
-      if (!SEV[cls] || SEV[cls] === 'ok') continue;
-      out.push(phrase({ id: x.v.id, v, d: x.v.d, u: x.v.u, word, text: x.v.s ? bpText(x.r?.s, x.r?.d, v) : undefined }));
-    }
-    return readoutsSentence(patientLabel(store.get()), out);
-  }
-  // (The sentence shown is refreshed at most twice a second and only when it changes: it is a line of notes, not a readout.)
-  let quoteAt = 0;
-  function paintQuote(now) {
-    if (now - quoteAt < 500) return;
-    quoteAt = now;
-    const t = sentence();
-    if (t && t !== quote.textContent) quote.textContent = t;
-  }
-  let copiedT = 0;
-  const say = (msg) => { copied.textContent = msg; clearTimeout(copiedT); copiedT = setTimeout(() => { copied.textContent = ''; }, 2600); };
-  copyBtn.addEventListener('click', async () => {
-    const t = sentence();
-    if (!t) { say('No readings yet'); return; }
-    quote.textContent = t;
-    try { await navigator.clipboard.writeText(t); say('Copied'); }
-    catch {
-      // (Where the clipboard is not allowed, the sentence is selected for the reader to copy by hand.)
-      const r = document.createRange(); r.selectNodeContents(quote);
-      const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r);
-      say('Selected: copy it');
-    }
-  });
 
   // The tab's own reading: how many readouts are past a cut-off right now (abnormal).
   function summary(f) {

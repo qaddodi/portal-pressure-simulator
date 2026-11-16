@@ -102,7 +102,7 @@ async function smooth(cut, ms = 700) {
 }
 const { scaleVisual, quadrantVisual, wallsVisual, makeCalc, xKey } = createVisuals({ sv, glBox, est, fitChart, fsOf });
 
-export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
+export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome, patientHistory = null }) {
   // <stage-split live>
   // The shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
@@ -619,7 +619,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let caseLift = null, caseCard = null, caseHideT = 0;   // (caseHideT: the timer that hides the card once it has faded out, caseShut)
       // The data card for slide i: its instrument and tiles, or nothing (the card then leaves).
   let dataHideT = 0;   // (the timer that hides the data card once it has faded out)
-  const { caseFade, caseFadeTokens, caseRun, dataTo: dataTo$, evBack: evBack$, evRun: evRun$, evStart: evStart$, paintLapse, playLapse, questionRun, respFp, tileKeys } = createCase({ CATH_SETTLE_MS, applyState, bedside, caseGone, cath, drawn, evKept, figureIn, host, lapseText, loading, morphTo, paintChrome, pushEnd, pushTo, releaseData, stage, stateReady, stopLapse, toAnatomy, until, view, waitCut }, live);
+  const { caseFade, caseFadeTokens, caseRun, dataTo: dataTo$, evBack: evBack$, evRun: evRun$, evStart: evStart$, paintLapse, playLapse, questionRun, respFp, tileKeys } = createCase({ CATH_SETTLE_MS, announce, applyState, bedside, caseGone, cath, drawn, evKept, figureIn, host, lapseText, loading, morphTo, paintChrome, pushEnd, pushTo, releaseData, stage, stateReady, stopLapse, toAnatomy, until, view, waitCut }, live);
   function evStart(...a) { return evStart$(...a); }   // <stage-split stub>
   function evRun(...a) { return evRun$(...a); }   // <stage-split stub>
   function evBack(...a) { return evBack$(...a); }   // <stage-split stub>
@@ -1781,9 +1781,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   };
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
+  // (A card that takes its readings one Next at a time, the HVPG tracing, steps before the slide does: its Next is a step, not a change, so a swipe for it lifts nothing.
+  // Mohammad, 16 Nov 2026, Varices 6/11: "the upper card moves then springs back".)
+  const toolStep = (d) => shown?.i === want && !!ui?.tools?.canStep(d);
   const turnsSlide = (dx) => dx < 0
-    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
-    : !procHeld() && !procWait && beat === 0 && want > 0;
+    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && !toolStep(1) && beat >= lastBeat(want) && want < slides.length - 1
+    : !procHeld() && !procWait && !toolStep(-1) && beat === 0 && want > 0;
   const pullCan = (dx) => turnsSlide(dx) && !!ui && !changing() && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
@@ -2168,7 +2171,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return hs;
   }
 
-  const { start, stop: stop$ } = createStart({ NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
+  const { start, stop: stop$ } = createStart({ patientHistory, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
   function stop(...a) { return stop$(...a); }   // <stage-split stub>
   async function coverDown(now = false) {
     if (!now) {

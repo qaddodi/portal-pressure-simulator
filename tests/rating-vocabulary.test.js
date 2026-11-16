@@ -24,11 +24,15 @@ const VALUES = [...Array.from({ length: 421 }, (_, i) => (i - 20) / 10), HVPG_CU
 
 test('the band words are the standard, short and long, and frozen', () => {
   assert.deepEqual(HVPG_WORDS, { ok: ['Normal', 'Normal'], caution: ['Mild', 'Mild portal hypertension'], danger: ['CSPH', 'Clinically significant portal hypertension (CSPH)'] });
-  assert.deepEqual(PPG_WORDS, { ok: ['Normal', 'Below the model\'s PPG reference line'], caution: ['High', 'Above the model\'s PPG reference line (portal hypertension)'], danger: ['Very high', 'Above the model\'s upper PPG line (12 mmHg)'] });   // (the long forms: the PPG by IR's result line, ir-ppg.js)
+  // The PPG's words name its own lines (6 and 12) and never grade: a severity word beside the HVPG's ("High" at PPG 9.8, "Mild" at HVPG 9.6) read as a contradiction (play-test 16 Nov 2026).
+  assert.deepEqual(PPG_WORDS, { ok: ['Under 6', 'Below the model\'s PPG reference line of 6 mmHg'], caution: ['6 to 11.9', 'Between the model\'s PPG reference lines of 6 and 12 mmHg'], danger: ['12 or more', 'At or above the model\'s upper PPG line (12 mmHg)'] });   // (the long forms: the PPG by IR's result line, ir-ppg.js)
+  for (const s of SEVS) assert.ok(!/^(normal|mild|high|very high|csph)/i.test(PPG_WORDS[s][0]), `PPG ${s} is graded in words`);
   assert.equal(BLEED_WORD, 'Bleed risk');
   // The bleed-risk word is the HVPG's (the model's rupture line, HVPG 12). No PPG band, tile or plane line may say it: HVPG 11.6 (CSPH) with PPG 13.5 must not read "CSPH" beside "Bleed risk" (play-test 16 Nov 2026).
   for (const s of SEVS) for (const form of PPG_WORDS[s]) assert.ok(!/bleed/i.test(form), `PPG ${s}: ${form}`);
-  assert.equal(ppgWord(13.5), 'Very high');
+  assert.equal(ppgWord(13.5), '12 or more');
+  assert.equal(ppgWord(9.8), '6 to 11.9');
+  assert.equal(hvpgWord(9.6), 'Mild');
   assert.equal(hvpgWord(11.6), 'CSPH');
   for (const pl of [PLANES['hvpg-ppg'], PLANES['flow-ppg']]) for (const n of Object.values(pl.lineNames?.y ?? {})) assert.ok(!/bleed/i.test(n), `plane line ${n}`);
   for (const W of [HVPG_WORDS, PPG_WORDS]) {
