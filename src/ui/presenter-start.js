@@ -206,10 +206,10 @@ export function createStart(st, live) {
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), with: (g) => (g === shade ? [text] : null), bare: () => [panel], shift: riseShift }) || null;
     return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
   }
-  function coverUp() {
+  function coverUp(what = '') {
     live.booting = true;
     clearTimeout(live.coverT); live.coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
-    if (!live.cover) { live.cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(live.cover); void readMetric(live.cover, 'offsetWidth'); }
+    if (!live.cover) { live.cover = h('div', { class: 'pz-cover', role: 'status' }, h('i', { 'aria-hidden': 'true' }), h('span', {}, what ? [what, h('small', {}, 'Preparing the slides')] : 'Preparing the slides')); document.body.append(live.cover); void readMetric(live.cover, 'offsetWidth'); }   // (the cue says what is opening: a wait of seconds on a slow machine is a loading, not a blank)
     // (A deck link opened cold: the loading cover is still up, and it lifts onto this one. This cover is on at once, not faded in, so the
     // loading cover never lifts onto the plain app's bars and an empty figure for the length of a fade.)
     const cold = document.documentElement.dataset.boot === 'hold';
@@ -249,7 +249,7 @@ export function createStart(st, live) {
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
-    const up = Promise.all([coverUp(), fontsIn()]);
+    const up = Promise.all([coverUp(d.title), fontsIn()]);
     // Starting another deck while one runs keeps the state from before the first.
     const before = live.deck ? live.saved : await capture();
     await up;

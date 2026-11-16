@@ -12,4 +12,7 @@ export default [
   // The end of a talk restores the patient and clock the viewer started it from; healthy is only the fallback when nothing was captured.
   { file: 'src/ui/presenter-start.js', need: [/if \(b\.snap && b\.params\) \{\s*host\.send\(\{ type: 'restore', snap: b\.snap/, 'putHealthy restores the captured model state'] },
   { file: 'src/ui/presenter-start.js', need: [/\} else \{.{0,200}loadPreset\?\.\('healthy'\)/s, 'the healthy preset loads only when no state was captured'] },
+  // The loading cover a talk start puts up (issue 5, 16 Nov 2026): the scene stays faintly under it (never a blank beige screen), and it names what is opening.
+  { file: 'styles/app-08-cards.css', need: [/\.pz-cover \{[^}]*background: color-mix\(in srgb, var\(--stage-bg\) \d\d%, transparent\)/, 'the cover is a dimming scrim, not an opaque blank'] },
+  { file: 'src/ui/presenter-start.js', need: ["coverUp(d.title)", 'the cover names the talk it is opening'] },
 ];

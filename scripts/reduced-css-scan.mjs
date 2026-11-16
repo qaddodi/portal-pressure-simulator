@@ -30,7 +30,7 @@ export const MOVES_ONLY = new Map([
   ['.pz-case', 'the case card sliding'],
   ['.treat-pane > *, .treat-pane > .tp-off', 'the Treat pane sliding'],
   ['html.thumb-ui :is(.menu.as-sheet, .why-pop.as-sheet):is(.leaving[data-swiped], .pulling)', 'a sheet under the finger (it follows the hand)'],
-  ['.pz-cover i', 'a delayed spinner'],
+  ['.pz-cover i, .pz-cover span', 'a delayed spinner and its cue'],
   ['.pz > :is(.pz-text, .pz-data, .pz-panel), .pz-text > .pz-leave, .pz-shade', 'transform only'],
   ['.pz > .pz-lip', 'transform only'],
   ['.tooltip, .tooltip.show', 'transform only'],
