@@ -435,6 +435,11 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     },
     /** Kept words: measure the look again (colour, size, place) and draw them again, for a state that changes their colour (hover, pressed). */
     look() { if (S.dead || !S.keep) return; wake(S); askMeasure(S); },
+    /** The words' colour (a rating's ink: a tile's data-rate or data-sev) changed in the page's styles: the look is read again, between frames, so the next
+     *  words are drawn in it. Any words, kept or not. (The look is read once and kept: a number drawn after its tile changed band was still drawn in the
+     *  colour of the band it was first measured in, 16 Nov 2026: a portal pressure of 35.5 in the green of Normal beside the word "High".) Call it
+     *  once the attribute that changes the colour is written. A picture that is up is handed to the page's own words first (drawn: stale), then measured. */
+    recolor() { if (S.dead) return; wake(S); S.stale = true; askMeasure(S); },
     /** Takes the words into the page between frames, where a caller needs them laid out soon. */
     settle: () => { wake(S); askLand(S); }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     /** Writes the words into the page at once: for a caller between frames that measures them (a fit trying its widest words). */

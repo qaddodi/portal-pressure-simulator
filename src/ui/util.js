@@ -817,6 +817,8 @@ export function releaseWords(root) {
   for (const el of implicitW) if (el === root || root.contains?.(el)) n += dropWords(el);   // (a Set may lose its current member while it is walked)
   return n;
 }
+/** The words putText made over `el` read the page's colour again (its tile changed band: the number is drawn in the colour it now has). A no-op where none were made. */
+export const recolorWords = (el) => { wordsOfEl.get(el)?.recolor(); };
 /** How many implicit wrappers putText holds (the teardown checks read it). */
 export const implicitWordsLive = () => implicitW.size;
 export const putText = (el, t) => {
