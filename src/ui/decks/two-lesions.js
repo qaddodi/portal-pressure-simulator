@@ -24,18 +24,18 @@ const FLUID = 1150;
 export const TWO_LESIONS = {
   id: 'two-lesions', level: 'advanced', title: 'Two lesions, one circulation', minutes: 10,
   objectives: [
-    'Predict how a portal vein clot changes the HVPG and the PPG in cirrhosis',
+    'Predict how an occlusive portal vein clot changes the HVPG and the PPG in cirrhosis',
     'Predict how a raised right atrial pressure changes the FHVP, the WHVP and both gradients',
     'Explain why the two lesions together can leave the PPG where it was and the HVPG well under the CSPH line',
     'Name the two extra pressures and the image to get when the gradients do not fit the patient',
   ],
   checks: [
-    ['In cirrhosis with CSPH, a portal vein clot appears and the HVPG falls from 11 to 8 mmHg. Has the portal hypertension improved?', 'No. The WHVP reflects the sinusoidal pressure, and the clot lies upstream of the sinusoids. The PPG rises.'],
+    ['In cirrhosis with CSPH, an occlusive portal vein clot appears and the HVPG falls from 11 to 8 mmHg. Has the portal hypertension improved?', 'No. The WHVP reflects the sinusoidal pressure, which falls because less portal blood reaches the sinusoids; the clot lies upstream of them, and the PPG rises.'],
     ['The right atrial pressure rises from 4 to 16 mmHg in a man with cirrhosis. What happens to the FHVP, and why does it matter?', 'It rises with the right atrium, and the WHVP follows. Every absolute pressure is higher, but the HVPG, a difference, does not show the congestion.'],
     ['A man with cirrhosis has an HVPG of 4 mmHg and a PPG of 13 mmHg. Which two lesions do you look for?', 'A portal vein clot, which raises the PPG, and a raised right atrial pressure, which lowers both gradients.'],
     ['Which two pressures does AASLD 2024 add to the FHVP and WHVP?', 'The IVC pressure at the hepatic vein outlet and the right atrial pressure.'],
   ],
-  summary: 'One man with cirrhosis and CSPH gets a portal vein clot, then constrictive pericarditis, then loses each lesion in turn. The clot raises the PPG and lowers the HVPG, congestion lowers both gradients, and together they pull the HVPG well under the CSPH line and leave the PPG where it began.',
+  summary: 'One man with cirrhosis and CSPH gets an occlusive portal vein clot, then constrictive pericarditis, then loses each lesion in turn. The clot raises the PPG and lowers the HVPG, congestion lowers both gradients, and together they pull the HVPG well under the CSPH line and leave the PPG where it began.',
   slides: [
     {
       id: 'base', preset: 'csph', cam: 'route', labels: ['CONF', 'RHV', 'RA'], data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
@@ -47,17 +47,17 @@ export const TWO_LESIONS = {
     },
     {
       id: 'clot', params: CLOT, days: 90, lapse: { seconds: 8 }, cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], clot: true }, tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'hvpg'], keepTiles: true, title: 'The PPG and the HVPG over three months' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'], delta: 'base',
-      kicker: 'Add a clot', site: 'pre', title: 'A portal vein clot raises the PPG and lowers the HVPG',
-      line: 'The PPG rises sharply, then falls partway as collaterals open, ending at {ppg}, up from {ppg@base}, while the HVPG falls to {hvpg}: the clot is upstream of the sinusoids.',
-      notes: 'The clot adds a second site of resistance before the liver, and the WHVP does not reflect it. The chart starts at the patient before the clot. At the occlusion the PPG jumps, then falls back over weeks as collaterals open and the splanchnic bed vasoconstricts, and it settles well above where it began. The portal vein pressure on the figure is the PPG plus the IVC pressure. The portal pressure behind the clot climbs and the PPG with it, while the WHVP falls because less portal blood reaches the sinusoids. In cirrhosis the thrombus is often partial and found on surveillance imaging; Baveno VIII 9.16 screens for it at the same visit as HCC surveillance. Only a direct portal pressure shows the clot. In the model a complete clot lowers the HVPG; a partial clot with collaterals, as in most patients, leaves it nearer where it was.',
-      ask: ['Cirrhosis, a new portal vein clot, and a lower HVPG. What does the PPG do?', 'It rises. The HVPG does not reflect a lesion upstream of the sinusoids.'],
+      kicker: 'Add a clot', site: 'pre', title: 'An occlusive portal vein clot raises the PPG and lowers the HVPG',
+      line: 'The PPG rises sharply, then falls partway as collaterals open, ending at {ppg}, up from {ppg@base}. The HVPG falls to {hvpg}: less portal blood reaches the sinusoids.',
+      notes: 'The clot adds a second site of resistance before the liver, and the WHVP does not reflect it. The chart starts at the patient before the clot. At the occlusion the PPG jumps, then falls back over weeks as collaterals open and the splanchnic bed vasoconstricts, and it settles well above where it began. The portal vein pressure on the figure is the PPG plus the IVC pressure. The portal pressure behind the clot climbs and the PPG with it, while the WHVP falls because less portal blood reaches the sinusoids. In cirrhosis the thrombus is often partial and found on surveillance imaging; Baveno VIII 9.16 screens for it at the same visit as HCC surveillance. Only a direct portal pressure shows the clot. Patients show the same: in 356 patients with cirrhosis and recent variceal bleeding, the HVPG was lower with advanced (occlusive) PVT than with mild or no PVT, while grade III varices were more common (Rao, J Dig Dis 2023). A partial clot, as in most patients, leaves the HVPG nearly unchanged. A clot never raises the HVPG, and the HVPG underestimates the portal pressure whenever one is present (EASL 2025).',
+      ask: ['Cirrhosis, a new occlusive portal vein clot, and a lower HVPG. What does the PPG do?', 'It rises. The HVPG does not reflect a lesion upstream of the sinusoids.'],
     },
     {
       id: 'varices', cam: 'varices', data: 'tiles', tiles: ['varix', 'plt'], key: ['varix'], delta: 'base',
       kicker: 'Add a clot', site: 'pre', title: 'The varices grow while the HVPG falls',
       line: 'Behind the clot the portal pressure is {pv}. The varices reach {varix} and the platelets fall to {plt}, with a lower HVPG than before.',
       notes: 'A lower HVPG does not mean a lower risk. The varices follow the pressure upstream of the clot, and the spleen and platelets follow the portal pressure, not the wedge. Baveno VIII 9.11 asks for upper GI endoscopy at diagnosis of PVT in cirrhosis, and the HVPG is no reason to skip it.',
-      ask: ['A new portal vein clot lowers the HVPG. May the screening endoscopy wait?', 'No. The varices follow the pressure upstream of the clot (Baveno VIII 9.11).'],
+      ask: ['A new occlusive portal vein clot lowers the HVPG. May the screening endoscopy wait?', 'No. The varices follow the pressure upstream of the clot (Baveno VIII 9.11).'],
     },
     {
       id: 'both', params: SQUEEZE, action: { kind: 'retain', mL: FLUID }, days: 60, lapse: { seconds: 8 }, lens: 'heat', cam: 'hepatic', labels: ['RHV', 'IVCS', 'RA'], sites: ['ra'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'hvpg'], keepTiles: true, title: 'Portal pressure and the HVPG over two months' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['hvpg'], delta: 'clot',

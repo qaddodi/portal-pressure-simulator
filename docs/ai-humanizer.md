@@ -86,8 +86,8 @@ Use the term on the right. The left column is banned in learner text (the lint h
 
 British usage is out: American spelling (color, gray, hemorrhage, edema, esophagus, anemia), and none of "whilst",
 "tablets" (say "pills" only for oral contraceptives as "OCP use"; otherwise the drug and dose), "per cent", "A&E", "theatre",
-"being sick", "full blood count", "U&E", "GP". Drugs: US names and US-approved uses (octreotide for AVB; terlipressin for
-HRS-AKI only). Platelets in US units (150,000/µL). Sodium in mEq/L, creatinine and bilirubin in mg/dL, albumin in g/dL.
+"being sick", "full blood count", "U&E", "GP". Drugs: US names (octreotide for AVB, terlipressin as its alternative;
+terlipressin with albumin for HRS-AKI), with no region caveat. Platelets in US units (150,000/µL). Sodium in mEq/L, creatinine and bilirubin in mg/dL, albumin in g/dL.
 
 ## 4. Abbreviations
 
@@ -143,9 +143,9 @@ clinicians do ("HVPG 14 mmHg", "a covered 8 mm TIPS", "CTP class C"), not spelle
 - **Model against patient.** Where the model behaves differently from what is known in patients, say "in the model". Two decks never
   teach opposite effects of one intervention. A count in a title or line ("two of three") equals the items on the slide's card and in
   the cited statement.
-- **US practice.** Octreotide is the US vasoactive drug for variceal bleeding; terlipressin there is "outside the US" (in the US it is
-  approved for HRS only). Mark Baveno VIII or EASL practice that differs from US practice as such (a continuous terlipressin infusion,
-  covered esophageal stents, long-term albumin, home drainage devices).
+- **Drug choices, no region caveats (owner, 16 Nov 2026).** Never write "outside the US" or name a region for a drug. For variceal
+  bleeding use octreotide where it is a sound alternative; where terlipressin is the drug the slide teaches (HRS-AKI, the terlipressin
+  slide), name it with no caveat. A continuous terlipressin infusion, covered esophageal stents and long-term albumin need no caveat.
 - **Grading and staging as written in the guidelines**: Baveno VIII "CSPH", "cACLD", "decompensation", "recompensation"; AASLD
   ascites grades; West Haven HE grades; varix size small (<5 mm) or large (≥5 mm).
 - **One hedge per claim.** Thresholds are rising risk, not a switch: "bleeding risk climbs from about 12 mmHg".

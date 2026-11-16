@@ -82,6 +82,7 @@ test('the rules catch a guideline, an algorithm or a finding written as the one 
     ['At the same HVPG her PPG sits higher.', 'pressure-motion'],
     ['It rises. The HVPG cannot see a lesion upstream of the sinusoids.', 'sees'],
     ['Where in the lobule does the scar that stiffens the liver collect?', 'scar'],
+    ['Octreotide (terlipressin outside the US) is started at once.', 'region-caveat'],
   ]) assert.ok(rules(s).includes(rule), `${rule}: ${s}`);
   for (const s of [
     'When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?',
@@ -92,6 +93,7 @@ test('the rules catch a guideline, an algorithm or a finding written as the one 
     'The HVPG does not reflect a lesion upstream of the sinusoids.',
     'Neither Baveno VIII nor AASLD 2024 gives a cut-off for sinusoidal obstruction.',
     'The time-lapse runs at one month a second.',
+    'Octreotide is started at once; terlipressin is an alternative.',
   ]) assert.deepEqual(rules(s), [], s);
 });
 

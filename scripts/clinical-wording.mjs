@@ -53,6 +53,7 @@ export const RULES = [
   ['pressure-motion', /\b(?:portal vein|PPG|HVPG|WHVP|FHVP|pressure|right atrium|IVC)\s+(?:still\s+)?(?:runs?|sits?)\s+(?:at|high|higher|low|lower|close)\b/i, '"the portal vein pressure is {pv}", "her PPG is higher"'],
   ['sees', /\b(?:HVPG|WHVP|FHVP|PPG|EUS-PPG|sinusoids?|catheter|gradients?|wedge)\s+(?:cannot |can not |does not |do not |never )?(?:see|sees|saw)\b/i, '"reflects", "includes", "misses": a gradient does not see'],
   ['scar', /\bscars?\b/i, 'fibrosis, fibrous septa'],
+  ['region-caveat', /\b(?:outside (?:of )?the US|in Europe and much of the world|not approved in North America)\b/i, 'name the drug and its alternative with no region (owner, 16 Nov 2026): "Octreotide", "Terlipressin is an alternative"'],
   ['em-dash', /[A-Za-z0-9,.)]\s*—\s*[A-Za-z0-9(]/, 'a full stop or a comma (no em-dash in learner text)'],
 ];
 
