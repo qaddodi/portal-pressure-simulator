@@ -426,8 +426,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (cut()) return;
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
-    // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
-    if (st.sinusoid) { setViewKey('lobule'); await waitCut(60, cut); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
+    // Out of the sinusoid and out of the lobule is one glide (Mohammad, 16 Nov 2026: "sinusoid to anatomy should be one glide if possible"; it was three steps with a stop at
+    // each): the way out is made ready first (below), then the stage's zoom out of the sinusoid carries straight on into the rise (stage.exitSinusoid). The old steps remain
+    // only where the lobule is not at its fit (the stage falls back to them itself).
+    if (st.sinusoid) {
+      stage.prepRise?.();
+      stage.lobuleHold?.(true);
+      if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
+      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);
+      stage.exitSinusoid();
+      await waitCut(60, cut);
+      await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.lobuleSettled()), 9000);
+      if (!cut()) await waitCut(80, cut);
+      return;
+    }
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
     if (cut()) return;

@@ -773,6 +773,10 @@ export function createLobuleLabels(st, live) {
   // the sin, cv and triad names gone after a Sinusoid visit). The queue waits and is read once the layer is straight (mirrorRelease).
   let mirHeld = false, measHeld = false;   // (a read, and a measuring, that waited for the layer to stand straight)
   const mirrorRelease = () => { if (live.layerScaled) return; if (measHeld) { measHeld = false; if (!live.measT) live.measT = restPass(measureRun); } if (mirHeld) { mirHeld = false; mirrorAll(); } };
+  // The names measured and read now, in this task, not at the rest passes behind a landing (labelsAhead, lobule-zoom.js): done before a dive or a zoom scales the layer,
+  // so they are placed and drawn when the view begins to fade in, and fade in with it.
+  function measureNow() { if (live.measT) { cancelRest(live.measT); live.measT = 0; } measureRun(); }
+  function mirrorNow() { mirrorAll(); if (mirT) { cancelRest(mirT); mirT = 0; } mirrorRun(); }
   function mirrorRun() {
     mirT = 0;
     if (live.layerScaled) { mirHeld = true; return; }
@@ -904,5 +908,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }
