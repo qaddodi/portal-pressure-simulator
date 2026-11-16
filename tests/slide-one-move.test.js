@@ -15,7 +15,7 @@ const cam = src.slice(src.indexOf('async function camera('), src.indexOf('const 
 
 test('the change of patient starts with the glide, and is awaited only once the cards are in', () => {
   const start = run.indexOf("morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));");
-  const glide = run.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);');
+  const glide = run.indexOf('else if (cam) { if (prepWith)');
   const cards = run.indexOf('bare = false; cardsIn({ i: to, gen: g });');
   const awaited = run.indexOf('if (morphP) { if (!await morphP) return; shownState = own ? -1 : si; ui?.tools.hold(false); }');
   assert.ok(start > 0 && start < glide && glide < cards && cards < awaited);
@@ -27,12 +27,12 @@ test('the change of patient starts with the glide, and is awaited only once the 
 // Cards in sight, marks next (the polish of 31 Oct): over the plate with the same patient the unseen cards' last fitting runs under the glide's
 // first frames and the cards come in at its 60 percent point on any machine; the slide's labels, glows and marks start once the cards are in
 // sight rather than after the title's last frame; and a slide asked for again while the cards are out waits for no fade that is not running.
-test('same patient over the plate: the cards\' last fitting starts as the glide does, and the cards wait for it, not for a second fitting', () => {
-  const glide = run.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);');
+test('same patient over the plate: the cards\' last fitting runs before the camera frames, and the cards wait for it, not for a second fitting', () => {
+  const glide = run.indexOf('else if (cam) { if (prepWith)');
   assert.ok(run.indexOf('const prepWith = ') > 0 && run.indexOf('const prepWith = ') < glide);
   // (the smooth-frames gate still runs right before the cards, as it always did: only the fitting started early)
   // (Every other path still fits the cards after the glide, or after the change of patient: no `prep` there.)
-  assert.equal(run.split('prep ||= unseenFit(cut)').length, 2, 'one place starts the early fitting');
+  assert.equal(run.split('unseenFit(cut)').length, 3, 'the fitting starts before either camera frames (the lead-in one, the slide\'s own), once');
 });
 
 test('the slide\'s marks start once the cards are in sight (CARDS_SEEN), and the card size is read only after the last step', () => {

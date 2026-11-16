@@ -1167,7 +1167,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
-    const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, fv, cut) : null;
+    let prep = null; const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? (prep = bare ? unseenFit(cut) : null, Promise.resolve(prep).then((ok) => (bare && !ok ? null : camera(cam, fv, cut)))) : null;
     tx?.phase('lead');
     if (lead) { await waitCut(150, cut); if (cut()) return; }
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
@@ -1195,12 +1195,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     }
     // (Same patient over the plate: the unseen cards' last fitting, two frames and a smooth one, runs under the glide's first frames, so
     // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
-    let prep = null, bareSeen = false;
-    const prepWith = plate && !swap && !caseCard ? () => { prep ||= unseenFit(cut); } : null;
+    let bareSeen = false;
+    const prepWith = plate;   // (the unseen cards' last fitting runs BEFORE the camera frames, never under its first frames: a fitting that changed the room after the framing sent the camera back the way it came, Mohammad, 16 Nov 2026, Carvedilol 3 to 4)
     tx?.phase('cath-in');
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
-    else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);
+    else if (cam) { if (prepWith) { prep ||= unseenFit(cut); if (!await prep) return; } await camera(cam, fv, cut, plate ? CARDS_AT : 0); }
     insetsGo();   // (no glide set off after all, a lobule's or a held one: the room is written now)
     if (cut()) return;
     if (bare) {
@@ -1215,7 +1215,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
       if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
-      if (prep) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);
+      if (prep && !swap && !caseCard) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);   // (a new patient's or a case's cards are fitted again once it is in)
       if (cut()) return;
       const filled = await ui.tools.ready(900); if (cut()) return;
       if (!filled) degrade('window');   // (a recording instrument's window is filled before its card comes in: tools.prime)

@@ -502,6 +502,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
   need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/presenter.js', [
+    [/prep = bare \? unseenFit\(cut\) : null, Promise\.resolve\(prep\)\.then\(\(ok\) => \(bare && !ok \? null : camera\(cam, fv, cut\)\)\)/, "the lead-in camera frames only after the unseen cards' last fitting (Carvedilol 3 to 4, 16 Nov 2026: a framing taken before it was undone by a second move)"],
+    [/else if \(cam\) \{ if \(prepWith\) \{ prep \|\|= unseenFit\(cut\); if \(!await prep\) return; \} await camera\(cam, fv, cut, plate \? CARDS_AT : 0\); \}/, "the slide's camera frames only after the unseen cards' last fitting, for every kind of slide change over the plate (same patient, new patient, case card)"],
+  ]);
   need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; alongOk = false; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in follows no vessel path and takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
   need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.o, slow: true \} : o/, "frameTo asks the move in from a case card slow"]]);
   need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
