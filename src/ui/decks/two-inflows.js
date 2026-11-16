@@ -59,8 +59,8 @@ export const TWO_INFLOWS = {
       id: 'switch', pill: false, cam: 'portal', tool: INFLOW, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The arterial buffer', site: 'pre', title: 'Without the buffer, hepatic blood flow falls much further',
-      line: 'Hepatic arterial flow adjusts to portal flow, never the reverse. With the buffer switched off, impossible in a patient, sinusoidal flow falls to about 40% of normal.',
-      notes: 'The buffer cannot be switched off in a patient, but it can in the model: sinusoidal flow falls to about 40% of normal. The regulation is one-way. Hepatic arterial flow adjusts to portal flow, but portal flow is not regulated by the liver; it is set by the splanchnic (mesenteric and splenic) arterioles. On the figure the hepatic artery and the sinusoids narrow when the buffer is off.',
+      line: 'Hepatic arterial flow adjusts to portal flow, never the reverse. With the buffer switched off, impossible in a patient, sinusoidal flow falls to about 43% of normal.',
+      notes: 'The buffer cannot be switched off in a patient, but it can in the model: sinusoidal flow falls to about 43% of normal. The regulation is one-way. Hepatic arterial flow adjusts to portal flow, but portal flow is not regulated by the liver; it is set by the splanchnic (mesenteric and splenic) arterioles. On the figure the hepatic artery and the sinusoids narrow when the buffer is off.',
       ask: ['Why does the same thrombus reduce sinusoidal flow far more with the buffer off?', 'The hepatic artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
     {
@@ -93,9 +93,9 @@ export const TWO_INFLOWS = {
       id: 'relation', preset: 'pvt-acute', cam: 'portal', mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       tool: { kind: 'curve', x: 'clot', xFrom: 0, xTo: 100, patient: { preset: 'healthy' }, param: 'thrombus.PV_TRUNK', from: 0, to: 1, step: 0.1, lines: ['liver'],
         against: { label: 'No buffer', params: { habrStrength: 0 }, own: 'With the buffer' } },
-      kicker: 'Summary', site: 'pre', title: 'Without the buffer, the fall in hepatic blood flow doubles',
-      line: 'With the portal vein occluded, the buffer maintains {liver} of normal sinusoidal flow. Without it, sinusoidal flow would fall below half of normal.',
-      notes: 'Each point is a normal liver with thrombus filling more of the portal vein lumen. Both lines barely change until the thrombus fills about half the lumen. With the buffer, the hepatic artery dilates as portal flow falls and most hepatic blood flow is preserved; with the buffer switched off in the model, the loss is about twice as large. This is why acute portal vein thrombosis rarely causes hepatic infarction, and why hepatic artery thrombosis, which nothing buffers, does more harm. (Iranpour 2016: hepatic artery flow and velocity rise when portal flow falls. Baveno VIII, AASLD 2024 and EASL 2025 do not give these numbers.)',
+      kicker: 'Summary', site: 'pre', title: 'Without the buffer, hepatic blood flow falls below half of normal',
+      line: 'With the portal vein occluded, the buffer maintains {liver} of normal sinusoidal flow. Without it, sinusoidal flow would fall to about 43%, below half of normal.',
+      notes: 'Each point is a normal liver with thrombus filling more of the portal vein lumen. Both lines barely change until the thrombus fills about half the lumen. With the buffer, the hepatic artery dilates as portal flow falls and most hepatic blood flow is preserved; with the buffer switched off in the model, the fall is nearly three times as large. For the patient on the clot slide, whose collaterals carry a little portal blood, sinusoidal flow is 77% of normal with the buffer and 43% without (a fall of 20 points against 54); at the end of the lines, a normal liver with the vein closed keeps 69% with the buffer and 37% without. This is why acute portal vein thrombosis rarely causes hepatic infarction, and why hepatic artery thrombosis, which nothing buffers, does more harm. (Iranpour 2016: hepatic artery flow and velocity rise when portal flow falls. Baveno VIII, AASLD 2024 and EASL 2025 do not give these numbers.)',
       ask: ['Why is most hepatic blood flow preserved in acute portal vein thrombosis?', 'The hepatic artery dilates as the portal flow falls: the arterial buffer response.'],
     },
     {
