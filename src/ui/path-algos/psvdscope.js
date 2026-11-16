@@ -4,7 +4,7 @@
 //        or bilirubin 1, falls on the scope side: the text says "<" for sparing it.
 //   8.48 the LSM criteria for cirrhosis must not be used.
 // The model gives the spleen stiffness (fp.ssm, as the tile prints it). Bilirubin and what the scope found are the slide's own facts.
-import { inheritTone } from './helpers.js';
+import { inheritTone, NONE } from './helpers.js';
 import { SSM_CUTS } from '../../engine/ssm-cuts.js';
 
 const SSM_SPARE = SSM_CUTS.spareScope;   // 40 kPa
@@ -38,7 +38,7 @@ function reading(key, p) {
   return { head: 'Repeat EGD in 2 years', tone: 'ok', stmt: '8.46', why: `${why}, so endoscopy was indicated at diagnosis. It showed no varices.`, next: 'Repeat every 2 years.' };
 }
 
-const chips = (p) => [`SSM ${p.ssm} kPa`, `Bilirubin ${p.bili.toFixed(1)} mg/dL`, scoped(p) && (p.v === 'small' ? 'Small varices' : 'No varices')].filter(Boolean);
+const chips = (p, tiled = NONE) => [!tiled.has('ssm') && `SSM ${p.ssm} kPa`, `Bilirubin ${p.bili.toFixed(1)} mg/dL`, scoped(p) && (p.v === 'small' ? 'Small varices' : 'No varices')].filter(Boolean);
 
 function patientFor(tool, fp, shown = (k, v) => v) {
   const base = tool?.patient || {};
