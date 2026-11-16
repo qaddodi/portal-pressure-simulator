@@ -7,6 +7,7 @@
 // structure's verbs, whose readings are functions of the model frame, so choosing a structure looks its card up and a frame reads
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
+import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
 import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
@@ -167,7 +168,7 @@ function buildEdgeCard(e) {
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { CTX.probe(id); CTX.showPane('doppler'); CTX.select(null); } };
   // (Shown on a portal vessel or a systemic vein that can start a shunt; the context says which.)
   const shunt = { type: 'button', id: 'shunt', label: 'Add shunt', short: 'Shunt', icon: 'stent', showIf: () => CTX.canShunt(id), run: () => CTX.startShunt(id) };
-  let kicker, why = 'pv', span = spanOfEdge(e);
+  let kicker, span = spanOfEdge(e);
   const portalSide = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to);
   if (!SIN_EDGES.has(id)) verbs.push(...vesselReads(k));
   if (isArt) {
@@ -181,7 +182,7 @@ function buildEdgeCard(e) {
       verbs.push(doppler);
     }
   } else if (isColl) {
-    kicker = `Collateral · ${e.code || id}`; why = 'shunt';
+    kicker = `Collateral · ${e.code || id}`;
     // How far the collateral has opened, from closed to its widest: a meter, read off the model (not a control).
     verbs.push({ type: 'meter', id: 'recruit', label: 'Recruited', icon: 'vessel', share: (f) => clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) });
     verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: id === 'C5' ? 'Occlude (BRTO)' : 'Occlude (plug)', short: id === 'C5' ? 'BRTO' : 'Occlude', icon: 'occlude',
@@ -192,7 +193,7 @@ function buildEdgeCard(e) {
     if (id === 'C2' || id === 'C5') verbs.push(...VARIX_GAS_ACTS);
     verbs.push(doppler);
   } else if (isShunt) {
-    kicker = 'Shunt'; why = 'shunt';
+    kicker = 'Shunt';
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
       span = SPAN_PPG;
@@ -223,15 +224,14 @@ function buildEdgeCard(e) {
     verbs.push(doppler);
   } else if (SIN_EDGES.has(id)) {
     // Each side's sinusoids: their own card, read at the station, with the liver's cirrhosis and its lobule.
-    kicker = 'Liver microcirculation'; why = 'hvpg';
+    kicker = 'Liver microcirculation';
     // (The bar is the drop to the central vein; the bed has no one velocity or diameter, so its flow and resistance read beside it.)
     verbs.push(read('L/min', (f, c) => flowNum(c, bedStats(e, f).q)));
     verbs.push(read('mmHg·min/L', (f, c) => { const r = bedStats(e, f).r; return r == null ? '—' : memoTenth(c, r, FMT1); }));
     verbs.push(...ORGAN_BASE.get('liver').verbs);
   } else {
     kicker = portalSide ? 'Vein · portal system' : 'Vein · systemic';
-    if (HEP_VEIN[id]) { kicker = 'Hepatic vein'; why = 'hvpg'; }
-    if (['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id)) why = 'pvFlow';
+    if (HEP_VEIN[id]) kicker = 'Hepatic vein';
     verbs.push(narrow, clot);
     verbs.push(doppler);
     verbs.push(shunt);
@@ -245,7 +245,7 @@ function buildEdgeCard(e) {
   }
   // (What a vessel is, in words, is in Details: the card shows numbers and verbs only.)
   return {
-    key: 'e:' + id, sel: NORM_EDGE.get(id) || { type: 'edge', id }, kicker, title: e.label, why, edge: id, verbs, span,
+    key: 'e:' + id, sel: NORM_EDGE.get(id) || { type: 'edge', id }, kicker, title: e.label, why: edgeWhy(id), edge: id, verbs, span,
     value: (f, lens, ref) => edgeValue(e, f, lens, ref, true),
     status: (f) => {
       if (isArt) return null;

@@ -8,6 +8,7 @@ import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
+import { healthyAtBedside, restingEngine } from './engine/bedside-rest.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
 import { setYours } from './engine/yours.js';
 import { calmTrail } from './engine/trail-calm.js';
@@ -88,6 +89,7 @@ function* stepExtras(e, st) {
 // again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
 // over are cleared as a load clears them.
 const KEPT_MAX = 24;
+export const WARM_DT = 0.008, WARM_STEPS = 1500;   // (a loaded patient's run-in at the bedside clock: 12 s, the steps of the 4× clock, whose means differ by about 0.01 mmHg, see hemoStep)
 const REFS = ['refP', 'refQ', 'Vbase'];
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
@@ -112,7 +114,7 @@ export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) 
 const HIST_DT = 0.004, HIST_MAX_S = 14, HIST_RUNIN_S = 1.5, HIST_SLICE_MS = 6;
 
 export function createCore(post) {
-  let eng = new Engine();
+  let eng = restingEngine();   // (a healthy patient at the bedside's rest: its readings hold still from the first frame, bedside-rest.js)
   let running = true;
   let speed = 1;
   let clock = 'hemo'; // 'hemo' | 'disease'
@@ -506,10 +508,18 @@ export function createCore(post) {
     *preset({ id, days, reqId }) {
       stateChanged();
       endTransitions();
-      yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+      // (Healthy, with no days, is the bedside's rest itself: its readings hold still from the first frame and equal the reference, bedside-rest.js.)
+      if (id === 'healthy' && days == null) { const seed = eng.params.seed; eng = restingEngine(); eng.params.seed = seed; }
+      else {
+        yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+        // The other patients open at their bedside rest too (play-test A1, 16 Nov 2026): the settle that made them runs without the breath and the pulse, and the
+        // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
+        // Twelve seconds of the live clock's own steps, before the page is told, start it there.
+        if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+      }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); endTransitions(); eng = restingEngine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -605,8 +615,9 @@ export function createCore(post) {
       post({ type: 'whatIf', reqId, result: { base: copy(null), rx: copy(patch || {}) } });
     },
     healthyProfile({ reqId }) {
-      const h = new Engine();
-      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
+      // (The healthy patient as the model shows it at rest, the shown means: what the live healthy patient reads, so "Healthy" and the reference agree, bedside-rest.js.)
+      const h = healthyAtBedside().eng;
+      post({ type: 'healthy', reqId, P: Array.from(h.Pf), Q: Array.from(h.Qf), D: h.edges.map((e) => h.diameterShown(e.id)), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
     metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },

@@ -26,7 +26,7 @@ import { focusOf, sidesEl } from './teach-extras.js';
 import { titleParts } from './title-units.js';
 import { chartScale, createProfileStrip, createProfileTool, pillReadings } from './tool-profile.js';
 import { traceWhen } from './trace-labels.js';
-import { fadeShown, fmt, h, swapText, themeChanged } from './util.js';
+import { fadeShown, fmt, h, swapFade, swapText, themeChanged } from './util.js';
 import { bpText } from './vital-read.js';
 
 export function createQuestion(st, live) {
@@ -138,13 +138,34 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
+    // (a time-lapse's words start at its start state; the days carry them to the end: presenter-case.js chipsTo)
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
     keepNote();   // (a kept card this layout changed is put back at once: nothing changed is ever painted)
   }
+  // A compare button that switches the patient (a preset, another slide's state, or the slide's own) brings its own words with it: the title, the
+  // line with its value pills read from that patient, the level's tab. A slide's words are written for one patient, so a button that changed only
+  // the figure left the title and the line describing the other one (Collaterals and varices 8: Budd-Chiari under the heart-failure words;
+  // Two lesions 8: the "Both" numbers under "Clot only"). The words come from the button: its own title, line, kicker and site; from the other
+  // slide a time-point button names (slide:); or the slide's own. A button with none of those (same: true) keeps the words and only its pills
+  // are read again. tests/variant-words.test.js holds every button to one of them.
+  function variantWords(s, i, o, ps) {
+    const text = live.ui?.text;
+    if (!text || text.hidden || !ps || s.visual || revealCount(s)) return;
+    const at = o.slide ? live.slides.find((x) => x.id === o.slide) : null, src = o.own ? s : at || o;
+    const pick = (k) => src[k] ?? s[k];
+    const slide = at || s, title = pick('title'), lineT = pick('line');
+    const fp = ps.fp, tips = !!ps.params?.tips?.on;
+    const head = text.querySelector('.pz-h'), line = text.querySelector('.pz-line');
+    if (head) swapFade(head, () => { head.replaceChildren(...diseaseNodes(nb(title))); markLong(text); });
+    if (line && lineT) swapFade(line, () => { line.replaceChildren(...rich(lineT, slide, fp, tips)); layout(); });
+    const lvl = siteTag(live.deck, { ...s, site: pick('site'), kicker: pick('kicker') }), stab = live.ui.shade.querySelector('.pz-sitetab');
+    if (stab && lvl?.site && !stab.hasAttribute('data-rail')) { const site = lvl.site; if (stab.textContent === lvl.name) stab.dataset.site = site; else swapText(stab, lvl.name, () => { stab.dataset.site = site; }); }
+  }
+  live.variantWords = variantWords;
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
-  function textIn(s, st, i) {
+  function textIn(s, st, i, wst = live.keepArgs?.s === s && live.keepArgs.lap ? live.keepArgs.now : st) {
     const { text, panel } = live.ui;
     evDrop();   // (the last slide's graph is let go)
     paintScales(s, i);
@@ -169,7 +190,7 @@ export function createQuestion(st, live) {
       panel.style.setProperty('--pz-tu', s.visual === 'table' ? String(tableUnits(s)) : '');   // (a table's own width in body-text em, so its card fits it: app.css .pz-panel[data-visual="table"])
       const tab = s.visual !== 'outline' && deckTab();   // (the outline names the talk in full instead)
       panel.classList.toggle('tabbed', !!tab);
-      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(live.deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp, !!st?.params?.tips?.on)) : null, sidesEl(s, h, (t) => rich(t, s, st?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
+      panel.replaceChildren(...(tab ? [tab] : []), h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(live.deck.title)) : null, h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title))), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, wst?.fp, !!st?.params?.tips?.on)) : null, sidesEl(s, h, (t) => rich(t, s, wst?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s)),
         live.visualOf(s, i));
       if (!live.ui.root.classList.contains('pz-prep')) cardIn(panel, 'pz-leave');   // (else once fitted: settle)
       live.ui.veil.classList.add('on');
@@ -184,10 +205,10 @@ export function createQuestion(st, live) {
       live.ui.veil.classList.remove('on');
       text.hidden = false;
       const head = h('h1', { class: 'pz-h' }, ...diseaseNodes(nb(s.title)));
-      const rv = revealCount(s), line = s.line ? h('p', { class: 'pz-line' }, ...(rv ? revealLine(s, st?.fp, !!st?.params?.tips?.on, Math.min(live.beat, lastBeat(i)) + 1) : rich(s.line, s, st?.fp, !!st?.params?.tips?.on))) : null;
+      const rv = revealCount(s), line = s.line ? h('p', { class: 'pz-line' }, ...(rv ? revealLine(s, wst?.fp, !!st?.params?.tips?.on, Math.min(live.beat, lastBeat(i)) + 1) : rich(s.line, s, wst?.fp, !!st?.params?.tips?.on))) : null;
       if (live.bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
-          line, sidesEl(s, h, (t) => rich(t, s, st?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
+          line, sidesEl(s, h, (t) => rich(t, s, wst?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : isResponse(s.compare) ? 'Change how well the beta-blocker works on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.procedure ? procEl(s, i, st) : null,

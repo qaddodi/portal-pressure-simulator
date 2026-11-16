@@ -85,7 +85,7 @@ export const SITES = {
     },
     {
       id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
-      tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'], compare: [{ label: 'Normal heart', short: 'Normal', preset: 'healthy' }, { label: 'Failing heart', short: 'Failing', own: true }],
+      tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'], compare: [{ label: 'Normal heart', short: 'Normal', preset: 'healthy', title: 'With a normal heart, every pressure is low and both gradients are normal', line: 'The [right atrial pressure](ra) is normal, so the pressure is low from the hepatic veins to the portal vein: the HVPG is {hvpg} and the PPG {ppg}.' }, { label: 'Failing heart', short: 'Failing', own: true }],
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure: every pressure rises, but neither gradient does',
       vignette: 'A 67-year-old man with severe TR from pulmonary hypertension has an elevated JVP, leg edema and ascites. Paracentesis shows a SAAG of 1.4 g/dL and a total protein of 4.3 g/dL, and EGD shows no varices.',
       line: 'Elevated [right atrial pressure](ra) is transmitted back through the hepatic veins to the sinusoids, so every pressure rises together: a high portal pressure, but neither gradient rises.',
@@ -95,8 +95,8 @@ export const SITES = {
     {
       // (The pressure ladder of each of the six patients: the cirrhosis patient is the slide's own, and a button eases to each of the others.)
       id: 'steps', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'profile' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
-      compare: [{ label: 'Portal vein thrombosis', short: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true },
-        { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' }, { label: 'Budd–Chiari syndrome', short: 'Budd–Chiari', preset: 'budd-chiari' }, { label: 'Right heart failure', short: 'Heart', preset: 'rhf' }],
+      compare: [{ label: 'Portal vein thrombosis', short: 'Clot', preset: 'pvt-chronic', same: true }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto', same: true }, { label: 'Cirrhosis', own: true },
+        { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos', same: true }, { label: 'Budd–Chiari syndrome', short: 'Budd–Chiari', preset: 'budd-chiari', same: true }, { label: 'Right heart failure', short: 'Heart', preset: 'rhf', same: true }],
       kicker: 'How to tell them apart', title: 'The pressure drop lies at the site of resistance',
       line: 'The pressure falls where the resistance lies. In right heart failure the raised IVC pressure is subtracted, so the PPG is normal.',
       notes: 'Tap a patient to see the pressure from gut to heart. The line falls steeply where the resistance is: across the thrombus in portal vein thrombosis, in the portal venules in schistosomiasis, in the sinusoids in cirrhosis, just after them in sinusoidal obstruction, and in the hepatic veins in Budd–Chiari. In right heart failure the IVC pressure that the PPG subtracts is elevated, so the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies.',

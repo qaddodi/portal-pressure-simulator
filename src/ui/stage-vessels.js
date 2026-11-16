@@ -26,7 +26,8 @@ import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
 import { JOIN_F_NOFADE } from './tube-join-glsl.js';
 import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass } from './vein-joins.js';
-import { F_DIFFUSE, F_DOTTED, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
+import { ARTERY_WALL, readArteryWall, writeArteryWall } from './artery-wall.js';
+import { F_DIFFUSE, F_DOTTED, F_EDGE, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
 import { writeJoinNow, writePoints } from './veins-sweep.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
 
@@ -762,7 +763,7 @@ export function createVessels(st, live) {
       // (A shunt's row, and a collateral's once it is drawn at full strength, gets its corners' fillets across tiers: the gastrorenal and splenorenal shunts end on the left renal vein, which lies in a fainter tier, and without
       // the fillets their sides met the vein's wall at a right angle, as a pipe laid across it (Mohammad, 13 Nov 2026, twice). A collateral still easing in from its faint level keeps no fillet: it would show as a solid fin beside it.)
       const shuntRow = (x.e.kind === 'shunt' && x.e.shunt !== 'ap') || (kind === 'v' && x.e.kind === 'collateral' && (x.level ?? 1) >= 1);
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (shuntRow ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (x.isArt && x.tube && ARTERY_WALL.k > 0 ? F_EDGE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (shuntRow ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
       // (A change easing in, a slide's patient morphing: a vessel the front has not reached yet keeps its colour; easingFront.)
@@ -811,7 +812,7 @@ export function createVessels(st, live) {
       }
       if (kind === 'v' && ligatedAt(id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
       tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? lenOfItem(it) || 1 : it.len || geo[id].len || 1;
-      for (let j = 23; j < 28; j++) tubeData[o + j] = 0;
+      for (let j = 23; j < 28; j++) tubeData[o + j] = 0; if (x.isArt && x.tube && ARTERY_WALL.k > 0) writeArteryWall(tubeData, o + 24);   // (the artery's own wall on the dark looks: artery-wall.js)
       let tint = kind === 'v' && live.cathTint?.[id], t0 = 0, t1 = 0;
       if (tint) { t0 = tint[0]; t1 = tint[1]; }
       if (ra && kind === 'v') {
@@ -969,7 +970,7 @@ export function createVessels(st, live) {
     // tubeData and into kept colour pairs, colPass below, in the same arithmetic.)
     cpT0 = easeInOut(live.morph); cpNow = performance.now(); cpCs = cs;
     // (The Change and Heat lenses draw their "higher" in red, ΔE 3 from --artery: there the arteries step back to the lens's neutral grey, C4.)
-    cpArtery = toRGB(mode === 'delta' || mode === 'heat' ? 'var(--lens-neutral)' : 'var(--artery)', cs);
+    cpArtery = toRGB(mode === 'delta' || mode === 'heat' ? 'var(--lens-neutral)' : 'var(--artery)', cs); readArteryWall(cssNum(cs, '--artery-wall-k', 0), cpArtery);
     cpOrigin = live.originOn();
     const T0 = cpT0;
     tubeData.fill(0);

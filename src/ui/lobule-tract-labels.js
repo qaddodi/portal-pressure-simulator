@@ -3,7 +3,7 @@
 // 1. Each sits on the side its vessel faces. The arteriole's and the ductule's spots were fixed screen offsets (up and to the left, up and to the
 //    right), so on a lower corner they fell inside the tract and the search sent them across it, the Arteriole's beside the ductule.
 //    Now each tract label stands out along the ray from the venule through what it names (the arteriole, the lymphatic and the ductule fan
-//    out on the tract's outer arc, lobule-zoom.js TRIAD_A), and the venule's own beside them, out to the side; spokes of one hub never cross.
+//    out on the tract's outer arc, lobule-zoom.js TRIAD_A), and the venule's own between the arteriole's and the lymphatic's; spokes of one hub never cross.
 // 2. No leader runs over another vessel's dot. The Portal venule's leader passed over the arteriole's dot, so it seemed to name the arteriole.
 //    A leader over the venule's disc or a dot of the tract other than its own costs as much as two crossed leaders (lobule-zoom-records.js solve).
 // Pure geometry on screen coordinates; the layout keeps one record (fan) and rewrites it in place each layout.
@@ -24,9 +24,9 @@ export const mkFan = () => ({
   sx: { triad: 0, ha: 0, bd: 0, lymph: 0 }, sy: { triad: 0, ha: 0, bd: 0, lymph: 0 },   // each label's spot on its spoke
   box: [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }],
 });
-// The order the spots are set in: the two small names first, nearest the tract, then the lymphatic's and the venule's, each moved out along its
+// The order the spots are set in: the two small names first, nearest the tract, then the venule's and the lymphatic's, each moved out along its
 // own spoke just as far as it must to clear those already set (spokes of one hub, so moving out never makes two leaders cross).
-const FAN_ORDER = ['ha', 'bd', 'lymph', 'triad'];
+const FAN_ORDER = ['ha', 'bd', 'triad', 'lymph'];
 
 /** Sets the fan for this layout. tri: the picked triad (world: x, y, ha, bd, lv.pts[0]); cvS: the central vein on screen; V: the view (k, x, y);
  *  R: the lobule's radius (world); keepR: the tract's kept disc on screen; items: the labels to place (screen anchors; an edge chip is no spoke);
@@ -52,12 +52,15 @@ export function tractFan(fan, tri, cvS, V, R, keepR, items, lyHere, fr, hx, hy) 
   ox /= ol; oy /= ol;
   const spoke = (k, x, y) => { let vx = x - px, vy = y - py; const l = Math.hypot(vx, vy); if (l < 1e-6) { vx = ox; vy = oy; } else { vx /= l; vy /= l; } fan.ux[k] = vx; fan.uy[k] = vy; };
   spoke('ha', fan.dx[0], fan.dy[0]); spoke('bd', fan.dx[1], fan.dy[1]); if (lv) spoke('lymph', fan.dx[2], fan.dy[2]); else spoke('lymph', px + ox, py + oy);
-  // The venule's own label: straight out from the central vein when the lymphatic's is not shown (that slot is free), else out to the side
-  // (a right angle from the outward ray), on the side with more room in the free space.
+  // The venule's own label: straight out from the central vein when the lymphatic's is not shown (that slot is free), else between the
+  // arteriole's and the lymphatic's (Mohammad, 16 Nov 2026: "the portal venule label should be between the arteriole label and the lymph"),
+  // so the four names run round the tract in the order of what they name and no leader crosses another or a vessel of the tract.
   if (!ly) { fan.ux.triad = ox; fan.uy.triad = oy; } else {
-    const room = (s) => { const x = px - s * oy * (keepR + 60), y = py + s * ox * (keepR + 60); return Math.min(x - fr.l, fr.r - x, y - fr.t, fr.b - y); };
-    const s = room(1) >= room(-1) ? 1 : -1;
-    fan.ux.triad = -s * oy; fan.uy.triad = s * ox;
+    const k = fan.has.ha ? 'ha' : 'bd';
+    let bx = fan.ux[k] + fan.ux.lymph, by = fan.uy[k] + fan.uy.lymph;
+    const bl = Math.hypot(bx, by) || 1;
+    bx /= bl; by /= bl;
+    fan.ux.triad = bx; fan.uy.triad = by;
   }
   // Each spot: on its spoke, the box (margins and all) just clear of the tract's kept disc, then out until it clears the boxes set before it.
   let nb = 0;

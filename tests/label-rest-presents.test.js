@@ -41,9 +41,9 @@ test('at rest the labels lay no presents of their own; with a TIPS only its read
   };
   // Healthy: nothing on the figure changes its words at rest, so every present is the figure's (before: 69 presents against 54 composites).
   const h = await rest();
-  // (At least 10: since the readings hold still at rest (15 Nov 2026, engine shownMean) a settled patient's frames change nothing on the figure,
-  // so it composites about half as often as when the breath moved every frame: 24 in 2 s, was 54. The floor only says the figure is drawn.)
-  assert.ok(h.composites >= 10, `the figure is drawn at rest (${h.composites} composites in 2 s)`);
+  // (A healthy patient now starts at the bedside's rest (bedside-rest.js, 16 Nov 2026), so its readings hold still from the first frame and the figure
+  // composites nothing at all in these 2 s: it was 24, from readings that climbed to the rest over the first minute, and 54 before they held still. No floor
+  // for it; the labels showing (above) and the TIPS patient below, whose readings do tick, say the figure is drawn.)
   assert.ok(h.presents <= h.composites * 1.08 + 2, `healthy: no present for the labels alone: ${h.presents} presents against ${h.composites} composites in 2 s`);
   // Decompensated cirrhosis with a TIPS: its readings tick a few times a second, and each new value is one picture, laid once by the pass
   // between frames (before: 95 against 60; sync alone, 74; with told handing the label to the pass, 69 against 61).

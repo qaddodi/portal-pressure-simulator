@@ -44,15 +44,15 @@ const cap = await captureLobule({});
 const FL = 52, T = (r, k) => cap.up.tube[r * FL + k], rad = (r, i) => cap.up.rad[(r * N_SAMPLES + i) * 4];
 const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const rows = [...cap.tubes.keys()];
-test('the lobule: each triad\'s twig lies under the sinusoids (z 0.08 < 0.1), starts at its arteriole\'s centre, and is tapered from there to its thread', () => {
+test('the lobule: each triad\'s twig lies under the sinusoids (z 0.08 < 0.1), starts at its arteriole\'s rim (never inside the disc: lobule-disc-rim.test.js), and is tapered from there to its thread', () => {
   const tw = rows.filter((r) => Math.abs(T(r, 9) - 0.08) < 1e-6), ha = rows.filter((r) => Math.abs(T(r, 9) - 0.7) < 1e-6 && (T(r, 10) & 512) !== 0);
   assert.equal(tw.length, 6);
   assert.equal(ha.length, 6);
   const sin = rows.find((r) => Math.abs(T(r, 9) - 0.1) < 1e-6);
   assert.ok(T(tw[0], 9) < T(sin, 9), 'under a sinusoid');
   for (const r of tw) {
-    const p0 = cap.tubes[r].pts[0], best = Math.min(...ha.map((h) => near(p0, [(cap.tubes[h].pts[0][0] + cap.tubes[h].pts.at(-1)[0]) / 2, (cap.tubes[h].pts[0][1] + cap.tubes[h].pts.at(-1)[1]) / 2])));
-    assert.ok(best < 1, `leaves an arteriole's centre (${best.toFixed(2)} away)`);
+    const p0 = cap.tubes[r].pts[0], d = ha.map((h) => [h, near(p0, [(cap.tubes[h].pts[0][0] + cap.tubes[h].pts.at(-1)[0]) / 2, (cap.tubes[h].pts[0][1] + cap.tubes[h].pts.at(-1)[1]) / 2])]).sort((a, b) => a[1] - b[1])[0];
+    assert.ok(d[1] > 0.85 * rad(d[0], 0) && d[1] < 1.2 * rad(d[0], 0), `leaves an arteriole at its rim (${d[1].toFixed(2)} from its centre, radius ${rad(d[0], 0).toFixed(2)})`);
     assert.ok(rad(r, 0) > rad(r, 32) * 1.2, `wider at the arteriole (${rad(r, 0).toFixed(2)}) than mid-way (${rad(r, 32).toFixed(2)})`);
     assert.ok(rad(r, 63) > rad(r, 32), 'opening again toward the sinusoid');
   }

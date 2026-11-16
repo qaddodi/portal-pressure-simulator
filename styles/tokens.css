@@ -535,6 +535,7 @@
     --organ-tint: 20%;
     --diaphragm: #9C8C84;
     --artery: #E4606C;
+    --artery-wall-k: .5;
     --casing-rgb: 14 11 9;
     --casing-a: .3;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -782,6 +783,7 @@
   --organ-tint: 20%;
   --diaphragm: #9C8C84;
   --artery: #E4606C;
+  --artery-wall-k: .5;
   --casing-rgb: 14 11 9;
   --casing-a: .3;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -1067,6 +1069,7 @@
   --flow-normal: #2CC5BD;
   --flow-reversed: #FF8C42;
   --artery: #E4606C;
+  --artery-wall-k: .5;
   --casing-rgb: 0 0 0;
   --casing-a: .38;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
@@ -1122,6 +1125,7 @@
     --flow-normal: #2CC5BD;
     --flow-reversed: #FF8C42;
     --artery: #E4606C;
+    --artery-wall-k: .5;
     --casing-rgb: 0 0 0;
     --casing-a: .38;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));

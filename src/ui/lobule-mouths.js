@@ -12,6 +12,16 @@
 import { N_SAMPLES } from './veins-mesh.js';
 
 export const MOUTH_BINS = 72;
+// The vessels seen end-on, drawn as discs (F_RING): the central vein, the portal venule, the arteriole, the bile ductule and the tract's lymphatic (16 Nov 2026: drawn as a
+// short tube, the lymphatic's disc took a tube's cel tones, lit on one half, a diagonal seam across it).
+export const END_ON = new Set(['cv', 'pv', 'ha', 'bd', 'lv']);
+/** The point on a disc's rim (centre c, radius r) toward p. A vessel that leaves a disc seen end-on starts there, never at its centre (16 Nov 2026, Mohammad: "the hepatic
+ *  arteriole itself seems to be cropped, same for lymph"): the arteriole's twig ran from the disc's centre, and inside the disc's open mouth its body showed over the disc's fill,
+ *  a flat cut across it; the lymphatics ran into the tract lymphatic's centre the same way. */
+export function rimToward(c, p, r) {
+  const dx = p[0] - c[0], dy = p[1] - c[1], l = Math.hypot(dx, dy) || 1;
+  return [c[0] + (dx / l) * r, c[1] + (dy / l) * r];   // alloc-rare: geometry built only on a stage-size change
+}
 const TAU = Math.PI * 2;
 
 /** The disc's sites, from the lobule's geometry. t: the disc's tube; tubes, joins: the lobule's; rim: the disc's healthy radius (world units). null when nothing joins it. */

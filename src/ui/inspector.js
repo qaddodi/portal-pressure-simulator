@@ -1,6 +1,7 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { wallShare } from '../engine/wall-read.js';
+import { edgeWhy, nodeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, dMinOf } from '../engine/topology.js';
 import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
@@ -280,13 +281,13 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
             stat(`Out · ${toN.label}`, (f, c) => pressText(c, Pof(f)[iTo]), true),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             stat('Pressure drop', (f, c) => numText(c, Pof(f)[iFrom] - Pof(f)[iTo], 1, ' mmHg')),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             stat('Flow', (f, c) => flowText(c, Qof(f)[k] * 0.06)),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
-            stat('Velocity', (f, c) => numText(c, Math.abs(dopplerVel(f, k)), 1, ' cm/s')),   // Doppler (peak), like the callouts   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
+            stat('Peak velocity', (f, c) => numText(c, Math.abs(dopplerVel(f, k)), 1, ' cm/s')),   // Doppler (peak), like the callouts: named so (play-test A10, 16 Nov 2026: 64 cm/s at 0.6 L/min in 6 mm read as a mean)   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             stat('Diameter', (f, c) => numText(c, f.D[k], 1, ' mm')),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             stat('Resistance', R),
             isColl ? stat('Recruitment', (f, c) => numText(c, clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100, 0, '%')) : stat('Healthy flow', (f, c) => { const q = store.get().healthy?.Q?.[k]; return q != null ? lpmText(c, q * 0.06) : '—'; })),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
           h('div', { class: 'btn-row' },   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             h('button', { class: 'btn sm', onclick: () => { onAction({ kind: 'probe', id }); onOpenTab('doppler'); } }, icon('doppler'), 'Doppler here'),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
-            whyBtn(['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id) ? 'pvFlow' : isColl ? 'shunt' : 'pv'))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
+            whyBtn(edgeWhy(id)))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
       ),
     ];
     const body = els[1];
@@ -307,7 +308,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
             stat('Healthy', (f, c) => { const v = store.get().healthy?.P?.[iN]; return v != null ? numText(c, v, 1, ' mmHg') : '—'; }),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
             stat('External pressure (Δ)', (f, c) => numText(c, (f.extf || f.ext)[iN], 1, ' mmHg')),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame (the outside pressure over the breath, as the pressure above: this instant's swings with it)
             stat('Transmural', (f, c) => numText(c, Pof(f)[iN] - (f.extf || f.ext)[iN], 1, ' mmHg'))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
-          h('div', { class: 'btn-row' }, whyBtn(id === 'RA' ? 'ra' : id === 'AO' ? 'map' : id === 'VAR' ? 'varix' : 'pv'))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
+          h('div', { class: 'btn-row' }, whyBtn(id === 'RA' ? 'ra' : id === 'AO' ? 'map' : id === 'VAR' ? 'varix' : nodeWhy(id)))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
         section('connections', 'Connected vessels', null, null, h('div', { class: 'btn-row' },   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
           EDGES.filter((e) => (e.from === id || e.to === id) && e.kind !== 'wedge').map((e) => h('button', { class: 'btn sm', onclick: () => store.set({ details: { type: 'edge', id: e.id }, selection: { type: 'edge', id: e.id } }) }, e.label || e.id))))),   // alloc-rare: the panel is built when a selection opens (a details change, a tap), never per frame
     ];

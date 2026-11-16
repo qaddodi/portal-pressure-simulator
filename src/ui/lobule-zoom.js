@@ -70,7 +70,7 @@ import { hitLabel } from './label-explain.js';
 import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 import { createLobuleField } from './lobule-zoom-field.js';
-import { mouthSite, mouthWords, twigPath } from './lobule-mouths.js';
+import { END_ON, mouthSite, mouthWords, rimToward, twigPath } from './lobule-mouths.js';
 import { F_ENDS } from './tube-data.js';
 import { createLobuleRecords } from './lobule-zoom-records.js';
 import { createLobuleLabels } from './lobule-zoom-labels.js';
@@ -1248,7 +1248,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Arterioles: from each triad's arteriole into the first stretch of a sinusoid (zone 1).
     for (const tr of triads) {
       const target = L0.find((t) => t.edge === tr.i && t.tri === tr.i) || L0[tr.i * N0];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      const q = at(target.pts, 0.2), q2 = at(target.pts, 0.28), A = tr.ha, tl = Math.hypot(q2[0] - q[0], q2[1] - q[1]) || 1;
+      const q = at(target.pts, 0.2), q2 = at(target.pts, 0.28), A = rimToward(tr.ha, q, R * 0.0115), tl = Math.hypot(q2[0] - q[0], q2[1] - q[1]) || 1;
       const t = add('tw', curve(twigPath(A, q, [(q2[0] - q[0]) / tl, (q2[1] - q[1]) / tl], [cx, cy])), { tri: tr.i });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
@@ -1316,7 +1316,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const lt = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const A = C[i], B = C[(i + dir + 6) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(cx - mx, cy - my);
-      const nx = (mx - cx) / nl, ny = (my - cy) / nl, f = inlets[i * 2 + (dir > 0 ? 0 : 1)].f, lv = triads[i].lv.pts[0];
+      const nx = (mx - cx) / nl, ny = (my - cy) / nl, f = inlets[i * 2 + (dir > 0 ? 0 : 1)].f, lv = rimToward(triads[i].lv.pts[0], [f(0.22)[0] + nx * R * 0.037, f(0.22)[1] + ny * R * 0.037], R * 0.016);
       const t = add('lt', curve((u) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
         const q = f(1 - u), o = R * lerp(0.04, 0.025, 1 - u), e = smooth(0.78, 1, u), px = q[0] + nx * o, py = q[1] + ny * o;
         return [lerp(px, lv[0], e), lerp(py, lv[1], e)];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
@@ -1342,8 +1342,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). Only where each vessel arrives is kept here; the mask itself is worked out from the radii as drawn (lobule-mouths.js).
     const mouths = new Map();
     for (const t of tubes) {
-      if (t.kind !== 'pv' && t.kind !== 'cv' && t.kind !== 'ha' && t.kind !== 'bd') continue;
-      const site = mouthSite(t, tubes, joins, t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145)));
+      if (!END_ON.has(t.kind)) continue;
+      const site = mouthSite(t, tubes, joins, t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : t.kind === 'lv' ? R * 0.016 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145)));
       if (site) mouths.set(t.id, site);
     }
     return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), lymphTubes: tubes.filter((t) => !t.bile), bileTubes: tubes.filter((t) => !t.lymph || t.bile), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths, mouthsNoBile: mouthsWithoutBile(mouths, tubes, joins, mouthSite) };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
@@ -2038,8 +2038,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           // The central vein and the portal venule are drawn flat (no light or dark line): on their round ends they read as stray arcs.
           // Every vessel seen end-on (those two, the arteriole, the bile ductule: a disc, a vessel cut across) gets the long vessels' pale band just
           // inside its wall instead (F_RING), all round, so it reads as the cut end of a tube (recommendations/picture-blood-fills-look.md, item 9).
-          const endOn = t.kind === 'cv' || t.kind === 'pv' || t.kind === 'ha' || t.kind === 'bd';
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || isBile || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
+          const endOn = END_ON.has(t.kind);
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || isBile || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' || t.kind === 'lv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           // (Row layout: the vessel's two end colours around its wall, then alpha, 1, depth, flags; its length; its outline.)
           if (isBd) { put3(o, BD_FILL); put3(o + 4, BD_FILL); } else if (isBile) { put3(o, bileRGB); put3(o + 4, bileRGB); }
           else if (isArt) { put3(o, art); put3(o + 4, art); }

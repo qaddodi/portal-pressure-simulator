@@ -84,7 +84,7 @@ export function createLobuleLabels(st, live) {
     else setLab('lymph', 'Lymphatic', 'Lymph', shown(stLy, m.lymph, 1), lymphUnit(Math.round(m.lyProt * 100)), '', null);
     // The arteriole and the ductule: named, with no reading (the model has no pressure of their own); a slide's term ranks them up (named()).
     setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
-    setLab('bd', 'Bile ductule', 'Ductule', '', '', '', 'var(--bile-duct)');
+    setLab('bd', 'Bile ductule', 'Bile ductule', '', '', '', 'var(--bile-duct)');
     if (live.sinTo || live.sinU > 0) live.sv.setModel(m);
   }
   const lyUnitSlot = mkSlot();
