@@ -28,7 +28,7 @@ test('start-up jobs: one pass over the joins a task, idle-gated; the lobule\'s b
   const st = stageSource();
   assert.match(src('vein-joins.js'), /function nearCourse\(pts, q, lim\)/);
   assert.match(src('vein-joins.js'), /nearCourse\(y\.pts, q, y\.obj\.glMaxR \+ 0\.5 \* rq \+ 2 \+ margin\)/);
-  assert.match(st, /\(inMotion\(\) \|\| sinceInput\(\) < 700\) && snaps\.length < 2 \* ENV_AT\.length/);
+  assert.match(st, /\(settling\(\) \|\| sinceInput\(\) < 700\) && snaps\.length < 2 \* ENV_AT\.length/);
   assert.match(st, /if \(!part\) \{ const items = envItemsAt\(w, sp\); part = /);
   assert.match(st, /const lzBinAway = \(tubes, joins\) => sweepBin\(\{ kind: 'bin', tubes, joins \}\);[\s\S]*binAway: lzBinAway/);
   assert.match(src('sweep-worker.js'), /kind === 'bin' \? binVeins\(tubes, joins\)/);

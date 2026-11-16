@@ -6,7 +6,7 @@ import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 const nextFrame = frameFor('figkey');
 
-// el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).
+// el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its data-pz-moving attribute marks a slide change).
 // ready (optional): whether the teaching card is in, or coming in; the key then comes and goes with that card, in its fade (Mohammad,
 // 17 Oct: the key had popped in after the card), and watch lists the elements whose classes say so.
 export function createFigureKey({ el, app, ready = null, watch = [] }) {
@@ -29,7 +29,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     if (empty() || !el.parentElement?.offsetParent) return;
     // With the card: in as it comes in, out as it leaves. (Without one: a slide change keeps it out of sight until the cards are in
     // and the camera has settled.)
-    if (ready ? !ready() : app.classList.contains('pz-moving')) { if (on) off(); return; }
+    if (ready ? !ready() : app.hasAttribute('data-pz-moving')) { if (on) off(); return; }
     if (on) return;
     // (Shown first and drawn once faded out, then faded in a frame later: the fade starts from nothing with no forced layout read.)
     clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; on = true;
@@ -41,7 +41,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
   const onEvent = () => { if (!empty()) soon(); };
   addEventListener('resize', onEvent);
   const mo = new MutationObserver(onEvent);
-  mo.observe(app, { attributes: true, attributeFilter: ['class'] });
+  mo.observe(app, { attributes: true, attributeFilter: ['class', 'data-pz-moving'] });
   for (const w of watch) mo.observe(w, { attributes: true, attributeFilter: ['class'] });
   return {
     // The key's words changed (a new slide, or another lens), or it has none.

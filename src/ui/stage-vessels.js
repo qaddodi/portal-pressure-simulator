@@ -6,7 +6,7 @@ import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { PEEL_GLOW, peelGlow } from './flow-peel.js';
-import { easeNow, figOpt, inMotion } from './frame.js';
+import { easeNow, figOpt, settling } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liftEnd, nearPath } from './highlight-math.js';
@@ -78,7 +78,7 @@ export function createVessels(st, live) {
   function envCheck() {
     et.checkT = 0;
     if (!live.veins || live.veins.lost || live.morph !== live.morphTarget || !wrap.classList.contains('gl-on') || live.lobuleOn) return;
-    if (inMotion() || live.coilEasing) { envSoon(); return; }
+    if (settling() || live.coilEasing) { envSoon(); return; }
     const rows = rowKey(envItemsAt(0, 1)), key = `${live.morph}|${rows}`;
     if (key === et.key && et.pc?.set?.owner === live.veins) return;
     et.key = key;
@@ -90,7 +90,7 @@ export function createVessels(st, live) {
     let part = null;
     const next = () => {
       if (gen !== et.gen || !live.veins || live.veins.lost) return;
-      if ((inMotion() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { stageScope.timer(next, 200); return; }
+      if ((settling() || sinceInput() < 700) && snaps.length < 2 * ENV_AT.length) { stageScope.timer(next, 200); return; }
       if (snaps.length < 2 * ENV_AT.length) {
         const m = snaps.length >> 1, [w, sp] = ENV_AT[m];
         if (!part) { const items = envItemsAt(w, sp); part = { items, o: joinsKept(items), J2: null }; stageScope.timer(next, 0); return; }
@@ -145,7 +145,7 @@ export function createVessels(st, live) {
     et.restT = 0;
     if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
     if (!et.pc?.set || mt.using !== et.pc.set) return;
-    if (live.coilEasing || inMotion() || live.inUpdate) { et.restT = stageScope.timer(easeRest, 600); return; }
+    if (live.coilEasing || settling() || live.inUpdate) { et.restT = stageScope.timer(easeRest, 600); return; }
     morphOff();
     live.vBinKey = ''; live.binShown = null; live.bendShown = null;
     syncVeins(easeInOut(live.morph));
@@ -193,7 +193,7 @@ export function createVessels(st, live) {
     mt.restT = 0;
     if (!mt.using) return;
     if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
-    if (live.morph !== live.morphTarget || live.coilEasing || inMotion() || live.inUpdate) { mt.restT = stageScope.timer(pieceRest, 600); return; }
+    if (live.morph !== live.morphTarget || live.coilEasing || settling() || live.inUpdate) { mt.restT = stageScope.timer(pieceRest, 600); return; }
     morphOff();
     live.vBinKey = ''; live.binShown = null; live.bendShown = null;
     syncVeins(easeInOut(live.morph));
