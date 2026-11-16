@@ -16,8 +16,8 @@ export const WHERE = {
   checks: [
     ['The portal pressure is high, the HVPG is normal and Doppler shows a patent portal vein. Where is the resistance?', 'Presinusoidal, in the portal venules, as in schistosomiasis. Portal vein thrombosis would show no flow in the trunk.'],
     ['The portal pressure is high but the HVPG and the PPG are both normal. Which measurement distinguishes an IVC web from cardiac disease?', 'The right atrial pressure: normal above a web, elevated in cardiac disease.'],
-    ['Ascites has a SAAG of 1.5 and a total protein of 4.2 g/dL. Which levels fit?', 'Postsinusoidal, post-hepatic or cardiac: downstream resistance congests the sinusoids, which leak protein-rich fluid.'],
-    ['The HVPG is raised and the ascites has a SAAG of 1.5 with a total protein of 4.2 g/dL. Cirrhosis or sinusoidal obstruction syndrome?', 'Sinusoidal obstruction syndrome. In cirrhosis the loss of fenestrae (capillarization) keeps protein in the plasma, so the ascitic total protein is <2.5 g/dL; in sinusoidal obstruction syndrome the sinusoids still leak it.'],
+    ['Ascites has a SAAG of 1.5 g/dL and a total protein of 4.2 g/dL. Which levels fit?', 'Postsinusoidal, post-hepatic or cardiac: downstream resistance congests the sinusoids, which leak protein-rich fluid.'],
+    ['The HVPG is raised and the ascites has a SAAG of 1.5 g/dL with a total protein of 4.2 g/dL. Cirrhosis or sinusoidal obstruction syndrome?', 'Sinusoidal obstruction syndrome. In cirrhosis the loss of fenestrae (capillarization) keeps protein in the plasma, so the ascitic total protein is <2.5 g/dL; in sinusoidal obstruction syndrome the sinusoids still leak it.'],
   ],
   slides: [
     {
@@ -49,7 +49,7 @@ export const WHERE = {
     },
     {
       id: 'a4', preset: 'sos', cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, compare: LENS, tool: { kind: 'profile' }, key: ['whvp', 'hvpg'], rail: true,
-      vignette: 'A 44-year-old woman has drunk comfrey tea daily for months. Over 3 weeks she has developed tender hepatomegaly, weight gain and ascites, with a SAAG of 1.4 and a total protein of 4.3 g/dL.',
+      vignette: 'A 44-year-old woman has drunk comfrey tea daily for months. Over 3 weeks she has developed tender hepatomegaly, weight gain and ascites, with a SAAG of 1.4 g/dL and a total protein of 4.3 g/dL.',
       caseQ: 'Where is the resistance?',
       kicker: 'Case 4', site: 'postsin', title: 'Case 4: tender hepatomegaly and ascites after comfrey tea',
       line: 'Sinusoidal obstruction syndrome. Pyrrolizidine alkaloids in comfrey injure the sinusoids and small central veins, upstream of the catheter tip, so the HVPG rises.',
@@ -67,7 +67,7 @@ export const WHERE = {
     },
     {
       id: 'a6', preset: 'ivc-web', cam: 'hepatic', labels: ['IVCS', 'RA'], mark: { edges: ['IVCS_RA'], label: 'Web' }, compare: LENS, tool: { kind: 'profile' }, key: ['ivc', 'ra', 'ppg'], rail: true,
-      vignette: 'A 36-year-old man from Nepal has had leg edema for a year and now has ascites. Dilated collateral veins run up his flanks. The ascites has a SAAG of 1.4 and a total protein of 4.3 g/dL.',
+      vignette: 'A 36-year-old man from Nepal has had leg edema for a year and now has ascites. Dilated collateral veins run up his flanks. The ascites has a SAAG of 1.4 g/dL and a total protein of 4.3 g/dL.',
       caseQ: 'Where is the resistance?',
       kicker: 'Case 6', site: 'post', title: 'Case 6: ascites and dilated flank veins',
       line: 'An IVC web. The pressure drop lies between the IVC and the [right atrium](ra), outside the span of the PPG.',

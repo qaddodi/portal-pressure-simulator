@@ -16,7 +16,8 @@ standard US clinical vocabulary, standard abbreviations, real formulae, numbers 
 never lay. A substitute word a clinician would not use ("the belly", "kidney pressure", "a tap", "less" for minus) reads as
 wrong, not as friendly, and costs the app its credibility.
 
-**The test.** Read the sentence aloud as if presenting to the hepatology attending. If they would correct a word, or wince,
+**The test.** Read the sentence aloud as if presenting to the hepatology attending. Could they tell who does what, to which
+structure, and why, without the figure? If they would correct a word, or wince,
 change it. If it explains something every physician knows, cut it. If it could be pasted onto any other slide, it says nothing.
 
 ## 2. Arithmetic and formulae
@@ -27,7 +28,7 @@ change it. If it explains something every physician knows, cut it. If it could b
   - PPG = portal venous pressure − IVC pressure. "The PPG is the portal pressure minus the IVC pressure."
   - Abdominal perfusion pressure: APP = MAP − IAP (WSACS; not "renal perfusion pressure", which no guideline defines). "The abdominal perfusion pressure is the MAP minus the intra-abdominal pressure." It is a number with no cut-off.
   - Transmural (variceal wall) pressure = intravariceal pressure − intraluminal (esophageal) pressure.
-  - Abdominal perfusion pressure: APP = MAP − IAP; filtration and Starling forces in their usual terms (capillary hydrostatic,
+  - Filtration and Starling forces in their usual terms (capillary hydrostatic,
     oncotic pressure, reflection coefficient).
 - A ratio or a product is said the clinical way: "SAAG = serum albumin − ascitic fluid albumin", "flow × resistance", "MAP 65 mmHg".
 - Comparisons beside a number are symbols with no space: `>` `<` `≥` `≤` ("HVPG ≥10 mmHg", "platelets ≥150,000/µL",
@@ -73,7 +74,13 @@ Use the term on the right. The left column is banned in learner text (the lint h
 | fluid in the lungs, water in the chest | pulmonary edema; hepatic hydrothorax |
 | fluid given, a drip | IV crystalloid, saline bolus, albumin infusion |
 | worked out, sums | calculated, estimated |
-| sits at, stands at | is |
+| sits at, stands at, runs at | is |
+| scar (in the liver) | fibrosis, fibrous septa |
+| salvage and rescue TIPS used loosely | salvage TIPS: bleeding not controlled; rescue TIPS: rebleeding despite vasoactive drugs and EVL (AASLD 2024, 35) |
+| medium varices | small (<5 mm) or large (≥5 mm) varices (Baveno VIII) |
+| alcohol-related (as the disease name), post-hepatic, free hepatic vein pressure | alcohol-associated, posthepatic, free hepatic venous pressure |
+| clot (in a label or title) | portal vein thrombosis, PVT |
+| SAAG of 1.4 | SAAG 1.4 g/dL (always with its unit) |
 | fed at (an organ) | perfused at |
 | the room, the class | (never: write to the learner) |
 
@@ -113,6 +120,32 @@ clinicians do ("HVPG 14 mmHg", "a covered 8 mm TIPS", "CTP class C"), not spelle
   events with "despite", "after" or "on" only where it is true: "Ascites and large varices despite carvedilol: continue it".
 - **A card says only what the patient shows.** A verdict card (a path's "why" line) is built from the patient's own fields. It never
   says an event happened (an HRS-AKI that "has resolved") that the case does not have.
+- **Only clinicians act** (wording audit, 16 Nov 2026, with an independent hepatologist's review). The rule above covers more than drugs:
+  a guideline, an algorithm, a score, a test or a finding never starts, holds, withholds, keeps, continues or stops a treatment either.
+  Clinicians start, hold, reduce, stop, restart, continue, place and give. Guidelines recommend, suggest, advise against or define.
+  Tests and scores rule in, rule out or classify. Wrong: "Baveno VIII starts carvedilol", "the algorithm continues carvedilol",
+  "Hypotension holds carvedilol", "Does the bilirubin withhold the TIPS?", "a covered stent goes in". Right: "Baveno VIII recommends
+  starting carvedilol", "the algorithm says to continue carvedilol", "Reduce or hold carvedilol for hypotension", "Does the bilirubin
+  rule out a TIPS?", "Place a covered TIPS". Held by `guideline-as-actor` and `finding-as-actor`.
+- **Pressures, flows and structures.** A pressure is, rises, falls, exceeds or returns to a value. A flow is hepatopetal or hepatofugal
+  and rises or falls. Never "runs at", "runs high", "sits higher", "jumps", "eases", "settles", "pushes", "pulls", "stays put". A vessel,
+  an organ, a catheter or a gradient does not see, take, spare, hide, cost or lose its blood: a gradient "reflects", "includes" or
+  "misses" a resistance, and only an instrument or a tile "reads". Held in part by `pressure-motion` and `sees`.
+- **No figurative language, no teasers.** No idiom, figurative verb or pun: not "costs the liver its blood", "takes the flow with it",
+  "bought time", "opens the door", "holds the ascites in", "under pressure", "for now", "the tear". "At the cost of" stays for the
+  PPG-against-portal-perfusion trade-off. A title is a declarative finding or an imperative, never a cliffhanger or wordplay.
+- **Complete sentences, one referent.** Every line, ask, answer and check is a sentence with a subject and a finite verb (labels, table
+  notes and tool rows are exempt). "It", "they", "both" and "this" point to one noun in the same sentence; when two nouns could fit, repeat
+  the noun ("repeat LSM and platelets", not "repeat both"). To meet the 30-word limit, cut a clause, never the verb, subject or object
+  ("leaves the portal pressure unchanged", not "leaves the portal pressure").
+- **Say when the patient changes.** A line that brings in a different patient opens with "In another patient". "Back in the first
+  patient" only after a second patient has appeared. The vignette names every disease a later slide uses.
+- **Model against patient.** Where the model behaves differently from what is known in patients, say "in the model". Two decks never
+  teach opposite effects of one intervention. A count in a title or line ("two of three") equals the items on the slide's card and in
+  the cited statement.
+- **US practice.** Octreotide is the US vasoactive drug for variceal bleeding; terlipressin there is "outside the US" (in the US it is
+  approved for HRS only). Mark Baveno VIII or EASL practice that differs from US practice as such (a continuous terlipressin infusion,
+  covered esophageal stents, long-term albumin, home drainage devices).
 - **Grading and staging as written in the guidelines**: Baveno VIII "CSPH", "cACLD", "decompensation", "recompensation"; AASLD
   ascites grades; West Haven HE grades; varix size small (<5 mm) or large (≥5 mm).
 - **One hedge per claim.** Thresholds are rising risk, not a switch: "bleeding risk climbs from about 12 mmHg".
@@ -130,6 +163,11 @@ The test walks every string in the built-in decks and in the app's text modules 
    NSBB, beta-blocker, terlipressin, octreotide, albumin, diuretics, rifaximin, lactulose, antibiotics, anticoagulation and the rest of
    `THERAPY` in `scripts/clinical-wording.mjs`): "Carvedilol restarts", "the NSBB may continue", "anticoagulation comes first and
    continues". Write "Restart carvedilol", "carvedilol is restarted", "continue the NSBB".
+6. A guideline, an algorithm or a finding as the one who acts (`guideline-as-actor`, `finding-as-actor`): "Baveno VIII starts
+   carvedilol", "the algorithm continues carvedilol", "Hypotension holds carvedilol", "the bilirubin withholds the TIPS".
+7. A pressure that "runs at" or "sits higher", a gradient or vessel that "sees" (`pressure-motion`, `sees`), and "scar" for fibrosis (`scar`).
+8. `tests/deck-claims.test.js` also holds the text against the data: a line that says a reading "falls to {x}" or "raises ... to {x}"
+   must agree with the state before the slide's change, and "rises from {x@id} to {x}" with the two slides it names.
 A new phrase that a clinician would correct goes into the test's list in the same commit as its fix.
 
 ## 7. Patterns that sound machine-made (still out)
@@ -161,7 +199,7 @@ A new phrase that a clinician would correct goes into the test's list in the sam
 
 | Before | After |
 |---|---|
-| The kidneys are fed at the MAP less the abdomen's pressure | Renal perfusion pressure is the MAP minus the intra-abdominal pressure |
+| The kidneys are fed at the MAP less the abdomen's pressure | The abdominal perfusion pressure is the MAP minus the intra-abdominal pressure |
 | HVPG: the wedged pressure less the free pressure | HVPG = WHVP − FHVP |
 | Ascites holds steady: the belly takes back the overflow. | Ascites is stable: peritoneal reabsorption matches the net lymph leak. |
 | 120 leaks; the belly takes back 80. | Net leak 120 mL/day; peritoneal reabsorption 80 mL/day. |
@@ -173,6 +211,11 @@ A new phrase that a clinician would correct goes into the test's list in the sam
 | Carvedilol restarts once the blood pressure has recovered | Restart carvedilol once the blood pressure has recovered |
 | With ascites and large varices, carvedilol continues | Ascites and large varices despite carvedilol: continue it |
 | Anticoagulation starts at once | Start anticoagulation at once |
+| At this MAP, the algorithm continues carvedilol | At this MAP, continue carvedilol |
+| The portal vein runs at {pv} and the right atrium at {ra} | The portal vein pressure is {pv} and the right atrial pressure {ra} |
+| The shunt spares the platelets, and costs the liver its blood | The shunt spares the platelets but cuts hepatic portal perfusion |
+| No carvedilol and no screening endoscopy; repeat both in 12 months | No carvedilol and no screening endoscopy; repeat LSM and platelets in 12 months |
+| Large varices under pressure | Large varices with high wall stress |
 | Octreotide leverages splanchnic vasoconstriction to mitigate bleeding | Octreotide causes splanchnic vasoconstriction, lowering portal inflow and portal pressure |
 
 ## 10. Final pass

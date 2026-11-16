@@ -16,14 +16,14 @@ export const DAY = {
   sections: [['Before breakfast', ['Before breakfast']], ['After eating', ['After eating']], ['Breathing and straining', ['Breathing and straining']]],
   objectives: [
     'Describe how a meal changes portal flow, portal pressure and liver stiffness',
-    'Explain why a 1 L saline bolus raises the portal and IVC pressures together and leaves the HVPG unchanged',
+    'Explain why, in the model, a 1 L saline bolus raises the portal and IVC pressures together and leaves the gradients unchanged',
     'Describe how respiration and a Valsalva maneuver change the portal vein pressure and the MAP',
     'State why liver stiffness is measured fasting',
   ],
   summary: 'What changes the portal pressure within hours: a meal, a 1 L saline bolus and deep breathing, in one man with CSPH, and why liver stiffness is measured fasting.',
   checks: [
     ['Why is liver stiffness measured fasting?', 'A meal raises portal flow and portal pressure, and so liver stiffness. Baveno VIII 1.4 says liver stiffness should always be measured under fasting conditions.'],
-    ['A 1 L saline bolus raises a man\'s portal vein pressure and his IVC pressure by the same amount. What happens to his HVPG?', 'It does not change. The HVPG is a difference between two pressures, and the saline raised both.'],
+    ['A 1 L saline bolus raises a man\'s portal vein pressure and his IVC pressure by the same amount. What happens to his PPG?', 'It does not change. The PPG is the portal vein pressure minus the IVC pressure, and the saline raised both by the same amount.'],
     ['Fasting, a man with CSPH has a portal flow of 1.1 L/min. After a meal it is 1.5 L/min. Is the increase due to a change in the liver?', 'No. Intrahepatic resistance is unchanged. Splanchnic arteriolar vasodilation raised portal inflow, and the same resistance turned the higher flow into a higher pressure.'],
   ],
   slides: [
@@ -44,10 +44,10 @@ export const DAY = {
     },
     {
       id: 'fluid', preset: 'csph', params: {}, action: SALINE, cam: 'fit', data: 'tiles', tiles: ['pv', 'hvpg'], key: ['hvpg'], delta: 'fasting', terms: ['ivc'],
-      kicker: 'After eating', site: 'sin', title: 'A 1 L saline bolus raises every venous pressure and leaves the HVPG unchanged',
+      kicker: 'After eating', site: 'sin', title: 'In the model, a 1 L saline bolus raises every venous pressure but not the HVPG',
       line: 'Fasting, he receives 1 L of IV saline. The portal vein and IVC pressures rise to {pv} and {ivc}; the WHVP and FHVP rise together, so the HVPG stays {hvpg}.',
       notes: 'The saline expands the whole venous compartment. The portal vein pressure and the wedged and free hepatic venous pressures (WHVP, FHVP) rise together, so the HVPG, the WHVP minus the FHVP, barely changes. This is why the HVPG is reliable after IV fluid, and why an isolated portal vein pressure is not. The infusion runs over 10 to 15 minutes of model time. Neither guideline gives a figure for it; the numbers are the model\'s.',
-      ask: ['A 1 L saline bolus raises the portal and IVC pressures by the same amount. What happens to the HVPG?', 'It is unchanged, because it is the WHVP minus the FHVP and both rose.'],
+      ask: ['In the model, a 1 L saline bolus raises the WHVP and the FHVP by the same amount. What happens to the HVPG?', 'It is unchanged, because it is the WHVP minus the FHVP. In patients, larger volume expansion can raise the HVPG, as in the liberal arm of the 2013 transfusion trial.'],
     },
     {
       id: 'breath', preset: 'csph', params: { respDepth: 3 }, cam: 'portal', tool: BEATS, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
@@ -68,9 +68,9 @@ export const DAY = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'pvFlow', 'lsm'], asc: false, vs: 'first', rowHead: 'State',
       of: [{ id: 'fasting', kicker: 'Start', title: 'Fasting' }, { id: 'meal', kicker: 'Meal', title: '30 minutes after a meal' }, { id: 'fluid', kicker: 'Saline', title: '1 L saline bolus' }],
       kicker: 'Summary', title: 'What changes the portal pressure over a day',
-      line: 'A meal raises portal flow, portal pressure and liver stiffness. A 1 L saline bolus raises the portal and IVC pressures together, so the HVPG is unchanged.',
+      line: 'A meal raises portal flow, portal pressure and liver stiffness. In the model, a 1 L saline bolus raises the portal and IVC pressures together, so the gradients are unchanged.',
       notes: 'Over a day the portal pressure changes with meals, IV fluid and respiration. A meal causes splanchnic vasodilation and raises portal flow, portal pressure and liver stiffness, which is why liver stiffness is measured fasting (Baveno VIII 1.4). A 1 L saline bolus raises the portal and IVC pressures together, so the gradient does not change. Neither guideline gives a figure for what a meal or IV fluid does to the portal pressure; the numbers are the model\'s.',
-      ask: ['Which of the three, a meal, a 1 L saline bolus or deep breathing, changes the HVPG?', 'A meal raises it, because the extra flow crosses the same resistance. Saline and breathing leave it unchanged.'],
+      ask: ['Which of the three, a meal, a 1 L saline bolus or deep breathing, changes the HVPG?', 'A meal raises it, because the extra flow crosses the same resistance. In the model, saline and breathing leave it unchanged.'],
     },
   ],
 };

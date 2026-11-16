@@ -70,6 +70,31 @@ test('the rules catch a drug as the subject of start, stop, restart or continue,
   ]) assert.ok(!rules(s).includes('drug-as-subject'), s);
 });
 
+test('the rules catch a guideline, an algorithm or a finding written as the one who acts, and colloquial verbs for pressures (wording audit, 16 Nov 2026)', () => {
+  for (const [s, rule] of [
+    ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'guideline-as-actor'],
+    ['At this MAP, the algorithm continues carvedilol', 'guideline-as-actor'],
+    ['Baveno VIII would start carvedilol now', 'guideline-as-actor'],
+    ['Hypotension holds carvedilol for now', 'finding-as-actor'],
+    ['Does the bilirubin withhold the preemptive TIPS?', 'finding-as-actor'],
+    ['A MAP <65 mmHg or HRS-AKI holds it', 'finding-as-actor'],
+    ['The portal vein runs at {pv} and the right atrium at {ra}.', 'pressure-motion'],
+    ['At the same HVPG her PPG sits higher.', 'pressure-motion'],
+    ['It rises. The HVPG cannot see a lesion upstream of the sinusoids.', 'sees'],
+    ['Where in the lobule does the scar that stiffens the liver collect?', 'scar'],
+  ]) assert.ok(rules(s).includes(rule), `${rule}: ${s}`);
+  for (const s of [
+    'When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?',
+    'At this MAP, continue carvedilol. The algorithm says to continue it.',
+    'Reduce or hold carvedilol for hypotension',
+    'Does the bilirubin rule out a preemptive TIPS?',
+    'The portal vein pressure is {pv} and the right atrial pressure {ra}.',
+    'The HVPG does not reflect a lesion upstream of the sinusoids.',
+    'Neither Baveno VIII nor AASLD 2024 gives a cut-off for sinusoidal obstruction.',
+    'The time-lapse runs at one month a second.',
+  ]) assert.deepEqual(rules(s), [], s);
+});
+
 test('every string of every built-in deck passes the clinical wording rules', () => {
   const found = [];
   for (const d of DECKS) for (const [path, s] of strings(d)) for (const h of check(s)) found.push(`${d.id}.${path}: ${h.rule} "${h.match}" → ${h.fix}`);

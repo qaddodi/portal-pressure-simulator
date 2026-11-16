@@ -69,7 +69,7 @@ export const CARVEDILOL = {
       kicker: 'Starting', site: 'sin', title: 'Start carvedilol at CSPH, before decompensation',
       line: 'Carvedilol lowers her HVPG from {hvpg@rise} to {hvpg}. Baveno VIII recommends it at CSPH to prevent decompensation and to improve survival.',
       notes: 'Source: Baveno VIII 3.15, Table 3; AASLD 2024. Carvedilol is the preferred NSBB. AASLD 2024 gives 6.25 to 12.5 mg/day, started low and increased if blood pressure allows. It reduces portal inflow and lowers intrahepatic resistance, so it lowers the HVPG more than propranolol. Here the HVPG is measured to show the fall; in practice carvedilol is started on the LSM result without HVPG measurement. Baveno VIII Table 3 counts a fall of ≥10% as a response before any bleed. The three buttons set the strength of her HVPG response: with a non-responder the HVPG falls about 7%, with a usual responder about 19% and with a strong responder about 27% (model values on a decompensated patient).',
-      ask: ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
+      ask: ['When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
       id: 'scope', cam: 'liver', labels: ['VAR'], tool: { kind: 'criteria', title: 'Screening endoscopy', short: 'Screening EGD', lead: 'It depends on NSBB use.', rule: 'Baveno VIII 3.18, 3.19',
