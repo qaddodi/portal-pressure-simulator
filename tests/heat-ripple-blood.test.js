@@ -19,7 +19,7 @@ test('with ascites shown the ripple\'s frames are counted as the blood\'s, not a
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   await core.handle({ type: 'ackPaint', on: true });
   await core.handle({ type: 'run', running: true });
-  store.set({ running: true, params: core.engine().params, layers: { ...store.get().layers, flow: true } });
+  store.set({ running: true, params: core.engine().params, blood: { ...store.get().blood, chevrons: true } });
   const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) { st.update(f); core.handle({ type: 'painted' }); } await tasks(); };
   const watch = async (n) => {
     const seen = [];

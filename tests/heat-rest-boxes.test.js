@@ -40,7 +40,7 @@ test('at rest the blood\'s boxes are kept and the tubes go up only as the rows t
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   await core.handle({ type: 'ackPaint', on: true });
   await core.handle({ type: 'run', running: true });
-  store.set({ running: true, params: core.engine().params, layers: { ...store.get().layers, flow: true } });
+  store.set({ running: true, params: core.engine().params, blood: { ...store.get().blood, chevrons: true } });
   for (let i = 0; i < 240; i++) { pump(16.7); const f = q.at(-1); q = []; if (f) { st.update(f); core.handle({ type: 'painted' }); } await tasks(); }
   const tot = {}; gpuProbe.on = true; gpuProbe.takeNotes();
   try {

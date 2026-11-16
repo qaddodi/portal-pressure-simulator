@@ -101,3 +101,24 @@ test('the lock: the run writes, a dry solve writes and puts back, anyone else is
 });
 // (The wiring, that every write of the view asks the lock and every move of the person's lets go of it, is pinned in
 // scripts/source-shapes/slide-cam-16nov.mjs, as rules-lint keeps source rules.)
+
+// The device gate itself (cam-gate.js): it walks the decks by their ids (the app's DECKS is an array: 16 Nov 2026 it was handed the array's
+// indices and judged nothing), Next and then Back, and judges every move's record.
+test('pps.cameraGate walks each named deck Next and Back by its id and judges each move\'s record', async () => {
+  const { createCameraGate } = await import('../src/ui/cam-gate.js');
+  const plan = planSlide(A, B, vb.w, 1500), good = () => { const tr = traceOf(plan, frames(plan.ms), (t) => Math.min(1, t / plan.ms)); tr.vb = vb; tr.press = -40; tr.t0 = 0; return tr; };
+  const started = [], went = [];
+  let deck = null, traces = [];
+  const presenter = { start: async (id) => { started.push(id); deck = id; }, go: (i) => { went.push(`${deck}:${i}`); traces = deck === 'b' && i === 1 ? [{ ...good(), after: 'refit' }] : [good()]; }, busy: () => false, count: () => 3, position: () => ({ id: deck, at: 0 }), skipLapse() {}, stop() {} };
+  const stage = { gliding: () => false, cameraTraces: (clear) => { const t = traces; if (clear) traces = []; return t; } };
+  const q = globalThis.document.querySelector; globalThis.document.querySelector = () => null;   // (no card up, no cover)
+  const gate = createCameraGate({ presenter, stage, decks: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
+  const r = await gate({ decks: ['a', 'b'] });
+  assert.deepEqual(started, ['a', 'b'], 'by id, not by index');
+  assert.deepEqual(went, ['a:1', 'a:2', 'a:1', 'a:0', 'b:1', 'b:2', 'b:1', 'b:0'], 'Next to the end, then Back to the first');
+  assert.equal(r.moves.length, 8);
+  assert.equal(r.fail, 2, 'the two moves onto b\'s slide 2 made a second move after landing');
+  assert.match(r.text, /6 of 8 slide moves pass/);
+  await assert.rejects(gate({ decks: ['nope'] }), /no deck named nope/);
+  globalThis.document.querySelector = q;
+});

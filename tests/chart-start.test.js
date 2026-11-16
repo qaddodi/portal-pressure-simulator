@@ -64,7 +64,8 @@ test('Two lesions: each chart starts at the state before the change, ends at the
     const before = chartBefore(deck.slides, stateOf, states, i), ser = flowTimeSeries(seq[i].trail, 'days', s.tool.lines, null, { before }), [a, b] = s.tool.lines;
     assert.ok(before, `${s.id}: starts from the state before`);
     assert.equal(ser.pv[0], before[a], `${s.id}: ${a} starts at the state before`);
-    assert.equal(ser.flow[0] * (LINE[b][4] ? 1 / LINE[b][4] : 1), before[b], `${s.id}: ${b} starts at the state before`);
+    const f0 = ser.flow[0] * (LINE[b][4] ? 1 / LINE[b][4] : 1);   // (the unit's scale undone: equal to the last bit only by luck, so to a part in 10^12)
+    assert.ok(Math.abs(f0 - before[b]) <= 1e-12 * Math.max(1, Math.abs(before[b])), `${s.id}: ${b} starts at the state before (${f0} vs ${before[b]})`);
     for (const [k, dir] of Object.entries(claim[s.id])) {
       const col = k === a ? ser.pv : ser.flow, to = col.at(-1), from = col[0];
       assert.ok((to - from) * dir > 0, `${s.id}: ${k} goes ${dir > 0 ? 'up' : 'down'} from ${from} to ${to}`);

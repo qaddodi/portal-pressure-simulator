@@ -9,6 +9,7 @@ import {
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
+import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -100,14 +101,19 @@ export const RESERVOIR = { k: 0.72, max: 1700, tau: 20, cirr: 0.5, afferent: 1.5
 // change the spleen"). It moves on the disease clock like every other change of an organ's size, so it shows in a time-lapse, not in the first minute at the bedside.
 export const SPLEEN_INFARCT = { share: 0.6, tauDays: 14 };
 export const RELAX = { spleenBase: 45, spleenExtra: 165, toneBase: 30, toneExtra: 60, advLow: 0.6, advHigh: 0.85 };
-const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
+// Lymph formation, its capacity and the belly's small brake: lymph.js (LYMPH, tissueP, sinusoidPull, hepLymphOf), shared with the fluid card.
+// The peritoneum takes ascites back (slow.ascites > 0): through the diaphragm's lymphatics and the peritoneal capillaries, up to `bulk` mL/min
+// as the first liters spread over it (`bulkL` per mL), and more as the belly's pressure rises (`kIap` per mmHg above rest), which drives
+// that uptake. With diuretics the kidneys draw more back (`water`, up to `waterMax`). Tense ascites settles where the take-back meets
+// the overflow.
+const PERIT = { bulk: 0.6, bulkL: 1 / 2000, kIap: 0.16, waterMax: 0.9, waterL: 1 / 1500 };
 // Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
 // From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
 // about 85 % of plasma) and about 0.55 once cirrhosis capillarizes it (lymph about 52 %, PMID 1214504);
 // the gut capillary's, high (0.9). Tuned so the textbook taps come out: PS (diffusive leak, mL/min), the
 // gut's basal lymph, the share of hepatic lymph that weeps off the liver into the peritoneum, and how much
 // protein the diuretic-driven peritoneal reabsorption holds back.
-const PROT = { sigHep0: 0.15, sigHepCirr: 0.45, sigGlob: 0.1, sigGut: 0.9, psHep: 0.8, psGut: 0.3, gutBase: 1, hepWeep: 0.5, sigPerit: 0.3 };
+const PROT = { sigHep0: 0.15, sigHepCirr: 0.45, sigGlob: 0.1, sigGut: 0.9, psHep: 0.8, psGut: 0.3, gutBase: 1, hepWeep: 0.25, sigPerit: 0.3 };
 /** Filtrate-to-plasma ratio across a membrane at steady state: (1 − σ) / (1 − σ·e^(−Pe)), Pe = Jv(1 − σ)/PS. */
 const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) * (1 - sig) / ps));
 
@@ -1274,12 +1280,10 @@ export class Engine {
     const b = this.blood, own = this.ownRbc();
     if (b.rbc !== own) b.rbc += (own - b.rbc) * Math.min(1, days / (own > b.rbc ? RED.upDays * (1 + p.cirrhosis) : RED.downDays));
     this.plasmaRefill(days * 86400);
-    // Lymph capacity adapts toward demand
+    // The lymphatics remodel toward (but never fully match) the chronic demand, and level off at their most (LYMPH).
     const st = this.starling();
-    const demand = st.hep + st.spl;
-    // Lymphatics remodel toward (but never fully match) chronic demand.
-    const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, demand - LYMPH.base));
-    s.lymphCap += (capT - s.lymphCap) * Math.min(1, LYMPH.adapt * days);
+    const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, st.made - LYMPH.base));
+    s.lymphCap += (capT - s.lymphCap) * (1 - Math.exp(-LYMPH.adapt * days));   // (by the exact exponential, so a long step and many short ones agree)
     this.ascitesProtein(st, 1440 * days);
     // A day's step can carry the fluid past the volume where it balances (the net turns with the volume and the belly's
     // pressure: drained by diuretics, refilled when nearly empty), and the next step back past it, so the volume would
@@ -1350,14 +1354,16 @@ export class Engine {
     // a what-if: the pores opened in the same liver, its scar and resistance unchanged). A number at both ends, so a change eases.
     const shut = s * (1 - clamp(p.fenestrae ?? 0, 0, 1));
     const sigH = 0.1 + 0.5 * shut;
-    const piH = pic * (1 - sigH) * 0.9;
     const pMid = 0.6 * (0.7 * P[this.ni.SIN_R] + 0.3 * P[this.ni.CV_R]) + 0.4 * (0.7 * P[this.ni.SIN_L] + 0.3 * P[this.ni.CV_L]);
-    // Hepatic lymph: 0.5 mL/min at baseline, rising with sinusoidal filtration pressure.
-    const hep = 0.5 + LYMPH.kfHep * Math.max(0, (pMid - iap) - sigH * (pic - piH) - 0.75);
-    const spl = LYMPH.kfSpl * Math.max(0, (P[this.ni.INT] - iap) - 0.9 * (pic - 10));
-    const excess = Math.max(0, hep + spl - this.slow.lymphCap);
-    const bulk = this.slow.ascites > 0 ? Math.min(0.6, this.slow.ascites / 2000) : 0;
-    const water = p.diuretics && this.slow.ascites > 0 ? Math.min(0.9, this.slow.ascites / 1500) : 0;
+    const pT = tissueP(iap);
+    // Formation (LYMPH): the liver's from the sinusoids' net filtration pressure, never below its healthy rate; the gut's beyond its basal lymph.
+    const pull = sinusoidPull(p.albumin, sigH), splOf = (t) => LYMPH.kfSpl * Math.max(0, (P[this.ni.INT] - t) - 0.9 * (pic - 10));
+    const hep = hepLymphOf(pMid - pT, pull), spl = splOf(pT);
+    const cap = this.slow.lymphCap, made = hep + spl, carried = Math.min(made, cap);
+    const excess = made - carried;
+    const V = this.slow.ascites;
+    const bulk = V > 0 ? Math.min(PERIT.bulk, V * PERIT.bulkL) + PERIT.kIap * (iapFromAscites(V) - 5) : 0;
+    const water = p.diuretics && V > 0 ? Math.min(PERIT.waterMax, V * PERIT.waterL) : 0;
     const reabs = bulk + water;
     const net = excess - reabs;
     // Protein: what crosses each bed (sieving by the wall's reflection coefficient, more complete the faster
@@ -1369,9 +1375,9 @@ export class Engine {
     const wH = PROT.hepWeep * hep, wS = jg;
     const inAlb = (wH * hA + wS * gA * alb) / (wH + wS), inGlob = (wH * hG + wS * gG * glob) / (wH + wS);
     const prot = { sigma: sA, alb, glob, hepAlb: hA, hepTP: hA + hG, lymphProt: (hA + hG) / (alb + glob), inAlb, inGlob };
-    this.flows = { hep, spl, excess, reabs, bulk, water, prot };
+    this.flows = { hep, spl, carried, excess, reabs, bulk, water, prot };
     const ascAlb = this.slow.ascAlb ?? inAlb, ascTP = ascAlb + (this.slow.ascGlob ?? inGlob);
-    return { hep, spl, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };
+    return { hep, spl, made, carried, cap, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };
   }
 
   /**
