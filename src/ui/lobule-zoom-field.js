@@ -312,7 +312,7 @@ export function createLobuleField(st, live) {
     if (live.fade > 0 || !live.F) return [];
     const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
     if (W < 2 || H < 2) return [];
-    const dark = isDark(), key = [W, H, dark, devicePixelRatio, live.zonesOn, live.lymphOn, Object.values(fieldState()).join(',')].join('|');
+    const dark = isDark(), key = [W, H, dark, devicePixelRatio, live.zonesOn, live.lymphOn, live.bileOn, Object.values(fieldState()).join(',')].join('|');
     if (key === live.prepKey) return [];
     let cs, land, bg;
     const q = [
@@ -359,7 +359,7 @@ export function createLobuleField(st, live) {
     if (live.fade > 0 || !live.model || !live.gl || live.gl.lost) return;
     const [W, H] = hostSize();
     live.ensureGeo(W, H);
-    const G = live.geo, tubeSet = live.lymphOn ? G.tubes : G.bloodTubes, bk = live.lymphOn ? 'lymph' : 'blood';
+    const G = live.geo, tubeSet = live.lymphOn ? (live.bileOn ? G.tubes : G.lymphTubes) : live.bileOn ? G.bileTubes : G.bloodTubes, bk = live.lymphOn ? (live.bileOn ? 'all' : 'lymph') : live.bileOn ? 'bile' : 'blood';
     if (binCache.has(bk)) return;
     calibersChanged(rzOf(), G);
     for (const t of tubeSet) {
@@ -465,6 +465,9 @@ export function createLobuleField(st, live) {
       // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
       // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
       case 'ly': { const j = disseJ(m, t.rho[i]); return rs * sinK(t.rho[i]) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
+      // The bile (lobule-bile.js): a plate's channel from nothing to its widest at the limiting plate; the edge duct thicker toward the ductule.
+      case 'bs': return R * lerp(0.0004, 0.0036, smooth(0.22, 1, t.rho[i])) * smooth(0, 0.3, i / (N - 1)) ** 1.5;
+      case 'bh': return Math.max(0.9, R * lerp(0.004, 0.0078, i / (N - 1)));
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;
@@ -492,7 +495,7 @@ export function createLobuleField(st, live) {
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   const TW_ALPHA = 0.45;   // the arteriole's twig, faint: zone 1's arterial inflow is a hint beside the portal inflow, not a second vessel
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.2, lt: 0.8, lv: 1.1 };
+  const WALL = { bs: 0.3, bh: 0.6, s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.2, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -585,7 +588,7 @@ export function createLobuleField(st, live) {
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.08, ha: 0.7 };   // (the twig runs under the inlet venule and under the sinusoid it joins, so it slips in beneath the sinusoid wall instead of ending in a round cap over its lumen: 16 Nov 2026)
+  const Z_OF = { bh: 0.035, bs: 0.065, s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.08, ha: 0.7 };   // (the twig runs under the inlet venule and under the sinusoid it joins, so it slips in beneath the sinusoid wall instead of ending in a round cap over its lumen: 16 Nov 2026)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (live.drawKey === '' || cw !== live.dW || ch !== live.dH) return false;
@@ -594,10 +597,10 @@ export function createLobuleField(st, live) {
   };
   // True when the calibers (the eased values rz), the lobule's size or the layer differ from the last time asked; kept as numbers to 4 decimals.
   function calibersChanged(rz, G) {
-    let same = live.radCal !== '' && live.calW === G.W && live.calH === G.H && live.calLy === live.lymphOn, i = 0;
+    let same = live.radCal !== '' && live.calW === G.W && live.calH === G.H && live.calLy === (live.lymphOn ? 1 : 0) + (live.bileOn ? 2 : 0), i = 0;
     for (const key in rz) { const q = Math.round(rz[key] * 1e4); if (!Object.is(calV[i], q)) { same = false; calV[i] = q; } i++; }
     if (live.calN !== i) { same = false; live.calN = i; }
-    live.calW = G.W; live.calH = G.H; live.calLy = live.lymphOn;
+    live.calW = G.W; live.calH = G.H; live.calLy = (live.lymphOn ? 1 : 0) + (live.bileOn ? 2 : 0);
     if (same) return false;
     live.radCal = 'y'; live.radStamp++;
     return true;
