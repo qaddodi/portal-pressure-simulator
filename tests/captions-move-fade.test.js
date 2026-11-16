@@ -67,3 +67,44 @@ test('a move of 3 px or less, or one the owner does not ask to fade (it travels 
   assert.equal(R.last.length, 1, 'one picture, at once');
   assert.equal(R.last[0].alpha, 1);
 });
+
+test('a name moved again while its last ghost still shows keeps that ghost where it is: a quick toggle never pops it', async () => {
+  const R = rig();
+  await tick();
+  R.cap.look('a', LOOK);
+  R.cap.measure('a', [[['Hepatic arteriole', 'name']]]);
+  R.cap.put('a', { x: 200, y: 100, show: 1 });
+  for (let i = 0; i < 14; i++) await R.frame(40);
+  R.cap.put('a', { x: 200, y: 160, show: 1, fade: true });
+  await R.frame(0);   // (the first fade has begun: the old picture, still nearly whole, is the one with the most alpha)
+  assert.equal(R.last.length, 2);
+  const ghost = R.last.reduce((p, q) => (q.alpha > p.alpha ? q : p)), gy = ghost.y, ga = ghost.alpha;
+  R.cap.put('a', { x: 200, y: 260, show: 1, fade: true });   // (moved again at once, as a layer switched twice)
+  await R.frame(0);
+  const kept = R.last.find((e) => Math.abs(e.y - gy) < 1);
+  assert.ok(kept, `the first ghost still stands at its place (${R.last.map((e) => `${e.y.toFixed(0)}@${e.alpha.toFixed(2)}`)})`);
+  assert.ok(kept.alpha > ga * 0.5, `and keeps fading from where it was: ${ga.toFixed(2)} then ${kept.alpha.toFixed(2)}`);
+  for (let i = 0; i < 14; i++) await R.frame(40);
+  assert.equal(R.last.length, 1, 'all ghosts gone');
+  assert.equal(R.last[0].alpha, 1);
+});
+
+test('four quick moves in a row (a layer toggled back and forth): every earlier ghost stays and fades, so no picture ever vanishes or jumps', async () => {
+  const R = rig();
+  await tick();
+  R.cap.look('a', LOOK);
+  R.cap.measure('a', [[['Portal venule', 'name']]]);
+  R.cap.put('a', { x: 200, y: 100, show: 1 });
+  for (let i = 0; i < 14; i++) await R.frame(40);
+  let before = 1;
+  for (const y of [160, 100, 160, 100]) {
+    R.cap.put('a', { x: 200, y, show: 1, fade: true });
+    await R.frame(0);
+    assert.ok(R.last.length >= before, `no picture vanished (${before} then ${R.last.length})`);
+    before = R.last.length;
+  }
+  assert.ok(before >= 3, `the ghosts of the earlier places are all still drawn (${before})`);
+  for (let i = 0; i < 16; i++) await R.frame(40);
+  assert.equal(R.last.length, 1);
+  assert.equal(R.last[0].alpha, 1);
+});

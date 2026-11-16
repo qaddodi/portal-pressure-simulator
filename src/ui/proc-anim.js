@@ -12,7 +12,7 @@ import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } fr
 import { COIL_B } from './proc-routes.js';
 import { easeMove, createReversible, reduced } from './motion.js';
 import { NODES } from '../engine/topology.js';
-import { hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { hvpgSev, ppgSev, hvBlocked, EUS_SITE_NOTE } from '../engine/pressure-cuts.js';
 import { tenthGap } from '../engine/gap.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
@@ -216,7 +216,7 @@ export const MEASURES = {
       ['enter', 'Echoendoscope in', 'A linear echoendoscope is advanced through the esophagus into the stomach. From the proximal stomach it images the left hepatic lobe transgastrically; color Doppler identifies the left portal vein, the left hepatic vein and a needle path to each with no intervening vessel.', 'Scope', 'way', null, [], 0.5],
       ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, is passed through the gastric wall and the left lobe into the umbilical portion of the left portal vein. A compact manometer on its hub records the pressure once it is stable: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
       ['hv', 'Hepatic vein', 'The needle is withdrawn into the echoendoscope, which is pulled back to the cardia. The elevator angles the needle toward the dome, and it is passed through the left lobe into the left hepatic vein (the middle hepatic vein or the IVC can be used instead): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
-      ['done', 'EUS-PPG', 'EUS-PPG = portal vein pressure \u2212 hepatic vein pressure, both measured with one needle in one session. The HVPG cut-offs (>5 and \u226510 mmHg) are borrowed, not validated for EUS-PPG, and the HVPG remains the reference standard.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
+      ['done', 'EUS-PPG', EUS_SITE_NOTE + ' Both are measured with one needle in one session. The HVPG cut-offs (>5 and \u226510 mmHg) are borrowed, not validated for EUS-PPG, and the HVPG remains the reference standard.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
     ],
     // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
     // vein's node, the hepatic vein at the left hepatic vein's, and their difference as every screen shows it, at one decimal.

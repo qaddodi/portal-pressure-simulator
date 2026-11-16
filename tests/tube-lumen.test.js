@@ -227,30 +227,22 @@ test('the compile list names the lumen programs (the web\'s waits for its vertex
   for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('bloodAt(')); }
 });
 
-test('lymph with a stream is drawn as the blood\'s streaks, in an ink that contrasts with the channel and runs with the protein; a row with none keeps its dashes', () => {
+test('lymph with a stream is drawn as faint teal chevrons (the bile arrows\' head and size rule), in an ink that contrasts with the channel; a row with none keeps its dashes', () => {
   const at = LUMEN.indexOf('bool isLy');
   const ly = LUMEN.slice(LUMEN.indexOf('if (blood == 1 && isLy', at));
-  assert.ok(ly.includes('texelFetch(flow, ivec2(7, id1), 0)'), 'the stream is read from texel 7');
-  assert.ok(ly.indexOf('bloodAt(') > 0 && ly.indexOf('lymphAt(') > ly.indexOf('bloodAt('), 'streaks first, the dashes as the fallback');
-  assert.ok(ly.includes('max(A.a - glowL, 0.0)'), 'the axis glow is taken out: a streak tints, nothing else');
+  assert.ok(ly.includes('texelFetch(flow, ivec2(7, id1), 0)'), 'the stream says the way it runs, from texel 7');
+  assert.ok(ly.indexOf('chevHead(') > 0 && ly.indexOf('lymphAt(') > ly.indexOf('chevHead('), 'chevrons first, the dashes as the fallback');
+  assert.ok(!ly.includes('bloodAt('), 'no streaks: a lymph head is a chevron');
   assert.deepEqual(lintGLSL(resolve(LUMEN)), []);
   const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
   const light = [0.88, 0.92, 0.82], dark = [0.25, 0.3, 0.28];
-  for (const prot of [0, 0.5, 1]) {
-    const onL = lymphInkJS(prot, light), onD = lymphInkJS(prot, dark);
-    assert.equal(onL.onLight, 1); assert.equal(onD.onLight, 0);
-    assert.ok(lum(light) - lum(onL.ink) > 0.45, `a dark ink on a light channel (protein ${prot}): ${lum(onL.ink)}`);
-    assert.ok(lum(onD.ink) - lum(dark) > 0.45, `a light ink on a dark channel (protein ${prot})`);
-  }
-  // The ramp: cool at 0 %, amber at 100 %, monotone in between; fainter and sparser when poor.
-  const lo = lymphInkJS(0, light), mid = lymphInkJS(0.5, light), hi = lymphInkJS(1, light);
-  assert.deepEqual(lo.ink, LYMPH_INK.onLight.low);
-  assert.deepEqual(hi.ink, LYMPH_INK.onLight.high);
-  assert.ok(lo.ink[0] < mid.ink[0] && mid.ink[0] < hi.ink[0], 'red rises toward amber');
-  assert.ok(lo.ink[2] > mid.ink[2] && mid.ink[2] > hi.ink[2], 'blue falls toward amber');
-  assert.ok(lo.strength < mid.strength && mid.strength < hi.strength && hi.strength === 1);
-  assert.ok(lo.occ < hi.occ && hi.occ < 1, 'the gaps between streaks show the channel');
-  assert.deepEqual(lymphInkJS(-1, light).ink, lo.ink);
+  const onL = lymphInkJS(light), onD = lymphInkJS(dark);
+  assert.equal(onL.onLight, 1); assert.equal(onD.onLight, 0);
+  assert.ok(lum(light) - lum(onL.ink) > 0.45, `a dark head on a light channel: ${lum(onL.ink)}`);
+  assert.ok(lum(onD.ink) - lum(dark) > 0.45, 'a light head on a dark channel');
+  // Teal in every look: the ink stays in the blue-green family on either channel (green and blue over red).
+  for (const c of [onL.ink, onD.ink]) assert.ok(c[1] > c[0] && c[2] >= c[0], `teal: ${c}`);
+  assert.ok(LYMPH_INK.strength > 0.5 && LYMPH_INK.strength < 1, 'faint, but there');
 });
 
 test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the blood (it replaces the fill, so without them the shading never shows)', () => {

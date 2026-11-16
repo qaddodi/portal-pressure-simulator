@@ -20,7 +20,7 @@ import { createInverseRemote } from './inverse-remote.js';
 import { FAMILIES, FAMILY, AXES, LESION, LESION_IDS, settingsOf } from '../engine/inverse-families.js';
 import { TRY_CASES } from '../engine/inverse-try-cases.js';
 import {
-  READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, modelText, numberText, gapLine, rangeText, reasonsFor, bandsOf,
+  READINGS, READING_KEYS, MIN_READINGS, FEW_READINGS, OUTSIDE, readingText, chipText, modelText, numberText, gapLine, rangeText, reasonsFor, bandsOf,
 } from '../engine/inverse.js';
 
 export const STEPS = Object.freeze([
@@ -198,7 +198,7 @@ export function createFromReadings(ctx) {
   const refineText = () => {
     const s = remote.status(), p = remote.progress();
     if (s === 'refining') return `Fitting on the model, round ${Math.max(1, p.round + 1)} of ${p.rounds}. The list updates when it is done.`;
-    if (s === 'done') return 'Settings fitted on the model.';
+    if (s === 'done') return 'The fit on the model is finished, so this list is final.';
     if (s === 'library') return 'Searched the grid of settings only; the finer fit is not available here.';
     return '';
   };
@@ -371,7 +371,7 @@ export function createFromReadings(ctx) {
     return h('div', { class: 'fr-guess' },
       h('p', { class: 'fr-q' }, 'Which lesion explains these readings?'),
       h('p', { class: 'fr-small' }, 'Pick up to three, or no lesion. Then see what the search finds.'),
-      h('div', { class: 'fr-yr' }, h('div', { class: 'fr-chips' }, have.map((k) => h('span', { class: 'fr-rc fr-rc-static' }, `${READINGS[k].short} ${numberText(k, res.readings[k])}${READINGS[k].unit ? ' ' + READINGS[k].unit : ''}`)))),
+      h('div', { class: 'fr-yr' }, h('div', { class: 'fr-chips' }, have.map((k) => h('span', { class: 'fr-rc fr-rc-static' }, `${READINGS[k].short} ${chipText(k, res.readings[k])}`)))),
       pills,
       h('div', { class: 'fr-foot' }, h('div', { class: 'fr-btns' }, h('button', { type: 'button', class: 'btn', onclick: () => { state.view = 'cases'; show(); } }, 'Back'), reveal)));
   }
@@ -390,7 +390,7 @@ export function createFromReadings(ctx) {
       // (the next reading goes straight under the head, where it teaches most)
       res.ready && nx ? h('div', { class: 'fr-next-note' }, h('span', { class: 'fr-pillnote' }, 'Next'), h('div', {}, h('p', {}, nx.lead), nx.rest.map((t) => h('p', { class: 'fr-fine' }, t)))) : null,
       have.length ? h('div', { class: 'fr-yr' }, h('p', { class: 'fr-sub' }, 'Your readings: tap one to change it'),
-        h('div', { class: 'fr-chips' }, have.map((k) => h('button', { type: 'button', class: 'fr-rc', 'data-k': k, onclick: () => editReading(k, 'results') }, `${READINGS[k].short} ${numberText(k, res.readings[k])}`)))) : null,
+        h('div', { class: 'fr-chips' }, have.map((k) => h('button', { type: 'button', class: 'fr-rc', 'data-k': k, onclick: () => editReading(k, 'results') }, `${READINGS[k].short} ${chipText(k, res.readings[k])}`)))) : null,
       dropped.length ? h('p', { class: 'fr-fine fr-dropped' }, 'Left out: ' + dropped.map((d) => `${READINGS[d.key].short} (${d.why})`).join('; ') + '.') : null,
       res.ready ? h('p', { class: 'fr-fine fr-key' }, h('b', {}, 'Chips: '), 'filled fits, outlined is close, struck through does not fit.') : null,
       poor ? h('p', { class: 'fr-sub' }, 'Closest the model gets') : null,

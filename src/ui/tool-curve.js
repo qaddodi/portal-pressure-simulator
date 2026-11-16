@@ -96,7 +96,7 @@ export const PARAM = {
 };
 // Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears; and on a curve
 // over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
-const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture threshold', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
 // (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
 // (A reading wears its one colour on every chart and monitor: the WHVP orchid, the FHVP blue, the portal vein magenta, the IVC cyan (theme-tokens.js tr-*; the monitor's

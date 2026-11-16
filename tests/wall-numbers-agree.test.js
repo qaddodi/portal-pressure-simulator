@@ -76,7 +76,7 @@ test('one wall-stress number on every screen: the Wall mechanics card, the Reado
   // the Scope card keeps no mean of its own on top of the engine's (the second smoothing made it read differently from the tile)
   assert.ok(!/wMean \+= /.test(ui('instruments.js')));
   // >100% is named once, in words that do not claim a bleed
-  assert.equal(WALL_WORDS.critical, 'Past rupture point');
+  assert.equal(WALL_WORDS.critical, 'Past rupture threshold');
   assert.match(WALL_MEANING, /tears a varix only when spontaneous bleeding is switched on/);
   for (const w of Object.values(WALL_WORDS)) assert.ok(!/risk/i.test(w), w);
 });
