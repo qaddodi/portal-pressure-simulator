@@ -15,6 +15,7 @@ import { store, updateParams, hiddenNow } from './store.js';
 import { fmt, fmtFlow, clamp } from './util.js';
 import { PREGNANCY_INFO } from '../engine/scenario.js';
 import { lobuleState } from './lobule-model.js';
+import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
 
@@ -81,6 +82,8 @@ function tenth(x) {
 const memoKey = (c, k, x, make) => { if (c.x !== k) { c.x = k; c.s = make(x); } return c.s; };
 const memoTenth = (c, x, make) => memoKey(c, tenth(x), x, make);
 const pctOf = (c, x) => memoKey(c, Math.round(x * 100), x, pct);   // (pct prints Math.round(v * 100): the same key)
+// A lymph rate in the fluid balance card's own form (3,170 mL/day), made again only when that number changes.
+function dayText(c, x) { const k = lymphDay(x); if (c.x !== k) { c.x = k; c.s = `${lymphText(x)} ${LYMPH_UNIT}`; } return c.s; }
 function fixedText(c, x, unit) { const k = tenth(x); if (c.x !== k) { c.x = k; c.s = `${fmt(x, 1)} ${unit}`; } return c.s; }
 // fmtFlow prints a small real flow as "< 0.1", so a flow in that band is one key of its own (flowNum, below).
 const TRICKLE = 1e12;
@@ -340,6 +343,7 @@ const VARIX_ESO_ACTS = VARIX_ESO.filter((v) => v.type === 'button'), VARIX_GAS_A
 
 const SPLEEN_RX = ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'];
 const REMOVED = { v: 'Removed', u: '' };
+const OBLITERATED = { v: 'Obliterated', u: '' };
 const FMT1 = (x) => fmt(x, 1);
 const PLATELETS = (n) => `${(Math.round(n) * 1000).toLocaleString('en-US')}/µL`;
 function buildOrganCard(id) {
@@ -395,7 +399,8 @@ function buildOrganCard(id) {
     const n = NI[eso ? 'VAR' : 'GV'];
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,
-      value: (f, lens, ref) => readP(h, (f.Pf || f.P)[n], ref?.[n], 'mmHg'),
+      // (A varix closed off by BRTO or coils is a clot, not a vein with a pressure: its card says so rather than print the bed's pressure beside Grade none.)
+      value: (f, lens, ref) => (vx(f).closed ? OBLITERATED : readP(h, (f.Pf || f.P)[n], ref?.[n], 'mmHg')),
       status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ST_BLEEDING : vx(f).redWale ? ST_WALE : null),
     };
   }
@@ -524,17 +529,17 @@ function buildLobuleCards() {
       value: (f) => {
         // (Its texts are made again only when what they print changes: the tenth of the lymph; the change's sign and whole percent, when it shows.)
         const m = L(f), c = h.pc, d = m.lymph - m.lymphRef, shown = m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1;
-        const kP = tenth(m.lymph), kD = shown ? (d > 0 ? 1 : -1) * (Math.round(Math.abs(d) / m.lymphRef * 100) + 1) : 0, up = d > 0;
+        const kP = lymphDay(m.lymph), kD = shown ? (d > 0 ? 1 : -1) * (Math.round(Math.abs(d) / m.lymphRef * 100) + 1) : 0, up = d > 0;
         if (kP !== c.kP || kD !== c.kD || up !== c.up) {
-          c.v = fmt(m.lymph, 1);
+          c.v = lymphText(m.lymph);
           c.d = shown ? signed(d, `${Math.round(Math.abs(d) / m.lymphRef * 100)}%`) : null;
           c.kP = kP; c.kD = kD; c.up = up;
         }
-        S.v = c.v; S.u = 'mL/min (whole liver)'; S.d = c.d; S.up = up;
+        S.v = c.v; S.u = `${LYMPH_UNIT} (whole liver)`; S.d = c.d; S.up = up;
         return steady(h, S);
       },
       verbs: [lobuleAbout((m, o) => { o.push(LV_A); if (m.lymph > m.lymphRef * 1.25) o.push(LV_UP); if (m.lymph < m.lymphRef * 0.75) o.push(LV_DOWN); }),
-        lstat('Hepatic lymph', (m, c) => fixedText(c, m.lymph, 'mL/min')), lstat('Healthy', (m, c) => fixedText(c, m.lymph0, 'mL/min'))] });
+        lstat('Hepatic lymph', (m, c) => dayText(c, m.lymph)), lstat('Healthy', (m, c) => dayText(c, m.lymph0))] });
   }
   {
     const h = newHold(), vc = newCell();

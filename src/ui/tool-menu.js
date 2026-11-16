@@ -182,7 +182,7 @@ export function build(w, h, f, dots, base, baseLabel, steps = false) {
   const svg = sv('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: 'img', 'aria-label': label, style: `font-size: ${f.toFixed(2)}px` },
     sv('defs', {}, panel.clip), panel.back, grid, cutEls, keyRow, axis, stepsKey, leadEls, dotEls, ringEl, nameEls);
   svg.dataset.points = String(dots.length);   // (the browser checks read it: 0 until the numbers are there)
-  return { svg, G, crowded };
+  return { svg, G, crowded, spots };
 }
 
 export function createMenu() {

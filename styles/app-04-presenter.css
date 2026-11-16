@@ -306,6 +306,11 @@
   .pz-rail ol { --s-cap: calc(var(--t-cap) * var(--ts, 1)); --s-lab: calc(var(--t-lab) * var(--ts, 1)); --s-body: calc(var(--t-body) * var(--ts, 1)); --s-val: calc(var(--t-val) * var(--ts, 1)); --s-big: calc(var(--t-big) * var(--ts, 1)); --s-title: calc(var(--t-title) * var(--ts, 1)); }
   .pz-rail li { position: relative; min-height: 7.8em; }
   .pz-rail .n { position: absolute; top: 1.1em; right: 50%; font-size: var(--s-cap); transform-origin: 100% 0; rotate: -60deg; }
+  /* (The first name, "Pre-hepatic", tilts down and to the left of its bar: the six columns start that far in from the card's edge, else its first letters
+     run out of the card, Sites and causes 2, 16 Nov 2026. 3.3 caption sizes is half its width; the liver's bracket follows the columns.) */
+  .pz:not(.low) .pz-rail { --pl: max(0px, calc((12 * 3.3 * var(--t-cap) * var(--ts, 1) - 100cqw) / 11)); }
+  .pz:not(.low) .pz-rail ol { padding-left: var(--pl); }
+  .pz:not(.low) .pz-rail-liver { left: calc(var(--rp) + var(--pl) + (100% - 2 * var(--rp) - var(--pl)) / 6 + 3px); width: calc((100% - 2 * var(--rp) - var(--pl)) / 2 - 6px); }
 }
 /* (A phone on its side: the bars at the Mac size, and the
    Liver bracket's word is the body role at its own size, not the slide words' 1.4x, so it does not outweigh them.) */

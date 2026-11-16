@@ -58,7 +58,7 @@ export const CIRCULATION = {
       id: 'path-ladder', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],
       tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 1, rc: false } },
       kicker: 'Definition', site: 'sin', title: 'CSPH is the second stage of compensated cirrhosis',
-      line: 'Compensated cirrhosis has two stages, defined by the HVPG. His HVPG of {hvpg} is {>=10 mmHg}, so he has CSPH. Ascites, variceal bleeding or overt hepatic encephalopathy would mark decompensation.',
+      line: 'Compensated cirrhosis has two stages, defined by the HVPG. At {hvpg}, which is {>=10 mmHg}, this patient has CSPH. Ascites, variceal bleeding or overt hepatic encephalopathy would mark decompensation.',
       notes: 'Source: Baveno VIII Fig. 2, 3.1 to 3.3. Cirrhosis is compensated while there is no current or past decompensation. Compensated cirrhosis has two stages, without and with clinically significant portal hypertension (CSPH). CSPH is shown by an HVPG ≥10 mmHg, and by a liver stiffness ≥25 kPa, varices or collaterals. The first decompensation is clinically evident ascites, variceal bleeding or overt hepatic encephalopathy; later events are further decompensation, with a higher mortality. He has never bled or had ascites, so he is compensated, at the second stage. The decompensation and recompensation talk follows the stages in order.',
       ask: ['Which three events mark the end of compensated cirrhosis?', 'Clinically evident ascites, variceal bleeding and overt hepatic encephalopathy (Baveno VIII 3.3).'],
     },

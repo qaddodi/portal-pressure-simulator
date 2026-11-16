@@ -519,6 +519,9 @@ export function createCore(post) {
         // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
         // Twelve seconds of the live clock's own steps, before the page is told, start it there.
         if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+        // The patient's starting state, for the History's events (events.js), is taken from where the patient now stands, after the run-in: taken before it, a reading a
+        // few tenths from its cut-off crossed it in the first seconds and "Ascites forming" fired on a patient that began with ascites (play-test, 16 Nov 2026).
+        if (beat) { eng.evState = {}; eng.evAvg = null; detectEvents(eng, true); eng.newEvents = []; }
       }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },

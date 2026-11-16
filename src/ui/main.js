@@ -6,6 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
+import { watchSelection } from './selection-live.js';
 import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
@@ -252,6 +253,7 @@ async function main() {
     // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
+  watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
     const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
     // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
@@ -825,12 +827,18 @@ function resetEverything() {
 }
 
 // ── Actions ─────────────────────────────────────────
+const BANDS_MAX = 4;   // (the engine's cap, engine.band)
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   if (a.kind === 'band') {
     const fr = store.get().frame;
     if (fr?.metrics && !varicesPresent(fr, 'VAR')) { toast('No varices to band.'); return; }
+    // (Said every time, from Treat or from the card: the bands show on the endoscopy view and the varices card, which may not be the one open, so the tap answers where it was made.)
+    const placed = Math.round(fr?.bands || 0);
+    const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
+    if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
+    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
