@@ -122,7 +122,7 @@
   --lz-congestion: #8C283C; --lz-nutmeg: #80162C;
   --lz-zone-1: #E86854; --lz-zone-2: #D6A05C; --lz-zone-3: #7C62CE;
   --lz-hsc-body: #96603E; --lz-hsc-nucleus: #603628; --lz-casing: rgba(30, 24, 40, .45); --lz-bile-duct: var(--bile-duct); --lz-select: rgba(59, 108, 246, .45);
-  --lz-streak-shadow: rgba(60, 30, 50, .35); --lz-albumin: var(--albumin);
+  --lz-albumin: var(--albumin);
   /* sinusoid art (WebGL): cells, lymph by protein (low, mid, high), albumin */
   --sv-gl-bile: var(--bile-duct);
   --sv-gl-albumin: var(--albumin);

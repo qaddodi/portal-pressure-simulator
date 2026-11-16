@@ -28,9 +28,8 @@ test('lobule canvases are sized in whole pixels, so a fractional resolution step
 });
 
 test('the effects layer is redrawn every frame only while something on it moves', () => {
-  assert.equal(fxMoves({ lymph: false, flat: false, hide: false, flow: true }), false);   // WebGL vessels: only the still ductules
+  assert.equal(fxMoves({ lymph: false, flat: false, hide: false }), false);   // WebGL vessels: only the still ductules
   assert.equal(fxMoves({ lymph: true, flat: false, hide: false }), true);
-  assert.equal(fxMoves({ lymph: false, flat: true, hide: false, flow: undefined }), true);   // no WebGL: red cells move
-  assert.equal(fxMoves({ lymph: false, flat: true, hide: false, flow: false }), false);
+  assert.equal(fxMoves({ lymph: false, flat: true, hide: false }), true);   // no WebGL: red cells move
   assert.equal(fxMoves({ lymph: false, flat: true, hide: true }), false);
 });

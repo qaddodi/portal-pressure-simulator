@@ -13,7 +13,6 @@ export default [
   { file: 'src/ui/stage-blood.js', need: [/NO_CHAIN\.has\(x\.e\.id\)/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/export const FLOW_TEXELS = 8;/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
-  { file: 'src/ui/veins-gl.js', need: [/float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\) \* \(1\.0 - castAt\(id1, s1, len1\)\);/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   // card-readings-head
   { file: 'src/ui/presenter*', need: [/data\.classList\.toggle\('tool-only', toolOnly\(s\)\);/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
   { file: 'src/ui/presenter*', need: [/const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
@@ -470,7 +469,6 @@ export default [
   { file: 'src/ui/lobule-model.js', need: [/oxy\[0\] = node\[NI\[S\.pv\]\]; oxy\[1\] = node\[NI\[S\.sin\]\]; oxy\[2\] = node\[NI\[S\.cv\]\]/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (portal venule, sinusoids, central vein in that order)'] },
   // ---- the same rules, scoped to the function or file part the old tests looked at (B6 fix-up)
   { file: 'src/ui/stage*', between: ['function chainRows(', 'function stepBlood('], forbid: [/velQf|Qf\[k\]/, 'the chain rows read the chevrons\' own mean and the breath\'s flow, never the model\'s 1.5 s flow'] },
-  { file: 'src/ui/comp-glsl.js', need: [/if \(cw < 1\.0\) \{\n\s*nz = dNoise\(id, s, qy, D, ay, cA, drift, dxA, dyv\);/, 'parcels and arrowheads carried through junctions (combined plan B1 + C1)'] },
   { file: 'src/ui/comp-glsl.js', need: [/c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/, 'parcels and arrowheads carried through junctions (combined plan B1 + C1)'] },
   { file: 'styles/app-*.css', forbid: [/\.pz-hr[^{]*\{[^}]*(backdrop-filter|filter:|animation|transition)/, 'the header readings add no glass or painted motion: the card\'s own glass holds them'] },
   { file: 'src/ui/main.js', between: ['function helpRows(', 'function sendFeedback('], forbid: [/menuItem\('Send feedback'/, 'Send feedback is one tap into Settings, not a second menu row'] },

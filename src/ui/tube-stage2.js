@@ -45,11 +45,11 @@ export function stage1Why(ready, failed, compiling) {
 
 /**
  * The four programs' shader text, by name: { tubeLean, tubeDepth, tubeWeb, tubeWebDepth }, each { vs, fs } (the strip's and the web's vertex shaders over the lean
- * fragment shader and the depth one). K: the constants tubeLeanFS names (tube-lean-glsl.js header); zoomVS: veins-gl.js's ZOOM_VS. The compile check
+ * fragment shader and the depth one). K: the constants tubeLeanFS names (tube-lean-glsl.js header). The compile check
  * (scripts/glsl-compile-list.mjs) builds the programs from this, as the app does.
  */
-export function stage2Sources(K, zoomVS) {
-  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lean = tubeLeanFS(K);
+export function stage2Sources(K) {
+  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL), lean = tubeLeanFS(K);
   return { tubeLean: { vs: sv, fs: lean }, tubeDepth: { vs: sv, fs: TUBE_DEPTH_FS }, tubeWeb: { vs: wv, fs: lean }, tubeWebDepth: { vs: wv, fs: TUBE_DEPTH_FS }, tubeJoinDepth: { vs: sv, fs: tubeJoinDepthFS(K.N_SAMPLES) } };
 }
 
@@ -69,9 +69,9 @@ function startAll(gl, startProgram, src, names, makeShader) {
   return out;
 }
 
-/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K and zoomVS; makeShader: see startAll. */
-export function stage2Start(gl, startProgram, K, zoomVS, makeShader) {
-  return startAll(gl, startProgram, stage2Sources(K, zoomVS), STAGE2_PROGRAMS, makeShader);
+/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K; makeShader: see startAll. */
+export function stage2Start(gl, startProgram, K, makeShader) {
+  return startAll(gl, startProgram, stage2Sources(K), STAGE2_PROGRAMS, makeShader);
 }
 
 /**
@@ -95,19 +95,19 @@ export const STAGE3_PROGRAMS = ['tubeLumen', 'tubeWebLumen', 'compTube', 'compTu
 
 /**
  * The stage 3 programs' shader text, by name, each { vs, fs }: the lumen shader over the strip's and the web's vertex shaders, and the compositor's Tube builds
- * (COMP_FS with tube = 1: full and plain, each over the whole-picture vertex shader and the cell one). K, zoomVS: as stage2Sources; comp: { COMP_FS, COMP_VS,
+ * (COMP_FS with tube = 1: full and plain, each over the whole-picture vertex shader and the cell one). K: as stage2Sources; comp: { COMP_FS, COMP_VS,
  * COMP_CELL_VS } from veins-gl.js (given, not imported: veins-gl.js imports this file).
  */
-export function stage3Sources(K, zoomVS, comp) {
-  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lum = tubeLumenFS(K);
-  const full = comp.COMP_FS(false, false, false, 1), plain = comp.COMP_FS(true, false, false, 1);
+export function stage3Sources(K, comp) {
+  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL), lum = tubeLumenFS(K);
+  const full = comp.COMP_FS(false, false, 1), plain = comp.COMP_FS(true, false, 1);
   return { tubeLumen: { vs: sv, fs: lum }, tubeWebLumen: { vs: wv, fs: lum }, compTube: { vs: comp.COMP_VS, fs: full }, compTubeCell: { vs: comp.COMP_CELL_VS, fs: full },
     plainTube: { vs: comp.COMP_VS, fs: plain }, plainTubeCell: { vs: comp.COMP_CELL_VS, fs: plain } };
 }
 
 /** Starts the six stage 3 programs (startProgram: veins-gl.js's), by their names (STAGE3_PROGRAMS); see stage3Sources. */
-export function stage3Start(gl, startProgram, K, zoomVS, comp, makeShader) {
-  return startAll(gl, startProgram, stage3Sources(K, zoomVS, comp), STAGE3_PROGRAMS, makeShader);
+export function stage3Start(gl, startProgram, K, comp, makeShader) {
+  return startAll(gl, startProgram, stage3Sources(K, comp), STAGE3_PROGRAMS, makeShader);
 }
 
 /** Finishes the six started stage 3 programs, each in its own try: { P: { lumen, webLumen, comp, compCell, plain, plainCell } or null, failed: names }. */

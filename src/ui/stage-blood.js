@@ -11,10 +11,7 @@ import { store } from './store.js';
 import { bloodColors, clamp } from './util.js';
 import { FLOW_TEXELS } from './veins-gl.js';
 import { CHEV_PITCH } from './chevron-glsl.js';
-import { STYLE_D, STYLE_E } from './blood-tile.js'; import { easeOrigins } from './origin-ease.js';
-
-// The blood look each view draws (blood-tile.js): Anatomy look D; Circuit look E (sines, no texture read).
-const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_E;
+import { easeOrigins } from './origin-ease.js';
 
 export function createBlood(st, live) {
   const { E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
@@ -74,7 +71,6 @@ export function createBlood(st, live) {
   }
   // In the imaging view the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
   const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
-  const bloodOn = () => !!live.F && flowSeen() && store.get().layers.flow !== false;
   const chevOn = () => !!live.F && flowSeen() && !!store.get().blood?.chevrons;
   // Key chevrons only (Blood menu; always while presenting): chevrons keep to the portal story (the portal
   // inflow, the liver's beds, the hepatic veins, any open collateral or shunt) and to a lit vessel; the rest fade.
@@ -159,7 +155,7 @@ export function createBlood(st, live) {
     live.restU = clamp(live.restU + (live.restOn ? -dt / REST_IN_S : dt / REST_OUT_S), 0, 1);
     live.restK = easeInOut(live.restU);
   }
-  const blendA = { s: null, c: null, o: null };   // shown share of the streaks, the chevrons and the origin colours (stepBlood)
+  const blendA = { c: null, o: null };   // shown share of the chevrons and the origin colours (stepBlood)
   const eased = (v, to, k) => { if (Math.abs(to - v) <= 0.002) return to; live.bloodEasing = true; return v + (to - v) * k; };
   // Parcels through junctions (blood.js createStreamChain): each drawn vessel's main row, by its shown direction, with the model's
   // mean display speed (not the shown one, which eases to a stop on pause and swings with the beat: the link holds through both).
@@ -424,7 +420,7 @@ export function createBlood(st, live) {
       const ct = thr && thr[partOf(EDGES[k].id)] >= 0.95 ? 0 : !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
-    // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
+    // The chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter
     // (which hides the chevrons while it is in) or the lens, instead of in one frame; Reduce Motion keeps fades (round 2
     // review, B4). The chevrons also stand aside while the figure changes between Anatomy and Circuit and come back as it lands (Mohammad,
     // 13 Nov 2026, "do 2"): a vessel sliding against its own flow carried its arrows backward on the screen.
@@ -432,12 +428,11 @@ export function createBlood(st, live) {
     // Anatomy to Circuit change (live.morph, below), (2) hidden under a catheter, all of them while one is in (cath.st: Q7, yes), (3) hidden inside a figure reading's
     // box and round a callout's dot (stage-label-solve.js noChevBoxes, chevHoles: Q7, yes), (4) none on a very thin vessel (blood-heads.js THIN_LO). A vessel
     // whose blood stands shows a dimmed standing head, not none (blood-heads.js STILL_A).)
-    const kF = -Math.expm1(-dt / 0.15), tS = bloodOn() ? 1 : 0, tC = chevOn() && !cath.st && live.morph === live.morphTarget ? 1 : 0, tO = originOn() ? 1 : 0;
-    blendA.s = blendA.s == null ? tS : eased(blendA.s, tS, kF);
+    const kF = -Math.expm1(-dt / 0.15), tC = chevOn() && !cath.st && live.morph === live.morphTarget ? 1 : 0, tO = originOn() ? 1 : 0;
     blendA.c = blendA.c == null ? tC : eased(blendA.c, tC, kF);
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
     if (!live.veins) return;
-    const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
+    const on = blendA.c > 0 || blendA.o > 0;
     stepOriginFlow(moving ? dt * live.restK : 0); if (originOn()) oPass = layerMode() === 'firstpass';
     if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) {
       for (let k = 0; k < EDGES.length; k++) oEnds.len[k] = geo[EDGES[k].id]?.len || 0;   // (the drawn length: the ramp into a junction's blend is a length of the vessel, blood.js ORIGIN_RAMP)
@@ -534,18 +529,17 @@ export function createBlood(st, live) {
   }
   // (The look handed to the vessel layer is one kept record, written in place on each ask: the layer reads it at once; the colours are
   // the cached set bloodColors gives.)
-  const BLOOD_LOOK = { on: false, still: false, chev: false, look: undefined, origin: false, streakA: 0, chevA: 0, originA: 0, streakLen: true, clock: 0, bt: 0, style: 0, dye: true, bleed: NONE, noChev: undefined, holes: undefined, vdpr: 1,
+  const BLOOD_LOOK = { on: false, still: false, chev: false, origin: false, chevA: 0, originA: 0, clock: 0, bt: 0, dye: true, bleed: NONE, noChev: undefined, holes: undefined, vdpr: 1,
     originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   function bloodLook() {
-    const st = store.get(), b = st.blood || NO_OBJ, L = BLOOD_LOOK, bc = bloodColors();
+    const st = store.get(), L = BLOOD_LOOK, bc = bloodColors();
     // (Each drawn while it shows at all, by its eased share: stepBlood's blendA; its own switch before the first step.)
-    const sA = blendA.s ?? (bloodOn() ? 1 : 0), cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
-    L.on = sA > 0; L.still = reduceMotion.matches; L.chev = cA > 0; L.look = b.look; L.origin = oA > 0; L.streakA = sA; L.chevA = cA; L.originA = oA;
-    L.style = live.morph < 0.5 ? STYLE_ANATOMY : STYLE_CIRCUIT;   // (a view's look: blood-tile.js STYLE_*; Circuit's is its own thread's to change)
+    const cA = blendA.c ?? (chevOn() && !cath.st ? 1 : 0), oA = blendA.o ?? (originOn() ? 1 : 0);
+    L.still = reduceMotion.matches; L.chev = cA > 0; L.origin = oA > 0; L.chevA = cA; L.originA = oA;
     L.clock = live.bloodClock; L.bt = live.bloodClock - bEpoch; L.dye = !st.imaging; L.bleed = bleedSpray(); L.noChev = live.noChevBoxes; L.holes = live.chevHoles; L.vdpr = live.vdpr;
     L.originCol = bc.originCol; L.dyeCol = bc.dyeCol; L.inkLight = bc.inkLight; L.inkDark = bc.inkDark; L.revCol = bc.revCol; L.chevInk = bc.chevInk; L.chevLight = bc.chevLight;
     if (oPass) L.originCol = bc.firstCol;   // (the First pass lens's five colours in the origin slots)
     return L;
   }
-  return { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams };
+  return { bloodLook, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams };
 }

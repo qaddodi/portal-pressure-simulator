@@ -81,17 +81,14 @@ const reach = (a, b, w) => Math.hypot(Math.hypot(b.x - a.x, b.y - a.y) / Math.ma
 export function camMs(a, b, w, max = CAM_MS_MAX) {
   return Math.round(Math.min(max, CAM_MS_MIN * Math.max(1, reach(a, b, w) / 0.5)));
 }
-/** The least a slide's glide takes (16 Nov 2026, Sites and causes 2 to 3: a third of a screen of pan and zoom in 480 ms read as a swoop, the quintic's
- *  top speed 1.875 times its mean). A hand's glide keeps CAM_MS_MIN. */
-export const SLIDE_MS_MIN = 800;
 /**
- * A slide's glide: camMs (never under SLIDE_MS_MIN) to 900 ms (the reach 0.9375 of a screen), and beyond it on slowing toward CAM_MS_FAR instead of stopping. A move over
+ * A slide's glide: camMs to 900 ms (the reach 0.9375 of a screen), and beyond it on slowing toward CAM_MS_FAR instead of stopping. A move over
  * several screens at 900 ms peaked at four screens a second (the quintic's top speed is 1.875 times its mean), a rush; the tail gives the eye
  * the time (15 Nov 2026). A hand's glide (the zoom pill, a spring-back) keeps camMs and its ceiling.
  */
 export function slideMs(a, b, w) {
   const d = reach(a, b, w), knee = (CAM_MS_MAX / CAM_MS_MIN) * 0.5;
-  return Math.round(d <= knee ? Math.max(SLIDE_MS_MIN, CAM_MS_MIN * Math.max(1, d / 0.5)) : CAM_MS_MAX + (CAM_MS_FAR - CAM_MS_MAX) * (1 - Math.exp(-(d - knee) / 1.5)));
+  return Math.round(d <= knee ? CAM_MS_MIN * Math.max(1, d / 0.5) : CAM_MS_MAX + (CAM_MS_FAR - CAM_MS_MAX) * (1 - Math.exp(-(d - knee) / 1.5)));
 }
 /** The lobule view's glide time (camMs on its own ceiling): `a` and `b` are its views, in the host's px, `w` its width. */
 export const lobuleMs = (a, b, w) => camMs(a, b, w, LOBULE_MS_MAX);

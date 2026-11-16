@@ -10,9 +10,9 @@ export function radiiChanged(previous, next, tolerance) {
 // size (the resolution governor's steps) never matched, and the canvas was reallocated every frame.
 export const canvasPx = (css, dpr) => Math.max(1, Math.round(css * dpr));
 
-// Whether anything on the effects layer moves from frame to frame: the lymph (drops or streaks), or the
+// Whether anything on the effects layer moves from frame to frame: the lymph, or the
 // red cells drawn there when the vessels have no WebGL. Otherwise it holds only still shapes, drawn once.
-export const fxMoves = ({ lymph, flat, hide, flow }) => !!lymph || (!!flat && !hide && flow !== false);
+export const fxMoves = ({ lymph, flat, hide }) => !!lymph || (!!flat && !hide);
 
 // The dive's soft rim, in lobule radii: the scaled-down tissue's surround is opaque to `solid` and gone by `clear` (diveCopy).
 export const DIVE_RIM = { solid: 1.02, clear: 1.2 };

@@ -24,10 +24,10 @@ import { STALL_MAX } from '../src/ui/glide-clock.js';
 import { VB_ANAT, VB_CIRC, VIEW } from '../src/ui/anatomy.js';
 import { camPath, camWindow, geomView, lerpVT, viewGeom, blendPaths } from '../src/ui/cam-arc.js';
 import { isCamOn, regionBox } from '../src/ui/cam-frame.js';
-import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, SLIDE_MS_MIN, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
+import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
 import { diveAlong, diveMapInto } from '../src/ui/dive-map.js';
 import { viewBoxAt, viewXfCameraInto, viewXfRetarget } from '../src/ui/view-xf.js';
-import { createCamLock, judgeSlideMove, lockedWrite } from '../src/ui/slide-cam.js';
+import { SLIDE_MAX_MS, SLIDE_MIN_MS, createCamLock, judgeSlideMove, lockedWrite } from '../src/ui/slide-cam.js';
 
 const { createGlide } = await import('../src/ui/stage-glide.js');
 const { createRide } = await import('../src/ui/stage-ride.js');
@@ -189,7 +189,7 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         const plan = r.moves[0], ms = plan?.ms;
         assert.ok(plan && plan.slide, `${name}, ${at}: the slide's move is asked`);
         assert.equal(plan.arc, false, `${name}, ${at}: a slide's move never pulls back (the zoom one way)`);
-        assert.ok(ms >= SLIDE_MS_MIN && ms <= Math.round(CAM_MS_FAR * 1.3), `${name}, ${at}: a slide's glide takes ${ms} ms, never under ${SLIDE_MS_MIN}`);
+        assert.ok(ms >= SLIDE_MIN_MS && ms <= SLIDE_MAX_MS, `${name}, ${at}: a slide's glide takes ${ms} ms, ${SLIDE_MIN_MS} to ${SLIDE_MAX_MS} (slide-cam.js planSlide)`);
         // a late first frame (the move's own layout pass), then 16 ms frames, a 1 s stall somewhere in the move (seeded by the move), a near refit
         // half way, and a near refit 300 ms after the landing
         const stallAt = 0.15 + ((j * 0.37) % 0.75), late = 120 + (j % 4) * 60;
@@ -481,8 +481,8 @@ test('a slide\'s glide time grows with the reach, never stops short of a hand\'s
   for (let x = 0; x <= 8000; x += 25) {
     const b = { k: 1, x, y: 0 }, m = slideMs(at, b, w);
     assert.ok(m >= last, `monotone at ${x}`); last = m;
-    assert.ok(m >= camMs(at, b, w) && m >= SLIDE_MS_MIN && m <= CAM_MS_FAR, `between a hand's glide (and a slide's least) and the ceiling at ${x}`);
-    if (camMs(at, b, w) < CAM_MS_MAX) assert.equal(m, Math.max(SLIDE_MS_MIN, camMs(at, b, w)), 'a hand\'s time where it has not stopped, never under a slide\'s least');
+    assert.ok(m >= camMs(at, b, w) && m <= CAM_MS_FAR, `between a hand's glide and the ceiling at ${x}`);
+    if (camMs(at, b, w) < CAM_MS_MAX) assert.equal(m, camMs(at, b, w), 'a hand\'s time where it has not stopped (a slide\'s own move has its floor in slide-cam.js)');
   }
   assert.ok(slideMs(at, { k: 1, x: 1600, y: 0 }, w) > CAM_MS_MAX + 100 && slideMs(at, { k: 1, x: 6400, y: 0 }, w) > CAM_MS_FAR - 60, 'two screens are slower than 900, many nearly the ceiling');
   // no kink in the time: the steps between neighbouring reaches stay small across the 900 ms knee
