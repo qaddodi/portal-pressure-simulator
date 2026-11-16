@@ -10,6 +10,7 @@ import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
 import { healthyAtBedside, restingEngine } from './engine/bedside-rest.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
+import { EDGES } from './engine/topology.js';
 import { setYours } from './engine/yours.js';
 import { calmTrail } from './engine/trail-calm.js';
 
@@ -117,6 +118,7 @@ export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) 
 // The history's step (the bedside clock's own 4 ms), the longest window it will make, its run-in before the window, and the work it does between ticks.
 const HIST_DT = 0.004, HIST_MAX_S = 14, HIST_RUNIN_S = 1.5, HIST_SLICE_MS = 6;
 
+const PROBE_IDS = new Set(EDGES.map((e) => e.id));   // alloc-rare: made once at load
 export function createCore(post) {
   let eng = restingEngine();   // (a healthy patient at the bedside's rest: its readings hold still from the first frame, bedside-rest.js)
   let running = true;
@@ -587,7 +589,9 @@ export function createCore(post) {
       if (reqId) post({ type: 'prerolled', reqId });
     },
     // (The samples already taken belong to the old vessel: they go out under its name first, so the new one's record starts clean.)
-    probe({ id }) { if (id !== probe && samples?.t.length) frame(); probe = id; },
+    // (Only a vessel the model has: a null or unknown id, from a presentation that ended before it had a frame to remember the vessel from, left every
+    // later frame with no vessel, and the Doppler's spoken summary threw "reading 'label'" in a rest pass, 16 Nov 2026.)
+    probe({ id }) { if (!PROBE_IDS.has(id)) return; if (id !== probe && samples?.t.length) frame(); probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     // (Whether a trace drawing the samples scrolls on the page, main.js: while one does, a frame goes out at every 95 ms check.)
     traces({ on }) { traces = !!on; },
