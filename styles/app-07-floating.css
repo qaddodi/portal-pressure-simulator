@@ -354,10 +354,10 @@ html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot
    under this layer, so a veil here darkened the sheet's own glass too and Layers and Settings no longer matched the Treat and Tests cards. */
 .um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: none; animation: crossfade var(--d-small) var(--ease); }
 .um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
-.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
+.umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: none; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
 .umenu.sheet.still { animation: none; }
 .umenu.sheet.pulling { animation: none; }   /* (a finger has the sheet: its entrance gives way, util.js swipeSheet) */
-.umenu.sheet.out { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
+.umenu.sheet.out { animation: none; }   /* (the sheet's entrance and exit are written in the page's frames, sheet-ride.js, so its glass and its words move as one) */
 /* Upright (over the thumb dock) the shared sheet swipe moves it by the compositor (util.js swipeSheet): it follows the finger down. */
 /* (4 Nov, Mohammad: "when I slide the menu down it still goes on top of everything".) Over the thumb dock the main menu rests on the dock's top,
    8 px clear, inset and round like every other sheet there (--thumb-occ), and stops under the top bar; the keyboard, when up, lifts it higher.

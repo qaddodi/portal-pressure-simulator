@@ -456,9 +456,8 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 html.thumb-ui .pal-back { bottom: max(0px, calc(var(--thumb-occ, 0px) - 8px)); align-items: flex-end; overflow: clip; animation: none;   /* (clip, not hidden: a hidden box is still a scroller, and the focus in the tap scrolled it 117 px to show the field while the sheet rose, then it snapped back as it landed) */
  
   padding: calc(8px + var(--safe-top)) calc(6px + env(safe-area-inset-right, 0px)) max(8px, calc(var(--pal-kb, 0px) + 16px - var(--thumb-occ, 0px))) calc(6px + env(safe-area-inset-left, 0px)); }
-html.thumb-ui .pal { --pal-veil: 0 0 0 0 transparent; width: 100%; animation: dock-sheet-in var(--d-small) var(--ease) backwards; }
+html.thumb-ui .pal { --pal-veil: 0 0 0 0 transparent; width: 100%; animation: none; }   /* (it rises from behind the dock on the page's frames, palette.js and sheet-ride.js, so its glass and its words move as one) */
 html.thumb-ui .pal-back.leaving { animation: none; }
-html.thumb-ui .pal-back.leaving .pal { animation: dock-sheet-out var(--d-small) var(--ease-in) forwards; }
 html.thumb-ui .pal-top { padding: 4px 4px 4px 14px; }
 html.thumb-ui .pal-x { display: inline-flex; width: 44px; height: 44px; flex: none; }
 html.thumb-ui .pal-list { height: max(120px, min(46svh, calc(var(--pal-vh, 100svh) - var(--safe-top) - 96px))); max-height: none; }

@@ -163,6 +163,15 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   forbid('src/ui/presenter*', /pz-timegraph|pz-evtime/, 'no chart box in the words');
   forbid('styles/app-*.css', /\.pz-timegraph/, 'no style for a chart in the words');
   need('src/ui/presenter-tools.js', [[/createFlowTime\(\)/, 'the flow-time chart is the instrument card\'s'], [/createEventGraph\(\)/, 'the procedure graph is the instrument card\'s']]);
+  // A menu sheet's entrance and exit are written by the frames, never run by the compositor (16 Nov 2026, iPhone: the Patients menu's search row floated
+  // over the figure with no card behind it while the sheet rose). The GPU glass is drawn by the page from the page's time, and a compositor slide can stand a
+  // display frame or two off it in Safari, which is half a sheet's height on its quick first frames. sheet-ride.js writes the sheet's inline translate in the frame
+  // the glass reads it in; a slide keyframe on one of these surfaces (or a new sheet that rides nothing) brings the lag back.
+  forbid('styles/app-*.css', /(?:\.umenu\.sheet|\.menu\.as-sheet|\.why-pop\.as-sheet|\.pal)(?![-\w])[^{}]*\{[^}]*animation(?:-name)?\s*:\s*(?:slide-from-edge|slide-to-edge|dock-sheet-in|dock-sheet-out)/, 'a menu sheet slides by a CSS animation: write it with sheet-ride.js (rideIn / rideOut) so its glass and its words move in one frame');
+  need('src/ui/menu.js', [[/rideIn\(el, reduce\.matches\)/, 'the main menu sheet rides in'], [/rideOut\(panel, reduce\.matches\)/, 'the main menu sheet rides out']]);
+  need('src/ui/util.js', [[/rideIn\(el, reduceMotionMQ\.matches/, 'a popover sheet rides in'], [/rideOut\(el, reduceMotionMQ\.matches/, 'a popover sheet rides out'], [/rideStop\(panel\)/, 'a finger takes a riding sheet over']]);
+  need('src/ui/why.js', [[/rideIn\(pop,/, 'the Why? sheet rides in'], [/rideOut\(pop,/, 'the Why? sheet rides out']]);
+  need('src/ui/palette.js', [[/rideIn\(box,/, 'the Search sheet rides in'], [/rideOut\(box,/, 'the Search sheet rides out']]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],

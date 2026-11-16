@@ -4,6 +4,7 @@ import { cancelMoves } from './num-move.js';
 import { classSoon } from './class-soon.js';
 import { host } from './host.js';
 import { h, fmt, svgIcon, announce, claimSurface, releaseSurface, placeAt, swipeSheet, STACK_MQ } from './util.js';
+import { rideIn, rideOut, rideStop, menuRide } from './sheet-ride.js';
 import { leaveFromHere } from './menu-leave.js';
 import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { restRemove } from './rest-pass.js';
@@ -41,11 +42,12 @@ export function createWhy(pop) {
     // (A card put away by a swipe was left drawn off the screen: that, and its swiped mark, are cleared before it comes in again.)
     for (const a of pop.getAnimations()) a.cancel();
     cancelMoves(pop);   // (and the swipe's held number, so its glass is not drawn off by the last let-go: num-move.js)
-    delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
+    rideStop(pop); delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = ''; pop.style.opacity = '';
     pop.classList.toggle('as-sheet', sheet); placedTop = 0;
     if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); sheetLayer().append(scrim); }
     pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Calculating the contributions…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
+    if (sheet) rideIn(pop, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches));   // (the sheet comes up on the page's frames, so its glass and its words are one piece: sheet-ride.js)
     claimSurface(me);
     place(anchor);
     // Opened from the keyboard: focus goes into the card (its close button), and Esc or that button brings it back to the anchor.
@@ -97,6 +99,7 @@ export function createWhy(pop) {
     if (pop.classList.contains('show')) {
       // (A card swiped away is already sliding down: it leaves as it is.)
       if (pop.dataset.swiped) { pop.classList.remove('show'); pop.classList.add('leaving'); }
+      else if (asSheet()) { rideOut(pop, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches)); pop.classList.remove('show', 'pulling'); pop.classList.add('leaving'); }
       else leaveFromHere(pop, () => { pop.classList.remove('show', 'pulling'); pop.classList.add('leaving'); });   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)
       clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), afterMs(asSheet() ? D_SMALL : D_FLIP));
     }

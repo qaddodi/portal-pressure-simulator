@@ -11,6 +11,7 @@ import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, re
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
 import { fmt, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
+import { rideStop, rideIn, rideOut, menuRide } from './sheet-ride.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
@@ -495,6 +496,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   };
   if (el.classList.contains('app-menu')) { const ro = new ResizeObserver(() => { if (!el.isConnected) ro.disconnect(); else clipBar(); }); ro.observe(el); }
   put();
+  if (asSheet) rideIn(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches));   // (a menu sheet comes up on the page's frames, so its glass and its words are one piece: sheet-ride.js)
   // (Its fill, ring and shadow are the GPU's, a plate laid under it: plate-gl.js. It reads the look from this menu's own CSS.)
   const plate = glassPlate(el) || plateFor(el, 'menu');
   // Arrow keys walk the rows (Up, Down, Home, End; wrapping at the ends), as every native menu does; Tab still leaves.
@@ -1040,7 +1042,7 @@ export function closePopover() {
     // (A sheet pulled once and let go keeps .pulling, whose animation: none would also hold off its exit: it hung where it was and blinked out
     // when its timer ended, 13 Nov, menu recs C1. The close takes it off with the leaving class, so the exit plays from where the sheet rests.)
     const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => { if (!el.dataset.swiped) el.classList.remove('pulling'); el.classList.add('leaving'); };
-    if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
+    if (el.dataset.swiped) leave(); else if (el.classList.contains('as-sheet')) { rideOut(el, reduceMotionMQ.matches, ...menuRide(reduceMotionMQ.matches)); leave(); } else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
     el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL + 20 : ms + 10);   // (a swiped sheet: once its let-go has landed behind the dock, never in its last frames)
   } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
@@ -1141,7 +1143,8 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       // (Caught while it is still easing back: the pull carries on from where the sheet is, without a jump. The new pull is laid under the
       // old let-go's place before that is taken away, so no frame shows the sheet anywhere else.)
       // (Where it is drawn now, from the let-go's own clock: it has kept easing since the touch, so the place read at the touch is behind it.)
-      const here = easing && !easing.over ? pullAt(easing) : s.shift;
+      // (A sheet still coming in on the page's frames (sheet-ride.js) is taken from where it is: the ride stops and says how far down it stood.)
+      const rode = rideStop(panel), here = easing && !easing.over ? pullAt(easing) : rode > 0 ? rode : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
       s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', true);   // (glass: the sheet's GPU glass reads the finger's number, num-move driven(); without it the glass held the pull's paused animation at its first clock and drew the frost where the sheet no longer was: 13 Nov 2026)   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)

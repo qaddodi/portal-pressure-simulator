@@ -4,9 +4,10 @@
 
 import { store, updateParams, setViewKey } from './store.js';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, easeArrive } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readMetric } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { rideIn, rideOut, rideStop } from './sheet-ride.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { classSoon, attrSoon } from './class-soon.js';
 import { frame } from './frame.js';
@@ -227,8 +228,8 @@ export function createPalette({ ctx }) {
     // (Ctrl K, or a click Safari does not focus: the Search button takes focus back, not the page.)
     ret = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.getElementById('btnPalette');
     clearTimeout(leaveT); back.classList.remove('leaving');
-    openAt = performance.now(); palExit?.cancel(); palExit = null;
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
+    if (document.documentElement.classList.contains('thumb-ui')) { rideStop(box); rideIn(box, reduceMotionMQ.matches, D_SMALL, 8); }   // (the Search sheet rises from behind the dock on the page's frames, so its glass and its words are one piece: sheet-ride.js)
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
     // (Focused in the tap itself, so iOS raises the keyboard at once; a focus from a timer is outside the gesture and iOS waits for a second
     // tap: menu recs C3, 13 Nov 2026. The timer stays for a browser that moves focus back to the button after the click.)
@@ -269,17 +270,13 @@ export function createPalette({ ctx }) {
     box.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });   // alloc-rare: once per keyboard move
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
-  let leaveT = 0, openAt = -1e9, palExit = null;
-  const leaveDone = () => { palExit?.cancel(); palExit = null; palTop = null; back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
+  let leaveT = 0;
+  const leaveDone = () => { rideStop(box); palTop = null; back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
-    // (Over the thumb dock, put away while it still rises (a second tap on Search): it sinks from where it had got to, not from its resting place,
-    // which it jumped up to for a frame first. 13 Nov 2026, iPhone.)
-    const x = (performance.now() - openAt) / D_SMALL;
-    if (x < 1 && box.animate && !reduceMotionMQ.matches && document.documentElement.classList.contains('thumb-ui')) {
-      palExit = box.animate([{ transform: `translateY(calc((100% + 8px) * ${(1 - easeArrive(Math.max(0, x))).toFixed(4)}))` }, { transform: 'translateY(calc(100% + 8px))' }], { duration: D_SMALL, easing: EASE_IN, fill: 'forwards' });   // alloc-rare: a close during the entrance
-    }
+    // (Over the thumb dock it sinks behind the dock on the page's frames, from where its entrance had got to if it still rises: sheet-ride.js.)
+    if (document.documentElement.classList.contains('thumb-ui')) rideOut(box, reduceMotionMQ.matches, D_SMALL, 8);
     vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
     leaveT = afterExit(back, 'leaving', leaveDone);
     ret?.focus?.(FOCUS_NO_SCROLL);
