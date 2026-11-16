@@ -39,7 +39,7 @@ export default {
       case 'a1': return { head: 'Rules cACLD out', tone: 'n', stmt: '1.3', why: `LSM ${p.lsm} kPa is <10.`, next: 'Repeat NITs by etiology. Consider PSVD if there are signs of portal hypertension.' };
       case 'a2': return { head: 'Rules CSPH out', tone: 'ok', stmt: '1.15', why: `LSM ${p.lsm} kPa is ≤15 and platelets are ${p.plt}, ≥150.`, next: 'Repeat LSM in 12 months.' };
       case 'a3': return { head: 'Rules CSPH in', tone: 'bad', stmt: '1.14, 1.16', why: `LSM ${p.lsm} kPa with platelets ${p.plt} is indeterminate, but ${p.ant ? (p.bmi ? 'ANTICIPATE-NASH is ≥75%' : 'ANTICIPATE is ≥75%') : 'SSM is >55 kPa'}.`, next: 'Start an NSBB, carvedilol preferred.' };
-      case 'a4': return { head: 'CSPH still open', tone: 'warn', stmt: '1.17', why: `LSM ${p.lsm} kPa with platelets ${p.plt} is in the indeterminate zone, and neither ANTICIPATE nor SSM rules CSPH in.`, next: 'Repeat the tests in 12 months, or add SSM. If not on an NSBB, screen for varices by endoscopy unless LSM <20 kPa with platelets ≥150, or SSM <40 kPa.' };
+      case 'a4': return { head: 'CSPH still open', tone: 'warn', stmt: '1.17', why: `LSM ${p.lsm} kPa, platelets ${p.plt}: indeterminate.`, next: 'Repeat in 12 months or add SSM. Not on an NSBB: EGD unless LSM <20 kPa and platelets ≥150, or SSM <40 kPa.' };
       default: return { head: 'Rules CSPH in', tone: 'bad', stmt: '1.16b', why: `LSM ${p.lsm} kPa is ≥25.`, next: 'Start an NSBB, carvedilol preferred.' };
     }
   },
@@ -51,6 +51,7 @@ export default {
     const ssm = live('ssm', null);
     return { lsm: live('lsm', base.lsm ?? 12), plt: live('plt', base.plt ?? 200), bmi: !!base.bmi, ant: !!base.ant, ssm: ssm != null ? ssm > 55 : !!base.ssm };
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { lsm: 100, plt: 1000, bmi: true, ant: true, ssm: true },
   notes: 'The first-visit chart of Baveno VIII (Fig. 1) for a patient with suspected compensated advanced chronic liver disease: LSM <10 kPa rules cACLD out (1.3); LSM ≤15 kPa with platelets ≥150,000/µL rules CSPH out (1.15); LSM ≥25 kPa rules CSPH in (1.16); in between, ANTICIPATE ≥75%, NICER ≥75% or SSM >55 kPa rules it in, otherwise repeat the tests in 12 months or add SSM (1.17), and screening endoscopy can be avoided when LSM <20 kPa with platelets ≥150,000/µL or SSM <40 kPa (1.19).',
 };

@@ -52,6 +52,8 @@ const SHORT = { 'first-visit': 'First-visit path', bleed: 'Bleed path', gastric:
  *  has no tree: the card draws its own rows, zones, cells or steps (algo, path-cards.js). */
 export const PATHS = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, { tree: a.tree, algo: a, kick: a.source, foot: a.cite, label: a.label, short: SHORT[a.id] || a.label, kind: a.kind }]));
 /** Whether an algorithm is a chart of nodes (kind 'tree'); the other kinds are drawn by path-cards.js. */
+/** Whether the patient moves with the live model (a slider, a button) while the card is up: the card then keeps room for every outcome; else it is sized for the slide's own. */
+export const isLive = (of) => algoOf(of).live === true;
 export const isTree = (of) => (algoOf(of).kind || 'tree') === 'tree';
 /** The words under each node of the phone's map (one or two short lines). */
 export const mapWordsOf = (of, id) => algoOf(of).mapWords?.[id] || null;

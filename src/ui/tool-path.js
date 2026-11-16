@@ -26,7 +26,7 @@ import { TILE } from './table-marks.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
-import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
+import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, isLive, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
@@ -105,14 +105,15 @@ export function treePlace(tree, boxes, heights, oy = 0) {
 /** The small map at a width (k: the words' size over 12): each node's centre, the connectors' paths and the height. A node's words stand under its dot. */
 export function mapPlace(tree, W, k = 1, oy = 0, wordsOf = () => null) {
   const { at, n, maxd } = slots(tree), pad = W < 330 ? 34 : 38, nodes = new Map(), paths = new Map();
-  const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => oy + 12 + at.get(id).d * MAP_UNIT;
+  const unit = maxd >= 3 && k === 1 ? 56 : MAP_UNIT;   // (a map four levels deep, at 12 px words, is a little tighter: the first-visit path stood 254 px tall on a phone)
+  const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => oy + 12 + at.get(id).d * unit;
   for (const { n: node } of flat(tree)) nodes.set(node.id, { x: X(node.id), y: Y(node.id), words: wordsOf(node.id) });
   for (const e of edgesOf(tree)) {
     const a = nodes.get(e.from), b = nodes.get(e.to);
     const y0 = a.y + (a.words ? (8 + a.words.length * 12.5) * k : 0);
     paths.set(e.to, `M${a.x},${y0}V${y0 + 12}H${b.x}V${b.y}`);
   }
-  return { nodes, paths, H: 12 + maxd * MAP_UNIT + 44 * k };
+  return { nodes, paths, H: 12 + maxd * unit + 44 * k };
 }
 
 /**
@@ -157,6 +158,18 @@ export const readParas = (r) => [[{ text: r.head, face: 'rh' }], [{ text: `${r.w
 /** What path-cards.js lays a score card, grid or ladder out with: the card's own type, lines and shapes. */
 export const CARD_HELPERS = { flow, ROLE, svg, textWidth, readParas, TOKEN };
 
+/**
+ * The small map's body (a phone, an iPad upright) at a width: the map and the room for the reading under it. A patient the slide fixes has one
+ * reading, so the card is as tall as it; one the live model moves keeps room for the tallest reading of every outcome. → { k, map, readH, H }
+ */
+export function mapBodyOf(of, spec, patient, Wv, W = Wv, oy = 0) {
+  const k = mapType(W) / 12, worst = WORST[of], map = mapPlace(spec.tree, Wv, k, oy, (id) => mapWordsOf(of, id));
+  const own = isLive(of) ? null : outcomeOf(of, litOf(of, patient));
+  const rd = (key, p) => flow(readParas(readingFor(of, key, p)), Wv, { gap: 4 }).h;
+  const readH = own ? rd(own, patient) : Math.max(...OUTCOMES[of].flatMap((key) => [patient, worst].map((p) => rd(key, p))));
+  return { k, map, readH, H: map.H + GAP + 12 + readH };
+}
+
 export function createPath() {
   const pic = h('div', { class: 'pzp-pic' });
   const gl = createSvgGL(pic, { host: 'path' });
@@ -179,7 +192,7 @@ export function createPath() {
     // (the patient's numbers: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
     const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], Wv).h : 0);
     // (a card kind's patient is the slide's own and never changes while it is up: its row is this patient's alone, none when it has no chips)
-    L.chipsH = card ? chipsH(base) : Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
+    L.chipsH = card ? chipsH(base) : isLive(of) ? Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh) : Math.max(chipsH(base), ROLE.chips.lh);
     L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
     L.y.pic = y;
     if (card) {
@@ -187,12 +200,12 @@ export function createPath() {
       L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS, true);
       y += L.card.H + GAP;
     } else if (compact) {
-      L.k = mapType(W) / 12;
-      L.map = mapPlace(spec.tree, Wv, L.k, y, (id) => mapWordsOf(of, id));
+      const B = mapBodyOf(of, spec, base, Wv, W, y);
+      L.k = B.k; L.map = B.map;
       y += L.map.H + GAP;
       L.y.rule1 = y; y += 12;
       L.y.read = y;
-      L.readH = Math.max(...OUTCOMES[of].flatMap((k) => [base, worst].map((p) => flow(readParas(readingFor(of, k, p)), Wv, { gap: 4 }).h)));
+      L.readH = B.readH;
       y += L.readH + GAP;
     } else {
       const boxes = treeBoxes(spec.tree, Wv), heights = new Map(), fl = new Map();

@@ -116,11 +116,11 @@ test('psvdscore: Baveno VIII 8.44 totals 0-2 no PSVD or NCPF, 3-4 possible, 5 or
   for (const z of psvdscore.zones) assert.ok(z[0] <= z[1]);
   for (const p of patientsOf(psvdscore)) { const { t, v } = scoreState(psvdscore, p), z = psvdscore.zones[v.z]; assert.ok(t >= z[0] && t <= z[1] || t < 0, `${JSON.stringify(p)}: ${t} in zone ${v.z}`); assert.equal(v.tone, z[3]); }
   const r = readingFor('psvdscore', 'z1', psvdscore.defaults);
-  assert.match(r.next, /Further investigation \(biopsy, elastography\), referral to an expert vascular liver center, and follow-up for new signs\./);
+  assert.match(r.next, /Biopsy or elastography, referral to an expert vascular liver center, and follow-up for new signs\./);
   assert.equal(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).next, '', 'definite has no next step in the mock');
   assert.match(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).why, /^Score 8\./);
   assert.deepEqual(chipsOf('psvdscore', psvdscore.defaults), [], 'the verdict row carries the score: no chips');
-  assert.equal(zoneText(psvdscore.zones[0], false), 'No PSVD or NCPF · 0–2');
+  assert.equal(zoneText(psvdscore.zones[0], false), 'Not PSVD · 0–2');
   assert.equal(zoneText(psvdscore.zones[1], false), 'Possible · 3–4');
   assert.equal(zoneText(psvdscore.zones[2], false), 'Definite · ≥5');
 });

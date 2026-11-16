@@ -58,6 +58,7 @@ export default {
   tree, mapWords, lit,
   outcomes: ['skip', 'none', 'small'],
   outcomeOf, reading, chips, patientFor,
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { ssm: 99.9, bili: 9.9, v: 'small' },
   notes: 'In porto-sinusoidal vascular disorder (PSVD) and non-cirrhotic portal fibrosis (NCPF) the cirrhosis stiffness rules for avoiding endoscopy must not be used (8.48). Screening for gastroesophageal varices is recommended at diagnosis (8.46, strong). It is not required, at diagnosis or in follow-up, when spleen stiffness is <40 kPa and bilirubin is <1 mg/dL (<17 µmol/L), because varices are unlikely (8.47). A patient exactly at 40 kPa or 1 mg/dL is not spared. When endoscopy is done, it is repeated every 2 years if there are no varices and every year if the varices are small (8.46).',
 };

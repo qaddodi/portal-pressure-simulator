@@ -45,6 +45,7 @@ export default {
     const live = (k, v) => (fp && Number.isFinite(fp[k]) ? shown(k, fp[k]) : v);
     return { src: 'ov', cp: 8, active: false, ctrl: true, fit: true, ...base, hvpg: base.hvpg === null ? null : live('hvpg', base.hvpg ?? 16) };
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { src: 'ov', cp: 13, active: false, hvpg: 99.9, ctrl: false, fit: false },
   notes: 'The acute variceal bleeding algorithm of Baveno VIII (Fig. 3) for bleeding from an esophageal varix or GOV1: a vasoactive drug, antibiotic prophylaxis and restrictive transfusion, endoscopy within 12 hours and band ligation (5.18). Once bleeding is controlled, preemptive TIPS within 72 hours, ideally within 24, is indicated for Child–Pugh C 10–13, or B 8–9 with active bleeding at endoscopy, or HVPG ≥20 mmHg, in a patient aged <75 with creatinine <3 mg/dL and no heart failure (5.31); otherwise carvedilol with EVL every 2–4 weeks. If bleeding is not controlled, a covered esophageal stent bridges to salvage TIPS (5.35, 5.36).',
 };

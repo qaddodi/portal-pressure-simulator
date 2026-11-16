@@ -40,6 +40,7 @@ export default {
     const live = (k, v) => (fp && Number.isFinite(fp[k]) ? shown(k, fp[k]) : v);
     return { hv: ['none', 'low', 'high'].includes(b.hv) ? b.hv : 'none', lsm: live('lsm', b.lsm), ssm: live('ssm', b.ssm) };
   },
+  live: true,   // (its patient takes the live model's readings: the card keeps room for every outcome's reading)
   worst: { hv: 'high', lsm: 99.9, ssm: 99.9 },
   notes: 'Carvedilol (or another nonselective beta-blocker) in a recompensated patient may be stopped only if resolution of clinically significant portal hypertension can be confirmed (7.18, weak). CSPH may resolve over time after recompensation (7.15). Resolution is confirmed by an HVPG <10 mmHg measured off carvedilol (7.16). Portosystemic collaterals and varices may persist after CSPH has resolved, so they are not reliable signs that it persists, and the risk of bleeding from them seems low (7.17). Without an HVPG, stiffness may be used (7.19): LSM <10 kPa may rule CSPH out, LSM <15 kPa with SSM <25 kPa may rule it out, and LSM >25 kPa may rule it in. Where none of these shows resolution, carvedilol is kept. An HVPG of ≥10 mmHg off carvedilol shows that CSPH persists.',
 };
