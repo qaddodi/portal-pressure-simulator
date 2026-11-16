@@ -70,6 +70,18 @@ export const TRIALS = {
     verified: ABSTRACT, status: 'checked',
   },
   // ---- Variceal bleeding: first bleed
+  // (Added 16 Nov 2026, TC-T4: the two trials in which the HVPG itself picked the patients, each read from its PubMed abstract on 16 Nov 2026,
+  // guidelines/trials-audit-2026-11-16.md. Only the abstract's own numbers; an arm size the abstract does not state is left out, never worked back.)
+  groszmann: {
+    id: 'groszmann', name: 'Timolol to prevent varices', short: 'Timolol 2005', group: 'bleed', journal: 'N Engl J Med', year: 2005,
+    firstAuthor: 'Groszmann', pmid: '16306522', doi: '10.1056/NEJMoa044456', n: 213,
+    setting: 'Cirrhosis with portal hypertension (HVPG 6 mmHg or more), before varices form',
+    followUp: 'Median 54.9 months', endpoint: 'Varices or variceal bleeding', better: 'lower',
+    arms: [{ label: 'Timolol', rate: 39, n: 108, side: 'treat' }, { label: 'Placebo', rate: 40, n: 105, side: 'control' }],
+    km: false, effect: null, ratios: [], bav: ['3.16'],
+    entry: [CIRRHOSIS, { rule: 'HVPG ≥6 mmHg', test: 'hvpg_ge', value: 6 }, { rule: 'No varices yet', test: 'no_varices' }],
+    note: 'Serious adverse events 18% on timolol against 6% on placebo. Varices formed less often with a baseline HVPG under 10 mmHg.', verified: ABSTRACT, status: 'checked',
+  },
   tripathi: {
     id: 'tripathi', name: 'Carvedilol or band ligation for a first bleed', short: 'Carvedilol vs EVL 2009', group: 'bleed', journal: 'Hepatology', year: 2009,
     firstAuthor: 'Tripathi', pmid: '19610055', doi: '10.1002/hep.23045', n: 152,
@@ -157,6 +169,17 @@ export const TRIALS = {
     entry: [CIRRHOSIS, { rule: 'Child–Pugh B or C', test: null }, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'Treated first with vasoactive drugs and endoscopic therapy', test: null, minor: true }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'Two patients assigned to TIPS for each control; 3 excluded after randomization. Wider than today\'s criteria for a preemptive TIPS.',
     verified: ABSTRACT, status: 'checked',
+  },
+  monescillo: {
+    id: 'monescillo', name: 'Early TIPS when the HVPG is 20 or more', short: 'HVPG-guided TIPS 2004', group: 'bleed', journal: 'Hepatology', year: 2004,
+    firstAuthor: 'Monescillo', pmid: '15382120', doi: '10.1002/hep.20386', n: 52,
+    setting: 'Cirrhosis with acute variceal bleeding treated by sclerotherapy, HVPG ≥20 mmHg within 24 hours of admission',
+    followUp: null, endpoint: 'Treatment failure', better: 'lower',
+    arms: [{ label: 'TIPS within 24 hours', rate: 12, n: 26, side: 'treat' }, { label: 'No early TIPS', rate: 50, side: 'control' }],
+    km: false, effect: null, ratios: [], bav: ['5.31'],
+    entry: [CIRRHOSIS, { rule: 'Acute variceal bleeding', test: 'acute_bleed' }, { rule: 'HVPG ≥20 mmHg within 24 hours of admission', test: 'hvpg_ge', value: 20 },
+      { rule: 'One session of sclerotherapy at urgent endoscopy', test: null, minor: true }, { rule: 'No TIPS in place', test: 'no_tips' }],
+    note: 'In-hospital and 1-year mortality on early TIPS were 11% and 31%; the abstract gives no rates for the other arm. Uncovered stents, sclerotherapy as the control.', verified: ABSTRACT, status: 'checked',
   },
   transfusion: {
     id: 'transfusion', name: 'Restrictive transfusion', short: 'Transfusion 2013', group: 'bleed', journal: 'N Engl J Med', year: 2013, firstAuthor: 'Villanueva',
@@ -342,12 +365,14 @@ export const TRIALS = {
 const TEACH = {
   predesci: { outcome: 'decompensated', lesson: 'In compensated cirrhosis with CSPH, a beta-blocker lowered decompensation or death, mostly by preventing ascites.',
     response: 'PREDESCI counted a fall of 10% or more on IV propranolol as a response.' },
+  groszmann: { outcome: 'varices or bled', lesson: 'In cirrhosis with an HVPG of 6 mmHg or more and no varices, timolol did not prevent varices or bleeding and caused more serious side effects.', lessonStatus: 'draft' },
   tripathi: { outcome: 'bled', lesson: 'Carvedilol prevented a first variceal bleed better than band ligation, though the per-protocol analysis found no difference.' },
   shah: { outcome: 'bled', lesson: 'Carvedilol and band ligation prevented a first bleed about equally; the trial was too small to show a difference.' },
   calibre: { outcome: 'bled', lesson: 'Stopped at a tenth of its planned size, it could not show carvedilol better or worse than band ligation.' },
   cavarly: { outcome: 'bled', lesson: 'In Child–Pugh B and C with high-risk varices, carvedilol plus band ligation prevented a first bleed better than either alone.' },
   earlytips: { outcome: 'alive', lesson: 'In high-risk patients after a variceal bleed, an early covered TIPS improved one-year survival over drugs and band ligation.' },
   lvtips: { outcome: 'alive, no LT', lesson: 'In Child–Pugh B and C, an early covered TIPS again improved transplant-free survival, in a broader group than the first trial.' },
+  monescillo: { outcome: 'treatment failed', lesson: 'In a variceal bleed with an HVPG of 20 mmHg or more, a TIPS within 24 hours lowered treatment failure and mortality.', lessonStatus: 'draft' },
   transfusion: { outcome: 'alive', lesson: 'Transfusing only below a hemoglobin of 7 g/dL improved survival over a threshold of 9; in cirrhosis the gain was in Child–Pugh A and B.' },
   gavaprosec: { outcome: 'event-free', lesson: 'After fundal variceal bleeding controlled with glue, a preemptive TIPS cut death or significant rebleeding over glue and a beta-blocker.' },
   covered: { outcome: 'alive, no LT', lesson: 'In recurrent ascites, a covered TIPS improved transplant-free survival over repeated large-volume paracentesis.' },

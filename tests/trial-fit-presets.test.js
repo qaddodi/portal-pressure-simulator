@@ -14,7 +14,8 @@ import { fitTrial } from '../src/ui/trial-fit.js';
 const all = Object.values(TRIALS);
 const CASE = { decompensated: false };   // (what a slide's author may supply: the patient has never decompensated)
 const defining = (t) => t.entry.filter((e) => e.minor !== true);
-// Trials whose every defining rule the model can check: the only ones that can ever read "fits".
+// Trials whose every defining rule the model can check: the only ones that can ever read "fits". (Groszmann 2005 and Monescillo 2004, added
+// 16 Nov 2026, TC-T4, were chosen for exactly this: the HVPG itself picked their patients.)
 const checkable = all.filter((t) => defining(t).length && defining(t).every((e) => e.test !== null)).map((t) => t.id);
 
 /** Each preset, settled, as the Tests card sees it: [{ id, m, p }]. */
@@ -23,7 +24,7 @@ function patients() {
 }
 
 test('the trials that can read "fits" are the ones whose every defining rule the model can check', () => {
-  assert.deepEqual(checkable.sort(), ['predesci', 'transfusion'],
+  assert.deepEqual(checkable.sort(), ['groszmann', 'monescillo', 'predesci', 'transfusion'],
     'a record whose defining rules are all checkable can read "fits"; add one only when the model really answers each rule');
 });
 

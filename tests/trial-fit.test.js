@@ -33,7 +33,7 @@ const CASE = { decompensated: false };
 const fit = (id, o, facts = null) => { const { m, p } = patient(o); return fitTrial(FIXTURES[id], m, p, facts); };
 
 test('the test vocabulary is the one the trials use', () => {
-  assert.deepEqual([...FIT_TESTS].sort(), ['acute_bleed', 'albumin_lt', 'ascites', 'ascitic_protein_lt', 'cirrhosis', 'compensated', 'decompensated', 'diuretics', 'gastric_varices', 'hvpg_ge', 'no_tips', 'platelets_ge', 'tips', 'varices_high_risk', 'varices_medium_large', 'varices_not_high_risk', 'varices_present']);
+  assert.deepEqual([...FIT_TESTS].sort(), ['acute_bleed', 'albumin_lt', 'ascites', 'ascitic_protein_lt', 'cirrhosis', 'compensated', 'decompensated', 'diuretics', 'gastric_varices', 'hvpg_ge', 'no_tips', 'no_varices', 'platelets_ge', 'tips', 'varices_high_risk', 'varices_medium_large', 'varices_not_high_risk', 'varices_present']);
 });
 
 test('a patient with CSPH, small varices and no ascites does not "fit" PREDESCI while a defining rule stays open, and matches it once every rule was checked', () => {
@@ -214,6 +214,8 @@ test('TC-F1: high-risk varices, varices at all, albumin, platelets, ascitic prot
   assert.equal(st(T('varices_high_risk'), { varix: 1 }), 'no', 'no varix');
   assert.equal(st(T('varices_present'), { varix: 3.8 }), 'yes');
   assert.equal(st(T('varices_present'), { varix: 1 }), 'no');
+  assert.equal(st(T('no_varices'), { varix: 1 }), 'yes', 'Groszmann 2005: no varices yet');
+  assert.equal(st(T('no_varices'), { varix: 3.8 }), 'no');
   assert.equal(st(T('albumin_lt', 3), {}, { p: { albumin: 2.8 } }), 'yes');
   assert.equal(st(T('albumin_lt', 3), {}, { p: { albumin: 4 } }), 'no');
   assert.equal(st(T('albumin_lt', 3)), 'na', 'no albumin in the params');

@@ -102,6 +102,7 @@ const TESTS = {
     if (vx.redWale === true) return ['yes', `${varixWords(vx)}, red wale signs`];
     return isBool(vx.redWale) ? ['no', `${varixWords(vx)}, no red wale signs`] : ['na', `${varixWords(vx)}; red wale signs not recorded`];
   },
+  no_varices: (r, m) => { const g = varixLabel(m?.varix); return g == null ? ['na', NOT_IN_MODEL] : g !== 'None' && m.varix.present !== false ? ['no', varixWords(m.varix)] : ['yes', 'No varices']; },
   varices_present: (r, m) => { const g = varixLabel(m?.varix); return g == null ? ['na', NOT_IN_MODEL] : g !== 'None' && m.varix.present !== false ? ['yes', varixWords(m.varix)] : ['no', 'No varices']; },
   albumin_lt: (r, m, p) => (Number.isFinite(p?.albumin) && Number.isFinite(r.value) ? [p.albumin < r.value ? 'yes' : 'no', `Albumin ${one(p.albumin)} g/dL`] : ['na', NOT_IN_MODEL]),
   platelets_ge: (r, m) => { const v = m?.spleen?.platelets; return Number.isFinite(v) && Number.isFinite(r.value) ? [v >= r.value ? 'yes' : 'no', `Platelets ${Math.round(v)},000/µL`] : ['na', NOT_IN_MODEL]; },

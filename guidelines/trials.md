@@ -1,7 +1,8 @@
 # Trials the talks cite
 
 The trial list behind the trial card (`tool: { kind: 'trial', id }`, `src/ui/trials.js`). Since 14 Nov 2026 every number on a card comes from the
-reviewer's audited evidence tables, `guidelines/trials-audit-2026-11-14.md` (21 trials; index `guidelines/trials-audit-2026-11-14.csv`), and only a
+reviewer's audited evidence tables, `guidelines/trials-audit-2026-11-14.md` (21 trials; index `guidelines/trials-audit-2026-11-14.csv`; two more, Groszmann 2005 and Monescillo 2004, read from their PubMed abstracts on 16 Nov 2026,
+`guidelines/trials-audit-2026-11-16.md`), and only a
 value the audit gives as reported: never one it marks **Calculated**, never a count worked back from a percent, never rounded. `tests/trials.test.js`
 fails a trial in `src/ui/trials.js` that has no section here, a status that differs, a rate that is not a percent from 0 to 100 with at most one
 decimal, a rate, n, PMID, ratio or Baveno VIII statement that this file does not give, and a slide that names a trial this file does not list.
@@ -27,6 +28,15 @@ Ratios: HR 0.51 (0.26–0.97); HR 0.44 (0.20–0.97).
 Changed from the earlier record: the follow-up "Median 37 months" is gone (the audit says the median was not given in the abstract it read), so the card has no follow-up line.
 Verified: abstract verified; eligibility and baseline incompletely audited.
 Baveno VIII: 3.15 (NSBBs, particularly carvedilol, in compensated cirrhosis with CSPH to prevent decompensation).
+Status: checked
+
+## groszmann
+Groszmann RJ, et al. N Engl J Med 2005;353(21):2254–2261. Beta-blockers to prevent gastroesophageal varices in patients with cirrhosis.
+PMID 16306522. DOI 10.1056/NEJMoa044456. Read from the PubMed abstract on 16 Nov 2026 (`guidelines/trials-audit-2026-11-16.md`, trial A1), not from the 14 Nov audit.
+Read: 213 randomized (108 timolol, 105 placebo); cirrhosis and portal hypertension with a minimal HVPG of 6 mmHg; median follow-up 54.9 months; varices or variceal hemorrhage 39% against 40% (P = 0.89); no difference in ascites, encephalopathy, transplantation or death; serious adverse events 18% against 6% (P = 0.006); varices developed less often with a baseline HVPG under 10 mmHg. No event counts and no HR in the abstract. "No varices yet" is read from the primary endpoint (the development of varices), not stated as an entry rule.
+Ratios: none reported.
+Verified: abstract verified; eligibility and baseline incompletely audited.
+Baveno VIII: 3.16 (without CSPH, NSBBs should not be used to prevent decompensation or death).
 Status: checked
 
 ## tripathi
@@ -84,6 +94,15 @@ Ratios: HR 0.50 (0.25–0.98).
 Changed from the earlier record: the arms now carry the analyzed numbers (84, 45).
 Verified: abstract verified; eligibility and baseline incompletely audited.
 Baveno VIII: 5.31, 5.32. Not every Child–Pugh B patient in this trial meets the 5.31 criteria.
+Status: checked
+
+## monescillo
+Monescillo A, et al. Hepatology 2004;40(4):793–801. Influence of portal hypertension and its early decompression by TIPS placement on the outcome of variceal bleeding.
+PMID 15382120. DOI 10.1002/hep.20386. Read from the PubMed abstract on 16 Nov 2026 (`guidelines/trials-audit-2026-11-16.md`, trial A2), not from the 14 Nov audit.
+Read: HVPG measured within 24 hours of admission in 116 consecutive patients with cirrhosis and acute variceal bleeding treated with one session of sclerotherapy; 64 under 20 mmHg (low risk), 52 at 20 mmHg or more (high risk), the 52 randomized, 26 to TIPS within 24 hours; treatment failure 50% without early TIPS and 12% with it (P = .003 for TIPS); in-hospital and 1-year mortality on early TIPS 11% and 31% (P < .05). The abstract does not state the size of the other arm (left out, not worked back), the other arm's mortality, or what counted as treatment failure.
+Ratios: none reported.
+Verified: abstract verified; eligibility and baseline incompletely audited.
+Baveno VIII: 5.31 (preemptive TIPS for HVPG ≥20 mmHg at the bleed, among the other criteria).
 Status: checked
 
 ## transfusion
