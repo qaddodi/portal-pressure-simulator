@@ -75,7 +75,7 @@ export const TWO_INFLOWS = {
     {
       id: 'cirr', lens: 'origin', preset: 'cirr-decomp', cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['shunt'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In cirrhosis the hepatic artery supplies a larger share',
-      vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and platelets of 60,000/µL. He could not tolerate a beta-blocker.',
+      vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and platelets of 59,000/µL. He could not tolerate a beta-blocker.',
       line: 'Portosystemic collaterals divert {shunt} of portal flow from the liver. The hepatic [artery](ha) dilates and supplies a larger share, but sinusoidal flow is only {liver} of normal.',
       notes: 'As cirrhosis advances, more portal flow is diverted through collaterals and the hepatic artery supplies a growing share of hepatic blood flow; its peak systolic velocity rises. First-pass hepatic clearance of gut-derived toxins and drugs falls. The fall in total sinusoidal flow adds to the loss of hepatic function.',
       ask: ['Why does hepatic artery velocity rise in advanced cirrhosis?', 'Portal perfusion of the liver falls, and the hepatic arterial buffer response dilates the artery.'],

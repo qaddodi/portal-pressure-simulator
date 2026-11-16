@@ -35,7 +35,7 @@ export const STIFFNESS = {
       id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
       whatIf: { label: 'Fibrosis', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
-      vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',
+      vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 160,000/µL.',
       line: 'LSM is {lsm}, with an HVPG of {hvpg}. An LSM <10 kPa makes compensated advanced chronic liver disease (cACLD) unlikely, and >15 kPa makes it highly likely.',
       notes: 'Baveno VIII: an LSM <10 kPa makes cACLD unlikely in the absence of other clinical signs; 10 to 15 kPa suggests cACLD; >15 kPa makes it highly likely. LSM also rises with hepatic inflammation (a hepatitis flare, alcohol), cholestasis and congestion, so a high value is interpreted in clinical context. In the model, LSM follows the sinusoidal gradient and the hepatic venous pressure, which is why it rises with the HVPG. LSM correlates with the HVPG up to about 12 mmHg and only loosely above it, and the model\'s LSM follows the gradient more closely than a patient\'s does.',
       ask: ['Why can LSM rule CSPH in or out, yet not track an HVPG >12 mmHg?', 'Above 10 to 12 mmHg the HVPG rises mostly with portal inflow and vascular tone, which LSM does not measure.'],

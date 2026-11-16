@@ -105,7 +105,7 @@ export const DOPPLER = {
       vignette: 'A 60-year-old man had a covered TIPS for refractory ascites 6 months ago. Over the last month his ascites has recurred.',
       caseQ: 'What direction will his left portal vein flow be?',
       kicker: 'After TIPS', site: 'sin', title: 'Hepatopetal again: TIPS stenosis',
-      line: 'Left portal vein flow is hepatopetal again: the stent no longer draws flow toward it. The TIPS has stenosed, and the PPG is back to {ppg}.',
+      line: 'Left portal vein flow is hepatopetal again: the stent no longer draws flow toward it. The TIPS has stenosed, and the PPG has risen to {ppg}.',
       notes: 'With a patent TIPS, flow in the intrahepatic portal branches is directed toward the stent (hepatofugal). Signs of TIPS stenosis: a stent velocity <90 or >190 cm/s at the proximal, mid or distal stent, a change of >50 cm/s from the baseline study, a main portal vein velocity <30 cm/s, and an intrahepatic portal branch that becomes hepatopetal. Stenoses form mostly at the hepatic vein end, where a jet exceeds 190 cm/s while velocity in the rest of the stent is low. TIPS venography with a portosystemic gradient confirms it, and angioplasty or a new stent treats it. The Doppler after TIPS talk covers the stent itself.',
       ask: ['Name three Doppler signs of TIPS stenosis.', 'A stent velocity <90 or >190 cm/s, a main portal vein velocity <30 cm/s, and an intrahepatic portal branch that is hepatopetal again.'],
     },
