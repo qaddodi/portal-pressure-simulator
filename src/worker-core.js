@@ -8,6 +8,7 @@ import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
+import { healthyAtBedside, restingEngine } from './engine/bedside-rest.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
 import { setYours } from './engine/yours.js';
 import { calmTrail } from './engine/trail-calm.js';
@@ -112,7 +113,7 @@ export const hemoStep = (pulse, speed) => (pulse ? (speed >= 4 ? 0.008 : 0.004) 
 const HIST_DT = 0.004, HIST_MAX_S = 14, HIST_RUNIN_S = 1.5, HIST_SLICE_MS = 6;
 
 export function createCore(post) {
-  let eng = new Engine();
+  let eng = restingEngine();   // (a healthy patient at the bedside's rest: its readings hold still from the first frame, bedside-rest.js)
   let running = true;
   let speed = 1;
   let clock = 'hemo'; // 'hemo' | 'disease'
@@ -506,10 +507,12 @@ export function createCore(post) {
     *preset({ id, days, reqId }) {
       stateChanged();
       endTransitions();
-      yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+      // (Healthy, with no days, is the bedside's rest itself: its readings hold still from the first frame and equal the reference, bedside-rest.js.)
+      if (id === 'healthy' && days == null) { const seed = eng.params.seed; eng = restingEngine(); eng.params.seed = seed; }
+      else yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); endTransitions(); eng = restingEngine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -605,8 +608,9 @@ export function createCore(post) {
       post({ type: 'whatIf', reqId, result: { base: copy(null), rx: copy(patch || {}) } });
     },
     healthyProfile({ reqId }) {
-      const h = new Engine();
-      post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), D: h.edges.map((e) => h.diameter(e.id)), metrics: computeMetrics(h) });
+      // (The healthy patient as the model shows it at rest, the shown means: what the live healthy patient reads, so "Healthy" and the reference agree, bedside-rest.js.)
+      const h = healthyAtBedside().eng;
+      post({ type: 'healthy', reqId, P: Array.from(h.Pf), Q: Array.from(h.Qf), D: h.edges.map((e) => h.diameterShown(e.id)), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
     metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },
