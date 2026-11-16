@@ -7,7 +7,7 @@ import { bareDots } from './circuit-nodes.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { heartPass } from './heart-label.js';
 import { HOVER_LINK } from './hover-link.js';
-import { RING_DIRS, RING_SPOTS, boxGap, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
+import { RING_DIRS, RING_SPOTS, boxGap, inLaneBox, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
@@ -15,7 +15,9 @@ import { store } from './store.js';
 const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
 import { spreadDots } from './label-dots.js'; import { labelCourse } from './label-course.js';
 
-const STEP_LEAD_GAP = 10;   // (how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)
+// The stations the Anatomy never leaves out for want of room (play-test, 16 Nov 2026: "the PV pressure label must always show"): with no clear spot beside its vessel one stands farther out on a leader or on the ring of spots round its station, and only with none anywhere keeps a spot on a vessel (solid halo).
+const MUST_NAME = new Set(['CONF', 'SIN_R', 'RHV', 'HA']);
+const NO_SOL = new Map(), NO_LAP = new Set(), DRY_VIS = new Map(), STEP_LEAD_GAP = 10;   // (NO_SOL, NO_LAP: nothing earlier, read by a solve with no history; DRY_VIS: a solve ahead's own marks; STEP_LEAD_GAP: how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)   // (how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)
 export function createLabelSolve(st, live) {
   const { stationRev, ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, oneName, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn } = st;
   // (What a layout keeps from label to label across a solve's slices (views, obstacles, boxes, callouts, "60 %" spots, stent dots, arrows, slots), in two records: the live layout's and the dry solve ahead's (stage-view.js preStep), which runs between live layouts.)
@@ -85,15 +87,6 @@ export function createLabelSolve(st, live) {
     const sg = (cx - ox) * (tx - ox) + (cy - oy) * (ty - oy) > 0 ? -1 : 1;
     LANE.ox = ox; LANE.oy = oy; LANE.ux = (sg * (tx - ox)) / n; LANE.uy = (sg * (ty - oy)) / n;
     return LANE;
-  }
-  function inLaneBox(lane, r) {
-    if (!lane) return false;
-    const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
-    for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
-      const a = (x - ox) * ux + (y - oy) * uy;
-      if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
-    }
-    return false;
   }
   // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
   // One label at a time, so the context is kept and the box is a kept record.)
@@ -195,15 +188,19 @@ export function createLabelSolve(st, live) {
     // little, nearest first, so its leader can pass by the narrowing's clamp and its label sit in the gap that is left.)
     const SLID = (far) => [far + 12, far + 48, far + 84].flatMap((gap) => [-24, 24, -48, 48, -72, 72].map((y) => ({ gap, leader: true, uncrossed: true, shift: [0, y] })));
     let stale = false;
-    const prevSol = live.labelSol, nextSol = solve ? (dry ? S.sol : live.labelSolSpare) : live.labelSol;   // (the one that was not kept last time, cleared: the two take turns; a dry solve's own)
+    // (A solve with no history reads no earlier slot, width, leader or hidden mark, so its labels are a function of what the figure shows: any solve no pan, pinch or glide came before, the first of a scene (stage-labels.js labelSceneOf: a load, patient, view, stage size), every solve ahead for the other view. 16 Nov 2026 play-test: Healthy, no clicks, four reloads named other stations each time. A solve after a gesture keeps its slots, as it always did.)
+    const fresh = solve && (dry || !!live.labelFresh || !live.camTouched);
+    const prevSol = fresh ? NO_SOL : live.labelSol, nextSol = solve ? (dry ? S.sol : live.labelSolSpare) : live.labelSol;   // (the one that was not kept last time, cleared: the two take turns; a dry solve's own)
     if (solve) nextSol.clear();
+    const must = new Set(MUST_NAME);   // (the stations this layout never leaves out; the Anatomy adds the patient's flagged ones, and all at the All level)
+    const vis = dry ? (DRY_VIS.clear(), DRY_VIS) : labelVis;   // (a solve ahead for the other view writes its own marks: the live view's hysteresis is not its to move)
     // (A solve in the anatomy at the zoom, turn and view it was last solved for (a pan, a value that changed what shows): every label
     // whose old spot beside its point is still free keeps it, and only the others are placed again. Solved whole, a pan's release had
     // put CONF, SMV, SV and IMV on other sides of their vessels, the labels sliding against the figure as the hand let go: 3 Nov 2026.)
     // (Any zoom and either view, 5 Nov 2026 review #4: a label keeps its screen size, so its old slot at a new zoom is the same picture, and only the
     // checks below decide whether it is still free. Held to the Anatomy at the solved scale, every Circuit landing and every pinch's landing placed
     // all again, and labels swapped sides as the hand let go. The view and the turn still have to match.)
-    const keepSlots = solve && !dry && !!live.solvedFor && live.solvedFor.view === live.morphTarget && (live.morph === 0 || live.morph === 1)
+    const keepSlots = solve && !fresh && !!live.solvedFor && live.solvedFor.view === live.morphTarget && (live.morph === 0 || live.morph === 1)
       && Math.abs(Math.atan2(live.CTM.b, live.CTM.a) - live.solvedFor.th) < 0.01, settle = !solve && !dry && !live.gestureOn() && !live.drifting && !live.vtGliding && !live.zoomBase && (live.morph === 0 || live.morph === 1);   // (settle: a carry with the camera at rest, L2 below)
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
@@ -357,6 +354,7 @@ export function createLabelSolve(st, live) {
         markArrows.push(tri);
       }
     }
+    // (A held slot outranks the others of its own pass, never a better pass: 9e3 is under a pass's 1e4, so a slot kept from another moment cannot hold a label in a worse tier than the figure now allows.)
     // Slots are searched over every (pass, direction) pair at once: an earlier pass always beats a
     // later one (nearer, no leader, clear of vessels), then the direction order decides. The slot a
     // label held before wins as long as it still collides with nothing: no label, no dot, and (in a
@@ -403,11 +401,11 @@ export function createLabelSolve(st, live) {
         }
       }
       // (Not a rescued slot's width (pi -1, below): the reading takes its usual spots at its own width again.)
-      const wRes = prev && !prev.drop && prev.pi !== -1 && it.w <= prev.w && it.w > prev.w - 28 ? prev.w : it.w;
+      const wRes = prev && !prev.drop && prev.pi !== -1 && it.w <= prev.w && it.w > prev.w - 28 ? prev.w : it.key.startsWith('n:') && !it.rot ? Math.max(it.w, ...it.lines.map(lineW000)) : it.w;   // (a station's box reserves its reading's widest form: a value ticking from 9.9 to 10.0 does not tip it to another side of its station, with or without a slot from an earlier solve)
       // A turned caption (see renderBlock) takes up a box as wide as its text is tall.
       const probe = it.rot ? { ...it, w: it.h, h: it.w } : { ...it, w: wRes };
       let best = null;
-      if (keepSlots && prev && !prev.drop && prev.pi >= from && prev.pi < to && it.w <= prev.w + 0.5 && it.h <= prev.h + 0.5 && !it.point && !/^focus/.test(it.key)) {
+      if (keepSlots && prev && !prev.drop && prev.pi === from && prev.pi < to && it.w <= prev.w + 0.5 && it.h <= prev.h + 0.5 && !it.point && !/^focus/.test(it.key)) {
         // (Its point too: the one on the figure it was solved at, while that is still on the stage. A vessel's label is anchored at the middle of
         // the part in view, which slides along the vessel as the view pans; held there, the label would move against the figure.)
         // (Not a step's number: its point is its vessel's, fixed, and the same key on the next slide names another vessel; held at the old
@@ -523,7 +521,7 @@ export function createLabelSolve(st, live) {
               const le = leaderEnd(r, it.ax, it.ay), L = Math.hypot(le.x - it.ax, le.y - it.ay);
               for (let u = 8; u < L - 2; u += 3) {
                 const px = it.ax + ((le.x - it.ax) * u) / L, py = it.ay + ((le.y - it.ay) * u) / L;
-                if (placed.some((p) => !(it.point && p.probe) && !p.dot && !p.zone && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;
+                if (placed.some((p) => !(it.point && p.probe) && !p.dot && !(p.zone && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4) && hits({ x0: px - 2, y0: py - 2, x1: px + 2, y1: py + 2 }, p))) return;   // (a leader never crosses a zone's title, rotated or not, unless its station stands in that title's own column)
               }
             }
           }
@@ -539,7 +537,7 @@ export function createLabelSolve(st, live) {
         // (A stent's point holds its spot only against others of the same pass: a slot it was slid to, while a card opened or the
         // figure moved, never outranks a level one that is free again: Review 16 Oct.)
         const near = ps.tier != null && ps.clear ? Math.hypot((r.x0 + r.x1) / 2 - it.ax, (r.y0 + r.y1) / 2 - it.ay) * 10 : 0;
-        const cost = (ps.tier ?? pi) * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + near + (ps.bias || 0) - (held ? (ps.clear ? (it.point && it.col ? 5e3 : 1e5) : 4) : 0);
+        const cost = (ps.tier ?? pi) * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + near + (ps.bias || 0) - (held ? (ps.clear ? (it.point && it.col ? 5e3 : 9e3) : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader, onLine: ps.clear ? 0 : onLine };
       }));
       // (Placed again by itself mid-gesture: a spot that would want what only a whole solve does (shortening, a rescue, moving off a
@@ -550,7 +548,7 @@ export function createLabelSolve(st, live) {
       // (Named by a slide: an Anatomy slide shows only the stations it names, but a Circuit slide shows every station, so there only those in
       // presentLabels are. Every reading on a Circuit slide had been let keep a spot over a vessel: slide 4 on a Mac, "Spleen 12.0" on the colon's vein.)
       const named = st.presenting && (!circuit || (Array.isArray(st.presentLabels) && st.presentLabels.includes(it.node)));
-      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !(it.node === 'HA' && it.abbr)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
+      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !must.has(it.node)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (replace && !best) { if (it.cls === 'lane' && dirs[0] !== 'C') return false; it.ax = replace.ax; it.ay = replace.ay; it.x = replace.x; it.y = replace.y; it.dir = replace.dir; it.leader = replace.leader; it.onVessel = replace.onVessel; placed.push(replace.box); out.push(it); return true; }
       if (!best) {
@@ -572,7 +570,7 @@ export function createLabelSolve(st, live) {
       // measured from its box. Decided once here and kept in the solution: paintLeaders draws one exactly when it is set, a carry takes it
       // as it was, and label-gl.js draws what the layout asked for with no test of its own (one leader rule, 5 Nov 2026 review #7). A
       // pass's own leader flag no longer overrides it.
-      const lead = needsLeader(it.cls === 'organ', boxGap(best.r, it.ax, it.ay), prev?.lead);
+      const lead = needsLeader(it.cls === 'organ', boxGap(best.r, it.ax, it.ay), keepSlots && prev?.lead);   // (the line's 8 to 12 px band keeps what it had only for a solve that keeps its slots (a pan's or a zoom's release); a scene's first solve decides it from where the label stands)
       it.leader = lead;
       localWorldXY(it.ax, it.ay);
       nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au, vh: it.vw > 0 ? it.vw / 2 : null });
@@ -601,6 +599,8 @@ export function createLabelSolve(st, live) {
       if (pres && !hasVarices('GV', f)) show.delete('GV');
       // Key, at the home framing on a wide screen: the other major stations too, but only where one fits
       // beside its vessel without a leader (see `minor` below); a phone keeps to the key ones.
+      // (The stations the patient flags are what it teaches, and at the All level every station is asked for: none is left out for want of room.)
+      if (!pres) { for (const id of flagged(f)) must.add(id); if (lvl === 'all') for (const id of show) must.add(id); }
       const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
       for (const id of minor) show.add(id);
       if (st.selection?.type === 'node') { show.add(st.selection.id); minor.delete(st.selection.id); }
@@ -713,7 +713,7 @@ export function createLabelSolve(st, live) {
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
-          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : it.node === 'HA' || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
+          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : must.has(it.node) || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev || must.has(it.node) ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
           if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
           if (it.point) { later.unshift(it); continue; }
@@ -1316,21 +1316,21 @@ export function createLabelSolve(st, live) {
       // An organ's name is pinned inside its organ: where a card or the stage edge covers it, it hides with the organ, never slides.
       // (Shown, it hides as a card first touches it; hidden, it comes back only once 10 px clear of the card as of the stage's edge, so a card
       // easing at its edge cannot flick it on and off.)
-      if (it.cls === 'organ') { const was = labelVis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(grown, o)); labelVis.set(it.key, !it.hide); continue; }
+      if (it.cls === 'organ') { const was = fresh || vis.get(it.key) !== false, m = was ? 0 : 10, grown = { x0: edge.x0 - m, y0: edge.y0 - m, x1: edge.x1 + m, y1: edge.y1 + m }; it.hide = !within(grown, V) || obstacles.some((o) => hits(grown, o)); vis.set(it.key, !it.hide); continue; }
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; it.px += cx; it.py += cy; if (Math.hypot(cx, cy) > 2 && !it.key.startsWith('z:')) it.leader = true; }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
-      if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; } if ((cx || cy) && !it.sel && useLines && lineHits(rectOf(it), 1, { only: 'res' })) { it.hide = true; labelVis.set(it.key, false); continue; }   // (pulled in onto a resistor's zigzag: hidden instead. Circuit slide 4 on a phone: "IVC", pulled out from under the card onto the liver's)
-      if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
+      if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; } if ((cx || cy) && !it.sel && useLines && lineHits(rectOf(it), 1, { only: 'res' })) { it.hide = true; vis.set(it.key, false); continue; }   // (pulled in onto a resistor's zigzag: hidden instead. Circuit slide 4 on a phone: "IVC", pulled out from under the card onto the liver's)
+      if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; vis.set(it.key, false); continue; }
       if (it.sel) { it.hide = false; continue; }
-      const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
+      const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = fresh || vis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)
       // A zone title is a label too: a reading is never hidden by one (the overlap pass below settles any
       // clash, and a reading outranks a zone title); other labels give way to it only where they truly overlap.
       it.hide = !hits(r, stage) || obstacles.some((o) => !(it.point && o.probe) && (o.zone ? !it.key.startsWith('n:') && o.key !== it.key && hits(r, o) : hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m })));
       // (A stent's point, or the slide's mark beside it, that the figure's move carried under a card is placed again rather than hidden
       // (nothing of the column hides: Review 16 Oct); at most every quarter second, so a card still easing cannot keep it searching.)
       if (it.hide && !solve && dop.all && (it.point || /^focus/.test(it.key)) && performance.now() - live.colResolve > 250) { live.colResolve = performance.now(); return false; }
-      labelVis.set(it.key, !it.hide);
+      vis.set(it.key, !it.hide);
     }
     // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
     // another, and carried slots are not searched again. The more important label keeps its place; the
@@ -1341,11 +1341,11 @@ export function createLabelSolve(st, live) {
     const boxOf = (it) => (it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it));
     // (A label this pass hid at the last layout comes back only with 4 px to spare, so two labels sliding past each other in a pan, a zoom
     // or a glide cannot flick the lesser on and off: 2 Nov.)
-    const lapWas = live.lapHid, crowded = (it, r) => { const p = lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
-    live.lapHid = new Set();
+    const lapWas = fresh ? NO_LAP : live.lapHid, crowded = (it, r) => { const p = lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
+    const lapOut = dry ? new Set() : (live.lapHid = new Set());
     for (const it of out.filter((o) => !o.hide && !o.live).sort((a, b) => rank(b) - rank(a))) {
       let r = boxOf(it);
-      if (it.rot) { if (!it.sel && crowded(it, r)) { it.hide = true; live.lapHid.add(it.key); continue; } kept.push(r); continue; }
+      if (it.rot) { if (!it.sel && crowded(it, r)) { it.hide = true; lapOut.add(it.key); continue; } kept.push(r); continue; }
       if (crowded(it, r)) {
         const d = it.dir || '';
         for (let w0 = it.w, h0 = it.h; it.canShort && kept.some((k) => hits(r, k)) && shortenItem(it); w0 = it.w, h0 = it.h) {
@@ -1353,7 +1353,7 @@ export function createLabelSolve(st, live) {
           it.y += d.includes('N') ? h0 - it.h : d.includes('S') ? 0 : (h0 - it.h) / 2;
           r = rectOf(it);
         }
-        if (!it.sel && crowded(it, r)) { it.hide = true; live.lapHid.add(it.key); continue; }
+        if (!it.sel && crowded(it, r)) { it.hide = true; lapOut.add(it.key); continue; }
         // (Shortened where it stands, a reading may come to sit on a vessel: it takes the solid halo there.)
         if (solve && useLines && it.key.startsWith('n:') && !it.onVessel && lineHits(r, 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
       }
@@ -1455,7 +1455,7 @@ export function createLabelSolve(st, live) {
     // make a label nothing then removes.)
     live.laidFrame = live.frameNo; blockWant.clear();
     for (const it of out) renderBlock(it);
-    live.lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));
+    live.lbRects = out.filter((it) => !it.hide && it.w && it.h).map((it) => it._r || rectOf(it));   live.zoneRects = out.filter((it) => !it.hide && it._zr).map((it) => it._zr);   // (the zone titles' boxes, for the test that no leader crosses one)
     live.colShown = out.some((it) => it.point && !it.hide && it.w && it.h);
     // (A step's number comes in as its vessel lights: begun by renderBlock as its block is first rendered, stage-label-layer.js stepIn.)
     const sit = out.find((o) => o.key === 'scan'), sblk = pool.get('scan');

@@ -13,7 +13,7 @@
 //   txns.current()  txns.stats()
 import { caught } from './caught.js';
 
-const PHASE_TRAIL = 24;   // (steps kept per change: a slide change has about a dozen)
+const PHASE_TRAIL = 40;   // (steps kept per change, two entries each: a slide change has about a dozen)
 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export function createTxns() {
@@ -67,6 +67,16 @@ export function createTxns() {
     /** The steps the current change went through, oldest first: [{ phase, at }]. */
     trail: () => { const o = [], tr = cur?.trail || []; for (let k = 0; k < tr.length; k += 2) o.push({ phase: tr[k], at: tr[k + 1] }); return o; },
   };
+}
+
+/** The steps of a slow slide change and how long each ran, for the ?perf copy: [[phase, ms], ...] (each step's length until the next, the last until now),
+ *  or [] when the change took under minMs, so a quick one says nothing. The trail is [name, at, name, at ...] (a transaction's own, see begin). The steps are a
+ *  fixed set of names, so each can be a note (gpu-probe.js notes are by fixed name): "slow slide step: state-ready" with its milliseconds summed. */
+export function slowSteps(trail, now, minMs = 1500) {
+  if (!trail || trail.length < 2 || now - trail[1] < minMs) return [];
+  const out = [];
+  for (let k = 0; k < trail.length; k += 2) out.push([trail[k], Math.round((k + 2 < trail.length ? trail[k + 3] : now) - trail[k + 1])]);
+  return out;
 }
 
 // (createScope lives in scope.js now; re-exported here so the presenter and its tests keep their import.)

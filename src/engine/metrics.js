@@ -172,6 +172,7 @@ export function computeMetrics(eng, out = null) {
   // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
   // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
   r.lsm = hold(eng, 'lsm', lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv, eng.params.cirrhosis));
+  r.scar = eng.params.cirrhosis;   // (the liver's sinusoidal scar, 0 to 1: lsm-cuts.js lsmContext tells a vascular liver from a fibrotic one by it)
   // Spleen stiffness (the 100 Hz spleen probe, kPa), an estimate from the model (ssm-cuts.js): the red pulp's transmural pressure
   // (its pressure less the abdomen's) and the spleen's size. Unlike the liver's, it follows the pressure as it stands, beta-blocker
   // and TIPS included. No spleen (splenectomy), no reading.

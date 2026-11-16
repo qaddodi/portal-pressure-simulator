@@ -523,7 +523,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    no handle, no scale; the picture keeps its height and the card its one fixed size. The numbers are GPU words (bigTiles); this is only where they sit.
    Three or more readings drop their units and the name wraps to two lines before it crowds them. */
 .pz-hr { display: none; }
-.pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; align-items: baseline; justify-content: flex-end; gap: 4px 12px; margin-left: auto; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+.pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; flex-wrap: wrap; min-width: 0; max-width: 100%; align-items: baseline; justify-content: flex-end; gap: 2px 12px; margin-left: auto; white-space: nowrap; letter-spacing: 0; text-transform: none; }   /* (a reading never leaves the card: when the row is too wide for the card, whole readings drop to a second row at the right, "BP 123/75 (89) mmHg · APP 83 mmHg · PORTAL FLOW 0.4 L/min" ran past the card's edge under the expand icon, 16 Nov 2026) */
 /* (The name never shares a row it has no room on: it keeps its own line at its natural width, and the readings take the row beneath, at the right, when both do not fit one row. Before, the row never wrapped and the name was squeezed to nothing, its words spilling under the numbers, "LIVER STIFFNESS, FIBROSCAN" over three lines on the readings, 7 Nov 2026.) */
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: wrap; justify-content: space-between; align-items: baseline; text-align: left; gap: 2px 12px; }
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; text-wrap: balance; }
@@ -561,6 +561,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 
 /* Lobule readings on the play bar: the % stays after the number, on the phone's slim bar too ("Sinusoids 58%", not "58"). */
 .app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }
+/* (And what the % is of: "Sinusoids 93% of healthy", "Portal in −21% of healthy, reversed"; the bar's other tiles hide it for room, the lobule's two have it.) */
+.app .vdock .readouts.lob .metric .v .u-x { display: inline; }
 
 /* A phone held sideways (U4, 13 Nov 2026): the toolbar (Treat, Tests, History, Settings, Search) stands in one narrow glass rail at the trailing edge,
    icons only, so the top bar is one row (the patient and the colour key) and the figure has the height the second row took. The rail is at

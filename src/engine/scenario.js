@@ -110,7 +110,7 @@ export const PRESETS = [
   // Porto-sinusoidal vascular disorder: the portal venules narrow and vanish with no cirrhosis (Baveno VIII 8.40 to 8.44), so the resistance sits before the sinusoids as in
   // schistosomiasis, a little less: a high portal pressure, a normal HVPG and stiffness, a big spleen. The deck's second presinusoidal patient.
   { id: 'psvd', group: 'Presinusoidal', label: 'Porto-sinusoidal vascular disorder', apply: P({ fibrosis: { R: { pre: 50, sin: 2.2 }, L: { pre: 50, sin: 2.2 } } }), days: 365,
-    summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, near-normal WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
+    summary: 'Narrowed portal venules and no cirrhosis: high portal pressure and splenomegaly, a normal or only mildly raised WHVP and liver stiffness, so HVPG is normal or mildly raised. Varices common, ascites rare.',
     note: 'Narrowed portal venules without cirrhosis. Splenomegaly, near-normal HVPG. Varices can form; ascites is rare.' },
   { id: 'cirr-comp', facts: { decompensated: false }, group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
     summary: 'Mild sinusoidal portal hypertension (HVPG over 5 and under 10 mmHg). No varices yet.',

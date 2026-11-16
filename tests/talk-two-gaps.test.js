@@ -47,3 +47,15 @@ test('the Two gaps pieces have their looks, WHVP is violet, and the PVT course n
   const course = DECKS.find((d) => d.id === 'prehepatic').slides.find((s) => s.id === 'course');
   assert.equal(course.tool.gap, 'clot');
 });
+
+test('a stage name is wrapped in its column, never cut short with an ellipsis', async () => {
+  const { wrapName } = await import('../src/ui/talk-trace.js');
+  const width = (t) => t.length * 7;
+  for (const name of ['The bleeding has stopped', 'EVL shrinks the varices and keeps the portal pressure up', 'Carvedilol lowers the portal pressure']) {
+    const lines = wrapName(name, 120, width);
+    assert.equal(lines.join(' '), name, 'every word is there');
+    assert.ok(!lines.some((l) => l.includes('…')));
+    assert.ok(lines.every((l) => width(l) <= 120 || !l.includes(' ')), `${name}: a line runs past its column`);
+  }
+  assert.deepEqual(wrapName('Carvedilol', 40, width), ['Carvedilol']);
+});

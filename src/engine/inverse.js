@@ -323,6 +323,15 @@ export function readingText(key, v) {
   return `${(+v).toFixed(dec)} ${r.unit}`.trim();
 }
 
+/** A reading the person entered, as a chip prints it: the number as typed (no trailing zero, at most one decimal) and its unit, always ("24 mmHg",
+ *  "1.9 g/dL", "60 ×10⁹/L"); a grade is its word. One rule for every chip, so units and precision never differ from chip to chip. */
+export function chipText(key, v) {
+  const r = READINGS[key];
+  if (v == null || !Number.isFinite(+v)) return r.kind === 'grade' ? readingText(key, v) : 'none';
+  if (r.kind === 'grade') return readingText(key, v);
+  return `${String(Math.round(+v * 10) / 10)} ${r.unit}`.trim();
+}
+
 /**
  * What the MODEL gives for a reading, as it is printed. A grade reading's model value is the engine's number (varix mm, ascites mL), so it is
  * named by its grade ("Small"); readingText takes the grade INDEX a person picked. Every place that prints a prediction goes through here

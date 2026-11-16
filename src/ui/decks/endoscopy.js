@@ -71,8 +71,8 @@ export const ENDOSCOPY = {
       id: 'bridge', ...SAME, tool: PRESSURES,
       kicker: 'Pressure',
       title: 'Endoscopy shows the varix, not the portal pressure behind it',
-      line: 'Endoscopy grades the varix; how to lower the portal pressure behind it is taught in Preventing the next variceal bleed.',
-      notes: 'Endoscopy grades and treats the varix; it does not measure the portal pressure, which the HVPG does. Nonselective beta-blockers (NSBBs), endoscopic variceal ligation (EVL) and TIPS are taught in Lowering portal pressure and in Preventing the next variceal bleed.',
+      line: 'Endoscopy grades the varix; how to lower the portal pressure behind it is taught in Preventing the next bleed.',
+      notes: 'Endoscopy grades and treats the varix; it does not measure the portal pressure, which the HVPG does. Nonselective beta-blockers (NSBBs), endoscopic variceal ligation (EVL) and TIPS are taught in Lowering portal pressure and in Preventing the next bleed.',
       ask: ['What does the HVPG tell you that endoscopy does not?', 'The portal pressure behind the varix, which stays high however the varix looks.'],
     },
     {

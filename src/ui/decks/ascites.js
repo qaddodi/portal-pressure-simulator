@@ -66,8 +66,8 @@ export const ASCITES = {
       id: 'overrun', terms: { lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', layers: ['lymph'],
       data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'When the lymphatics are overrun, lymph weeps from the liver',
-      line: 'At a sinusoidal pressure of {sin}, the lymphatics along the portal tracts carry many times their usual flow and still fall behind. The rest weeps from the liver surface.',
-      notes: 'The lymphatics along the portal tracts dilate and carry many times their usual flow before they are overwhelmed. Past that point the excess lymph weeps from the liver surface into the peritoneal cavity, and the ascites in the data card builds. Compare the first lymph slide, where the same lymphatics drained almost all the filtrate.',
+      line: 'At a sinusoidal pressure of {sin}, the lymphatics along the portal tracts are at their full capacity and still fall behind. The rest weeps from the liver surface.',
+      notes: 'The lymphatics along the portal tracts dilate and carry more than their usual flow, up to their capacity, before they are overwhelmed. In the model the liver\'s own lymph is lower here than on the first lymph slide, because the ascites has raised the intra-abdominal pressure, which opposes filtration; the lymph from the liver and the intestine together now exceeds what the lymphatics can carry. Past that point the excess lymph weeps from the liver surface into the peritoneal cavity, and the ascites in the data card builds. Compare the first lymph slide, where the same lymphatics drained almost all the filtrate.',
       ask: ['What happens to the lymph that the portal-tract lymphatics cannot carry?', 'It weeps from the liver surface into the peritoneal cavity.'],
     },
     {
@@ -114,7 +114,7 @@ export const ASCITES = {
       id: 'map', cam: 'fit', of: PLANE_OF, tool: SAAG_PLANE,
       kicker: 'Telling them apart', title: 'SAAG and total protein locate the cause of ascites',
       line: 'The SAAG shows whether portal hypertension is the cause. The ascitic total protein shows whether the sinusoids are capillarized or still permeable.',
-      notes: 'Read the SAAG first: ≥1.1 g/dL indicates portal hypertension. Then the total protein: <2.5 g/dL fits cirrhosis (capillarized sinusoids); ≥2.5 g/dL with a high SAAG fits heart failure or early Budd–Chiari syndrome (open, congested sinusoids). A low SAAG with a high protein means peritoneal disease: peritoneal carcinomatosis, tuberculous peritonitis, pancreatic ascites. A low SAAG with a low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites: the sinusoids lie downstream of the resistance at near-normal pressure (see Portal vein clots and Presinusoidal portal hypertension). The points are the model\'s patients.',
+      notes: 'Read the SAAG first: ≥1.1 g/dL indicates portal hypertension. Then the total protein: <2.5 g/dL fits cirrhosis (capillarized sinusoids); ≥2.5 g/dL with a high SAAG fits heart failure or early Budd–Chiari syndrome (open, congested sinusoids). A low SAAG with a high protein means peritoneal disease: peritoneal carcinomatosis, tuberculous peritonitis, pancreatic ascites. A low SAAG with a low protein is rare: nephrotic syndrome. Portal vein thrombosis and presinusoidal disease have no point here, because they rarely cause ascites: the sinusoids lie downstream of the resistance at near-normal pressure (see Portal vein clots and Presinusoidal PH). The points are the model\'s patients.',
       ask: ['SAAG 0.6 g/dL, total protein 4.2 g/dL and weight loss. What is likely, and what next?', 'Peritoneal carcinomatosis or tuberculous peritonitis: cytology, adenosine deaminase, peritoneal biopsy.'],
     },
     {

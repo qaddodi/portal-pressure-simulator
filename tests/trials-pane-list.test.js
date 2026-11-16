@@ -66,7 +66,7 @@ test('TC-L2, A5: a row\'s numbers carry the outcome word; MACHT, with no per-arm
     assert.ok(a.length > 0, `${id}: never an empty number`);
     if (t.arms?.length) assert.match(`${a}${b}`, new RegExp(`%.*${t.outcome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), id);
   }
-  assert.deepEqual(ratesOf(trialOf('macht')), ['No difference', '']);
+  assert.deepEqual(ratesOf(trialOf('macht')), ['No difference (P = 0.402)', '']);
   assert.deepEqual(ratesOf(trialOf('predesci')), ['16%', ' vs 27% decompensated']);
 });
 

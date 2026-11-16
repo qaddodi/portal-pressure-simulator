@@ -11,7 +11,6 @@
 
 import { h, fmt, clamp } from './util.js';
 import { hvpgRate } from '../engine/pressure-cuts.js';
-import { traceLabel } from './trace-labels.js';
 import { plotPanel } from './plot-look.js';
 import { bandKeys, bandRuns } from './rx-bands.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
@@ -43,6 +42,17 @@ export function milePlaces(xs, widths, W, gap = 10) {
     return { x: mid, row, anchor, ax };
   });
   return { at, rows: ends.length };
+}
+
+/** A stage's name set in its column: never cut short and never run past it, so a long name takes as many lines as its words need ("The bleeding has stopped" was
+ *  "The bleeding has stoppe…", Next bleed 2, play-test 16 Nov 2026). A word wider than the column stands alone on its line. */
+export function wrapName(text, colW, width) {
+  const lines = [];
+  for (const w of String(text || '').trim().split(/\s+/).filter(Boolean)) {
+    const t = lines.length ? `${lines.at(-1)} ${w}` : w;
+    if (!lines.length) lines.push(w); else if (width(t) <= colW) lines[lines.length - 1] = t; else lines.push(w);
+  }
+  return lines;
 }
 
 /** The visits: each state's visit number, a state on the same day as the one before it (its time point, p.day, the deck's days so
@@ -131,7 +141,7 @@ export function talkTrace() {
     const g = visitsOf(pts), u = visitUnits(g), uMax = Math.max(u[last] ?? 0, 1e-9);
     // The scale: 0 to the next 5 over the highest reading (20 at least), the numbers 8 px inside the panel's left edge.
     const top = Math.max(20, ...pts.flatMap((p) => LINES.map(([k]) => p.fp[k] || 0)));
-    const pMax = Math.ceil(top / 5) * 5, L = Math.ceil(textW(String(pMax), fs, 500)) + 16;
+    const pMax = Math.ceil(top / 5) * 5, unitW = Math.ceil(textW('mmHg', fs, 500)) + 2, L = Math.max(Math.ceil(textW(String(pMax), fs, 500)) + 16, unitW + 8);   // (the unit stands over its numbers inside the card's left edge: "mHg" was cut)
     // The right column: each line's name (and, with room, its last value), and the readings rows' names, each after a swatch.
     const vals = pts.length ? LINES.map(([k, a]) => [a, f1(pts[last].fp[k])]) : [];
     const endW = Math.max(0, ...vals.map(([a, v]) => textW(a, fs, 700) + (narrow ? 0 : 4 + textW(v, fs, 500))));
@@ -141,16 +151,16 @@ export function talkTrace() {
     // The stage names, level over the plot: wrapped to two lines where a column is narrow, on as many rows as keep them clear.
     const colW = n < 2 ? R - L : Math.max(textW('Carvedilol', fs), Math.min(...pts.slice(1).map((p, i) => X(i + 1) - X(i))) - 8);
     const blocks = pts.map((p) => {
-      const words = traceLabel(p.tick).split(' '), lines = [];
-      for (const w of words) {
-        const t = lines.length ? `${lines.at(-1)} ${w}` : w;
-        if (!lines.length) lines.push(w); else if (lines.length >= 2 || textW(t, fs) <= colW) lines[lines.length - 1] = t; else lines.push(w);
-      }
+      let lines = wrapName(p.tick, colW, (t) => textW(t, fs));
+      if (lines.length > 3) lines = wrapName(p.tick, 1.8 * colW, (t) => textW(t, fs));   // (a long name takes a wider column rather than a tall one)
       return { lines, w: Math.max(...lines.map((t) => textW(t, fs))) };
     });
+    // (Names stand on one row, each clear of the next. One that would crowd another is left to its point's hover title, and the latest always shows, on a second row if it must:
+    // four names stacked over a plot 50 px tall left no plot, Next bleed 6, play-test 16 Nov 2026.)
     const mp = milePlaces(pts.map((p, i) => X(i)), blocks.map((b) => b.w), W - 2, 8);
-    const rowsUsed = Math.min(mp.rows, 3), lineH = fs + 3;
-    const rowLines = Array.from({ length: rowsUsed }, (_, r) => Math.max(1, ...blocks.filter((b, i) => mp.at[i].row === r).map((b) => b.lines.length)));
+    mp.at.forEach((a, i) => { a.show = a.row === 0 || i === last; if (i === last && a.row > 0) a.row = 1; });
+    const rowsUsed = mp.at.some((a) => a.show && a.row > 0) ? 2 : 1, lineH = fs + 3;
+    const rowLines = Array.from({ length: rowsUsed }, (_, r) => Math.max(1, ...blocks.filter((b, i) => mp.at[i].show && mp.at[i].row === r).map((b) => b.lines.length)));
     const rowTop = (r) => rowLines.slice(0, r).reduce((a, k) => a + k * lineH + 4, 0);
     const headH = rowTop(rowsUsed);
     // The treatments, as bars under the names.
@@ -209,19 +219,22 @@ export function talkTrace() {
       sv('defs', {}, panel.clip), panel.back,
       Array.from({ length: pMax / gStep + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(k * gStep), y2: Y(k * gStep) }), sv('text', { 'data-look': 'plot.grid.text', x: L - 8, y: Y(k * gStep) + 0.35 * fs, 'text-anchor': 'end' }, String(k * gStep)))),
       // The unit sits once at the top of the axis, above its numbers.
-      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: L - 8, y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
+      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: Math.max(L - 8, unitW), y: T - 8, 'text-anchor': 'end' }, 'mmHg'),
       // A faint upright line at each state, from the top of the plot to its axis.
-      pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, sv('line', { 'data-look': 'talk.mark.line', x1: X(i), x2: X(i), y1: T - 4, y2: B }))),
+      pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, p.tick ? sv('title', {}, p.tick) : null, sv('line', { 'data-look': 'talk.mark.line', x1: X(i), x2: X(i), y1: T - 4, y2: B }))),
       // The two bands: the HVPG under, the gap before the sinusoids over it, each named once inside.
       n > 1 ? sv('path', { class: 'ptk-gap hv', 'data-look': 'talk.gap.hv', 'data-p-c': tokName(WEDGE_C), d: band(wh, fh) }) : null,
       n > 1 ? sv('path', { class: 'ptk-gap', 'data-look': 'talk.gap', 'data-p-c': 'tr-pv', d: band(pv, wh) }) : null,
       hvAt ? sv('text', { class: 'ptk-gap-n hv', 'data-look': 'talk.gap.name', 'data-hv': '1', x: hvAt.x, y: hvAt.y + 0.33 * fs, 'text-anchor': 'middle' }, 'HVPG') : null,
       gapAt ? sv('text', { class: 'ptk-gap-n', 'data-look': 'talk.gap.name', x: gapAt.x, y: gapAt.y + 0.33 * fs, 'text-anchor': 'middle' }, gapName) : null,
-      // The lines: FHVP a dashed reference, then WHVP and PV with a point at each state.
+      // The lines: FHVP a neutral reference, then WHVP and PV with a point at each state (the PV a ring where the WHVP's dot would cover it).
       sv('path', { class: 'ptk-line free', 'data-look': 'talk.line.free', d: path(fh) }),
       sv('path', { class: 'ptk-line', 'data-look': 'talk.line', 'data-p-c': tokName(WEDGE_C), d: path(wh) }),
       sv('path', { class: 'ptk-line', 'data-look': 'talk.line', 'data-p-c': 'tr-pv', d: path(pv) }),
-      [[wh, WEDGE_C], [pv, '--tr-pv']].map(([a, c]) => a.map(([x, y], i) => sv('circle', { class: 'ptk-pt', 'data-look': 'talk.dot', 'data-p-c': tokName(c), cx: x, cy: y, r: i === last ? 4.5 : 3.5 }))),
+      [[wh, WEDGE_C], [pv, '--tr-pv']].map(([a, c], k) => a.map(([x, y], i) => {
+        const r = i === last ? 4.5 : 3.5, near = k === 1 && Math.abs(pv[i][1] - wh[i][1]) < 2 * r + 1;
+        return near ? sv('circle', { class: 'ptk-pt', 'data-look': 'talk.dot.ring', 'data-p-c': tokName(c), cx: x, cy: y, r: r + 2.5 }) : sv('circle', { class: 'ptk-pt', 'data-look': 'talk.dot', 'data-p-c': tokName(c), cx: x, cy: y, r });
+      })),
       ends.map((e) => sv('g', { class: 'ptk-lbl' },
         sv('rect', { 'data-look': 'talk.swatch', 'data-p-c': tokName(e.c), x: sx, y: e.y - 1.5, width: 8, height: 3, rx: 1.5 }),
         sv('text', { 'data-look': 'talk.lbl.n', x: tx, y: e.y + 0.35 * fs }, e.a),
@@ -240,7 +253,7 @@ export function talkTrace() {
       // The stage names, then the treatments.
       pts.map((p, i) => {
         const at = mp.at[i];
-        if (at.row >= rowsUsed) return null;
+        if (!at.show) return null;
         // (rows counted from the plot up, as milePlaces gives them: row 0 is the lowest)
         const r = rowsUsed - 1 - at.row, y0 = rowTop(r) + fs;
         return sv('g', { class: 'ptk-stage' + (i === last ? ' now' : '') },
@@ -255,16 +268,17 @@ export function talkTrace() {
   // short or slanted; every other time point a plain dot; the treatments as thin bars between the names and the plot (as the full chart's,
   // Mohammad's "Two gaps" pick, 6 Nov 2026: no tint over the line).
   function drawMiles(chain) {
-    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = hostFs(), L = Math.ceil(3.3 * fs) + 8;
+    const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = hostFs(), unitW = Math.ceil(textW('mmHg', fs, 500)) + 2, L = Math.max(Math.ceil(3.3 * fs) + 8, unitW + 8);
     size = `${W}x${HT}`;
     const pts = chain.filter((c) => c.fp), last = pts.length - 1, vfs = 1.5 * fs;
-    const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14,   // (the end value's own width, so it stands inside the card with room to spare)
-       n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
+    const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14;   // (the end value's own width, so it stands inside the card with room to spare)
+    // (Time between visits reads as distance, as on the full chart: the states of one visit stand close, a later visit further on.)
+    const vis = visitsOf(pts), un = visitUnits(vis), uMax = un.at(-1) || 1, X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : un[i] / uMax);
     const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
     const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), R);
     // (The treatments: a bar each, packed on as few rows as keep them clear, between the names and the plot. The card does not grow for them.)
     const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [];
-    const { bars, rows: bRows } = rxBars(runs, X, visitsOf(pts), last, W, (t) => textW(t, 0.9 * fs, 500));
+    const { bars, rows: bRows } = rxBars(runs, X, vis, last, W, (t) => textW(t, 0.9 * fs, 500));
     const rowH = fs + 8, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH + Math.ceil(0.6 * fs);
     const T = T0 + bRows * (fs + 10) + 0.6 * fs + 6, B = HT - fs - 16;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
@@ -272,9 +286,12 @@ export function talkTrace() {
     // (The time under the line: at each milestone and the last point, where it keeps clear of its neighbour.)
     const whenW = (p) => textW(p.when || String(p.n), fs, 500), named = new Set();
     const list = [...new Set([...mi, last])].filter((i) => i >= 0).sort((a, b) => a - b);
+    // (One name for a visit: two points of the same day never carry "Day 0" twice.)
+    const visitNamed = new Set();
     for (let k = list.length - 1, edge = Infinity; k >= 0; k--) {
       const i = list[k], half = whenW(pts[i]) / 2;
-      if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); edge = X(i) - half; }
+      if (visitNamed.has(vis[i])) continue;
+      if (X(i) + half + 8 <= edge && X(i) - half >= 0) { named.add(i); visitNamed.add(vis[i]); edge = X(i) - half; }
     }
     const panel = plotPanel(sv, 0, T0 - 6, W, HT - 1.5 - (T0 - 6));
     return sv('svg', { viewBox: `0 0 ${W} ${HT}`, role: 'img', 'aria-label': 'HVPG over the talk so far: ' + pts.map((p) => `${p.when || `slide ${p.n}`}${p.mile ? `, ${p.mile}` : ''}, ${fmt(p.fp.hvpg, 1)}`).join('; ')
@@ -282,7 +299,7 @@ export function talkTrace() {
       sv('defs', {}, panel.clip), panel.back,
       ticks.map((v) => sv('g', { class: 'ptk-grid' + (v === 5 || v === 10 ? ' cut' : ''), 'data-rate': v === 10 ? 'hi' : v === 5 ? 'mid' : null },
         sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(v), y2: Y(v) }), sv('text', { 'data-look': 'plot.grid.text', x: L - 8, y: Y(v) + 0.35 * fs, 'text-anchor': 'end' }, String(v)))),
-      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: L - 8, y: T - 0.6 * fs - 2, 'text-anchor': 'end' }, 'mmHg'), sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: L, y: T - 0.6 * fs - 2 }, 'HVPG'),
+      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: Math.max(L - 8, unitW), y: T - 0.6 * fs - 2, 'text-anchor': 'end' }, 'mmHg'), sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: L, y: T - 0.6 * fs - 2 }, 'HVPG'),
       // A line under each milestone's name down to the axis, and the times under the axis.
       pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, sv('title', {}, `${p.when || `Slide ${p.n}`}: ${p.title}`),
         p.mile ? sv('line', { 'data-look': 'talk.mark.line', x1: X(i), x2: X(i), y1: bRows ? T - 4 : T0 - 2, y2: B + 4 }) : null,
