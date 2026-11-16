@@ -11,7 +11,7 @@ import { geoOf, setGeo } from './svg-gl.js';
 import { clamp } from './util.js';
 
 export function createLobuleRecords(st, live) {
-  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, reduce, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
+  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
   const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
     camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
@@ -363,8 +363,8 @@ export function createLobuleRecords(st, live) {
     // a pan or zoom (the DOM label no longer glides under its GPU name: the glide class and its rule were removed, 8 Nov 2026).
     const wasFollow = live.follow;   // (put back should the labels wait to be measured, below)
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
-    // (Whether the camera held still since the last layout: then a label that moves glides there; a hand's or a glide's end, a zoom, a resize or a dive does not.)
-    const still = !!wasFollow && wasFollow.k === V.k && wasFollow.x === V.x && wasFollow.y === V.y && wasFollow.W === g.W && wasFollow.H === g.H && !live.layerScaled && !handOn() && !reduce.matches;
+    // (A name travels with the camera while a hand, a camera glide or the dive moves it: it is carried, never faded. Any other layout's move fades, Reduce Motion too.)
+    const still = !handOn() && !live.gliding && !live.layerScaled;
     live.layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; live.follow = nf;
     pickAnchors(fr0);
     if (LC.vbW !== g.W || LC.vbH !== g.H) { LC.vbW = g.W; LC.vbH = g.H; LC.vb = `0 0 ${g.W} ${g.H}`; }   // alloc-rare: only when the lobule's size changed

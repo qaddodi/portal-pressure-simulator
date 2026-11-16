@@ -1467,7 +1467,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return moved;
   }
     let layoutN = 0;   // (layoutN, for the checks: how many times the labels have been placed in full)
-  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, reduce, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
+  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
   // Before a dive (stage(), lobule-zoom-field.js) the names are measured, laid out for the landing and read for the GPU, unseen, in the task that asks for the dive: the dive scales
   // the layer, and a name is measured and read only in the layer's own px (measHeld, mirHeld), so they waited for the landing and then ran three rest passes in a row, 1 to 2 s with
   // the lobule bare before every name arrived at once. Placed ahead, they are drawn from the first frame the view fades in and come in with it (--lz-chrome).
@@ -1506,7 +1506,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (let i = 0; i < n; i++) if (inks[i].L !== L && runInside(L.a, q, inks[i]) > 0.5) { hidden = true; break; }
     classSoon(L.line, 'lz-hid', hidden);
   }
-  live.syncLeaders = syncLeaders;
   // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
   function syncLeaders() {
     let moving = false;
