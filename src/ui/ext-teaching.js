@@ -6,7 +6,8 @@
 //                                 effect size, its source line and whether the slide's patient fits it (trials.js, guidelines/trials.md; tool-trial.js).
 //                                 It is the slide's instrument card, where every instrument card goes (Mohammad, 14 Nov 2026)
 //   tool: { kind: 'saag', own?, extra? }   the ascitic fluid's SAAG against its protein with the two cut-offs, the slide's own `of` patients as points (tool-saag.js; review F7)
-//   tool: { kind: 'forest', ids, highlight? }   the trials' ratios on one scale, one row a trial (trial-forest.js), in the data card
+//   tool: { kind: 'forest', ids, highlight? }   the trials' ratios on one scale, one row a trial (trial-forest.js), in the data card; highlight: the
+//                                 ids in full ink (every row when left out)
 //   tool: { kind: 'path', of: an algorithm of path-data.js ALGOS, patient? }   a Baveno VIII flowchart with the patient's own path lit (tool-path.js)
 //   tool: { kind: 'reading' }   the measurement tracing card: the slide's procedure (HVPG, EUS-PPG, PPG by IR, PPG through a TIPS) drawn as a monitor
 //                                 tracing while it is taken, one reading at a time, then the gradient (tool-reading.js; the gradients talk)

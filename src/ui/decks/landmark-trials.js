@@ -183,7 +183,7 @@ export const LANDMARK_TRIALS = {
     },
     // ---- Summary
     {
-      id: 'forest', cam: 'fit', tool: { kind: 'forest', ids: ['predesci', 'lvtips', 'transfusion', 'rifaximin'], highlight: [] },
+      id: 'forest', cam: 'fit', tool: { kind: 'forest', ids: ['predesci', 'lvtips', 'transfusion', 'rifaximin'] },
       kicker: 'Summary', title: 'Where a trial gave a ratio',
       line: 'Each row is one trial\'s ratio and 95% CI; <1 favors the treatment. The 2010 early TIPS and covered TIPS trials gave none, so they are not here.', pill: false,
       notes: 'Each row is one trial that reported a ratio: the mark is the ratio, the line its confidence interval, and the upright line a ratio of 1, no difference between the arms. The rows are hazard ratios and an odds ratio, each as its abstract reported it. They measure different things, so the chart never pools them into one number. Two of the largest differences in this talk are missing because their trials reported none: the 2010 early TIPS trial (1-year survival 86% against 61%) and the covered TIPS trial (93% against 52%). The timolol and HVPG-guided trials reported no ratio either.',

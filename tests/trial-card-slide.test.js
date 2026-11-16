@@ -134,7 +134,7 @@ test('the Landmark trials deck closes on the trials\' ratios on one scale, befor
   assert.ok(i > lastTrial, 'after the last trial slide');
   const f = sl[i];
   assert.equal(f.tool.kind, 'forest');
-  assert.deepEqual(f.tool.highlight, []);
+  assert.equal(f.tool.highlight, undefined, 'no highlight: every row in full ink (`highlight: []` drew nothing, deck-instruments-drawn.test.js)');
   const deckTrials = new Set(sl.filter((s) => s.tool?.kind === 'trial').map((s) => s.tool.id));
   for (const id of f.tool.ids) {
     const t = trialOf(id);
