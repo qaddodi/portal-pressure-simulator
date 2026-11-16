@@ -34,7 +34,9 @@ import { frameFor, cancelFrame, holdMotion, inMotion, beginChange } from './fram
 import { loadGlyphs } from './text-gl.js';
 import { restPass } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
-import { createTxns, createLease } from './slide-txn.js';
+import { createTxns, createLease, slowTrail } from './slide-txn.js';
+import { cathInstant } from './cath-arrival.js';
+import { gpuProbe } from './gpu-probe.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { onTheme } from './theme-epoch.js';
@@ -987,7 +989,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // is the current one and is over gives the figure back whatever ended it.)
       if (mine && want === to && view.classList.contains('pz-out')) figureIn();
       if (mine) turnDone();
-      if (mine && want === to) tx.end();   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
+      if (mine && want === to) { const slow = slowTrail(tx.trail, performance.now(), `slide ${to + 1}`); if (slow) gpuProbe.note(slow); tx.end(); }   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
       creditOff(); changeOff();
     }
   }
@@ -1155,7 +1157,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     tx?.phase('settle');
     await settleRun();
-    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
+    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); tx?.phase('cards-in'); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
@@ -1189,11 +1191,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
     let bareSeen = false;
     const prepWith = plate;   // (the unseen cards' last fitting runs BEFORE the camera frames, never under its first frames: a fitting that changed the room after the framing sent the camera back the way it came, Mohammad, 16 Nov 2026, Carvedilol 3 to 4)
-    const exitFirst = bare && !!ui && !ct && !swap && !caseCard && !!cam && !LOBULE_CAM.test(cam) && (store.get().lobule || store.get().sinusoid);
     // A way out of the lobule or sinusoid onto the plate (same patient): the cards come in first, then the camera zooms out (camera() expects them in); they used to wait for the whole 2 to 6 s way out. 16 Nov 2026 play-test, Circulation 6 to 7.
-    if (exitFirst) { stage.lobuleHold?.(true); await unseen(cut); if (cut()) return; if (!await ui.tools.ready(900)) degrade('window'); await caseEnd(cut); if (cut()) return; const at = { i: to, gen: g }; bare = false; cardsIn(at); await waitCut(60, cut); await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
+    if (bare && !!ui && !ct && !swap && !caseCard && !!cam && !LOBULE_CAM.test(cam) && (store.get().lobule || store.get().sinusoid)) { stage.lobuleHold?.(true); await unseen(cut); if (cut()) return; if (!await ui.tools.ready(900)) degrade('window'); await caseEnd(cut); if (cut()) return; const at = { i: to, gen: g }; bare = false; cardsIn(at); tx?.phase('cards-in'); await waitCut(60, cut); await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     tx?.phase('cath-in');
-    if (ct) await cathTo(ct, st.fp, cut);
+    if (ct) await cathTo(ct, st.fp, cut, cathInstant(to, lastAt));
     else if (lead) await lead;
     else if (cam) { if (prepWith) { prep ||= unseenFit(cut); if (!await prep) return; } await camera(cam, fv, cut, plate ? CARDS_AT : 0); }
     insetsGo();   // (no glide set off after all, a lobule's or a held one: the room is written now)
@@ -1215,7 +1216,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const filled = await ui.tools.ready(900); if (cut()) return;
       if (!filled) degrade('window');   // (a recording instrument's window is filled before its card comes in: tools.prime)
       await caseEnd(cut); if (cut()) return;
-      bare = false; cardsIn({ i: to, gen: g });
+      bare = false; cardsIn({ i: to, gen: g }); tx?.phase('cards-in');
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       bareSeen = plate && !swap && !caseCard;   // (no change of patient under them: the slide's marks need no model to wait for)
       await waitCut(60, cut); await until(() => cut() || !cardsEntering(bareSeen ? CARDS_SEEN : 0), 1200);
