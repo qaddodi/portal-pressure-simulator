@@ -41,7 +41,7 @@ export const TIPPING = {
   slides: [
     {
       id: 'stable', preset: 'csph', cam: 'fit', data: 'tiles', tiles: TILES, key: ['hvpg'],
-      vignette: 'A 56-year-old man has cirrhosis from hepatitis C, cured two years ago, and chronic hepatitis B. He has had no ascites, variceal bleeding or hepatic encephalopathy. His platelets are 90,000/µL and he has small esophageal varices.',
+      vignette: 'A 56-year-old man has cirrhosis from hepatitis C, cured two years ago, and chronic hepatitis B. He has had no ascites, variceal bleeding or HE. His platelets are 90,000/µL and he has small esophageal varices.',
       kicker: 'Starting point', site: 'sin', title: 'With CSPH, a second hit can precipitate decompensation',
       line: 'His HVPG is {hvpg}, which is {>=10 mmHg}. He has no ascites today, but a second hit can precipitate ascites, variceal bleeding or overt hepatic encephalopathy.',
       notes: 'CSPH means the portal pressure is high enough for varices and decompensation to develop: an HVPG ≥10 mmHg. This man is compensated: no ascites, no variceal bleeding, no overt hepatic encephalopathy. Compensated cirrhosis with CSPH can stay stable for years; a further insult to the liver or the circulation often precipitates decompensation. The next slides cover what Baveno VIII names: a second liver injury, an infection and surgery, then the mouth and the antibiotic question.',

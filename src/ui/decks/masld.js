@@ -57,7 +57,7 @@ export const MASLD = {
     },
     {
       id: 'bmi', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt', 'ssm'],
-      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, ANTICIPATE-NASH decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
+      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, a model that includes the BMI decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
       line: 'Her liver stiffness (LSM) is {lsm} and her platelets {plt}. The 25 kPa rule needs a BMI <30; a model that includes the BMI estimates the probability: ≥75% means CSPH.',
       notes: 'The 25 kPa rule-in covers viral and alcohol-related disease and non-obese (BMI <30) MASLD. In MASLD with obesity (BMI ≥30), Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI, or NICER, to estimate the probability of CSPH, and calls it present at ≥75%. The model has no BMI, so it shows the LSM and platelets and leaves the probability to the calculator. An LSM of 15 to 25 kPa is the indeterminate zone, where a model or spleen stiffness measurement (SSM) decides: an SSM >55 kPa rules CSPH in (1.16). Hers is below that cut-off, so the SSM tile does not decide her case.',
       ask: ['A man with MASH, a BMI of 36 and an LSM of 27 kPa. Is CSPH ruled in?', 'Not by the 25 kPa rule, which is for a BMI <30. ANTICIPATE-NASH decides: ≥75% means CSPH.'],

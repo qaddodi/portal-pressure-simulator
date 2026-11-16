@@ -78,7 +78,7 @@ Use the term on the right. The left column is banned in learner text (the lint h
 | scar (in the liver) | fibrosis, fibrous septa |
 | salvage and rescue TIPS used loosely | salvage TIPS: bleeding not controlled; rescue TIPS: rebleeding despite vasoactive drugs and EVL (AASLD 2024, 35) |
 | medium varices | small (<5 mm) or large (≥5 mm) varices (Baveno VIII) |
-| alcohol-related (as the disease name), post-hepatic, free hepatic vein pressure | alcohol-associated, posthepatic, free hepatic venous pressure |
+| alcohol-related (as the disease name), post-hepatic | alcohol-associated, posthepatic |
 | clot (in a label or title) | portal vein thrombosis, PVT |
 | SAAG of 1.4 | SAAG 1.4 g/dL (always with its unit) |
 | fed at (an organ) | perfused at |

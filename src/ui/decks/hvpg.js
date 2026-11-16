@@ -26,7 +26,7 @@ export const HVPG = {
       id: 'free', cath: 'free', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The FHVP is recorded with the tip free in the hepatic vein',
       terms: { 'hepatic vein pressure': 'fhvp', IVC: 'ivc' },
-      line: 'The free hepatic venous pressure (FHVP), 2 to 4 cm from the IVC, is within about 2 mmHg of the IVC pressure. Subtracting it cancels the intra-abdominal pressure of ascites.',
+      line: 'The free hepatic vein pressure (FHVP), 2 to 4 cm from the IVC, is within about 2 mmHg of the IVC pressure. Subtracting it cancels the intra-abdominal pressure of ascites.',
       notes: 'The free hepatic venous pressure (FHVP) is recorded with the tip free in the hepatic vein, 2 to 4 cm from its ostium in the IVC. It should be within about 2 mmHg of the IVC pressure; a larger difference suggests malposition of the tip or an occluded hepatic vein. Subtracting the FHVP rather than the right atrial pressure cancels the intra-abdominal pressure that tense ascites adds to both readings.',
       ask: ['Why subtract the FHVP rather than the right atrial pressure?', 'The FHVP carries the same intra-abdominal and extrahepatic venous pressure as the wedged pressure, so subtracting it cancels them.'],
     },

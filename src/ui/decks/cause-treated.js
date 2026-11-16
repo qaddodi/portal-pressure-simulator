@@ -52,7 +52,7 @@ export const CAUSE_TREATED = {
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'ssm'], keepTiles: true, title: 'HVPG and spleen stiffness over the year' },
       data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, the HVPG is <10 mmHg',
-      line: 'His HVPG is {hvpg}, which is {<10 mmHg}: CSPH has resolved by Baveno VIII, though the HVPG is not normal. LSM {lsm} and platelets {plt} would not show this.',
+      line: 'His HVPG is {hvpg}, which is {<10 mmHg}. By Baveno VIII CSPH has resolved, though the HVPG is not normal. LSM {lsm} and platelets {plt} would not show this.',
       notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved at an HVPG <10 mmHg, an LSM <10 kPa, or an LSM <15 kPa with a spleen stiffness (SSM) <25 kPa. Here only the HVPG meets a criterion: it is under 10 mmHg but still above the normal 5, because the pressure falls slowly and seldom reaches normal within two years; his LSM and SSM have not yet crossed their lines, so the stiffness alone would not have called CSPH resolved. HCC surveillance every 6 months continues, because cirrhosis was present before the cure. Repeat the LSM and platelet count if a new cause of liver injury appears.',
       ask: ['Does he still need HCC surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the HCC risk remains.'],
     },
