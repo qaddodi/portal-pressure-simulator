@@ -11,8 +11,9 @@ const states = await deckStates(SAME_GRADIENT);
 const at = (id) => states[slide(id)];
 const FOUR = ['ref', 'up', 'flow', 'shunt'];
 
-test('the four patients read the same HVPG to within a tenth of a millimeter of mercury', () => {
+test('the four patients read the same HVPG, as the tile prints it (a slide says "12.0, as before")', () => {
   const h = FOUR.map((id) => at(id).hvpg);
+  assert.equal(new Set(h.map((v) => v.toFixed(1))).size, 1, `HVPGs ${h.map((v) => v.toFixed(1)).join(', ')}`);
   assert.ok(Math.max(...h) - Math.min(...h) <= 0.1, `HVPGs ${h.join(', ')}`);
   for (const v of h) assert.ok(Math.abs(v - 12) <= 0.2, `an HVPG of ${v} is not 12`);
 });

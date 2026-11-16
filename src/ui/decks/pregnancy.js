@@ -81,7 +81,7 @@ export const PREGNANCY_DECK = {
       id: 'after', params: { gestation: 0 }, cam: 'fit', labels: ['VAR', 'CONF'],
       data: 'tiles', tiles: ['bv', 'co', 'hvpg'], key: ['bv', 'hvpg'], delta: 'weeks',
       kicker: 'Delivery and after', site: 'sin', title: 'Hemodynamics return to baseline after delivery', cite: 'Baveno VIII 8.20',
-      line: 'Blood volume falls back to {bv} and, on propranolol, the HVPG to {hvpg}. In patients this takes 6 to 12 weeks.',
+      line: 'On propranolol the HVPG falls to {hvpg}, and blood volume falls back to {bv}. In patients this takes 6 to 12 weeks.',
       notes: 'The expanded blood volume and cardiac output return to baseline over the weeks after delivery, and portal pressure follows. Propranolol is continued, and Baveno VIII 8.20 says nonselective beta-blockers are safe during breastfeeding. Hepatic decompensation can still occur in the months after delivery, so she is followed closely and EGD is repeated. Postpartum flares of autoimmune hepatitis are common as the immune tolerance of pregnancy ends, so her liver tests are checked every few weeks and immunosuppression is maintained. The model returns to baseline at once; in patients it takes 6 to 12 weeks.',
       ask: ['Can a mother on propranolol breastfeed?', 'Yes. Baveno VIII 8.20 says nonselective beta-blockers are safe during breastfeeding.'],
     },

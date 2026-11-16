@@ -154,6 +154,8 @@ const presenter = {
   position: () => presenterL.now()?.position() ?? null,
   stop: () => presenterL.now()?.stop(),
   go: (i) => presenterL.now()?.go(i),
+  count: () => presenterL.now()?.count?.() ?? 0,   // (the slides of the talk open, and a time-lapse sped to its end: the play-test toolkit's settle and pps.cameraGate)
+  skipLapse: () => presenterL.now()?.skipLapse?.(),
   busy: () => !!presenterL.now()?.busy(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL?.now()?.active(),   // (asked at boot by the idle rest's first timer, before presenterL is made)
