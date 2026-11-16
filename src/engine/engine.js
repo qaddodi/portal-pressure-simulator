@@ -8,6 +8,7 @@ import {
 } from './physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
+import { STENT_CLOSED_D } from './stent-ease.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -65,6 +66,7 @@ const WF_BAND = 1;
 export const PARAM_EASE_S = 0.15;
 // Numbers that are choices, not amounts: they change at once.
 const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
+const STENT_SWITCH = ['tips', 'dips'];   // (the stents whose switch opens and closes through their width: easeParams)
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const PERICARDIAL_FILL = 0.6;   // constriction limits diastolic filling: the heart's pump capacity falls by this share at full constraint (as the tricuspid term below; 13 Nov 2026, constrictive pericarditis reaches RA 15+ with a low-normal output)
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
@@ -283,6 +285,17 @@ export class Engine {
       }
     };
     walk(from, this.params, []);
+    // A stent that is put in or taken out opens or closes through its width, the way a number eases (its switch is not one): turned on,
+    // it opens from nothing to its width; turned off, it narrows to nothing and only then goes out (16 Nov 2026, Mohammad: "the TIPS
+    // comes in and out of existence, pops": the switch flipped the whole shunt's flow in one step). Its flow, its drawn width and the
+    // stent's mesh then all follow this one width.
+    for (const id of STENT_SWITCH) {
+      const x = from?.[id], y = this.params[id];
+      if (!x || !y || !!x.on === !!y.on) continue;
+      for (let i = legs.length - 1; i >= 0; i--) if (legs[i].path[0] === id && legs[i].key === 'd') legs.splice(i, 1);   // (its width is eased by this leg alone)
+      legs.push({ path: [id], key: 'd', from: x.on ? x.d : STENT_CLOSED_D, to: y.on ? y.d : STENT_CLOSED_D, drop: false, fin: { on: !!y.on, d: y.d } });
+      this.params[id].on = true;
+    }
     if (!legs.length) return;
     this._ease = { legs, left: 1, to: structuredClone(this.params) };
     this.easeStep(0);
@@ -292,7 +305,7 @@ export class Engine {
   paramsTarget() {
     if (!this._ease) return this.params;
     const p = structuredClone(this.params);
-    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; }
+    for (const l of this._ease.legs) { const o = l.path.reduce((q, k) => q[k], p); if (l.drop) delete o[l.key]; else o[l.key] = l.to; if (l.fin) Object.assign(o, l.fin); }
     return p;
   }
   easeStep(dt) {
@@ -305,6 +318,7 @@ export class Engine {
       if (!o) continue;
       if (done && l.drop) delete o[l.key];
       else o[l.key] = done ? l.to : l.to + (l.from - l.to) * e.left;
+      if (done && l.fin) Object.assign(o, l.fin);
     }
     if (done) this._ease = null;
   }

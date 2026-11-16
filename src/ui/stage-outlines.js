@@ -65,7 +65,7 @@ export function createOutlines(st, live) {
   const stentAmt = new Map();
   let stentMoved = false;
   const stentFade = (key, a) => { if (a == null) stentAmt.delete(key); else stentAmt.set(key, a); stentMoved = true; live.askAnimate?.(); };
-  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
+    const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
   // (The group's opacity, for the SVG copy the browser draws; the GPU's copy takes the amount on the draw, never from the group, or a
   // fade would be read as a new look at each step.)
   const markShade = (el, a) => {
@@ -714,5 +714,5 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = false;
     return moving || !!V;
   }
-  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade };
+  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentAmounts: fadeEase, stentFade };
 }

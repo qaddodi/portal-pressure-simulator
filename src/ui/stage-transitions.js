@@ -20,6 +20,7 @@ import { bareOf, stentLookD } from './stent-mesh.js';
 import { store } from './store.js';
 import { distToLine, seamDashes, seamTable, stumpCentre, woundTie } from './suture-marks.js';
 import { clamp, s } from './util.js';
+import { revealShare, turnedStart } from './reveal-turn.js';
 
 // Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
 const TIED_X = 0.5;
@@ -54,14 +55,15 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
+      if (was === false && open && !x.reveal && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
   // open with the paraumbilical route) draw on when they appear and retract when they leave.
   // (The caudate's own lane too: it comes and goes with a slide about the caudate, and popped in and out in the Circuit. Owner, 15 Nov 2026.)
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id) || x.e.id === 'CAUD');
-  function startExit(x, f) {
+  function startExit(x, f, turn = false) {
+    if (turn) { const r = x.reveal, now = live.fxAt ?? performance.now(), share = revealShare(r, now, easeInOut); revealOf(x, now, x.e.shunt === 'rex' ? (r.out ? REX_GROW_MS : 1200) : r.out ? 900 : 700, r.dir, !r.out, quietFx()); r.t0 = turnedStart(share, r.out, now, r.dur, easeInOut); return; }   // (reveal-turn.js: a shunt that changes its mind mid-way turns round from where it is)
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
     setReveal(x, revealOf(x, (live.fxAt ?? performance.now()) + (x.e.kind === 'shunt' ? 0 : stepLeft('collaterals')), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true, quietFx()));
   }
@@ -89,7 +91,7 @@ export function createTransitions(st, live) {
     else if (live.veins && !live.inUpdate && anyReveal()) syncVeins(easeInOut(live.morph));
   }
   const { polysD } = createHalos({ E, NI, drawFrame, easeInOut, gOver, haloEls, nodePos, quietFx, routeCustomShunts, setGlowSrc, updateGeometry }, live);
-  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
+  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentAmounts, stentFade } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
   const { marksStale, marksSync, mk } = createMarks({ gOver, glLines, ov, svg, themeKey, toRGB, wrapCls });
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
@@ -313,7 +315,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
+  const { venousSync } = createVenous({ E, EI, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
   // Surgical shunts: a running stitch round each join (S1 of the suture mocks, 13 Nov 2026), the seam following the host vein's wall.
   // Where the shunt's end is in no host vein, and in the circuit (no walls to follow), the old three ticks stay.
   // (The Warren shunt's start is the splenic vein turning down, and the end-to-side portocaval shunt's the portal vein itself: nothing is sewn
@@ -375,5 +377,5 @@ export function createTransitions(st, live) {
     putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
       s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
-  return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
+  return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentAmounts, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }

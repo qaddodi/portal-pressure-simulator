@@ -1,6 +1,7 @@
 // The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { isOccluded } from '../engine/topology.js';
+import { stentOpen } from '../engine/stent-ease.js';
 import { firstPiece } from './part-names.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
@@ -35,7 +36,7 @@ function pseFillD(x, y) {
 const CORONARY_TIE = 0.75;
 
 export function createClamps(st, live) {
-  const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
+  const { E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * live.CTM.sc) / 2 + 7);
   // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
@@ -278,7 +279,7 @@ export function createClamps(st, live) {
       ov.thrombi.append(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', 'REX', ...Object.keys(p.customShunts || {})]) {
-      if (!E[id].vis || E[id].reveal) continue;
+      if (!E[id].vis || E[id].reveal || (id === 'DIPS' && !stentOpen(f, EI.DIPS))) continue;
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id, anat);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.

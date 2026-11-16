@@ -396,6 +396,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     for (const x of EV) {
       const e = x.e;
       let vis = edgeVisible(x, f);
+      if (x.reveal && e.kind === 'shunt' && x.reveal.out === vis && live.canFade(x)) startExit(x, f, true);   // (a shunt that changes its mind mid-way turns round from where it is: no pop)
       const wasDrawn = !!x.drawn;   // on screen in the previous frame (not merely flagged visible)
       // A vessel that leaves (a collateral that closes, a shunt that is removed) retracts along its
       // flow, the way it drew on, and is hidden when it is done; it is held visible until then.

@@ -2,6 +2,7 @@
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
 import { Engine } from './engine/engine.js';
+import { stentMix } from './engine/stent-ease.js';
 import { easeMove } from './ui/ease.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
@@ -41,7 +42,12 @@ function mix(a, b, k) {
   }
   return k < 0.5 ? a : b;
 }
-const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+function morphAt(from, to, k) {
+  const o = { ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+  // (A stent's switch is not flipped at the halfway step: its width eases, so the shunt opens and closes with the stent, engine.js stentMix.)
+  if (o.params) for (const id of ['tips', 'dips']) { const m = stentMix(from.params?.[id], to.params?.[id], k); if (m) o.params[id] = m; }
+  return o;
+}
 const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:

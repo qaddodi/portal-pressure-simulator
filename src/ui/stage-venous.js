@@ -2,11 +2,12 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { fadeStep } from './motion.js';
 import { restPass } from './rest-pass.js';
+import { stentOpen } from '../engine/stent-ease.js';
 import { store } from './store.js';
 import { s } from './util.js';
 
 export function createVenous(st, live) {
-  const { E, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare } = st;
+  const { E, EI, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare } = st;
   // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
   // the stretch VST_SPAN of the vein. Every stent comes in whole, the length of it at once, its strength easing in, and goes out the
   // same way when the slide leaves it (13 Nov 2026, Mohammad: "the stent TIPS doesn't expend all at once.. it expands in two fragments...
@@ -17,22 +18,16 @@ export function createVenous(st, live) {
   const vstRecs = new Map();   // (each vessel's record, made ahead and set afresh as its stent comes in)
   for (const id of Object.keys(E)) vstRecs.set(id, { k: 0, parts: null });
   let vstRaf = 0, vstAt = 0, vstDirty = false;
-  // (The TIPS is the one stent here the model has: the covered stent, in once the shunt has drawn on, out as it retracts, in the circuit as
-  // well as the figure.)
-  const vstGoal = (id, anat) => ((id === 'TIPS' || (anat && store.get().stented?.includes(id))) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
+  // (The TIPS is the one stent here the model has: the covered stent, in once the shunt has drawn on and is as wide as a stent (stent-ease.js stentOpen),
+  // out as soon as it narrows or retracts, in the circuit as well as the figure.)
+  const vstGoal = (id, anat) => ((id === 'TIPS' ? stentOpen(live.F, EI.TIPS) : anat && store.get().stented?.includes(id)) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
   // The mesh is built once, whole (each rebuild of the overlays, not each frame), and each frame sets only its strength: the amount on its
   // key (data-mk "vst:<id>"), which the GPU lays on the stent's draws as it lays every treatment mark's fade (stage-outlines.js fadeEase), and
   // the group's opacity for the SVG copy when the GPU does not draw the marks (markShade). Never an opacity on the pieces: the marks' build
   // reads that once, so a stent built while still at nothing stayed at nothing on the GPU (13 Nov 2026, "the mesh failed to draw").
   // The CPU draws no path and the page gets no new element while it comes in.
   let vstKids = [];   // (the roots last handed to the layer, in order)
-  // A stent that is already standing is kept, not built again (10 Nov 2026, Mohammad: "when the TIPS stent appears it flickers"): the overlays are
-  // asked to rebuild whenever anything in their key moves, and the TIPS's own width eases for a long while after the shunt opens, so a rebuild came
-  // every few hundred ms while it came in. Each one took the old elements out of the page, and the painter, which reads a piece's opacity from its
-  // element as it paints, drew the removed elements as the last frame left them until the layer was read again. Now a rebuild whose pieces are the
-  // same pieces (the same classes in the same order) writes the new outlines into the elements it has: the painter reads an outline's `d` as it
-  // paints (stage-over.js needsReread), so nothing is read again and nothing leaves the page; and a rebuild whose mesh did not move (its signature)
-  // writes nothing at all.
+  // A stent that is already standing is kept, not built again, and a rebuild that moved nothing writes nothing (docs/stent-draw.md, 10 Nov 2026).
   // The TIPS stent runs the whole of its tract, from the centre line of the right portal vein to the centre line of the right hepatic vein (Mohammad, 11 Nov 2026: "it has to extend all the way
   // including the stent"). Only a hair is kept back from the very ends, so its crowns do not touch the tube's own cap.
   const TIPS_ENDS = [1.5, 1.5];
@@ -91,7 +86,7 @@ export function createVenous(st, live) {
         if (v.parts && v.k > 0.002) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002)) vstDirty = true;
         if (v.k !== goal) moving = true;
       }
-      if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); stentFade(`vst:${id}`, null); }
+      if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); stentFade(`vst:${id}`, 0); }   // (held at nothing, never dropped: a dropped key reads as full strength, and the old mesh is still in the layer until the build between frames takes it out, 16 Nov 2026, "the stent pops")
     }
     // (A stent that comes in or goes out is built between frames, never in one: its mesh is new page art, 2 Nov 2026, "Move everything to GPU".)
     if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
