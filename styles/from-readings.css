@@ -62,7 +62,8 @@
 .fr-pill[data-s="out"]::after { transform: scaleX(1); }
 .fr-need { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
 /* The foot (the count of readings and the buttons) stays at the bottom of the sheet while the rows scroll: Next is never below the fold (review U6). */
-.fr-foot { position: sticky; bottom: -14px; z-index: 1; display: flex; flex-direction: column; gap: 6px; margin: 0 -14px -14px; padding: 8px 14px 14px; background: var(--surface); box-shadow: 0 -1px 0 var(--hairline); }
+.fr-foot { position: sticky; bottom: -14px; z-index: 2;   /* (above the menu's scroll-edge veils, z-index 1: the bottom veil is the menu's last child and reaches under this foot, and painted over its buttons) */
+   display: flex; flex-direction: column; gap: 6px; margin: 0 -14px -14px; padding: 8px 14px 14px; background: var(--surface); box-shadow: 0 -1px 0 var(--hairline); }
 .fr-btns { display: flex; gap: 8px; }
 .fr-btns .btn { flex: 1 1 0; min-width: 0; }
 .fr-btns .btn.primary { flex: 2 1 0; }

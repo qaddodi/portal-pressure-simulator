@@ -63,17 +63,18 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
   const { VITALS } = { VITALS: [{ id: 'co', v: (m) => m.vitals?.co ?? m.co, cut: 6.5, hys: 0.2 }, { id: 'map', v: (m) => m.vitals?.map ?? m.map, cut: 65, low: true, hys: 2 }] };
   for (const id of ['cirr-decomp', 'gastric-varix', 'schisto']) {
     const e = new Engine(); e.loadPreset(id); e.beat = true;
-    const xs = VITALS.map((v) => ({ v })), seen = VITALS.map(() => [Infinity, -Infinity]), raw = [Infinity, -Infinity], flips = VITALS.map(() => 0);
+    const xs = VITALS.map((v) => ({ v })), seen = VITALS.map(() => [Infinity, -Infinity]), raw = [Infinity, -Infinity], mco = [Infinity, -Infinity], flips = VITALS.map(() => 0);
     for (let f = 0; f < 600; f++) {
       for (let i = 0; i < 25; i++) e.step(0.004);
       const m = computeMetrics(e);
-      raw[0] = Math.min(raw[0], m.co); raw[1] = Math.max(raw[1], m.co);
+      const c0 = e.COf * 0.06; raw[0] = Math.min(raw[0], c0); raw[1] = Math.max(raw[1], c0); mco[0] = Math.min(mco[0], f > 100 ? m.co : Infinity); mco[1] = Math.max(mco[1], f > 100 ? m.co : -Infinity);
       xs.forEach((x, i) => {
         const before = x.bad, r = vitalReading(x, m, true, f * 100);
         if (f > 100) { seen[i][0] = Math.min(seen[i][0], r.v); seen[i][1] = Math.max(seen[i][1], r.v); if (r.bad !== before) flips[i]++; }
       });
     }
-    assert.ok(raw[1] - raw[0] > 0.8, `${id}: the raw output swings (${raw[0].toFixed(2)}-${raw[1].toFixed(2)})`);
+    assert.ok(raw[1] - raw[0] > 0.8, `${id}: the engine's 2 s-filtered output swings (${raw[0].toFixed(2)}-${raw[1].toFixed(2)})`);
+    assert.ok(mco[1] - mco[0] < 0.15, `${id}: metrics.co, which the heart's label reads, wanders ${mco[0].toFixed(2)} to ${mco[1].toFixed(2)}`);   // (16 Nov 2026: it was that filtered output, swinging 0.15 to 1.6)
     assert.ok(seen[0][1] - seen[0][0] < 0.15, `${id}: CO wanders ${seen[0][0].toFixed(2)} to ${seen[0][1].toFixed(2)}`);
     assert.ok(seen[1][1] - seen[1][0] < 1, `${id}: MAP wanders ${seen[1][0].toFixed(1)} to ${seen[1][1].toFixed(1)}`);
     assert.deepEqual(flips, [0, 0], `${id}: a flag changed`);

@@ -27,6 +27,9 @@ const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'c
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.
 const records = (t) => !!t && (t.kind === 'doppler' || t.kind === 'vitals' || (t.kind === 'trace' && t.range === 'beats'));
 const drawn = (t) => !!t && (t.kind === 'flowtime' || t.kind === 'evgraph' || (t.kind === 'trace' && t.range !== 'beats'));
+// A chart that holds across the talk (tool-shift.js, Mohammad 16 Nov 2026: "a persistent instrument"): drawn from the deck's own states, it adds the
+// new one where it stands, and plays a time-lapse's days itself (progress), so it stays through a change of patient and a time-lapse alike.
+export const carries = (t) => !!t && t.kind === 'shift';
 /** Whether the data card's instrument can ride a change of patient: it reads the live model, which eases from the old patient to the new. */
 export const eases = (t) => !records(t) && !drawn(t);
 
@@ -60,6 +63,7 @@ export function textPlan(s) {
  */
 export function keepData({ from, to, prev, next, swap = false, again = false }) {
   if (again || !from || !to || from !== to || ownData(prev) || ownData(next)) return false;
+  if (carries(next.tool)) return true;
   // A time-lapse plays its days on the live model and the presenter sets the card's readings from each frame (playLapse), so a card that
   // reads the live model (the tiles, an instrument that eases) stays up and climbs with them. The patient must stay, though: a lapse that opens on
   // a patient of its own (swap) starts from a state the card would have to ride to, and then land on the lapse's start, not its end. A recording
