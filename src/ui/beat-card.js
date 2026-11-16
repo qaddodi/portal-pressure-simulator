@@ -1,5 +1,5 @@
 // The beat-by-beat card on a slide (Mohammad's pick d1b, 29 Oct; mocks in review/pressure-beat-card-ideas): a black EKG strip and the wedged
-// and free hepatic pressures on one sheet of paper, the HVPG the shaded gap between them, the portal pressure dashed over the wedged, the
+// and free hepatic pressures on one sheet of paper, the HVPG the shaded gap between them, the portal pressure over the wedged in its own colour, the
 // readings in a column beside, and where the patient stood before the slide's event as two dotted lines with the old gap faint grey behind.
 // These are the layout's numbers, in CSS pixels; pressure-time.js draws it.
 

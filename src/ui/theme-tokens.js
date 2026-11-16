@@ -15,7 +15,7 @@
 // The four readings' colours on a dark ground: the dark looks' traces (tr-pv, tr-wedge, tr-hv, tr-ivc) and the bedside monitor's (mon-pv, mon-wedge, mon-free,
 // mon-ivc, dark in every look), written once so a reading wears one colour on every chart and monitor (unification audit, finding 2). The light looks' traces
 // are their own darker inks of the same hues.
-const DARK_TRACE = { pv: '#F0649E', wedge: '#DA7EDD', hv: '#5CA4F2', ivc: '#4CC2D6' };
+const DARK_TRACE = { pv: '#F0649E', wedge: '#EDA100', hv: '#5CA4F2', ivc: '#4CC2D6' };
 
 export const TOKENS = {
   light: {
@@ -155,7 +155,7 @@ export const TOKENS = {
     // hepatic blue), then quieter inks for the rest. tr-ppg (gold) and tr-hvpg (violet) are the PPG's and the HVPG's lines on a chart: each reading has one colour on every
     // chart (reading-colours.js), and the portal pressure's magenta is no longer shared with the PPG (13 Nov 2026). tr-sin is the sinusoidal pressure's own line (the curve, the flow-time chart), not the WHVP's: today the
     // same orchid, kept a token of its own so a reading's colour means one reading (unification audit, finding 2)
-    'tr-pv': '#B01E62', 'tr-ppg': '#8F6A00', 'tr-hvpg': '#4a3aa7', 'tr-wedge': '#A52DA9', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
+    'tr-pv': '#B01E62', 'tr-ppg': '#8F6A00', 'tr-hvpg': '#4a3aa7', 'tr-wedge': '#C98500', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
     'axis': '#B9AE98',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / .1), calc(1px * var(--light-slant)) 1px 3px rgb(var(--shadow-rgb) / .06)',
     'shadow-dialog': 'calc(18px * var(--light-slant)) 18px 48px rgb(var(--shadow-rgb) / .16), calc(4px * var(--light-slant)) 4px 12px rgb(var(--shadow-rgb) / .08)',

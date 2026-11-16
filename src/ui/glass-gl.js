@@ -620,11 +620,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const coverOwn = (g) => { const c = cssClip.get(g); return !!c && c !== 'none'; };
   // (A clipped card's parts: its children with a box, each { el, o (px off the glass's box r), own (a clip of its own) }; at most KIDS of them.)
   const KIDS = 32;
+  // (The box an element is drawn at, for an offset from the glass's own drawn box r: a piece card-zoom.js rides answers getBoundingClientRect with its REST box
+  // (the figure's labels keep to it), so a read of it beside the zoomed glass's drawn box mixed the two and the cut was made from the rest box of the words
+  // (16 Nov 2026, Mohammad: the teaching card's words cropped to a few words by the zoomed instrument card, every slide of every deck).)
+  const boxNow = (k) => (zoomRide.has(k) ? zoomRide.box(k) : readBox(k));
   function kidsOf(t, g, r) {
     const out = [];   // alloc-rare: read with the page, never in a frame
     for (const k of t.children) {
       if (k === g || out.length >= KIDS) continue;
-      const b = readBox(k);
+      const b = boxNow(k);
       if (!b || !b.width || !b.height) continue;
       const c = readStyle(k).clipPath;
       out.push({ el: k, o: [b.left - r.left, b.top - r.top, b.right - r.right, b.bottom - r.bottom], own: !!c && c !== 'none' && !cover.mine(k) });   // alloc-rare: read with the page, never in a frame
@@ -638,7 +642,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!w || !w.length) return null;
     const out = [];   // alloc-rare: read with the page, never in a frame
     for (const k of w) {
-      const b = k && readBox(k);
+      const b = k && boxNow(k);
       if (!b || !b.width || !b.height) continue;
       const c = readStyle(k).clipPath;
       out.push({ el: k, o: [b.left - r.left, b.top - r.top, b.right - r.right, b.bottom - r.bottom], own: !!c && c !== 'none' && !cover.mine(k), st: null });   // alloc-rare: read with the page, never in a frame
@@ -845,14 +849,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const tn = reg?.tint ? (typeof reg.tint === 'function' ? reg.tint(g, cs) : reg.tint) : cs.getPropertyValue('--gl-tint');
         // (cv: the element its words are in, when that is not the glass itself (a callout's body, a sheet's paper): that one is cut, its box cvo px
         // off the glass's. cards.cover(g) names it; a callout's is its card, outer.)
-        const er = outer ? outer.getBoundingClientRect() : r, cv = cards.cover?.(g) || outer || null, tb = cv ? (cv === outer ? er : readBox(cv)) : null;
+        const er = outer ? outer.getBoundingClientRect() : r, cv = cards.cover?.(g) || outer || null, tb = cv ? (cv === outer ? er : boxNow(cv)) : null;
         const tc = cv ? readStyle(cv).clipPath : cs.clipPath;
         cssClip.set(cv || g, tc);
         const cvo = tb ? [tb.left - r.left, tb.top - r.top, tb.right - r.right, tb.bottom - r.bottom] : null;   // alloc-rare: read with the page, never in a frame
         // (A card with a clip of its own (not one the cover wrote): its parts, which the cover cuts in its place, glass-cover.js.)
         const kids = tc && tc !== 'none' && !cover.mine(cv || g) ? kidsOf(cv || g, g, r) : null;
         const also = alsoOf(g, r);
-        panes.push({ g, el, box: true, cv, cvo, kids, also, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow && !cdl ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
+        panes.push({ g, el, box: true, cv, cvo, kids, also, zs0: zk, zf: 1, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow && !cdl ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -1887,6 +1891,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       litNow.add(p.g);
       const L = p.live;
       L.a = a;
+      L.zf = (zoomRide.of(p.g)?.s ?? 1) / (p.zs0 || 1);   // (the offsets of its words and parts were read at the zoom the card had then; they grow with it, glass-cover.js)
       p.mx = mv.x; p.my = mv.y;   // (the motion it is drawn with: a morph that starts later leaves from here, morphFor)
       if (p.morph) { morphInto(L.r, p, performance.now(), mv.x, mv.y); copyRect(L.er, L.r); L.rad = p.rad; panes.push(L); continue; }
       if (p.zoomed) {

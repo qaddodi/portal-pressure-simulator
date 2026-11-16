@@ -199,7 +199,7 @@
   --mon-ecg: #43D98B;
   --mon-art: #FF6E62;
   --mon-free: #5CA4F2;
-  --mon-wedge: #DA7EDD;
+  --mon-wedge: #EDA100;
   --mon-ok: #34C38F;
   --mon-caution: #F0B43C;
   --mon-pv: #F0649E;
@@ -341,7 +341,7 @@
   --tr-pv: #B01E62;
   --tr-ppg: #8F6A00;
   --tr-hvpg: #4a3aa7;
-  --tr-wedge: #A52DA9;
+  --tr-wedge: #C98500;
   --tr-sin: #A52DA9;
   --tr-hv: #2A78D6;
   --tr-ra: #5B6270;
@@ -566,7 +566,7 @@
     --tr-pv: #F0649E;
     --tr-ppg: #FFD166;
     --tr-hvpg: #8466E8;
-    --tr-wedge: #DA7EDD;
+    --tr-wedge: #EDA100;
     --tr-sin: #DA7EDD;
     --tr-hv: #5CA4F2;
     --tr-ra: #B7B1A8;
@@ -813,7 +813,7 @@
   --tr-pv: #F0649E;
   --tr-ppg: #FFD166;
   --tr-hvpg: #8466E8;
-  --tr-wedge: #DA7EDD;
+  --tr-wedge: #EDA100;
   --tr-sin: #DA7EDD;
   --tr-hv: #5CA4F2;
   --tr-ra: #B7B1A8;

@@ -260,7 +260,7 @@ Blue-away, red-toward is the convention and stays. But after the 28 % softening 
 
 ### S5. Smaller screen items (low, S)
 
-- Over-time traces: dash the wedged trace (C4).
+- Over-time traces: never dashed (16 Nov 2026: a dash on a trace that scrolls marches with it and distracts). The wedged trace is amber, the portal pink, the free blue; `tests/no-dashed-traces.test.js` holds it.
 - The lobule's zones are nested hexagons at 17 to 20 % (`lobule-paint.js:284`) and read as a target; a radial gradient from the portal tracts to the central vein (the tissue shader, `tissue-gl.js`) reads as zonation.
 - The ascites belly (`.ab-belly`, `app.css:5049-5050`) is a CSS box with a gradient fill: the one in-card picture in this review drawn by the browser rather than the GPU. Hand it to the GPU inventory's owner (`docs/off-gpu-inventory.md`).
 

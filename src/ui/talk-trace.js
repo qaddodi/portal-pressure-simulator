@@ -7,7 +7,7 @@
 // between WHVP and FHVP shaded too (the HVPG), so "HVPG stayed flat" is a band that keeps its width. The stage names stand level over
 // the plot, the treatments are thin neutral bars under them (never a tint over the lines), the states of one visit share a bracket on
 // the time row and a break marks the time between visits, and two rows of readings under the plot (PV − WHVP, HVPG) replace the old
-// HVPG lane. WHVP is violet (--s7), not --tr-wedge: pink against orchid failed the palette check (normal-vision ΔE 9.9, the floor 15).
+// HVPG lane. WHVP is violet (--s7), not --tr-wedge, the HVPG's own colour on this chart and the curves; its FHVP stays a dashed neutral reference because the chart stands still (the dashes are on a line that does not scroll). On the strips that scroll the three are solid: portal pink, wedged amber, free blue.
 
 import { h, fmt, clamp } from './util.js';
 import { hvpgRate } from '../engine/pressure-cuts.js';
