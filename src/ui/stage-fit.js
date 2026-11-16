@@ -379,6 +379,7 @@ export function createFit(st, live) {
     applyVT(); live.CTM = null;
   }
   function setCircuitRotated(on) {
+    live.camLock?.release('turn');   // (the person's own move: a slide's move lets go of the camera, slide-cam.js)
     on = on ? 1 : 0;
     snapFresh();   // (the bars' boxes as they stand now: the turned map is fitted into the room they leave, and a stale snapshot left its bottom third under the play bar)
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }

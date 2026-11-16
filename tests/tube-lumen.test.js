@@ -16,7 +16,7 @@ const { EDGE_GLSL } = await import('../src/ui/edge.js');
 const { ENT_W } = await import('../src/ui/veins-bin.js');
 const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-math.js');
 const { shadeGLSL } = await import('../src/ui/veins-mesh-glsl.js');
-const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO, LYMPH_INK, lymphInkJS } = await import('../src/ui/tube-lumen-glsl.js');
+const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO, LYMPH_INK, lymphInkJS, lymphLayoutJS } = await import('../src/ui/tube-lumen-glsl.js');
 const { tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
 const { programs } = await import('../scripts/glsl-compile-list.mjs');
 
@@ -242,7 +242,29 @@ test('lymph with a stream is drawn as faint teal chevrons (the bile arrows\' hea
   assert.ok(lum(onD.ink) - lum(dark) > 0.45, 'a light head on a dark channel');
   // Teal in every look: the ink stays in the blue-green family on either channel (green and blue over red).
   for (const c of [onL.ink, onD.ink]) assert.ok(c[1] > c[0] && c[2] >= c[0], `teal: ${c}`);
-  assert.ok(LYMPH_INK.strength > 0.5 && LYMPH_INK.strength < 1, 'faint, but there');
+  assert.ok(LYMPH_INK.strength >= 0.9, 'as strong as the blood\'s heads');
+});
+
+// WCAG contrast of the head's ink on the channel's colour (the lobule's lymph ranges from a pale green on a light look to a deep one in the dark looks).
+test('lymph heads read: contrast on every channel colour, about 110 CSS px apart at every zoom, the blood\'s size on a channel of its own, and fitted to the rim of a Disse sleeve', () => {
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4), Y = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const ratio = (a, b) => { const x = Y(a), y = Y(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  for (const ch of [[0.88, 0.94, 0.86], [0.8, 0.9, 0.84], [0.7, 0.86, 0.78], [0.25, 0.3, 0.28], [0.12, 0.16, 0.15]]) {
+    assert.ok(ratio(lymphInkJS(ch).ink, ch) >= 3, `ink on ${ch}: ${ratio(lymphInkJS(ch).ink, ch).toFixed(2)}`);
+  }
+  for (const ch of [[0.88, 0.94, 0.86], [0.7, 0.86, 0.78]]) assert.ok(ratio(lymphInkJS(ch).ink, ch) >= 4.5, `a light channel: ${ratio(lymphInkJS(ch).ink, ch).toFixed(2)}`);
+  // Spacing: the lattice doubles by octaves, so the heads stand within a factor of two of the aim at every zoom (the finest lattice is the floor at a far zoom).
+  const base = 0.02 * 300;
+  for (const cpx of [0.05, 0.1, 0.2, 0.5, 1, 2]) {   // (the lobule is 300 world units across: at 2 it is 150 CSS px, far smaller than it is ever shown)
+    const l = lymphLayoutJS({ base, cpx, R1: 40 * cpx });
+    assert.ok(l.pitchCss >= LYMPH_INK.gapCss * 0.5 || base / cpx > LYMPH_INK.gapCss * 0.5, `cpx ${cpx}: ${l.pitchCss}`);
+    assert.ok(l.pitchCss <= LYMPH_INK.gapCss * 2.2 || cpx * LYMPH_INK.gapCss < base, `cpx ${cpx}: ${l.pitchCss}`);
+    assert.ok(l.hwCss >= 4 && l.hwCss <= 16, `cpx ${cpx}: head ${l.hwCss} css px`);
+  }
+  // A sleeve: the head fits its rim; a rim under about a pixel shows none.
+  const thin = lymphLayoutJS({ base, cpx: 1, pxW: 1, R1: 2.4, Ri: 2.0 }), wide = lymphLayoutJS({ base, cpx: 1, pxW: 1, R1: 8, Ri: 3 });
+  assert.equal(thin.shows, false); assert.equal(wide.shows, true);
+  assert.ok(wide.hw <= 5 && wide.hw > 4, `a rim of 5 carries a head of about its width: ${wide.hw}`);
 });
 
 test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the blood (it replaces the fill, so without them the shading never shows)', () => {

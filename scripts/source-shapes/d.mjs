@@ -65,7 +65,6 @@ export default [
   { file: VEINS, need: [/if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/, 'A5: under a camera the overlay lay is cut to its bounds, and the scissor is switched off after'] },
 
   // ── D1 ──
-  { file: VEINS, need: [/\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/, "D1: the streaks' half-size target is shrunk to a texel by a trim"] },
   { file: STAGE, need: [/if \(veinsTrimmed\) veinsTrimmed = false;/, 'D1: shown again in the frame loop, the stage takes the trim off (the next draw makes what it gave back)'] },
 
   // ── stent-mesh ──

@@ -491,7 +491,7 @@ export default [
   { file: 'src/worker-core.js', need: [/morph = null; stoppedAt = null;/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link (a new lapse starts clean)'] },
   { file: 'src/ui/main.js', need: [/if \(navigator\.serviceWorker\.controller\) \{\s*let offered = false;/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link'] },
   { file: 'src/ui/main.js', need: [/navigator\.serviceWorker\.addEventListener\('controllerchange', async \(\) => \{/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link'] },
-  { file: 'src/ui/main.js', need: [/if \(presenter\.active\(\)\) \{ setTimeout\(offer, 30000\); return; \}/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link (never in a talk)'] },
+  { file: 'src/ui/main.js', need: [/if \(presenter\.active\(\)\) \{ retry\(\); return; \}/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link (never in a talk)'] },
   { file: 'src/ui/main.js', need: [/script\[type="module"\]\[src\], link\[rel="stylesheet"\]\[href\]/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link (the hashed files this page began with)'] },   // (was a slice of the file)
   { file: 'src/ui/main.js', need: [/sw\.postMessage\('pps:files', \[ch\.port2\]\)/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link'] },   // (was a slice of the file)
   { file: 'src/ui/main.js', need: [/mine\.length > 0 && mine\.every\(\(u\) => e\.data\.includes\(u\)\)/, 'Production pass, batch E (31 Oct): the search card is a real combobox that keeps Tab inside it, a shared link (every one of them is in the new worker\'s list)'] },   // (was a slice of the file)
@@ -742,7 +742,7 @@ export default [
   { file: 'src/ui/lobule-zoom*', forbid: [/const qi = /, 'Fable review (16 Oct), graphics G18, G20, G21 and G22:'] },
   // slide-one-move
   { file: 'src/ui/presenter*', forbid: [/ONE_MOVE|QUICK_SLIDE|onemove|quickslide/, 'A slide change is one move (premium-feel R1):'] },
-  { file: 'src/ui/presenter*', need: [/const CARDS_AT = 0\.75, MORPH_ONE_MS = 1200;/, 'A slide change is one move (premium-feel R1):'] },
+  { file: 'src/ui/presenter*', need: [/const CARDS_AT = 1, MORPH_ONE_MS = 1200;/, 'A slide change is one move (premium-feel R1):'] },
   { file: 'src/ui/presenter*', need: [/const MORPH_MS = 2000;/, 'A slide change is one move (premium-feel R1): (the old window stays for a question\'s answer)'] },
   { file: 'src/ui/stage*', need: [/(?:live\.)?vtGliding = true; (?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?vtMs = ms;/, 'A slide change is one move (premium-feel R1):'] },
   { file: 'src/ui/stage*', need: [/glideLeft: \(\) => \((?:live\.)?vtGliding \|\| (?:live\.)?viewXf \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/, 'A slide change is one move (premium-feel R1):'] },
@@ -798,7 +798,7 @@ export default [
   { file: 'src/ui/stage*', need: [/return Math\.hypot\(px - it\.ax - ex \* t, py - it\.ay - ey \* t\) < 18; \}\)\) return;/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
   { file: 'src/ui/stage*', need: [/held = !moved && /, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
   { file: 'src/ui/stage*', need: [/obstacles\.some\(\(o\) => !\(it\.point && o\.probe\) && hits\(r, \{ x0: o\.x0 - 4, y0: o\.y0 - 4, x1: o\.x1 \+ 4, y1: o\.y1 \+ 4 \}\)\)\) return;/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
-  { file: 'src/ui/stage*', need: [/held \? \(ps\.clear \? \(it\.point && it\.col \? 5e3 : 1e5\) : 4\) : 0\)/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
+  { file: 'src/ui/stage*', need: [/held \? \(ps\.clear \? \(it\.point && it\.col \? 5e3 : 9e3\) : 4\) : 0\)/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
   { file: 'src/ui/stage*', need: [/if \((?:live\.)?mk && dop\.id && lineHits\(r, 3, \{ only: dop\.id \}\)\) return;/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
   { file: 'src/ui/stage*', need: [/const csw = sk > 0 \? `\$\{\(7 \/ sk\)\.toFixed\(2\)\}px` : ''/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },
   { file: 'src/ui/stage*', need: [/holes\.push\(\[x0, y0, x1, y1, -5 \* k\]\)/, 'TIPS Doppler\'s stent slides call out the stent\'s velocity at all three points (proximal, mid, distal), not onl'] },

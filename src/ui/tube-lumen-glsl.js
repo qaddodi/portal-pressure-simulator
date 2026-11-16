@@ -10,7 +10,7 @@
 // WHAT IS DIFFERENT FROM THE COMPOSITOR'S SECTION (on purpose, each said once):
 //   * `vis` is 1: the lumen's edge coverage is in the output's alpha, not a factor on the blood (the compositor divides it by the vessel
 //     pixel's alpha and uses it as the blood's strength; here the mix of the layer does that).
-//   * no second lumen (b = 0, rel = 0, mn = 0: the Tube has none), no half-size streak pass, no arrowheads (their quads draw them).
+//   * no second lumen (b = 0, rel = 0: the Tube has none), no arrowheads (their quads draw them).
 //   * `col` is the vessel's own colour here (vesAttrs: along its course, a recoloured stretch), not the shaded pixel of the vessel layer.
 //   * the clip range and the dotted rule are the lean shader's (a vessel drawing on has its round end; a dotted collateral has no lumen).
 //
@@ -19,15 +19,15 @@
 //   arc s   vI / 63 * (the row's length, tube texel 5 z): packFlow's gS = u * length, with u the place along the course
 //   across  the offset vG from the centreline point, taken against the segment's normal and signed as the vessel shader signs it
 //           (bx = cross(ba, p - a) / |ba|, which is cross(ba, vG) / |ba| because p - a differs from vG by a multiple of ba), over the
-//           row's radius here, clamped to -1..1: packFlow's gY. The radius is radAt(id, s, len), what the compositor hands bloodAt; for a
+//           row's radius here, clamped to -1..1: packFlow's gY. The radius is radAt(id, s, len), what the compositor hands the lymph and bile marks; for a
 //           strip it is vRad (both are the rad texels' radius, floored at 0.3).
 //
 // A WEB (S2-J: a fan filling the concave corner of a join): the brief expected its pixels to lie beyond the member's wall in across, but a web's
 // vG is not an offset from a centreline (it is the direction toward the fillet's centre, one unit long, tube-joint.js), so across / radius would
-// come out small and put a streak in the corner. A web is told by its vRad, which the contract makes 4 x its larger member's radius (a strip's
-// vRad is the radius radAt gives, to the float): vRad more than twice radAt's radius says "web", and its across is the wall (+1). bloodAt's wall
-// term `1 - smoothstep(0.7, 1.0, |y|)` is then 0, the glow along the axis (`glowCore * wall`) is 0 with it, so its alpha is 0 and a web's pixel
-// comes out the plain lumen colour, with the origin tint and the dye (which have no wall term) as the lumen beside it has.
+// come out small and put a mark in the corner. A web is told by its vRad, which the contract makes 4 x its larger member's radius (a strip's
+// vRad is the radius radAt gives, to the float): vRad more than twice radAt's radius says "web", and its across is the wall (+1). The lymph's and the
+// bile's marks end well inside the wall, so a web's pixel comes out the plain lumen colour, with the origin tint and the dye (which have no wall
+// term) as the lumen beside it has.
 //
 // K: the constants tubeLeanFS takes (veins-gl.js passes the same object): the vessel flags, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2,
 // ROW2_BITS, VEIL_K, EDGE (the edge softness's GLSL), ENT_W, N_SAMPLES (64), MAX_TIERS; K.PLAIN 1 for a build with no dye or origin colours.
@@ -36,7 +36,6 @@
 // (ent, organ, organRect, useOrgan, organK, invA, tOff, lOff, sizeF, netAlpha, tierAlpha, tierGroup, posBase). `tube` and `rad` come with
 // compLumenUniforms. The world size of a device pixel is pxW (the compositor's), not lean's `px`: the feed is the same number.
 import { shadeGLSL, F_RING } from './veins-mesh-glsl.js';
-import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL, JOIN_F_NOFADE } from './tube-join-glsl.js';
 import { celToneGLSL, CEL } from './tube-cel-glsl.js';
@@ -63,11 +62,15 @@ const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
  * lymph row, f0.y) and moving as the lymph does, toward the tract in the terminal lymphatics and out along the space of Disse.
  */
 export const LYMPH_INK = {
-  onLight: [0.0, 0.42, 0.5],   // the head on a light channel: a clear teal (the deep blue-green of 10 Nov read grey on the light sleeves)
+  onLight: [0.0, 0.3, 0.38],   // the head on a light channel: a deep teal (17 Nov: 6:1 on the pale sleeves; the first, 0.42/0.5, was 4:1 and small)
   onDark: [0.82, 0.96, 0.96],  // the head on a dark channel: pale cyan
   luma: [0.45, 0.6],     // the channel's luma (of vc): under the first it is dark (light head), over the second light (dark head), eased between
-  strength: 0.85,        // the heads' strength: faint, never faded out
-  across: [1.2, 1.6],    // the head's size rule, as the bile arrows': none on a channel under this many device px across (eased), full over the second
+  strength: 1.0,         // the heads' strength: as the blood's chevrons (16 Nov, Mohammad: "I don't see chevrons in the lymph"; at .85 and the bile arrows' size they were a few specks)
+  gapCss: 110,           // the spacing of the heads on screen, CSS px (the blood's is 130): the lattice doubles by whole octaves as the view zooms, the odd heads fading out as they go
+  octaves: 5,            // the lattice doubles at most this many times (the CPU's phase runs over base * 2 ** octaves, so a wrap shifts the lattice by a whole period of every octave)
+  size: [0.55, 0.85, 4, 16],  // the head's half width: this share of the channel's radius, at most the second share of it, at least 4 CSS px, at most 16
+  stretch: 1.0,          // a sleeve's head, along the flow: up to this much longer than it is tall when the rim is under 2 CSS px (to 6: the usual shape)
+  across: [0.9, 1.4],    // the head's size rule, as the bile arrows': none on a channel under this many device px across (eased), full over the second
 };
 
 /** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
@@ -95,9 +98,8 @@ ${JOIN_IN_GLSL}
 ${compLumenUniforms()}
 uniform int fx;                        // 1: shading (off in the figure view): the cel tones below
 uniform int blood;                     // 1: draw the blood
-uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
+uniform vec2 blendA;                   // 0..1 each: the chevrons and the origin colours fading in or out (switched on or off)
 uniform float flowA;                   // 0..1: how visible the moving blood is (it fades in once the view is still)
-uniform int still;                     // 1: reduced motion (blood-trouble.js freezes its swirl)
 uniform highp sampler2D ent;
 uniform sampler2D organ;               // organ covers (alpha), world space
 uniform vec4 organRect;                // world x, y, w, h of the organ texture
@@ -116,11 +118,10 @@ out vec4 outColor;                     // the lumen's colour × its coverage × 
 const float LAST = ${LAST}.0;
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ${ENT_W}, t / ${ENT_W}), 0); return (i & 1) == 0 ? v.xy : v.zw; }
-// (alongAt, radAt, the noise styles, bloodAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
+// (alongAt, radAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
 ${compLumenFns()}
 ${CHEV_GLSL}
 
-${TROUBLE_GLSL}
 
 ${fnText(shade, 'void vesAttrs(')}
 
@@ -206,7 +207,7 @@ void main() {
     float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
     // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
     vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originHere(id1, s1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3), p) * shade, vec3(1.0));
-    col = mix(col, oc, vis * blendA.z);
+    col = mix(col, oc, vis * blendA.y);
   }
   // The front lumen's flow, length, caliber here and own colour.
   vec4 f0 = vec4(0.0), f1 = vec4(0.0);
@@ -218,17 +219,8 @@ void main() {
       vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, alongAt(id1, clamp(s1 / len1, 0.0, 1.0)));
     }
   }
-  bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks)
+  bool isLy = f1.x < -0.5;   // (a lymph row: dashes or chevrons)
   bool isBi = f1.x < -1.5;   // (a bile row, lobule-bile.js bileFlowInto: arrowheads only)
-  if (blood == 1 && blendA.x > 0.0 && f1.z > 0.0 && !isLy) {
-    // Blood that shows trouble (V7, blood-trouble.js; style P only): a shimmer where the flow reverses, a jet and eddies at a narrowing. The place
-    // the streaks are drawn at is bent, their density (the flux) scaled; untroubled blood is (s1, y1, 1) and byte for byte as before.
-    vec4 tr = vec4(s1, y1, 1.0, 0.0);
-    if (bloodStyle == 3) { tr = troubleAt(id1, s1, y1, R1, len1, f0.y, f1.w > 0.5); f0.z *= tr.z; }
-    vec4 A = bloodAt(id1, tr.x, tr.y, col, f0, f1, len1, R1, vc1);
-    float a = A.a * (1.0 - castAt(id1, s1, len1));
-    if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
-  }
   if (blood == 1 && isBi && f1.z > 0.0) {
     // Bile (Mohammad, 16 Nov 2026: arrows "similar to the blood chevrons"; he picked the green of four inks): the blood's own head
     // (chevron-glsl.js chevHead) and its size rule (veins-gl.js chevAt: half the caliber, 4 to 8 CSS px, never wider than the duct), a
@@ -245,7 +237,7 @@ void main() {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the heads' phase, pitch, protein and theme in flow texel 0, and the CSS px in world units in f1.y. A row that
     // ALSO carries a stream in texel 7 (y: the signed speed, never 0, which says the way the lymph runs; y = 0: none) is drawn as teal chevrons. A row with none keeps the dashes.
     vec4 sd = texelFetch(flow, ivec2(7, id1), 0);
-    float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);   // (not blendA.x: the streaks' switch, which the lymph does not follow)
+    float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);
     if (sd.y != 0.0) {
       // Chevrons (Mohammad, 16 Nov 2026): the bile arrows' head and size rule, teal, moving as the lymph does. f0.x: the phase (world units, within one pitch,
       // advanced on the CPU; it grows toward the row's end), f0.y: the pitch, f1.y: world units per CSS px. sd.y (the stream's signed speed, never 0) says which
@@ -253,10 +245,23 @@ void main() {
       float cl = dot(vc1, vec3(0.299, 0.587, 0.114));
       float onLight = smoothstep(${f(LYMPH_INK.luma[0])}, ${f(LYMPH_INK.luma[1])}, cl);   // 1: a light channel, dark head; 0: a dark one, light head
       vec3 ink = mix(vec3(${LYMPH_INK.onDark.join(', ')}), vec3(${LYMPH_INK.onLight.join(', ')}), onLight);
-      float P = max(f0.y, 1.0), dirL = sd.y < 0.0 ? -1.0 : 1.0, cpx = max(f1.y, 1e-4);
-      float u = (fract((s1 - f0.x) / P) - 0.5) * P * dirL, ay = abs(y1) * R1;
-      float hw = min(0.8 * R1, clamp(0.5 * R1, 4.0 * cpx, 8.0 * cpx));
-      vec2 h = chevHead(u, ay, hw, pxW, 0.0) * smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(${f(LYMPH_INK.across[0])}, ${f(LYMPH_INK.across[1])}, R1 / max(pxW, 1e-3));
+      float base = max(f0.y, 1.0), dirL = sd.y < 0.0 ? -1.0 : 1.0, cpx = max(f1.y, 1e-4);
+      // The spacing: about gapCss CSS px on screen at every zoom, as the blood's heads are (chevLevel, chevKeep): the lattice of base doubles n times (n = the octave
+      // the view asks for); a head of the finer lattice that is not on the coarser one fades out as the view asks for the next octave, so none pops.
+      float lv = clamp(log2(max(${f(LYMPH_INK.gapCss)} * cpx / base, 1.0)), 0.0, ${f(LYMPH_INK.octaves)});
+      float n = floor(lv), P = base * exp2(n), q = (s1 - f0.x) / P, jj = floor(q);
+      float keep = mod(jj, 2.0) < 0.5 || n >= ${f(LYMPH_INK.octaves)} ? 1.0 : 1.0 - (lv - n);
+      // A Disse sleeve (sd.z: its sinusoid's row + 1, sd.w: how far along the sleeve that sinusoid starts) is drawn under the sinusoid, so only its rim shows: the head is
+      // laid on the sinusoid's wall (ay measured from it, the tip against the wall, the arms out across the rim, one each side) and fitted to the rim's width, longer
+      // than tall as the rim gets thin. A channel of its own (the terminal and tract lymphatics: sd.z 0) takes the whole width as before.
+      int sib = int(sd.z + 0.5) - 1;
+      float Ri = 0.0, rim = R1;
+      if (sib >= 0) { float ls = max(T(sib, 5).z, 1.0); Ri = min(radAt(sib, clamp(s1 - sd.w, 0.0, ls), ls), R1); rim = R1 - Ri; }
+      float stretch = sib >= 0 ? 1.0 + ${f(LYMPH_INK.stretch)} * (1.0 - smoothstep(2.0, 6.0, rim / cpx)) : 1.0;
+      float u = (q - jj - 0.5) * P * dirL / stretch, ay = max(abs(y1) * R1 - Ri, 0.0);
+      float hw = sib >= 0 ? min(0.95 * rim, ${f(LYMPH_INK.size[3])} * cpx)
+                          : min(${f(LYMPH_INK.size[1])} * R1, min(${f(LYMPH_INK.size[3])} * cpx, max(${f(LYMPH_INK.size[0])} * R1, ${f(LYMPH_INK.size[2])} * cpx)));
+      vec2 h = chevHead(u, ay, hw, pxW, 0.0) * keep * smoothstep(0.0, 0.5 * ${f(LYMPH_INK.gapCss)} * cpx, min(s1, len1 - s1)) * smoothstep(${f(LYMPH_INK.across[0])}, ${f(LYMPH_INK.across[1])}, rim / max(pxW, 1e-3));
       col = mix(col, ink, clamp(h.x * ${f(LYMPH_INK.strength)} * aLy * (1.0 - castAt(id1, s1, len1)), 0.0, 1.0));
     } else {
       float lc, lk;
@@ -327,6 +332,18 @@ export function lymphInkJS(vc) {
   const cl = 0.299 * vc[0] + 0.587 * vc[1] + 0.114 * vc[2];
   const lu = clamp((cl - L.luma[0]) / (L.luma[1] - L.luma[0]), 0, 1), onLight = lu * lu * (3 - 2 * lu);   // (a smoothstep in the channel's luma, not in time)
   return { ink: [0, 1, 2].map((i) => L.onDark[i] * (1 - onLight) + L.onLight[i] * onLight), onLight, strength: L.strength };
+}
+
+/**
+ * The lymph heads' layout for one place, as the GLSL works it out: the spacing along the channel (world units and CSS px), the head's half width and whether it shows.
+ * base: the row's pitch (flow texel 0 y), cpx: world units per CSS px, R1: the channel's radius, Ri: the sinusoid's radius under a Disse sleeve (0 for a channel of its own).
+ */
+export function lymphLayoutJS({ base, cpx, R1, Ri = 0, pxW = cpx }) {
+  const L = LYMPH_INK, rim = R1 - Ri, sleeve = Ri > 0;
+  const lv = clamp(Math.log2(Math.max(L.gapCss * cpx / base, 1)), 0, L.octaves), n = Math.floor(lv);
+  const pitch = base * 2 ** n, hw = sleeve ? Math.min(0.95 * rim, L.size[3] * cpx) : Math.min(L.size[1] * R1, Math.min(L.size[3] * cpx, Math.max(L.size[0] * R1, L.size[2] * cpx)));
+  const e = clamp((rim / pxW - L.across[0]) / (L.across[1] - L.across[0]), 0, 1);
+  return { pitch, pitchCss: pitch / cpx, hw, hwCss: hw / cpx, shows: e * e * (3 - 2 * e) > 0.5 && hw / cpx > 0.5 };
 }
 
 /** packFlow's arc and across, packed and unpacked in JS (the compositor's `float(g.y) / 16.0 - S_OFF` and `float(g.z) / 32767.5 - 1.0`). */

@@ -147,7 +147,7 @@ export function createTubePass(E) {
     UC.f1(P.u.zK, LV.zK); UC.f1(P.u.hK, LV.hK);   // (an unset uniform is 0, so every program is given both)
     UC.i1(P.u.joinCut, 1);   // (the lobule too, since 16 Nov 2026: its sinusoids' merges carry ends, F_ENDS in tube-data.js tubeRows; a row with none is as it was)
     UC.f1(P.u.hRef, LV.hRef); UC.f1(P.u.aaPad, 2 * px);
-    UC.f1(P.u.pxW, px);   // (the compositor's zoom numbers, ZOOM_VS, which the vertex shaders hand on as zoomA and zoomB: the world size of a device pixel)
+    UC.f1(P.u.pxW, px);   // (the world size of a device pixel, which the Tube's lumen shader reads as the compositor does)
   }
   // Stage 2's data for this frame (tube-stage2.js createStage2Data): the rows by tier, the webs, the buffers. The rows wholly outside the layer (the view: veins-gl.js layerView)
   // are left out of the buckets, so neither pass draws them (not while the change between the views moves the points).

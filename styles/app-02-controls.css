@@ -324,19 +324,19 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 /* (The same cue on the app's other switches, Settings' and the menus' (.mt-sw) first among them; each track is as wide as its thumb plus 4 px of travel.) */
 @media (prefers-reduced-motion: no-preference) {
   /* (The widening is a stretch on the compositor (scaleX from the edge it leaves), not a width laid out again: the same 4 px.) */
-  html.chip-open .switch input:active:not(:disabled) + span::after { transform: scaleX(1.25); }
-  html.chip-open .switch input:checked:active:not(:disabled) + span::after { transform: translateX(14px) scaleX(1.25); }
-  html.chip-open .lens-opt:active .mt-sw::after { transform: scaleX(1.3333); }
-  html.chip-open .lens-opt.on:active .mt-sw::after { transform: translateX(12px) scaleX(1.3333); }
-  html.chip-open .ac-toggle:active:not(:disabled) .switch-vis i { transform: scaleX(1.2857); }
-  html.chip-open .ac-toggle[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(12px) scaleX(1.2857); }
-  html.chip-open .ab-tg:active:not(:disabled) .switch-vis i { transform: scaleX(1.2222); }
-  html.chip-open .ab-tg[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(16px) scaleX(1.2222); }
-  html.chip-open .ab-dp-alb:active:not(:disabled) .switch-vis i { transform: scaleX(1.2857); }
-  html.chip-open .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(12px) scaleX(1.2857); }
+  html.press-fx .switch input:active:not(:disabled) + span::after { transform: scaleX(1.25); }
+  html.press-fx .switch input:checked:active:not(:disabled) + span::after { transform: translateX(14px) scaleX(1.25); }
+  html.press-fx .lens-opt:active .mt-sw::after { transform: scaleX(1.3333); }
+  html.press-fx .lens-opt.on:active .mt-sw::after { transform: translateX(12px) scaleX(1.3333); }
+  html.press-fx .ac-toggle:active:not(:disabled) .switch-vis i { transform: scaleX(1.2857); }
+  html.press-fx .ac-toggle[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(12px) scaleX(1.2857); }
+  html.press-fx .ab-tg:active:not(:disabled) .switch-vis i { transform: scaleX(1.2222); }
+  html.press-fx .ab-tg[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(16px) scaleX(1.2222); }
+  html.press-fx .ab-dp-alb:active:not(:disabled) .switch-vis i { transform: scaleX(1.2857); }
+  html.press-fx .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(12px) scaleX(1.2857); }
   @container (max-width: 300px) {
-    html.chip-open .ab-dp-alb:active:not(:disabled) .switch-vis i { transform: scaleX(1.3333); }
-    html.chip-open .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(10px) scaleX(1.3333); }
+    html.press-fx .ab-dp-alb:active:not(:disabled) .switch-vis i { transform: scaleX(1.3333); }
+    html.press-fx .ab-dp-alb[aria-checked="true"]:active:not(:disabled) .switch-vis i { transform: translateX(10px) scaleX(1.3333); }
   }
 }
 .switch input:disabled + span { opacity: .45; }

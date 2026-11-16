@@ -1,5 +1,9 @@
 // Pins moved out of source-regex tests (B6 slimming, 15 Nov 2026): each keeps its one-line reason. Pattern gone = the code it guarded changed: look before editing the rule.
 export default [
+  // label-dim-contrast (16 Nov 2026): one dim value for every label a slide does not light, 3:1 over the vessels
+  { file: 'styles/tokens.css', need: [/--label-dim: \.65;/, 'A dimmed label reads 3:1 over the vessels (tests/label-dim-contrast.test.js measures DIM_ALPHA, which equals this token)'] },
+  { file: 'styles/app-*.css', forbid: [/\.(?:spot-dim|unlit)[^{]*\{ opacity: \.35; \}/, 'A dimmed label takes var(--label-dim), never its own number'] },
+  { file: 'src/ui/sinusoid-view.js', forbid: [/\? 1 : 0\.35;/, 'A dimmed sinusoid name takes DIM_ALPHA (label-explain.js), never its own number'] },
   // slide-one-number (16 Nov 2026, play-test, Ascites: one value, one number on every screen)
   { file: 'src/ui/stage.js', need: [/import \{ breath \} from '\.\/slide-read\.js'/, 'One number on a slide (the anatomy\'s stations and the lobule share one tolerance, slide-read.js)'] },
   { file: 'src/ui/stage.js', forbid: [/const breath = /, 'One number on a slide (no second copy of the tolerance)'] },
@@ -75,7 +79,7 @@ export default [
   { file: 'src/ui/main.js', need: [/const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'styles/app-*.css', need: [/:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/frame.js', need: [/const figOpts = \{ move: 1, glow: 1, cap: capDefault,/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
-  { file: 'src/ui/frame.js', need: [/const capDefault = isPhone\(\) \? 0\.5 : 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the device default: 0.5 MP on a phone, 1.5 on a Mac and an iPad)'] },
+  { file: 'src/ui/frame.js', need: [/const capDefault = 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the default: 1.5 MP on every device, a phone too since 16 Nov 2026)'] },
   { file: 'src/ui/stage*', need: [/const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/stage*', need: [/const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/trace-gl.js', need: [/webglcontextrestored/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (trace-gl.js: no restore)'] },
@@ -167,8 +171,6 @@ export default [
   { file: 'src/ui/organs-gl.js', forbid: [/gl\.uniform[0-9A-Za-z]*\(U\./, 'Laptop-heat quick item Q2: a uniform is sent to the GPU only when its value is not the one the program already (the stack layer sets nothing around the cache)'] },
   // blood-shading-fast
   { file: 'src/ui/veins-gl.js', forbid: [/blood=classic|CLASSIC/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', need: [/blood\.look = 'shimmer';/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },
-  { file: 'src/ui/lobule-zoom*', need: [/blood\.look = b\.look \|\| 'shimmer'/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },
   { file: 'src/ui/veins-gl.js', need: [/outFlow = fl \? packFlow\(gId, gId2, gS, gY, gW, gB\) : uvec4\(0u\);/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-mesh-glsl.js', need: [/uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)

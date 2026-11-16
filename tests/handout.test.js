@@ -11,7 +11,8 @@ test('the notes handout has a row per slide with its notes and question, for eve
   for (const d of DECKS) {
     const html = handoutHTML(d);
     assert.equal(html.match(/<article/g).length, d.slides.length + (d.checks?.length ? 1 : 0), d.id);   // (the outline slide goes in the header; the quick check is added at the end)
-    for (const [q] of d.checks || []) assert.ok(html.includes(q.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')), `${d.id} check`);
+    for (const [q] of d.checks || []) assert.ok(q.includes('{') || html.includes(q.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')), `${d.id} check`);   // (a check with {x@id} numbers prints them from the model: no token is left in the page, below)
+    assert.doesNotMatch(html, /\{\w+@[\w-]+\}/, `${d.id}: a check's number token is read`);
     for (const s of d.slides) {
       if (s.notes) assert.ok(html.includes(esc(s.notes)), `${d.id}/${s.id} notes`);
       if (s.ask?.[0]) assert.ok(html.includes(s.ask[0].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')), `${d.id}/${s.id} ask`);

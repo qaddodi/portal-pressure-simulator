@@ -18,7 +18,7 @@ const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', '
 // A state's fingerprint (engine/fingerprint.js: the presenter builds the live model's from the same function).
 const fingerprint = (m, e) => fingerprintOf(m, {
   P: e.Pf || e.P, Q: e.Qf || e.Q, D: Float32Array.from(e.edges, (/** @type {{ id: string }} */ ed) => e.diameterShown(ed.id)), copy: true,
-  params: e.params, fluid: e.starling() });
+  params: e.params, fluid: e.starling(true) });   // (the shown means, as the metrics read them: the card's made, drained and net are one set of numbers)
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
 const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
@@ -90,6 +90,10 @@ function* stepExtras(e, st) {
 // over are cleared as a load clears them.
 const KEPT_MAX = 24;
 export const WARM_DT = 0.008, WARM_STEPS = 1500;   // (a loaded patient's run-in at the bedside clock: 12 s, the steps of the 4× clock, whose means differ by about 0.01 mmHg, see hemoStep)
+/** A settled model run at the bedside clock's own steps for WARM_STEPS (12 s): its beat and breath on, so the readings it gives are the shown means the live
+ *  figure holds. The quiet settle has neither, and its numbers sit 0.1 to 0.6 mmHg off (HVPG, PPG), MAP about 1: a slide's words said 7.7 where the live card
+ *  settled at 7.5 or 8.0 after about 20 s (play-test B12, 16 Nov 2026). Every state the page is handed (a slide's, a patient menu's) is read from here. */
+export function atBedside(e) { e.beat = true; for (let i = 0; i < WARM_STEPS; i++) e.step(WARM_DT); }
 const REFS = ['refP', 'refQ', 'Vbase'];
 function* loadPresetKept(e, kept, id, opts) {
   const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
@@ -519,6 +523,9 @@ export function createCore(post) {
         // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
         // Twelve seconds of the live clock's own steps, before the page is told, start it there.
         if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+        // The patient's starting state, for the History's events (events.js), is taken from where the patient now stands, after the run-in: taken before it, a reading a
+        // few tenths from its cut-off crossed it in the first seconds and "Ascites forming" fired on a patient that began with ascites (play-test, 16 Nov 2026).
+        if (beat) { eng.evState = {}; eng.evAvg = null; detectEvents(eng, true); eng.newEvents = []; }
       }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
@@ -629,7 +636,7 @@ export function createCore(post) {
       for (const id of ids || []) {
         const e = new Engine(), g = loadPresetKept(e, keptPresets, id, {});
         for (let n = g.next(); !n.done; n = g.next());
-        e.settle();
+        e.settle(); atBedside(e);
         result[id] = fingerprint(computeMetrics(e), e);
       }
       post({ type: 'presetMetrics', reqId, result });
@@ -642,7 +649,7 @@ export function createCore(post) {
     // A step with restart: true starts again from base (a fresh model without one): a chart's points, each its own change
     // from the slide's state (tool-curve.js).
     *sequence({ steps, base, reqId }) {
-      let e = new Engine();
+      let e = new Engine(), w = null;
       if (base) e.restore(base);
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
@@ -661,9 +668,12 @@ export function createCore(post) {
         // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
         // keys st.trail names, or (true) the portal pressure and flow.
         const tk = Array.isArray(st.trail) ? st.trail : ['pv', 'pvFlow'];
-        const at = (d, m) => { const f = fingerprint(m, e); return [d, ...tk.map((k) => f[k])]; }, trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        const vals = (m, eng) => { const f = fingerprint(m, eng); return tk.map((k) => f[k]); };
+        const at = (d, m) => [d, ...vals(m, e)], trail = st.trail && st.days ? [at(0, computeMetrics(e))] : null;
+        // (The chart's two ends are what the slide's tiles read, i.e. the bedside readings; the days between are the quiet model's, moved by the gap to each end in proportion.)
+        const gap0 = trail ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); const b = vals(computeMetrics(c), c); return b.map((v, j) => v - trail[0][j + 1]); })() : null;
         // start: a time-lapse with its own params plays from here (params set and settled, no day run yet), not from the slide before.
-        const start = st.fine && st.days && st.params ? { snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) } : null;
+        const start = st.fine && st.days && st.params ? (() => { const c = new Engine(); c.restore(e.snapshot()); atBedside(c); return { snap: c.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(c), c) }; })() : null;
         for (let done = 0; done < (st.days || 0);) {
           const n = fine ? 1 : Math.min(30, st.days - done);
           if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
@@ -672,17 +682,24 @@ export function createCore(post) {
           if (trail && done < st.days) trail.push(at(done, computeMetrics(e)));
         }
         if (st.preset || st.params || st.action || st.days) e.settle();
-        const m = computeMetrics(e);
-        if (trail) trail.push(at(st.days, m));
+        // (What the page is handed is read from a copy run at the bedside; the chain goes on from the settled model, so a slide's state never depends on the warm-up of the one before.)
+        const moved = !!(st.preset || st.params || st.action || st.days || st.relax || st.restart);
+        if (moved || !w) { w = new Engine(); w.restore(e.snapshot()); atBedside(w); }   // (a slide that changes nothing is the one before)
+        const m = computeMetrics(w);
+        if (trail) {
+          const last = at(st.days, computeMetrics(e)), gap1 = vals(m, w).map((v, j) => v - last[j + 1]);
+          trail.push(last);
+          for (const row of trail) { const u = row[0] / st.days; for (let j = 0; j < tk.length; j++) row[j + 1] += gap0[j] * (1 - u) + gap1[j] * u; }
+        }
         const extra = yield* stepExtras(e, st);
         // before: a slide that plays a procedure opens on its state with the procedure not done yet (st.before undoes it, settled on a
         // copy, so the chain goes on from the slide's own state).
         let before = null;
         if (st.before) {
-          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
+          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle(); atBedside(b);
           before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
         }
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
+        post({ type: 'seqStep', reqId, i, snap: w.snapshot(), base: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, w), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

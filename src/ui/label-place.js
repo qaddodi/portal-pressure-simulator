@@ -110,6 +110,17 @@ export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL 
   };
 }
 
+// Whether the box r stands in the lane the slide's mark leaves along from its narrowing (ox, oy; unit direction ux, uy): 10 to 150 px along it, within 46 px of its line.
+export function inLaneBox(lane, r) {
+  if (!lane) return false;
+  const { ox, oy, ux, uy } = lane, sx = Math.max(1, (r.x1 - r.x0) / 8), sy = Math.max(1, (r.y1 - r.y0) / 4);
+  for (let x = r.x0; x <= r.x1 + 0.01; x += sx) for (let y = r.y0; y <= r.y1 + 0.01; y += sy) {
+    const a = (x - ox) * ux + (y - oy) * uy;
+    if (a > 10 && a < 150 && Math.abs((y - oy) * ux - (x - ox) * uy) < 46) return true;
+  }
+  return false;
+}
+
 // The spots a label may be tried at around its station, as the offset of the label's centre, nearest ring first and each ring round from east (a station
 // with no room beside it on its eight directions: a reversed vein must be named, so it is tried all the way round, wholly on the stage, with a leader that
 // crosses no other label or leader). 13 Nov 2026: the left portal vein on a phone at the home framing, boxed in by the portal vein's, the right portal vein's

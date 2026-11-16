@@ -58,7 +58,7 @@ export const RECOMPENSATION = {
     },
     {
       id: 'recomp', tick: 'Off diuretics', params: { diuretics: false }, days: 60, cam: 'fit', data: 'tiles',
-      tool: { kind: 'criteria', title: 'Recompensation', lead: 'All three; row 2 for >6 months.', rule: 'Baveno VIII 7.4', rows: ['**Cause** removed, controlled or suppressed', ['No **ascites** off diuretics, no **HE** off prophylaxis, no variceal **rebleeding** (carvedilol allowed)', 'asc', '<', 0.15],
+      tool: { kind: 'criteria', title: 'Recompensation', lead: 'All three; row 2 for >6 months.', rule: 'Baveno VIII 7.4', rows: ['**Cause** removed, controlled or suppressed', ['No **ascites**, **HE** or **rebleeding** off treatment (carvedilol allowed)', 'asc', '<', 0.15],
         'Liver function back to **Child–Pugh A5 or A6**'] }, tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Baveno VIII criteria for recompensation',
       line: 'He is off diuretics, and ascites has not recurred on imaging. With the cause removed and Child–Pugh A5 or A6, this must last >6 consecutive months for recompensation.',

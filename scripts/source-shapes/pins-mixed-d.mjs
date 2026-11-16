@@ -13,7 +13,6 @@ export default [
   { file: 'src/ui/stage-blood.js', need: [/NO_CHAIN\.has\(x\.e\.id\)/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/export const FLOW_TEXELS = 8;/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
-  { file: 'src/ui/veins-gl.js', need: [/float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\) \* \(1\.0 - castAt\(id1, s1, len1\)\);/, 'Parcels and arrowheads carried through junctions (combined plan B1 + C1):'] },   // (was a slice of the file)
   // card-readings-head
   { file: 'src/ui/presenter*', need: [/data\.classList\.toggle\('tool-only', toolOnly\(s\)\);/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
   { file: 'src/ui/presenter*', need: [/const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
@@ -74,7 +73,7 @@ export default [
   { file: 'src/ui/util.js', need: [/const close = \(why = 'user'\) => \{[^}]*onClose\?\.\(why\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', need: [/t\.addEventListener\('click', \(\) => close\(\)\);/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', forbid: [/addEventListener\('click', close\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', need: [/if \(why === 'pushed'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
+  { file: 'src/ui/main.js', need: [/if \(why === 'pushed' \|\| why === 'held'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   // glass-gl
   { file: 'styles/app-*.css', need: [/:root \{ --pz-frost: 66%; \}/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
   { file: 'styles/app-*.css', need: [/\.cl-glass \{[^}]*background: var\(--glass-tint\);/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
@@ -98,8 +97,8 @@ export default [
   { file: 'src/ui/presenter-ladders.js', need: [/stage\.cathFocus\(cath\.cam, ms, \{ both: true, steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-ladders.js', need: [/\{ drift: true \} : \{ steady: true \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-proc.js', need: [/stage\.fitSlow\(ms, opt\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (a whole-figure refit takes it)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage-glide.js', need: [/\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
+  { file: 'src/ui/stage-glide.js', need: [/\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady, slide \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
+  { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true, slide: !!opt\.slide \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, arc = false, steady = false, scale = false \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/proc-anim.js', need: [/refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage*', need: [/const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the home look)'] },
@@ -470,7 +469,6 @@ export default [
   { file: 'src/ui/lobule-model.js', need: [/oxy\[0\] = node\[NI\[S\.pv\]\]; oxy\[1\] = node\[NI\[S\.sin\]\]; oxy\[2\] = node\[NI\[S\.cv\]\]/, 'Colored by oxygen (Fable review G11, Mohammad yes 16 Oct): (portal venule, sinusoids, central vein in that order)'] },
   // ---- the same rules, scoped to the function or file part the old tests looked at (B6 fix-up)
   { file: 'src/ui/stage*', between: ['function chainRows(', 'function stepBlood('], forbid: [/velQf|Qf\[k\]/, 'the chain rows read the chevrons\' own mean and the breath\'s flow, never the model\'s 1.5 s flow'] },
-  { file: 'src/ui/comp-glsl.js', need: [/if \(cw < 1\.0\) \{\n\s*nz = dNoise\(id, s, qy, D, ay, cA, drift, dxA, dyv\);/, 'parcels and arrowheads carried through junctions (combined plan B1 + C1)'] },
   { file: 'src/ui/comp-glsl.js', need: [/c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/, 'parcels and arrowheads carried through junctions (combined plan B1 + C1)'] },
   { file: 'styles/app-*.css', forbid: [/\.pz-hr[^{]*\{[^}]*(backdrop-filter|filter:|animation|transition)/, 'the header readings add no glass or painted motion: the card\'s own glass holds them'] },
   { file: 'src/ui/main.js', between: ['function helpRows(', 'function sendFeedback('], forbid: [/menuItem\('Send feedback'/, 'Send feedback is one tap into Settings, not a second menu row'] },

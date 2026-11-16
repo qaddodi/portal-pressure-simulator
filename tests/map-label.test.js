@@ -9,13 +9,14 @@ import { lineText } from '../src/ui/handout.js';
 import { bpText } from '../src/ui/vital-read.js';
 import { TILE, numName } from '../src/ui/table-marks.js';
 
-const FP = { map: 92.6, sbp: 119.6, dbp: 78.2 };
+// (The printed mean follows the printed pair: 78 + (120 − 78) / 3 = 92, one formula everywhere.)
+const FP = { map: 92.1, sbp: 119.6, dbp: 78.2 };
 
 test('{map} in a slide\'s words is the bedside blood pressure, mean in parentheses', () => {
-  assert.equal(valueText('map', FP), '120/78 (93) mmHg');
-  assert.equal(valueText('map', FP, true), '120/78 (93) mmHg', '{map:0} too');
-  assert.equal(lineText('His blood pressure is {map}.', FP), 'His blood pressure is 120/78 (93) mmHg.');
-  assert.equal(lineText('From {map@a} to {map}.', FP, () => ({ map: 79.4, sbp: 100, dbp: 61 })), 'From 100/61 (79) mmHg to 120/78 (93) mmHg.');
+  assert.equal(valueText('map', FP), '120/78 (92) mmHg');
+  assert.equal(valueText('map', FP, true), '120/78 (92) mmHg', '{map:0} too');
+  assert.equal(lineText('His blood pressure is {map}.', FP), 'His blood pressure is 120/78 (92) mmHg.');
+  assert.equal(lineText('From {map@a} to {map}.', FP, () => ({ map: 79.3, sbp: 110, dbp: 64 })), 'From 110/64 (79) mmHg to 120/78 (92) mmHg.');
 });
 
 test('a mean with no systolic or diastolic is named MAP, never "blood pressure" alone', () => {

@@ -12,6 +12,7 @@ import { wordsOf } from './live-text.js';
 import { reduceMotionMQ as reduce } from './motion.js';
 import { cancelRest, restPass } from './rest-pass.js';
 import { EXT, safe } from './slide-ext.js';
+import { checkText } from './presenter-words.js';
 import { SHORT_SIDE_MQ, STACK_MQ, TABLET_UP_MQ, clamp, h } from './util.js';
 
 export function createZoom(st, live) {
@@ -29,8 +30,8 @@ export function createZoom(st, live) {
       const li = h('li', {}, h('button', { type: 'button', class: 'pzc-q', 'aria-expanded': 'false', 'aria-controls': `pzc-a${k}`,
         // (the answer slides down out from under its question and the rest of the list with it, by transform: fold-slide.js)
         onclick: (e) => { const on = !li.classList.contains('open'); e.currentTarget.setAttribute('aria-expanded', String(on)); slideFold({ item: li, inner: li.querySelector('.pzc-a > p'), root: li.parentElement?.parentElement, open: on, set: (v) => li.classList.toggle('open', v), ms: D_SURFACE }); } },
-      h('span', { class: 'pzc-t' }, q), h('span', { class: 'pzc-hint', 'aria-hidden': 'true' }, 'Show answer')),
-      h('div', { class: 'pzc-a', id: `pzc-a${k}` }, h('p', {}, a)));
+      h('span', { class: 'pzc-t' }, checkText(q)), h('span', { class: 'pzc-hint', 'aria-hidden': 'true' }, 'Show answer')),
+      h('div', { class: 'pzc-a', id: `pzc-a${k}` }, h('p', {}, checkText(a))));
       return li;
     })),
     outline: (s) => h('div', { class: 'pz-outline' },

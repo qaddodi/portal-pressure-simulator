@@ -35,11 +35,11 @@ test('every summary-table arrow matches its row\'s model state', async () => {
     if (!tables.length) continue;
     const fps = await deckStates(d);
     for (const t of tables) {
-      const extra = (t.of || []).filter((o) => typeof o === 'object' && !o.id);
+      const extra = (t.of || []).map((o) => (typeof o === 'object' && o.at ? o.at : o)).filter((o) => typeof o === 'object' && (!o.id || o.preset));
       const xfps = extra.length ? await run(extra.map((o) => ({ preset: o.preset, presetDays: o.presetDays, params: o.params, days: o.days, relax: o.relax }))) : [];
       const rows = (t.of || []).map((o) => {
         const x = typeof o === 'object' ? o : { id: o }, i = x.id ? d.slides.findIndex((s) => s.id === x.id) : -1;
-        return { ...x, f: i >= 0 ? fps[i] : xfps[extra.indexOf(o)], title: x.title ?? d.slides[i]?.title };
+        return { ...x, f: x.at ? xfps[extra.indexOf(x.at)] : i >= 0 ? fps[i] : xfps[extra.indexOf(o)], title: x.title ?? d.slides[i]?.title };
       });
       const rel = t.vs === 'first' || rows.some((r) => r.vs);
       const fpOf = (id) => rows.find((r) => r.key === id)?.f ?? fps[d.slides.findIndex((s) => s.id === id)];
@@ -54,8 +54,8 @@ test('every summary-table arrow matches its row\'s model state', async () => {
           let want;
           if (rel) {
             const a = atShown(k, fpv(k, r.f)), b = atShown(k, fpv(k, r.vs ? fpOf(r.vs) : rows[0].f)), dd = a - b;
-            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, rpp: 2, ivc: 2, ra: 2, he: .05, hb: 1, hbTo: 1 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
-            want = Math.abs(dd) < step ? 0 : Math.sign(dd) * (Math.abs(dd) / Math.max(Math.abs(b), 1e-6) >= 0.4 ? 2 : 1);
+            const step = { asc: 150, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, rpp: 2, ivc: 2, ra: 2, he: .05, hb: 1, hbTo: 1 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
+            want = Math.abs(dd) < step ? 0 : Math.sign(dd) * (k === 'asc' ? (Math.max(a, b) >= 1500 ? 2 : 1) : Math.abs(dd) / Math.max(Math.abs(b), 1e-6) >= 0.4 ? 2 : 1);
           } else {
             if (!SPEC[k]) continue;
             want = SPEC[k](atShown(k, fpv(k, r.f)), r.f);

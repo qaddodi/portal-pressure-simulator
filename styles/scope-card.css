@@ -14,7 +14,7 @@
    its phase: idle, run, hold). The side card's and the phone's layouts below lay the panel over the picture. The bottom dock (no card laid out here) shows it in the
    pane for the same phases and fades it in and out as a display change (allow-discrete). Only opacity moves; Reduce Motion keeps the fade (app.css: transitions keep
    opacity). 15 Nov 2026: the panel used to stay after the run, over the scope, with nothing to close it. */
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { display: none; opacity: 0; transition: opacity var(--d-small) var(--ease), display var(--d-small) allow-discrete; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { display: none; opacity: 0; transition: opacity var(--d-small) var(--ease), display var(--d-small) var(--ease) allow-discrete; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg:is([data-state="run"], [data-state="hold"]) .eus-panel { display: grid; gap: 8px; opacity: 1; cursor: default; }
 @starting-style { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg:is([data-state="run"], [data-state="hold"]) .eus-panel { opacity: 0; } }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg[data-state="hold"] .eus-panel { cursor: pointer; }

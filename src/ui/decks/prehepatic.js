@@ -16,7 +16,7 @@ export const PREHEPATIC = {
     ['Why is the HVPG normal in PVT?', 'The thrombus is prehepatic. The WHVP reflects the normal sinusoidal pressure downstream of it.'],
     ['Which measurement shows the resistance?', 'The PPG: portal vein pressure minus IVC pressure.'],
     ['What comes before anticoagulation in cirrhosis?', 'Prophylaxis of variceal bleeding, with carvedilol if tolerated; it must not delay anticoagulation.'],
-    ['After six months of anticoagulation the PPG falls from 27 to 4 mmHg and the HVPG stays at 2 mmHg. What moved?', 'The portal vein recanalized, so the prehepatic resistance fell. The resistance was never sinusoidal, so the HVPG did not change.'],
+    ['After six months of anticoagulation the PPG falls from {ppg@clot} to {ppg@anticoag} and the HVPG stays at {hvpg@anticoag}. What moved?', 'The portal vein recanalized, so the prehepatic resistance fell. The resistance was never sinusoidal, so the HVPG did not change.'],
   ],
   summary: 'Prehepatic resistance from PVT: acute thrombosis on Doppler, the normal HVPG and high PPG, cavernous transformation months later, and partial PVT in cirrhosis from diagnosis to 6 months of anticoagulation.',
   slides: [
@@ -111,7 +111,7 @@ export const PREHEPATIC = {
       compare: [{ label: 'Pressure', lens: 'pressure', own: true }, { label: 'Pressure drop', short: 'Drop', lens: 'drop' }],
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
       kicker: 'PVT in cirrhosis', site: 'pre', title: 'HVPG stays near its baseline while the PPG rises',
-      line: 'Thrombus fills over half the lumen. The WHVP reflects the sinusoids downstream, so the HVPG stays near {hvpg}; the model\'s PPG rises to {ppg}, higher than typical.',
+      line: 'Thrombus fills over half the lumen. The WHVP reflects the sinusoids downstream, so the HVPG stays near {hvpg} and the PPG rises to {ppg}.',
       notes: 'On ultrasound a partial thrombus is echogenic material in the lumen, with color flow around it and a higher velocity through the narrowed segment (the portal vein velocity tile reads it); an occlusive thrombus shows no flow. Contrast CT or MRI follows: first to exclude tumor thrombus from HCC, which enhances in the arterial phase and expands the vein, then to map extension into the splenic and superior mesenteric veins, which guides treatment. In cirrhosis the HVPG measures the sinusoidal component of the resistance. PVT adds a second, prehepatic site of resistance that only direct portal pressure measurement detects, so the HVPG underestimates portal pressure, and a TIPS gradient is measured from the portal vein itself. Tap Pressure drop: a second large drop appears at the thrombus, in addition to the sinusoidal one. The varices enlarge as the pressure upstream of the thrombus rises.',
       ask: ['A patient with cirrhosis has partial PVT and an unchanged HVPG. Does that exclude the thrombus?', 'No: the thrombus is prehepatic, so the HVPG cannot detect it. The PPG, from direct portal pressure measurement, does.'],
     },

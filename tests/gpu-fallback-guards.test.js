@@ -71,7 +71,7 @@ test('the stage runs the blur guard at start, on a changed renderer and on Batte
   assert.match(src('tests/e2e/visual.mjs'), /'\?preset=cirr-decomp' \+ KEEP_BLUR \+ QUERY/);
 });
 
-test('Pixel budget (8 MP until 11 Nov 2026, 2 MP then, now 1.5 MP, 0.5 on a phone): the default, the figure canvas and its full-density overlay canvas', () => {
+test('Pixel budget (8 MP until 11 Nov 2026, 2 MP then, now 1.5 MP on every device): the default, the figure canvas and its full-density overlay canvas', () => {
   // (A 5K screen at 2x: 2560 x 1440 CSS px.)
   const d = capDensity(2, 2560, 1440, 8);
   assert.ok(Math.abs(2560 * 1440 * d * d - 8e6) < 1);

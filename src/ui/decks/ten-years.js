@@ -71,7 +71,7 @@ export const TEN_YEARS = {
       ask: ['When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
-      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
+      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.9], albumin: [4, 2.6] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
       line: 'Four more years of liver injury: the HVPG is {hvpg}, serum albumin {salb}, and {asc} of ascites has accumulated despite carvedilol. Refer him for liver transplant evaluation now.',
@@ -117,10 +117,10 @@ export const TEN_YEARS = {
       ask: ['A man rebleeds on carvedilol and repeat banding. Is TIPS considered?', 'Yes. Baveno VIII 4.13 says to consider a TIPS when bleeding continues despite secondary prophylaxis.'],
     },
     {
-      id: 'tips', tick: 'TIPS', milestone: 'TIPS', params: { tips: { on: true, d: 8 } }, procedure: { kind: 'tips', then: 'tipsgrad' }, cam: 'liver', tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'rebleed',
+      id: 'tips', tick: 'TIPS', milestone: 'TIPS', params: { tips: { on: true, d: 8 } }, procedure: 'tips', cam: 'liver', tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'rebleed',
       kicker: 'Year 9', site: 'sin', title: 'TIPS when secondary prophylaxis fails',
       line: 'A covered TIPS lowers the PPG to {ppg}. The cost is portal perfusion: sinusoidal flow falls to {liver} of normal, most of it now from the hepatic artery.',
-      notes: 'Baveno VIII advises considering a TIPS for bleeding despite secondary prophylaxis with carvedilol and banding (4.13). The stent creates a channel from the portal vein to a hepatic vein, so the gradient falls below the level at which varices bleed. The cost is the fraction of portal blood that bypasses the liver, and with it a risk of hepatic encephalopathy. Step 5 measures the gradient across the new stent: the same catheter records portal pressure through the stent, is withdrawn to the IVC at the level of the hepatic veins, and records again. With a post-TIPS PPG <12 mmHg, a beta-blocker is not required (AASLD 2024). The measurement just after the procedure can be affected by general anesthesia and vasoactive drugs (Baveno VIII), so it may not reflect the long-term gradient.',
+      notes: 'Baveno VIII advises considering a TIPS for bleeding despite secondary prophylaxis with carvedilol and banding (4.13). The stent creates a channel from the portal vein to a hepatic vein, so the gradient falls below the level at which varices bleed. The cost is the fraction of portal blood that bypasses the liver, and with it a risk of hepatic encephalopathy.',
       ask: ['What does a TIPS cost the liver?', 'Most of its portal perfusion, which now bypasses the liver through the stent. The hepatic arterial buffer response makes up part of the loss.'],
     },
     {
