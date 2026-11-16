@@ -18,7 +18,7 @@ import { sheetPanes } from './sheet-glass.js';
 import { figureHooks } from './slide-ext.js';
 import { instrumentOf } from './slide-instrument.js';
 import { createScope } from './slide-txn.js';
-import { store, setViewKey } from './store.js';
+import { store, replaceParams, setViewKey } from './store.js';
 import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 
@@ -224,7 +224,7 @@ export function createStart(st, live) {
   const fontsIn = () => (document.fonts?.load
     ? Promise.race([Promise.all(['400 16px Inter', '600 16px Inter', '600 32px "Source Serif 4"'].map((f) => document.fonts.load(f, 'Aāαἀ').catch(() => {}))), wait(1500)])
     : null);
-  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
+  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient and clock too, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
@@ -349,8 +349,8 @@ export function createStart(st, live) {
     // (The talk is over: a reload, or a tab the phone discarded and brings back, must not start it again from the link that opened it.)
     if (restore) { try { const u = new URL(location.href); if (u.searchParams.has('script')) { u.searchParams.delete('script'); u.searchParams.delete('slide'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch (e) { caught('presenter:5785', e); /* no history here */ } }
   }
-  // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
-  // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
+  // When the show ends, the app returns to the patient the viewer started from (16 Nov 2026; it was the healthy preset): that patient and
+  // clock, anatomy view framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
   // lobule layers they chose) stay as they were. The figure dims softly while the patient changes, as between slides, so nothing pops.
   // (A talk started meanwhile takes over: healthyGen moves on, and this return stops at its next step, the figure easing back
   // to full rather than staying dimmed or turning healthy under the new talk; motion review round 2, RF5.)
@@ -365,8 +365,18 @@ export function createStart(st, live) {
     if (st.lobule) { setViewKey('anatomy'); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
     if (store.get().view !== 'anatomic') { setViewKey('anatomy'); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
-    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
-    await loadPreset?.('healthy');
+    // The patient the viewer had before the talk comes back, with the model's clock (16 Nov 2026, play-test: Esc, the ✕ or Finish dropped a viewer who had
+    // picked Decompensated cirrhosis onto Healthy at 0:03). Every way a talk ends goes through here (stop). Only a viewer with no snapshot
+    // (a talk opened on a link, before any patient was captured) lands on the healthy preset.
+    if (b.snap && b.params) {
+      host.send({ type: 'restore', snap: b.snap });
+      replaceParams(structuredClone(b.params));
+      store.set({ presetId: b.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1, speed: b.speed || 1, lastHVPG: b.lastHVPG ?? null, hvpgMeasured: !!b.hvpgMeasured });
+      host.send({ type: 'run', running: b.running !== false, clock: b.clock || 'hemo', speed: b.speed || 1 });
+    } else {
+      host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+      await loadPreset?.('healthy');
+    }
     if (gone()) return;
     stage.fitSlow(reduce.matches ? 0 : 700);
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); if (me === healthyGen) view.style.transition = ''; }
