@@ -6,6 +6,7 @@ import { nb } from './glue.js';
 import { readMetric, readStyle } from './layout-snap.js';
 import { fadeMs as fadeLen, reduceMotionMQ as reduce } from './motion.js';
 import { liveFp } from './presenter-cards.js';
+import { rich } from './presenter-words.js';
 import { glideOpacity, glideStop, glideTranslate } from './script-glide.js';
 import { figureHooks } from './slide-ext.js';
 import { store } from './store.js';
@@ -55,8 +56,25 @@ export function createCase(st, live) {
     const i = live.slides.indexOf(s), base = i > 0 ? live.refOf({ delta: s.hvpgResp }, i)?.hvpg : null;
     return base > 0 && f.hvpg != null ? { ...f, hvpgFall: ((base - f.hvpg) / base) * 100, respFrom: base, respAt: tileShown('hvpg', f.hvpg) } : { ...f, hvpgFall: null, respFrom: null, respAt: null };
   }   // (a ladder already brackets the HVPG and PPG: tiles there would repeat them, rounded differently)
+  // The words' numbers ride the days as the tiles do (play-test B23, 16 Nov 2026: the sentence read the end state from the first frame while its chart
+  // and tiles were still at the start). The line is typeset from the state the days start from (presenter.js wordsIn); each step gives its pills the
+  // live reading, and the last lands them on the end state's, so no number jumps. Only the pills' text, tone and rate change: the card keeps its fit.
+  function chipsTo(s, f) {
+    const line = s.line && f && live.ui?.text.querySelector('.pz-line');
+    if (!line) return;
+    const have = line.querySelectorAll('.pz-val'), to = h('p', {}, ...rich(s.line, s, f, !!store.get().params?.tips?.on)).querySelectorAll('.pz-val');
+    if (!have.length || have.length !== to.length) return;
+    have.forEach((el, k) => {
+      const n = to[k];
+      if (el.textContent !== n.textContent) el.textContent = n.textContent;
+      if (el.className !== n.className) el.className = n.className;
+      if (el.style.cssText !== n.style.cssText) el.style.cssText = n.style.cssText;
+      if (el.dataset.rate !== n.dataset.rate) { if (n.dataset.rate) el.dataset.rate = n.dataset.rate; else delete el.dataset.rate; }
+    });
+  }
   function dataTo(s, f, ref, ms) {
     if (!live.ui) return;
+    if (s.lapse) chipsTo(s, f);
     if (s.data) live.ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on, true);   // (live: held while the card moves, R19)
     live.ui.tools.pin(f); live.ui.scope?.pin(f);   // (an instrument's reading is the tiles' number, the scope view's too)
     // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)

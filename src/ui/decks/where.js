@@ -84,7 +84,7 @@ export const WHERE = {
     {
       // (Cases 2 and 5 share their HVPG and PPG; the Doppler of the portal trunk tells them apart. Case 5 is the slide's own patient and a button eases to case 2.)
       id: 'doppler', preset: 'schisto', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvVel', 'ppg'], key: ['pvVel'],
-      compare: [{ label: 'Case 5', own: true }, { label: 'Case 2', preset: 'pvt-chronic' }],
+      compare: [{ label: 'Case 5', own: true }, { label: 'Case 2', preset: 'pvt-chronic', same: true }],
       kicker: 'Telling them apart', title: 'Doppler of the portal vein tells cases 2 and 5 apart',
       line: 'Cases 2 and 5 have the same HVPG and PPG. The portal vein has flow in case 5 (schistosomiasis) and none in case 2 (portal vein thrombosis).',
       notes: 'Source: Baveno VIII 9.2; AASLD 2024 Table 1. Doppler ultrasound is the first-line test for portal vein thrombosis: solid material in the vein, or a network of porto-portal collaterals that suggests a cavernoma (Baveno VIII 9.2). In case 2 the trunk is thrombosed, so Doppler shows no flow and a cavernoma carries portal flow around it. In case 5 the trunk is patent and the resistance lies in the portal venules. AASLD 2024 Table 1 places portal vein thrombosis at the prehepatic level and schistosomiasis at the presinusoidal level. Neither Baveno VIII nor AASLD 2024 gives Doppler cut-offs for this.',
@@ -93,8 +93,8 @@ export const WHERE = {
     {
       // (The pressure ladder of each case, one at a time: patient buttons run through the six cases. The IVC web and the heart raise the IVC pressure the PPG subtracts.)
       id: 'causes', preset: 'csph', cam: 'fit', tool: { kind: 'profile' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
-      compare: [{ label: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true }, { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' },
-        { label: 'IVC web', preset: 'ivc-web' }, { label: 'Pericarditis', short: 'Heart', preset: 'constrictive' }],
+      compare: [{ label: 'Clot', preset: 'pvt-chronic', same: true }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto', same: true }, { label: 'Cirrhosis', own: true }, { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos', same: true },
+        { label: 'IVC web', preset: 'ivc-web', same: true }, { label: 'Pericarditis', short: 'Heart', preset: 'constrictive', same: true }],
       kicker: 'Telling them apart', title: 'The pressure falls in a different place in each case',
       line: 'The pressure falls where the resistance lies. In the IVC web and constrictive pericarditis the raised IVC pressure is subtracted, so the PPG misses them.',
       notes: 'Tap a case to see its pressure from gut to heart. The line falls steeply where the resistance is: in the sinusoids in cirrhosis, just after them in sinusoidal obstruction, in the portal venules in schistosomiasis, and across the thrombus in portal vein thrombosis. The IVC web and constrictive pericarditis raise the IVC pressure that the PPG subtracts, so the PPG is normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies.',

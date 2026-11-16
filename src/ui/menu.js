@@ -177,6 +177,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, onFromReadin
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
     const li = h('li', {}, row, info);
     hoverable(row, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), 'present');
+    if (!script) for (const ev of ['pointerenter', 'focus', 'pointerdown']) row.addEventListener(ev, () => lib.warm?.(d.id), { passive: true });   // (the deck's patients are worked out behind the menu, so the press finds them: presenter.js warm)
     if (mark && mark === d.id) li.classList.add('um-new');
     return li;
   }

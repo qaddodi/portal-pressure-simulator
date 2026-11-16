@@ -117,6 +117,16 @@ export function eventScales(spec, b, end = null) {
   return best ? best.S : sc;
 }
 
+/** Where the goal's name ("Target <12") goes in its band: [x, anchor, baseline y]. Under the band's edge at the left, where the lines run flat at their starting
+ *  levels, else at the right, where they end, else low in the band (if it is tall enough): the first spot no line stands in. starts and ends: the y of each
+ *  line's level there. Play-test B12, 16 Nov 2026: it sat on the varix's line. */
+export function goalSpot(L, R, f, edge, bottom, starts, ends = starts) {
+  const free = (levels, yb) => levels.every((v) => v < yb - 1.1 * f || v > yb + 0.4 * f);
+  const spots = [[L + 0.5 * f, 'start', edge + 1.0 * f, starts], [R - 0.5 * f, 'end', edge + 1.0 * f, ends], [L + 0.5 * f, 'start', bottom - 0.5 * f, starts], [R - 0.5 * f, 'end', bottom - 0.5 * f, ends]];
+  const at = spots.find(([, , yb, lv], i) => (i < 2 || bottom - edge >= 2.6 * f) && free(lv, yb)) || spots[0];
+  return at.slice(0, 3);
+}
+
 // ── The chart ──
 const sv = svgModel;
 const FT_MIN = 12;   // (px on the screen: the smallest its words are drawn, as flow-time's)
@@ -130,7 +140,7 @@ export function createEventGraph() {
   const el = document.createElement('div');
   el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: the flow-time chart's, flow-time.js)
   const gl = createSvgGL(el, { host: 'flowtime' });
-  let spec = null, before = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
+  let spec = null, before = null, endv = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
   // (The points after the change: [t, lower, upper] in the printed units, n of them; on: the change has happened.)
   const pts = new Float64Array(3 * CAP);
   let n = 0, on = false;
@@ -185,7 +195,10 @@ export function createEventGraph() {
           : sv('line', { class: 'cut', 'data-look': 'plot.grid.line', 'data-rate': c.rate, x1: L, x2: R, y1: y, y2: y }));
         // (The goal's name inside its band, under its edge, where the band is tall enough; else its number in the margin, green.)
         const zoneH = l.Y(sc.min) - y;
-        if (tgt && zoneH >= 1.25 * f) marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: L + 0.5 * f, y: y + 1.0 * f }, `Target <${fmtN(c.v)}`));
+        if (tgt && zoneH >= 1.25 * f) {
+          const at = goalSpot(L, R, f, y, l.Y(sc.min), lines.map((q) => q.Y(before[q.j])), endv ? lines.map((q) => q.Y(endv[q.j])) : undefined);
+          marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: at[0], y: at[2], 'text-anchor': at[1] }, `Target <${fmtN(c.v)}`));
+        }
         else if (room(y)) { taken.push(y); marks.push(sv('text', { 'data-look': 'cv.tc', 'data-tc': c.rate === 'ok' ? '' : c.rate, x, y: y + 0.35 * f, 'text-anchor': anchor }, fmtN(c.v))); }
       }
       for (const v of [sc.max, sc.min]) {
@@ -300,6 +313,7 @@ export function createEventGraph() {
       spec = s;
       const x = spec.lines.map((k) => LINE[k][4] ?? 1);
       before = [b[0] * x[0], b[1] * x[1]];
+      endv = end?.every(Number.isFinite) ? [end[0] * x[0], end[1] * x[1]] : null;
       scales = eventScales(spec, b, end);
       el.dataset.lines = spec.lines.join(',');
       n = 0; on = false; shown = goal = 0;

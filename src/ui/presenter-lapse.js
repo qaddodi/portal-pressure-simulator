@@ -141,6 +141,7 @@ export function createLapse(st, live) {
     const st = await stateReady(o.preset ? live.extraOf.get(xKey(o)) : live.stateOf[o.slide ? slideAt(o.slide) : i]);
     if (!st || !mine()) return;
     live.liveOff = true;
+    live.variantWords?.(s, i, o, st);   // (the words follow the patient: presenter-question.js variantWords)
     const ref = live.refOf(s, i);
     let easing = true;
     (async () => {

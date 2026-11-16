@@ -54,7 +54,7 @@ test('an unrated value keeps its station colour; no reading, no rating colour', 
 test('the pill carries its rating, its colour taken at once', () => {
   assert.match(SRC, /'data-rate': PILL_TONE\[rate\] \? rate : null/);
   assert.match(SRC, /valTone\(mk, fp, tips\), pillRate\(mk, fp, tips\)/);
-  assert.match(SRC, /rich\(s\.line, s, st\?\.fp, !!st\?\.params\?\.tips\?\.on\)/);
+  assert.match(SRC, /rich\(s\.line, s, w?st\?\.fp, !!st\?\.params\?\.tips\?\.on\)/);
   assert.match(CSS, /\.pz-val\.tone \{ transition: none; \}/, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   // (Rules stay outlined and plain.)
   assert.match(CSS, /\.pz-val\.cut \{ background: transparent;/);

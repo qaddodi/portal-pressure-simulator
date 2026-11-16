@@ -135,3 +135,12 @@ test('two lines that would end on one spot get one axis widened, so their dots a
   assert.deepEqual(eventScales(spec, [16, 40], [9, 80]), [eventScale('hvpg', [16, 9]), eventScale('liver', [40, 80])]);
   assert.deepEqual(eventScales(spec, b, null), [eventScale('hvpg', [16, null]), eventScale('liver', [40, null])]);
 });
+
+test('the goal\'s name stands where no line does (play-test B12: "Target <12" sat on the varix line)', async () => {
+  const { goalSpot } = await import('../src/ui/event-graph.js');
+  const f = 12, L = 40, R = 300, edge = 100, bottom = 200;
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [50, 20], [60, 30]), [L + 6, 'start', edge + 12], 'a clear band: under the edge at the left');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [60, 30]), [R - 6, 'end', edge + 12], 'a line starting under the edge: at the right');
+  assert.deepEqual(goalSpot(L, R, f, edge, bottom, [108, 20], [110, 30]), [L + 6, 'start', bottom - 6], 'lines under it at both ends: low in the band');
+  assert.deepEqual(goalSpot(L, R, f, edge, 120, [108], [110]), [L + 6, 'start', edge + 12], 'a band too short for a second row keeps its first spot');
+});

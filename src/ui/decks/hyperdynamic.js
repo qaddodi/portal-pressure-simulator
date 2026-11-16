@@ -101,10 +101,10 @@ export const HYPERDYNAMIC = {
     },
     {
       id: 'summary', visual: 'table', cols: ['co', 'hr', 'map', 'pv'], asc: false, vs: 'first', calm: ['co'], rowHead: 'Patient',
-      of: [{ id: 'rest', kicker: 'Reference', title: 'Healthy' }, { preset: 'cirr-comp', kicker: 'Cirrhosis', title: 'Compensated' }, { preset: 'csph', kicker: 'Cirrhosis', title: 'CSPH' }, { id: 'dilate', kicker: 'Cirrhosis', title: 'Large varices' },
-        { id: 'loss', kicker: 'Hemorrhage', title: '1 L blood loss' }, { id: 'over', kicker: 'Hemorrhage', title: 'Eight units transfused' }],
+      of: [{ id: 'rest', kicker: 'Reference', title: 'Healthy' }, { preset: 'cirr-comp', kicker: 'Cirrhosis', title: 'Compensated' }, { preset: 'csph', kicker: 'Cirrhosis', title: 'CSPH' }, { id: 'full', kicker: 'Cirrhosis', title: 'Large varices' },
+        { id: 'loss', kicker: 'Hemorrhage', title: '1 L blood loss', vs: 'full' }, { id: 'over', kicker: 'Hemorrhage', title: 'Eight units transfused', vs: 'full' }],
       kicker: 'Summary', title: 'The circulation from health to a bleed',
-      line: 'As cirrhosis advances, the cardiac output and the heart rate rise while the arterial pressure falls. A 1 L blood loss then lowers the arterial and the portal pressure.',
+      line: 'As cirrhosis advances, the cardiac output and the heart rate rise while the arterial pressure falls. A 1 L blood loss then lowers the arterial and the portal pressure.',   // (the two bleed rows read against the patient before it: vs)
       notes: 'The hyperdynamic circulation increases with the portal pressure: compensated cirrhosis shows little of it, decompensated cirrhosis all of it. It explains the low blood pressure of advanced cirrhosis, the sodium and water retention behind ascites, and why hemorrhage lowers the portal pressure along with the blood pressure. Every drug that lowers the portal pressure also acts on this circulation.',
       ask: ['What does a 1 L blood loss do to the portal pressure in cirrhosis, and why?', 'It lowers it, because a lower blood volume means a lower portal inflow.'],
     },
