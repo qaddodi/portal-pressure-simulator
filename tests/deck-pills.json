@@ -1149,43 +1149,48 @@
  "landmark-trials/predesci": [
   "{hvpg}"
  ],
+ "landmark-trials/predesci-test": [
+  "{hvpg@predesci}",
+  "{hvpg}"
+ ],
  "landmark-trials/predesci-arms": [
   "{hvpg@predesci}",
   "{hvpg}"
  ],
- "landmark-trials/earlytips-arms": [
-  "{ppg@earlytips}",
-  "{ppg}",
-  "{liver@earlytips}",
-  "{liver}"
+ "landmark-trials/groszmann": [
+  "{hvpg}",
+  "{<10 mmHg}"
  ],
- "landmark-trials/lvtips-arms": [
-  "{ppg@lvtips}",
-  "{ppg}"
- ],
- "landmark-trials/transfusion": [
-  "{<7 g/dL}",
-  "{<9 g/dL}"
- ],
- "landmark-trials/transfusion-res": [
-  "{map@transfusion}",
+ "landmark-trials/bleed": [
   "{map}",
-  "{pv@transfusion}",
   "{pv}"
  ],
  "landmark-trials/transfusion-arms": [
-  "{map}",
-  "{pv}",
-  "{pv@transfusion-res}"
+  "{pv@bleed}",
+  "{pv}"
  ],
- "landmark-trials/rifaximin-arms": [
-  "{shunt}",
-  "{he@rifaximin}",
-  "{he}"
+ "landmark-trials/who-tips": [
+  "{hvpg}",
+  "{>=20 mmHg}"
+ ],
+ "landmark-trials/earlytips": [
+  "{ppg@who-tips}",
+  "{ppg}",
+  "{<12 mmHg}",
+  "{liver@who-tips}",
+  "{liver}"
+ ],
+ "landmark-trials/monescillo": [
+  "{>=20 mmHg}"
  ],
  "landmark-trials/covered-arms": [
-  "{asc@covered}",
+  "{ppg@covered}",
+  "{ppg}",
   "{asc}"
+ ],
+ "landmark-trials/rifaximin": [
+  "{shunt}",
+  "{he}"
  ],
  "gradients/agree": [
   "sinusoids",

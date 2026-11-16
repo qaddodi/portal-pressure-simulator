@@ -13,7 +13,7 @@
 // are. The card is a model drawn on the GPU (svg-gl.js: the same tree, of plain elements, never painted by the browser) and drawn again only
 // when its width, its type size or its fit line changes; its height follows those only.
 
-import { h } from './util.js';
+import { h, isPhoneLayout } from './util.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { fittedType } from './chart-ctx.js';
 import { measure } from './glyph-measure.js';
@@ -57,7 +57,16 @@ export function effectOf(t) {
   return r && Number.isFinite(r.est) ? `${r.kind} ${two(r.est)}${Number.isFinite(r.lo) && Number.isFinite(r.hi) ? ` (${two(r.lo)}–${two(r.hi)})` : ''}` : null;
 }
 /** What was counted, and for how long: "Decompensation or death, median 37 months". */
-export const endpointOf = (t) => (t.followUp ? `${t.endpoint}, ${lcFirst(t.followUp)}` : t.endpoint);
+// (Not when the endpoint already names that time: "Alive at 6 weeks, 6 weeks" and "Alive at 18 months, up to 18 months" read it twice, LT-3.
+// A follow-up of one time, its number and unit both in the endpoint, is that time.)
+const TIME = /(\d[\d.]*)\s*(day|week|month|year)/gi;
+export function sameTime(endpoint, followUp) {
+  const f = [...String(followUp).matchAll(TIME)];
+  if (f.length !== 1) return false;
+  const [, n, u] = f[0], e = String(endpoint);
+  return new RegExp(`\\b${n.replace('.', '\\.')}\\b`).test(e) && new RegExp(u, 'i').test(e);
+}
+export const endpointOf = (t) => (t.followUp && !sameTime(t.endpoint, t.followUp) ? `${t.endpoint}, ${lcFirst(t.followUp)}` : t.endpoint);
 /** The fit line's words for fitTrial's answer, or null when there is none. */
 export function fitWords(fit) {
   if (!fit) return null;
@@ -75,9 +84,11 @@ export function fitWords(fit) {
  *  (a disc is a rectangle rounded to a circle), the strokes [{ d, look, tone? }] and the height H. meas(text, font) → px (glyph-measure.js).
  *  fit: fitTrial's answer for the slide's patient, or null for no fit line. Pure: the same trial, width, size and fit always give the same drawing. */
 // opts.head false: no name or source line (the Tests card's open trial, whose row already names it). opts.zero: every bar drawn at no width, the
-// drawing a grow starts from (createTrial's grow: the bars then glide to their shares, svg-morph.js).
+// drawing a grow starts from (createTrial's grow: the bars then glide to their shares, svg-morph.js). opts.compact: the phone's card (LT-1, 16 Nov
+// 2026): the two large numbers carry the arms without their bars or their people (the source line keeps the trial's size), "Kaplan–Meier" joins
+// what was counted, so the card fits beside the words and the figure instead of coming in closed to its handle.
 const NO_OPTS = Object.freeze({});
-export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = false } = NO_OPTS) {
+export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = false, compact = false } = NO_OPTS) {
   const texts = [], rects = [], paths = [];
   const px = (look) => TYPE[look][1] * f, font = (look) => `${TYPE[look][0]} ${px(look)}px Inter`, lh = (look) => px(look) * 1.32;
   const say = (x, y, s, look, anchor = 'start') => texts.push({ x, y, t: s, look, anchor });
@@ -95,7 +106,7 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', TRIAL_LINES);
     y += f * 0.35;
   }
-  lines(endpointOf(t), 'trial.v', TRIAL_LINES);
+  lines(compact && t.km ? `${endpointOf(t)} (Kaplan–Meier)` : endpointOf(t), 'trial.v', TRIAL_LINES);
   y += f * 0.9;
   // The arms' numbers: side by side where every arm's name, share and people fit their column, else one under another.
   const arms = t.arms, n = arms.length, cg = f * 1.2, cw = (W - cg * (n - 1)) / n, N = px('trial.pct'), L = px('trial.lab');
@@ -105,7 +116,8 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     const w = zero ? 0 : (W * a.rate) / 100;
     if (w > 0 || (zero && a.rate > 0)) rects.push({ x: 0, y: by, w, h: bh, r: Math.min(bh, w) / 2, look: 'trial.bar', tone: TONE[a.side] || 'text-3' });
   };
-  const side = n <= 3 && arms.every((a) => meas(a.label, font('trial.lab')) + kx <= cw && meas(pct(a), font('trial.pct')) <= cw && (!a.n || meas(`n = ${a.n}`, font('trial.n')) <= cw));
+  const people = (a) => !compact && a.n;
+  const side = n <= 3 && arms.every((a) => meas(a.label, font('trial.lab')) + kx <= cw && meas(pct(a), font('trial.pct')) <= cw && (!people(a) || meas(`n = ${a.n}`, font('trial.n')) <= cw));
   if (side) {
     let foot = y;
     arms.forEach((a, i) => {
@@ -115,27 +127,28 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
       const nb = y + lh('trial.lab') + f * 0.2 + N * 0.76;
       say(x, nb, pct(a), 'trial.pct');
       let b = nb;
-      if (a.n) { b = nb + f * 0.45 + px('trial.n'); say(x, b, `n = ${a.n}`, 'trial.n'); }
+      if (people(a)) { b = nb + f * 0.45 + px('trial.n'); say(x, b, `n = ${a.n}`, 'trial.n'); }
       foot = Math.max(foot, b + f * 0.3);
     });
     y = foot + f * 0.6;
-    for (const a of arms) { bar(a, y); y += bh + f * 0.4; }
+    if (compact) y -= f * 0.4;
+    else for (const a of arms) { bar(a, y); y += bh + f * 0.4; }
   } else {
     for (const a of arms) {
       lines(a.label, 'trial.lab', 1);
       const nb = y + f * 0.2 + N * 0.76;
       say(0, nb, pct(a), 'trial.pct');
-      if (a.n) say(meas(pct(a), font('trial.pct')) + f * 0.6, nb, `n = ${a.n}`, 'trial.n');
+      if (people(a)) say(meas(pct(a), font('trial.pct')) + f * 0.6, nb, `n = ${a.n}`, 'trial.n');
       y = nb + f * 0.55;
-      bar(a, y);
-      y += bh + f * 0.8;
+      if (!compact) { bar(a, y); y += bh; }
+      y += f * 0.8;
     }
     y -= f * 0.4;
   }
-  if (t.km) { y += f * 0.1; lines('Rates are Kaplan–Meier estimates', 'trial.src', 1); }
+  if (t.km && !compact) { y += f * 0.1; lines('Rates are Kaplan–Meier estimates', 'trial.src', 1); }
   const eff = effectOf(t);
   if (eff) { y += f * 0.5; lines(eff, 'trial.eff', TRIAL_LINES); }
-  if (t.note) { y += f * 0.3; lines(t.note, 'trial.note', W < 400 ? 2 : NOTE_LINES); }
+  if (t.note) { y += f * 0.3; lines(t.note, 'trial.note', W < 400 || compact ? 2 : NOTE_LINES); }
   if (t.status !== 'checked') { y += f * 0.3; lines(UNCHECKED, 'trial.warn', 1); }
   const fw = fitWords(fit);
   if (fw) {
@@ -173,22 +186,25 @@ const textW = (s, font) => measure(s, font);
 // opts.head false: the drawing has no name or source line (trialLayout). grow(): the next drawing starts with its bars at no width and they glide to
 // their shares (svg-morph.js, the same glide every chart uses; under Reduce Motion it fades in instead), the Tests card's open trial (TC-M5).
 export function createTrial({ head = true } = NO_OPTS) {
+  // (On a slide on a phone the card is drawn compact (trialLayout): the Tests card's open trial, headless, keeps every line.)
+  const compactNow = () => head && isPhoneLayout();
   const el = h('div', { class: 'pz-trial', role: 'group' });
   const gl = createSvgGL(el, { host: 'trial' });
-  let trial = null, fit = null, drawnW = 0, drawnF = 0, growing = false;
+  let trial = null, fit = null, drawnW = 0, drawnF = 0, drawnC = false, growing = false;
   function draw() {
     const W = Math.round(readMetric(el, 'clientWidth') || 0);
     if (!trial || !W || !el.isConnected) return;
     const f = fittedType(el, gl, 12);
-    if (W === drawnW && f === drawnF) return;
-    drawnW = W; drawnF = f;
+    const compact = compactNow();
+    if (W === drawnW && f === drawnF && compact === drawnC) return;
+    drawnW = W; drawnF = f; drawnC = compact;
     if (growing) {
       growing = false;
-      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head, zero: true }), W), false);
-      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head }), W), true);
+      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head, zero: true, compact }), W), false);
+      gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head, compact }), W), true);
       return;
     }
-    gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head }), W), false);
+    gl.show(treeOf(trialLayout(trial, W, f, textW, fit, { head, compact }), W), false);
   }
   function treeOf(L, W) {
     el.style.height = `${L.H}px`;   // (the picture's box: its height follows its width only, so the card never changes size with the slide)
@@ -206,7 +222,9 @@ export function createTrial({ head = true } = NO_OPTS) {
     /** t: the slide's tool; ctx: the slide's context (presenter ctxOf: fp, params), whose patient the fit line is asked for. */
     configure(t, ctx = null) {
       const next = trialOf(t?.id);
-      if (ctx) { const f2 = fitOf(next, ctx, t?.facts ?? null); if (fitWords(f2) !== fitWords(fit)) drawnW = 0; fit = f2; }
+      // (The entry rules are judged on the patient as enrolled, before the slide's treatment (ctx.enrolled), never after it: on carvedilol a
+      // PREDESCI patient's HVPG is under 10 and with a stent in no TIPS trial would take him, LT-2.)
+      if (ctx) { const f2 = fitOf(next, ctx.enrolled ?? ctx, t?.facts ?? null); if (fitWords(f2) !== fitWords(fit)) drawnW = 0; fit = f2; }
       if (next !== trial) { trial = next; drawnW = 0; }
       el.setAttribute('aria-label', trial ? trialWords(trial, fit) : '');
       if (trial) draw(); else gl.clear?.();
@@ -221,7 +239,7 @@ export function createTrial({ head = true } = NO_OPTS) {
      *  place (TC-M5: the Tests card's open trial grew after it had come in). The drawing itself comes once the box is in the page. */
     prime(W) {
       if (!trial || !(W > 0)) return;
-      el.style.height = `${trialLayout(trial, W, fittedType(el, gl, 12), textW, fit, { head }).H}px`;
+      el.style.height = `${trialLayout(trial, W, fittedType(el, gl, 12), textW, fit, { head, compact: compactNow() }).H}px`;
     },
     /** The next drawing grows its bars from nothing (a trial just opened). */
     grow() { growing = true; drawnW = 0; if (trial) draw(); },
