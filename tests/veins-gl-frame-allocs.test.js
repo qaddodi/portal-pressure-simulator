@@ -61,7 +61,7 @@ test('the vessel layer\'s frame functions make no array, string or closure of th
     body('  function layoutFor(m) {', '  // Lays the layer out as layoutFor gave it'),
     body('  function shiftLayer(', '  // The binned cells on the CPU'),
     body('  function rowParts(rows) {', '  // The marked cells\' quads'),
-    body('  function cellsOfRows(', '  // The cells of the rows wide enough on screen'),
+    body('  function cellsOfRows(', '  // The vessel pass\'s program'),   // (the function after it, the rows wide enough on screen, went with the Streaks option, 16 Nov 2026)
     body('  function runTops() {', '  // The under picture'),
     body('    draw(m, look, blood, rows = null) {', '    /**\n     * Redraws only the cells that list the vessel rows given'),
     body('    drawRows(m, look, blood, rows, full = false) {', '    /** The pan\'s rest'),
@@ -75,7 +75,7 @@ test('the vessel layer\'s frame functions make no array, string or closure of th
     ['a string of the picture counts', /`\$\{pictureSeq\}/],
   ]) assert.doesNotMatch(code.replace(/gpuProbe\.(note|gauge)\([^\n]*\n/g, ''), re, what);
   // (cellsOfRows: the cell mark made again only when the cells' count outgrows it.)
-  assert.match(body('  function cellsOfRows(', '  // The cells of the rows wide enough on screen'), /if \(!into\.mark \|\| into\.mark\.length < nCells\) into\.mark = new Uint8Array\(nCells\);/);
+  assert.match(body('  function cellsOfRows(', '  // The vessel pass\'s program'), /if \(!into\.mark \|\| into\.mark\.length < nCells\) into\.mark = new Uint8Array\(nCells\);/);
 });
 
 test('the wrapper around the renderer\'s steps takes its arguments by name, with no rest list', () => {

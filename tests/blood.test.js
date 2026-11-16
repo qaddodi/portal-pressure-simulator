@@ -120,7 +120,9 @@ test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV
     assert.ok(imvEnd[1] > imvEnd[0], `splenic end carries IMV blood ${imvEnd}`);
     assert.ok(smvEnd[0] > 0.6, `confluence end carries SMV blood ${smvEnd}`);
     // The superior mesenteric vein beside it still runs one way: one blood.
-    assert.equal(m.pe('SMV_CONF'), 0);
+    // (One way is no pe, or the one-way ramp into the confluence's blend, never the to-and-fro mix's.)
+    const smvPe = Math.abs(m.pe('SMV_CONF'));
+    assert.ok(smvPe === 0 || smvPe >= ORIGIN_RAMP[0] - 1e-6, `SMV_CONF one way (Pe ${smvPe})`);
   }
 });
 

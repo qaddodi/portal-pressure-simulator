@@ -29,8 +29,8 @@ test('the mean arterial pressure falls as portal hypertension advances, and the 
 });
 
 test('the portal side keeps its numbers: HVPG, varix and ascites within half a unit of their values at 93 mmHg, the portal vein slow', () => {
-  // (The values the decks were written to, before the arterial pressure fell: 21-22 Oct.)
-  const were = { 'cirr-comp': { hvpg: 6.4 }, csph: { hvpg: 11.6, varix: 3.9 }, 'cirr-decomp': { hvpg: 16.9, varix: 7.7, asc: 1.06 }, 'pvt-chronic': { pv: 19.5, varix: 5.0 } };
+  // (The values the decks were written to, before the arterial pressure fell: 21-22 Oct; the decompensated ascites is the lymph model's 1.24 L since 16 Nov, it was 1.06.)
+  const were = { 'cirr-comp': { hvpg: 6.4 }, csph: { hvpg: 11.6, varix: 3.9 }, 'cirr-decomp': { hvpg: 16.9, varix: 7.7, asc: 1.24 }, 'pvt-chronic': { pv: 19.5, varix: 5.0 } };
   for (const [id, w] of Object.entries(were)) {
     const { m } = go(id);
     if (w.hvpg) assert.ok(Math.abs(m.hvpg - w.hvpg) <= 0.5, `${id}: HVPG ${m.hvpg.toFixed(1)} was ${w.hvpg}`);
@@ -38,7 +38,8 @@ test('the portal side keeps its numbers: HVPG, varix and ascites within half a u
     if (w.varix) assert.ok(Math.abs(m.varix.d - w.varix) <= 0.5, `${id}: varix ${m.varix.d.toFixed(2)} was ${w.varix}`);
     if (w.asc) assert.ok(Math.abs(m.ascites.volume / 1000 - w.asc) <= 0.1, `${id}: ascites ${(m.ascites.volume / 1000).toFixed(2)} L was ${w.asc}`);
   }
-  assert.ok(go('cirr-decomp').m.pvVelMean < 15, 'the decompensated portal vein stays slow, under 15 cm/s');
+  // (About half the healthy 28 cm/s: 14.8 before the lymph model's larger belly pressure narrowed the vein, 15.0 since.)
+  assert.ok(go('cirr-decomp').m.pvVelMean < 16, 'the decompensated portal vein stays slow, under 16 cm/s');
 });
 
 test('patients without the vasodilation keep 93: right heart failure and constriction defend the healthy pressure', () => {

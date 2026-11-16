@@ -60,7 +60,7 @@ async function rig(presetId) {
 for (const [name, preset] of [['healthy', null], ['decompensated cirrhosis (ascites shown)', 'cirr-decomp']]) {
   test(`P4: ${name}, held and settled, makes no GPU call for five seconds`, async (t) => {
     const r = await rig(preset);
-    for (let i = 0; i < 100; i++) await r.step(200);   // (20 s in coarse steps: past every ease, the rest pacing's 4 s, and the 12 s after which the organ painter's spare layers are given back, once: warm-views.js WARM_MS)
+    for (let i = 0; i < 130; i++) await r.step(200);   // (26 s in coarse steps, the decompensated patient's last redraw at 9 s since the lymph model's larger ascites (7 s before), and the 12 s trim after it: past every ease, the rest pacing's 4 s, and the 12 s after which the organ painter's spare layers are given back, once: warm-views.js WARM_MS)
     r.m.attach();
     assert.ok(r.m.contexts() >= 1, 'the figure\'s context is counted');
     r.m.take();
