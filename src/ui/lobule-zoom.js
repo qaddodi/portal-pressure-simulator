@@ -28,6 +28,7 @@ import { glideClock } from './glide-clock.js';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js';
 import { softwareYield } from './sw-yield.js';
 import { lobuleStateInto, lymphRate, sinceOf, LOBE } from './lobule-model.js';
+import { pickRank } from './lobule-pick.js';
 import { inletPoint, SIN_NARROW, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, surroundGrade } from './lobule-look.js';
 import { createTissueGL } from './tissue-gl.js';
 import { FX_GPU, createFxGL } from './fx-gl.js';
@@ -2776,8 +2777,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
       if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
-      const d = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
-      const score = d - r - (t.kind === 'tw' ? 2 : 0);
+      // (The radius where the point is nearest, not the middle's: a sleeve of Disse is wide at the portal edge and thin at the vein. Where vessels
+      // overlap, the one drawn on top there wins, so a tap in a sinusoid's lumen is the sinusoid's, never the sleeve's round it: lobule-pick.js.)
+      const d = distTo(t.pts, x, y), r = radiusAt(t, Math.round(distU * (N - 1))), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
+      const score = pickRank(d, r, Z_OF[t.kind] ?? 0, t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
     }
     if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }
