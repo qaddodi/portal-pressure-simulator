@@ -108,6 +108,13 @@ const KEEP = 16;                 // Retain enough samples for the 12 s sweep and
 // (R16: the history is a bounded queue: samples past KEEP are dropped in chunks (256, or a quarter of it), not shifted out on every
 // model frame; every reader picks its seconds by time, so the few older ones kept meanwhile change nothing drawn.)
 const MINUS = '−';
+// (A tile's hover text, one line each: what it reads and how it is made. Speed's names its usual range and is set with the reading.)
+const STAT_TITLE = {
+  Peak: 'Max: the highest velocity of the typical beat (portal vein), or of the last 3 s (other vessels).',
+  Trough: 'Trough: the lowest velocity of the same beat, or of the last 3 s.',
+  Pulsatility: 'Pulsatility = (Max \u2212 Trough) / Max, worked out from the two velocities shown. In an artery, Gosling\u2019s index: (peak \u2212 trough) / mean velocity.',
+  CI: 'Congestion index (CI) = portal vein cross-sectional area (cm\u00b2) \u00f7 mean velocity (cm/s), in cm\u00b7s. About 0.07 in health; above 0.1 suggests portal hypertension (Moriyasu).',
+};
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
 export function createDoppler({ onProbe, pickGate = true }) {
@@ -225,7 +232,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (btn) btn._label = () => attrSoon(btn, 'aria-label', `${k}, ${num(btn._v)} centimeters per second${btn._here ? ', sampling here' : ''}. Activate to sample here.`);
     // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
     // (the Speed tile is the reading against its usual range, in place of the long range bar: it turns to the caution colour outside it, and its title names the range)
-    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : k === 'Speed' ? { class: 'dop-speed', hidden: true } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
+    const wrap = h('div', k === 'Speed' ? { class: 'dop-speed', hidden: true } : STAT_TITLE[k] ? { title: STAT_TITLE[k] } : {}, h('dt', k === 'CI' ? { 'aria-label': 'Congestion index' } : {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
     wrap._flip = () => flipStat(wrap); wrap._fade = () => wrap.animate?.(FADE_KEYS, FADE_OPTS);
     return wrap;
   }));
@@ -381,7 +388,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // (Nothing until 1.5 s of this vessel is recorded: a pattern judged from part of a beat is a wrong one, a red "To-and-fro" for a moment.)
   const SETTLE = 1.5;
   // (The reading, and the same scaled to a stent's gate, are two kept records written in place: a caller uses one at once and does not keep it.)
-  const READ = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0 }, GATED = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0 };
+  const READ = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0, beatHi: 0, beatLo: 0 }, GATED = { mean: 0, vmax: 0, vmin: 0, vmaxMean: 0, vminMean: 0, beatPi: -1, beatB0: 0, beatB1: 0, beatHi: 0, beatLo: 0 };
   // (What interpret() answers, written in place, and the options it hands judgeFlow.)
   const IT = { dir: '', sev: '', pattern: '', note: '', pi: 0, expected: false }, OPT_SWINGS = { swings: false }, OPT_STENT = { stent: true };
   function reading() {
@@ -399,7 +406,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const k = dopplerK(EDGES[EI[probe]]);
     const r = READ;
     r.mean = k * sum / n; r.vmax = vmax * k; r.vmin = vmin * k; r.vmaxMean = vmax; r.vminMean = vmin;
-    const mb = medianBeat(from, tNow); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1;
+    const mb = medianBeat(from, tNow); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1; r.beatHi = mb.hi * k; r.beatLo = mb.lo * k;
     return r;
   }
   // A vein's pulsatility within one beat, as a sonographer's calipers read it: of the whole beats inside [from, to] (a hair in from each
@@ -407,7 +414,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // larger of |max| and |min| (doppler-marks.js pulsatility). The median, not the newest, so a breath's shallow beat does not swing it;
   // a real beat, not a mean, so the calipers can stand on it and read the same number (BEAT_PICK.b0, b1). −1 with no whole beat recorded
   // (a time lapse replays its template without phase, and the first second of a vessel has none).
-  const BEAT_PICK = { pi: -1, b0: 0, b1: 0 }, BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
+  const BEAT_PICK = { pi: -1, b0: 0, b1: 0, hi: 0, lo: 0 }, BEAT_HI = new Float64Array(BEAT_MAX), BEAT_LO = new Float64Array(BEAT_MAX), BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
   function medianBeat(from, to) {
     BEAT_PICK.pi = -1;
     const n = Math.min(beatN, BEAT_MAX), lo0 = from + 0.05, hi1 = to - 0.05;
@@ -418,7 +425,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       let hi = -Infinity, lo = Infinity;
       for (let i = buf.length - 1; i >= 0 && buf[i][0] >= b0; i--) { if (buf[i][0] > b1) continue; const v = buf[i][1]; if (v > hi) hi = v; if (v < lo) lo = v; }
       if (!(hi > -Infinity)) continue;
-      BEAT_PIS[nb] = pulsatility(hi, lo); BEAT_B0[nb] = b0; BEAT_ORD[nb] = j; nb++;
+      BEAT_PIS[nb] = pulsatility(hi, lo); BEAT_HI[nb] = hi; BEAT_LO[nb] = lo; BEAT_B0[nb] = b0; BEAT_ORD[nb] = j; nb++;
     }
     if (!nb) return BEAT_PICK;
     // (the median by index: a short insertion sort of the few beats' places)
@@ -426,7 +433,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     for (let i = 0; i < nb; i++) ord[i] = i;
     for (let i = 1; i < nb; i++) { const k = ord[i]; let m = i - 1; while (m >= 0 && BEAT_PIS[ord[m]] > BEAT_PIS[k]) { ord[m + 1] = ord[m]; m--; } ord[m + 1] = k; }
     const pick = ord[(nb - 1) >> 1];
-    BEAT_PICK.pi = BEAT_PIS[pick]; BEAT_PICK.b0 = BEAT_B0[pick];
+    BEAT_PICK.pi = BEAT_PIS[pick]; BEAT_PICK.b0 = BEAT_B0[pick]; BEAT_PICK.hi = BEAT_HI[pick]; BEAT_PICK.lo = BEAT_LO[pick];
     // (the beat's end: the next beat's start after b0)
     for (let j = 0; j < n; j++) { const t = beatT[(beatN - n + j) % BEAT_MAX]; if (t > BEAT_PICK.b0) { BEAT_PICK.b1 = t; break; } }
     return BEAT_PICK;
@@ -470,7 +477,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function interpret(r0, g = 1, seen = null) {
     const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
     let r = r0;
-    if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; r.beatPi = r0.beatPi; }
+    if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; r.beatPi = r0.beatPi; r.beatHi = r0.beatHi * g; r.beatLo = r0.beatLo * g; }
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
     const big = Math.max(Math.abs(r.vmaxMean), Math.abs(r.vminMean));
@@ -687,13 +694,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
     // peak: the extreme farthest from zero, whichever the direction
-    const big = Math.abs(r.vmax) >= Math.abs(r.vmin), pk = big ? r.vmax : r.vmin, tr = big ? r.vmin : r.vmax;
+    // (A portal vein's Max and Trough are the highest and lowest of the median beat, the beat its Pulsatility and the calipers read: one beat, one set of numbers.
+    // Over the whole 3 s they took in the breath's swing, and (Max − Trough) / Max of the two shown did not give the Pulsatility beside them: 36, 21 and 0.17, 16 Nov 2026.)
+    const beatwise = p.kind === 'portal' && r.beatPi >= 0, hiV = beatwise ? r.beatHi : r.vmax, loV = beatwise ? r.beatLo : r.vmin;
+    const big = Math.abs(hiV) >= Math.abs(loV), pk = big ? hiV : loV, tr = big ? loV : hiV;
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
     setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     // Pulsatility: a vein's is the portal convention, (max − min) / max (it.pi). An artery's is Gosling's index, (peak − trough) / mean: the
     // other one is the resistive index the strip already prints (Mohammad, 13 Nov 2026, "Pulsatility 0.73" beside "Resistive index 0.73").
     // The hepatic veins and the IVC have no such index (their swing passes zero, so the ratio ran past 1): their tile is hidden, the pattern says it.
-    const piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : it.pi;
+    // (The tile follows its formula from the two numbers shown beside it, rounded as they are printed, so the three always agree.)
+    const shownV = (v) => Math.sign(v) * Number(fmt(Math.abs(v * gf), 0)), piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : pulsatility(shownV(hiV), shownV(loV));
     setStat(statEls.Pulsatility.dd, fmt(piV, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';

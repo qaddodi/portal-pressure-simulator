@@ -37,7 +37,7 @@ const DEFS = [
   { id: 'VARIX_LARGE', on: (m) => m.varix.d >= 5, off: (m) => m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
     title: 'Large esophageal varices', detail: 'Diameter ≥5 mm: high-risk varices.' },
   { id: 'RED_WALE', on: (m) => m.varix.ratioMean > 0.7, off: (m) => m.varix.ratioMean < 0.65, severity: 'danger', anchor: 'VAR',
-    title: 'Red wale signs', detail: 'Modeled wall stress is approaching the rupture point (index = ΔP·r / w).' },
+    title: 'Red wale signs', detail: 'Modeled wall stress is approaching the rupture threshold (index = ΔP·r / w).' },
   { id: 'ASCITES_FORMING', on: (m) => m.ascites.ratePerDay > 80 && m.ascites.volume > 150, off: (m) => m.ascites.ratePerDay < -50, severity: 'caution', anchor: 'PERITONEUM',
     title: 'Ascites forming', detail: 'Lymph formation exceeds lymphatic drainage capacity.' },
   { id: 'TENSE_ASCITES', on: (m) => m.ascites.iap >= 12, off: (m) => m.ascites.iap < 11, severity: 'danger', anchor: 'PERITONEUM',

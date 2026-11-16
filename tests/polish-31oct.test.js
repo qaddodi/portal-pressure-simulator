@@ -104,7 +104,7 @@ test('a percent hugs its number in the Why headline and on the readout tiles ("6
   const e = new Engine(); e.loadPreset('csph'); for (let i = 0; i < 4; i++) e.settleQuick();
   for (const id of Object.keys(METRICS).filter((k) => METRICS[k].unit.startsWith('%'))) {
     const { sentence } = explain(e, id);
-    assert.match(sentence, /is -?[\d.]+%( of (normal|rupture))?[,.]/, sentence);
+    assert.match(sentence, /is -?[\d.]+%( of (normal|rupture threshold))?[,.]/, sentence);
     assert.doesNotMatch(sentence, /\d %/, sentence);
   }
   // an ordinary unit keeps its space

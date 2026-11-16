@@ -38,10 +38,13 @@ export function captureFrame(f, params) {
       ext: Array.from(f.ext), extf: f.extf ? Array.from(f.extf) : undefined, slow: structuredClone(f.slow), metrics: structuredClone(f.metrics), bleed: structuredClone(f.bleed), events: [], samples: null, params: undefined, viewParams: structuredClone(params) }, // alloc-rare: once per pin or marker (a learner action), never per frame
   };
 }
+// (A day count and the seconds of the run are two clocks: after a jump of months, "Day 180 · 8:35" read as a time of day. Past day 0 the clock is the day alone, as the
+// phone's bar and the figure's clock always had it; the minutes and seconds belong to the first day, where the model runs in real time.)
 export const fmtClock = (t, day) => {
+  if (day > 0) return `Day ${day}`;
   const s = Math.max(0, Math.floor(t)), m = Math.floor(s / 60), ss = String(s % 60).padStart(2, '0');
   const tt = m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
-  return day > 0 ? `Day ${day} · ${tt}` : tt;
+  return tt;
 };
 
 export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scenarioLabel, onHistory = null }) {
@@ -313,7 +316,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     const f = frameNow();
     if (!f) return;
     pinFrom(captureFrame(f, store.get().params), scenarioLabel(), fmtClock(f.t, f.day));
-    toast(`Comparing with ${fmtClock(f.t, f.day)}. Change something, then switch between then and now.`);
+    toast('Moment pinned. Change something, then switch between Then and Now.');   // (the bar already says which moment: its label is not repeated here)
   }
 
   // ── Rendering ─────────────────────────────────────
@@ -357,7 +360,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
       const acts = [];
       const act = (label, ic, col, fn) => acts.push(h('button', { class: 'tl-pop-ic', style: { gridColumn: col }, title: label, 'aria-label': label, onclick: fn }, ic));
       if (e.snap) act(i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here', svgIcon('rewind', 'mi-ic'), 1, () => { closePopover(); goTo(i); });
-      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); });
+      if (e.frame) act('Compare with now', svgIcon('camera', 'mi-ic'), 2, () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Moment pinned: ${e.label}.`); });
       const future = cursor >= 0 && i > cursor;
       // (key and sig: the History card updates its list in place, main.js reconcile. The key is the entry's own id, never its time: a change's snapshot lands a moment
       // after the row and moves its time, and a key made of the time took that for a row going and a new one coming, the old one fading where it stood over the new, 16 Nov 2026.)
