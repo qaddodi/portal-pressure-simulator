@@ -142,7 +142,7 @@ import { createLzGlassSeq } from './lobule-glass-seq.js';
 import { viewMovingOf } from './view-moving.js';
 import { createGeoHold } from './stage-geohold.js';
 import { createAscites } from './stage-ascites.js';
-import { createLobuleLoad } from './stage-lobload.js'; import { labelCourse } from './label-course.js';
+import { createLobuleLoad } from './stage-lobload.js'; import { createCamLock, lockedWrite } from './slide-cam.js'; import { labelCourse } from './label-course.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -587,6 +587,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
     get vLook() { return vLook; }, set vLook(v) { vLook = v; },
     get vt() { return vt; }, set vt(v) { writeVT(v); },
+    get camLock() { return camLock; },
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
     get vtGliding() { return vtGliding; }, set vtGliding(v) { vtGliding = v; },
     get vtMs() { return vtMs; }, set vtMs(v) { vtMs = v; },
@@ -1210,7 +1211,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vt = { k: 1, x: 0, y: 0 };
   // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
   // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
-  function writeVT(v) { vt = v; CTM = null; }
+  // (16 Nov 2026: and while a slide's move runs it is the only one that may: the lock (slide-cam.js) refuses any other write, and the hand,
+  // which lets go of it, is asked here too, so a pinch or a drag begun mid-move takes the camera at once.)
+  const camLock = createCamLock(), handNow = () => live.gestureOn?.();
+  function writeVT(v) {
+    if (!lockedWrite(camLock, handNow)) return;
+    vt = v; CTM = null;
+  }
   // (How long the change between Anatomy and Circuit takes, VIEW_CHANGE_S: view-xf.js, which the presenter's waits read too.)
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   // The change's clock is a reversible one (motion.js createReversible): tapped back mid-change, the figure and its camera slow over D_FLIP
@@ -1506,7 +1513,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, geo, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
+  const { animateVT: animateVT$, frameBox, railEnd, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, screenW, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -3116,7 +3123,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
-    zoomToBox, frameBox,
+    zoomToBox, frameBox, railEnd,
     /** While presenting: a function returning the free rectangles (wrap px, {l, t, r, b}) the camera frames a box into. */
     setFreeArea(fn) { freeArea = fn; },
     /** The free rectangle the last framed box was centred in (for the tests). */
@@ -3172,6 +3179,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera's whole magnification (log scale: the plate's zoom plus the dive's), or null while the lobule fills the view. For the tests: a dive in or out must move it steadily, never stopping part way. */
     sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
+    /** The slide camera's recorded moves, frame by frame (slide-cam.js: plan, frames, held and refused writes, a move after the landing), for its judge. */
+    cameraTraces: (clear) => camLock.traces(clear),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM?.slice() ?? null : null),   // (a copy: glM is kept and written in place by the next draw)
     /** For the checks: the vessel canvas as it stands (mid-gesture too), then after a whole redraw of it at the same view
@@ -3202,7 +3211,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     carryProbe() { dpr.refitUntil = performance.now() + 300; },
     /** The presenter's card followed frame by frame: aimView(fn) (where fn's framing would go), viewNow(), follow(v0, v1), followAt(u), followEnd(), following(). */
     aimView, viewNow, follow: followStart, followAt, followEnd, following: () => following || !!zoomBase, zoomOpen, zoomAt: cardZoomAt, zoomEnd, zoomSharp,
-    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true }); },
+    fitSlow(ms = 1300, opt = {}) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, opt.steady ? { steady: true } : { scale: true, slide: !!opt.slide }); },
     /** The same fit as a slow push (a time-lapse's lapse.cam 'fit'): see drifting. */
     fitDrift(ms) { if (lobuleOn) return; handed = false; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; else markCirc('focus', to); fitted = true; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms, { drift: true }); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
