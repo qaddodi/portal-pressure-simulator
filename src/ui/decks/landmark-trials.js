@@ -192,14 +192,14 @@ export const LANDMARK_TRIALS = {
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'pv', 'liver', 'he'], asc: false, vs: 'first', rowHead: 'Arm',
       of: [
-        { id: 'predesci', kicker: 'PREDESCI', title: 'Placebo', ref: true }, { id: 'predesci-arms', kicker: 'PREDESCI', title: 'Carvedilol', vs: 'predesci' },
-        { id: 'bleed', kicker: 'Transfusion', title: 'One unit', ref: true }, { id: 'transfusion-arms', kicker: 'Transfusion', title: 'Three units', vs: 'bleed' },
+        { id: 'predesci', kicker: 'PREDESCI', title: 'Placebo', ref: true, blank: ['he'] }, { id: 'predesci-arms', kicker: 'PREDESCI', title: 'Propranolol', vs: 'predesci', blank: ['he'] },
+        { id: 'bleed', kicker: 'Transfusion', title: 'One unit', ref: true, blank: ['he'] }, { id: 'transfusion-arms', kicker: 'Transfusion', title: 'Three units', vs: 'bleed', blank: ['he'] },
         { id: 'who-tips', kicker: 'Early TIPS', title: 'Drugs and EVL', ref: true }, { id: 'earlytips', kicker: 'Early TIPS', title: 'Covered TIPS', vs: 'who-tips' },
         { id: 'covered', kicker: 'Ascites', title: 'No stent', ref: true }, { id: 'covered-arms', kicker: 'Ascites', title: 'Covered TIPS', vs: 'covered' },
       ],
       kicker: 'Summary', title: 'What each treatment moved, and what each trial counted',
       line: 'The model shows the pressure and flow each treatment changes. Only the trials show who decompensated, bled, developed HE or died.',
-      notes: 'Each pair is a control and its treatment on the model. Carvedilol lowers the HVPG; three units of red cells raise the portal vein pressure; a covered TIPS lowers the portal pressure and the sinusoidal flow and raises the risk of HE. A fall in pressure is a mechanism, not a trial result. Baveno VIII accepts an HVPG response to an NSBB, a fall of ≥10% or to ≤12 mmHg, as a surrogate in primary prophylaxis; every other outcome here is a count of patients over weeks to years, and those numbers are on the trial cards.',
+      notes: 'Each pair is a control and its treatment on the model. Propranolol, the arm his HVPG fall chose, lowers the HVPG; three units of red cells raise the portal vein pressure; a covered TIPS lowers the portal pressure and the sinusoidal flow and raises the risk of HE. A fall in pressure is a mechanism, not a trial result. The HE column is filled only for the two TIPS pairs, where the trials counted HE as an outcome of the stent; for the beta-blocker and transfusion pairs the model\'s HE estimate moves a little with liver flow, which is not a trial finding, so those cells are left blank. Baveno VIII accepts an HVPG response to an NSBB, a fall of ≥10% or to ≤12 mmHg, as a surrogate in primary prophylaxis; every other outcome here is a count of patients over weeks to years, and those numbers are on the trial cards.',
       ask: ['What can the model show about a trial, and what can it not?', 'It shows the mechanism, such as the fall in pressure; it cannot show how many patients decompensate, bleed or die.'],
     },
   ],

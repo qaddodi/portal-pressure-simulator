@@ -201,3 +201,19 @@ test('the claim finder reads "falls to {x}" and "lowers the portal pressure to {
   assert.deepEqual(lineClaims('Anticoagulation is started. The PPG is {ppg}.'), []);
   assert.deepEqual(lineClaims('The HVPG falls from {hvpg@a} to {hvpg}.'), []);
 });
+
+test('a summary-table row that names a drug has that drug on in the slide it shows', async () => {
+  const bad = [];
+  for (const { d } of await decks()) {
+    const drugsAt = (idx) => { let on = {}; d.slides.slice(0, idx + 1).forEach((s) => { if (s.preset) on = {}; Object.assign(on, s.params?.drugs || {}); }); return on; };
+    for (const s of d.slides) for (const r of Array.isArray(s.of) ? s.of : []) {
+      const j = r?.id ? d.slides.findIndex((x) => x.id === r.id) : -1;
+      if (j < 0) continue;
+      const on = drugsAt(j), label = `${r.kicker || ''} ${r.title || ''}`;
+      for (const drug of DRUGS.filter((x) => x !== 'albumin' && x !== 'norepinephrine')) if (new RegExp(drug, 'i').test(label) && !/\b(no|without|off|not)\b[^,]{0,12}$/i.test(label.slice(0, label.toLowerCase().indexOf(drug))) && !on[drug]) {
+        bad.push(`${d.id}/${s.id}: row "${label.trim()}" names ${drug}, but slide "${r.id}" has it off (the drugs on there: ${Object.keys(on).filter((k) => on[k]).join(', ') || 'none'})`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
