@@ -100,3 +100,12 @@ test('a step of no account is half of the last printed digit or half a pixel of 
     if (S) assert.ok(s * (T.x ?? 1) <= 0.005 * Math.abs(S[1] - S[0]) + 1e-12, `${k}: not over half a pixel of a 100 px bar`);
   }
 });
+
+test('a blood-pressure tile\'s systolic and diastolic followers are let go with its mean, so a new card starts them afresh (16 Nov 2026: stale pair beside a fresh mean; presenter-cards.js buildTiles drops them)', () => {
+  const r = rig();
+  r.tiles.set('map.s', 160, 0.5, false); r.tiles.set('map.d', 100, 0.5, false);
+  assert.equal(r.tiles.set('map.s', 115, 0.5, true), 160, 'without a drop the pair would glide from the last card\'s');
+  r.tiles.drop('map.s'); r.tiles.drop('map.d');
+  assert.equal(r.tiles.set('map.s', 115, 0.5, true), 115, 'afresh: the first frame shows the slide\'s own systolic');
+  assert.equal(r.tiles.set('map.d', 70, 0.5, true), 70, 'and its diastolic');
+});
