@@ -353,7 +353,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const stateReady = (i) => (states[i] ? Promise.resolve(states[i]) : new Promise((res) => waiters.push({ i, res })));
 
   function applyState(st) {
-    host.send({ type: 'restore', snap: st.snap });
+    host.send({ type: 'restore', snap: st.snap, keepBeat: true });   // (the heart goes on from the beat it is at: the easing carried it)
     replaceParams(structuredClone(st.params));
     store.set({ presetId: st.presetId, presetLoading: false, historyTick: (store.get().historyTick || 0) + 1 });
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });

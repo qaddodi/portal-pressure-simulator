@@ -75,6 +75,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
+import { createSampleOwing } from './frame-samples.js';
 import { FIG_STEPS, figDetailWords } from './fig-detail-words.js';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, watchAnimating, isAnimating } from './frame.js';
 import { glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
@@ -580,6 +581,8 @@ function syncScanProbe() {
 // (The Tests card's Liver/Spleen switch, tapped: the probe comes off the liver for the spleen's exam, and back.)
 fibroReading.onOrgan = () => syncScanProbe();
 // Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
+// (The samples of the frames taken in but not painted go to the painted one, so a card that reads painted frames sees every beat: frame-samples.js.)
+const sampleOwing = createSampleOwing();
 const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
 function onFrame(f) { frameGate.push(f); }
 // (A snapshot that says the model jumped, a reset, a patient, an intervention or a clock change, is never blended into the one before
@@ -590,6 +593,7 @@ function ingestFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted
+  sampleOwing.take(f);
   // (Rev 2 step 3: the worker is told a frame is taken in as it is ingested, in the scheduler's frame, not once it is painted: a page that
   // paints late no longer holds the model's next frame back, and the gate paints only the newest anyway.)
   host?.send({ type: 'painted' });
@@ -611,6 +615,7 @@ function watchInspectorSeen() {
 let frameNext = null;
 const storeFrame = () => { const f = frameNext; frameNext = null; store.setFrame(f); };
 function paintFrame(f) {
+  f = sampleOwing.forPaint(f);
   watchInspectorSeen();
   const now = performance.now();
   if (jumpSeen) { jumpSeen = false; noteJump(); }
