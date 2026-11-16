@@ -40,6 +40,7 @@ import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL, JOIN_F_NOFADE } from './tube-join-glsl.js';
 import { celToneGLSL, CEL } from './tube-cel-glsl.js';
+import { CHEV_GLSL } from './chevron-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
 function fnText(text, head) {
@@ -120,6 +121,7 @@ vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ${ENT_W}, t / ${ENT_W}), 0); return (i & 1) == 0 ? v.xy : v.zw; }
 // (alongAt, radAt, the noise styles, bloodAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
 ${compLumenFns()}
+${CHEV_GLSL}
 
 ${TROUBLE_GLSL}
 
@@ -231,16 +233,16 @@ void main() {
     if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
   }
   if (blood == 1 && isBi && f1.z > 0.0) {
-    // Bile (Mohammad, 16 Nov 2026: "no streaks, but very faint green arrows flowing towards the ductule ... not as many as the blood chevrons"):
-    // one small arrowhead every pitch (f0.y, world units: wider apart than the blood's), moving at one speed toward the row's end, the ductule
-    // (f0.x: the phase, advanced on the CPU). A soft green, lighter in the dark theme (f0.w). None on a channel under 3 px across, as the blood's.
-    float P = max(f0.y, 1.0), x = (fract((s1 - f0.x) / P) - 0.5) * P, ya = abs(y1) * R1, aa = max(pxW, 1e-3) * 0.75;
-    float hw = R1 * 0.7, hl = R1 * 0.8, th = max(R1 * 0.26, pxW * 1.1);
-    float dArm = abs(x - (0.5 * hl - ya * hl / hw)) * hw / length(vec2(hl, hw));   // (to the arm: the tip at +hl/2 on the axis, the arms back to -hl/2 at ±hw)
-    float c = (1.0 - smoothstep(0.5 * th - aa, 0.5 * th + aa, dArm)) * (1.0 - smoothstep(hw - aa, hw + aa, ya));
-    c *= smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(1.2, 1.6, R1 / max(pxW, 1e-3));
-    vec3 ink = f0.w > 0.5 ? vec3(0.66, 0.88, 0.52) : vec3(0.24, 0.50, 0.20);
-    col = mix(col, ink, clamp(c * 0.42 * f1.z * vis * flowA, 0.0, 1.0));
+    // Bile (Mohammad, 16 Nov 2026: arrows "similar to the blood chevrons"; he picked the green of four inks): the blood's own head
+    // (chevron-glsl.js chevHead) and its size rule (veins-gl.js chevAt: half the caliber, 4 to 8 CSS px, never wider than the duct), a
+    // leaf-green core with a dark olive rim, spaced f0.y apart (world units, wider than the blood's) and moving toward the row's end, the
+    // ductule (f0.x: the phase, advanced on the CPU at one speed). f0.z: world units per CSS px. None on a duct under 3 px across.
+    float P = max(f0.y, 1.0), u = (fract((s1 - f0.x) / P) - 0.5) * P, ay = abs(y1) * R1, cpx = max(f0.z, 1e-4);
+    float hw = min(0.8 * R1, clamp(0.5 * R1, 4.0 * cpx, 8.0 * cpx));
+    vec2 h = chevHead(u, ay, hw, pxW, 0.0) * smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(1.2, 1.6, R1 / max(pxW, 1e-3));
+    float k = vis * flowA * f1.z;
+    col = mix(col, vec3(0.14, 0.18, 0.05), clamp(h.y * 0.75 * k, 0.0, 1.0));
+    col = mix(col, vec3(0.64, 0.88, 0.30), clamp(h.x * k, 0.0, 1.0));
   }
   if (blood == 1 && isLy && !isBi && f1.z > 0.0) {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the dashes' phase, pitch, protein and theme in flow texel 0, as before. A row that ALSO
