@@ -1,6 +1,7 @@
 // The time-lapse and the procedure's graph
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { clotWords } from './callout-math.js';
+import { CATH_END, cathLegs } from './cath-arrival.js';
 import { attrSoon, runSoon } from './class-soon.js';
 import { nb } from './glue.js';
 import { liveText } from './live-text.js';
@@ -68,14 +69,25 @@ export function createLapse(st, live) {
   }
   // (What the tools hand a tracing card of a slide that has the catheter beside it: the card's balloon moves the figure's, and a card stood up starts the catheter.)
   const besideHook = { move: (v) => { if (cath.beside) cathBeside(v); }, start: (v) => { if (cath.beside || !cath.on) cathBeside(v); } };
-  async function cathTo(mode, fp, cut) {
+  async function cathTo(mode, fp, cut, instant = false) {
     await toAnatomy(null, cut);
     if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(cut, stage); }
     if (cut()) return;
     cath.beside = false; cath.keep = false;   // (a catheter kept from a tracing card's slide is this slide's own now)
+    // (Not arrived at by Next: it stands where the journey would leave it, fading in where it was gone, and the camera makes the one glide, cath-arrival.js.)
+    if (instant) {
+      const end = CATH_END[mode] || CATH_END.route, was = cath.on && cath.v.opacity > 0.5;
+      cath.tr = {}; Object.assign(cath.v, { u: 1, balloon: end.balloon, column: end.column, opacity: was ? 1 : 0 }); cath.show = [...end.show]; cath.ring = end.ring ? CC[end.ring] : null; cath.follow = false;
+    }
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
     cath.fp = fp;
     const v = cath.v, ms = (m) => (reduce.matches ? 0 : m);
+    if (instant) {
+      if (!cath.on || v.opacity < 1) cathTrack('opacity', 1, 650);
+      const leg = cathLegs(mode, 1, true)[0], at = ms(leg === 'route' ? 1300 : 1500);
+      stage.cathFocus(leg, at, leg === 'tip' ? { both: true } : undefined); cath.cam = leg;
+      await waitCut(at, cut); return;
+    }
     // In along the route from wherever the tip is, the view following it down.
     if (v.u < 0.999) {
       cath.show = []; cath.ring = null;
