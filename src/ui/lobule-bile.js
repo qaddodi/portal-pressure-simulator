@@ -93,13 +93,13 @@ export function addBile(g) {
       const d1 = Math.hypot(D[0] - Pe[0], D[1] - Pe[1]);
       bez(Pe, [Pe[0] + tc[0] * d1 * 0.4, Pe[1] + tc[1] * d1 * 0.4], sk(-28, 98), D);   // alloc-rare: geometry built only on a stage-size change
     }
-    const legT = add('bh', curve((u) => at(legS, u)), { tri: tr.i, lymph: true, bile: true });   // alloc-rare: geometry built only on a stage-size change
+    const legT = add('bh', curve((u) => at(legS, u)), { tri: tr.i, lymph: true, bile: true }); legT.radius = legT.pts.map((_, i) => Math.max(0.9, R * lerp(0.004, 0.0078, i / (N - 1))));   // alloc-rare: geometry built only on a stage-size change (radii fixed here: lobule-zoom-field.js radiusAt)
     join(D[0], D[1], [tr.bdT, legT], R * 0.004);   // alloc-rare: geometry built only on a stage-size change
     mids.set(inl.id, legT);
     for (const c of conn) {
       const tgt = outAt(c.ic), Lp = legT.pts[nearIdx(legT.pts, tgt[0], tgt[1])];
       const cp = [...c.pts, [c.P[0], c.P[1]], [c.P[0] + c.nO[0] * R * 0.03, c.P[1] + c.nO[1] * R * 0.03], Lp];   // alloc-rare: geometry built only on a stage-size change
-      const t = add('bs', curve((u) => at(smoothPoly(cp, 1), u)), { lymph: true, bile: true });   // alloc-rare: geometry built only on a stage-size change
+      const t = add('bs', curve((u) => at(smoothPoly(cp, 1), u)), { lymph: true, bile: true }); t.radius = t.pts.map((_, i) => R * lerp(0.0004, 0.0036, smooth(0.22, 1, t.rho[i])) * smooth(0, 0.3, i / (N - 1)) ** 1.5);   // alloc-rare: geometry built only on a stage-size change (radii fixed here: lobule-zoom-field.js radiusAt)
       join(Lp[0], Lp[1], [legT, t], R * 0.003);   // alloc-rare: geometry built only on a stage-size change
       plates++;
     }
@@ -122,4 +122,11 @@ export function bileFlowInto(flowData, tubeSet, motionOf, { R, dt, protein, dark
     mo.lyD = ((((mo.lyD ?? (t.id * 977) % period) + (still ? 0 : v * 0.5 * dt)) % period) + period) % period;
     flowData[o + 28] = mo.lyD; flowData[o + 29] = still ? 1e-3 : v * 0.5;
   }
+}
+
+/** The end-on discs' mouths (lobule-mouths.js mouthSite) as they are with the Bile layer off: no opening in the ductule's rim where no duct is drawn. */
+export function mouthsWithoutBile(mouths, tubes, joins, mouthSite) {
+  const out = new Map(), noBile = joins.filter((j) => j.members.every((id) => !tubes[id].bile));   // alloc-rare: geometry built only on a stage-size change
+  for (const [id, site] of mouths) { const s = mouthSite(tubes[id], tubes, noBile, site.rim); if (s) out.set(id, s); }
+  return out;
 }

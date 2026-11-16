@@ -446,8 +446,8 @@ export function createLobuleField(st, live) {
   }
   // The sinusoids widen toward the central vein, 1 at the portal end to 1.3 by the vein, as one smooth curve of the distance from the centre (the old 1, 1.15, 1.3 by generation
   // gave every merge a wider parent and narrower kids: with swollen sinusoids, a visible step in the wall; lobule-mouths.js sinK). A merge is at one place, so all its legs share one width.
-  function radiusAt(t, i) {
-    const m = rzOf(), g = live.geo, R = g.R;
+  function radiusAt(t, i) {   // (the bile's radii are fixed, set where it is built: lobule-bile.js)
+    if (t.bile) return t.radius[i]; const m = rzOf(), g = live.geo, R = g.R;
     const z3 = 1 - smooth(0.24, 0.56, t.rho[i]);
     const rs = g.rs0 * SIN_NARROW / m.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
     switch (t.kind) {
@@ -465,9 +465,6 @@ export function createLobuleField(st, live) {
       // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
       // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
       case 'ly': { const j = disseJ(m, t.rho[i]); return rs * sinK(t.rho[i]) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
-      // The bile (lobule-bile.js): a plate's channel from nothing to its widest at the limiting plate; the edge duct thicker toward the ductule.
-      case 'bs': return R * lerp(0.0004, 0.0036, smooth(0.22, 1, t.rho[i])) * smooth(0, 0.3, i / (N - 1)) ** 1.5;
-      case 'bh': return Math.max(0.9, R * lerp(0.004, 0.0078, i / (N - 1)));
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;
