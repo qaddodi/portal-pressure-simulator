@@ -346,6 +346,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function ingest(f) {
     frame = f;
+    if (EI[f.probe] == null) return;   // (a frame that names no vessel of the model: the Doppler keeps the one it reads)
     if (f.probe !== probe) { clearBuf(); wl = null; tOff = 0; synth = null; scale = null; heldTo = null; steady.probe = null; probe = f.probe; calTap = false; calFresh = false; calReset(); if (probeSel.value !== probe) probeSel.value = probe; tapWire(); }
     // A new spot along a stent is a new recording, as a new vessel is: the trace starts over and finds its own scale.
     const g = isStentProbe() ? gateOf() : '';
@@ -747,7 +748,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let ariaDir = '', ariaMean = 0, ariaPattern = '', ariaDue = false, calAria = '';
   function ariaWrite() {
     ariaDue = false;
-    attrSoon(cv, 'aria-label', `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.${calAria ? ` ${calAria}` : ''}${meta().kind === 'artery' && !calSlide ? ` Tap the spectrum to ${calTap ? 'clear' : 'mark'} the peak and the trough.` : ''}`);
+    const edge = EDGES[EI[probe]];
+    if (!edge) return;   // (no vessel yet: a frame that named none, or none has come)
+    attrSoon(cv, 'aria-label', `Spectral Doppler, ${edge.label}, ${sweepSeconds}-second sweep: ${ariaDir}, ${num(ariaMean, 0)} centimeters per second, ${ariaPattern}.${calAria ? ` ${calAria}` : ''}${meta().kind === 'artery' && !calSlide ? ` Tap the spectrum to ${calTap ? 'clear' : 'mark'} the peak and the trough.` : ''}`);
   }
 
   // ── Display ───────────────────────────────────────

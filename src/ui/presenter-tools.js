@@ -233,7 +233,7 @@ export function createTools({ host, stage }) {
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
-      if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
+      if (probe0 !== undefined) { if (probe0) host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); }   // (null: there was no frame to remember a vessel from, so none is put back) probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
       offFrame(); ro?.disconnect(); cancelRest(svkRaf); svkRaf = 0;
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }

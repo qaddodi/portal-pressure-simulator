@@ -7,6 +7,7 @@ import { caught } from './caught.js';
 
 /** The cap WebKit documents is about 16; warn one below it so there is room to act. */
 export const WARN_AT = 14;
+const seen = new WeakSet();   // (the contexts already noted: getContext('webgl2') on a canvas that has one answers the same object, and each such ask was counted as a new context)
 const refs = new Set();   // WeakRef to each context made, dropped when its object is collected or lost
 let made = 0, lost = 0, peak = 0, warned = false;
 
@@ -22,7 +23,8 @@ function live() {
 
 /** Called once for each new context (gl-state.js's getContext wrapper). `canvas` is the element or OffscreenCanvas that made it. */
 export function noteContext(gl, canvas) {
-  if (!gl || typeof WeakRef === 'undefined') return;
+  if (!gl || typeof WeakRef === 'undefined' || seen.has(gl)) return;
+  seen.add(gl);
   made++;
   refs.add(new WeakRef(gl));
   canvas?.addEventListener?.('webglcontextlost', () => { lost++; }, { once: true });
