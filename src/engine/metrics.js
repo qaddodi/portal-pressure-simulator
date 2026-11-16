@@ -147,7 +147,7 @@ export function computeMetrics(eng, out = null) {
   const ax = part(r, 'ascites');
   ax.volume = eng.slow.ascites; ax.ratePerDay = st.net * 1440; ax.iap = eng.iapf ?? eng.iap ?? 5; ax.grade = asc.grade; ax.label = asc.label;
   ax.highProtein = st.highProtein; ax.totalProtein = st.ascTP; ax.albumin = st.ascAlb; ax.saag = st.saag; ax.lymphProt = st.prot.lymphProt; ax.lymphSigma = st.prot.sigma;
-  ax.hepLymph = st.hep; ax.splLymph = st.spl; ax.lymphCap = eng.slow.lymphCap;
+  ax.hepLymph = st.hep; ax.splLymph = st.spl; ax.lymphCap = eng.slow.lymphCap; ax.lymphOver = st.excess;   // (formed, liver and gut; what the lymphatics can carry; what is made beyond it)
   const sp = part(r, 'spleen');
   if (eng.params.splenicRx === 2) { sp.length = 0; sp.platelets = 380; } else { sp.length = eng.slow.spleen * Math.cbrt(1 - (eng.slow.spInf || 0)); sp.platelets = clamp(250 * Math.pow(11 / sp.length, 3), 25, 400); }   // (an embolized spleen is the smaller one it has left: SPLEEN_INFARCT)
   const he = part(r, 'heRisk'); he.index = heIdx; he.label = heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High';

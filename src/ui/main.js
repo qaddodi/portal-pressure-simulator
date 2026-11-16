@@ -95,6 +95,7 @@ import { pillState, foldPill, stopFold } from './pill-motion.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
+import { loadBloodPref } from './blood-pref.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
 import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
@@ -313,7 +314,7 @@ async function main() {
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
-    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
+    restartTraces, patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -463,7 +464,8 @@ async function main() {
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
   // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
-  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }] = await Promise.all([import('./cam-gate.js'), import('./decks.js')]); return createCameraGate({ presenter, stage, decks: DECKS })(o); };
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }, p] = await Promise.all([import('./cam-gate.js'), import('./decks.js'), presenterL.get()]); return createCameraGate({ presenter: p, stage, decks: DECKS })(o); };   // (the presenter itself, not main.js's few-call facade: the gate needs its count and skipLapse)
+  window.pps.decks = async () => (await import('./decks.js')).DECKS.map((d, n) => ({ n: n + 1, id: d.id, title: d.title }));   // (the deck ids pps.cameraGate takes)
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -710,6 +712,10 @@ async function openYours(f, p, readings) {
 }
 const forgetYours = (id) => { syncYours(removeYours(id)).catch(() => {}); };
 let presetGen = 0;
+// The Over time and Doppler traces belong to the patient on show: a new patient, or the viewer's own coming back after a talk, clears them and opens them
+// on the steady state's last seconds (backfill.js). `ok`: whether the answer is still wanted when it comes (another patient was asked for meanwhile).
+const traceHistory = (ok = () => true) => host.request('history', { secs: 12 }).then((m) => { if (ok() && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+const restartTraces = () => { dock?.clearTraces(); return traceHistory(); };
 // (N1, change-order.js: the patient's name changes first, and the model is asked for the new patient once the new name is in, so the
 // vessels never change under the old name (A7). namingId: the patient being loaded, whose name the top bar shows; nameFirst: the bar's
 // own swap, set where the bar is built.)
@@ -734,7 +740,7 @@ async function loadPreset(id, opts = {}) {
   namingId = null;
   noteChange(store.get().params, res.params);   // (the new patient's steps keep the one order from here: change-order.js)
   // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
-  host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+  traceHistory(() => gen === presetGen);
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
@@ -904,16 +910,9 @@ function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
 function buildHud() {
-  // Moving blood: chevrons are remembered per device.
-  let saved = null;
-  // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
-  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch (e) { caught('main:684', e); /* storage unavailable */ }
-  const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
-  delete blood.origin;   // now the Blood origin lens
-  blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
+  // Moving blood: the chevrons are remembered per device (blood-pref.js: it also drops what the removed Streaks option saved).
+  const blood = loadBloodPref(localStorage);
   store.set({ blood });
-  // The streaks start off for anyone with no saved choice (the store's default is flow:false: the blood is the arrowheads alone, the cheapest moving blood); a device that chose them on ('1') keeps them on, one that chose off ('0') keeps them off.
-  try { if (localStorage.getItem('pps.streaks') === '1') store.set({ layers: { ...store.get().layers, flow: true } }); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
@@ -1103,7 +1102,7 @@ const setBlood = (patch) => { store.set({ blood: { ...store.get().blood, ...patc
 function syncBloodBtn() {
   const b = $('#btnBlood');
   if (!b) return;
-  const st = store.get(), on = st.layers.flow !== false || !!st.blood?.chevrons || !!st.blood?.keyChevrons;   // (lit while any of the moving blood is drawn: the streaks or the arrows)
+  const st = store.get(), on = !!st.blood?.chevrons || !!st.blood?.keyChevrons;   // (lit while the moving blood, the arrows, is drawn)
   b.classList.toggle('off', !on);
 }
 function injectDye({ hold = false } = {}) {
@@ -1121,15 +1120,10 @@ function menuToggle(checked, ic, label, sub, onChange) {
 function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function bloodItems() {
   const st = store.get(), b = st.blood || {};
-  const flowOn = st.layers.flow !== false;
   const toggle = menuToggle;
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Moving blood drawn along each vessel', (on) => {
-        store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
-        try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
-      }),
       toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
       toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on }))),
     menuSection('Show on the figure',
@@ -2433,7 +2427,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg), and the legend names the unit once. A label gives a station’s value. Select the station, color by Change or compare with an earlier moment to see ▲ / ▼, the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Chevrons (Blood menu) point the way blood moves in each vessel, orange where the flow is reversed. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the venae cavae do not dwarf the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),

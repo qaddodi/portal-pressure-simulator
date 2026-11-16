@@ -1,6 +1,5 @@
 // The dive's field
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { STYLE_D } from './blood-tile.js';
 import { deltaColor, dropColor, flowColor, heatColor, oxygenColor, pressureColor, velocityColor } from './colormap.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { createFieldGL } from './field-gl.js';
@@ -581,8 +580,7 @@ export function createLobuleField(st, live) {
   const calV = [];
   const radNow = [], radNowAt = [], radKeep = [];   // (per tube id: its radii at the samples, the stamp of the calibers they were worked out for, the radii as last sent)
   const inkNow = new Float64Array(MAXT * 6);   // (each vessel's two end colours this pass, in live order, 3 numbers each)
-  // (style: the lobule's streaks are blood look D, as the anatomy's: the baked tile read twice a pixel, blood-tile.js; Mohammad, 5 Nov 2026.)
-  const bloodArg = { alpha: 0, on: false, chev: false, look: '', origin: false, clock: 0, style: STYLE_D, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
+  const bloodArg = { alpha: 0, on: false, chev: false, origin: false, clock: 0, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});

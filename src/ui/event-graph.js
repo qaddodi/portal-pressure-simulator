@@ -117,13 +117,24 @@ export function eventScales(spec, b, end = null) {
   return best ? best.S : sc;
 }
 
+/** How far the graph's readings have taken the settled state's numbers t s after the change (0 to 1): none for the first 70% of its seconds, then a smooth
+ *  glide to them, whole at the end. The model's own course after a stent ends a little off the numbers the slide's words and tiles read (the settled
+ *  state: 8.2 against 7.6 mmHg, play-test B12, 16 Nov 2026), so the graph ends on those, the one number the card prints. */
+export function endMix(t, secs) {
+  const k = Math.min(1, Math.max(0, (t / secs - 0.7) / 0.3));
+  return k * k * (3 - 2 * k);
+}
+
 /** Where the goal's name ("Target <12") goes in its band: [x, anchor, baseline y]. Under the band's edge at the left, where the lines run flat at their starting
  *  levels, else at the right, where they end, else low in the band (if it is tall enough): the first spot no line stands in. starts and ends: the y of each
- *  line's level there. Play-test B12, 16 Nov 2026: it sat on the varix's line. */
-export function goalSpot(L, R, f, edge, bottom, starts, ends = starts) {
+ *  line's level there. Play-test B12, 16 Nov 2026: it sat on the varix's line. o: { w, start, end }, the name's width and the boxes [x0, x1, y0, y1] the lines'
+ *  printed values stand in at the start and at the end ("2.9 mm" over the head of its line): a spot they would touch is passed over, so the name is never
+ *  cut by a value ("Target <1…" under "2.9 mm", 16 Nov 2026). */
+export function goalSpot(L, R, f, edge, bottom, starts, ends = starts, o = null) {
   const free = (levels, yb) => levels.every((v) => v < yb - 1.1 * f || v > yb + 0.4 * f);
+  const clear = (side, x, yb) => !o?.w || !o[side]?.some(([a, b, c, d]) => a < (side === 'start' ? x + o.w : x) && b > (side === 'start' ? x : x - o.w) && c < yb + 0.3 * f && d > yb - 0.9 * f);
   const spots = [[L + 0.5 * f, 'start', edge + 1.0 * f, starts], [R - 0.5 * f, 'end', edge + 1.0 * f, ends], [L + 0.5 * f, 'start', bottom - 0.5 * f, starts], [R - 0.5 * f, 'end', bottom - 0.5 * f, ends]];
-  const at = spots.find(([, , yb, lv], i) => (i < 2 || bottom - edge >= 2.6 * f) && free(lv, yb)) || spots[0];
+  const at = spots.find(([x, side, yb, lv], i) => (i < 2 || bottom - edge >= 2.6 * f) && free(lv, yb) && clear(side, x, yb)) || spots[0];
   return at.slice(0, 3);
 }
 
@@ -196,7 +207,9 @@ export function createEventGraph() {
         // (The goal's name inside its band, under its edge, where the band is tall enough; else its number in the margin, green.)
         const zoneH = l.Y(sc.min) - y;
         if (tgt && zoneH >= 1.25 * f) {
-          const at = goalSpot(L, R, f, y, l.Y(sc.min), lines.map((q) => q.Y(before[q.j])), endv ? lines.map((q) => q.Y(endv[q.j])) : undefined);
+          const tag = (hx, v, q) => { const tw = cw(withUnit(v, q.d, q.unit), f * 1.1, 1), hy = q.Y(v); return [hx - tw - 0.6 * f, hx + tw + 0.6 * f, hy - 1.8 * f, hy - 0.4 * f]; };   // (where a head's printed value can stand: over its line, either side of the head; paint, headLeft)
+          const at = goalSpot(L, R, f, y, l.Y(sc.min), lines.map((q) => q.Y(before[q.j])), endv ? lines.map((q) => q.Y(endv[q.j])) : undefined,
+            { w: cw(`Target <${fmtN(c.v)}`, f), start: lines.map((q) => tag(X(0), before[q.j], q)), end: lines.map((q) => tag(R, (endv || before)[q.j], q)) });
           marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: at[0], y: at[2], 'text-anchor': at[1] }, `Target <${fmtN(c.v)}`));
         }
         else if (room(y)) { taken.push(y); marks.push(sv('text', { 'data-look': 'cv.tc', 'data-tc': c.rate === 'ok' ? '' : c.rate, x, y: y + 0.35 * f, 'text-anchor': anchor }, fmtN(c.v))); }

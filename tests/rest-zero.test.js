@@ -53,7 +53,7 @@ async function rig(presetId) {
   }
   const s = shared;
   if (presetId) { await s.core.handle({ type: 'preset', id: presetId }); await s.core.handle({ type: 'run', running: false }); }
-  s.store.set({ params: s.core.engine().params, running: false, layers: { ...s.store.get().layers, flow: false } });
+  s.store.set({ params: s.core.engine().params, running: false, blood: { ...s.store.get().blood, chevrons: false } });
   return { step: s.step, store: s.store, counts: s.counts, asks: () => ({ ...s.frameMod.perf().totals.asks }), m: s.m };
 }
 

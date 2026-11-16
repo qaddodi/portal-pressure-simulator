@@ -406,7 +406,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const k = dopplerK(EDGES[EI[probe]]);
     const r = READ;
     r.mean = k * sum / n; r.vmax = vmax * k; r.vmin = vmin * k; r.vmaxMean = vmax; r.vminMean = vmin;
-    const mb = medianBeat(from, tNow); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1; r.beatHi = mb.hi * k; r.beatLo = mb.lo * k;
+    const mb = medianBeat(from, tNow, sum / n); r.beatPi = mb.pi; r.beatB0 = mb.b0; r.beatB1 = mb.b1; r.beatHi = mb.hi * k; r.beatLo = mb.lo * k;
     return r;
   }
   // A vein's pulsatility within one beat, as a sonographer's calipers read it: of the whole beats inside [from, to] (a hair in from each
@@ -414,25 +414,25 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // larger of |max| and |min| (doppler-marks.js pulsatility). The median, not the newest, so a breath's shallow beat does not swing it;
   // a real beat, not a mean, so the calipers can stand on it and read the same number (BEAT_PICK.b0, b1). −1 with no whole beat recorded
   // (a time lapse replays its template without phase, and the first second of a vessel has none).
-  const BEAT_PICK = { pi: -1, b0: 0, b1: 0, hi: 0, lo: 0 }, BEAT_HI = new Float64Array(BEAT_MAX), BEAT_LO = new Float64Array(BEAT_MAX), BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
-  function medianBeat(from, to) {
+  const BEAT_PICK = { pi: -1, b0: 0, b1: 0, hi: 0, lo: 0 }, BEAT_HI = new Float64Array(BEAT_MAX), BEAT_LO = new Float64Array(BEAT_MAX), BEAT_MEAN = new Float64Array(BEAT_MAX), BEAT_PIS = new Float64Array(BEAT_MAX), BEAT_B0 = new Float64Array(BEAT_MAX), BEAT_ORD = new Int32Array(BEAT_MAX);
+  function medianBeat(from, to, level) {
     BEAT_PICK.pi = -1;
     const n = Math.min(beatN, BEAT_MAX), lo0 = from + 0.05, hi1 = to - 0.05;
     let nb = 0;
     for (let j = 1; j < n; j++) {
       const b0 = beatT[(beatN - n + j - 1) % BEAT_MAX], b1 = beatT[(beatN - n + j) % BEAT_MAX];
       if (b0 < lo0 || b1 > hi1 || !(b1 > b0)) continue;
-      let hi = -Infinity, lo = Infinity;
-      for (let i = buf.length - 1; i >= 0 && buf[i][0] >= b0; i--) { if (buf[i][0] > b1) continue; const v = buf[i][1]; if (v > hi) hi = v; if (v < lo) lo = v; }
+      let hi = -Infinity, lo = Infinity, bs = 0, bn = 0;
+      for (let i = buf.length - 1; i >= 0 && buf[i][0] >= b0; i--) { if (buf[i][0] > b1) continue; const v = buf[i][1]; if (v > hi) hi = v; if (v < lo) lo = v; bs += v; bn++; }
       if (!(hi > -Infinity)) continue;
+      BEAT_MEAN[nb] = bs / bn;
       BEAT_PIS[nb] = pulsatility(hi, lo); BEAT_HI[nb] = hi; BEAT_LO[nb] = lo; BEAT_B0[nb] = b0; BEAT_ORD[nb] = j; nb++;
     }
     if (!nb) return BEAT_PICK;
-    // (the median by index: a short insertion sort of the few beats' places)
-    const ord = BEAT_ORD;
-    for (let i = 0; i < nb; i++) ord[i] = i;
-    for (let i = 1; i < nb; i++) { const k = ord[i]; let m = i - 1; while (m >= 0 && BEAT_PIS[ord[m]] > BEAT_PIS[k]) { ord[m + 1] = ord[m]; m--; } ord[m + 1] = k; }
-    const pick = ord[(nb - 1) >> 1];
+    // (The typical beat: the one whose own mean lies nearest the window's mean, the level the Speed tile reads, so the Max and Trough of that beat stand
+    // either side of the speed shown, the breath's high and low beats never read as the vessel's own: 36, 21 and a speed of 14 did not agree, 16 Nov 2026.)
+    let pick = 0;
+    for (let i = 1; i < nb; i++) if (Math.abs(BEAT_MEAN[i] - level) < Math.abs(BEAT_MEAN[pick] - level)) pick = i;
     BEAT_PICK.pi = BEAT_PIS[pick]; BEAT_PICK.b0 = BEAT_B0[pick]; BEAT_PICK.hi = BEAT_HI[pick]; BEAT_PICK.lo = BEAT_LO[pick];
     // (the beat's end: the next beat's start after b0)
     for (let j = 0; j < n; j++) { const t = beatT[(beatN - n + j) % BEAT_MAX]; if (t > BEAT_PICK.b0) { BEAT_PICK.b1 = t; break; } }
@@ -697,14 +697,16 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (A portal vein's Max and Trough are the highest and lowest of the median beat, the beat its Pulsatility and the calipers read: one beat, one set of numbers.
     // Over the whole 3 s they took in the breath's swing, and (Max − Trough) / Max of the two shown did not give the Pulsatility beside them: 36, 21 and 0.17, 16 Nov 2026.)
     const beatwise = p.kind === 'portal' && r.beatPi >= 0, hiV = beatwise ? r.beatHi : r.vmax, loV = beatwise ? r.beatLo : r.vmin;
-    const big = Math.abs(hiV) >= Math.abs(loV), pk = big ? hiV : loV, tr = big ? loV : hiV;
+    // (Max and Trough bracket the speed shown: the typical beat nearly always does; where its swing sits wholly to one side of the 3 s mean, the mean is the bound.)
+    const sp = Math.abs(r.mean) * Math.sign(r.mean || 1), hiB = beatwise ? Math.max(hiV, sp) : hiV, loB = beatwise ? Math.min(loV, sp) : loV;
+    const big = Math.abs(hiB) >= Math.abs(loB), pk = big ? hiB : loB, tr = big ? loB : hiB;
     setStat(statEls.Peak.dd, num(pk * gf), 'cm/s');   // (a stent's peak at its gate)
     setStat(statEls.Trough.dd, num(tr * gf), 'cm/s');
     // Pulsatility: a vein's is the portal convention, (max − min) / max (it.pi). An artery's is Gosling's index, (peak − trough) / mean: the
     // other one is the resistive index the strip already prints (Mohammad, 13 Nov 2026, "Pulsatility 0.73" beside "Resistive index 0.73").
     // The hepatic veins and the IVC have no such index (their swing passes zero, so the ratio ran past 1): their tile is hidden, the pattern says it.
     // (The tile follows its formula from the two numbers shown beside it, rounded as they are printed, so the three always agree.)
-    const shownV = (v) => Math.sign(v) * Number(fmt(Math.abs(v * gf), 0)), piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : pulsatility(shownV(hiV), shownV(loV));
+    const shownV = (v) => Math.sign(v) * Number(fmt(Math.abs(v * gf), 0)), piV = p.kind === 'artery' ? (Math.abs(r.mean) > 0.5 ? (r.vmax - r.vmin) / Math.abs(r.mean) : 0) : pulsatility(shownV(hiB), shownV(loB));
     setStat(statEls.Pulsatility.dd, fmt(piV, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, about 0.07 cm·s in health, over 0.1 suggests portal hypertension
     const isPV = probe === 'PV_TRUNK';

@@ -51,7 +51,7 @@ import { D_SMALL, D_SURFACE, EASE_ARRIVE, RISE_PX, cssCurve, easeArrive } from '
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS, throwReach } from './card-throw.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { calmFrames, cardsLanded, createFrameGates } from './cover-lift.js';
 import { caught } from './caught.js';
@@ -96,7 +96,7 @@ const viewSettled = (cut, stage) => waitCut(VIEW_CHANGE_MS + 400, () => cut() ||
 const { painted, smooth } = createFrameGates(nextFrame);   // (cover-lift.js: one painted frame; the wait for smooth frames)
 const { scaleVisual, quadrantVisual, wallsVisual, makeCalc, xKey } = createVisuals({ sv, glBox, est, fitChart, fsOf });
 
-export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome, patientHistory = null }) {
+export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome, patientHistory = null, restartTraces = null }) {
   // <stage-split live>
   // The shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
@@ -509,6 +509,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const gl = booting ? 0 : ms || 300;
     const held = insets.held;
     insetsGo(true);   // (the room the new cards leave, written as the glide sets off: it frames for it, and the labels wait for its landing)
+    stage.camSteps?.(txn?.trail);   // (the change's steps so far, kept with the move's record: where a late start spent its time, pps.cameraGate)
     frameTo(cam, s, gl, SLIDE_OPT);   // (the slide's one move: stage-glide.js holds every other framing asked while it runs)
     caseExit = false;   // (asked of this framing only)
     begun?.(); if (held) dispatchEvent(new Event('pps:occ'));   // (the glide has set off: the cards' last fitting runs under it, see transitionRun)
@@ -650,7 +651,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (ms <= 0) { caseFade(c, false, 0); return 0; }
     caseFadeTokens.set(c, {});   // (a fade still running in lets go: its ending must not take the throw's inline values off)
     const gx = glideX(c), gy = glideY(c), x = Number.isFinite(gx) ? gx : 0, y = Number.isFinite(gy) ? gy : 0, o = parseFloat(c.style.opacity);
-    const dist = Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP);
+    const dist = throwReach(readBox(c), 'next', innerWidth, Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP), 0.95);   // (never cut at the screen's edge: card-throw.js throwReach)
     glideStop(c); c.style.removeProperty('transition'); c.style.removeProperty('transform');
     // (The card and its glass read these same frame-clock values, card-throw.js's way: they never part.)
     glideTranslate(c, x, y, x - dist, y, RAIL_MS, easeArrive);
@@ -1063,6 +1064,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // in, not at the D_SMALL + 20 the fade needed: the 90 ms after that were an empty slot. The two painted frames stay: the throw is seen begun
     // before the marks and the lens can make a long frame.)
     const outAt = performance.now(), outMs = wordsOut(s), thrown = thrownNow;
+    // A new patient that dims the figure while it changes (dip, below): the figure starts to dim with the old cards' leave, not after it, so the
+    // slide's camera move, which frames the new patient's organs, sets off one fade sooner after the press (16 Nov 2026, his Mac: Sites and causes
+    // 9 to 10, Acute variceal bleed 3 to 2 and 16 to 17 started 0.9 to 1.3 s after it). Not behind a case or question card (it covers the change),
+    // nor with a catheter up (its own way out dims the figure).
+    const dimmed = !booting && !reduce.matches && !!ui && freshPatient(s, lap, pre) && shownState >= 0 && (si !== shownState || liveOff) && !ask && !(s.vignette && !noCase && to > lastAt) && !cath.on && !view.classList.contains('pz-out') ? figureOut(cut) : null;
     tx?.phase('leave');
     if (outMs || thrown) { await painted(); await painted(); }
     if (cut()) return;
@@ -1102,7 +1108,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
     // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
     tx?.phase('cath-out');
-    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut); if (cut()) return; }
+    // (Onto a slide with no catheter of its own, where the figure does not dim: the catheter's way out, 700 ms, runs under the slide's camera move,
+    // which sets off with the press, and is waited for before the cards come in. 16 Nov 2026, his Mac: Carvedilol 5 to 4 started 3 s after the
+    // press. A tracing card's own catheter (beside) waits for this one to have gone, as before.)
+    const cathAside = cath.on && !ct && !beside(s) && !(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)));
+    const cathGone = cathAside ? cathOut(false, cut) : null;
+    if (!cathAside && cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut); if (cut()) return; }
     tx?.phase('to-anatomy');
     if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
@@ -1145,6 +1156,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A catheter slide's cards come in over the patient's change, not after it, where the organs are on the GPU and a frame stays short: the words carry the slide's own readings. The catheter still waits for the change, below.)
       if (glide) { shownState = -1; if (!later) { lensGo(); if (ct && stage.canDrift?.()) { morphCt = morphTo(st, cut); } else { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } } }
       else {
+        if (dimmed) { await dimmed; if (cut()) return; }   // (begun with the old cards' leave)
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         lensGo(); applyState(st); shownState = own ? -1 : si;
         await drawn(st);
@@ -1219,6 +1231,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (cam) { if (prepWith) { prep ||= unseenFit(cut); if (!await prep) return; } await camera(cam, fv, cut, plate ? CARDS_AT : 0); }
     insetsGo();   // (no glide set off after all, a lobule's or a held one: the room is written now)
     if (cut()) return;
+    if (cathGone) { await cathGone; if (cut()) return; }   // (the catheter that went out under the move has gone before the cards come in)
     if (bare) {
       // (A glide's last frame can land just after the wait that timed it: the cards wait for the camera to be still. In one move they
       // come in over its last part instead, unless the patient changes after the landing: that change must not start mid-glide.)
@@ -2152,7 +2165,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return hs;
   }
 
-  const { start, stop: stop$ } = createStart({ patientHistory, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
+  const { start, stop: stop$ } = createStart({ patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
   function stop(...a) { return stop$(...a); }   // <stage-split stub>
   async function coverDown(now = false) {
     if (!now) {

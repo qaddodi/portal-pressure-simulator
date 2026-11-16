@@ -25,7 +25,7 @@ test('the blood clock runs at one second a second through the rest and idle step
     store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
     await core.handle({ type: 'ackPaint', on: true });
     await core.handle({ type: 'run', running: true });
-    store.set({ running: true, params: core.engine().params, layers: { ...store.get().layers, flow: true } });
+    store.set({ running: true, params: core.engine().params, blood: { ...store.get().blood, chevrons: true } });
     const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) { st.update(f); core.handle({ type: 'painted' }); } await tasks(); };
     // (The clock's advance over `secs` seconds of screen frames, against the fake clock's own; it wraps at 10000 s, far off here.)
     const perS = [];

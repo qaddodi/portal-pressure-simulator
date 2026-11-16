@@ -18,30 +18,27 @@ const { tubeLumenMixJS, compLumenUniforms, compLumenFns } = await import('../src
 
 const noComments = (t) => t.replace(/\/\/.*$/gm, '');
 const BUILDS = {
-  'COMP_FS(false, false, false, 1)': COMP_FS(false, false, false, 1),
-  'COMP_FS(true, false, false, 1)': COMP_FS(true, false, false, 1),
-  'COMP_FS(false, true, false, 1)': COMP_FS(false, true, false, 1),
-  'COMP_FS(false, false, true, 1)': COMP_FS(false, false, true, 1),
+  'COMP_FS(false, false, 1)': COMP_FS(false, false, 1),
+  'COMP_FS(true, false, 1)': COMP_FS(true, false, 1),
 };
-const WHOLE = ['COMP_FS(false, false, false, 1)', 'COMP_FS(true, false, false, 1)', 'COMP_FS(false, true, false, 1)'];
+const WHOLE = ['COMP_FS(false, false, 1)', 'COMP_FS(true, false, 1)'];
 
-test('the four Tube builds lint clean (comments out, directives followed)', () => {
+test('the two Tube builds lint clean (comments out, directives followed)', () => {
   for (const [name, t] of Object.entries(BUILDS)) assert.deepEqual(lintGLSL(preprocess(noComments(t))), [], name);
 });
 
-test('the Tube builds of the full, plain and streak compositor read the lumen layer and nothing of the flow targets', () => {
+test('the Tube builds of the full and plain compositor read the lumen layer and nothing of the flow targets', () => {
   for (const name of WHOLE) {
     const t = noComments(BUILDS[name]);
     assert.ok(/uniform sampler2D lumenL;/.test(t), `${name}: declares lumenL`);
     assert.equal((t.match(/\b(?:texelFetch|texture)\(lumenL\b/g) || []).length, 3, `${name}: lumenL read at the layer's texel, filtered on a tier frame, or filtered at a share of the layer's size`);
     assert.ok(!/bloodAt\(/.test(t), `${name}: no bloodAt`);
     assert.ok(!/\bgbuf2\b/.test(t), `${name}: no gbuf2`);
-    assert.ok(!/\bhalfL\b/.test(t), `${name}: no halfL`);
     for (const f of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(']) assert.ok(!t.includes(f), `${name}: no ${f}`);
     // gbuf is read once, and only for a still lumen's test, a blood-only frame with no lumen layer drawn, the arrowheads drawn here or the mask of a lumen layer at a share of the layer's size.
     assert.equal((t.match(/texelFetch\(gbuf\b/g) || []).length, 1, `${name}: one gbuf read`);
     assert.ok(/if \(inL && \(\(bloodOnly == 1 && \(stillOn == 1 \|\| !lumOn\)\) \|\| chevC \|\| lumM\)\) g = texelFetch\(gbuf, lp, 0\);/.test(t), `${name}: gbuf read only where needed`);
-    // The lumen layer is drawn only while the streaks, the dye or the origin colours are on (veins-gl.js lumenFrame); with the arrowheads alone it holds an older
+    // The lumen layer is drawn only while the dye or the origin colours are on (veins-gl.js lumenFrame); with the arrowheads alone it holds an older
     // frame's lumens, so it is not read and a blood-only frame finds the lumens by gbuf (else the heads' quads stacked heads where the old layer was empty, 10 Nov 2026).
     assert.ok(/bool lumOn = blood == 1 \|\| dyeOn == 1 \|\| origin == 1;/.test(t), `${name}: lumOn is the lumen pass's own test`);
     assert.ok(/bool lumM = lumOn && lumSc > 0\.0/.test(t), `${name}: no share-size read without the lumen layer`);
@@ -58,10 +55,9 @@ test('at most 16 samplers in a Tube build, counted by declaration', () => {
   }
 });
 
-test('the streak and arrowhead builds have no Tube text of their own', () => {
-  assert.equal(COMP_FS(false, true, false, 1), COMP_FS(false, false, false, 1));
-  assert.equal(COMP_FS(false, false, true, 1), COMP_FS(false, false, true));
-  assert.notEqual(COMP_FS(false, false, false, 1), COMP_FS(false, false, false));
+test('the arrowhead build has no Tube text of its own', () => {
+  assert.equal(COMP_FS(false, true, 1), COMP_FS(false, true));
+  assert.notEqual(COMP_FS(false, false, 1), COMP_FS(false, false));
 });
 
 test('the Tube build keeps the text after the lumen section: the bleed, the layering and the outlines', () => {
@@ -73,8 +69,7 @@ test('the Tube build keeps the text after the lumen section: the bleed, the laye
 
 test('the helpers the lumen shader shares are exported whole', () => {
   assert.ok(/uniform highp sampler2D flow;/.test(compLumenUniforms()));
-  assert.ok(/zoomA/.test(compLumenUniforms()));
-  for (const f of ['bloodAt(', 'originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'radAt(', 'bendAt(']) assert.ok(compLumenFns().includes(f), f);
+  for (const f of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(', 'radAt(', 'bendAt(']) assert.ok(compLumenFns().includes(f), f);
 });
 
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e;

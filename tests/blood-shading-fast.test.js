@@ -70,8 +70,7 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
     assert.doesNotMatch(R[k], /1 << 20/);
   }
   assert.equal(mod.lookOf, undefined);
-  // The app asks for the streaks (main.js forces them; the lobule defaults to them).
-});
+  });
 
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
   const main = body(R.full, 'void main()');
@@ -83,44 +82,18 @@ test('the composite tests the arrowheads\' cut-outs only where a head is', () =>
   assert.ok(body(after, 'if (c.x + c.y > 0.0) {').includes('chevInk'));
 });
 
-// ── Item 5: the zoom's numbers once per vertex, and the vessel's own values read once for the streaks and the arrowheads ──
+// ── Item 5: the vessel's own values read once for the arrowheads (the zoom's numbers and the streaks went with the Streaks option, 16 Nov 2026) ──
 const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the vessel shader's shading and packing: veins-mesh-glsl.js)
-const zoomVS = glSrc.slice(glSrc.indexOf('const ZOOM_VS = `'), glSrc.indexOf('}`;', glSrc.indexOf('const ZOOM_VS = `')));
 
-test('the vertex shaders work out the zoom\'s numbers (once per vertex, none per pixel)', () => {
-  for (const e of [
-    'max(2.6, 5.0 * pxW)',
-    'clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0)',
-    'smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx)',
-    'min(floor(li), 1.0), lf = li - lb',
-    'SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0)',
-  ]) assert.ok(zoomVS.includes(e), `vertex: ${e}`);
-  assert.ok(zoomVS.includes('cellA = 5.12 * sA, cellB = 5.12 * sB'));
-  assert.ok(zoomVS.includes('smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5), smoothstep(1.2 * pxW, 2.0 * pxW, cellB * 0.5), mix(sA, sB, lf)'));
-  // Both vertex shaders hand them on; the composite takes them flat and works none of them out again.
-  assert.equal((glSrc.match(/\$\{ZOOM_VS\}/g) || []).length, 2);
-  assert.equal((glSrc.match(/zoomOut\(\);/g) || []).length, 2);
-  for (const k of Object.keys(R)) {
-    assert.match(R[k], /flat in vec4 zoomA;/);
-    assert.doesNotMatch(body(R[k], 'vec4 bloodAt('), /log2\(|exp2\(|max\(2\.6, 5\.0 \* pxW\)/);
-  }
-});
-
-test('the streaks and the arrowheads share one read of the vessel\'s flow, length, caliber and colour', () => {
+test('the arrowheads read the vessel\'s flow, caliber and colour once', () => {
   for (const k of Object.keys(R)) {
     const main = body(R[k], 'void main()');
     assert.equal((main.match(/texelFetch\(flow, ivec2\(0, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 0 once`);
     assert.equal((main.match(/texelFetch\(flow, ivec2\(1, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 1 once`);
-    assert.match(main, /if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/);
     assert.match(main, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy\) \{/);   // (chevQuad: the heads drawn by their own quads, blood-heads.js)
-    const bl = body(R[k], 'vec4 bloodAt('), ch = body(R[k], 'vec2 chevAt(');
-    for (const f of [bl, ch]) {
-      assert.doesNotMatch(f, /texelFetch\(flow, ivec2\([01], id\)/);
-      assert.doesNotMatch(f, /texelFetch\(tube, ivec2\(5, id\)/);
-    }
-    assert.doesNotMatch(bl, /texelFetch\(tube, ivec2\(0, id\)/);
-    // (bloodAt's caliber was radAt's expression written out: the one function now serves both.)
-    assert.doesNotMatch(bl, /texelFetch\(rad,/);
+    const ch = body(R[k], 'vec2 chevAt(');
+    assert.doesNotMatch(ch, /texelFetch\(flow, ivec2\([01], id\)/);
+    assert.doesNotMatch(ch, /texelFetch\(tube, ivec2\(5, id\)/);
   }
 });
 
@@ -151,13 +124,13 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   // (The blood's clock is out of it again, performance A1.2: the rows that carry blood are marked moved when it moves, tests/perf-a1-switches.test.js.)
   const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('let same'));
   for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
-    'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
+    'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
-    'blood.streakLen', 'btNow !== btLast', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'quads', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
+    'btNow !== btLast', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'quads', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
     'blood', 'chev', 'chevQuad', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
-    'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn', 'halfOn', 'halfR', 'mapA', 'mapDot', 'mapZone', 'mapFx', 'mapAlt', 'mapFxX', 'mapRot'].includes(u), `uniform ${u} is accounted for`);
+    'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'bloodOnly', 'stillOn', 'mapA', 'mapDot', 'mapZone', 'mapFx', 'mapAlt', 'mapFxX', 'mapRot'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
   // Every setter of a vessel's row marks it; a new binning or flow table marks them all; a new texture under the lumens bumps texVer.

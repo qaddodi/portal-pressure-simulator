@@ -111,7 +111,6 @@ const PLAIN = {
   'lumen pass': ['blood drawn by the tubes (lumen pass), the figure\'s', 'the lumen pass is a second pass over the strips and webs on every blood frame: draw it on fewer frames, leave out the join test where no row end is near, or draw it at a lower resolution while moving'],
   'lobule lumen pass': ['blood drawn by the tubes (lumen pass), the lobule\'s', 'the lobule draws 156 strips and 310 webs in the lumen pass on every blood frame: skip or reuse the join test in its fragment shader, or draw it at a calm gap'],
   'glasses and labels': ['glass blur under the pills and cards, and the labels', 'a glass blurs again whenever the figure under it changes: blur less often or a smaller area'],
-  'half-size streaks': ['flow streaks drawn at half size', 'fewer streak rows'],
   'frame start': ['GPU still busy with the previous frame when this one began (backlog)', 'the GPU cannot finish a frame in time: cut the largest GPU step below'],
   'early phase': ['other GPU work in the early phase (figure layers, uploads)', ''],
   'late phase': ['other GPU work in the late phase (blood composite)', ''],

@@ -22,7 +22,7 @@ test('at rest the blood frames leave still lumens alone; a shown ascites still r
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   await core.handle({ type: 'ackPaint', on: true });
   await core.handle({ type: 'run', running: true });
-  store.set({ running: true, params: core.engine().params, layers: { ...store.get().layers, flow: true } });
+  store.set({ running: true, params: core.engine().params, blood: { ...store.get().blood, chevrons: true } });
   // (One screen frame: the model's newest frame taken in as main.js does, told back, the tasks between frames.)
   const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) { st.update(f); core.handle({ type: 'painted' }); } await tasks(); };
   // (Each composite's gauge, read frame by frame while the probe is on.)

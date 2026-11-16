@@ -38,7 +38,7 @@ function fakeGL() {
 const mod = await import('../src/ui/veins-gl.js');
 const tubeSources = (src) => src.filter((s) => s.includes('celShade(') && s.includes('#define MESH '));
 const leanSources = (src) => src.filter((s) => s.includes('uniform int isWeb;') && !s.includes('uniform int blood;'));   // (stage 2's lean fragment shader: one object, shared by the strip's program and the web's)
-const lumenSources = (src) => src.filter((s) => s.includes('#define PLAIN ') && s.includes('flat in vec2 vEnd;') && s.includes('uniform vec3 blendA;') && !s.includes('celShade('));   // (stage 3's lumen fragment shader, likewise one for both)
+const lumenSources = (src) => src.filter((s) => s.includes('#define PLAIN ') && s.includes('flat in vec2 vEnd;') && s.includes('uniform vec2 blendA;') && !s.includes('celShade('));   // (stage 3's lumen fragment shader, likewise one for both)
 
 function lobule() {
   const f = fakeGL();

@@ -17,10 +17,10 @@ const state = {
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
   shunting: null,             // { src, only } while a shunt waits for its drop target
-  layers: { flow: false, chips: true, collaterals: false, organs: true, labels: true, grid: false },
+  layers: { chips: true, collaterals: false, organs: true, labels: true, grid: false },
   labelLevel: (() => { try { const v = localStorage.getItem('pps.labels'); return ['key', 'all', 'none'].includes(v) ? v : 'key'; } catch { return 'key'; } })(),   // station labels: key | all | none (Blood menu)
   lobuleLayers: { zones: false, lymph: true, bile: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph, bile
-  blood: { look: 'shimmer', phasic: false, chevrons: false, keyChevrons: false },   // look: parcels | shimmer
+  blood: { phasic: false, chevrons: false, keyChevrons: false },
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction | oxygen | origin | firstpass
   params: defaultParams(),
   frame: null,

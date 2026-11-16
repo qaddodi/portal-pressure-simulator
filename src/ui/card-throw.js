@@ -12,6 +12,7 @@ import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
+import { readBox } from './layout-snap.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
 export const THROW_IN = 56, THROW_STAGGER = 40;
@@ -33,6 +34,15 @@ export function throwInto(out, kind, k, from, to) {
   const e = easeArrive(k), f = kind === 'out' ? Math.min(1, e / 0.85) : kind === 'back' ? e : Math.min(1, e / 0.4);   // ('back': a card let go short of a swipe, fading in on its way as it moves, not ahead of it)
   out.x = from.x + (to.x - from.x) * e; out.o = from.o + (to.o - from.o) * f;
   return out;
+}
+
+/** How far a card may travel (px, the whole way it is sent) so that no part of it that can still be seen crosses the screen's edge. A card going out is gone from sight by `seen` of its
+ *  way (the rail's curve: 85% of it; a case card's faster fade: 95%), so it may go as far as the room between its box and the edge, over that share. A card with no box (no layout) or no
+ *  room measured is not held back. Mohammad, 16 Nov 2026: the leaving card "shouldn't get cut off" at the viewport's edge. box: its rect; dir: 'next' (left) or 'back' (right). */
+export function throwReach(box, dir, vw, travel, seen = 0.85) {
+  if (!box || !(box.width > 0) || !(vw > 0) || !(travel > 0)) return travel;
+  const room = dir === 'back' ? vw - box.right : box.left;
+  return Math.max(0, Math.min(travel, Math.max(0, room) / seen));
 }
 
 const runs = new Map();
@@ -146,6 +156,12 @@ const settle = () => { if (!runs.size) { if (guardT) clearTimeout(guardT); guard
 function start(el, kind, to, ms, delay, done) {
   endMove ||= beginMotion('card throw', ms + delay + 2000);
   const from = here(el);
+  if (kind === 'out' && to.x !== from.x && el.isConnected) {   // (never cut at the screen's edge: throwReach)
+    let box = null;
+    try { box = readBox(el); } catch { /* a card with no box (no layout): not held back */ }
+    const dir = to.x < from.x ? 'next' : 'back', travel = Math.abs(to.x - from.x), keep = throwReach(box, dir, typeof innerWidth === 'number' ? innerWidth : 0, travel);
+    if (keep < travel) to.x = from.x + (dir === 'next' ? -keep : keep);
+  }
   runs.delete(el); pinned.delete(el);
   if (kind === 'out') settleLands(el, false);   // (a card sent out will not land: whoever waited for it arriving is told)
   el.classList?.add(THROWING); classSoon(el, THROWING, true);   // (on in the task that starts the move; a let-go still waiting is overruled)

@@ -204,7 +204,7 @@ export function createReading() {
   const said = h('p', { class: 'sr-only' });
   const el = h('div', { class: 'pz-mon pz-reading' }, h('div', { class: 'chart-box hvpg-box' }, cv), h('div', { class: 'sr-only', role: 'group', 'aria-label': 'Pressure readings' }, said));
   const gpu = createTraceGL(cv, { redraw: () => draw() });   // (the monitor drawn by the GPU, trace-gl.js)
-  let S = null, fp = null, tk = {}, slide = null, saidKey = '';
+  let S = null, fp = null, tk = {}, slide = null, saidKey = '', readingNow = '';
   const v = { a: NaN, b: NaN, g: NaN }, taken = [false, false, false];
   const st = { ph: 'idle', t: 0, v, running: true, wave: null, probing: false };   // (what the monitor is handed: kept, written in place)
   function draw() {
@@ -217,6 +217,9 @@ export function createReading() {
     takenOf(S, tk, taken);
     const key = `${S.id}${+taken[0]}${+taken[1]}${+taken[2]}`;
     if (key !== saidKey) { saidKey = key; said.textContent = readingWords(S, v, taken); }   // (only when a reading is taken, never each frame)
+    // (The header holds back what the card measures until its last reading is taken: presenter-cards.js MEASURED.)
+    const pend = taken[2] ? '' : 'pending';
+    if (pend !== readingNow) { readingNow = pend; if (pend) el.dataset.reading = pend; else delete el.dataset.reading; }
   }
   return {
     el,
