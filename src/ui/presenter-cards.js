@@ -14,7 +14,8 @@ import { cancelRest, restPass } from './rest-pass.js';
 import { createScopeTile } from './scope-tile.js';
 import { shownState as pageShown } from './shown.js';
 import { createTileShown, tileSmall } from './tile-shown.js';
-import { bandStep } from './band-settle.js';
+import { bandStepFor, BAND_LONG_MS } from './band-settle.js';
+import { paintBand, shownBand } from './tile-band.js';
 import { readBox, readCTM, readMetric, readStyle } from './layout-snap.js';
 import { caught } from './caught.js';
 import { onFontsLoaded } from './font-arrival.js';
@@ -290,6 +291,7 @@ export function bigTiles() {
   const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
   const offFonts = onFontsLoaded(fitSoon);   // (a face arriving after the tiles were fitted changes the numbers' widths, not their boxes: font-arrival.js)
+  const bandOf = (p, v) => shownBand(p, v, rated, tileShown);
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
@@ -352,7 +354,8 @@ export function bigTiles() {
     const paintShown = () => {
       for (const p of parts) {
         // (A rating held while its number glided across a cut-off, write: taken once the number has landed.)
-        if (p.pend && !ts.moving(p.k)) { const [w, r] = p.pend; p.pend = null; p.rate = r; setT(p.r, w); setA(p.tile, 'data-rate', r); if (p.hi) setA(p.hi, 'data-rate', r); }
+        // (Or once it has waited BAND_LONG_MS and the number on show has itself entered the band: a number that keeps moving, a live strain, never lands.)
+        if (p.pend && (!ts.moving(p.k) || (performance.now() - p.waitT >= BAND_LONG_MS && p.on && bandOf(p, ts.get(p.k, p.sv)) === p.pend[1]))) { const [w, r] = p.pend; p.pend = null; paintBand(p, w, r); }
         if (p.pic || !p.on) continue;
         const v = ts.get(p.k, p.sv), v0 = p.hasRef ? ts.get(p.k, p.sr, true) : p.sr;
         const bs = p.bp ? ts.get('map.s', p.bp.sbp) : 0, bd = p.bp ? ts.get('map.d', p.bp.dbp) : 0;
@@ -383,15 +386,15 @@ export function bigTiles() {
       fadeShown(p.u, !(none || !p.T.u));   // (a tile's parts fade in and out with its reading: nothing pops)
       // (A1, band-settle.js: a rating that changes while the number glides waits for it to land, paintShown; Reduce Motion, a first one: at once.)
       const rate = cls || (none ? 'none' : 'plain');
-      if (bandStep(p.rate, rate, go && ts.moving(p.k), reduce.matches) === 'wait') p.pend = [word, rate];   // alloc-rare: only when a slide's change moves a rating across a cut-off
-      else { p.pend = null; p.rate = rate; setT(p.r, word); setA(p.tile, 'data-rate', rate); }
+      p.f = f;
+      if (bandStepFor(p.rate, rate, go && ts.moving(p.k), reduce.matches, p.pend ? performance.now() - p.waitT : 0, p.pend ? bandOf(p, p.sv) : rate) === 'wait') { if (!p.pend) p.waitT = performance.now(); p.pend = [word, rate]; }   // alloc-rare: only when a slide's change moves a rating across a cut-off
+      else { p.pend = null; paintBand(p, word, rate); }
       if (p.hi) {
         // (putNum sets the header's number: always .set, never .now, even while the tiles glide in. A kept GPU number is redrawn by set alone; now writes only
         // the page's text, which stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start
         // on a time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
         fadeShown(p.hu, !(none || !p.T.u));
         if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
-        if (!p.pend) setA(p.hi, 'data-rate', rate);
       }
       // (The response tile's line names the HVPG the fall is counted from.)
       if (p.k === 'hvpgFall') {

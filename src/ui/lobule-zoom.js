@@ -28,6 +28,7 @@ import { glideClock } from './glide-clock.js';
 import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache.js';
 import { softwareYield } from './sw-yield.js';
 import { lobuleStateInto, lymphRate, sinceOf, LOBE } from './lobule-model.js';
+import { pickRank, tierOf } from './lobule-pick.js';
 import { inletPoint, SIN_NARROW, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, surroundGrade } from './lobule-look.js';
 import { createTissueGL } from './tissue-gl.js';
 import { FX_GPU, createFxGL } from './fx-gl.js';
@@ -2043,7 +2044,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           else if (t.lymph) { const LYt = t.kind === 'ly' ? LYD : LY; put3(o, LYt); put3(o + 4, LYt); }
           else if (greyed) { put3(o, ORIGIN_RGB); put3(o + 4, ORIGIN_RGB); }
           else { put3(o, inkNow, p * 6); put3(o + 4, inkNow, p * 6 + 3); }
-          tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = 1; tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
+          tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = tierOf(t.kind); tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
           if (endOn) {
             // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
             // else the cel outline's ink (tube-cel-glsl.js celShade): the look's own casing colour.
@@ -2776,8 +2777,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
       if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
-      const d = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
-      const score = d - r - (t.kind === 'tw' ? 2 : 0);
+      // (The radius where the point is nearest, not the middle's: a sleeve of Disse is wide at the portal edge and thin at the vein. Where vessels
+      // overlap, the one drawn on top there wins, so a tap in a sinusoid's lumen is the sinusoid's, never the sleeve's round it: lobule-pick.js.)
+      const d = distTo(t.pts, x, y), r = radiusAt(t, Math.round(distU * (N - 1))), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
+      const score = pickRank(d, r, Z_OF[t.kind] ?? 0, t.kind === 'tw' ? 2 : 0, tierOf(t.kind));
       if (d < tol && score < bd) { bd = score; best = t; }
     }
     if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }

@@ -23,3 +23,19 @@ export function bandStep(was, next, moving, reduce) {
   if (!was || next === 'none' || was === 'none' || reduce) return 'now';
   return moving ? 'wait' : 'fade';
 }
+
+/** How long (ms) a band may wait for a number that keeps moving: a roll is COUNT_MS (0.4 s), so a number still moving after this is not rolling but following
+ *  a live model (Valsalva strain, a dragged slider, a time-lapse), and a band that waited for it would lag for as long as the hold lasts. */
+export const BAND_LONG_MS = 800;
+
+/**
+ * bandStep, for a number that may keep moving for as long as it is held. A band that has waited BAND_LONG_MS is taken as soon as the number on show has itself
+ * entered it (shownBand: the band that number reads), so the number and its band never disagree; a short roll across a cut-off still keeps its old colour until
+ * the number lands, as bandStep says.
+ * @param {number} waitedMs   how long the band has waited (0 when it has not)
+ * @param {string} shownBand  the band the number on show reads now
+ */
+export function bandStepFor(was, next, moving, reduce, waitedMs, shownBand) {
+  const step = bandStep(was, next, moving, reduce);
+  return step === 'wait' && waitedMs >= BAND_LONG_MS && shownBand === next ? 'fade' : step;
+}

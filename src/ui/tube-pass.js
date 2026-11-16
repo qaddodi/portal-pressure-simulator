@@ -20,7 +20,7 @@ import { tubeStage, stage1Why, createStage2Data, lumenRect } from './tube-stage2
 export function createTubePass(E) {
   const { gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_COLOR_BUF, CLR_F, gpuProbe,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet } = E;
-  // (What orders the surfaces of a tier: the anatomy by height (zK 0, hK 1, hRef 64); the lobule, one tier, by each row's z first and the height only to settle
+  // (What orders the surfaces of a tier: the anatomy by height (zK 0, hK 1, hRef 64); the lobule, by tier (lymph 0 under blood 1, lobule-pick.js tierOf) and within one by each row's z first and the height only to settle
   // a tie (zK 1, hK .008: under the smallest gap between two kinds' z, .01), hRef its largest radius, 21.42 (node scripts/lobule-joins.mjs), rounded up.)
   const LV = E.lobule ? { hRef: 22, zK: 1, hK: 0.008 } : { hRef: 64, zK: 0, hK: 1 };
   let keyPre = 0;   // tubeKey: 2 while a shape's (a patch keeps the depth of the pixels inside its shape it leaves clear), else 0
