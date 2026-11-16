@@ -67,7 +67,7 @@ import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView } from './label-captions.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { hitLabel } from './label-explain.js';
-import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
+import { reduceMotionMQ, createReversible, smooth01, VIEW_STALL_MAX } from './motion.js';
 import { darkMQ } from './look.js';
 import { createLobuleField } from './lobule-zoom-field.js';
 import { END_ON, mouthSite, mouthWords, rimToward, twigPath } from './lobule-mouths.js';
@@ -2828,7 +2828,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // sinusoid view draws its own; as the zoom lands the sinusoid view, at the same size and angle, resolves in and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4, capOrder: LZ_UNDER_GLASS + 2 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
-  const sinClock = createReversible({ ms: 1150 });   // (sinU's clock: reversible, motion.js)
+  const sinClock = createReversible({ ms: 1150, stall: VIEW_STALL_MAX });   // (sinU's clock: reversible, motion.js)
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   // The way out of the sinusoid that goes straight on to the anatomy (chainOut: sinusoidToAnatomy, stage.js): the zoom out of the sinusoid eases in only, so it reaches the lobule still
   // moving, and the rise out of the lobule, which moves from its first frame (RISE_SLOPE), carries straight on from it: one glide, not two zooms with a stop between (Mohammad, 16 Nov 2026).
