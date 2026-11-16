@@ -1,9 +1,11 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
+import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
+import { fmtG } from './num.js';
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
+import { LYMPH } from '../engine/lymph.js';
 import { wallShare, WALL_MEANING } from '../engine/wall-read.js';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, setNone, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, bandSwap, recolorWords } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
@@ -121,11 +123,14 @@ export const LOBULE_TILES = [
   { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Hepatic arteriolar inflow to the lobule, as a percentage of the healthy patient\u2019s inflow. It rises when portal inflow falls (hepatic arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
-  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 860 mL/day; it rises many-fold with the sinusoidal pressure, and the lymph the lymphatics cannot carry enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT,
-    // (The scale reaches the lymphatics' most, about 14 L/day (engine lymph.js LYMPH.max); the ticks are 1.5 times healthy and a healthy adult's capacity.
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. It rises many-fold with the sinusoidal pressure, and the lymph the lymphatics cannot carry enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT, g: true,
+    // ("Normal" is the healthy patient's own lymph, read from the model as the bar's healthy tick is, and printed as the tile prints it: 1,320 mL/day, not a typed number.)
+    titleOf: (f, st) => `Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about ${lymphText(lobuleFlows(f, st.healthy).lymph0)} ${LYMPH_UNIT}; it rises many-fold with the sinusoidal pressure, and the lymph the lymphatics cannot carry enters the peritoneal cavity (ascites).`,
+    // (The scale reaches the lymphatics' most (engine lymph.js LYMPH.max, 14,400 mL/day); the ticks are 1.5 times the healthy liver's lymph (about 1,320 mL/day:
+    // the 'High' line below, pinned to the model by tests/lymph-format.test.js) and a healthy adult's lymphatic capacity (LYMPH.base, read from the engine).
     // Overflow is the model's own: lymph made beyond what the lymphatics carry (metrics.ascites.lymphOver), not a multiple of healthy, since a liver can
     // make several times its usual lymph and still have it all carried away.)
-    scale: [0, 14400], ticks: [1290, 5760],
+    scale: [0, LYMPH.max * 1440], ticks: [1980, LYMPH.base * 1440],
     st: (v, f, st) => (lymphSpill(f) ? 'danger' : v / lymphDay(lobuleFlows(f, st.healthy).lymph0) >= 1.5 ? 'caution' : 'ok'),
     s: (v, f, st) => (lymphSpill(f) ? 'Overflow' : v / lymphDay(lobuleFlows(f, st.healthy).lymph0) >= 1.5 ? 'High' : 'Normal') },
 ];
@@ -169,7 +174,7 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 const END_KEYS = ['pv', 'ivc', 'whvp', 'fhvp'];
 const END_STATE = { pv: 'end:pv', ivc: 'end:ivc', whvp: 'end:whvp', fhvp: 'end:fhvp' };
 const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
-const FOLLOW = { snap: false, small: 0, eps: 0 }, FILL = { small: 0, eps: 0, across: true }, COUNT = { eased: false }, SM = { pv: 0, ivc: 0, whvp: 0, fhvp: 0 }, GAP = { hvpg: null, ppg: null };
+const FOLLOW = { snap: false, small: 0, eps: 0 }, FILL = { small: 0, eps: 0, across: true }, COUNT = { eased: false, g: false }, SM = { pv: 0, ivc: 0, whvp: 0, fhvp: 0 }, GAP = { hvpg: null, ppg: null };
 
 /** The value a readout shows, or null when it is hidden and has not been measured. */
 export function readoutValue(t, m, hidden) {
@@ -246,7 +251,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     x.ariaPass = () => {
       x.ariaAsk = false;
       const v = x.ariaV, s = x.ariaS;
-      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${x.uxW}, ${s}`}${x.ariaT ? `, ${x.ariaT === 'up' ? 'rising' : 'falling'}` : ''}`;
+      const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${(t.g ? fmtG : fmt)(v, t.d)} ${t.u}${x.uxW}, ${s}`}${x.ariaT ? `, ${x.ariaT === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; attrSoon(el, 'aria-label', aria); }
     };
     return el;
@@ -414,7 +419,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.histT.length = 0; x.histV.length = 0;   // (the trend starts over: it was x.hist, which no tile has, and threw here for every unmeasured reading, so the strip stopped painting past it)
       } else {
         // (A step the running mean doesn't ease, a paused edit or a treatment, rolls to the new number: P17.)
-        COUNT.eased = eased; countTo(x.val, v, t.d, COUNT);
+        COUNT.eased = eased; COUNT.g = !!t.g; countTo(x.val, v, t.d, COUNT);
+        if (t.titleOf) { const tt = t.titleOf(f, st0); if (x.ttl !== tt) { x.ttl = tt; attrSoon(el, 'title', `${tt}${t.why ? '\nClick for what is driving it.' : ''}`); } }
         // (The number the word judges, the one shown ("5.0 L" is Grade 3), worked out again only when the reading moved.)
         if (x.vsV !== v || x.vsD !== t.d) { x.vsV = v; x.vsD = t.d; x.vsOut = shownOf(v, t.d); }
         const vs = x.vsOut, sf = t.ss && narrow.matches ? t.ss : t.s;
@@ -479,7 +485,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const hid = !!hidden?.has(x.v.hideKey);
       if (follow) x.shown = shownState.or(x.kBar, x.shown);
       if (follow) { if (x.fkOn && x.fkS === x.shown && x.fkH === hid && x.fkB === !!x.bad && Object.is(x.fkPs, x.bs) && Object.is(x.fkPd, x.bd)) continue; x.fkOn = true; x.fkS = x.shown; x.fkH = hid; x.fkB = !!x.bad; x.fkPs = x.bs; x.fkPd = x.bd; } else x.fkOn = false;
-      COUNT.eased = st0.running; countTo(x.val, hid ? null : x.shown, x.v.d, COUNT);
+      COUNT.eased = st0.running; COUNT.g = false; countTo(x.val, hid ? null : x.shown, x.v.d, COUNT);
       if (x.pre) {
         const t = hid || !Number.isFinite(x.bs) || !Number.isFinite(x.bd) || x.shown == null ? '' : `${Math.round(x.bs)}/${Math.round(x.bd)} (`;
         if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.post, t ? ')' : ''); }

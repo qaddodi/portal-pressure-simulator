@@ -366,6 +366,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
 
   // The phone's slim bar has about 73 px a reading (play-test T02, 16 Nov 2026: "of healthy" ran the four lobule readings 67 px past a 390 px bar).
   need('styles/app-*.css', [[/@media \(max-width: 480px\) \{\s*\.app\.thumb \.vdock \.readouts\.lob \.metric \.v \.u-x \{ font-size: 0;/, "the lobule readings' referent (\"of healthy\") is left off a phone's slim bar, which keeps only \"reversed\""]]);
+  // The bottom bar's grid always has the readings' area (16 Nov 2026, Mohammad: "the timeline looks glitched"): the play bar and the strip are the grid's two named areas ("tl", "ro").
+  // A rule that gave .vdock areas with no "ro" while the Lobule's readings were showing sent them to an implicit row under the play controls. Such a rule is for a bar that has no
+  // readings (the Tests side card hides the strip), or it says so with :not(:has(.readouts.lob)).
+  for (const m of text('styles/app-*.css').matchAll(/([^{}]*\.vdock[^{}]*)\{[^}]*?grid-template-areas:\s*([^;}]*)/g)) {
+    const sel = m[1].trim().split('\n').pop();
+    if (/\bro\b/.test(m[2]) || /:not\(:has\(\.readouts\.lob\)\)|#dock\.side/.test(sel)) continue;
+    errors.push(`styles/app-*.css: ${sel.slice(0, 120)} gives the bottom bar areas ${m[2].trim()} with no "ro": the Lobule's readings would fall into an implicit row under the play controls (add :not(:has(.readouts.lob)) to the selector)`);
+  }
   // The pressure ramps tests/chevron-contrast.test.js judges the heads' ink on (16 Nov 2026): a ramp changed in the styles must change there too.
   need('styles/tokens.css', [
     ['--ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;', "Light's pressure ramp, as tests/chevron-contrast.test.js has it"],

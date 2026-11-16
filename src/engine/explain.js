@@ -174,7 +174,8 @@ function healthyPortalR(h) {
   return (P[h.ni.CONF] - P[h.ni.RHV]) / (q * 0.06);
 }
 const SETTLED_FORMULA = new Set(['pv', 'hvpg', 'ppg']);   // (the metrics whose line reads the engine's own pressures and flows: the view's, as their numbers are)
-const num = (v, d) => Math.abs(v).toFixed(d);
+// (A whole number of a thousand or more takes its comma, as every mL/day does: "1,320 mL/day", lymph-day.js and num.js fmtG.)
+const num = (v, d) => { const t = Math.abs(v).toFixed(d); return d === 0 ? t.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : t; };
 const signed = (v, d) => (v >= 0 ? '+' : '−') + num(v, d);
 const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 

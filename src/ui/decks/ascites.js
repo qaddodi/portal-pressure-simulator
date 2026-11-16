@@ -51,7 +51,7 @@ export const ASCITES = {
       id: 'lymph', terms: { lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', scales: { sinusoid: {}, anatomy: { cam: 'fit' } }, layers: ['lymph'],
       tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'Lymph leaves the liver along the portal tracts',
-      line: 'At a sinusoidal pressure of {sin}, the liver makes several times its usual lymph. The portal tract lymphatics drain it all, so no ascites forms, but they are near capacity.',
+      line: 'At {sin} sinusoidal pressure, the liver makes several times its usual lymph. The lymphatics along the portal tracts drain it all, so no ascites forms, but they are near capacity.',
       notes: 'Plasma filtered into the space of Disse flows toward the portal tracts, countercurrent to sinusoidal blood flow, and enters lymphatics that run with the portal vein branches to the hilum, then to the cisterna chyli and the thoracic duct. A smaller share leaves along the hepatic veins and beneath the capsule. The liver produces a quarter to a half of total body lymph, and hepatic lymph flow rises with sinusoidal pressure. The lymphatics dilate and carry many times their usual flow before they are overwhelmed; only then does lymph weep from the liver surface into the peritoneal cavity. In the model the liver makes more than five times the lymph of a healthy liver, and the lymphatics carry all of it, with little capacity to spare; any further rise in sinusoidal pressure will exceed it.',
       ask: ['Where does the sinusoidal filtrate go before ascites forms?', 'Through the space of Disse to lymphatics in the portal tracts, then to the thoracic duct.'],
     },

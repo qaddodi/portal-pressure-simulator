@@ -63,6 +63,8 @@ export function caudateBox() {
   for (const [x1, y1, x2, y2] of CAUDATE.arrows) { xs.push(x1, x2); ys.push(y1, y2); }
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
+/** The caudate lobe's box when a slide's organs include it ('caudate' or 'caudate-lobe'), else null: the lobe is no outlined organ, so stage.focusBox takes its frame from here. */
+export const caudateFocus = (organs) => (organs.includes('caudate') || organs.includes('caudate-lobe') ? caudateBox() : null);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);

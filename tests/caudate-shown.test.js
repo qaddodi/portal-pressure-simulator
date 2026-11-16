@@ -5,11 +5,10 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
 import { slideTargets } from '../src/ui/presenter.js';
 import { regionBox, growBox } from '../src/ui/cam-frame.js';
-import { caudateBox } from '../src/ui/anatomy.js';
+import { caudateBox, caudateFocus } from '../src/ui/anatomy.js';
 
 const slides = DECKS.flatMap((d) => d.slides.map((s) => ({ key: `${d.id}/${s.id}`, s })));
 const termKeys = (s) => (Array.isArray(s.terms) ? s.terms : Object.values(s.terms || {}));
@@ -37,8 +36,8 @@ test('every slide that draws the caudate lobe frames it whole, without a frame p
   }
 });
 
-test('the stage counts the caudate lobe in the box it frames (focusBox)', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  const at = src.indexOf('focusBox({ organs');
-  assert.ok(at > 0 && /caudateBox\(\)/.test(src.slice(at, at + 1800)), 'stage.focusBox must add caudateBox() for the caudate organs, or the camera crops the lobe at the frame edge');
+test('a frame for the caudate organs holds the lobe (what stage.focusBox adds), and one for no caudate adds nothing', () => {
+  assert.deepEqual(caudateFocus(['liver', 'caudate']), caudateBox());
+  assert.deepEqual(caudateFocus(['caudate-lobe']), caudateBox());
+  assert.equal(caudateFocus(['liver', 'spleen']), null);
 });
