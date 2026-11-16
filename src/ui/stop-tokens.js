@@ -5,7 +5,7 @@
 // tests/stop-tokens.test.js fails when the style rules these read change, until this is made again.
 
 /** The hash of the style rules and tokens the stops are computed from (scripts/stop-inputs.mjs). */
-export const STOP_HASH = "80a7a21a6ff2";
+export const STOP_HASH = "3bfaa2637bb2";
 /** The looks that compute differently (each other look is one of these: STOP_LOOK). */
 export const STOP_COLS = ["light","soft","dark","navy"];
 /** Every look (Light, Soft, Dark, Navy, Black, and System as the device's light or dark) → its column. */
@@ -33,8 +33,8 @@ export const STOPS = {
   "|stop-color:var(--og-eso-2)||": ["rgb(213, 156, 136)",1,"rgb(186, 131, 111)",1,"rgb(126, 77, 61)",1,"rgb(82, 53, 68)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gb-1)||": ["rgb(202, 216, 164)",1,"rgb(175, 188, 137)",1,"rgb(111, 122, 66)",1,"rgb(86, 112, 74)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gb-2)||": ["rgb(152, 177, 109)",1,"rgb(127, 151, 84)",1,"rgb(76, 94, 27)",1,"rgb(58, 76, 58)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-1)||": ["rgb(238, 210, 194)",1,"rgb(211, 184, 168)",1,"rgb(145, 116, 101)",1,"rgb(124, 93, 95)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-2)||": ["rgb(220, 173, 149)",1,"rgb(193, 147, 124)",1,"rgb(133, 92, 72)",1,"rgb(85, 63, 71)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(217, 182, 166)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(201, 143, 122)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(206, 146, 136)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(175, 94, 80)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-kidney-1)||": ["rgb(217, 164, 188)",1,"rgb(192, 140, 164)",1,"rgb(125, 72, 100)",1,"rgb(122, 71, 102)",1],   // colour-exempt: computed from styles/tokens.css
@@ -51,8 +51,8 @@ export const STOPS = {
   "|stop-color:var(--og-stomach-2)||": ["rgb(217, 160, 140)",1,"rgb(190, 135, 115)",1,"rgb(130, 80, 64)",1,"rgb(87, 56, 70)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-vol-shade);stop-opacity:.17||": ["rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17,"rgb(42, 20, 16)",0.17],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-vol-shade);stop-opacity:0||": ["rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0,"rgb(42, 20, 16)",0],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--organ-gut);stop-opacity:calc(var(--organ-a) * 0.6)||": ["rgb(168, 133, 112)",0.264,"rgb(143, 109, 89)",0.312,"rgb(168, 148, 138)",0.18,"rgb(168, 148, 138)",0.18],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--organ-gut);stop-opacity:calc(var(--organ-a) * 0.85)||": ["rgb(168, 133, 112)",0.374,"rgb(143, 109, 89)",0.442,"rgb(168, 148, 138)",0.255,"rgb(168, 148, 138)",0.255],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--organ-gut);stop-opacity:calc(var(--organ-a) * 0.6)||": ["rgb(175, 130, 110)",0.264,"rgb(149, 106, 87)",0.312,"rgb(172, 146, 137)",0.18,"rgb(172, 146, 137)",0.18],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--organ-gut);stop-opacity:calc(var(--organ-a) * 0.85)||": ["rgb(175, 130, 110)",0.374,"rgb(149, 106, 87)",0.442,"rgb(172, 146, 137)",0.255,"rgb(172, 146, 137)",0.255],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--organ-heart);stop-opacity:calc(var(--organ-a) * 0.8)||": ["rgb(157, 87, 92)",0.352,"rgb(131, 64, 70)",0.416,"rgb(174, 131, 135)",0.24,"rgb(174, 131, 135)",0.24],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--organ-heart);stop-opacity:calc(var(--organ-a) * 1.05)||": ["rgb(157, 87, 92)",0.462,"rgb(131, 64, 70)",0.546,"rgb(174, 131, 135)",0.315,"rgb(174, 131, 135)",0.315],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--organ-kidney);stop-opacity:calc(var(--organ-a) * 0.75)||": ["rgb(137, 95, 122)",0.33,"rgb(114, 73, 99)",0.39,"rgb(160, 126, 142)",0.225,"rgb(160, 126, 142)",0.225],   // colour-exempt: computed from styles/tokens.css

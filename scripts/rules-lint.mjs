@@ -539,7 +539,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage.js', [
     [/const u = viewXfCamU\(viewXf, viewXfP\(\)\);/, "the change's camera is its share since the last retarget"],
     [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
-    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
+    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget \|\| circWait,/, 'the stage says when the change between the views is still under way'],
     [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
     [/viewXfCameraInto\(viewXf, u, viewBoxAt\(/, "the camera through a change between the views is worked out on the screen against the view box as it stands (a lerp in the box's own units bowed the landing framing off its line and back, 15 Nov 2026)"],
   ]);

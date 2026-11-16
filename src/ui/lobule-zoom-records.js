@@ -11,7 +11,7 @@ import { geoOf, setGeo } from './svg-gl.js';
 import { clamp } from './util.js';
 
 export function createLobuleRecords(st, live) {
-  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
+  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
   const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
     camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
@@ -72,7 +72,7 @@ export function createLobuleRecords(st, live) {
     inks: [mkInk(), mkInk(), mkInk(), mkInk(), mkInk(), mkInk()], ink0: mkInk(),
     syncOn: [], syncInks: [mkInk(), mkInk(), mkInk(), mkInk(), mkInk(), mkInk()],
     want: { ks: [], fw: 0 }, ord: [], idx: [], core: [], rest: [],
-    ux: -1, uy: 0, nx: 0, ny: -1, tractR: 14, paired: false, pairN: 0, triIt: null, lyIt: null, px: 0, py: 0,
+    hex: null, ux: -1, uy: 0, nx: 0, ny: -1, tractR: 14, paired: false, pairN: 0, triIt: null, lyIt: null, px: 0, py: 0,
     cand: new Float64Array(2048), cb: { l: 0, r: 0, t: 0, b: 0 }, bb: { l: 0, r: 0, t: 0, b: 0 }, q: [0, 0], disc: { x: 0, y: 0, r: 10 },
     room: { fr: [0, 0, 0, 0], pad: 0, hx: 0, hy: 0, keep: [], nk: 0, cards: null },
     vb: '', vbW: -1, vbH: -1, fan: mkFan(),
@@ -161,6 +161,8 @@ export function createLobuleRecords(st, live) {
       const px = LC.px, py = LC.py;
       const pw = DESIGN.includes(k) ? 6 : 0.5;   // (a designed spot holds unless it clashes: its pull beats a shorter leader elsewhere)
       const nameless = !CORE.includes(k) && !named(k);
+      // A name the slide leaves unlit is drawn faint (DIM_A): over the hexagon's vessels and cells it reads as a ghost, so it stands clear of the outline or is left out.
+      const unlit = !CORE.includes(k) && dimmed(LIT_OF[k]);
       // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
       let cand = LC.cand;
       const need = 2 * (35 + 96 + 49 + 4 * pl.length);
@@ -214,7 +216,8 @@ export function createLobuleRecords(st, live) {
           + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.max(0, lead - SHORT_LEAD) * 30 + Math.hypot(x - px, y - py) * pw
           // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
           // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
-          + (nameless && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400);
+          + (nameless && lead > LONG_LEAD ? 1e6 : Math.max(0, lead - LONG_LEAD) * 400)
+          + (unlit && LC.hex.share(cb) > 0 ? 1e6 : 0);
         if (!have || cost < bestCost) { have = true; bestCost = cost; bestX = x; bestY = y; bb.l = cb.l; bb.r = cb.r; bb.t = cb.t; bb.b = cb.b; }
       }
       if (bestCost >= 1e6) { r.out = true; total += dropCost(k); continue; }
@@ -322,6 +325,9 @@ export function createLobuleRecords(st, live) {
   }
   const CALL_ENDS = ['x1', 'y1', 'x2', 'y2'];
   function layoutLabels() {
+    try { layoutLabelsRun(); } finally { setLayFade(false); }
+  }
+  function layoutLabelsRun() {
     const fr0 = freeRect(), g = live.geo;
     const sameB = !!live.follow && sameBase(live.follow, fr0, g);
     if (live.layoutKey && sameB && V.k === live.follow.k && V.x === live.follow.x && V.y === live.follow.y) return;
@@ -360,6 +366,9 @@ export function createLobuleRecords(st, live) {
     // a pan or zoom (the DOM label no longer glides under its GPU name: the glide class and its rule were removed, 8 Nov 2026).
     const wasFollow = live.follow;   // (put back should the labels wait to be measured, below)
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
+    // (A name travels with the camera while a hand, a camera glide or the dive moves it: it is carried, never faded. Any other layout's move fades, Reduce Motion too.)
+    const still = !handOn() && !live.gliding && !live.layerScaled;
+    setLayFade(still);   // (the zone names' and the call-out pill's moves in this layout fade too)
     live.layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; live.follow = nf;
     pickAnchors(fr0);
     if (LC.vbW !== g.W || LC.vbH !== g.H) { LC.vbW = g.W; LC.vbH = g.H; LC.vb = `0 0 ${g.W} ${g.H}`; }   // alloc-rare: only when the lobule's size changed
@@ -469,7 +478,7 @@ export function createLobuleRecords(st, live) {
       items.push(it);
     }
     const ring = callRingAt(fr), hex = hexOf();
-    LC.ring = ring;
+    LC.ring = ring; LC.hex = hex;
     // The slide's pointer pill is placed first (it is the slide's point): the labels then keep clear of it and its leader.
     const pre = LC.pre, base = LC.base;
     pre.length = 0; for (let i = 0; i < placed.length; i++) pre.push(placed[i]);
@@ -582,7 +591,7 @@ export function createLobuleRecords(st, live) {
       if (r.out) { if (L.peek) { setHid(L.el, true); classSoon(L.el, 'edge', false); } else fadeOut(L.el); leadOff(L); continue; }
       fadeIn(L.el);
       put(L.el, x - w / 2, y - hh / 2);
-      noteAt(L);
+      noteAt(L, still && !L.peek);
       classSoon(L.el, 'left', !edge && (k === 'triad' || k === 'lymph') && x + w / 2 < a[0] - 4);
       if (edge) { leadOff(L); continue; }
       // (The label's spot is kept in the label's own pair: the layout's records are written again by the next.)

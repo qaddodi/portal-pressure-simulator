@@ -399,6 +399,7 @@ export function createLobuleField(st, live) {
     // zoom's first frame has nothing to draw. Landed, it is drawn once more without the rim.)
     if (!wd && !reduce.matches && live.geo) live.diveRim = live.rimOf(sX(live.geo.cx), sY(live.geo.cy), live.geo.R * V.k);
     live.idleDrawn = ''; draw(0); live.diveDrawn = true; live.staged = live.api.viewKey(); live.relLater = true; live.wide = wd;
+    live.labelsAhead();   // (the names measured, placed and read for the landing now, so they fade in with the lobule instead of arriving 1 to 2 s after it)
     // (The landing frame sends the bitmap to the GPU itself (tissueOnGPU), not this staging: a send here showed the lobule's tissue
     // black on a Mac while zooming into it, until a pan, 1 Nov 2026.)
   }

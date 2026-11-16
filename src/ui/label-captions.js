@@ -19,7 +19,7 @@
 import { finalFrameFor, easeNow, cancelFrame } from './frame.js';
 import { measure } from './glyph-measure.js';
 import { textPolys, textWidth, glyphsReady, textCovers, loadGlyphs } from './text-gl.js';
-import { D_SURFACE, easeArrive } from './ease.js';
+import { D_SMALL, D_SURFACE, easeArrive } from './ease.js';
 import { rgbaOf } from './css-color.js';
 import { readBox, readRects, readStyle } from './layout-snap.js';
 import { createLabelGL } from './label-gl.js';
@@ -471,6 +471,40 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
     if (LG) { LG.dispose?.(); LG = null; }
     lgList.length = 0;
   }
+  // ── A name a new layout puts in another place fades out where it stood and in at its new place (8 Nov 2026, Mohammad: "item 10: yes, fade";
+  // V-LBL-3), over D_SMALL on the frame clock: never a slide, never a swap in one frame, and the same with Reduce Motion (a fade is allowed there).
+  // The owner asks for it (put/place `fade`) only for a move its layout made while the camera held still; a name that travels with the camera is
+  // never faded. The old picture is a ghost item of its own (key + '~g') with the old words, place and leader, eased out as the new one eases in.
+  const MOVE_PX = 3;   // (a move of this much or less is the same place: label-gl's pinned labels have the same rule)
+  const GHOST = '~g', GHOSTS = 3;   // (a name moved again while its last ghost still shows keeps that ghost: up to three at once, the faintest given up first)
+  function moveFade(I, key, nx, ny, now) {
+    if (!I.placed || !I.set || I.a.to <= 0 || Math.hypot(nx - I.x, ny - I.y) <= MOVE_PX) return false;
+    const a0 = easeAt(I.a, now);
+    if (a0 < 0.02) return false;
+    let gk = '', low = 2;
+    for (let n = 0; n < GHOSTS; n++) {
+      const k = key + GHOST + n, q = items.get(k), qa = q ? easeAt(q.a, now) : 0;
+      if (qa < 0.02) { gk = k; break; }
+      if (qa < low) { low = qa; gk = k; }
+    }
+    let G = items.get(gk);
+    if (!G) items.set(gk, G = newItem(gk));
+    looks.set(gk, looks.get(key));
+    G.set = I.set; G.w = I.w; G.h = I.h; G.sv = I.sv; G.x = I.x; G.y = I.y; G.arrow = I.arrow; G.decor = I.decor; G.placed = true; G.lines = I.lines; G.lk = I.lk;
+    snap(G.dx, easeAt(I.dx, now)); snap(G.dy, easeAt(I.dy, now)); snap(G.s, easeAt(I.s, now)); snap(G.a, a0); easeTo(G.a, 0, now, D_SMALL);
+    snap(I.a, 0);
+    const L = leads.get(key);
+    if (L) {
+      const lg = L.a.v > 0.002 || easing(L.a, now) ? easeAt(L.a, now) : 0;
+      let H = leads.get(gk);
+      if (!H) leads.set(gk, H = { a: easer(0) });
+      H.x1 = L.x1; H.y1 = L.y1; H.x2 = L.x2; H.y2 = L.y2; H.colour = L.colour; H.r = L.r; H.follow = false; H.sg = 0; H.of = null; H.cut = false; H.show = 0;
+      snap(H.a, lg); easeTo(H.a, 0, now, D_SMALL);
+      snap(L.a, 0);
+    }
+    gen++;
+    return true;
+  }
   function itemA(key, now) { const I = items.get(key); return I ? easeAt(I.a, now) : 1; }
   // (Inter's outlines, the Anatomy pen's: till they are here the names are drawn from the atlas, and set again, then drawn from the outlines.)
   if (!glyphsReady()) loadGlyphs().then(() => { if (!dead) { gen++; api.paint(); } }, () => {});
@@ -580,10 +614,11 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
      * Places a caption: x, y its box's centre (px), off [dx, dy, s] its step aside and scale (eased), show 0 or 1 (eased; a caption seen
      * for the first time fades in).
      */
-    put(key, { x, y, off = null, show = 1, now = easeNow(), ms = D_SURFACE }) {
+    put(key, { x, y, off = null, show = 1, now = easeNow(), ms = D_SURFACE, fade = false }) {
       const I = items.get(key);
       if (!I) return;
       lastT = now;
+      if (fade && moveFade(I, key, x, y, now)) ms = D_SMALL;
       I.x = x; I.y = y;
       if (off) {
         if (!I.placed) { snap(I.dx, off[0]); snap(I.dy, off[1]); snap(I.s, off[2]); }
@@ -596,10 +631,12 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
       api.paint();
     },
     /** put() with no object made (a frame's call): s its eased scale, or -1 to leave it. */
-    place(key, x, y, show, ms, s, now) {
+    place(key, x, y, show, ms, s, now, fade = false) {
       const I = items.get(key);
       if (!I) return;
-      lastT = now; I.x = x; I.y = y;
+      lastT = now;
+      if (fade && moveFade(I, key, x, y, now)) ms = D_SMALL;
+      I.x = x; I.y = y;
       if (s >= 0) { if (!I.placed) snap(I.s, s); else easeTo(I.s, s, now); }
       if (I.set) { I.placed = true; easeTo(I.a, show, now, ms); }
       api.paint();
