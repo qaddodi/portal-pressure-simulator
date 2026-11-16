@@ -52,12 +52,12 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
     // (2 Nov: the cut-offs' numbers are set down before the names and the zones' words, so no axis name or low point takes one away.)
     for (const v of ['5', '10', '6', '12']) assert.ok(nums.some((n) => n.text === v), `${where}: the cut-off ${v} is numbered`);
     // The two lines carry their own names (Mohammad, 26 Oct: "make it clear that the 10/12 line is clinically significant portal
-    // hypertension"): CSPH at the HVPG 10 line, Bleed risk at the PPG 12 line (not the CSPH definition), each beside its own line; the four
+    // hypertension"): CSPH at the HVPG 10 line, the PPG's own 12 line, named for its quantity (not a bleed word: that is the HVPG's), each beside its own line; the four
     // quadrants stay as they were.
-    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'Bleed risk ≥12'], `${where}: both lines named`);
+    assert.deepEqual(lines.map((l) => l.text), ['CSPH ≥10', 'PPG ≥12'], `${where}: both lines named`);
     const [cs, bl] = lines;
     assert.ok(cs.box[0] >= X(10) + 5 && cs.box[1] >= fr.T && cs.box[3] <= fr.B, `${where}: CSPH ≥10 right of its line, 5 px clear`);
-    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: Bleed risk ≥12 beside its line, 5 px clear`);
+    assert.ok(bl.box[3] <= Y(12) - 5 || bl.box[1] >= Y(12) + 5, `${where}: PPG ≥12 beside its line, 5 px clear`);
     for (const l of lines) {
       assert.ok(l.box[0] >= fr.L && l.box[2] <= fr.R && l.box[1] >= fr.T && l.box[3] <= fr.B, `${where}: ${l.text} inside the plot`);
       assert.ok(!cutSegs(pl, X, Y, fr).some((c) => touch(l.box, [Math.min(c.x1, c.x2) - 4, Math.min(c.y1, c.y2) - 4, Math.max(c.x1, c.x2) + 4, Math.max(c.y1, c.y2) + 4])), `${where}: ${l.text} keeps 4 px off every line`);

@@ -213,3 +213,12 @@ test('TC-V2, V3: one row per trial (its primary ratio), the line at 1 never cros
     assert.equal(new Set(labels).size, labels.length, `${w}: every row reads differently (${labels.join(' | ')})`);
   }
 });
+
+test('no forest word is cut with an ellipsis, in a narrow card either (B23, 16 Nov 2026: "Death or liver tran…", "Favors cont…")', () => {
+  for (const W of [260, 300, 340, 480]) {
+    const L = forestLayout(Object.values(TRIALS), W, 12, measure, { selected: 'predesci' });
+    for (const s of L.texts) assert.ok(!s.t.endsWith('…'), `${W}: "${s.t}"`);
+    const joined = L.texts.map((s) => s.t).join(' ');
+    assert.ok(joined.includes('Favors treatment') && joined.includes('Favors control'), `${W}: both axis words`);
+  }
+});

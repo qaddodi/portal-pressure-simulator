@@ -22,8 +22,10 @@ import { trialOf, trialSource } from './trials.js';
 import { TYPE } from './chart-looks/trial.js';
 import { fitTrial, metricsOfFp, lcFirst, possiblyWords, fitsWords, groupOf } from './trial-fit.js';
 
-export const TRIAL_LINES = 2;   // (the most lines a field's words take; more are cut with an ellipsis)
-export const NOTE_LINES = 3;
+// (B17, play-test 16 Nov 2026: the footnote and the eligibility paragraph were cut with "…", which hid the caveats a trial is read with ("not a carvedilol-only trial", "wider than today's criteria").
+// A trial card never cuts its words: every field takes the lines it needs and the card is as tall as they make it (the host sizes it from trialLayout's H). wrapWords still takes a limit for the
+// cards whose words are labels, never for these.)
+export const ALL_LINES = Infinity;
 export const UNCHECKED = 'Not yet checked against the paper';
 const TONE = { treat: 's1', control: 'text-3' };
 
@@ -101,12 +103,12 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     return L;
   };
   if (head) {
-    lines(t.name, 'trial.name', TRIAL_LINES);
+    lines(t.name, 'trial.name', ALL_LINES);
     y += f * 0.15;
-    lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', TRIAL_LINES);
+    lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', ALL_LINES);
     y += f * 0.35;
   }
-  lines(compact && t.km ? `${endpointOf(t)} (Kaplan–Meier)` : endpointOf(t), 'trial.v', TRIAL_LINES);
+  lines(compact && t.km ? `${endpointOf(t)} (Kaplan–Meier)` : endpointOf(t), 'trial.v', ALL_LINES);
   y += f * 0.9;
   // The arms' numbers: side by side where every arm's name, share and people fit their column, else one under another.
   const arms = t.arms, n = arms.length, cg = f * 1.2, cw = (W - cg * (n - 1)) / n, N = px('trial.pct'), L = px('trial.lab');
@@ -135,7 +137,7 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     else for (const a of arms) { bar(a, y); y += bh + f * 0.4; }
   } else {
     for (const a of arms) {
-      lines(a.label, 'trial.lab', 1);
+      lines(a.label, 'trial.lab', ALL_LINES);
       const nb = y + f * 0.2 + N * 0.76;
       say(0, nb, pct(a), 'trial.pct');
       if (people(a)) say(meas(pct(a), font('trial.pct')) + f * 0.6, nb, `n = ${a.n}`, 'trial.n');
@@ -147,14 +149,14 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
   }
   if (t.km && !compact) { y += f * 0.1; lines('Rates are Kaplan–Meier estimates', 'trial.src', 1); }
   const eff = effectOf(t);
-  if (eff) { y += f * 0.5; lines(eff, 'trial.eff', TRIAL_LINES); }
-  if (t.note) { y += f * 0.3; lines(t.note, 'trial.note', W < 400 || compact ? 2 : NOTE_LINES); }
+  if (eff) { y += f * 0.5; lines(eff, 'trial.eff', ALL_LINES); }
+  if (t.note) { y += f * 0.3; lines(t.note, 'trial.note', ALL_LINES); }
   if (t.status !== 'checked') { y += f * 0.3; lines(UNCHECKED, 'trial.warn', 1); }
   const fw = fitWords(fit);
   if (fw) {
     y += f * 0.9;
     const d = Math.round(px('trialfit.t') * 1.15), tx = d + f * 0.55, top = y;
-    const L0 = lines(fw, 'trialfit.t', 3, tx);
+    const L0 = lines(fw, 'trialfit.t', ALL_LINES, tx);
     const cy = top + (L0.length > 1 ? lh('trialfit.t') / 2 : (y - top) / 2) + px('trialfit.t') * 0.04, r = d / 2, cx = r;
     // (Never the filled accent badge with a check: "matches the modeled criteria" is not an eligibility verdict, so it wears the same quiet ring as the others, R01.)
     rects.push({ x: 0.75, y: cy - r + 0.75, w: d - 1.5, h: d - 1.5, r: r - 0.75, look: 'trialfit.ring' });

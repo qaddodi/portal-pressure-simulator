@@ -108,7 +108,7 @@ export const CIRCUIT = withPoints({
       // resistance. The summary table's rows, each change as a ring (before) and a dot (after).)
       id: 'flowres', preset: 'csph', view: C, sites: R, visual: 'plane',
       plane: { base: 'flow-ppg', y: { key: 'ppg', min: 0, max: 24, ticks: [0, 6, 12, 18, 24] }, iso: { rays: [4, 8, 16, 24] } },
-      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Meal' },
+      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Healthy + meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Cirrhosis + meal' },
         { id: 'parallel', name: 'Advanced cirrhosis', short: 'Advanced' }, { id: 'tips', from: 'parallel', name: 'TIPS' }],
       kicker: 'Summary', title: 'Every patient lies on a line of constant resistance',
       line: 'A meal moves a patient to the right along the same line, because flow rises. Cirrhosis moves the patient onto a steeper line, and a TIPS onto a shallower one.',

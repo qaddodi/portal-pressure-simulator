@@ -370,22 +370,32 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     out.x.length = out.mid.length = 0;
     // (The days' readings are taken in whatever phase of the beat and breath the disease clock is in on that day, a ripple that is no part of the trend,
     // so the line is drawn calmed, as every time-lapse chart is, engine/trail-calm.js; its latest reading stays the live one.)
-    const c = calmKept.get(key);
+    const c = calmOf(key);
     if (!c) { for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); } return out; }
     const n = c.x.length;
     for (let i = 0; i < n; i++) if (c.x[i] >= x0) { out.x.push(c.x[i]); out.mid.push(i === n - 1 ? days[days.length - 1].v[key] : c.mid[i]); }   // (today's point stays the live reading)
     return out;
   }
   const calmKept = new Map();
-  // The days' series of each trace, calmed: made when a day is added, dropped or the clock goes back (not in a frame).
+  // The days' series of a trace, calmed. Made when a trace is drawn, once for each change of the days (a day added, dropped or the clock
+  // gone back: calmVer), never for every trace on every new day: a time-lapse adds a day every frame or two, and the whole list of
+  // readings (a dozen traces, up to 1,500 days) calmed each time held the page for 200 to 500 ms on a slow machine (16 Nov 2026, the
+  // stall on slide changes). A trace no card draws is never worked out.
+  let calmVer = 0;
   function calmDays() {
-    // alloc-rare: only when a day is added or the clock goes back
-    for (const k of days.length ? Object.keys(days[days.length - 1].v) : []) {
-      const x = [], v = [];
-      for (const d of days) if (d.v[k] != null) { x.push(d.day); v.push(d.v[k]); }
-      calmKept.set(k, { x, mid: v.length >= CALM_MIN ? calmed(v, calmRadius(v.length)) : v });
-    }
+    calmVer++;
     if (!days.length) calmKept.clear();
+  }
+  function calmOf(key) {
+    const c = calmKept.get(key);
+    if (c && c.ver === calmVer) return c;
+    // alloc-rare: once for each trace drawn and each change of the days, never in a frame that drew the same days
+    if (!days.length || !(key in days[days.length - 1].v)) { calmKept.delete(key); return null; }
+    const x = [], v = [];
+    for (const d of days) if (d.v[key] != null) { x.push(d.day); v.push(d.v[key]); }
+    const e = { x, mid: v.length >= CALM_MIN ? calmed(v, calmRadius(v.length)) : v, ver: calmVer };
+    calmKept.set(key, e);
+    return e;
   }
 
   // ── Crosshair ─────────────────────────────────────

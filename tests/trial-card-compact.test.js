@@ -22,10 +22,10 @@ test('compact, every trial card is shorter, keeps its two large numbers and draw
   }
 });
 
-test('on a phone the landmark deck\'s trial cards draw at most 215 px (they were 229 to 269 full), covered TIPS aside: its arm names stack', () => {
+test('on a phone the landmark deck\'s trial cards draw at most 230 px (they were 229 to 269 full; 215 until the footnote stopped being cut with an ellipsis, B17), covered TIPS aside: its arm names stack', () => {
   for (const id of ['predesci', 'earlytips', 'lvtips', 'transfusion', 'rifaximin', 'groszmann', 'monescillo']) {
     const H = trialLayout(TRIALS[id], 340, 12, measure, FIT, { compact: true }).H;
-    assert.ok(H <= 215, `${id}: ${H} px`);
+    assert.ok(H <= 230, `${id}: ${H} px`);
   }
 });
 

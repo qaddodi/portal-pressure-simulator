@@ -47,7 +47,7 @@ import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling } from './frame.js';
 import { figureDensity } from './pixel-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -193,6 +193,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get lensFrom() { return lensFrom; }, set lensFrom(v) { lensFrom = v; },
     get lensMode() { return lensMode; }, set lensMode(v) { lensMode = v; },
     get lensT0() { return lensT0; }, set lensT0(v) { lensT0 = v; },
+    get layerScaled() { return diveScaled || sinU > 0; },   // (the lobule's layer is turned and scaled: the dive in, or the zoom on into a sinusoid)
     get lymphOn() { return lymphOn; }, set lymphOn(v) { lymphOn = v; }, get bileOn() { return bileOn; }, set bileOn(v) { bileOn = v; },
     get model() { return model; }, set model(v) { model = v; },
     get paintTissue() { return paintTissue; }, set paintTissue(v) { paintTissue = v; },
@@ -1440,7 +1441,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // written and cleared by its own owner, so ending a pan never erases the dive.
   let panOn = false;   // (the pan's shift is the PAN record: x, y)
     let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
-  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
+  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
   function panel(...a) { return panel$(...a); }   // <stage-split stub>
   function measureRun(...a) { return measureRun$(...a); }   // <stage-split stub>
   function measureShown(...a) { return measureShown$(...a); }   // <stage-split stub>
@@ -2211,7 +2212,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     spareT = 0;
     const g = tissueGLOn(), G = geo, m = model;
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
-    if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
+    if (handOn() || gliding || settling()) { spareSoon(); return; }   // (settling: not while a slide's cards come in, frame.js holdMotion, nor through a slide change, beginChange)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = lzDensity(...hostSize()), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap, seenCap(G));
@@ -2914,6 +2915,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       elXf.rot = 0; elXf.Z = 1; elXf.tx = 0; elXf.ty = 0;
       placeArg.opacity = 0; placeArg.dive = null; placeArg.isOpen = false;
       sv.place(placeArg);
+      mirrorRelease();   // (the layer is straight again: the names read while it was scaled are read again)
       return;
     }
     // On the way in the view's resting place is read afresh each frame: the dock and the side pieces leave as the
@@ -3157,7 +3159,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y, out = false) {
       if (k < 0.9999) resCoverEnd();
-      diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
+      diveScaled = k < 0.9999; if (!diveScaled) { diveDrawn = false; mirrorRelease(); }
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
       sinOnLanding();

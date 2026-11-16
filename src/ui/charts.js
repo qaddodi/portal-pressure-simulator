@@ -818,6 +818,8 @@ export function createProfile() {
   return {
     id: 'profile', label: 'Pressure profile', el,
     update(f) { Fraw = f; ease(); readStrip(f); speak(f, false); },
+    /** The three readings under the chart, kept up to date while the pane is closed: a sheet that opens shows numbers, never a dash for the seconds until its first refresh (phone Tests, 16 Nov 2026). */
+    fill: readStrip,
     redraw: draw,
     setPath(id) { pathId = id; draw(); speak(Fraw, true); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },

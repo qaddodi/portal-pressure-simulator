@@ -15,6 +15,7 @@ import psvdscore from '../src/ui/path-algos/psvdscore.js';
 import recomp from '../src/ui/path-algos/recomp.js';
 import pvtgrid from '../src/ui/path-algos/pvtgrid.js';
 import ladder from '../src/ui/path-algos/ladder.js';
+import { UNLIT } from '../src/ui/chart-looks/path.js';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const CARDS = [psvdscore, recomp, pvtgrid, ladder];
@@ -374,9 +375,9 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
   assert.ok(at('path.opt', true).width > at('path.opt', false).width, 'a lit answer has the thicker border');
   assert.notEqual(at('path.opt', true, 'danger').stroke, at('path.opt', true, 'ok').stroke, 'a lit answer takes the verdict\'s colour');
   assert.equal(at('path.opt', false, 'danger').stroke, at('path.opt', false, 'ok').stroke, 'an unlit one is the quiet grey');
-  assert.equal(at('path.opt', false).opacity, 0.4, 'unlit at 40%');
+  assert.equal(at('path.opt', false).opacity, UNLIT, 'unlit at 70%');
   assert.equal(at('path.opt', true).opacity, 1);
-  assert.equal(at('path.op', false).opacity, 0.4);
+  assert.equal(at('path.op', false).opacity, UNLIT);
   assert.notEqual(at('path.cell', true, 'accent').fill, at('path.cell', true, 'danger').fill, 'a lit cell is in its own colour');
   assert.notEqual(at('path.group', false, 'accent').stroke, at('path.group', false, 'danger').stroke, 'an answer\'s shape keeps its colour at rest');
   assert.ok(at('path.group', true).width > at('path.group', false).width, 'the patient\'s shape has the thicker edge');

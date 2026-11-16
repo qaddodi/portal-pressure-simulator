@@ -8,7 +8,7 @@ import { deltaColor, dropColor, flowColor, heatColor, oxygenColor, pressureColor
 import { follow2 } from './display-state.js';
 import { fluidTarget } from './fluid-step.js';
 import { flareScale, sideEndScale } from './fork-joins.js';
-import { cancelFrame, inMotion, mayTask } from './frame.js';
+import { cancelFrame, settling, mayTask } from './frame.js';
 import { overMemory as gpuOverMemory } from './gpu-budget.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
@@ -32,7 +32,7 @@ import { stageScope } from './stage-scope.js';
 // 0.8 still read as a branch, 6 Nov). Its lumen is fainter too (stage-vessels.js colPass).
 const AP_FINE = 0.6;
 export function createTubes(st, live) {
-  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
+  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, safeInsets, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
   const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
@@ -85,7 +85,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // pan or pinch waiting until it lifts (Mohammad, 21 Oct: "hitch as soon as I stop panning", finger still down).)
   // (The function waiting is handed on as the timer's own argument, so no closure is made to carry it.)
   const IDLE_ASK = { timeout: 600 }, lobuleNoop = () => {};
-  function prepIdleGo(fn) { if (sinceInput() < 700 || inMotion()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
+  function prepIdleGo(fn) { if (sinceInput() < 700 || settling()) stageScope.timer(prepIdleGo, 400, fn); else if (window.requestIdleCallback) requestIdleCallback(fn, IDLE_ASK); else stageScope.timer(fn, 50); }
   const prepIdle = (fn) => { stageScope.timer(prepIdleGo, 0, fn); };
   const prepLoad = () => lobuleReady().then(prepLobule, prepLoadLost);
   const prepLoadLost = (err) => console.warn('The lobule view did not load.', err);
@@ -180,10 +180,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // (The late looks run only if the stage's box is not the one the last look used: a turn whose sheet and cards settled inside the
   // first 200 ms is framed once, not at 0.2 s, 0.7 s and 1.5 s, each a glide with the labels solved again.)
   let lookedBox = '';
-  const boxKey = () => { const b = stageBox(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}` : ''; };
-  const lookHomeIfMoved = () => { if (boxKey() !== lookedBox) lookHomeKept(); };
+  const boxKey = () => { const b = stageBox(); snapFresh(); const i = safeInsets(); return b ? `${Math.round(b.left)},${Math.round(b.top)},${Math.round(b.width)},${Math.round(b.height)}|${Math.round(i.t)},${Math.round(i.b)},${Math.round(i.l)},${Math.round(i.r)}` : ''; };   // (C2, C8, 16 Nov: the room the cards leave counts too: a sheet turning into a side card on a resize leaves the box as it was; read phase)
+  const lookHomeIfMoved = () => readFrame(() => { if (boxKey() !== lookedBox) lookHomeKept(); });
   const lookHomeKept = () => { lookedBox = boxKey(); lookHome(); };
-  const homeResizeGo = () => { homeResizeT = 0; lookHomeKept(); homeLateT[0] = stageScope.timer(lookHomeIfMoved, 500); homeLateT[1] = stageScope.timer(lookHomeIfMoved, 1300); };
+  const homeResizeGo = () => { homeResizeT = 0; readFrame(lookHomeKept); homeLateT[0] = stageScope.timer(lookHomeIfMoved, 500); homeLateT[1] = stageScope.timer(lookHomeIfMoved, 1300); homeLateT[2] = stageScope.timer(lookHomeIfMoved, 2750); };
   addEventListener('resize', () => {
     stageScope.clear(homeResizeT); homeLateT.forEach((t) => stageScope.clear(t));
     homeResizeT = stageScope.timer(homeResizeGo, 200);

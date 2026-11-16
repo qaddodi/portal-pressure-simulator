@@ -28,7 +28,7 @@
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
 import { h, fmt, clamp } from './util.js';
-import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS, BLEED_WORD } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown, numName } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
@@ -95,7 +95,7 @@ export const PLANES = {
   },
   'hvpg-ppg': {
     // (Mohammad 29 Oct: "don't stretch the x axis all the way to like 40"; PPG runs past the highest point on any slide (26.8); HVPG to 24
-    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12'
+    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'PPG ≥12'
     // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
     // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
     x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
@@ -114,7 +114,7 @@ export const PLANES = {
     // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
     nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
+    lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
     source: '',
     key: false,
   },
@@ -127,7 +127,7 @@ PLANES['flow-ppg'] = {
   y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
   zones: [],
   cuts: { y: [PPG_CUTS.red] },
-  lineNames: { y: { [PPG_CUTS.red]: `${BLEED_WORD} ≥${PPG_CUTS.red}` } },
+  lineNames: { y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
   iso: { rays: [4, 8, 16, 32] },
   nameGap: 4,
   source: 'Each line is one resistance, PPG ÷ flow, in mmHg per L/min.',
@@ -446,6 +446,12 @@ export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) 
   }
   return best;
 }
+/** Whether the segment (ax, ay)-(bx, by) crosses the segment (cx, cy)-(dx, dy) (touching ends do not count: two leaders may leave a shared neighbourhood). */
+export function segsCross(ax, ay, bx, by, cx, cy, dx, dy) {
+  const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+  const d1 = o(ax, ay, bx, by, cx, cy), d2 = o(ax, ay, bx, by, dx, dy), d3 = o(cx, cy, dx, dy, ax, ay), d4 = o(cx, cy, dx, dy, bx, by);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+}
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
 function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
@@ -459,6 +465,7 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
   const inside = (b) => b[0] >= fr.L + 2 && b[2] <= fr.R - 2 && b[1] >= fr.T && b[3] <= fr.B - 2;
   // (The lines among the boxes to avoid: a name beside its point stays on the point's side of each one.)
   const cutLines = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) <= 8);
+  const labelBoxes = avoid.filter((o) => Math.min(o[2] - o[0], o[3] - o[1]) > 8 && !cross.includes(o));
   // (Judged from the line itself, not its 4 px band: a point a hair off a cut-off still keeps its name on its own side.)
   const sameSide = (b, p) => cutLines.every((o) => {
     if (o[3] - o[1] > o[2] - o[0]) return b[3] <= o[1] || b[1] >= o[3] || (p.x < (o[0] + o[2]) / 2 ? b[2] <= o[0] : b[0] >= o[2]);
@@ -514,6 +521,9 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
             if ((best && d >= best.d) || (over ? hitBut(b) : hit(b))) continue;
             if (pts.some((q) => q !== p && crosses(p.x, p.y, lx, ly, [q.x - r - 2, q.y - r - 2, q.x + r + 2, q.y + r + 2]))) continue;
             if (named.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            // (15 and B22, play-test 16 Nov 2026: leaders crossed the lines' own names ("R = 8") and each other. A leader crosses no word box of the plot (a line's name, a zone's words) and no other leader: as the callouts' leaders, 9719188b.)
+            if (labelBoxes.some((o) => crosses(p.x, p.y, lx, ly, o))) continue;
+            if (out.some((o, j) => o?.lead && segsCross(p.x, p.y, lx, ly, pts[j].x, pts[j].y, o.lead[0], o.lead[1]))) continue;
             // (A leader across a cut-off counts against it, so a name stays on its point's side of the line if it can, and
             // crosses as few lines as it must when it cannot.)
             const dd = d + 2 * fs * cutLines.filter((o) => crosses(p.x, p.y, lx, ly, o)).length;
