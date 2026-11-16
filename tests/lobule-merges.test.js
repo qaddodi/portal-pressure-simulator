@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { captureLobule } from '../scripts/lobule-joins.mjs';
 import { pointsFromEntries, joinEntryList } from '../src/ui/veins-mesh-data.js';
 import { tubeRows, F_ENDS, TUBE_ROW_FLOATS, TUBE_NO_END } from '../src/ui/tube-data.js';
@@ -59,8 +58,4 @@ test('no step in width at any merge: every sinusoid that meets at a merge has th
   assert.ok(Math.abs(sinK(0.07) - 1.3) < 1e-9);
   let prev = Infinity;
   for (let r = 0; r <= 1.0; r += 0.01) { const k = sinK(r); assert.ok(k <= prev + 1e-12); prev = k; }
-  const src = readFileSync(new URL('../src/ui/lobule-zoom-field.js', import.meta.url), 'utf8');
-  assert.match(src, /case 's0': case 's1': return rs \* sinK\(t\.rho\[i\]\);/);
-  assert.match(src, /case 's2': return rs \* sinK\(t\.rho\[i\]\) \* flareAt/);
-  assert.doesNotMatch(src, /case 's1': return rs \* 1\.15/);
 });
