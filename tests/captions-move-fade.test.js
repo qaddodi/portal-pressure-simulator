@@ -88,3 +88,23 @@ test('a name moved again while its last ghost still shows keeps that ghost where
   assert.equal(R.last.length, 1, 'all ghosts gone');
   assert.equal(R.last[0].alpha, 1);
 });
+
+test('four quick moves in a row (a layer toggled back and forth): every earlier ghost stays and fades, so no picture ever vanishes or jumps', async () => {
+  const R = rig();
+  await tick();
+  R.cap.look('a', LOOK);
+  R.cap.measure('a', [[['Portal venule', 'name']]]);
+  R.cap.put('a', { x: 200, y: 100, show: 1 });
+  for (let i = 0; i < 14; i++) await R.frame(40);
+  let before = 1;
+  for (const y of [160, 100, 160, 100]) {
+    R.cap.put('a', { x: 200, y, show: 1, fade: true });
+    await R.frame(0);
+    assert.ok(R.last.length >= before, `no picture vanished (${before} then ${R.last.length})`);
+    before = R.last.length;
+  }
+  assert.ok(before >= 3, `the ghosts of the earlier places are all still drawn (${before})`);
+  for (let i = 0; i < 16; i++) await R.frame(40);
+  assert.equal(R.last.length, 1);
+  assert.equal(R.last[0].alpha, 1);
+});

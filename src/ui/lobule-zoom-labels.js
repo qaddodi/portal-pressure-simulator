@@ -1,5 +1,6 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { createCallGeoFade } from './call-geo-fade.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
@@ -845,6 +846,15 @@ export function createLobuleLabels(st, live) {
   labels.addEventListener('focusout', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
   if (typeof MutationObserver === 'function') new MutationObserver(() => mirrorAll()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
   darkMQ.addEventListener?.('change', () => mirrorAll());
+  // The pointer's leader and ring fade out where they stood and in at the new place with the pill (call-geo-fade.js); written between frames, as the pill's own class is.
+  const CALL_G = ['cx', 'cy', 'r'];
+  const callFade = createCallGeoFade({
+    read(g) { for (let i = 0; i < 3; i++) g[i] = +geoOf(callRing, CALL_G[i]) || 0; g[3] = +geoOf(callLine, 'x1') || 0; g[4] = +geoOf(callLine, 'y1') || 0; g[5] = +geoOf(callLine, 'x2') || 0; g[6] = +geoOf(callLine, 'y2') || 0; },
+    write(g) { for (let i = 0; i < 3; i++) setGeo(callRing, CALL_G[i], g[i]); setGeo(callLine, 'x1', g[3]); setGeo(callLine, 'y1', g[4]); setGeo(callLine, 'x2', g[5]); setGeo(callLine, 'y2', g[6]); leadGL.paint(); },
+    isOn: () => classHas(callRing, 'on'), pillOn: () => classHas(callEl, 'on'),
+    setOn(on) { classSoon(callLine, 'on', on); classSoon(callRing, 'on', on); runSoon(leadPaint); },
+    schedule: (fn, ms) => setTimeout(fn, ms), cancel: (t) => clearTimeout(t), ms: D_SMALL,
+  });
   // A layout's own puts (the zone names, the call-out pill) are marked to fade to their new spot (layFade, set by layoutLabels while the camera is not carrying them).
   let layFade = false;
   const setLayFade = (v) => { layFade = v; };
@@ -918,5 +928,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }

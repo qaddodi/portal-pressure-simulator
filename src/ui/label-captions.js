@@ -476,15 +476,15 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
   // The owner asks for it (put/place `fade`) only for a move its layout made while the camera held still; a name that travels with the camera is
   // never faded. The old picture is a ghost item of its own (key + '~g') with the old words, place and leader, eased out as the new one eases in.
   const MOVE_PX = 3;   // (a move of this much or less is the same place: label-gl's pinned labels have the same rule)
-  const GHOST = '~g', GHOSTS = 3;   // (a name moved again while its last ghost still shows keeps that ghost: up to three at once, the faintest given up first)
+  const GHOST = '~g', GHOSTS = 6;   // (a name moved again while its last ghosts still show keeps them: up to six at once (a fade lasts 240 ms), the faintest given up first)
   function moveFade(I, key, nx, ny, now) {
     if (!I.placed || !I.set || I.a.to <= 0 || Math.hypot(nx - I.x, ny - I.y) <= MOVE_PX) return false;
     const a0 = easeAt(I.a, now);
-    if (a0 < 0.02) return false;
+    if (a0 < 0.004) return false;   // (under one level of 255: nothing to show, nothing to jump)
     let gk = '', low = 2;
     for (let n = 0; n < GHOSTS; n++) {
       const k = key + GHOST + n, q = items.get(k), qa = q ? easeAt(q.a, now) : 0;
-      if (qa < 0.02) { gk = k; break; }
+      if (qa < 0.004) { gk = k; break; }
       if (qa < low) { low = qa; gk = k; }
     }
     let G = items.get(gk);
