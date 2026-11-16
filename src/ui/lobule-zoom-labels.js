@@ -209,16 +209,17 @@ export function createLobuleLabels(st, live) {
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
   // A label's glide is one object on it, written again in place (a glide begun on another carries from where this one stands now).
   const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });
-  function noteAt(L, glide) {
+  function noteAt(L, fade) {
     const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
     const now = tlNow();
     let px = x, py = y;
     if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
-    // A label a layout moves while the camera holds still (a layer switched, a card, a lit term: `glide`, layoutLabels) glides to its new spot, as the others
-    // ease; after a pan or zoom the labels take their final spots at once (they ride the view, V-LBL-1).
-    const eased = !!glide;
+    const eased = false;   // (a label laid out to another slot is there in this frame and its name fades there, below: V-LBL-1, V-LBL-3)
+    // A name a layout moves while the camera holds still (a layer switched, a card, a lit term, the end of a pan or zoom: `fade`, layoutLabels) fades out where
+    // it stood and in at its new spot, on the GPU (label-captions.js moveFade); one that travels with the camera is never faded.
+    if (fade) L.fadeMove = true;
     const o = glOf(L);
     if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
     o.x1 = x; o.y1 = y; o.t0 = now;
@@ -808,8 +809,6 @@ export function createLobuleLabels(st, live) {
     if (live.fade <= 0) return false;
     const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)
     let moving = false;
-    // (A gliding label's leader ends on its letters where they are drawn now: syncLeaders, the lobule's own, writes the ends from each label's glide.)
-    for (let i = 0; i < LAB_KEYS.length; i++) if (labGliding(labs[LAB_KEYS[i]], now)) { live.syncLeaders?.(); break; }
     for (const [key, e, L] of capItems()) {
       const m = mirKeep.get(e);
       let p = seenPos.get(e);
@@ -818,7 +817,8 @@ export function createLobuleLabels(st, live) {
       if (L && labGliding(L, now)) { const g = L.gl, k = easeLab(g, now); x = g.x0 + (g.x1 - g.x0) * k; y = g.y0 + (g.y1 - g.y0) * k; moving = true; }
       const call = e === callEl, zone = !L && !call;
       const off = !e.isConnected || gone(e) || (call && !classHas(callEl, 'on'));
-      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
+      const fade = !!L && L.fadeMove && !off; if (L) L.fadeMove = false;   // (this layout's move, asked for once)
+      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t, fade);
       if (L) {
         // The station's leader and dot, drawn with its name by label-gl (the lead's near end is the name's, its far end the figure's point).
         const hid = off || classHas(L.line, 'ld-gone') || classHas(L.line, 'lz-hid') || classHas(L.el, 'edge');
