@@ -201,3 +201,74 @@ test('the claim finder reads "falls to {x}" and "lowers the portal pressure to {
   assert.deepEqual(lineClaims('Anticoagulation is started. The PPG is {ppg}.'), []);
   assert.deepEqual(lineClaims('The HVPG falls from {hvpg@a} to {hvpg}.'), []);
 });
+
+test('a summary-table row that names a drug has that drug on in the slide it shows', async () => {
+  const bad = [];
+  for (const { d } of await decks()) {
+    const drugsAt = (idx) => { let on = {}; d.slides.slice(0, idx + 1).forEach((s) => { if (s.preset) on = {}; Object.assign(on, s.params?.drugs || {}); }); return on; };
+    for (const s of d.slides) for (const r of Array.isArray(s.of) ? s.of : []) {
+      const j = r?.id ? d.slides.findIndex((x) => x.id === r.id) : -1;
+      if (j < 0) continue;
+      const on = drugsAt(j), label = `${r.kicker || ''} ${r.title || ''}`;
+      for (const drug of DRUGS.filter((x) => x !== 'albumin' && x !== 'norepinephrine')) if (new RegExp(drug, 'i').test(label) && !/\b(no|without|off|not)\b[^,]{0,12}$/i.test(label.slice(0, label.toLowerCase().indexOf(drug))) && !on[drug]) {
+        bad.push(`${d.id}/${s.id}: row "${label.trim()}" names ${drug}, but slide "${r.id}" has it off (the drugs on there: ${Object.keys(on).filter((k) => on[k]).join(', ') || 'none'})`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+// "stays {hvpg}", "remains {pv}", "unchanged at {x}" and "back to {x}" claim that a number did not move. The number printed is the model's reading
+// of this slide, so it must read the same, as the tile prints it, as the state the slide compares itself with (the slide's `delta`, else the slide
+// before) for "stays", and as a reading an earlier slide already printed for "back to" (day, 16 Nov 2026: "the HVPG stays 10.8" after a fasting 11.1).
+import { valueText } from '../src/ui/callout-math.js';
+import { plateletText } from '../src/ui/glue.js';
+const STAY = /\b(?:stays?|remain(?:s|ed)?|unchanged at|still)\s+(?:at\s+)?\{(\w+)(?::\d)?\}|\{(\w+)(?::\d)?\}[^.{}]{0,16}\bas before\b/g;
+const BACK = /\bback (?:to|at)\b([^.]*)/g;   // (every {value} of the clause: "back to {ra}, and the HVPG to {hvpg}")
+const patientAt = (d, i) => { let p = null; for (let j = 0; j <= i; j++) if (d.slides[j].preset) p = d.slides[j].preset; return p; };
+test('a number a sentence says "stays", "remains" or is "back to" reads the same on the slide it is compared with', async () => {
+  const bad = [];
+  for (const { d, fps } of await decks()) d.slides.forEach((s, i) => {
+    const ref = typeof s.delta === 'string' ? d.slides.findIndex((x) => x.id === s.delta) : i - 1;
+    for (const t of words(s)) {
+      for (const m of t.matchAll(STAY)) {
+        const k = m[1] || m[2];
+        if (ref < 0 || !fps[ref] || !Number.isFinite(fps[i][k]) || patientAt(d, ref) !== patientAt(d, i)) continue;   // (another patient: nothing to stay)
+        const a = valueText(k, fps[ref]), b = valueText(k, fps[i]);
+        if (a !== b) bad.push(`${d.id}/${s.id}: "${m[0]}" but ${k} reads ${a} on ${d.slides[ref].id} and ${b} here`);
+      }
+      for (const m of t.matchAll(BACK)) for (const [, k] of m[1].matchAll(/\{(\w+)(?::\d)?\}/g)) {
+        if (!Number.isFinite(fps[i][k])) continue;
+        const b = valueText(k, fps[i]), same = [...Array(i).keys()].filter((j) => fps[j] && patientAt(d, j) === patientAt(d, i));
+        if (same.length && !same.some((j) => valueText(k, fps[j]) === b)) bad.push(`${d.id}/${s.id}: "back to … {${k}}" but no earlier slide of this patient reads ${k} ${b}`);
+      }
+    }
+  });
+  assert.deepEqual(bad, []);
+});
+
+// A case card's platelet count is the platelet count the slide's tile prints: the tester of 16 Nov read 138,000 on a card over a tile that read 140,000
+// (same-gradient), and the same ±1,000 drift sat in eight other cards. The card is typed history, so it is held to the model's number here.
+test('the platelet count on a case card is the count the model gives that patient', async () => {
+  const bad = [];
+  for (const { d, fps } of await decks()) d.slides.forEach((s, i) => {
+    if (!s.vignette || !s.preset || s.days || s.lapse || s.ramp || s.action) return;   // (a slide that moves the patient starts from a state its card describes, not the one its tile ends on)
+    for (const m of `${s.vignette} ${s.caseQ || ''}`.matchAll(/([\d,]{5,7})\/µL/g)) {
+      const model = plateletText(fps[i].plt);
+      if (`${m[1]}/µL` !== model) bad.push(`${d.id}/${s.id}: the card says ${m[1]}/µL, the model gives ${model}`);
+    }
+  });
+  assert.deepEqual(bad, []);
+});
+
+// The speaker notes of the next-bleed relation slide quote the model run by run (16 Nov 2026: they carried an older run's 17.9, 12.8 and 13.6).
+test('the next-bleed notes quote the model\'s varix sizes, HVPGs and carvedilol response', async () => {
+  const { d, fps } = (await decks()).find((x) => x.d.id === 'next-bleed');
+  const at = (id) => fps[d.slides.findIndex((s) => s.id === id)];
+  const notes = (id) => d.slides.find((s) => s.id === id).notes;
+  const mm = (id) => `${at(id).varix.toFixed(1)} mm`, hv = (id) => `${at(id).hvpg.toFixed(1)} mmHg`;
+  const rel = notes('relation');
+  for (const w of [mm('after'), mm('bands'), mm('slough'), mm('both'), mm('held'), hv('bands'), hv('nsbb'), hv('both')]) assert.ok(rel.includes(w), `the relation notes give ${w}`);
+  const fall = Math.round((1 - at('nsbb').hvpg / at('after').hvpg) * 100);
+  assert.ok(notes('nsbb').includes(`about ${fall}%`), `the carvedilol notes give a fall of about ${fall}%`);
+});

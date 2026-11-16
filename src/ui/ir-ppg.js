@@ -40,6 +40,7 @@ export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
   function begin(k) {
     kind = k; step = -1;
     run = playProcedure(stageRef, k, {
+      quiet: true,   // (the figure's names fade away while the needle works, as under the HVPG catheter)
       read: () => store.get().frame,
       onFrame: (f, t) => mon.procAt(k, t),
       onStep: (i) => { step = i; onChange(); },

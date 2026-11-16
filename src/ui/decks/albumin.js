@@ -115,7 +115,7 @@ export const ALBUMIN_DECK = {
     {
       id: 'more', action: [ALBUMIN, ALBUMIN], cam: 'fit', tool: VITALS, data: 'tiles', tiles: ['map', 'pv'], key: ['pv'], delta: 'terli',
       kicker: 'HRS-AKI', site: 'sin', title: 'More albumin raises the portal pressure with the blood volume',
-      line: 'Two more albumin infusions raise his blood pressure to {map} and the portal pressure back to {pv}. Volume beyond the need has a cost, so the dose follows the indication.',
+      line: 'Two more albumin infusions raise his blood pressure to {map} and the portal pressure to {pv}. Volume beyond the need has a cost, so the dose follows the indication.',
       notes: 'This is the model\'s behavior, not a guideline statement. Blood volume rises with each infusion, and the portal pressure, which terlipressin had lowered, rises with the volume that reaches the splanchnic circulation. Baveno VIII gives no ceiling, and the AASLD 2021 dose is a weight-based figure, not a count of infusions. At the bedside the dose is set by the indication and the response, and the patient is monitored for volume overload.',
       ask: ['In the model each extra albumin infusion raises the portal pressure. Why?', 'The blood volume rises, and more of it reaches the splanchnic circulation and the portal vein.'],
     },

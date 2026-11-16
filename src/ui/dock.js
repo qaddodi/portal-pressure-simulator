@@ -5,7 +5,7 @@ import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
 import { wallShare, WALL_MEANING } from '../engine/wall-read.js';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, bandSwap, recolorWords } from './util.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, setNone, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, bandSwap, recolorWords } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
@@ -27,7 +27,7 @@ import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { TILE } from './table-marks.js';
-import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgSev, ppgSev, pvSev, hvBlocked, HVPG_WORDS, PPG_WORDS, PV_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, PPG_CUTS, PV_CUTS, hvpgSev, ppgSev, pvSev, hvBlocked, HVPG_WORDS, PPG_WORDS, PV_WORDS, NOT_MEASURABLE, NOT_MEASURABLE_WHY, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
@@ -407,8 +407,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
+        const nm = t.id === 'hvpg' && hvBlocked(st0.params); x.nm = nm; setNone(x.val, nm ? NOT_SHOWN : '?');
         if (!follow) countTo(x.val, null);
-        s = t.id === 'hvpg' && hvBlocked(st0.params) ? NOT_MEASURABLE : 'Not measured';
+        s = nm ? NOT_MEASURABLE : 'Not measured';
         sev = 'none';
         x.histT.length = 0; x.histV.length = 0;   // (the trend starts over: it was x.hist, which no tile has, and threw here for every unmeasured reading, so the strip stopped painting past it)
       } else {
@@ -466,7 +467,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // (The status word is handed on only when it or its class changed since it was last handed on: swapText returns at once for the same
       // word, but the call made a closure each frame to find that out.)
       if (sev === x.sev) {
-        const un = v == null;
+        const un = v == null && !x.nm;
         if (s !== x.stS || un !== x.stUn) { x.stS = s; x.stUn = un; if (step === 'now' && reduce) { putText(x.st, s); x.unmeasThen(un)(); } else swapText(x.st, s, x.unmeasThen(un)); }
       }
       // (The spoken label is worded between frames, and only when what it says changed: the number as shown, the word, the trend.)
@@ -535,7 +536,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const INFO = {
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
-    hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
+    hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : hvBlocked(st.params) ? NOT_MEASURABLE_WHY : 'Not measured'; }],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVelMean ?? f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],

@@ -79,7 +79,7 @@ export const TIPS_CANDIDACY = {
         rows: [{ text: '**Rebleeding** despite carvedilol and **banding**', note: 'rebled', met: true, lit: true }, { text: 'Bleeding **not controlled** by drugs and banding', note: 'not this' }],
         verdict: 'She rebled on both: a rescue TIPS is considered.' },
       kicker: 'Bleeding', site: 'sin', title: 'A rebleed despite carvedilol and banding is an indication for a rescue TIPS',
-      line: 'On carvedilol with three bands her PPG is still {ppg}; bleeding risk is high at {>=12 mmHg}. The bleed returned, and Baveno VIII 4.13 sets no age limit.',
+      line: 'On carvedilol with three bands her PPG is {ppg}; bleeding risk is high at {>=12 mmHg}. The bleed returned, and Baveno VIII 4.13 sets no age limit.',
       notes: 'Baveno VIII 4.13: TIPS should be considered in patients with portal hypertensive bleeding despite secondary prophylaxis with carvedilol or a nonselective beta-blocker plus banding (strong recommendation). AASLD 2024 calls this a rescue TIPS and calls a TIPS for bleeding that drugs and banding do not control a salvage TIPS (statement 35); Baveno VIII 5.36 and 5.37 would place a salvage TIPS regardless of age, Child–Pugh class or MELD score, case by case. A preemptive TIPS is decided in the first 72 hours and a rescue TIPS only after prophylaxis has failed, which is why the same woman is turned down for the first and offered the second.',
       ask: ['What is the difference between a rescue and a salvage TIPS in AASLD 2024?', 'Rescue: a rebleed despite vasoactive drugs and banding. Salvage: bleeding that drugs and banding do not control.'],
     },

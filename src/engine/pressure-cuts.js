@@ -101,6 +101,8 @@ export const ppgWord = (v, long = false) => PPG_WORDS[ppgSev(v)][long ? 1 : 0];
 
 // A reading that cannot be taken (the HVPG with the hepatic vein thrombosed: hvBlocked) says this, on every tile, cell and card.
 export const NOT_MEASURABLE = 'Not measurable';
+// (On a card with room for the reason: the hepatic vein the catheter wedges in is blocked, Budd–Chiari.)
+export const NOT_MEASURABLE_WHY = `${NOT_MEASURABLE} (hepatic vein outflow obstructed)`;
 // A number not known (no reading, no frame yet) prints as one em dash in its number's place, as util.js fmt prints it. In running text (a slide
 // line's or a callout's live value) a dash between words would read as an em-dash aside (docs/ai-humanizer.md), so there a value still to come
 // prints as an ellipsis.
