@@ -9,6 +9,7 @@
 
 import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
+import { GEOM_RANGE, TAPER_CM, geomDefault, geomOf, kindOf } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
@@ -211,9 +212,21 @@ function buildEdgeCard(e) {
     // A stent narrows at a short pinch in one of the segments Doppler samples: proximal (portal end), mid or distal.
     if (isStent(e)) {
       const at = verbs.findIndex((v) => v.id === 'remove');
-      verbs.splice(at < 0 ? verbs.length : at, 0, { ...narrow, info: 'A short pinch in one segment of the stent. Its resistance rises with (1 − s)⁻⁴, and the jet through it speeds up by (1 − s)⁻².' }, { type: 'seg', id: 'site', label: 'Where', small: true,
+      // (The narrowing is the stent's waist, stent-geom.js: its smallest diameter, read in mm beside the %, its length and its ends. One waist per
+      // stent: a reduction placed for encephalopathy and a stenosis are the same hydraulic thing; the slide's words say which it is.)
+      const kind = kindOf(e), geo = (p) => geomOf(p, id, kind), dOf = (p) => (kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id] || 10);
+      const setGeo = (p, f, v) => { p.stentGeom = { ...(p.stentGeom || {}), [id]: { ...geo(p), [f]: v } }; return p; };   // alloc-rare: a slider's or button's setter, run on its own input event, never in a frame
+      verbs.splice(at < 0 ? verbs.length : at, 0, { ...narrow,
+        format: (v) => (v > 0 ? `${pct(v)} · ${(dOf(store.get().params) * (1 - v)).toFixed(1)} mm` : pct(v)),   // alloc-rare: the slider's number label, made on the slider's own input event
+        info: 'The stent\u2019s waist: its narrowest diameter (shown in mm). Its resistance rises with (1 − s)⁻⁴ along the waist, and the jet leaving it loses energy where the stent widens again.' }, { type: 'seg', id: 'site', label: 'Where', small: true,
         options: [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']], get: () => stentSite(store.get().params, id),
-        set: (val) => updateParams((p) => { p.stenosisSite = { ...(p.stenosisSite || {}), [id]: val }; return p; }, { label: `${e.label} narrowing: ${val}` }) });
+        set: (val) => updateParams((p) => { p.stenosisSite = { ...(p.stenosisSite || {}), [id]: val }; return p; }, { label: `${e.label} narrowing: ${val}` }) },
+      { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: 0.5, def: geomDefault(kind).waist, format: (v) => `${v.toFixed(1)} cm`,   // alloc-rare: the slider's number label, made on the slider's own input event
+        get: (p) => geo(p).waist, set: (p, v) => setGeo(p, 'waist', v), hist: `${e.label} waist length`,
+        info: 'How long the narrowed segment is. A longer waist adds friction along its length; a waist of no length still loses energy where its jet leaves it. The same minimum diameter can then give different pressures. Model values, not validated.' },
+      { type: 'seg', id: 'ends', label: 'Ends', small: true, options: [['abrupt', 'Abrupt'], ['tapered', 'Tapered']],
+        get: () => (geo(store.get().params).trans > 0 ? 'tapered' : 'abrupt'),
+        set: (val) => updateParams((p) => setGeo(p, 'trans', val === 'tapered' ? TAPER_CM : 0), { label: `${e.label} waist ends: ${val}` }) });
     }
     if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];

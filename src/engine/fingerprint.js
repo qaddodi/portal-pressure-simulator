@@ -52,6 +52,10 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk?.index, liver: m.liverPerfPct, lsm: m.lsm, scar: m.scar, ssm: m.ssm, pvVel: m.pvVelMean, map: m.map, sbp: m.sbp, dbp: m.dbp, rpp: m.rpp, hr: m.hr, hb: m.blood?.hb, hbTo: m.blood?.hbSettled, co: m.co, bv: m.blood?.volume,
     svr: m.svr, spl: m.splanchnicIn,   // (the systemic vascular resistance, (MAP − RA) ÷ CO in mmHg·min/L, and the splanchnic arterial inflow in L/min: the change-from-healthy chart, tool-shift.js)
     rih: P && Q ? liverRes(P, Q) : null,
+    // The TIPS (metrics tips, engine stentState): its flow (L/min), the pressure across it (mmHg, portal end less hepatic vein end), the waist's
+    // mean velocity (cm/s), and the drop its friction (tract and wall) and its local losses (entrance, exit, the waist's jet and inlet) take. null without one.
+    tipsFlow: m.tips ? m.tips.flow : null, tipsDp: m.tips ? m.tips.dp : null, tipsVw: m.tips ? m.tips.vWaist : null,
+    tipsFric: m.tips ? m.tips.parts.tract + m.tips.parts.wall : null, tipsLocal: m.tips ? m.tips.parts.entry + m.tips.parts.jet + m.tips.parts.inlet : null,
     lymphCap: a.lymphCap, lymphOver: fluid?.excess, lymphBack: fluid ? fluid.bulk + fluid.water : undefined, lymphNet: fluid?.net,
     clot: +params?.thrombus?.PV_TRUNK || 0,
     at };

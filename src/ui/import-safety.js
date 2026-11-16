@@ -71,7 +71,7 @@ export const cleanEq = (eq) => {
 // A setting is a bare name from the model's parameters (cirrhosis, tr, habrStrength …) or a path inside one of its groups
 // (tips.d, stenosis.TIPS, thrombus.PV_TRUNK, fibrosis.R.post, scope.air …). Every segment is a plain identifier.
 const SEG = /^[A-Za-z][A-Za-z0-9_]*$/;
-const GROUPS = new Set(['tips', 'dips', 'stenosis', 'thrombus', 'fibrosis', 'scope']);
+const GROUPS = new Set(['tips', 'dips', 'stenosis', 'thrombus', 'fibrosis', 'scope', 'stentGeom']);
 const NAMES = new Set(['cirrhosis', 'gestation', 'albumin', 'habrStrength', 'splanchnicTone', 'systemicTone', 'contractility', 'tr', 'pericardial', 'apShunt', 'respDepth', 'nsbbGain']);
 
 export function safeParamPath(p) {

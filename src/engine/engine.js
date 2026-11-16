@@ -9,6 +9,7 @@ import {
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
+import { stentParts, geomOf, geomDefault, kindOf } from './stent-geom.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 import { hvBlocked } from './pressure-cuts.js';
@@ -35,35 +36,18 @@ export const BALLOON_SEAL_S = 3;
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0,
   acuteClot: 0.15 };   // acute: a clotted portal trunk opens the small pre-existing bypass veins this far (PV about 30 mmHg, not 46)
-const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
-const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
-// A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
-// plus an entrance/exit loss ∝ Q² (lagged one step). Flow then splits against the sinusoids by resistance.
-// A narrowing s (of the diameter) is a short pinch, PINCH of the stent's length (about 1 cm of an 8 cm TIPS), not the
-// whole stent: that piece's own resistance rises by (1 − s)⁻⁴, and the jet leaving it loses its speed in the wider
-// stent beyond (Borda–Carnot, ½ρ(v_jet − v)², with ½ρ = kin / K). So a mild pinch costs little, and a tight one
-// throttles the stent while the jet through it runs fast, as on Doppler.
-const PINCH = 0.125;
+// (The stents' hydraulics, the TIPS, the DIPS and a drawn stent, live in stent-geom.js: stentConductance below.)
 /** mmHg of hepatic venous rise the sinusoids still dilate with (a tense belly, a little fluid); only a congested outflow beyond it is taken off. */
 const CONGESTED_FROM = 4;
 /** The cirrhosis slider (0 to 1) from which the sinusoids no longer swell with congestion at all: a healthy liver's congested sinusoids do (congestive hepatopathy), a scarred one's do not, in between by degrees. */
 const SCARRED_FROM = 0.3;
 /** The part of a hepatic venous rise that is congestion: nothing under CONGESTED_FROM, then all of it from twice that, by a smooth step (no kink for the solver). */
 const congestedRise = (rise) => { const x = Math.min(1, Math.max(0, (rise - CONGESTED_FROM) / CONGESTED_FROM)); return rise * x * x * (3 - 2 * x); };
-const stentConductance = (tract, d, q, visc, s = 0) => {
-  const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = TIPS_R.kin * Math.abs(q) / (A * A);
-  return 1 / (tract * visc + wall + kq + pinchResistance(wall, kq, s));
-};
-// A stent drawn with the stent tool has no parenchymal tract or entrance loss of its own (only the pinch's jet).
-const customConductance = (d, q, visc, s = 0) => {
-  const A = Math.PI * d * d / 4, wall = 0.05 * Math.pow(10 / d, 4) * visc;
-  return 1 / (wall + pinchResistance(wall, TIPS_R.kin * Math.abs(q) / (A * A), s));
-};
-const pinchResistance = (wall, kq, s) => {
-  if (!(s > 0)) return 0;
-  const a = (1 - s) * (1 - s);
-  return wall * PINCH * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1);
-};
+// A stent's conductance from its geometry (stent-geom.js stentParts: the tract, the wall, the device's entrance and exit, the waist's jet and
+// inlet; the one calculation the Doppler, the figure and the cards read too). With no geometry set it is the stent the model always had.
+const PARTS = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, total: 0 };   // alloc-rare: made once (computeG's parts, read at once)
+const GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (computeG's geometry, read at once)
+const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS).total;
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
@@ -75,6 +59,13 @@ export const PARAM_EASE_S = 0.15;
 // Numbers that are choices, not amounts: they change at once.
 const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
 const STENT_SWITCH = ['tips', 'dips'];   // (the stents whose switch opens and closes through their width: easeParams)
+// The value a number missing from params stands for while it eases: 0, or a stent geometry's default length (stent-geom.js geomDefault).
+const GEOM_D = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (missingAs's default, read at once)
+const missingAs = (path, k) => {
+  if (path.length !== 2 || path[0] !== 'stentGeom') return 0;
+  const e = EDGES.find((x) => x.id === path[1]), kind = kindOf(e);
+  return kind ? geomDefault(kind, GEOM_D)[k] ?? 0 : 0;
+};
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const PERICARDIAL_FILL = 0.6;   // constriction limits diastolic filling: the heart's pump capacity falls by this share at full constraint (as the tricuspid term below; 13 Nov 2026, constrictive pericarditis reaches RA 15+ with a low-normal output)
 // Compensation for blood loss, calibrated to the ATLS hemorrhage classes (ATLS 10th ed., 2018): under 15 % lost the
@@ -290,7 +281,7 @@ export class Engine {
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
   }
   /** setParams with the numbers that changed eased in over about PARAM_EASE_S of model time (switches and choices at once).
-   *  A number missing on one side (a narrowing added or taken away) counts as 0 there. */
+   *  A number missing on one side (a narrowing added or taken away) counts as 0 there (a stent's geometry: its default, missingAs). */
   easeParams(p) {
     const from = this.params;
     this.setParams(p);
@@ -300,8 +291,11 @@ export class Engine {
         if (NO_EASE.has(k)) continue;
         const x = a?.[k], y = b?.[k];
         if (y && typeof y === 'object') { if (!x || typeof x === 'object') walk(x, y, [...path, k]); continue; }
-        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? 0) === (y ?? 0)) continue;
-        legs.push({ path, key: k, from: x ?? 0, to: y ?? 0, drop: y === undefined });
+        // (A missing number is 0, except a stent geometry's length, which is its default: a stent given a waist length for the first time
+        // eases from the 8 cm and 1 cm it had, not from nothing, which would open it wide for a moment.)
+        const z = missingAs(path, k);
+        if (!(typeof x === 'number' || x === undefined) || !(typeof y === 'number' || y === undefined) || (x ?? z) === (y ?? z)) continue;
+        legs.push({ path, key: k, from: x ?? z, to: y ?? z, drop: y === undefined });
       }
     };
     walk(from, this.params, []);
@@ -621,14 +615,14 @@ export class Engine {
           if (stent && occ >= 0.995) g = 0;
           else if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
           // Diameter grades both the shunt fraction and the portosystemic gradient.
-          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc, occ);
-          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc, occ);
+          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance('tips', p.tips.d, this.Q[k], visc, occ, p, e.id);
+          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance('dips', p.dips.d, this.Q[k], visc, occ, p, e.id);
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
           // The Meso-Rex graft: a vein of 8 mm (Poiseuille: the Warren shunt's resistance at 9 mm, scaled by (9/8)^4).
           else if (e.shunt === 'rex' && p.rex) g = 1 / (0.128 * visc);
-          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
+          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = stentConductance('custom', p.customShunts[e.id], this.Q[k], visc, occ, p, e.id);
           if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
           this.G[k] = g;
           continue;
@@ -1524,6 +1518,26 @@ export class Engine {
   }
 
   /** Mean velocity (cm/s), signed. */
+  /** A stent's hydraulics as they stand (stent-geom.js): its flow (mL/s, smoothed as the readouts are), the pressure across it (mmHg,
+   *  portal end less systemic end), its open and waist mean velocities (cm/s), and the pressure each part takes (mmHg: tract, wall with
+   *  waistWall its waist's share, entry, jet, inlet, total), written into `out`; null when the stent is not open. The sibling cards,
+   *  tiles and curves read this, so the model's split and theirs cannot differ. */
+  stentState(id, out = null) {
+    const k = this.ei[id], e = EDGES[k], kind = kindOf(e);
+    if (!kind || !(this.G[k] > 0)) return null;
+    const p = this.params, d = kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id];
+    if (!(d > 0)) return null;
+    const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
+    const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
+    const g = geomOf(p, id, kind, o.geom), r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts);
+    for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'total']) r[f] *= q;
+    const A = Math.PI * (d / 10) * (d / 10) / 4;
+    o.kind = kind; o.d = d; o.s = s; o.dWaist = d * (1 - s); o.q = q; o.flow = q * 0.06;
+    o.dp = P[this.edgeF[k]] - P[this.edgeT[k]];
+    o.vOpen = q / A; o.vWaist = s > 0 ? q / (A * (1 - s) * (1 - s)) : q / A;
+    return o;
+  }
+
   velocity(id) {
     const k = this.ei[id], e = EDGES[k];
     const q = e.lobar ? this.lobarFlow(k) : this.Q[k];

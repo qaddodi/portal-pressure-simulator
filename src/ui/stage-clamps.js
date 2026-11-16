@@ -158,7 +158,7 @@ export function createClamps(st, live) {
     o.length = 0;
     if (t !== okT) { okT = t; okTs = t.toFixed(3); }
     o.push(okTs, live.isImaging(), findingHidden('clot'));
-    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
+    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.stentGeom); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
     okFlat(o, p.tips); okFlat(o, p.dips); o.push(!!p.portocavalSide); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);

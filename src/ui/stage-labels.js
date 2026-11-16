@@ -112,7 +112,7 @@ export function createLabelDriver(st, live) {
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
     const edges = '~' + EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');   // (after a ~: the field a view change's landing reads apart, stage-view.js sameButWidths)
-    return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
+    return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite), paramJSON((f.viewParams || st.params).stentGeom),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames && String(st.presentGrads), explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), d[23], edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }
   const sigStats = { builds: 0 };

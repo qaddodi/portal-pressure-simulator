@@ -1,6 +1,7 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
 import { EDGES } from './topology.js';
+import { geomFix, kindOf } from './stent-geom.js';
 
 export function defaultParams() {
   return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
@@ -10,6 +11,7 @@ export function defaultParams() {
       L: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stentGeom: {},                // stent edgeId → { len, waist, trans } (cm): its hydraulic length, its waist's length and its tapered ends (stent-geom.js; defaults if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     thrombus: {},                 // edgeId → 0..1 occlusion   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
@@ -226,6 +228,14 @@ function sanitize(p, rep) {
   pruneTo(out.fibrosis, d.fibrosis, 'fibrosis', fixed);
   for (const k of CLAMPED) for (const id of Object.keys(out[k])) { const v = out[k][id], n = num(v, 0, k === 'stenosis' ? 0.95 : 1, 0); out[k][id] = n; if (rep && n !== v) fixed(`${k}.${id}`, v, n); }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
   for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) { fixed(`stenosisSite.${id}`, out.stenosisSite[id], 'dropped'); delete out.stenosisSite[id]; }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists),
+  // A stent's geometry is a record of three lengths (cm), clamped, with the waist and its ends fitted inside the stent (stent-geom.js geomFix).
+  for (const id of Object.keys(out.stentGeom)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+    const v = out.stentGeom[id], kind = kindOf(STENT_EDGE.get(id));
+    if (!kind || !isObj(v)) { fixed(`stentGeom.${id}`, v, 'dropped'); delete out.stentGeom[id]; continue; }
+    const n = geomFix(v, kind);
+    for (const f of ['len', 'waist', 'trans']) if (rep && v[f] !== undefined && n[f] !== v[f]) fixed(`stentGeom.${id}.${f}`, v[f], n[f]);
+    out.stentGeom[id] = n;
+  }
   for (const k of SWITCHED) {
     pruneTo(out[k], d[k], k, fixed);
     out[k].on = typeof out[k].on === 'boolean' ? out[k].on : fixed(`${k}.on`, out[k].on, d[k].on);
@@ -258,6 +268,7 @@ function pruneTo(o, tpl, path, fixed) { for (const k of Object.keys(o)) if (!Obj
 
 // B7: the ids under stenosis, thrombus, stenosisSite, occluded, customShunts and spontaneous are vessels of the model; a link's other ids are dropped.
 const ANY_EDGE = new Set(EDGES.map((e) => e.id));
+const STENT_EDGE = new Map(EDGES.filter((e) => kindOf(e)).map((e) => [e.id, e]));
 const CUSTOM_EDGE = new Set(EDGES.filter((e) => e.shunt === 'custom').map((e) => e.id));
 const SPONTANEOUS_EDGE = new Set(EDGES.filter((e) => e.variant || e.spontaneous).map((e) => e.id));
 function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame

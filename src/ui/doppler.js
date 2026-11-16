@@ -4,7 +4,7 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES, dopplerK, stentSegments, stentSite, stentGate, stentCourse } from '../engine/topology.js';
+import { EDGES, dopplerK, stentReadsOf, stentGate, stentCourse } from '../engine/topology.js';
 import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
@@ -456,8 +456,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   };
   // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
   const stentReads = (v) => {
-    const prm = store.get().params, s = 1 - (1 - (prm?.stenosis?.[probe] || 0)) * (1 - (prm?.thrombus?.[probe] || 0));
-    return stentSegments(v, s, stentSite(prm, probe), STENT_OUT);
+    return stentReadsOf(store.get().params, probe, v, STENT_OUT);   // (its narrowing, site and geometry: a long waist jets at every gate inside it)
   };
   // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
   const isStentProbe = () => meta().kind === 'tips';

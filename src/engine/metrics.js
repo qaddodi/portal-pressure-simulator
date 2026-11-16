@@ -198,6 +198,11 @@ export function computeMetrics(eng, out = null) {
   r.hepaticFlow = hepFlow * 0.06; r.liverPerfPct = (hepFlow / eng.baseHepFlow) * 100;
   r.portalIn = portalIn * 0.06; r.arterialIn = arterialIn * 0.06; r.splanchnicIn = splIn * 0.06;
   r.shuntFraction = shuntFraction; r.collateralFlows = collateralFlows;
+  // The TIPS's and the DIPS's hydraulics (engine stentState: flow, the pressure across the stent, the waist's velocity and each part's share
+  // of the drop), null when the stent is not in. The pressure across the stent is its portal end less its hepatic vein end: not the PPG,
+  // which is the portal vein less the IVC, and never an HVPG.
+  r.tips = eng.stentState ? eng.stentState('TIPS', r.tips || undefined) : null;
+  r.dips = eng.stentState ? eng.stentState('DIPS', r.dips || undefined) : null;
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
   // (Abdominal perfusion pressure (APP; the key is rpp, its first name): the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not renal perfusion or a filtration rate: the model has no kidneys.
   // Both over the breath, as the bar's MAP and the IAP read (full app review ENG-3: this instant's IAP swung the APP by 2 mmHg a breath).)

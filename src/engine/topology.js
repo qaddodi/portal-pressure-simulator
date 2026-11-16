@@ -1,3 +1,4 @@
+import { profileAt, geomOf, kindOf } from './stent-geom.js';
 // Vascular network definition (blueprint §7.2).
 //
 // Units: pressure mmHg, flow mL/s, resistance PRU (mmHg·s/mL), compliance mL/mmHg.
@@ -389,9 +390,29 @@ export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : 
 export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
 const STENT_KEYS = ['proximal', 'mid', 'distal'];   // alloc-rare: made once
 // `out` (optional): a list of 3 the numbers are written into and returned, so a drawn frame makes no list; without one a fresh list is made.
-export const stentSegments = (v, s = 0, site = 'distal', out = null) => {
+// `g` (optional): the stent's geometry (stent-geom.js geomOf). Each gate then reads the lumen where it sits, v / (D/d)²: a long waist jets at
+// every gate inside it, a gate on a tapered end reads in between, and the open stent reads v. Without one, the narrowing is the short pinch
+// at its site's gate alone (the same numbers as the default geometry gives).
+export const stentSegments = (v, s = 0, site = 'distal', out = null, g = null) => {
   const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
   if (!out) out = [0, 0, 0];   // alloc-rare: only a caller that gives no list of its own (a test); the drawn paths pass one
-  for (let i = 0; i < 3; i++) { const k = STENT_KEYS[i]; out[i] = (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w); }
+  const narrowed = s > 0 && s < 0.995;
+  for (let i = 0; i < 3; i++) {
+    const k = STENT_KEYS[i];
+    let x = v;
+    if (narrowed && g) { const r = profileAt(g, s, STENT_SITES[site] ?? STENT_SITES.distal, STENT_SITES[k]); if (r < 1) x = v / (r * r); }
+    else if (narrowed && k === site) x = v / ((1 - s) * (1 - s));
+    out[i] = x * (1 + (STENT_GRADIENT[k] - 1) * w);
+  }
   return out;
 };
+/** A stent's three gate velocities from params: its narrowing (stenosis × thrombus), site and geometry, for the stent `id`. */
+export const stentReadsOf = (params, id, v, out = null) => {
+  const kind = kindOf(edgeById(id));
+  const s = 1 - (1 - (params?.stenosis?.[id] || 0)) * (1 - (params?.thrombus?.[id] || 0));
+  return stentSegments(v, s, stentSite(params, id), out, kind ? geomOf(params, id, kind, READS_GEOM) : null);
+};
+const READS_GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (stentReadsOf's geometry, read at once)
+let BY_ID = null;
+/** An edge by its id (a map made on the first ask, once every edge, the drawn stents' included, is in EDGES). */
+export const edgeById = (id) => (BY_ID || (BY_ID = new Map(EDGES.map((e) => [e.id, e])))).get(id);   // alloc-rare: made once
