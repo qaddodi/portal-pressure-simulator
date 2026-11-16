@@ -113,7 +113,7 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /'Lymph formation'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
+  assert.match(src, /'Lymph formation, liver \+ gut'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
 });
 
 test('the card draws each part, and never sets text under 12 px', () => {

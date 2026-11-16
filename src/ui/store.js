@@ -259,4 +259,8 @@ export function redo() {
   return h.label || true;
 }
 export function clearHistory() { past.length = 0; future.length = 0; }
+/** The undo and redo stacks as they stand, to be put back by loadHistory (a talk keeps the viewer's own while its slides change the patient). */
+export const saveHistory = () => ({ past: past.slice(), future: future.slice() });
+/** Puts back what saveHistory kept. */
+export function loadHistory(s) { past.length = 0; future.length = 0; if (s) { past.push(...s.past); future.push(...s.future); } }
 

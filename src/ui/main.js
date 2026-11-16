@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
@@ -96,6 +96,7 @@ import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
 import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
+import { procLabel } from './procedure-names.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
@@ -308,7 +309,8 @@ async function main() {
     marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
-    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
+    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -832,7 +834,7 @@ function doAction(a) {
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
-  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: procLabel('band'), valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
@@ -855,7 +857,7 @@ function shuntHint(only, fine) {
   SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
   SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
   SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
-  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a distal splenorenal shunt (DSRS).');
   SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
   return SHUNT_LINES;
 }
@@ -1105,7 +1107,7 @@ function menuToggle(checked, ic, label, sub, onChange) {
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
-function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop' }); }
+function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function bloodItems() {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
@@ -1113,7 +1115,7 @@ function bloodItems() {
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Off, with Chevrons on: arrows only', (on) => {
+      toggle(flowOn, 'streaks', 'Streaks', 'Moving blood drawn along each vessel', (on) => {
         store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
         try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
       }),
@@ -1141,7 +1143,7 @@ function labelLevelSeg() {
   }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
-function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
+function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
@@ -1166,7 +1168,7 @@ function openLayers(anchor) {
   popover(anchor, [
     h('div', { class: 'lens-grid', role: 'radiogroup', 'aria-label': 'Color the vessels by' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
-  ], { cls: 'layers-pop' });
+  ], { cls: 'layers-pop', safe: 'bottom' });
 }
 // Active bleeding is a state, not an alarm: the figure shows the blood itself; the readings are drawn again when it starts or stops.
 let lastBleed = false;
@@ -1282,13 +1284,20 @@ function renderBanner() {
   if (s0.compareSnap) {
     const names = s0.compareSnap.names || CMP_NAMES;
     cmpWords(s0.compareSnap.when, names[0], names[1]);
+    const cur = s0.compareView || 'B';
+    // (The same switch with the same words keeps its elements: Then, Now and Change only move the pressed mark, so the selection glides from one to the next (seg-glide.js);
+    // a new switch for each press put the piece down on the new choice with nothing to glide from. Play-test, Mac, 16 Nov 2026.)
+    if (bannerSeg && bannerSeg.isConnected && bannerSeg.parentNode === el && bannerSeg._words === cmpLabel + '|' + cmpNA + '|' + cmpNB) {
+      for (let i = 0; i < 3; i++) bannerSeg.children[i].setAttribute('aria-pressed', cur === 'ABD'[i] ? 'true' : 'false');
+      return renderBannerBadge(s0);
+    }
     bannerLabel = h('span', CMP_LABEL, cmpLabel);
     CMP_SEG['aria-label'] = cmpAria;
-    const cur = s0.compareView || 'B';
     CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
     CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
     CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
     bannerSeg = h('div', CMP_SEG);
+    bannerSeg._words = cmpLabel + '|' + cmpNA + '|' + cmpNB;
     for (let i = 0; i < 3; i++) {
       const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
       b.addEventListener('click', CMP_CLICK[i]);
@@ -1303,6 +1312,9 @@ function renderBanner() {
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
+  renderBannerBadge(s0);
+}
+function renderBannerBadge(s0) {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
@@ -2123,7 +2135,7 @@ function openLayersMenu(anchor) {
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers', safe: 'bottom' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;

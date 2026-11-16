@@ -17,6 +17,8 @@ export const STIFF = {
   'stiff.z1': tint('caution', 20),
   'stiff.z2': tint('caution', 36),
   'stiff.z3': tint('danger', 34),
+  // A congested liver: the rules' zones do not apply, so the bar is one neutral tint
+  'stiff.zn': tint('text-3', 18),
   // The five ticks' numbers, and each zone's words
   'stiff.tk': word('stiff.tk', tok('text-3')),
   'stiff.zl': word('stiff.zl', tok('text-2')),

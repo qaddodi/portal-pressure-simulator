@@ -275,7 +275,7 @@
 .vdock :is(.tl-ff, .tl-hist, .tl-pin) :is(svg, .ic) { width: var(--ic-m); height: var(--ic-m); }
 .vdock :is(.tl-hist, .tl-pin) .tl-hl, .vdock .tl-pin span { display: none; }
 @media (hover: hover) { .vdock :is(.tl-ff, .tl-hist, .tl-pin) { --hv-bg: var(--surface-3); } .vdock :is(.tl-ff, .tl-hist, .tl-pin):hover::before { opacity: 1 } .vdock :is(.tl-ff, .tl-hist, .tl-pin):hover { color: var(--text); } }
-.vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); }
+.vdock .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); --hv-bg: var(--text); --hv-bd: transparent; }   /* (the hover rule above sets --hv-bg at the same weight: this one comes after it, so the pressed pill keeps its own fill under the pointer) */
 @media (pointer: coarse) { .vdock :is(.tl-ff, .tl-pin)::after { content: ''; position: absolute; inset: -2px; } }   /* (Jump ahead and Compare: a 40 px tap area, 4 px stays clear between neighbours) */
 .vdock .tl-hc:not(:empty) { position: absolute; top: 0; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: var(--fs-12); line-height: 16px; background: var(--text); color: var(--stage-bg); }
 .vdock .tl-hist { display: inline-grid; place-items: center; }
@@ -928,6 +928,8 @@
 .rp-tiles .metric { padding: 8px 10px 7px; background: var(--surface-2); border-radius: var(--r-control); }
 @media (hover: hover) { .rp-tiles .metric { --hv-bg: var(--surface-3); } .rp-tiles .metric:hover::before { opacity: 1 } }
 .rp-tiles .metric .k .k-l { display: inline; }
+/* A tile's name is never cut with an ellipsis (the bar's one line stays one line; the Readouts tile has the room): "Abdominal perfusion pressure" wraps to a second line, balanced. */
+.rp-tiles .metric .k { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; text-wrap: balance; }
 .rp-tiles .metric .k .k-s { display: none; }
 .rp-tiles .metric .tr { display: inline; }
 /* The blood pressure's mean and its brackets are one piece, so a narrow tile breaks before "(93)", never inside it. */

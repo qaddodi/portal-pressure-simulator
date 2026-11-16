@@ -444,10 +444,12 @@ html:root .topbar .sb-right > .chip-btn[aria-expanded="true"], html:root .topbar
 @media (hover: hover) { .zoom-pill .ib { --hv-bg: var(--surface-3); } .zoom-pill .ib:hover::before { opacity: 1 } }
 /* On a pointer device (a trackpad or wheel zooms) the pill rests at low ink and comes to full ink under the pointer, with focus, or while
    the view is away from its fit, where Fit is the button that matters (looks review L6). Touch keeps it at full: it is a real control there.
+   The rest ink is .7, not .5 (16 Nov 2026, style play-test: the + and − "disappear and leave an empty capsule"): muted ink (--text-2) at .5 over the glass was
+   2.5:1 in Light and Soft and 3.0:1 in Dark, under the 3:1 a control's glyph needs; at .7 every look holds 3.9:1 or more.
    The ink is dimmed, never the pill: its glass stays whole, so the figure never shows through it (a pill at half opacity let the vessels
    and arrows under it through, unfrosted). */
 @media (hover: hover) and (pointer: fine) {
-  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .5; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
+  .zoom-pill .ib:not(.stage-rotate):not(:disabled) { opacity: .7; transition: opacity var(--d-surface, .42s) var(--ease), scale var(--d-flip) var(--ease); }
   .zoom-pill:hover .ib:not(:disabled), .zoom-pill:focus-within .ib:not(:disabled), .stage-wrap.off-home .zoom-pill .ib:not(:disabled) { opacity: 1; }
 }
 .zoom-pill .stage-rotate { display: inline-grid; }
@@ -592,7 +594,7 @@ html:root .topbar .sb-right > .chip-btn[aria-expanded="true"], html:root .topbar
 .lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
 .lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a smooth outline around each letter (a stroke painted under the fill), so the labels read over the tissue. */
-.lz-lab :is(.n, .v, .x), .lz-call { --hw: max(1px, calc(1.5px * var(--label-k, 1)));
+.lz-lab :is(.n, .v, .x), .lz-call { --hw: max(1.25px, calc(2px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
 .lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }   /* (U6, 13 Nov 2026: the Anatomy's roles: name --t-lab, reading --t-val, unit --t-cap) */

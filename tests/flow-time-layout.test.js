@@ -81,3 +81,16 @@ test('the card keeps one size: the chart is laid out inside the box it is given,
     assert.ok(G.B <= sz.h - 1.7 * sz.f + 1e-9, 'the clock band keeps its 1.7 type sizes at the foot');
   }
 });
+
+test('the words and tiles read the chart\'s own number at each share of the days (Choose the treatment 3: 3.1 L in the sentence, 4.4 L on the chart)', async () => {
+  const { trailReading } = await import('../src/ui/flow-time.js');
+  const lines = ['asc', 'liver'], trail = Array.from({ length: 29 }, (_, d) => [d, 5.2 - 4.1 * (1 - Math.exp(-d / 9)), 100 - 60 * (1 - Math.exp(-d / 12))]);
+  const ser = flowTimeSeries(trail, 'days', lines), x = lines.map((k) => LINE[k]?.[4] ?? 1);
+  for (let m = 0; m < ser.min.length; m += 3) {
+    const r = trailReading(trail, lines, m / ser.ax.rise);
+    assert.ok(Math.abs(r.asc * x[0] - ser.pv[m]) < 1e-9, `day ${m}: the lower line`);
+    assert.ok(Math.abs(r.liver * x[1] - ser.flow[m]) < 1e-9, `day ${m}: the upper line`);
+  }
+  assert.equal(trailReading([], lines, 0.5), null);
+  assert.ok(trailReading(trail, lines, 0).asc > trailReading(trail, lines, 1).asc, 'the ascites falls over the days');
+});

@@ -18,7 +18,7 @@ export const MESO_REX = {
   objectives: [
     'Explain why a child with portal vein thrombosis (PVT) has a normal HVPG and a high PPG',
     'State what a meso-Rex bypass requires: a patent left portal vein and surgical expertise',
-    'Contrast the bypass with a Warren or mesocaval shunt in hepatic portal perfusion',
+    'Contrast the bypass with a distal splenorenal (DSRS) or mesocaval shunt in hepatic portal perfusion',
     'Name the options when a meso-Rex bypass is not feasible',
   ],
   checks: [
@@ -27,7 +27,7 @@ export const MESO_REX = {
     ['One shunt lowers the PPG from about 15 to 7 mmHg and increases hepatic portal perfusion. Another lowers it to about 4 mmHg and reduces hepatic portal perfusion. Which is the meso-Rex bypass?', 'The first. It returns mesenteric venous blood to the liver through the left portal vein. A mesocaval shunt diverts it to the IVC, so the gradient falls further and hepatic portal perfusion falls.'],
     ['A child with PVT is not a candidate for a meso-Rex bypass. What does Baveno VIII offer for secondary prophylaxis?', 'Portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt (9.34).'],
   ],
-  summary: 'A child with chronic PVT: cavernous transformation, the normal HVPG and high PPG, liver and spleen stiffness that cannot be relied on alone, the meso-Rex bypass and its effect on hepatic blood flow, and the Warren shunt when a bypass is not feasible.',
+  summary: 'A child with chronic PVT: cavernous transformation, the normal HVPG and high PPG, liver and spleen stiffness that cannot be relied on alone, the meso-Rex bypass and its effect on hepatic blood flow, and the distal splenorenal shunt (DSRS) when a bypass is not feasible.',
   slides: [
     {
       id: 'child', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, data: 'tiles', tiles: ['spleen', 'plt'], key: ['plt'],
@@ -76,11 +76,11 @@ export const MESO_REX = {
     {
       id: 'flows', lens: 'origin', cam: SHUNTS_CAM, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['liver'], delta: 'child',
       compare: [{ label: 'Meso-Rex bypass', short: 'Rex', own: true },
-        { label: 'Warren shunt', short: 'Warren', params: { rex: false, dsrs: true, mesocaval: false } },
+        { label: 'Distal splenorenal shunt (DSRS)', short: 'DSRS', params: { rex: false, dsrs: true, mesocaval: false } },
         { label: 'Mesocaval shunt', short: 'Mesocaval', params: { rex: false, dsrs: false, mesocaval: true } }],
       kicker: 'The bypass', site: 'pre', title: 'Only the meso-Rex bypass increases hepatic portal perfusion',
       line: 'Sinusoidal flow is {liver} of normal, and {shunt} of portal flow bypasses the sinusoids. Only the meso-Rex bypass raises hepatic portal perfusion above baseline.',
-      notes: 'Every other shunt lowers the gradient by diverting portal flow from the liver, a TIPS and a portocaval shunt most of all. The Warren shunt is selective: it decompresses the varices through the spleen and the left renal vein, while mesenteric venous blood still reaches the liver. A mesocaval shunt diverts mesenteric venous blood to the IVC, so the gradient falls furthest and sinusoidal flow falls with it. The meso-Rex bypass is the exception: the same blood enters the left portal vein, so the gradient falls and sinusoidal flow rises. Immediately after the graft opens the model reads above normal hepatic flow, an overshoot of splanchnic flow through the graft; by 6 months it has settled to about normal. The buttons switch the child between the three operations, and the tiles compare with the child before any of them.',
+      notes: 'Every other shunt lowers the gradient by diverting portal flow from the liver, a TIPS and a portocaval shunt most of all. The distal splenorenal shunt (DSRS) is selective: it decompresses the varices through the spleen and the left renal vein, while mesenteric venous blood still reaches the liver. A mesocaval shunt diverts mesenteric venous blood to the IVC, so the gradient falls furthest and sinusoidal flow falls with it. The meso-Rex bypass is the exception: the same blood enters the left portal vein, so the gradient falls and sinusoidal flow rises. Immediately after the graft opens the model reads above normal hepatic flow, an overshoot of splanchnic flow through the graft; by 6 months it has settled to about normal. The buttons switch the child between the three operations, and the tiles compare with the child before any of them.',
       ask: ['What does every other shunt trade for a lower gradient?', 'Hepatic portal perfusion. A meso-Rex bypass does not, because the blood enters the liver through the left portal vein.'],
     },
     {
@@ -91,20 +91,20 @@ export const MESO_REX = {
       ask: ['Which two signs show the bypass is patent in the months after surgery?', 'Spleen size decreases and the platelet count rises, as portal pressure falls and the collaterals regress.'],
     },
     {
-      id: 'alternative', lens: 'origin', preset: 'pvt-chronic', params: { dsrs: true }, cam: SHUNTS_CAM, mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
-      compare: [{ label: 'Warren shunt', short: 'Warren', own: true }, { label: 'Meso-Rex bypass', short: 'Rex', params: { dsrs: false, rex: true } }],
-      kicker: 'When meso-Rex is not feasible', site: 'pre', title: 'Without a patent intrahepatic portal system, a Warren shunt is an option', cite: 'Baveno VIII 9.34, 9.35',
-      line: 'Without a patent intrahepatic portal system, a Warren shunt decompresses the varices through the spleen, yet the PPG stays {ppg} and {shunt} of portal flow bypasses the liver.',
-      notes: 'When a meso-Rex bypass is not feasible, Baveno VIII advises portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt (9.34). A Warren shunt can be considered for recurrent variceal hemorrhage when there is no hepatopulmonary syndrome, portopulmonary hypertension or encephalopathy (9.35). In the model the Warren shunt decompresses the varices through the splenic vein but leaves portal vein pressure high, and the buttons compare it with the bypass in the same child.',
+      id: 'alternative', lens: 'origin', preset: 'pvt-chronic', params: { dsrs: true }, cam: SHUNTS_CAM, mark: { edges: ['S_DSR'], label: 'Distal splenorenal shunt (DSRS)', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      compare: [{ label: 'Distal splenorenal shunt (DSRS)', short: 'DSRS', own: true }, { label: 'Meso-Rex bypass', short: 'Rex', params: { dsrs: false, rex: true } }],
+      kicker: 'When meso-Rex is not feasible', site: 'pre', title: 'Without a patent intrahepatic portal system, a distal splenorenal shunt (DSRS) is an option', cite: 'Baveno VIII 9.34, 9.35',
+      line: 'Without a patent intrahepatic portal system, a distal splenorenal shunt (DSRS) decompresses the varices through the spleen, yet the PPG stays {ppg} and {shunt} of portal flow bypasses the liver.',
+      notes: 'When a meso-Rex bypass is not feasible, Baveno VIII advises portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt (9.34). A distal splenorenal shunt (DSRS) can be considered for recurrent variceal hemorrhage when there is no hepatopulmonary syndrome, portopulmonary hypertension or encephalopathy (9.35). In the model the distal splenorenal shunt (DSRS) decompresses the varices through the splenic vein but leaves portal vein pressure high, and the buttons compare it with the bypass in the same child.',
       ask: ['What does Baveno VIII offer for secondary prophylaxis when a meso-Rex bypass is not feasible?', 'Portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['ppg', 'hvpg', 'liver', 'shunt', 'plt'], asc: false, rowHead: 'Child', vs: 'child',
       of: [{ id: 'child', kicker: 'Before', title: 'PVT, no surgery' }, { id: 'bypass', kicker: 'Rex', title: 'Meso-Rex bypass' }, { id: 'months', kicker: 'Rex', title: 'At 6 months' },
-        { id: 'alternative', kicker: 'Other shunts', title: 'Warren shunt' }, { preset: 'pvt-chronic', params: { mesocaval: true }, kicker: 'Other shunts', title: 'Mesocaval shunt' }],
+        { id: 'alternative', kicker: 'Other shunts', title: 'Distal splenorenal shunt (DSRS)' }, { preset: 'pvt-chronic', params: { mesocaval: true }, kicker: 'Other shunts', title: 'Mesocaval shunt' }],
       kicker: 'Summary', title: 'The meso-Rex bypass is the one shunt that restores hepatic portal perfusion',
       line: 'Every other shunt lowers the gradient by diverting portal flow from the liver. The meso-Rex bypass returns it to the liver, so the PPG falls and sinusoidal flow rises.',
-      notes: 'In a child with prehepatic PVT, the HVPG and liver stiffness are normal, and the cavernoma cannot carry enough flow. A meso-Rex bypass joins the superior mesenteric vein to a patent left portal vein and restores portal flow to the liver. It requires a patent intrahepatic portal system and surgical expertise (Baveno VIII 9.31), and it is the preferred operation for secondary prophylaxis (9.34). If it is not feasible, portal vein recanalization, endoscopic treatment or a Warren shunt are the options. The rows compare the child before and after, and the other shunts, with the same model.',
+      notes: 'In a child with prehepatic PVT, the HVPG and liver stiffness are normal, and the cavernoma cannot carry enough flow. A meso-Rex bypass joins the superior mesenteric vein to a patent left portal vein and restores portal flow to the liver. It requires a patent intrahepatic portal system and surgical expertise (Baveno VIII 9.31), and it is the preferred operation for secondary prophylaxis (9.34). If it is not feasible, portal vein recanalization, endoscopic treatment or a distal splenorenal shunt (DSRS) are the options. The rows compare the child before and after, and the other shunts, with the same model.',
       ask: ['Why is a meso-Rex bypass different from every portosystemic shunt?', 'It returns mesenteric venous blood to the liver instead of diverting it around the liver, so the gradient falls and sinusoidal flow rises.'],
     },
   ],

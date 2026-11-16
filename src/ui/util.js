@@ -442,7 +442,7 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
   return y;
 }
 
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null } = {}) {
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null, safe = null } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   // (Never two menus in the page: one still fading out from a quick close and open (three taps 30 ms apart on Settings) is taken out at once, as the new one comes in. 16 Nov 2026.)
   for (const old of sheetLayer().querySelectorAll(':scope > .menu.leaving, :scope > .um-scrim.out')) old.remove();
@@ -456,6 +456,9 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     if (title) { const t = el.querySelector(':scope > .menu-title'); if (t && t.textContent.trim() === title) t.remove(); }
     el.prepend(h('div', { class: 'sheet-head' }, h('span', { class: 'sheet-t' }, title || ''), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close'))));
   }
+  // (`safe`: a menu sheet whose rows change the figure (Layers, Blood) is a card the camera frames around, as Tests and Treat are: the figure sits in the strip above it
+  // and each toggle shows. It counts where it rests, not mid-ride (data-rest-translate), and stops counting once it is leaving: stage-fit.js cardsRead. 16 Nov 2026.)
+  if (asSheet && safe) { el.dataset.safe = safe; el.dataset.safeRest = ''; el.dataset.restTranslate = '0 0'; }
   switchIn(el);
   // A sheet has a scrim that takes the tap away, as the main menu's does (it dims nothing: menu recs C5).
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;

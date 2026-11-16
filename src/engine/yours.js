@@ -4,7 +4,7 @@
 // (src/ui/yours-store.js keeps them on this device), no engine; the worker and the page both read it.
 
 import { FAMILY, LESION, sidesOf, keyOf, patientOf, settingText } from './inverse-families.js';
-import { READINGS, READING_KEYS, readingText } from './inverse.js';
+import { READINGS, READING_KEYS, chipText } from './inverse.js';
 import { registerPreset, forgetPreset, PRESETS } from './scenario.js';
 
 export const YOURS_GROUP = 'Yours';
@@ -30,7 +30,7 @@ export function yoursLabel(f, p) {
 /** The readings as a short sentence for the patient's summary: the first few, then "and n more". */
 export function readingsLine(readings, max = 5) {
   const ks = READING_KEYS.filter((k) => k in readings);
-  const shown = ks.slice(0, max).map((k) => `${READINGS[k].short} ${readingText(k, readings[k])}`);
+  const shown = ks.slice(0, max).map((k) => `${READINGS[k].short} ${chipText(k, readings[k])}`);
   return shown.join(', ') + (ks.length > max ? ` and ${ks.length - max} more` : '');
 }
 

@@ -199,7 +199,7 @@ html:root :is(.chip-btn, .lens-btn) .chev { transition: rotate var(--d-small) va
 html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] .chev { rotate: 180deg; }
 html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--surface-2); }
 @media (prefers-reduced-motion: reduce) { html:root :is(.chip-btn, .lens-btn) .chev { transition: none; rotate: none; } }
-.chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+.chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }   /* (--hv-bg: the hover tint lies over the button's own fill, so a light one hid the light words on the dark pill: Stop, Compare on, 16 Nov 2026) */
 .chip-btn[aria-pressed="true"] :is(svg, .ic) { color: currentColor; }
 
 /* Legend: a horizontal scale that sits in the figure header, never on the anatomy */

@@ -157,6 +157,6 @@ test('the change keeps the labels up: solved at the tap, ridden on the morph\'s 
   const stage = stageSource();
   // (No label work on a frame of the change: updateLabels returns while viewXf stands, and nothing is solved as it lands.)
   // (From the change's progress and the share at which the new labels were whole (view-xf.js viewXfMix): the ghosts ride at full until then, never a timer.)
-  const sv = stage.slice(stage.indexOf('    setView(v) {'), stage.indexOf('    relayout() {'));
+  const sv = stage.slice(stage.indexOf('  function setViewTo(v, force = false) {'), stage.indexOf('    relayout() {'));
   assert.ok(sv.includes('viewXfStart(d)') && !sv.includes('morph-fade'));
 });

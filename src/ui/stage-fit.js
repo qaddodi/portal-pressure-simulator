@@ -64,7 +64,7 @@ export function createFit(st, live) {
     const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
       const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
       for (const pc of parts || [el]) {
@@ -97,6 +97,13 @@ export function createFit(st, live) {
   snapAgain();
   addEventListener('resize', snapAgain);
   addEventListener('orientationchange', snapAgain);
+  // A turn of the device frames the figure again (16 Nov 2026, style play-test, iPad portrait in Navy: "a leftover zoom crops the figure until Fit is
+  // tapped"). A view the learner zoomed or panned kept its camera through a turn, so the figure, laid out for the other shape, stood cropped; a view at home
+  // followed the new room already. The turn is Fit's moment, as the presenter's is (stage.handClear: a turn or a new window size). Not in the lobule, and not
+  // while presenting (the slide frames itself). Refit measures in the next frame, after the new layout has settled.
+  const turnMQ = matchMedia('(orientation: portrait)');
+  const onTurn = () => { if (live.lobuleOn || live.fitted || store.get().presenting) return; live.handed = false; refit(); };
+  if (turnMQ.addEventListener) turnMQ.addEventListener('change', onTurn); else turnMQ.addListener?.(onTurn);
   const insWrap = () => stageBox();
   function cardSpace() { return { ...insKept('space', cardSpaceFrom, cardsSnap) }; }
   // (Live, for a caller already in the read phase: the catheter's room.)
