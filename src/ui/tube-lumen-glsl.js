@@ -220,6 +220,7 @@ void main() {
     }
   }
   bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks)
+  bool isBi = f1.x < -1.5;   // (a bile row, lobule-bile.js bileFlowInto: arrowheads only)
   if (blood == 1 && blendA.x > 0.0 && f1.z > 0.0 && !isLy) {
     // Blood that shows trouble (V7, blood-trouble.js; style P only): a shimmer where the flow reverses, a jet and eddies at a narrowing. The place
     // the streaks are drawn at is bent, their density (the flux) scaled; untroubled blood is (s1, y1, 1) and byte for byte as before.
@@ -229,7 +230,19 @@ void main() {
     float a = A.a * (1.0 - castAt(id1, s1, len1));
     if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
   }
-  if (blood == 1 && isLy && f1.z > 0.0) {
+  if (blood == 1 && isBi && f1.z > 0.0) {
+    // Bile (Mohammad, 16 Nov 2026: "no streaks, but very faint green arrows flowing towards the ductule ... not as many as the blood chevrons"):
+    // one small arrowhead every pitch (f0.y, world units: wider apart than the blood's), moving at one speed toward the row's end, the ductule
+    // (f0.x: the phase, advanced on the CPU). A soft green, lighter in the dark theme (f0.w). None on a channel under 3 px across, as the blood's.
+    float P = max(f0.y, 1.0), x = (fract((s1 - f0.x) / P) - 0.5) * P, ya = abs(y1) * R1, aa = max(pxW, 1e-3) * 0.75;
+    float hw = R1 * 0.7, hl = R1 * 0.8, th = max(R1 * 0.26, pxW * 1.1);
+    float dArm = abs(x - (0.5 * hl - ya * hl / hw)) * hw / length(vec2(hl, hw));   // (to the arm: the tip at +hl/2 on the axis, the arms back to -hl/2 at ±hw)
+    float c = (1.0 - smoothstep(0.5 * th - aa, 0.5 * th + aa, dArm)) * (1.0 - smoothstep(hw - aa, hw + aa, ya));
+    c *= smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(1.2, 1.6, R1 / max(pxW, 1e-3));
+    vec3 ink = f0.w > 0.5 ? vec3(0.66, 0.88, 0.52) : vec3(0.24, 0.50, 0.20);
+    col = mix(col, ink, clamp(c * 0.42 * f1.z * vis * flowA, 0.0, 1.0));
+  }
+  if (blood == 1 && isLy && !isBi && f1.z > 0.0) {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the dashes' phase, pitch, protein and theme in flow texel 0, as before. A row that ALSO
     // carries a stream in texel 7 (x: the distance now, y: the signed speed, blood's D and vd; y = 0: none) is drawn as streaks, the same style
     // as the blood (bloodAt, so the Tube's style P / D4 mist), coloured by the protein: a cool ink at 0 %, albumin amber at 100 % (dark on a light channel, light on a dark one) (the protein f0.z is the lobule's lyProt scaled 0.42 … 0.84 to 0 … 1), fainter when poorer. A row with no stream keeps the dashes.

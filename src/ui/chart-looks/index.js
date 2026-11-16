@@ -18,6 +18,7 @@ import { TRIAL } from './trial.js';
 import { FOREST } from './forest.js';
 import { STIFF } from './stiff.js';
 import { SAAG } from './saag.js';
+import { SHIFT } from './shift.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -39,6 +40,7 @@ export const LOOKS = {
   ...FOREST,
   ...STIFF,
   ...SAAG,
+  ...SHIFT,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -53,6 +55,7 @@ export const HOSTS = {
   // app.css 7096 .pz-tool .pz-inst:is(.pz-prof, .pz-flows) { font-size: var(--pz-sm, var(--pz-psm, 12px)) }; in a ladder's cell 2252 .pz-cc > .pz-prof { font-size: calc(var(--lad-f) * var(--lad-s)) }, --lad-f = --ch-cap
   prof: (c) => (c.in === 'cell' ? (c.scale.chCap ?? 12) * c.lad : c.scale.sm ?? 12),
   flows: (c) => c.scale.sm ?? 12,
+  shift: (c) => c.scale.sm ?? 12,   // (the change-from-healthy chart, tool-shift.js: the card's small size, grown to 12 px at the least by fittedType)
   // the phone grid's strips: 2255 (a case's own strip: the card's label size), 2258 (the names strip over the six: its cap size)
   pstrip: (c) => c.scale.lab ?? 12,
   pstriph: (c) => c.scale.cap ?? 12,

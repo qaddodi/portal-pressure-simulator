@@ -38,7 +38,7 @@ import { createTxns, createLease } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { onTheme } from './theme-epoch.js';
-import { expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
+import { expandIds, stepExtra, markLabel, figureHooks, safe, warmOf, trailOf } from './slide-ext.js';
 import { spansOf } from './tool-profile.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { revealCount } from './reveal.js';
@@ -276,7 +276,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : false, before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : trailOf(s), before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)

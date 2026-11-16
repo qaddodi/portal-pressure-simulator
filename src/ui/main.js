@@ -1135,7 +1135,7 @@ function labelLevelSeg() {
     return b;
   }));
 }
-// The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
+// The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
 function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
@@ -1143,7 +1143,8 @@ function lobuleLayerItems() {
   return [
     menuSection('Show on the lobule',
       menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
-      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on }))),
+      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
+      menuToggle(!!l.bile, 'bile', 'Bile', 'Where bile forms and drains', (on) => set({ bile: on }))),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }

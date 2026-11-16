@@ -112,3 +112,25 @@ test('a settled patient posts the heartbeat frame only, and ten a second while a
     Object.assign(globalThis, { setInterval: sI, clearInterval: cI, setTimeout: sT, clearTimeout: cT });
   }
 });
+
+// Play-test 16 Nov 2026 (issues 2 and 6): the hepatic lymph, its protein and the cardiac output read off the instant's pressures and swung at rest
+// (healthy: lymph 0.5 to 1.1 mL/min, protein 86 to 91 %, output 3.9 to 5.6 L/min). They read the shown means now, like the pressures.
+test('at the bedside the hepatic lymph, its protein share, the splanchnic lymph and the cardiac output hold still', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const bad = [];
+  for (const id of ['healthy', 'csph', 'cirr-comp', 'cirr-decomp']) {
+    const e = new Engine(); e.loadPreset(id); e.beat = true;
+    const lo = {}, hi = {}, h = 0.004;
+    for (let i = 0; i < 45 / h; i++) {
+      e.step(h);
+      if (i * h < 30 || i % 25) continue;
+      const m = computeMetrics(e), a = m.ascites;
+      for (const [k, v] of Object.entries({ lymph: a.hepLymph, gut: a.splLymph, prot: a.lymphProt * 100, co: m.co, vco: m.vitals.co })) { lo[k] = Math.min(lo[k] ?? Infinity, v); hi[k] = Math.max(hi[k] ?? -Infinity, v); }
+    }
+    const SPREAD = { lymph: 0.05, gut: 0.05, prot: 0.3, co: 0.1, vco: 0.1 };   // (mL/min, mL/min, percentage points, L/min, L/min; they swung 10 times as far)
+    for (const k of Object.keys(SPREAD)) if (hi[k] - lo[k] > SPREAD[k]) bad.push(`${id}: ${k} moves ${lo[k].toFixed(2)} to ${hi[k].toFixed(2)} at rest`);
+    assert.ok(Math.abs(hi.co - hi.vco) < 0.1, `${id}: the output the heart's label reads is the vitals' one`);
+  }
+  assert.deepEqual(bad, []);
+});

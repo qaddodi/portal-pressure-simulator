@@ -30,10 +30,10 @@ export default async function register({ check, device, open, pickView, shot, st
     let lit = 0;
     for (let i = 0; i < 12 && lit < 300; i++) { if (i) await page.waitForTimeout(500); lit = await page.evaluate(vesselPixels); }
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
-    // The four stations carry cards; the arteriole and ductule labels exist but stay hidden until a slide's term names them.
-    const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden || l.classList.contains('lz-off') ? ':hidden' : ''}`).sort().join());
+    // The four stations carry cards; the arteriole and ductule are named too (Mohammad, 16 Nov 2026), and like the Lymph label may be left out where no clear spot lies near them.
+    const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden || l.classList.contains('lz-off') ? ':hidden' : ''}`).sort().join()).then((s) => s.replace('lobule:arteriole:hidden', 'lobule:arteriole').replace('lobule:ductule:hidden', 'lobule:ductule'));
     // (The Lymph label may be left out, never stacked, but only where no clear spot lies within a short leader of its node.)
-    const full = 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad';
+    const full = 'lobule:arteriole,lobule:central,lobule:ductule,lobule:lymph,lobule:sinusoid,lobule:triad';
     if (stations !== full && stations !== full.replace('lobule:lymph,', 'lobule:lymph:hidden,')) throw new Error(`station cards missing (${stations})`);
     const room = await stationRoom(page);
     if (room.length) throw new Error(room.join('; '));

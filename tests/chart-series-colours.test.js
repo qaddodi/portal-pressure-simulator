@@ -14,6 +14,7 @@ const { graphLines } = await import('../src/ui/lapse-graph.js');
 const { eventLines } = await import('../src/ui/event-graph.js');
 const { drawnLines, lineMeta } = await import('../src/ui/tool-curve.js');
 const { TRACES } = await import('../src/ui/pressure-time.js');
+const { SHIFT_TOP, SHIFT_LOW, shiftColour } = await import('../src/ui/tool-shift.js');
 const { tokensOfLook, LOOK_IDS } = await import('../src/ui/theme-tokens.js');
 const { withVarsResolved } = await import('../src/ui/chart-looks/resolve.js');
 const { parseCssColor } = await import('../src/ui/css-color.js');
@@ -59,6 +60,8 @@ function charts() {
     if (s.tool?.kind === 'curve') out.push({ where: `${where} (curve)`, lines: drawnLines(s.tool).map((l) => ({ k: l.k, c: l.c, dash: l.dash, ref: l.ref })) });
     const g = graphLines(s); if (g) out.push({ where: `${where} (time-lapse graph)`, lines: g.map(lineOf) });
     const e = eventLines(s); if (e) out.push({ where: `${where} (procedure graph)`, lines: e.map(lineOf) });
+    // (the change from healthy: each of its two panels is a chart of its own, lines that share an axis, tool-shift.js)
+    if (s.tool?.kind === 'shift') for (const [name, keys] of [['upper', SHIFT_TOP], ['lower', SHIFT_LOW]]) out.push({ where: `${where} (change from healthy, ${name} panel)`, lines: keys.map((k) => ({ k, c: shiftColour(k) })) });
   }
   return out;
 }
