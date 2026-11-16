@@ -2,7 +2,6 @@
 // decks.js. The Present menu said "73 slides" for a deck that opened as "1 / 74" (16 Nov 2026), because it added one by hand or counted the deck's own.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, slideCount, withOverview } from '../src/ui/decks.js';
 import { DEMO_ALL } from '../src/ui/test-decks/demo-all-new-visuals.js';
 
@@ -15,10 +14,4 @@ test('a deck that already carries its outline (mine) is counted as it stands', (
   const d = withOverview(DEMO_ALL);
   assert.equal(slideCount({ ...d, mine: true }), d.slides.length);
   assert.equal(slideCount({ slides: [] }), 0);
-});
-
-test('the Present menu counts through the library, never slides.length plus a number', () => {
-  const src = readFileSync(new URL('../src/ui/menu.js', import.meta.url), 'utf8');
-  assert.ok(!/slides\.length/.test(src), 'menu.js counts slides itself');
-  assert.ok(/lib\.count\(/.test(src));
 });

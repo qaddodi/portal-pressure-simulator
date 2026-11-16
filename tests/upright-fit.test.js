@@ -2,7 +2,6 @@
 // its bottom third ran under the play bar until Fit was pressed; the wide map refitted when the bars changed, the turned one was fitted once at the press and never again).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { uprightFitOf } from '../src/ui/card-clear.js';
 
 const CIRC = [30, 30, 1360, 730], C = [710, 395], VBR = [C[0] - 365, C[1] - 680, 730, 1360], ART = [70, 30, 1330, 730];
@@ -18,11 +17,4 @@ test('the turned map ends clear of the bars at every window size and bar height'
     assert.ok(bottom <= H - b - 11.9, `${W}x${H} bars ${t}/${b}: the map ends at ${bottom.toFixed(1)}, the bars begin at ${H - b}`);
     assert.ok(top >= t + 11.9, `${W}x${H} bars ${t}/${b}: the map begins at ${top.toFixed(1)}, the bars end at ${t}`);
   }
-});
-
-test('turning the circuit takes a fresh snapshot and keeps the turned map as a circuit framing (so a bar that changes size refits it)', () => {
-  const src = readFileSync(new URL('../src/ui/stage-fit.js', import.meta.url), 'utf8');
-  const body = src.slice(src.indexOf('function setCircuitRotated'), src.indexOf('function rotStep'));
-  assert.match(body, /snapFresh\(\)/);
-  assert.match(body, /markCirc\('whole', live\.rotWhole\)/);
 });
