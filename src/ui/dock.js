@@ -506,7 +506,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Every readout the bottom bar used to carry, live, in its own tab.
   const readouts = createReadoutsPane({ tiles: TILES, groups: GROUPS, vitals: VITALS, readoutValue, onWhy, show, onFromReadings });
   const instruments = [
-    pressure, createPressureTime({ marks }),
+    pressure, createPressureTime({ marks, smooth: true }),
     // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
     createHvpgProcedure(),
     lazyPane({ id: 'doppler', label: 'Doppler', handle: lazy.doppler, cls: 'dop', history: 2000, slim: dopplerSlim, onReady: () => { fitHeight(); queueRefresh(); } }),

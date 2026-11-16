@@ -87,6 +87,10 @@ export const HVPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('Mil
 // (R09/§6.2, external production review, 15 Nov 2026: "Normal" and "Bleed risk" read as established clinical categories). PPG_LINE_NOTE is the one caveat sentence.
 export const PPG_LINE_NOTE = 'The color lines at 6 and 12 mmHg are this model\'s reference lines, not guideline cut-offs: the guidelines grade the HVPG.';
 export const EUS_LINE_NOTE = 'The EUS-PPG is read on the HVPG\'s lines (5 and 10 mmHg) as a model reference, not a validated cut-off. Anesthesia and a different sampled site (portal and left hepatic vein) can bias it, with the hepatic venous pressure overestimated (ENCOUNTER, PMID 40689144).';
+// The EUS-PPG's sites, said once (play-test, 16 Nov 2026: the needle read 7.7 and 5.2 where the figure's portal vein read 8.1 and the PPG 4.2): the needle takes the LEFT portal vein
+// and the LEFT hepatic vein, inside the liver, so it reads the pressure fall along the portal vein and the hepatic vein's step above the IVC that the PPG (portal vein trunk minus IVC) does not.
+// In the model the two differ by 0 to 1.5 mmHg; behind a clot in the portal vein or a block of the hepatic veins the needle no longer sees the pressure the PPG reads.
+export const EUS_SITE_NOTE = 'EUS-PPG is the left portal vein pressure minus the left hepatic vein pressure, both read inside the liver. The PPG is the portal vein minus the IVC, so the two usually differ by about 1 mmHg. Behind a portal vein clot or a hepatic vein block the EUS-PPG reads low and does not reflect the portal pressure.';
 // The PPG's words NAME ITS OWN LINES (6 and 12 mmHg) instead of grading: its lines sit a point or two over the HVPG's (5 and 10), so the same patient reads HVPG 9.6 "Mild"
 // beside PPG 9.8 and HVPG 10.9 "CSPH" beside PPG 11.1, and any severity word on the PPG ("High") read as a contradiction of the HVPG's (play-test, Mac, 16 Nov 2026).
 // A band named by its numbers cannot disagree with another scale's words, claims no category the guidelines do not give it, and invents no threshold.

@@ -81,6 +81,8 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // edge that feeds or drains them: the portal venule from the inlet's edge, the arteriole from the arterial one, the central vein from the post-sinusoidal one.
 const END_ON_EDGE = { pv: EI[LOBE.pre], ha: EI[LOBE.a], cv: EI[LOBE.post] };
 const TAU = Math.PI * 2;
+/** The lymph chevrons' spacing along a channel, as a share of the lobule's radius (16 Nov 2026: the old 0.06 was the dashes' and would stack the heads). */
+const LY_PITCH = 0.28;
 const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~160 vessels, ~260 with the lymphatics, ~320 with the bile too
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
@@ -1442,7 +1444,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // written and cleared by its own owner, so ending a pan never erases the dive.
   let panOn = false;   // (the pan's shift is the PAN record: x, y)
     let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
-  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, dimmed, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
+  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, dimmed, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
   function panel(...a) { return panel$(...a); }   // <stage-split stub>
   function measureRun(...a) { return measureRun$(...a); }   // <stage-split stub>
   function measureShown(...a) { return measureShown$(...a); }   // <stage-split stub>
@@ -1467,7 +1469,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return moved;
   }
     let layoutN = 0;   // (layoutN, for the checks: how many times the labels have been placed in full)
-  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
+  const { LC, VIEW, applyView, layoutLabels, lettersInto, setDive } = createLobuleRecords({ CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels }, live);
   // Before a dive (stage(), lobule-zoom-field.js) the names are measured, laid out for the landing and read for the GPU, unseen, in the task that asks for the dive: the dive scales
   // the layer, and a name is measured and read only in the layer's own px (measHeld, mirHeld), so they waited for the landing and then ran three rest passes in a row, 1 to 2 s with
   // the lobule bare before every name arrived at once. Placed ahead, they are drawn from the first frame the view fades in and come in with it (--lz-chrome).
@@ -2097,12 +2099,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
     const lyOn = lymphOn && !m.hide; const biOn = bileOn && !m.hide; if (!flowSame && biOn) bileFlowInto(flowData, tubeSet, motionOf, { R: G.R, dt, dark, still: reduce.matches, texels: FLOW_TEXELS, cssW: 1 / V.k });   // (the Bile layer: faint arrowheads toward the ductule)
     if (!flowSame && lyOn) {
-      const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
+      const pitch = G.R * LY_PITCH, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
         const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
         mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
-        flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 6] = 1;
+        flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 5] = 1 / V.k; flowData[o + 6] = 1;   // (o + 5: the CSS px in world units, the chevrons' size rule)
         // The same lymph as the blood's streaks (the Tube's compositor, tube-lumen-glsl.js: a stream in flow texel 7, x the distance now, y the signed speed,
         // never 0, which means none): the distance advances on the blood's convention (modulo PERIOD, no allocation), coloured there by the protein in f0.z.
         // Classic and Mesh read neither float and keep the dashes. (markRows compares every float of a row, so an advancing distance marks the row as moved.)

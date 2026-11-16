@@ -35,6 +35,8 @@ export function setHvpgStage(stage) { stageRef = stage; }
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: T.zoom + 300, probe1: T.zoom + 3900, abort: T.zoom + 3900, back: T.zoom + 5300, end: T.zoom + 8700 };   // (from the end of the catheter's way in, as it was: 4600, 8200, 8200, 9600, 13000)
 const ABORT_MSG = 'Unable to cannulate the hepatic vein: procedure aborted';
+/** The measure button's words: it says what is happening, and the result's arrival ends the measuring (the catheter still coming out is not a measurement). */
+export const measureLabel = (running, hasResult) => (running ? (hasResult ? 'Withdrawing the catheter…' : 'Measuring…') : hasResult ? 'Measure again' : 'Measure HVPG');
 const STEPS = [
   ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
   ['free', 'Free pressure (FHVP)', 'With the balloon deflated, the tip records the hepatic venous outflow pressure.', 'Free'],
@@ -277,7 +279,7 @@ export function createHvpgProcedure() {
       classSoon(b, 'off', off);
       attrSoon(b, 'aria-pressed', on ? 'true' : 'false');
     }
-    const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
+    const lbl = measureLabel(t0 != null && t < tEnd(), !!result);
     btnW.set(lbl);
     const n = st.mode === 'explore' && !st.presenting
       ? (st.showHvpg ? 'The HVPG readouts are always shown.' : st.hvpgMeasured ? 'Measured: the HVPG readouts stay live until a new patient is loaded.' : 'The HVPG readouts stay hidden until the HVPG is measured here.')
@@ -415,6 +417,7 @@ export const HVPG_SCRIPT = {
   drops: [[T.inflate - 80, 'Free', 'fhvp', 'free', 1], [T.callout, 'Wedge', 'whvp', 'wedge', -1]],
   levels: [[T.inflate, 'fhvp', 'free', 'FHVP'], [T.result, 'whvp', 'wedge', 'WHVP']],
   result: { show: T.result, at: T.sum, lo: 'fhvp', hi: 'whvp', key: 'hvpg', word: 'HVPG', sev: hvpgSev },
+  secs: true,   // (a seconds axis along the bottom, from the start of the free sweep: the tracing had only its stage words)
   ticks: [[T.inflate, 'balloon up']],   // (the balloon's tick and its words come with the balloon, not before: Mohammad, 12 Nov 2026)
   ymax: (v) => Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5),
 };
