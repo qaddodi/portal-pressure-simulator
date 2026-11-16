@@ -10,7 +10,7 @@ import { overlapLRTB } from './label-place.js';
 import { readStyle } from './layout-snap.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
-import { cancelRest, flushRestAttrs, restAttr, restPass, restRemove } from './rest-pass.js';
+import { cancelRest, flushRestAttrs, restAttr, restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { geoOf, setGeo, svgModel } from './svg-gl.js';
 import { clamp, fmt, h } from './util.js';
@@ -611,7 +611,15 @@ export function createLobuleLabels(st, live) {
   // zone's color, on the radius to the flat bottom edge, so each name runs along its band. The three elements are made
   // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
   // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
-  const zoneEls = [];
+  const zoneEls = [];   // (made once, kept for good: see placeZones; a layer's names are faded out and in, never dropped)
+  // ── The lobule's layers (the Layers menu, store.lobuleLayers) and the names that belong to them ──
+  // A name in LAYERS is a layer and live.<name>On its switch. A name that belongs to a layer shows only while it is on and fades out and in with it:
+  // the zone names ('zones') and the station labels in LAB_LAYER. A new layer is its name here, its labels in LAB_LAYER and its switch on live;
+  // the layout starts over when a layer switches (sameBase) and fades every name of a layer that is off (placeZones, labelLayerOff).
+  const LAYERS = ['zones', 'lymph'];
+  const LAB_LAYER = { lymph: 'lymph' };   // (a station label: the layer it belongs to; the others are always there)
+  const layerOn = (name) => !!live[name + 'On'];
+  const labelLayerOff = (k) => { const n = LAB_LAYER[k]; return !!n && !layerOn(n); };
   // A label or zone name that goes fades out where it stands (app.css .lz-off, as the anatomy's labels do) and is hidden, taking no
   // room and no taps, only once the fade is over; one that comes back fades in (app.css lz-in) or, caught mid-fade, turns back from
   // where it is. Its leader and dot fade with it (.ld-gone). They used to cut out and pop in (P15).
@@ -640,7 +648,9 @@ export function createLobuleLabels(st, live) {
   const zBox = { l: 0, r: 0, t: 0, b: 0 };
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
-    if (!live.zonesOn) { while (zoneEls.length) { const z = zoneEls.pop(); fadeOut(z, () => restRemove(z)); } return NO_BOXES; }   // alloc-rare: only when the Zones layer is switched off (the names are taken out once)
+    // The Zones layer off: every zone name fades out where it stands and stays in zoneEls, hidden. It is never taken out of the list: the GPU's
+    // captions (capSync) draw from that list, so a name taken out of it was left drawn at its last alpha, standing on the lobule with the layer off.
+    if (!layerOn('zones')) { for (let i = 0; i < zoneEls.length; i++) fadeOut(zoneEls[i]); return NO_BOXES; }
     const { R, cx, cy } = live.geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
     boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
@@ -686,7 +696,7 @@ export function createLobuleLabels(st, live) {
   // (Two kept records, taken in turn: a layout writes the one not standing in place while the other still stands, so a layout that has to
   // wait for the labels to be measured can put the standing one back. Their inputs are compared as numbers, in place: a key string built
   // from them on every frame was garbage, 2 Nov 2026.)
-  const mkFollow = () => ({ W: 0, H: 0, zones: false, lymph: false, ha: false, bd: false, hasCall: false, callAt: '', callLabel: '', lks: ['', '', '', '', '', ''],
+  const mkFollow = () => ({ W: 0, H: 0, ly: LAYERS.map(() => false), ha: false, bd: false, hasCall: false, callAt: '', callLabel: '', lks: ['', '', '', '', '', ''],
     t: 0, b: 0, l: 0, r: 0, k: 0, x: 0, y: 0, ride: null,
     rideBuf: { labs: [], chips: [], zones: [], nl: 0, nc: 0, nz: 0, cards: null, ix: 0, iy: 0 } });
   const follows = [mkFollow(), mkFollow()];
@@ -697,14 +707,16 @@ export function createLobuleLabels(st, live) {
   // Whether the layout's inputs but the view are those record f was taken for: the labels' make-up, the zone and lymph switches, the
   // slide's pointer and the free space.
   function sameBase(f, fr0, g) {
-    if (f.W !== g.W || f.H !== g.H || f.zones !== live.zonesOn || f.lymph !== live.lymphOn || f.ha !== named('ha') || f.bd !== named('bd')) return false;
+    if (f.W !== g.W || f.H !== g.H || f.ha !== named('ha') || f.bd !== named('bd')) return false;
+    for (let i = 0; i < LAYERS.length; i++) if (f.ly[i] !== layerOn(LAYERS[i])) return false;
     if (f.hasCall !== !!live.call || (live.call && (f.callAt !== live.call.at || f.callLabel !== live.call.label))) return false;
     if (f.t !== fr0.t || f.b !== fr0.b || f.l !== fr0.l || f.r !== fr0.r) return false;
     for (let i = 0; i < LAB_KEYS.length; i++) if (f.lks[i] !== labs[LAB_KEYS[i]].lk) return false;
     return true;
   }
   function fillBase(f, fr0, g) {
-    f.W = g.W; f.H = g.H; f.zones = live.zonesOn; f.lymph = live.lymphOn; f.ha = named('ha'); f.bd = named('bd');
+    f.W = g.W; f.H = g.H; f.ha = named('ha'); f.bd = named('bd');
+    for (let i = 0; i < LAYERS.length; i++) f.ly[i] = layerOn(LAYERS[i]);
     f.hasCall = !!live.call; f.callAt = live.call ? live.call.at : ''; f.callLabel = live.call ? live.call.label : '';
     f.t = fr0.t; f.b = fr0.b; f.l = fr0.l; f.r = fr0.r;
     for (let i = 0; i < LAB_KEYS.length; i++) f.lks[i] = labs[LAB_KEYS[i]].lk;
@@ -857,7 +869,7 @@ export function createLobuleLabels(st, live) {
         if (L.a && !isHid(L.el) && !classHas(L.el, 'edge')) { const r = rideAdd(L.a[0], L.a[1]); r.els[0] = L.el; r.els[1] = L.line; r.els[2] = L.dotEl; r.ne = 3; }
       }
       for (let i = 0; i < zoneEls.length; i++) {
-        const z = zoneEls[i], s = z.isConnected && spot.get(z);
+        const z = zoneEls[i], s = z.isConnected && !gone(z) && spot.get(z);
         if (s) { const r = rideAdd(s[0], s[1]); r.els[0] = z; r.ne = 1; }
       }
       if (classHas(callRing, 'on')) { const r = rideAdd(+geoOf(callRing, 'cx'), +geoOf(callRing, 'cy')); r.els[0] = callEl; r.els[1] = callLine; r.els[2] = callRing; r.ne = 3; }
@@ -894,5 +906,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }
