@@ -2129,7 +2129,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (origin && origins && ke !== undefined) putOrigin(t.id * FLOW_TEXELS * 4, ke, t);
         continue;
       }
-      const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });   // alloc-once: a vessel's first flow step; the stream object is kept in its motion record (the shader's density divisor, laneSum, is read as veins-gl.js LANE_K)
+      const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });   // alloc-once: a vessel's first flow step; the stream object is kept in its motion record
       // Speed eases toward the model's (a new frame changes it in a step), so the marks never lurch.
       sm.v = Math.sign(v) !== Math.sign(sm.v) ? v : sm.v + (v - sm.v) * ease;
       sm.D = (((sm.D + sm.v * dt) % PERIOD) + PERIOD) % PERIOD;

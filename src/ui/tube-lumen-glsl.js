@@ -118,7 +118,7 @@ out vec4 outColor;                     // the lumen's colour × its coverage × 
 const float LAST = ${LAST}.0;
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ${ENT_W}, t / ${ENT_W}), 0); return (i & 1) == 0 ? v.xy : v.zw; }
-// (alongAt, radAt, the noise styles, bloodAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
+// (alongAt, radAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
 ${compLumenFns()}
 ${CHEV_GLSL}
 
@@ -237,7 +237,7 @@ void main() {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the heads' phase, pitch, protein and theme in flow texel 0, and the CSS px in world units in f1.y. A row that
     // ALSO carries a stream in texel 7 (y: the signed speed, never 0, which says the way the lymph runs; y = 0: none) is drawn as teal chevrons. A row with none keeps the dashes.
     vec4 sd = texelFetch(flow, ivec2(7, id1), 0);
-    float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);   // (not blendA.x: the streaks' switch, which the lymph does not follow)
+    float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);
     if (sd.y != 0.0) {
       // Chevrons (Mohammad, 16 Nov 2026): the bile arrows' head and size rule, teal, moving as the lymph does. f0.x: the phase (world units, within one pitch,
       // advanced on the CPU; it grows toward the row's end), f0.y: the pitch, f1.y: world units per CSS px. sd.y (the stream's signed speed, never 0) says which

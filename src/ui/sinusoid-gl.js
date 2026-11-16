@@ -222,7 +222,7 @@ vec3 endoInk(vec3 under, float d, float dN, float dJ, float det) {
 vec3 lumen(float x, float y, float hw, int lane0) {
   vec3 c = cLumen;
   // The flow's light (the shimmer, the sheen, the glints): white on a dark lumen, a deep shade of the lumen on a pale one, where white is
-  // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' streaks are (veins-gl bloodAt; visual-style B5).
+  // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' own light was (visual-style B5).
   float fPale = smoothstep(0.58, 0.66, dot(cLumen, vec3(0.299, 0.587, 0.114)));
   vec3 fInk = mix(vec3(1.0), mix(cLumen, vec3(0.07, 0.075, 0.13), 0.7), fPale);
   c = mix(c, vec3(1.0), 0.28 * line(y + hw - 0.5, 0.16));

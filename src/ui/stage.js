@@ -86,7 +86,7 @@ import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS, TURN
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
 // Parcels and arrowheads carried through junctions (blood.js createStreamChain; combined plan B1 + C1).
-// A streak's length follows its vessel's display speed (veins-gl.js bloodAt): a fast vessel's streaks run long and a slow one's are short
+// A vessel's display speed (its stream's speed, not the model's flow)
 // dashes, so a still frame shows speed too.
 // The blood on the GPU (plan "Holding 120 Hz" §3.7): each stream is anchored (its distance, drift, display speed and stasis at a blood
 // clock) and the shader runs it on from there (veins-gl flowD), so a steady flow leaves the table as it was and nothing goes up a frame;

@@ -94,6 +94,7 @@ import { pillState, foldPill, stopFold } from './pill-motion.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
 import { caught, caughtNow } from './caught.js';
+import { loadBloodPref } from './blood-pref.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
 import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
@@ -903,20 +904,8 @@ function zoomLobule() { stage.askSinusoid(false); stage.diveToLobule(); }   // (
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
 function buildHud() {
-  // Moving blood: chevrons are remembered per device.
-  let saved = null;
-  // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
-  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch (e) { caught('main:684', e); /* storage unavailable */ }
-  const blood = { phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
-  delete blood.origin;   // now the Blood origin lens
-  delete blood.look;     // (the streaks' look: the streaks are gone, 16 Nov 2026; a saved choice still carries it)
-  blood.phasic = false;
-  // The Streaks option is gone (16 Nov 2026): the chevrons are the only moving-blood mark. A device that had the streaks on ('1') keeps some moving blood, so its
-  // chevrons come on even if it had switched them off; any saved streaks choice is dropped. (The Blood menu's "Key chevrons only" is unchanged.)
-  try {
-    const was = localStorage.getItem('pps.streaks');
-    if (was !== null) { if (was === '1') blood.chevrons = true; localStorage.removeItem('pps.streaks'); localStorage.setItem('pps.blood2', JSON.stringify(blood)); }
-  } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
+  // Moving blood: the chevrons are remembered per device (blood-pref.js: it also drops what the removed Streaks option saved).
+  const blood = loadBloodPref(localStorage);
   store.set({ blood });
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame

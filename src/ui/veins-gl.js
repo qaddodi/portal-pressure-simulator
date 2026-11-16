@@ -1113,7 +1113,7 @@ uniform vec3 chevLight;                // a reversed chevron's head on an orange
 uniform float cssPx;                   // canvas px per CSS px (stage.js vdpr, at most 2)
 uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform vec2 blendA;                   // 0..1 each: the chevrons and the origin colours fading in or out (switched on or off)
-${COMP_U.speed}
+${COMP_U.modes}
 ${COMP_U.ink}
 uniform vec4 bleedE[24];               // an active bleed (stage.js bleedSpray, blood.js bleedShapes): the pool: its surface's height, ripple, where the stream lands, the stream's strength; the stream: its start, where it lands, the pool's surface
 uniform vec4 bleedB[24];               // alpha in z, kind in w (0 pool, 2 stream); the pool: its inset from the wall; the stream: its radius, how far it breaks into drops
@@ -1178,7 +1178,7 @@ ${CHEV_ORANGE_GLSL}
 // Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
 // a notched back. Returns its coverage (x) and a soft rim just outside it (y).
 ${compBendFn()}
-// (f0, f1, len and Rs, the caliber at s: read once in main, as for bloodAt.)
+// (f0, f1, len and Rs, the caliber at s: read once in main.)
 // One vessel's heads, placed by a stream's pattern: se = A + B s its arc along that stream (B = 1, se = s for the vessel's own),
 // Dm the stream's distance, Rsp the caliber its spacing is set by (the stream's own, so a chain of vessels shares one spacing).
 // ends: the weights of a link at the from and to end (flow texel 5, z and w; above 0: a chained end, through which the heads
@@ -1490,11 +1490,10 @@ ${compChevPart()}    v = vec4(col * v.a, v.a);
   outColor = o;
 }${heads ? `\n#endif\n${headMain({ LUMEN2, ROW2_MASK, FLOW_TEXELS })}` : ''}`;
 // The compositor's fragment shader. tube = 1 (Tube stage 3, brief S3-X): where the lumen section was, one read of the lumen layer the tubes drew
-// (lumenL) and one mix; no second lumen target, no half-size streak pass, and none of the blood's helpers (tube-lumen-glsl.js draws the blood with
-// them). The streak pass (streak) and the arrowheads' quads (heads) have no Tube build of their own: `streak` is ignored with tube = 1 (the
-// text is the full one's), and `heads` ignores tube (the quads read the same targets as ever and draw the same heads). tube = 0 is byte for byte
-// what it was (tests/comp-fs-old-builds.test.js).
-export const COMP_FS = (plain = false, streak = false, heads = false, tube = 0) => compFS(plain, streak && !tube, heads, tube && !heads ? 1 : 0);
+// (lumenL) and one mix; no second lumen target and none of the blood's helpers (tube-lumen-glsl.js draws the lymph, the bile, the dye and the origin colours
+// with them). The arrowheads' quads (heads) have no Tube build of their own: `heads` ignores tube (the quads read the same targets as ever and draw the
+// same heads). (The half-size streak pass and the streak argument went with the Streaks option, 16 Nov 2026: tests/comp-fs-old-builds.test.js pins the builds.)
+export const COMP_FS = (plain = false, heads = false, tube = 0) => compFS(plain, heads, tube && !heads ? 1 : 0);
 
 // Organ outlines (a selected or hovered organ): a stroke of world width, drawn with the figure so a
 // pan or zoom moves it in the same frame. Widened in device pixels so a hairline still covers its

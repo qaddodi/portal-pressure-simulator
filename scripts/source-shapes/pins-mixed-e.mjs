@@ -167,8 +167,6 @@ export default [
   { file: 'src/ui/organs-gl.js', forbid: [/gl\.uniform[0-9A-Za-z]*\(U\./, 'Laptop-heat quick item Q2: a uniform is sent to the GPU only when its value is not the one the program already (the stack layer sets nothing around the cache)'] },
   // blood-shading-fast
   { file: 'src/ui/veins-gl.js', forbid: [/blood=classic|CLASSIC/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', need: [/blood\.look = 'shimmer';/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },
-  { file: 'src/ui/lobule-zoom*', need: [/blood\.look = b\.look \|\| 'shimmer'/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },
   { file: 'src/ui/veins-gl.js', need: [/outFlow = fl \? packFlow\(gId, gId2, gS, gY, gW, gB\) : uvec4\(0u\);/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-mesh-glsl.js', need: [/uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)
   { file: 'src/ui/veins-gl.js', need: [/outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/, 'The blood\'s speed-ups of 26 Oct (review/blood-shading-ideas):'] },   // (was a slice of the file)

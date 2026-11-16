@@ -10,7 +10,7 @@ const KEEP = new Set([
   'src/engine/physiology.js',      // (the engine imports nothing from src/ui)
   'src/ui/chart-looks/dsl.js',     // (a look's clamp() expression, not the number helper)
   'src/ui/tube-cel-glsl.js', 'src/ui/tube-join-glsl.js', 'src/ui/tube-lean-glsl.js', 'src/ui/tube-lumen-glsl.js',   // (JS twins of GLSL)
-  'src/ui/tube-geo.js', 'src/ui/tube-joint.js', 'src/ui/veins-mesh.js', 'src/ui/blood-particles.js',   // (mirror their shaders' clamp, min(max(x, a), b): the Tube and blood renderers' own pass)
+  'src/ui/tube-geo.js', 'src/ui/tube-joint.js', 'src/ui/veins-mesh.js',   // (mirror their shaders' clamp, min(max(x, a), b): the Tube and blood renderers' own pass)
   'src/ui/card-place.js', 'src/ui/blood.js',   // (min-outer, with bounds that can cross on a small screen: num.js clamp would answer the low bound there)
   'src/ui/css-color.js', 'src/ui/svg-morph.js', 'src/ui/varix-look.js', 'src/ui/hvpg-clock.js',   // (clamp01 that answers +0 for −0, not num.js's −0)
   'src/ui/organ-paint.js',         // (a clamp01 that parses its text first)
