@@ -14,6 +14,7 @@ import { DRUG_NOTE } from './actions.js';
 import { factTarget } from './fact-target.js';
 import { caught } from './caught.js';
 import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
+import { PROCEDURES, procLabel, procLong } from './procedure-names.js';
 
 
 // The interventions treatCount counts, besides any drug.
@@ -108,7 +109,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       drugChip('anticoag', 'Anticoagulation', 'Thrombosed veins recanalize gradually.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: natriuresis mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
-    const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
+    // (A procedure named in procedure-names.js says its full name in its tooltip and to a screen reader: the button's label is the short one.)
+    const btn = (ic, label, run, sub, id) => { const long = id ? procLong(id) : label; const b = h('button', { class: 'order-btn', title: sub ? `${long}: ${sub}` : long, 'aria-label': long }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.dataset.long = long; b.addEventListener('click', run); return b; };
     // A fluid is given at once: its line under the name says what it does, and the tile answers the press with the
     // accent tint easing in and back out (data-given), since nothing on it stays on.
     const fluid = (label, fl, sub) => {
@@ -121,29 +123,29 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       fluid('1 L crystalloid', 'crystalloid', 'about 25% stays intravascular'),
       fluid('1 unit PRBC', 'prbc', 'packed red cells'),
       fluid('Albumin', 'albumin', 'raises oncotic pressure'));
-    const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
+    const proc = (ic, id, sub, run) => (PROCEDURES[id] ? btn(ic, procLabel(id), run, sub, id) : btn(ic, id, run, sub));   // (id: a procedure of the table, or a name of its own)
     // A procedure that is in place says so (data-on): the button takes the accent tint and its icon gives way to a tick
     // that draws itself in, both eased, so TIPS or BRTO reads as done without opening the figure. The tick sits in the
     // icon's own place, so no name loses room or wraps.
     const placed = (b, isOn) => {
       const t = b.querySelector('.ob-t'), tick = h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check'));
       b.append(tick);
-      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${t.textContent}, in place` : t.textContent); };
+      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${b.dataset.long || t.textContent}, in place` : (b.dataset.long || t.textContent)); };
       paint(); live.push(paint); return b;
     };
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
-      proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Inflate the gastric balloon in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
+      proc('band', 'band', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
+      placed(proc('balloon', 'balloon', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Inflate the gastric balloon in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
-      placed(proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
+      placed(proc('stent', 'tips', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
         if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }), (p) => p.tips.on),
       // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      placed(proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
+      placed(proc('stent', 'dips', 'right portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
@@ -152,8 +154,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       // The surgical shunts, each its own order (surgical-shunts.js: the same parameters the talks' slides set). A tap makes the shunt and
       // shows its vessel, whose card takes it down. The Meso-Rex bypass is always listed: for a patient without a clotted trunk the tap
       // says why it is not made. (A shunt of the learner's own, between any two veins, is still drawn from a vein's card: Add shunt.)
-      ...SURGICAL.map((x) => placed(proc('stent', x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
-      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
+      ...SURGICAL.map((x) => placed(proc('stent', x.proc || x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
+      placed(proc('occlude', 'brto', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
       // The spleen's two treatments are two orders, each named for what it does (one button that cycled untreated → embolization → splenectomy
       // was just "Spleen", and its meaning lived in a tooltip, 16 Nov 2026). Taking one in place takes the other down; pressing it again undoes it.
       ...[[1, 'Splenic embolization', 'partial splenic artery embolization', 'Partial splenic embolization'], [2, 'Splenectomy', 'spleen removed', 'Splenectomy']].map(([v, name, sub, label]) => placed(proc('occlude', name, sub, () => {
@@ -161,7 +163,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         updateParams((p) => { p.splenicRx = on ? 0 : v; return p; }, { label: on ? 'Spleen untreated' : label });
         select({ type: 'organ', id: 'spleen' });
       }), (p) => (p.splenicRx | 0) === v)),
-      proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
+      proc('needle', 'paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'Drugs', drugs], ['fluids', 'Fluids', fluids], ['procs', 'Procedures', procs]];

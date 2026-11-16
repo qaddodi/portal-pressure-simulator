@@ -312,7 +312,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .tl-jumps { display: flex; align-items: center; gap: 2px; flex: none; }
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: transparent; color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .tl-pin { --hv-bg: var(--surface-2); --hv-bd: var(--border-strong); --hv-bw: 1px; } .tl-pin:hover::before { opacity: 1 } }
-.tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+.tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }
 .tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(100vw - 24px)); max-height: 360px; overflow: auto; }
 .tl-pop-row { padding: 4px 6px 5px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
 .tl-pop-row:last-child { border-bottom: 0; }
@@ -566,7 +566,7 @@ button.finding { cursor: pointer; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: var(--text-2);
-  --hw: max(1px, calc(1.5px * var(--label-k, 1)));   /* (the anatomy's crisp halo, a touch fuller so the names read over the cells and the moving blood) */
+  --hw: max(1.25px, calc(2px * var(--label-k, 1)));   /* (the Anatomy bare label's 4 px pen: the names read over the cells and the moving blood) */
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(var(--t-lab) * var(--label-scale, 1)); color: var(--text); margin-right: 1px; }
@@ -659,7 +659,7 @@ button.finding { cursor: pointer; }
 /* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
 .lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
   font: var(--caps-w) calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; color: color-mix(in srgb, var(--zc) 55%, var(--text));   /* (the zone's colour, deepened: the pure purple read 2.4:1 on its own pill over the central vein) */
-  --hw: max(1px, calc(1.5px * var(--label-k, 1)));
+  --hw: max(1.25px, calc(2px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(var(--t-cap) * var(--label-scale, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .9; }
