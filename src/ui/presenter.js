@@ -52,6 +52,7 @@ import { signalMove } from './num-move.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS } from './card-throw.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming, scrollInto } from './layout-snap.js';
+import { calmFrames, cardsLanded, createFrameGates } from './cover-lift.js';
 import { caught } from './caught.js';
 import { createInk } from './ink-gl.js';
 const nextFrame = frameFor('presenter');
@@ -90,16 +91,7 @@ const ease = easeMove;   // (the tweens and glides of the data card: the one in-
 const { waitCut, until } = createWaits({ frame: nextFrame });
 // The change between Anatomy and Circuit has landed (stage.viewChanging), or ms pass: the longest it can take, VIEW_CHANGE_S, and a margin for a late frame.
 const viewSettled = (cut, stage) => waitCut(VIEW_CHANGE_MS + 400, () => cut() || !stage.viewChanging?.());
-/** One painted frame (or 100 ms: a hidden tab paints none). */
-const painted = () => new Promise((done) => { const t = setTimeout(done, 100); nextFrame(() => { clearTimeout(t); done(); }); });
-/** Until the page paints two frames in a row promptly, or ms pass. A card's fade is timed by the clock, not by the frames shown:
- *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
- *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
-async function smooth(cut, ms = 700) {
-  const need = 2;   // (two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones)
-  const t0 = performance.now(); await painted(); let last = performance.now(), run = 0;
-  while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); run = t - last < 40 ? run + 1 : 0; if (run >= need) return; last = t; }
-}
+const { painted, smooth } = createFrameGates(nextFrame);   // (cover-lift.js: one painted frame; the wait for smooth frames)
 const { scaleVisual, quadrantVisual, wallsVisual, makeCalc, xKey } = createVisuals({ sv, glBox, est, fitChart, fsOf });
 
 export function createPresenter({ openSettings, loadPreset, host, stage, poke = () => {}, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
@@ -1197,6 +1189,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
     let bareSeen = false;
     const prepWith = plate;   // (the unseen cards' last fitting runs BEFORE the camera frames, never under its first frames: a fitting that changed the room after the framing sent the camera back the way it came, Mohammad, 16 Nov 2026, Carvedilol 3 to 4)
+    const exitFirst = bare && !!ui && !ct && !swap && !caseCard && !!cam && !LOBULE_CAM.test(cam) && (store.get().lobule || store.get().sinusoid);
+    // A way out of the lobule or sinusoid onto the plate (same patient): the cards come in first, then the camera zooms out (camera() expects them in); they used to wait for the whole 2 to 6 s way out. 16 Nov 2026 play-test, Circulation 6 to 7.
+    if (exitFirst) { stage.lobuleHold?.(true); await unseen(cut); if (cut()) return; if (!await ui.tools.ready(900)) degrade('window'); await caseEnd(cut); if (cut()) return; const at = { i: to, gen: g }; bare = false; cardsIn(at); await waitCut(60, cut); await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     tx?.phase('cath-in');
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
@@ -1214,7 +1209,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (later && !under) { if (!await morphTo(st, cut, MORPH_ONE_MS)) return; shownState = own ? -1 : si; ui?.tools.hold(false); }
       // The cards fade in once the figure is quiet: after a new patient, once the organs' picture is redrawn (its long frame
       // had eaten the fade), and in any case only when frames come smoothly (see smooth).
-      if (swap) { await until(() => cut() || stage.organsSettled(), 1500); if (cut()) return; }
+      if (swap) { await until(() => cut() || stage.organsSettled(), under ? 600 : 1500); if (cut()) return; }   // (under the glide the organs still change: a short wait)
       if (prep && !swap && !caseCard) { if (await prep) await smooth(cut, QUICK_SMOOTH); } else await unseen(cut);   // (a new patient's or a case's cards are fitted again once it is in)
       if (cut()) return;
       const filled = await ui.tools.ready(900); if (cut()) return;
@@ -2190,11 +2185,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const runs = ui ? [...readAnims(ui.root, { subtree: true }), ...readAnims(ui.shade)].filter((x) => readTiming(x.effect).iterations !== Infinity) : [];
       // alloc-rare: boot cover: once per load
       await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
+      // alloc-rare: boot cover: once per load
+      await cardsLanded({ until, alive: () => !!ui, entering: cardsEntering });   // (cover-lift.js: the cards' own way in is on card-throw.js's clock, which getAnimations() never lists)
       // (Once more as the entrances end: the slide's own framing, set outright for the cards where they now rest.)
       // alloc-rare: boot cover: once per load
       await new Promise((done) => restPass(() => { try { if (ui && shown && booting) { settle(); clearTimeout(reframeT); reframeT = 0; reframe(0); } } finally { done(); } }));
       // alloc-rare: boot cover: once per load
       await new Promise((done) => nextFrame(() => nextFrame(done)));
+      // alloc-rare: boot cover: once per load
+      await calmFrames({ smooth, alive: () => !!ui });   // (cover-lift.js: the cover's fade is on the clock too: it lifts on smooth frames, as the cards' fades do)
     }
     clearTimeout(coverT); booting = false;
     const c = cover; cover = null;
