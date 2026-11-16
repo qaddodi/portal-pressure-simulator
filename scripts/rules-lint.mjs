@@ -429,6 +429,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/for \(let i = 0; i < LAYERS\.length; i\+\+\) if \(f\.ly\[i\] !== layerOn\(LAYERS\[i\]\)\) return false;/, "a layer's switch starts the layout over"],
     [/const off = !e\.isConnected \|\| gone\(e\)/, 'the GPU fades a name whose element is gone (capSync)'],
   ]);
+  // The names are read in the layer's own px (16 Nov 2026, Mohammad's Mac: Lobule → Sinusoid → Lobule left the sin, cv and triad names 28 times too big, gone): source shapes kept here (PR-02).
+  need('src/ui/lobule-zoom*', [
+    [/if \(live\.layerScaled\) \{ mirHeld = true; return; \}/, 'no name is read into the captions (mirrorOf) while the dive or the sinusoid zoom scales the layer: a box read then carries the scale'],
+    [/if \(live\.layerScaled\) \{ measHeld = true; return; \}/, "no label's letter boxes are read (inkRows) while the layer is scaled"],
+    [/get layerScaled\(\) \{ return diveScaled \|\| sinU > 0; \}/, 'the layer is scaled during the dive in and the zoom on into a sinusoid'],
+    [/sv\.place\(placeArg\);\n\s+mirrorRelease\(\);/, 'the names held back are read again once the sinusoid zoom has put the layer straight'],
+    [/if \(!diveScaled\) \{ diveDrawn = false; mirrorRelease\(\); \}/, 'and once the dive has landed'],
+  ]);
   {   // every layer the store keeps is in LAYERS and has its switch on the lobule
     const lz = text('src/ui/lobule-zoom*'), st = text('src/ui/store.js');
     const layers = [...((/const LAYERS = \[([^\]]*)\]/.exec(lz) || ['', ''])[1]).matchAll(/'(\w+)'/g)].map((m) => m[1]);
