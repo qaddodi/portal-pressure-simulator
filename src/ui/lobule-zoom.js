@@ -107,7 +107,7 @@ function curve(f, m = 160) {
 const TRIAD_D = 0.09, TRIAD_A = 0.98;
 // MOCK ONLY (16 Nov 2026, bile-duct mock, never on the preview): ?bile=a|b|c draws bile with the Lymph layer: a hairline canaliculus down every plate (a),
 // the same joined into trees toward the portal tract (b), or only the canals of Hering and the ductular reaction (c).
-const BILE = typeof location !== 'undefined' ? (new URLSearchParams(location.search).get('bile') || '') : '';
+const BILE = typeof location !== 'undefined' ? (new URLSearchParams(location.search).get('bile') || 'f') : 'f';   // MOCK: the current design (f) unless a URL names another; shown with the Layers menu's Bile toggle
 // (A vessel seen end-on: a disc.)
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 // The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
@@ -195,6 +195,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get lensMode() { return lensMode; }, set lensMode(v) { lensMode = v; },
     get lensT0() { return lensT0; }, set lensT0(v) { lensT0 = v; },
     get lymphOn() { return lymphOn; }, set lymphOn(v) { lymphOn = v; },
+    get bileOn() { return bileOn; }, set bileOn(v) { bileOn = v; },
     get model() { return model; }, set model(v) { model = v; },
     get paintTissue() { return paintTissue; }, set paintTissue(v) { paintTissue = v; },
     get prepKey() { return prepKey; }, set prepKey(v) { prepKey = v; },
@@ -296,11 +297,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
   const NO_LAYERS = {};   // (read, never written: what stands in for a store with no layers set)
   const start = store.get().lobuleLayers || NO_LAYERS;   // the first frame draws the layers the store starts with (lymph is on)
-  let zonesOn = !!start.zones, lymphOn = !!start.lymph;
+  let zonesOn = !!start.zones, lymphOn = !!start.lymph, bileOn = !!start.bile;
   const syncLayers = () => {
     const l = store.get().lobuleLayers || NO_LAYERS;
-    if (!!l.zones === zonesOn && !!l.lymph === lymphOn) return;
-    zonesOn = !!l.zones; lymphOn = !!l.lymph;
+    if (!!l.zones === zonesOn && !!l.lymph === lymphOn && !!l.bile === bileOn) return;
+    zonesOn = !!l.zones; lymphOn = !!l.lymph; bileOn = !!l.bile;
     tissueKey = ''; layoutKey = ''; attrKey = '';
     if (F) update(F);
     nextFrame(refit);
@@ -1551,17 +1552,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const outAt = (i) => { const n = outN(inl, i), q = inl.pts[i]; return [q[0] + n[0] * o, q[1] + n[1] * o]; };
         for (let i = N - 1; i >= iEnd; i--) leg.push(outAt(i));
         const legS = smoothPoly(leg, 2), Pe = legS[legS.length - 1], Pp = legS[legS.length - 3], tc = unit(Pe[0] - Pp[0], Pe[1] - Pp[1]), D = tr.bd;
+        // (Option 1, 16 Nov: "under the lymphatics". Laid out in the portal tract's own frame, in thousandths of R: the venule at 0, out along the corner's bisector
+        // is -x, toward the ductule's side is +y; the ductule sits at (-50, 75), the lymphatic disc at (-90, 0). The bile is drawn beneath everything there.)
+        const bis = [Math.cos(tr.a), Math.sin(tr.a)], dd = [D[0] - tr.x, D[1] - tr.y], pd = dd[0] * bis[0] + dd[1] * bis[1], pp = unit(dd[0] - bis[0] * pd, dd[1] - bis[1] * pd);
+        const sk = (sx, sy) => [tr.x - bis[0] * sx * R / 1000 + pp[0] * sy * R / 1000, tr.y - bis[1] * sx * R / 1000 + pp[1] * sy * R / 1000];
+        const bez = (A, a1, b1, B) => { for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; legS.push([v * v * v * A[0] + 3 * v * v * u * a1[0] + 3 * v * u * u * b1[0] + u * u * u * B[0], v * v * v * A[1] + 3 * v * v * u * a1[1] + 3 * v * u * u * b1[1] + u * u * u * B[1]]); } };
         if (inl === inlets[tr.i * 2]) {
-          // the ductule sits on the other edge's side: the duct curves round the outside of the portal venule's disc, between it and the lymphatic, into the ductule
-          const bis = [Math.cos(tr.a), Math.sin(tr.a)], M = [tr.x + bis[0] * R * 0.064, tr.y + bis[1] * R * 0.064];
-          let tM = [-bis[1], bis[0]]; if (tM[0] * (D[0] - Pe[0]) + tM[1] * (D[1] - Pe[1]) < 0) tM = [-tM[0], -tM[1]];
-          const bez = (A, a1, b1, B) => { for (let k = 1; k <= 12; k++) { const u = k / 12, v = 1 - u; legS.push([v * v * v * A[0] + 3 * v * v * u * a1[0] + 3 * v * u * u * b1[0] + u * u * u * B[0], v * v * v * A[1] + 3 * v * v * u * a1[1] + 3 * v * u * u * b1[1] + u * u * u * B[1]]); } };
-          const d1 = Math.hypot(M[0] - Pe[0], M[1] - Pe[1]), d2 = Math.hypot(D[0] - M[0], D[1] - M[1]);
-          bez(Pe, [Pe[0] + tc[0] * d1 * 0.45, Pe[1] + tc[1] * d1 * 0.45], [M[0] - tM[0] * d1 * 0.45, M[1] - tM[1] * d1 * 0.45], M);
-          bez(M, [M[0] + tM[0] * d2 * 0.45, M[1] + tM[1] * d2 * 0.45], [D[0] + (M[0] - D[0]) * 0.3 + tM[0] * 0, D[1] + (M[1] - D[1]) * 0.3], D);
+          // the ductule sits on the other edge's side: the duct leaves the edge, curves down between the portal venule and the lymphatic disc, beneath the
+          // lymphatics, and runs into the top of the ductule
+          const c2 = sk(-52, -28), M = sk(-58, 8), d1 = Math.hypot(M[0] - Pe[0], M[1] - Pe[1]);
+          bez(Pe, [Pe[0] + tc[0] * d1 * 0.4, Pe[1] + tc[1] * d1 * 0.4], c2, M);
+          bez(M, [2 * M[0] - c2[0], 2 * M[1] - c2[1]], sk(-58, 52), D);
         } else {
-          const P1c = [Pe[0] + tc[0] * R * 0.04, Pe[1] + tc[1] * R * 0.04], u1 = unit(P1c[0] - D[0], P1c[1] - D[1]), P2c = [D[0] + u1[0] * R * 0.04, D[1] + u1[1] * R * 0.04];
-          for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; legS.push([v * v * v * Pe[0] + 3 * v * v * u * P1c[0] + 3 * v * u * u * P2c[0] + u * u * u * D[0], v * v * v * Pe[1] + 3 * v * v * u * P1c[1] + 3 * v * u * u * P2c[1] + u * u * u * D[1]]); }
+          // the ductule's own side: the duct follows its edge in and curves into the ductule from below
+          const d1 = Math.hypot(D[0] - Pe[0], D[1] - Pe[1]);
+          bez(Pe, [Pe[0] + tc[0] * d1 * 0.4, Pe[1] + tc[1] * d1 * 0.4], sk(-28, 98), D);
         }
         const legT = add('bh', curve((u) => at(legS, u)), { tri: tr.i, lymph: true, bile: true });
         join(D[0], D[1], [tr.bdT, legT], R * 0.004);
@@ -1669,7 +1674,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const site = mouthSite(t, tubes, joins, t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145)));
       if (site) mouths.set(t.id, site);
     }
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), lymphTubes: tubes.filter((t) => !t.bile), bileTubes: tubes.filter((t) => !t.lymph || t.bile), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -2254,18 +2259,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
 
   let sVer = NaN, sDark = null, sCw = 0, sCh = 0, sK = 0;
-  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
+  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akBile = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
   function drawGL(W, H, dpr, dark, cs, dt) {
     const g = gl, G = geo, m = model;
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     shW = W;
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const tubeSet = lymphOn ? G.tubes : G.bloodTubes;
+    const tubeSet = lymphOn ? (bileOn ? G.tubes : G.lymphTubes) : bileOn ? G.bileTubes : G.bloodTubes;   // (the Lymph and Bile layers each add their own channels)
     const T = DRAW_T[tLast ^ 1];
     T[0] = k * V.k; T[3] = k * V.k; T[4] = k * V.x; T[5] = k * V.y;   // (T[1], T[2] stay 0)
     const dSame = drawSame(cw, ch, T);
-    const bk = lymphOn ? 'lymph' : 'blood';
+    const bk = lymphOn ? (bileOn ? 'all' : 'lymph') : bileOn ? 'bile' : 'blood';
     const now = performance.now();
     const origin = originOn();
     // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
@@ -2337,9 +2342,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The look's casing colour is in the discs' ink line, so a new look makes the attributes again: lookNow, as the draw below keeps it, is brought up to date first.)
       if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
       const lyPq = Math.round(lyProt(m) * 100) + 1000 * Math.round(m.fibPre * 50), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
-      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && akRad === live.radStamp && !selCh;
+      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akBile === bileOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && akRad === live.radStamp && !selCh;
       if (inkMoved || !akSame) {
-        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
+        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akBile = bileOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
         tubeData.fill(0);
         if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); }   // alloc-rare: only when the artery's colour token changed (a theme or palette change)
         const art = artRGB;
@@ -2410,8 +2415,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
     // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
     // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
-    const lyOn = lymphOn && !m.hide;
-    if (!flowSame && lyOn) {
+    const lyOn = lymphOn && !m.hide, biOn = bileOn && !m.hide;
+    if (!flowSame && (lyOn || biOn)) {
       const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
         if (t.kind !== 'ly' && t.kind !== 'lt' && t.kind !== 'bh' && t.kind !== 'bm') continue;   // (bile moves only in the canal of Hering and the joined ducts: the canaliculi stay still, 16 Nov 2026)
@@ -2466,7 +2471,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The blood's arguments, one object kept and written in place: veins-gl reads it within the call, and its kept pair for a later repaint holds this
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
-    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
+    blood.alpha = flowA; blood.on = (bloodOn || lyOn || biOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
     blood.originCol = originsPass ? bc.firstCol : bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
@@ -3104,7 +3109,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) { if (o) o.part = 'cv'; return true; }
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.bile ? !bileOn : t.lymph && !lymphOn)) continue;
       const d = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }

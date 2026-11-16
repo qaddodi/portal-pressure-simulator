@@ -312,7 +312,7 @@ export function createLobuleField(st, live) {
     if (live.fade > 0 || !live.F) return [];
     const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
     if (W < 2 || H < 2) return [];
-    const dark = isDark(), key = [W, H, dark, devicePixelRatio, live.zonesOn, live.lymphOn, Object.values(fieldState()).join(',')].join('|');
+    const dark = isDark(), key = [W, H, dark, devicePixelRatio, live.zonesOn, live.lymphOn, live.bileOn, Object.values(fieldState()).join(',')].join('|');
     if (key === live.prepKey) return [];
     let cs, land, bg;
     const q = [
@@ -359,7 +359,7 @@ export function createLobuleField(st, live) {
     if (live.fade > 0 || !live.model || !live.gl || live.gl.lost) return;
     const [W, H] = hostSize();
     live.ensureGeo(W, H);
-    const G = live.geo, tubeSet = live.lymphOn ? G.tubes : G.bloodTubes, bk = live.lymphOn ? 'lymph' : 'blood';
+    const G = live.geo, tubeSet = live.lymphOn ? (live.bileOn ? G.tubes : G.lymphTubes) : live.bileOn ? G.bileTubes : G.bloodTubes, bk = live.lymphOn ? (live.bileOn ? 'all' : 'lymph') : live.bileOn ? 'bile' : 'blood';
     if (binCache.has(bk)) return;
     calibersChanged(rzOf(), G);
     for (const t of tubeSet) {
@@ -599,10 +599,10 @@ export function createLobuleField(st, live) {
   };
   // True when the calibers (the eased values rz), the lobule's size or the layer differ from the last time asked; kept as numbers to 4 decimals.
   function calibersChanged(rz, G) {
-    let same = live.radCal !== '' && live.calW === G.W && live.calH === G.H && live.calLy === live.lymphOn, i = 0;
+    let same = live.radCal !== '' && live.calW === G.W && live.calH === G.H && live.calLy === (live.lymphOn ? 1 : 0) + (live.bileOn ? 2 : 0), i = 0;
     for (const key in rz) { const q = Math.round(rz[key] * 1e4); if (!Object.is(calV[i], q)) { same = false; calV[i] = q; } i++; }
     if (live.calN !== i) { same = false; live.calN = i; }
-    live.calW = G.W; live.calH = G.H; live.calLy = live.lymphOn;
+    live.calW = G.W; live.calH = G.H; live.calLy = (live.lymphOn ? 1 : 0) + (live.bileOn ? 2 : 0);
     if (same) return false;
     live.radCal = 'y'; live.radStamp++;
     return true;

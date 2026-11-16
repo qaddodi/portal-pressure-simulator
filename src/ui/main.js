@@ -1138,7 +1138,8 @@ function lobuleLayerItems() {
   return [
     menuSection('Show on the lobule',
       menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
-      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on }))),
+      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
+      menuToggle(!!l.bile, 'bile', 'Bile', 'Where bile forms and drains', (on) => set({ bile: on }))),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }
