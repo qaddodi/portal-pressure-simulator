@@ -557,10 +557,12 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 
 /* U2 (13 Nov 2026): with Tests on a pane that shows the HVPG and the PPG (Over time, HVPG, Readouts: dock.js GRADIENT_PANES), the play bar
    drops its two readings, so a reading is in one place at a time. The bar is the play controls alone, in the width it has. (The Lobule's own
-   flows stay: they are not on those panes.) */
+   flows stay: they are not on those panes.) The one-column areas ("st" "tl") are for a bar with no readings; with the Lobule's two there the bar keeps
+   its areas ("tl ro"), or the readings, named for an area the grid no longer had, fell into an implicit row under the play controls (Mohammad, 16 Nov 2026,
+   "the timeline looks glitched"). */
 .app.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) .readouts:not(.lob) { display: none; }
-.app.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "tl"; }
-.app.thumb.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) { grid-template-areas: "st" "tl" "nb"; }
+.app.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini):not(:has(.readouts.lob)) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "tl"; }
+.app.thumb.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini):not(:has(.readouts.lob)) { grid-template-areas: "st" "tl" "nb"; }
 
 /* Lobule readings on the play bar: the % stays after the number, on the phone's slim bar too ("Sinusoids 58%", not "58"). */
 .app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }
