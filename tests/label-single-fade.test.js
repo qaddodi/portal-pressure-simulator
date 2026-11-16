@@ -31,7 +31,7 @@ test('a crossfade step leaves the #labels root alone: the layer alpha stays 1 an
   for (const p of [0.55, 0.75, 0.9]) {
     const { v, root, gLabels, gLeaders, log } = rig(p, 0);
     v.viewXfStep();
-    const n = viewXfMix(p, 0).n, o = viewXfMix(p, 0).o;
+    const n = viewXfMix(p, 0, undefined, true).n, o = viewXfMix(p, 0, undefined, true).o;   // (the change between the views hands over early: view-xf.js, early)
     assert.equal(root.style.opacity, '', 'the root is untouched');
     const laObj = createLayerAlpha(root, { gcs }), la = laObj.now();
     laObj.dispose();
