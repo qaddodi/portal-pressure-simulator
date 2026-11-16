@@ -49,7 +49,15 @@ export function createHvpgCard() {
   const tell = (b) => { bal = b; if (watcher) watcher(b); };
   // (The reading this card's own steps are at (0 FHVP, 1 WHVP, 2 HVPG), and whether they were stepped on this visit: Back takes back only those.)
   let at = 2, stepped = false;
-  const paintSteps = () => { dataSoon(strip, 'at', String(at)); for (let i = 0; i < READS.length; i++) dataSoon(lis[i], 'state', i < at ? 'done' : i === at ? 'now' : null); };
+  // (Whether the card's reading is still being taken: its header holds back what it measures until it is done. The steps on their own: until the HVPG; the figure's catheter: until it is
+  // parked in the vein with the balloon up on the result step. Written where a slide starts, a step is taken or the balloon arrives, never every frame.)
+  let wedged = false, readingNow = '';
+  const paintReading = () => {
+    const pend = step ? !(step === 'result' && reached && wedged) : pending === 'steps' || (!!cur && !done);
+    const v = pend ? 'pending' : '';
+    if (v !== readingNow) { readingNow = v; if (v) el.dataset.reading = v; else delete el.dataset.reading; }
+  };
+  const paintSteps = () => { paintReading(); dataSoon(strip, 'at', String(at)); for (let i = 0; i < READS.length; i++) dataSoon(lis[i], 'state', i < at ? 'done' : i === at ? 'now' : null); };
   // (A step ends when another starts or the card leaves its slide (park), never because the card is off the page a moment: a card zoomed
   // open, or moved as its slide settles, is put back.)
   const gone = (my) => my !== token || !shown;
@@ -113,9 +121,9 @@ export function createHvpgCard() {
   return {
     id: 'hvpg', label: monitorTitle('hvpg'), el,   // (the one rule of every gradient card's title: monitor.js)
     /** The slide's options: with catheter: true, the step of the slide's catheter (cath) is the one the card shows. */
-    configure(t, ctx) { step = t?.catheter && STEPS.includes(ctx?.slide?.cath) ? ctx.slide.cath : null; shown = true; propSoon(strip, 'hidden', !!step); },
+    configure(t, ctx) { step = t?.catheter && STEPS.includes(ctx?.slide?.cath) ? ctx.slide.cath : null; shown = true; propSoon(strip, 'hidden', !!step); paintReading(); },
     /** The card has left the screen (another slide's instrument, or none): it draws nothing more. */
-    park() { shown = false; watcher = null; token++; },
+    park() { shown = false; watcher = null; token++; wedged = false; },
     step: stepBy,
     canStep,
     /** Tell fn the tracing's balloon each time it moves (the catheter on the figure beside this card, presenter.js cathBeside); null stops. Returns the balloon now. */
@@ -125,11 +133,12 @@ export function createHvpgCard() {
       if (b === reached) return;
       reached = b;
       if (step && shown && b && kept && !mon.started()) mon.set(step, kept);
+      paintReading();
     },
     /** The catheter's balloon (0 down … 1 wedged), every frame the figure moves it: the trace rides it. */
-    balloon(b) { if (step && shown) mon.balloon(b); },
+    balloon(b) { if (!step || !shown) return; mon.balloon(b); const up = b >= 0.999; if (up !== wedged) { wedged = up; paintReading(); } },
     /** The slide is shown: forward onto it from the slide before (and the card was not already this one's), the tracing starts at the free pressure and each Next takes a reading; otherwise it is finished. */
-    arrive({ forward = false, again = false } = {}) { pending = forward && !again ? 'steps' : 'result'; if (!step) bal = pending === 'steps' ? 0 : 1; },
+    arrive({ forward = false, again = false } = {}) { pending = forward && !again ? 'steps' : 'result'; if (!step) bal = pending === 'steps' ? 0 : 1; paintReading(); },
     /** The slide's settled readings (the tiles' numbers, eased as the model changes): the levels take them. */
     pin(fp) {
       const lv = levelsOf(fp);

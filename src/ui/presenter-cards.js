@@ -239,6 +239,9 @@ function railBlock() {
   });
   return box;
 }
+/** The readings a tracing card measures: its header shows them only once the measurement is done (the card's data-reading="pending" holds them, app-11-deck-visuals.css), never
+ *  ahead of the trace that gives them ("HVPG FALL 16 %" over an empty tracing, 16 Nov 2026). */
+export const MEASURED = ['hvpg', 'hvpgFall', 'ppg'];
 /** Big number tiles, each rated; set() counts to the new values. Given ref (an earlier state's numbers), each
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 export function bigTiles() {
@@ -317,7 +320,7 @@ export function bigTiles() {
       const vw = !pic ? glWords(v, { host: v.parentNode }) : null;
       // (Its reading in the instrument card's header row, numbers only: the short name, the number and its unit, no dot (style A, 7 Nov 2026). The number is
       // its own GPU words, in the rating's ink with the label look's outline (halo); the rating is the item's data-rate, written with the tile's.)
-      const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain' }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
+      const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain', 'data-measured': MEASURED.includes(k) ? '' : null }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
       const hw = hi ? glWords(hv, { halo: true, keep: true }) : null;   // (kept: the GPU number stays up, no hand-over to the page's text, as the Doppler numbers)
       return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw, sm: tileSmall(T, S), none: false, hasRef: false, sv: NaN, sr: NaN };
     });

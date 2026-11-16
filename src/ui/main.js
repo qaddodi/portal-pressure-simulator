@@ -313,7 +313,7 @@ async function main() {
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
     poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
-    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
+    restartTraces, patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -711,6 +711,10 @@ async function openYours(f, p, readings) {
 }
 const forgetYours = (id) => { syncYours(removeYours(id)).catch(() => {}); };
 let presetGen = 0;
+// The Over time and Doppler traces belong to the patient on show: a new patient, or the viewer's own coming back after a talk, clears them and opens them
+// on the steady state's last seconds (backfill.js). `ok`: whether the answer is still wanted when it comes (another patient was asked for meanwhile).
+const traceHistory = (ok = () => true) => host.request('history', { secs: 12 }).then((m) => { if (ok() && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+const restartTraces = () => { dock?.clearTraces(); return traceHistory(); };
 // (N1, change-order.js: the patient's name changes first, and the model is asked for the new patient once the new name is in, so the
 // vessels never change under the old name (A7). namingId: the patient being loaded, whose name the top bar shows; nameFirst: the bar's
 // own swap, set where the bar is built.)
@@ -735,7 +739,7 @@ async function loadPreset(id, opts = {}) {
   namingId = null;
   noteChange(store.get().params, res.params);   // (the new patient's steps keep the one order from here: change-order.js)
   // The traces start from the steady state the patient opens on: its last seconds are made beside the first live ones (backfill.js).
-  host.request('history', { secs: 12 }).then((m) => { if (gen === presetGen && m?.samples) dock?.backfillTraces({ ...m.samples, probe: m.probe }); }).catch(() => { /* the traces fill as they record */ });
+  traceHistory(() => gen === presetGen);
   replaceParams(res.params);
   store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
