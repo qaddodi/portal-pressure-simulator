@@ -11,7 +11,7 @@ import { geoOf, setGeo } from './svg-gl.js';
 import { clamp } from './util.js';
 
 export function createLobuleRecords(st, live) {
-  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
+  const { CARD, CORE, DESIGN, DIVE, LAY_ORDER, LIT_OF, PAN, V, anchorOf, bakeRides, callEl, callLine, callOutMain, callRing, callRingAt, cap, cvKeep, dimmed, fadeIn, fadeOut, fillBase, followEnd, follows, freeRect, freezeLabelGlides, handOn, hexOf, isHid, keepDiscs, labKey, labelLayerOff, labels, labs, leadGL, leadOff, leadOn, leadTo, leaders, lzLoop, measureRun, mirrorAll, mkCallOut, named, nextFrame, noteAt, pick, pickAnchors, placeCall, placeZones, put, relayout, ride, ringDepth, sX, sY, sameBase, setHid, setLayFade, callFade, shiftGeo, sinAt, sizeEnv, snap, spot, trClear, unglide, wantLabels } = st;
   const VIEW = [1, 0, 0], VIEWC = { k: 1, x: 0, y: 0 };   // (the composed view, written in place)
   function applyView() {
     camThen(VIEWC, CARD, camThen(VIEWC, DIVE, PAN));   // (the card ∘ the dive ∘ the pan: each record has one writer, a card's zoom camera is never written by the dive's frames)
@@ -369,6 +369,7 @@ export function createLobuleRecords(st, live) {
     // (A name travels with the camera while a hand, a camera glide or the dive moves it: it is carried, never faded. Any other layout's move fades, Reduce Motion too.)
     const still = !handOn() && !live.gliding && !live.layerScaled;
     setLayFade(still);   // (the zone names' and the call-out pill's moves in this layout fade too)
+    const callWas = callFade.snap();   // (the pointer's leader and ring as they stood: they fade out there, and in at the new place, call-geo-fade.js)
     live.layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; live.follow = nf;
     pickAnchors(fr0);
     if (LC.vbW !== g.W || LC.vbH !== g.H) { LC.vbW = g.W; LC.vbH = g.H; LC.vb = `0 0 ${g.W} ${g.H}`; }   // alloc-rare: only when the lobule's size changed
@@ -609,6 +610,7 @@ export function createLobuleRecords(st, live) {
       setGeo(L.dotEl, 'cx', a[0]); setGeo(L.dotEl, 'cy', a[1]);
       leadGL.paint();
     }
+    callFade.settle(callWas, still);
     mirrorAll();   // (their classes as laid out, a label at the edge or on the left, and the ones now shown: read again between frames)
   }
   return { LC, VIEW, applyView, layoutLabels, lettersInto, setDive };

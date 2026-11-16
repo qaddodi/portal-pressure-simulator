@@ -50,6 +50,13 @@ test("the zone names' and the call-out pill's moves fade too, as a layout's own 
   assert.match(RECORDS, /setLayFade\(still\);/);
 });
 
+test("the call-out pointer's leader and ring fade with the pill, through call-geo-fade.js", () => {
+  assert.match(LABELS, /createCallGeoFade\(\{/);
+  assert.match(RECORDS, /const callWas = callFade\.snap\(\);/);
+  assert.match(RECORDS, /callFade\.settle\(callWas, still\);/);
+  assert.ok(RECORDS.indexOf('callFade.snap()') < RECORDS.indexOf('placeCall(fr, placed'), 'snapped before the layout writes the pointer');
+});
+
 test('every lobule, sinusoid and zone name takes the same 4 px outline, nowhere the thinner 3 px', () => {
   const L3 = read('../styles/app-03-layouts.css');
   assert.equal((L3.match(/--hw: max\(1\.25px, calc\(2px \* var\(--label-k, 1\)\)\)/g) || []).length, 2, '.sv-region and .lz-zone');
