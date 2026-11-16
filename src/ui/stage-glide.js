@@ -16,7 +16,7 @@ export function createGlide(st, live) {
   // ── One slide, one straight move (16 Nov 2026, Mohammad: "I THOUGHT WE FIXED THIS AT THE ORIGIN") ──
   // A slide's move to its framing (opt.slide: the presenter's camera(), presenter-proc.js frameTo) is the rail: one path planned as it sets off
   // (cam-arc.js camPath: every point of the figure on a straight line, the zoom on a log scale), never followed along a vessel (the T4 glide,
-  // cam-routes.js, curved up to 18 % of the move off its line and is gone), never bent or restarted by a framing asked while it runs. Such a
+  // deleted 16 Nov 2026: it curved up to 18 % of the move off its line), never bent or restarted by a framing asked while it runs. Such a
   // framing (a refit to the cards, the figure's home fit, a closed sheet) is held: a near one is dropped, a real change (a card folded, the
   // screen turned) is the one glide after the landing. For RAIL_SETTLE_MS after the landing a near one is dropped too, so the cards settling
   // never add a second small leg. A new slide's move, a hand, a slow push and a jump take over at once.
