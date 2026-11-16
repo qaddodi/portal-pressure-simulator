@@ -13,6 +13,7 @@ import { labelRoll } from './count-roll.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { shownVel, store, varicesPresent } from './store.js';
+import { shownOr } from './shown.js';
 import { clamp, fmt, fmtFlow, fp } from './util.js';
 import { STATION_VESSEL, judgeFlow, meanVel, velNormal } from './velNormal.js'; import { labelCourse } from './label-course.js';
 
@@ -210,11 +211,11 @@ const unitNow = () => !!store.get().presenting;
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     let P = (f.Pf || f.P)[NI[id]];
-    // On a slide, a station the tiles and words also read shows their reading: the measured one (the wedge, not the
+    // A station the tiles and the bar also read shows their reading everywhere (Anatomy Healthy read PV 8.1 and IVC 3.9 beside a Tests card of 8.0 and 4.0), and on a slide the slide's settled value itself: the measured one (the wedge, not the
     // sinusoid node), and once it has settled, the slide's settled value itself, so the callouts, tiles and words agree.
     // (The right atrium is read over two breaths, as the tiles and the bar read it: its a and v waves swing the beat-by-beat
     // value 0.8 mmHg, which put "RA 3.6" beside a card and words saying 2.9 on the IVC web slide.)
-    const pin = pinned(), mk = pin && LADDER_KEY[id], live = mk && (mk === 'ra' ? f.metrics?.vitals?.ra ?? f.metrics?.ra : f.metrics?.[mk]), fp = mk && pin[mk];
+    const pin = pinned(), mk = LADDER_KEY[id], live0 = mk && (mk === 'ra' ? f.metrics?.vitals?.ra ?? f.metrics?.ra : f.metrics?.[mk]), live = Number.isFinite(live0) ? shownOr(mk, live0) : live0, fp = mk && pin?.[mk];
     if (Number.isFinite(live)) P = Number.isFinite(fp) && Math.abs(live - fp) < breath(fp) ? fp : live;
     else if (pin && Number.isFinite(P)) {   // (a station the tiles do not read: the slide's own number while the model agrees, else its mean over several breaths)
       const at = pin.at?.P[NI[id]];

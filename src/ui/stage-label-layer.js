@@ -220,7 +220,7 @@ export function createLabelLayer(st, live) {
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : it.res ? live.resLit.get(it.res) || null : null;   // (a resistor's reading takes its station tone when the slide's words point at it)
     if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); ch = true; }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
-    // A slide that lights terms (presentTerms) dims every station it does not light to 35 %, its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
+    // A slide that lights terms (presentTerms) dims every station it does not light to --label-dim (65 %, 3:1 over the vessels), its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
     // (A slide's step numbers (fx-step, V10) point at what the card's words number: they keep full strength, as the card's own do.)
     const unlit = !tone && termsLit() && !/\b(focus|fx-step)\b/.test(it.cls);
     if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); ch = true; for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) { el.classList.toggle('unlit', unlit); look(el); } }

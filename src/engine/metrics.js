@@ -4,6 +4,7 @@ import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js';
 import { clamp } from './physiology.js';
 import { tenthGap } from './gap.js';
 import { ssmOf } from './ssm-cuts.js';
+import { bedsideMean } from './bedside-mean.js';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
@@ -110,7 +111,8 @@ export function computeMetrics(eng, out = null) {
   const hepFlow = qf(eng, 'SIN_RR') + qf(eng, 'SIN_LL');
   const arterialIn = qf(eng, 'A_HR') + qf(eng, 'A_HL');
 
-  const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);
+  const extS = eng.extf || eng.ext;   // (the shown means of the outside pressure go with the shown pressures: eng.varix)
+  const varE = eng.varix('VAR', P, 0, undefined, extS), varG = eng.varix('GV', P, 0, undefined, extS);
   const noGRS = eng.params.spontaneous?.C5 === false;   // no gastrorenal shunt, no fundal varices
   const st = eng.starling(true);   // (the shown means: the lymph and its protein hold still at rest)
   const asc = ascitesGrade(eng.slow.ascites);
@@ -137,8 +139,9 @@ export function computeMetrics(eng, out = null) {
     measured.vein = cath.vein; measured.fhvp = hold(eng, 'mfhvp', P[ni[HV_NODE[cath.vein]]]); measured.wedged = cath.wedged; measured.whvp = cath.wedged ? hold(eng, 'mwhvp', P[ni[WEDGE_NODE[cath.vein]]]) : null;
   }
   const vx = part(r, 'varix'), gx = noGRS ? spareOf(r).gOff : spareOf(r).gOn;
-  copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P); vx.grade = varixGrade(eng.varixGraded('VAR', 2 * varE.r)); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
+  copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P, 21, extS); vx.grade = varixGrade(eng.varixGraded('VAR', 2 * varE.r)); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.closed = eng.varixObliterated('VAR'); vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
   copyInto(gx, varG);
+  gx.closed = !noGRS && eng.varixObliterated('GV');   // (obliterated: BRTO or coils closed it, so its card reads no pressure)
   if (noGRS) { gx.d = 0; gx.grade = varixGrade(0); gx.present = false; gx.redWale = false; }
   else { gx.d = 2 * varG.r; gx.grade = varixGrade(eng.varixGraded('GV', 2 * varG.r)); gx.present = varixPresent(2 * varG.r, false); gx.redWale = varG.ratio > 0.7; }
   const ax = part(r, 'ascites');
@@ -146,7 +149,7 @@ export function computeMetrics(eng, out = null) {
   ax.highProtein = st.highProtein; ax.totalProtein = st.ascTP; ax.albumin = st.ascAlb; ax.saag = st.saag; ax.lymphProt = st.prot.lymphProt; ax.lymphSigma = st.prot.sigma;
   ax.hepLymph = st.hep; ax.splLymph = st.spl; ax.lymphCap = eng.slow.lymphCap;
   const sp = part(r, 'spleen');
-  if (eng.params.splenicRx === 2) { sp.length = 0; sp.platelets = 380; } else { sp.length = eng.slow.spleen; sp.platelets = clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400); }
+  if (eng.params.splenicRx === 2) { sp.length = 0; sp.platelets = 380; } else { sp.length = eng.slow.spleen * Math.cbrt(1 - (eng.slow.spInf || 0)); sp.platelets = clamp(250 * Math.pow(11 / sp.length, 3), 25, 400); }   // (an embolized spleen is the smaller one it has left: SPLEEN_INFARCT)
   const he = part(r, 'heRisk'); he.index = heIdx; he.label = heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High';
   const bl = part(r, 'blood');
   bl.volume = bv + eng.pregnancyPlasma(); bl.lossPct = lossPct; bl.lost = eng.blood.lost; bl.hct = hct; bl.hb = (hct * 100) / 3; bl.shock = shock;
@@ -159,6 +162,9 @@ export function computeMetrics(eng, out = null) {
   // (Systolic and diastolic, engine bpNow: the arm cuff's reading, beside the MAP, which stays the true mean.)
   const bp = eng.bpNow ? eng.bpNow(spareOf(r).bp || (spareOf(r).bp = { sbp: NaN, dbp: NaN })) : { sbp: NaN, dbp: NaN };
   vt.sbp = eng.vitM?.[5] ?? bp.sbp; vt.dbp = eng.vitM?.[6] ?? bp.dbp;
+  // (The blood pressure is one triple everywhere: the mean is the bedside one, diastolic plus a third of the pulse pressure, which a physician checks by hand
+  // against "S/D (M)". The model's own time-mean of the aortic pressure ran 2 to 4 mmHg under it; the engine keeps it for its flows (MAPf).)
+  if (Number.isFinite(vt.sbp) && Number.isFinite(vt.dbp)) vt.map = bedsideMean(vt.sbp, vt.dbp);
 
   r.t = eng.t; r.day = eng.day;
   // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and

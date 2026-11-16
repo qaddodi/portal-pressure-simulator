@@ -4,6 +4,7 @@
 // does not flicker red; a paused model takes its flag at once.
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../engine/kidney-cuts.js';
 import { TRANSFUSE } from '../engine/transfusion-cuts.js';
+import { bedsideMean } from '../engine/bedside-mean.js';
 
 export const VITAL_HOLD = 1500;
 
@@ -55,5 +56,6 @@ export function vitalHeading(x, m) {
 export function bpText(sbp, dbp, map) {
   if (!Number.isFinite(map)) return '—';
   const r = (v) => String(Math.round(v));
-  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(map)})` : `MAP ${r(map)}`;
+  // (The mean is worked from the two numbers as printed, so a physician's sum on them gives the third: 117/69 (85), never (84).)
+  return Number.isFinite(sbp) && Number.isFinite(dbp) ? `${r(sbp)}/${r(dbp)} (${r(bedsideMean(Math.round(sbp), Math.round(dbp)))})` : `MAP ${r(map)}`;
 }

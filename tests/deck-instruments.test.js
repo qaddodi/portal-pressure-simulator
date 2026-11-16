@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
-import { createCore } from '../src/worker-core.js';
+import { createCore, atBedside } from '../src/worker-core.js';
 import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL, wordSize } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
@@ -75,9 +75,9 @@ test('V27: made minus drained is the ascites made, from the fingerprint and from
     assert.ok(f, `step ${i}: the fingerprint carries the fluid terms`);
     near(f.made - f.drained, m.fp.lymphNet, 1e-9, `step ${i}: made − drained = net`);
     near(f.made, m.fp.hepLymph + m.fp.splLymph, 1e-12, `step ${i}: liver + gut`);
-    const e = new Engine(); e.restore(m.snap);
+    const e = new Engine(); e.restore(m.snap); atBedside(e);   // (the page runs a restored slide at the bedside, as the worker read its numbers)
     const g = fluidOf(computeMetrics(e));
-    for (const k of ['hep', 'spl', 'cap', 'over', 'net', 'back', 'drained']) near(g[k], f[k], 1e-6, `step ${i}: ${k} live and pinned`);
+    for (const k of ['hep', 'spl', 'cap', 'over', 'net', 'back', 'drained']) near(g[k], f[k], 0.06, `step ${i}: ${k} live and pinned`);   // (the live frame is the same patient run 6 s more at the bedside: the beat's means settle within 0.06 mL/min)
     const b = fluidBars(f);
     if (f.net > 0) near(b.carried + b.back + b.build, b.liver + b.gut, 1e-9, `step ${i}: the drained bar and its build-up reach the made bar's end`);
     for (const v of Object.values(b)) assert.ok(v >= 0 && v <= 1);
@@ -102,8 +102,8 @@ test('V27: at rest the forces come from the slide\'s own state, the same on ever
   const st = await run([{ preset: 'csph', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] } }, { preset: 'cirr-decomp' }, { preset: 'healthy' }]);
   const [fill, cirr, healthy] = st;
   for (const m of [fill, cirr]) {
-    const e = new Engine(); e.restore(m.snap);
-    const pf = pinnedForces(m.fp, e.params), lf = sinusoidForces(e.P, e.params, e.iap);
+    const e = new Engine(); e.restore(m.snap); atBedside(e);
+    const pf = pinnedForces(m.fp, e.params), lf = sinusoidForces(e.Pf || e.P, e.params, e.iap);
     assert.ok(pf, 'the push is read from the liver lymph');
     near(pf.pull, lf.pull, 1e-9, 'the pull');
     near(pf.out, lf.out, 0.05, 'the push, as the model has it at that moment');

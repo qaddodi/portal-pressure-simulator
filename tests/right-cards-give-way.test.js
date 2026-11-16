@@ -82,7 +82,8 @@ test('the Compare strip centres in the room the right-hand cards leave, and ease
   // (since the off-GPU gate: the room's centre is reached by translate, half the cards' width, not by easing right)
   assert.match(rule, /right: calc\(env\(safe-area-inset-right\) \+ var\(--gap\)\);/);
   assert.match(rule, /left: calc\(env\(safe-area-inset-left\) \+ var\(--gap\)\)/);
-  assert.match(rule, /translate: calc\(-\.5 \* var\(--right-occ, 0px\)\) 0; transition: translate var\(--d-small\) var\(--ease\)/);
+  // (16 Nov 2026: the free stage, free-stage.js: the room beside the banner's own rows, the left shelf's card and the right-hand cards, not the sum of every card's width)
+  assert.match(rule, /translate: calc\(\(var\(--fs-top-l, 0px\) - var\(--fs-top-r, 0px\)\) \/ 2\) 0; transition: translate var\(--d-small\) var\(--ease\)/);
   assert.doesNotMatch(rule, /translateX\(-50%\)/, 'no longer centred on the whole window');
-  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; max-width: calc\(100% - var\(--right-occ, 0px\)\); \}/m);
+  assert.match(css, /^\.sb-center\.float-ui > \* \{ pointer-events: auto; margin-inline: auto; max-width: calc\(100% - var\(--fs-top-l, 0px\) - var\(--fs-top-r, 0px\)\); \}/m);
 });

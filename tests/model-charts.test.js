@@ -41,10 +41,11 @@ test('a curve\'s points: its range, each step\'s whole patch, and a TIPS diamete
 test('the curve\'s point at the slide\'s own setting is the slide\'s state', async () => {
   const t = { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'] };
   const [slide] = await seq([{ preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } } }]);
-  const ser = curveSeries(t, await seq(curveSteps(t), slide.snap));
+  const ser = curveSeries(t, await seq(curveSteps(t), slide.base));
   const j = ser.xs.indexOf(8), ring = ringAt(t, slide.params, slide.fp);
   assert.equal(ring.x, 8);
-  assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.05, `PPG ${ser.ys[0][j]} at 8 mm, slide ${slide.fp.ppg}`);
+  assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.15,   // (a point settles from the slide's bedside state, which its own settle leaves a tenth off: worker-core.js atBedside)
+     `PPG ${ser.ys[0][j]} at 8 mm, slide ${slide.fp.ppg}`);
   assert.ok(Math.abs(ser.ys[1][j] - slide.fp.liver) < 0.5, `liver flow ${ser.ys[1][j]} at 8 mm, slide ${slide.fp.liver}`);
   // (A wider stent: the PPG falls and the liver's share of flow falls with it, all the way along.)
   for (let i = 1; i < ser.xs.length; i++) assert.ok(ser.ys[0][i] < ser.ys[0][i - 1] && ser.ys[1][i] < ser.ys[1][i - 1], `${ser.xs[i]} mm`);
@@ -77,9 +78,10 @@ test('carvedilol lowers the whole PPG curve of decompensated cirrhosis and moves
   const t = { kind: 'curve', param: 'cirrhosis', from: 0.3, to: 0.95, step: 0.05, lines: ['ppg'],
     against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } }, own: 'No drug' } };
   const [slide] = await seq([{ preset: 'cirr-decomp' }]);
-  const ser = curveSeries(t, await seq(curveSteps(t), slide.snap));
+  const ser = curveSeries(t, await seq(curveSteps(t), slide.base));
   const j = ser.xs.findIndex((x) => Math.abs(x - 85) < 1e-6);
-  assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.05, `the own line at 85 % is the slide: ${ser.ys[0][j]} vs ${slide.fp.ppg}`);
+  assert.ok(Math.abs(ser.ys[0][j] - slide.fp.ppg) < 0.15,   // (a point settles from the slide's bedside state, which its own settle leaves a tenth off: worker-core.js atBedside)
+     `the own line at 85 % is the slide: ${ser.ys[0][j]} vs ${slide.fp.ppg}`);
   for (let i = 0; i < ser.xs.length; i++) assert.ok(ser.ys[1][i] < ser.ys[0][i], `carvedilol lower at ${ser.xs[i]} %`);
   // (Where each line first reaches 12, read between its points.)
   const [a, b] = ser.ys.map((ys) => { const i = ys.findIndex((y) => y >= 12); return i > 0 ? ser.xs[i - 1] + (ser.xs[i] - ser.xs[i - 1]) * ((12 - ys[i - 1]) / (ys[i] - ys[i - 1])) : null; });
@@ -89,10 +91,10 @@ test('carvedilol lowers the whole PPG curve of decompensated cirrhosis and moves
 test('the cirrhosis curve bends upward: the same step adds more late than early', async () => {
   const t = { kind: 'curve', param: 'cirrhosis', from: 0, to: 0.9, step: 0.1, lines: ['hvpg'] };
   const [slide] = await seq([{ preset: 'healthy', params: { cirrhosis: 0.6 } }]);
-  const ser = curveSeries(t, await seq(curveSteps(t), slide.snap));
+  const ser = curveSeries(t, await seq(curveSteps(t), slide.base));
   assert.deepEqual(ser.xs, [0, 10, 20, 30, 40, 50, 60, 70, 80, 90], 'shown in %');
   const y = ser.ys[0];
-  assert.ok(Math.abs(y[6] - slide.fp.hvpg) < 0.05, 'the point at 60 % is the slide');
+  assert.ok(Math.abs(y[6] - slide.fp.hvpg) < 0.15, `the point at 60 % is the slide: ${y[6]} vs ${slide.fp.hvpg}`);   // (a tenth: as above)
   assert.ok(y.at(-1) - y.at(-2) > y[1] - y[0], 'steeper late than early');
 });
 

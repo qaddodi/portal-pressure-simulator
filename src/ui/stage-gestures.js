@@ -44,6 +44,7 @@ export function createGestures(st, live) {
     const now = performance.now();
     if (wheelMute) { if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     // The hand takes over from any camera glide (as a press does): the glide would overwrite each step of the scroll or pinch.
+    live.camLock?.release('hand');
     viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
     if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; camSettle(); }
     stopGlide(); live.userMoved = true; live.fitted = false; live.handed = !live.lobuleOn;
@@ -222,6 +223,7 @@ export function createGestures(st, live) {
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     panFit = null;
     live.userMoved = true;
+    live.camLock?.release('hand');   // (the hand takes the camera from a slide's move: slide-cam.js)
     viewXfDetach(live.viewXf);   // (a change between the views running: the camera is the hand's now, view-xf.js)
     cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; stopGlide(); wheelGlide.cancel(); hand.begin(); stageScope.clear(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch (e) { caught('stage:13253', e); /* pointer already gone */ }

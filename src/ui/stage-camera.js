@@ -164,6 +164,7 @@ addEventListener('orientationchange', saRead);
   // A zoom step by the buttons (or a double click) glides there instead of jumping, in the time its reach needs (camMs, ease.js).
   function animZoomAt(cx, cy, factor) {
     live.fitted = false; live.handed = !live.lobuleOn;
+    live.camLock?.release('hand');
     if (live.lobuleOn) return;
     const [vx, vy] = clientToVBFast(cx, cy), base = live.vtTarget && live.vtAnim ? live.vtTarget : live.vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - live.vt.x) / live.vt.k, wy = (vy - live.vt.y) / live.vt.k;
@@ -171,6 +172,7 @@ addEventListener('orientationchange', saRead);
   }
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {
+    live.camLock?.release('hand');
     if (live.lobuleOn) return;   // the lobule view has its own zoom
     // (By arithmetic, as a touch pinch does: asking the browser for the matrix (getScreenCTM) after the last event's new transform laid
     // the whole figure out again, on every wheel event of a trackpad pinch, several a frame on a Mac.)

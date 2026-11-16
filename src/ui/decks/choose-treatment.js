@@ -5,6 +5,11 @@
 
 const BAND = { kind: 'band' };
 const CARV = { drugs: { carvedilol: true } };
+// (Each case as it presents, before the treatment its slide plays: the rings of the relation chart and the rows of the summary table read these, one patient each.)
+const FROM = {
+  a1: { preset: 'cirr-decomp' }, a2: { preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200 },
+  a3: { preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 } } }, a4: { preset: 'pvt-acute' }, a5: { preset: 'budd-chiari' },
+};
 
 export const CHOOSE_TREATMENT = {
   id: 'choose-treatment', level: 'advanced', title: 'Choose the treatment', minutes: 12,
@@ -25,7 +30,7 @@ export const CHOOSE_TREATMENT = {
   slides: [
     {
       id: 'a1', preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'varices', labels: ['VAR'], data: 'tiles',
-      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis had hematemesis yesterday. EGD showed no active bleeding; EVL controlled it. She is Child–Pugh B 8.',
+      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis (Child–Pugh B 8) and mild ascites bled yesterday; EVL controlled it.',
       caseQ: 'Does she meet the criteria for a preemptive TIPS?',
       tool: { kind: 'criteria', title: 'Preemptive TIPS', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C', cut: 'C 10–13', note: 'not C' }, { text: 'Child–Pugh B, active bleeding at endoscopy', cut: 'B 8–9', note: 'B 8, not bleeding', met: false, lit: true },
@@ -119,9 +124,9 @@ export const CHOOSE_TREATMENT = {
       // (The relation chart before the summary: each patient before treatment as a ring, after it as the dot, on the HVPG against
       // PPG plane. The portal vein clot in cirrhosis starts from its own ring: the same man with the clot, before anticoagulation.)
       id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',
-      of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: { preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200 }, name: 'TIPS' },
-        { id: 'a3', from: { preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 } } }, name: 'Anticoagulation, cirrhosis', short: 'Anticoag., cirrhosis' },
-        { id: 'a4', from: { preset: 'pvt-acute' }, name: 'Anticoagulation', short: 'Anticoag.' }, { id: 'a5', from: { preset: 'budd-chiari' }, name: 'DIPS' }],
+      of: [{ id: 'a1', from: FROM.a1, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: FROM.a2, name: 'TIPS' },
+        { id: 'a3', from: FROM.a3, name: 'Anticoagulation, cirrhosis', short: 'Anticoag., cirrhosis' },
+        { id: 'a4', from: FROM.a4, name: 'Anticoagulation', short: 'Anticoag.' }, { id: 'a5', from: FROM.a5, name: 'DIPS' }],
       question: 'Which treatments lower the PPG but not the HVPG?',
       kicker: 'Summary', title: 'What each treatment does to the two gradients',
       line: 'Each ring is a patient before treatment and each dot the same patient after. Carvedilol and a TIPS lower both gradients. Anticoagulation and a DIPS lower the PPG alone.',
@@ -131,12 +136,12 @@ export const CHOOSE_TREATMENT = {
     {
       id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case', focusRow: 'a4',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true },
-        { id: 'a1', kicker: 'Bleeding', title: 'Variceal bleed, Child–Pugh B 8', note: 'Carvedilol and banding' }, { id: 'a2', kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS' },
-        { id: 'a3', kicker: 'Thrombosis', title: 'PVT, cirrhosis', note: 'Anticoagulation' }, { id: 'a4', kicker: 'Thrombosis', title: 'PVT, no cirrhosis', note: 'Anticoagulation' },
-        { id: 'a5', kicker: 'Outflow', title: 'Budd–Chiari', note: 'DIPS' }],
+        { id: 'a1', at: FROM.a1, kicker: 'Bleeding', title: 'Variceal bleed, Child–Pugh B 8', note: 'Carvedilol and banding' }, { id: 'a2', at: FROM.a2, kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS' },
+        { id: 'a3', at: FROM.a3, kicker: 'Thrombosis', title: 'PVT, cirrhosis', note: 'Anticoagulation' }, { id: 'a4', at: FROM.a4, kicker: 'Thrombosis', title: 'PVT, no cirrhosis', note: 'Anticoagulation' },
+        { id: 'a5', at: FROM.a5, kicker: 'Outflow', title: 'Budd–Chiari', note: 'DIPS' }],
       kicker: 'Summary', title: 'Match the treatment to where the pressure builds',
       line: 'The choice follows the case: the preemptive TIPS criteria after a bleed, the source of the ascites, where the thrombus raises the pressure, and where a shunt can drain.',
-      notes: 'Each row shows the case after its treatment. Each choice treats the site where the pressure builds. A TIPS cannot drain into a thrombosed hepatic vein; a DIPS reaches the IVC instead. Prehepatic thrombosis is treated by recanalizing the vein, with or without cirrhosis.',
+      notes: 'Each row shows the case as it presents, before the treatment in the last column. Each choice treats the site where the pressure builds. A TIPS cannot drain into a thrombosed hepatic vein; a DIPS reaches the IVC instead. Prehepatic thrombosis is treated by recanalizing the vein, with or without cirrhosis.',
       ask: ['Two patients have recent PVT, one with cirrhosis. What is the same, and what differs?', 'Both are anticoagulated early. In cirrhosis tumor thrombus is excluded first, and variceal prophylaxis proceeds alongside.'],
     },
   ],

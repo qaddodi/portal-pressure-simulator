@@ -150,18 +150,23 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
    scrolls (s: two controls, l: three or four, x: a lobule part with its words; card.js cardSize). No leader line. */
 .action-card {
   position: absolute; z-index: var(--z-hud); box-sizing: border-box; overflow: hidden;
-  left: calc(env(safe-area-inset-left, 0px) + 14px); top: calc(var(--top-safe, 56px) + 8px); width: 276px; height: 320px;
+  left: calc(env(safe-area-inset-left, 0px) + 14px); top: calc(var(--top-safe, 56px) + 8px); width: 276px; height: auto; max-height: 500px;
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   color: var(--text); font-size: 13px; line-height: 1.35;
 }
-.action-card[data-size=l] { height: 352px; }
-.action-card[data-size=x] { height: 500px; }
+/* (16 Nov 2026: the shelf's card is as tall as what it holds. It was one fixed height for each kind, 320, 352 or 500 px, with the controls pinned to its foot, so a card with one reading
+   and one switch (the varices, the Grade line and BRTO) stood 130 px taller than its words and the room showed between them. The size class stays, with the card's shape (card.js
+   cardShape): a card of another size or shape is the old one going out and the new one coming in. The lobule part's card, whose words change as the model runs, keeps its 500 px,
+   and the phone's docked card its fixed sizes below.) */
+.action-card[data-size=x]:not(.docked) { height: 500px; }
 /* The card is glass, as every card (the plate is drawn by the figure's GPU glass: main.js sheetGlass), on the shelf and on a phone alike. */
 .action-card.has-plate { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .action-card.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
 /* Its rows, top to bottom, spread over the card's height: the name, the bar, the readings, the controls, the actions. The last structure's
    words fading out over the new ones (.ac-ghost, card.js) are laid out the same and take no taps. */
 .ac-body, .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 16px 18px 14px; min-width: 0; overflow: hidden; }
+/* (The shelf's own words are in the card's flow, which gives it its height; the words fading out over them, and the phone's, are laid over the box.) */
+.action-card:not(.docked) > .ac-body { position: relative; inset: auto; }
 .ac-ghost { pointer-events: none; }
 .action-card [data-key]::after { display: none; }   /* (the number keys still work; the card shows no key marks) */
 .ac-nr { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }

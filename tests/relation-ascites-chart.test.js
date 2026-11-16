@@ -56,14 +56,14 @@ const tool = slide.tool;
 // The presenter's run: steps from a fresh model, or from a state a run before left (each step's snapshot and fingerprint).
 async function run(steps, base = null) {
   const out = [];
-  const core = createCore((m) => { if (m.type === 'seqStep') out[m.i] = { snap: m.snap, fp: m.fp }; });
+  const core = createCore((m) => { if (m.type === 'seqStep') out[m.i] = { snap: m.snap, base: m.base, fp: m.fp }; });
   core.handle({ type: 'run', running: false });
   await core.handle({ type: 'sequence', steps, base, reqId: 1 });
   core.dispose();
   return out;
 }
 let work = null;   // (the model's two runs, once for every size)
-const model2 = () => (work ||= (async () => { const head = await run(headSteps(tool)), tail = await run(tailSteps(tool), head.at(-1).snap); return { head, tail, ser: courseSeries(tool, head, tail) }; })());
+const model2 = () => (work ||= (async () => { const head = await run(headSteps(tool)), tail = await run(tailSteps(tool), head.at(-1).base); return { head, tail, ser: courseSeries(tool, head, tail) }; })());
 let states = null;
 
 async function draw(W, H, f, over = {}) {
@@ -128,7 +128,7 @@ test('the model\'s days: the tense belly, the tap, the fluid back by week 2, diu
   const at = (id) => states[ASCITES.slides.findIndex((s) => s.id === id)].asc / 1000;
   near(ser.before, at('tense'), 0.1, 'the dot is the Tense ascites slide\'s own number');
   assert.equal(ser.before.toFixed(1), at('tense').toFixed(1), 'and reads the same');
-  assert.equal(ser.head[0][1], 0, 'the tap empties the belly');
+  near(ser.head[0][1], 0, 0.002, 'the tap empties the belly');   // (the beat's means leave a milliliter)
   near(ser.head.at(-1)[1], at('back'), 0.1, 'week 2 is the Two weeks later slide\'s number, the one the line quotes');
   assert.equal(ser.head.at(-1)[1].toFixed(1), at('back').toFixed(1), 'and reads the same');
   near(ser.tails[0].pts.at(-1)[1], at('diuretics'), 0.1, 'diuretics at week 6 is the Treatment slide\'s number');

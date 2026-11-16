@@ -345,3 +345,6 @@ export function paintClauses(line, n) {
   }
 }
 export const setFpAt = (v) => { fpAt = v; };
+/** A check question's or answer's plain text with its model numbers filled in: {ppg@clot} is the PPG slide "clot" shows, as its tile prints it. Check
+ *  numbers come from the model like a slide's own (a typed "27 to 4" sat over slides that read 28.0 and 4.2). A reading not yet known prints a dash. */
+export const checkText = (t) => String(t ?? '').replace(/\{(\w+)@([\w-]+)\}/g, (_, k, id) => { const f = fpAt(id); return TILE[k] && Number.isFinite(f?.[k]) ? valueText(k, f) : '—'; });

@@ -8,6 +8,7 @@ import { CELL, cellFor, regionFor, contains, touches, artTest, boxThrough, multi
 import { CellGrid, geomOf } from './cell-grid.js';
 import { elBoxInto, chainMat } from './shape-gl.js';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js';
+import { freeStage, bandOf } from './free-stage.js';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js';
 const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
@@ -742,6 +743,10 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const wr = readBox(wrap);
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height - Math.max(0, size.sb - Math.max(0, innerHeight - wr.bottom)) };   // (the home indicator's strip, where the figure reaches the screen's bottom)
+    // (The credit stands in the free stage, the room the open cards leave along the foot (free-stage.js): with Tests' wide pane open at 1024 px it was set over the bar's
+    // readings. It keeps its corner, only clear: the figure's whole width less what the cards beside the foot take.)
+    const fsg = freeStage();
+    if (fsg?.foot) { const bd = bandOf(fsg, fsg.foot[0], fsg.foot[1]); fig.l = Math.max(fig.l, bd.l); fig.r = Math.min(fig.r, wr.width - bd.r); }
     // (The catheter's shaft too: on the GPU it is not in the page, so the art test cannot see it, and the credit had stood on it, HVPG 2 on a phone held sideways.)
     const cathBars = (window.pps?.stage?.cathBoxes?.() || []).map((q) => ({ l: Math.floor(q.l / GRID) * GRID, t: Math.floor(q.t / GRID) * GRID, r: Math.ceil(q.r / GRID) * GRID, b: Math.ceil(q.b / GRID) * GRID, chrome: true }));
     const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...gpuProbe.time(null, 'credit: labels', () => labelRects(wr, wrap, keptStyle)), ...cathBars].filter((o) => o && hit(o, fig));
