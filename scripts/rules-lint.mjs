@@ -425,9 +425,17 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   forbid('src/ui/lobule-zoom*', /k === 'lymph' && !live\.lymphOn/, 'a label tests its layer through labelLayerOff, not by hand');
   need('src/ui/lobule-zoom*', [
     [/if \(!layerOn\('zones'\)\) \{ for \(let i = 0; i < zoneEls\.length; i\+\+\) fadeOut\(zoneEls\[i\]\); return NO_BOXES; \}/, 'Zones off: every zone name fades out where it stands'],
-    [/if \(labelLayerOff\(k\) \|\|/, "the layout fades a layer's station label out through the one table (LAB_LAYER)"],
+    [/if \(labelLayerOff\(k\)[) ]/, "the layout fades a layer's station label out through the one table (LAB_LAYER)"],
     [/for \(let i = 0; i < LAYERS\.length; i\+\+\) if \(f\.ly\[i\] !== layerOn\(LAYERS\[i\]\)\) return false;/, "a layer's switch starts the layout over"],
     [/const off = !e\.isConnected \|\| gone\(e\)/, 'the GPU fades a name whose element is gone (capSync)'],
+  ]);
+  // The names are read in the layer's own px (16 Nov 2026, Mohammad's Mac: Lobule → Sinusoid → Lobule left the sin, cv and triad names 28 times too big, gone): source shapes kept here (PR-02).
+  need('src/ui/lobule-zoom*', [
+    [/if \(live\.layerScaled\) \{ mirHeld = true; return; \}/, 'no name is read into the captions (mirrorOf) while the dive or the sinusoid zoom scales the layer: a box read then carries the scale'],
+    [/if \(live\.layerScaled\) \{ measHeld = true; return; \}/, "no label's letter boxes are read (inkRows) while the layer is scaled"],
+    [/get layerScaled\(\) \{ return diveScaled \|\| sinU > 0; \}/, 'the layer is scaled during the dive in and the zoom on into a sinusoid'],
+    [/sv\.place\(placeArg\);\n\s+mirrorRelease\(\);/, 'the names held back are read again once the sinusoid zoom has put the layer straight'],
+    [/if \(!diveScaled\) \{ diveDrawn = false; mirrorRelease\(\); \}/, 'and once the dive has landed'],
   ]);
   {   // every layer the store keeps is in LAYERS and has its switch on the lobule
     const lz = text('src/ui/lobule-zoom*'), st = text('src/ui/store.js');
@@ -567,6 +575,61 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/pressure-time.js', [
     [/const pace = paceMs\(\), rest = restGapFor\(now\), gap = Math\.max\(pace, rest\), due = !gap \|\| now - tickAt >= gap;/, 'the pressure strip is rest-paced'],
     [/clearTimeout\(parkT\); parkT = 0;/, 'the pressure strip lets its rest timer go with it'],
+  ]);
+}
+
+// The stall on slide changes (16 Nov 2026, Mohammad's play-test: 450 to 800 ms frozen on every Present change, then the camera snapped; a headless
+// profile, JS time only, found the three causes below). tests/slide-change-budget.test.js runs the hold (frame.js beginChange, settling).
+{
+  const text = sourceText;
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
+  // 1. The presenter's change marks are attributes on #app, never classes: a dozen watchers take #app's class text for the look, and each toggle made the
+  // overlays read every unit again (130 to 540 ms a time), dropped the stage's style snapshot and had the cards placed again, twice or more in a change.
+  forbid('src/ui/presenter.js', /classList\.(add|remove|toggle)\(\s*'pz-(moving|morph|morph-under)'/, "a change mark on #app is a data attribute (data-pz-moving, data-pz-morph, data-pz-morph-under), never a class: every watcher of #app's class text starts over for a class (stage.js overKey, main.js, credit.js)");
+  for (const m of text('src/ui/presenter.js').matchAll(/\bapp\.classList\.(?:add|remove|toggle)\(\s*'([^']+)'/g)) {
+    if (!['pz-hush', 'pz-hush-in', 'pz-hi', 'pz-blacked', 'pz-held', 'presenting'].includes(m[1])) errors.push(`src/ui/presenter.js: #app class "${m[1]}" is written by the presenter: a marker no style sheet reads is a data attribute (a class makes every watcher of #app's class text start over, 16 Nov 2026 slide change stall)`);
+  }
+  need('src/ui/credit.js', [[/attributeFilter: \['class', 'data-pz-moving'\]/, "the credit placer wakes when data-pz-moving changes, as it woke on the class"]]);
+  need('src/ui/figure-key.js', [[/attributeFilter: \['class', 'data-pz-moving'\]/, "the colour key wakes when data-pz-moving changes, as it woke on the class"]]);
+  for (const f of ['src/ui/credit.js', 'src/ui/figure-key.js', 'src/ui/stage.js', 'src/ui/main.js']) forbid(f, /classList\.contains\(\s*'pz-(moving|morph)/, 'a change mark is read as the attribute (hasAttribute), not as a class');
+  // 2. A slide change holds the background work that can wait (frame.js settling) from its press to its landing, never into a time-lapse's playing.
+  need('src/ui/presenter.js', [
+    [/changeOff = \(endChange = beginChange\(\)\)/, 'transition() begins the change: background work that can wait does not start in its waits for frames and cards'],
+    [/creditOff\(\); changeOff\(\);/, 'and ends it whatever ended the move'],
+    [/shown = \{ i: to, gen: g \}; lastAt = to; shownBeat = b0; endChange\?\.\(\);/, "the hold is given back as the slide lands, before a time-lapse of minutes plays"],
+  ]);
+  need('src/ui/stage-tubes.js', [[/sinceInput\(\) < 700 \|\| settling\(\)\) stageScope\.timer\(prepIdleGo/, "the lobule's pictures made ahead wait out a slide change (100 to 250 ms a piece, in the waits ahead of the camera)"]]);
+  need('src/ui/stage-vessels.js', [
+    [/if \(settling\(\) \|\| live\.coilEasing\) \{ envSoon\(\)/, "the vessels' envelope waits out a slide change"],
+    [/\(settling\(\) \|\| sinceInput\(\) < 700\) && snaps\.length/, "the envelope's stretches wait out a slide change"],
+    [/live\.coilEasing \|\| settling\(\) \|\| live\.inUpdate\) \{ et\.restT/, "the ease's rest waits out a slide change"],
+    [/live\.coilEasing \|\| settling\(\) \|\| live\.inUpdate\) \{ mt\.restT/, "the pieces' rest waits out a slide change"],
+  ]);
+  need('src/ui/stage-morph.js', [
+    [/if \(settling\(\) \|\| live\.rotU !== live\.rotTarget\)/, "the morph's check waits out a slide change"],
+    [/if \(settling\(\) \|\| live\.coilEasing \|\| live\.morph !== live\.morphTarget\) \{ mt\.coilCheck = null/, "the coil's check waits out a slide change"],
+  ]);
+  need('src/ui/lobule-zoom.js', [[/if \(handOn\(\) \|\| gliding \|\| settling\(\)\) \{ spareSoon\(\); return; \}/, "the lobule's spare picture waits out a slide change"]]);
+  // 3. The time-lapse chart calms a trace when a card draws it, once for each change of the days: calming a dozen traces over up to 1,500 days on every
+  // new day held the page 200 to 500 ms a time (16 Nov 2026).
+  need('src/ui/pressure-time.js', [
+    [/function calmDays\(\) \{\n {4}calmVer\+\+;/, 'a new day only stamps the days as changed'],
+    [/if \(c && c\.ver === calmVer\) return c;/, 'a trace is calmed once for each version of the days'],
+    [/const c = calmOf\(key\);/, 'the series asks for the trace it draws'],
+  ]);
+  forbid('src/ui/pressure-time.js', /for \(const k of days\.length \? Object\.keys/, 'calmDays does not calm every trace on every new day');
+  // 4. A deck's slide states are worked out behind the Present menu (the 3 to 8 s wait after the press was the first slide's patient): the row under the pointer or
+  // focus warms its deck, the cache holds the states from the start of the work (so a press joins it, never a second sequence), and a start takes them.
+  need('src/ui/menu.js', [[/for \(const ev of \['pointerenter', 'focus', 'pointerdown'\]\) row\.addEventListener\(ev, \(\) => lib\.warm\?\.\(d\.id\)/, 'a deck row warms its deck as the pointer, focus or a touch reaches it']]);
+  need('src/ui/presenter-library.js', [[/testing: live\.TESTING, start, warm,/, 'the library offers warm to the menu']]);
+  need('src/ui/presenter.js', [
+    [/const key = d\.mine \? null : d\.id, c = getCalc\(\); if \(key\) cache\.set\(key, \{ states: mine \}\);/, 'the cache holds a deck\'s states from the start of the work: a start while it runs adopts the same array'],
+    [/const hit = key && cache\.get\(key\);[^\n]*\n\s+if \(hit\) \{ states = hit\.states; waiters = \[\]; return; \}/, 'prepare takes the states a warm or an earlier talk made, finished or not'],
+    [/if \(sl\?\.\[0\]\?\.preset\) solve\(d, sl, \[\], solvePlan\(sl\)\);/, 'only a deck whose first slide names its patient is warmed (the calc needs nothing of the viewer\'s own)'],
   ]);
 }
 

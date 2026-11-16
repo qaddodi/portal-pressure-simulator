@@ -9,9 +9,9 @@ const between = (a, b) => PZ.slice(PZ.indexOf(a), PZ.indexOf(b, PZ.indexOf(a)));
 
 test('transition: its holds are leases given back always; shared visible state only while it is the current change of the same talk', () => {
   const tr = between('async function transition(to) {', 'async function transitionRun(');
-  assert.match(tr, /const homeOff = homeLease\.take\(\), creditOff = creditLease\.take\(\);/);
+  assert.match(tr, /const homeOff = homeLease\.take\(\), creditOff = creditLease\.take\(\), changeOff = \(endChange = beginChange\(\)\);/);
   const fin = tr.slice(tr.indexOf('} finally {'));
-  assert.ok(fin.includes('homeOff();') && fin.includes('creditOff();'), 'both holds are given back whatever ended the move');
+  assert.ok(fin.includes('homeOff();') && fin.includes('creditOff();') && fin.includes('changeOff();'), 'the holds are given back whatever ended the move');
   assert.match(fin, /const mine = !!tx\?\.live\(\) && deck === deck0 && ui === ui0;/);
   for (const shared of ['caseShut()', 'cardsIn()', 'figureIn()', 'turnDone()', 'tx.end()', 'keepNow = NO_KEEP']) {
     const at = fin.indexOf(shared);

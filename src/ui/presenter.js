@@ -30,7 +30,7 @@ import { createPresenterLink } from './presenter-view.js';
 import { noteResume } from './resume.js';
 import { checkDeck } from './deck-source.js';
 import { rateOf, liveSettled, LIVE_MAX, shownSig } from './table-marks.js';
-import { frameFor, cancelFrame, holdMotion, inMotion } from './frame.js';
+import { frameFor, cancelFrame, holdMotion, inMotion, beginChange } from './frame.js';
 import { loadGlyphs } from './text-gl.js';
 import { restPass } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
@@ -38,7 +38,7 @@ import { createTxns, createLease } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { onTheme } from './theme-epoch.js';
-import { expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
+import { expandIds, stepExtra, markLabel, figureHooks, safe, warmOf, trailOf } from './slide-ext.js';
 import { spansOf } from './tool-profile.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { revealCount } from './reveal.js';
@@ -74,6 +74,8 @@ import { tileVal, liveFp, PT_FREE, ptPush, sv, glBox, fitted, fitNow, est, fitCh
 import { LOBULE_CAM, lensSpec, PRESSURE_KEY, keyNodes, TARGETS, EDGE_TONE, VAL_TONE, rateTone, slideLens, SITE_NODE, slideTargets } from './presenter-words.js';
 import { createLibrary } from './presenter-library.js';
 import { createStart } from './presenter-start.js';
+import { instrumentOf } from './slide-instrument.js';
+import { oneLadder } from './teach-extras.js';
 import { createScales } from './presenter-scales.js';
 import { createLadders } from './presenter-ladders.js';
 import { createZoom } from './presenter-zoom.js';
@@ -276,7 +278,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : false, before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : trailOf(s), before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -285,57 +287,55 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
     slides.forEach((s, i) => { if (changes(s) || i === 0) last = i; stateOf[i] = last; });
-    // Patients a visual compares that no slide shows ({ preset, params?, days? } rows): computed after the slides, each fresh.
-    // (And the patients a compare slide's buttons switch to: { label, preset }.)
-    const extraRows = slides.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
-    const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()];
-    extraOf = new Map(extra.map((o, k) => [xKey(o), slides.length + k]));
-    const hit = key && cache.get(key);
+    const pl = solvePlan(slides);
+    extraOf = new Map(pl.extra.map((o, k) => [xKey(o), slides.length + k]));
+    const hit = key && cache.get(key);   // (a deck warmed ahead from the Present menu, or presented before: its states, and those still being computed, are this talk's)
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))];
-    const presetAt = []; let pid = store.get().presetId;
-    slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
-    extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
-    const deckNow = deck;
-    // The preparation failed (a rejected snapshot, a sequence that threw, or slides that could not be computed): this talk's
-    // waiters are settled with nothing (never left parked), and the show ends with a word rather than holding its cover up.
-    const prepFailed = () => {
+    solve(deck, slides, mine, pl);
+  }
+  // The calc's steps for a list of slides: each slide's model step, then the patients a visual compares that no slide shows (and a compare slide's buttons switch to), each fresh.
+  function solvePlan(sl) {
+    const extraRows = sl.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
+    const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()], presetAt = []; let pid = store.get().presetId;
+    sl.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
+    extra.forEach((o, k) => { presetAt[sl.length + k] = o.preset; });
+    return { extra, presetAt, steps: [...sl.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))] };
+  }
+  // Computes a deck's states into `mine`; the cache has it from the start, so a start while it runs joins it (prepare adopts the same array, and the waiters it leaves are
+  // settled here as each state arrives). A deck that is not the one on show only fills the cache. A failure settles the talk's waiters with nothing and ends it with a word.
+  async function solve(d, sl, mine, pl) {
+    const key = d.mine ? null : d.id, c = getCalc(); if (key) cache.set(key, { states: mine });
+    const failed = () => {
+      if (key && cache.get(key)?.states === mine) cache.delete(key);
       if (c.broken) { c.kill(); if (calc === c) calc = null; }
-      if (states !== mine || deck !== deckNow) return;
+      if (states !== mine || deck?.id !== d.id) return;
       for (const w of waiters) w.res(null);
-      waiters = [];
-      stop();
-      toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
+      waiters = []; stop(); toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
     };
-    (async () => {
-      try {
-      const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
+    try {
+      const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; });
-      const end = await c.sequence(steps, first, (m) => {
-        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: presetAt[m.i] };
-        if (m.start) st.start = { ...m.start, presetId: presetAt[m.i] };
-        if (m.before) st.before = { ...m.before, presetId: presetAt[m.i] };
+      const end = await c.sequence(pl.steps, first, (m) => {
+        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: pl.presetAt[m.i] };
+        if (m.start) st.start = { ...m.start, presetId: pl.presetAt[m.i] };
+        if (m.before) st.before = { ...m.before, presetId: pl.presetAt[m.i] };
         if (m.extra) st.extra = m.extra;
         mine[m.i] = st;
         if (states !== mine) return;   // a newer presentation has started
         for (const w of waiters.filter((x) => x.i === m.i)) w.res(st);
         waiters = waiters.filter((x) => x.i !== m.i);
       });
-      if (end?.type !== 'error') {
-        if (key) cache.set(key, { states: mine });
-        // (A data-card chart that runs its own points (a curve over model days) starts now, behind the talk, so it is ready by
-        // its slide: slide-ext.js tools' warm.)
-        // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
-        // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
-        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
-        return;
-      }
-      // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
-      // engine, and the show ends with a word rather than holding its cover up for ever.
-      prepFailed();
-      } catch (err) { console.error(err); prepFailed(); }
-    })();
+      // (Only the working set, the slide shown and its neighbours, warms its data-card charts now; the rest are warmed by the slide preparation as the talk reaches them: recs-production-120hz §16, B16.)
+      if (end?.type !== 'error') { if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) <= 2) safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); }); return; }
+      failed();   // (the slides could not be computed, most often a page left open across an update: the next try starts a fresh engine)
+    } catch (err) { console.error(err); failed(); }
+  }
+  // A deck's states computed ahead, behind the Present menu (the row the pointer or focus is on): the 3 to 8 s wait after the press was the first slide's patient being
+  // worked out. Only a deck whose first slide names its patient (the calc needs nothing of the viewer's own), with no talk on, once.
+  function warm(id) {
+    const d = typeof id === 'string' && !deck && !cache.has(id) ? DECKS.find((x) => x.id === id) : null, sl = d?.slides?.length ? withOverview(d).slides.map(oneLadder).map(zoneCam).map(instrumentOf) : null;
+    if (sl?.[0]?.preset) solve(d, sl, [], solvePlan(sl));
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
   // it was last presented with, so the values in the handout's words are the ones its slides show.
@@ -384,20 +384,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // an empty figure between the cards landing and the slide's own marks arriving.
   const CARDS_SEEN = D_SMALL - 40;
   const CATH_SETTLE_MS = 4000;   // motion-scale: not a move (a longest wait); (at most: a model still drifting never holds the catheter longer)
-  // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
+  // (data-pz-morph on #app while a change of patient eases: the checks hold the data card to it. An attribute, never a class: rules-lint.mjs, 16 Nov 2026.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
     // (N1, change-order.js: the change keeps the one order: the colour sets off from its cause, the collaterals after it.)
     startChange(store.get().params, st.params);
     host.send({ type: 'morph', snap: st.snap, ms });
     store.set({ presetId: st.presetId, presetLoading: false });
-    if (mark) app.classList.add('pz-morph');
+    if (mark) app.toggleAttribute('data-pz-morph', true);
     try {
       await until(cut, ms + 80);
       if (cut()) return false;
       applyState(st);
       await drawn(st);
       return !cut();
-    } finally { if (mark) app.classList.remove('pz-morph'); }
+    } finally { if (mark) app.toggleAttribute('data-pz-morph', false); }
   }
   // The live engine has sent a frame of the new state (its portal pressure is the slide's), and two more frames have painted it.
   let frames = 0;
@@ -961,14 +961,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     app.classList.add('pz-hush-in'); app.classList.remove('pz-hush');
     clearTimeout(hushInT); hushInT = setTimeout(() => app.classList.remove('pz-hush-in'), HUSH_IN + 50);
   }
-  // The corner credit sits out a slide change (class pz-moving on #app, read by src/ui/credit.js): it fades as the cards leave and
+  // The corner credit sits out a slide change (data-pz-moving on #app, read by src/ui/credit.js): it fades as the cards leave and
   // comes back once, at its final spot, after the cards are in and the camera has eased to fit around them.
   // (R02: the credit's hold and the camera's home hold are counted leases: every take gives back once, and only its own, so a move that was cut,
   // thrown or finished twice cannot release what a newer move took. creditT: the timer that lifts the credit's hold.)
-  let creditT = 0;
-  const creditLease = createLease(() => { clearTimeout(creditT); app.classList.add('pz-moving'); }, () => {
+  let creditT = 0, endChange = null;   // (endChange: the running change's end for settling(), given back as the slide lands, not when its time-lapse has played)
+  const creditLease = createLease(() => { clearTimeout(creditT); app.toggleAttribute('data-pz-moving', true); }, () => {
     clearTimeout(creditT);
-    creditT = setTimeout(() => { if (!creditLease.count()) app.classList.remove('pz-moving'); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
+    creditT = setTimeout(() => { if (!creditLease.count()) app.toggleAttribute('data-pz-moving', false); }, 120);   // (the cards come in after the one camera move; src/ui/credit.js then waits for any card still sliding)
   });
   const homeLease = createLease(() => stage.holdHome(true), () => stage.holdHome(false));
   async function transition(to) {
@@ -977,7 +977,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (R02: the deck, the cards and the change this move began under; after any await, a move whose deck or cards are not these is not this move's to touch.)
     const deck0 = deck, ui0 = ui, tx0 = txn;
     if (zoomOn()) { await ui.zoom.close(); if (deck !== deck0 || ui !== ui0 || (tx0 && txn !== tx0)) return; paintZoom(); zoomMissed = false; if (!deck || !ui) return; }
-    const homeOff = homeLease.take(), creditOff = creditLease.take();
+    const homeOff = homeLease.take(), creditOff = creditLease.take(), changeOff = (endChange = beginChange());   // (changeOff: background work that can wait does, until this change lands: frame.js settling)
     // (A move that did not come by go (a new text size, a redraw) is a transaction of its own too.)
     if (!txn?.live()) txn = txns.begin({ to, dir: 'redraw' });
     const tx = txn;
@@ -996,7 +996,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (mine && want === to && view.classList.contains('pz-out')) figureIn();
       if (mine) turnDone();
       if (mine && want === to) tx.end();   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
-      creditOff();
+      creditOff(); changeOff();
     }
   }
   async function transitionRun(to) {
@@ -1189,9 +1189,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let morphP = null;
     if (under) {
       if (keepNow.data && keepNow.swap) followData(s, to, st, cut);
-      // (.app.pz-morph-under while it runs: the cards may come in over it, so the checks do not hold the data card to it as to pz-morph.)
-      app.classList.add('pz-morph-under');
-      morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.classList.remove('pz-morph-under'));
+      // (data-pz-morph-under on #app while it runs: the cards may come in over it, so the checks do not hold the data card to it as to data-pz-morph.)
+      app.toggleAttribute('data-pz-morph-under', true);
+      morphP = morphTo(st, cut, MORPH_ONE_MS, false).finally(() => app.toggleAttribute('data-pz-morph-under', false));
     }
     // (Same patient over the plate: the unseen cards' last fitting, two frames and a smooth one, runs under the glide's first frames, so
     // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
@@ -1241,7 +1241,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     tx?.phase('unhush');
     await unhush(cut);
     if (cut()) return;
-    shown = { i: to, gen: g }; lastAt = to; shownBeat = b0;
+    shown = { i: to, gen: g }; lastAt = to; shownBeat = b0; endChange?.();   // (landed: the background work that waited goes on, frame.js settling)
     // A lobule slide whose next slide leaves the lobule: once it has settled, the organs' picture for the way out is made ahead,
     // unseen under the lobule, so Next goes straight out with no wait (see toAnatomy).
     { const nx = slides[to + 1], nCam = nx ? (nx.visual ? nx.cam || null : nx.cam || 'fit') : null;
@@ -2204,7 +2204,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     setTimeout(() => c.remove(), 700);   // (after its fade, Reduce Motion too)
   }
 
-  const { library, readLink } = createLibrary({ deckNumbers, fromScript, pview, rerenderHome, start }, live);
+  const { library, readLink } = createLibrary({ deckNumbers, fromScript, pview, rerenderHome, start, warm }, live);
 
 
   return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,

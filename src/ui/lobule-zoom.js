@@ -29,6 +29,7 @@ import { radiiChanged, canvasPx, fxMoves, DIVE_RIM } from './lobule-render-cache
 import { softwareYield } from './sw-yield.js';
 import { lobuleStateInto, lymphRate, sinceOf, LOBE } from './lobule-model.js';
 import { pickRank, tierOf } from './lobule-pick.js';
+import { addBile, bileFlowInto, mouthsWithoutBile } from './lobule-bile.js';
 import { inletPoint, SIN_NARROW, FADE_MID, fadeOuter, padRect, wideDpr, wideTiles, FIELD_RS, fieldBlend, surroundGrade } from './lobule-look.js';
 import { createTissueGL } from './tissue-gl.js';
 import { FX_GPU, createFxGL } from './fx-gl.js';
@@ -46,7 +47,7 @@ import { F_RING } from './veins-mesh-glsl.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE } from './veins-gl.js';
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, restGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, figOpt, framePart, easeNow, inMotion, settling } from './frame.js';
 import { figureDensity } from './pixel-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -58,6 +59,7 @@ import { classSoon, classHas, textSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, createGlideTracker, lobuleMs, LOBULE_MS_MAX, D_SMALL } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
+import { TRIAD_A, TRIAD_D } from './lobule-tract-labels.js';
 import { camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
 import { diveMapInto } from './dive-map.js';
@@ -80,7 +82,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const END_ON_EDGE = { pv: EI[LOBE.pre], ha: EI[LOBE.a], cv: EI[LOBE.post] };
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
-const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
+const MAXT = 320;                       // GPU rows: the lobule has ~160 vessels, ~260 with the lymphatics, ~320 with the bile too
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
 useTokens(tk);   // (the tissue's painting, lobule-paint.js, reads the same live tokens on the page)
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -104,8 +106,7 @@ function curve(f, m = 160) {
   return { pts, len };   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 }
 // The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
-// far round either side of the outward direction, and the lymphatic straight out.
-const TRIAD_D = 0.09, TRIAD_A = 0.98;
+// far round either side of the outward direction, and the lymphatic straight out (TRIAD_D, TRIAD_A: lobule-tract-labels.js, its labels' spokes).
 // (A vessel seen end-on: a disc.)
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 // The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
@@ -192,7 +193,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get lensFrom() { return lensFrom; }, set lensFrom(v) { lensFrom = v; },
     get lensMode() { return lensMode; }, set lensMode(v) { lensMode = v; },
     get lensT0() { return lensT0; }, set lensT0(v) { lensT0 = v; },
-    get lymphOn() { return lymphOn; }, set lymphOn(v) { lymphOn = v; },
+    get layerScaled() { return diveScaled || sinU > 0; },   // (the lobule's layer is turned and scaled: the dive in, or the zoom on into a sinusoid)
+    get lymphOn() { return lymphOn; }, set lymphOn(v) { lymphOn = v; }, get bileOn() { return bileOn; }, set bileOn(v) { bileOn = v; },
     get model() { return model; }, set model(v) { model = v; },
     get paintTissue() { return paintTissue; }, set paintTissue(v) { paintTissue = v; },
     get prepKey() { return prepKey; }, set prepKey(v) { prepKey = v; },
@@ -294,11 +296,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
   const NO_LAYERS = {};   // (read, never written: what stands in for a store with no layers set)
   const start = store.get().lobuleLayers || NO_LAYERS;   // the first frame draws the layers the store starts with (lymph is on)
-  let zonesOn = !!start.zones, lymphOn = !!start.lymph;
+  let zonesOn = !!start.zones, lymphOn = !!start.lymph, bileOn = !!start.bile;
   const syncLayers = () => {
     const l = store.get().lobuleLayers || NO_LAYERS;
-    if (!!l.zones === zonesOn && !!l.lymph === lymphOn) return;
-    zonesOn = !!l.zones; lymphOn = !!l.lymph;
+    if (!!l.zones === zonesOn && !!l.lymph === lymphOn && !!l.bile === bileOn) return;
+    zonesOn = !!l.zones; lymphOn = !!l.lymph; bileOn = !!l.bile;
     tissueKey = ''; layoutKey = ''; attrKey = '';
     if (F) update(F);
     nextFrame(refit);
@@ -1335,7 +1337,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
-    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 }); addBile({ tubes, add, join, curve, at, L0, inlets, triads, C, N, N0, R, rsN, rs0, cx, cy });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey); then the Bile layer's vessels (lobule-bile.js), built with the rest, drawn only while it is on
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
     // flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). Only where each vessel arrives is kept here; the mask itself is worked out from the radii as drawn (lobule-mouths.js).
     const mouths = new Map();
@@ -1344,7 +1346,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const site = mouthSite(t, tubes, joins, t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145)));
       if (site) mouths.set(t.id, site);
     }
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), lymphTubes: tubes.filter((t) => !t.bile), bileTubes: tubes.filter((t) => !t.lymph || t.bile), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths, mouthsNoBile: mouthsWithoutBile(mouths, tubes, joins, mouthSite) };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -1439,7 +1441,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // written and cleared by its own owner, so ending a pan never erases the dive.
   let panOn = false;   // (the pan's shift is the PAN record: x, y)
     let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
-  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
+  const { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun: measureRun$, measureShown: measureShown$, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel: panel$, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide } = createLobuleLabels({ V, atInto, callEl, callLine, callParts, callRing, cap, centreOn, cssN, el, freeRect, host, labels, leadGL, leadPaint, leaders, onOcc, pc, reduce, relayout, sX, sY, select, tissue, touches, viewChanged, wheelQuiet }, live);
   function panel(...a) { return panel$(...a); }   // <stage-split stub>
   function measureRun(...a) { return measureRun$(...a); }   // <stage-split stub>
   function measureShown(...a) { return measureShown$(...a); }   // <stage-split stub>
@@ -1929,18 +1931,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
 
   let sVer = NaN, sDark = null, sCw = 0, sCh = 0, sK = 0;
-  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
+  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akBile = false, akBileInk = '', bileRaw = null, bileRGB = null, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
   function drawGL(W, H, dpr, dark, cs, dt) {
     const g = gl, G = geo, m = model;
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     shW = W;
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const tubeSet = lymphOn ? G.tubes : G.bloodTubes;
+    const tubeSet = lymphOn ? (bileOn ? G.tubes : G.lymphTubes) : bileOn ? G.bileTubes : G.bloodTubes, bk = lymphOn ? (bileOn ? 'all' : 'lymph') : bileOn ? 'bile' : 'blood';   // (the Lymph and Bile layers each add their own vessels)
     const T = DRAW_T[tLast ^ 1];
     T[0] = k * V.k; T[3] = k * V.k; T[4] = k * V.x; T[5] = k * V.y;   // (T[1], T[2] stay 0)
     const dSame = drawSame(cw, ch, T);
-    const bk = lymphOn ? 'lymph' : 'blood';
     const now = performance.now();
     const origin = originOn();
     // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
@@ -2011,12 +2012,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // the selection's ids and the artery's colour; attrKey is '' until they have been made once, and is cleared to make them again.)
       // (The look's casing colour is in the discs' ink line, so a new look makes the attributes again: lookNow, as the draw below keeps it, is brought up to date first.)
       if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
-      const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
-      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && akRad === live.radStamp && !selCh;
+      const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), bileNow = cs.getPropertyValue('--bile-duct'), selCh = selMoved(selIdsN);
+      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akBile === bileOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akBileInk === bileNow && akLook === lookSig && akRad === live.radStamp && !selCh;
       if (inkMoved || !akSame) {
-        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
+        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akBile = bileOn; akBileInk = bileNow; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
         tubeData.fill(0);
-        if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); }   // alloc-rare: only when the artery's colour token changed (a theme or palette change)
+        if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); } if (bileOn && bileNow !== bileRaw) { bileRaw = bileNow; bileRGB = rgb01(bileNow.trim()) || BD_FILL; }   // alloc-rare: only when the artery's or the bile's colour token changed (a theme or palette change)
         const art = artRGB;
         // (The lymph's two inks only where its vessels are drawn: the lymph layer.)
         let LY = null;
@@ -2029,8 +2030,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const greyed = origin && lk >= 1;
         for (let p = 0; p < tubeSet.length; p++) {
           const t = tubeSet[p];
-          const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
-          const alpha = (t.kind === 'tw' ? TW_ALPHA : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
+          const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd', isBile = !!t.bile;
+          const alpha = (t.kind === 'tw' ? TW_ALPHA : isArt || isBile ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
@@ -2038,9 +2039,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           // Every vessel seen end-on (those two, the arteriole, the bile ductule: a disc, a vessel cut across) gets the long vessels' pale band just
           // inside its wall instead (F_RING), all round, so it reads as the cut end of a tube (recommendations/picture-blood-fills-look.md, item 9).
           const endOn = t.kind === 'cv' || t.kind === 'pv' || t.kind === 'ha' || t.kind === 'bd';
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || isBile || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           // (Row layout: the vessel's two end colours around its wall, then alpha, 1, depth, flags; its length; its outline.)
-          if (isBd) { put3(o, BD_FILL); put3(o + 4, BD_FILL); }
+          if (isBd) { put3(o, BD_FILL); put3(o + 4, BD_FILL); } else if (isBile) { put3(o, bileRGB); put3(o + 4, bileRGB); }
           else if (isArt) { put3(o, art); put3(o + 4, art); }
           else if (t.lymph) { const LYt = t.kind === 'ly' ? LYD : LY; put3(o, LYt); put3(o + 4, LYt); }
           else if (greyed) { put3(o, ORIGIN_RGB); put3(o + 4, ORIGIN_RGB); }
@@ -2050,7 +2051,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
             // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
             // else the cel outline's ink (tube-cel-glsl.js celShade): the look's own casing colour.
             // (Worked out from the radii as drawn, and again whenever they change: akRad. Texel 3's w: the joining vessels' mean radius, the weight of the wall line the disc draws between them.)
-            const ms = G.mouths.get(t.id);
+            const ms = bileOn ? G.mouths.get(t.id) : G.mouthsNoBile.get(t.id);
             if (ms) { tubeData[o + 15] = mouthWords(ms, radiusAt(t, 0), G.tubes, radiiNow, MOUTH_W); tubeData[o + 12] = MOUTH_W[0]; tubeData[o + 13] = MOUTH_W[1]; tubeData[o + 14] = MOUTH_W[2]; }
             const cc = lookNow.casing;
             for (let i = 0; i < 3; i++) tubeData[o + 16 + i] = edge ? edge[i] : cc[i];
@@ -2083,7 +2084,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
     // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
     // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
-    const lyOn = lymphOn && !m.hide;
+    const lyOn = lymphOn && !m.hide; const biOn = bileOn && !m.hide; if (!flowSame && biOn) bileFlowInto(flowData, tubeSet, motionOf, { R: G.R, dt, dark, still: reduce.matches, texels: FLOW_TEXELS, cssW: 1 / V.k });   // (the Bile layer: faint arrowheads toward the ductule)
     if (!flowSame && lyOn) {
       const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
@@ -2139,7 +2140,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The blood's arguments, one object kept and written in place: veins-gl reads it within the call, and its kept pair for a later repaint holds this
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
-    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
+    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; if (biOn && flowA > 0.002) blood.on = true; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
     blood.originCol = originsPass ? bc.firstCol : bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
@@ -2211,7 +2212,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     spareT = 0;
     const g = tissueGLOn(), G = geo, m = model;
     if (!g || !G || !m || fade < 0.98 || diveScaled || sinU > 0 || worldGeo !== G || !tissueOnGL) return;
-    if (handOn() || gliding || inMotion()) { spareSoon(); return; }   // (inMotion: not while a slide's cards come in, frame.js holdMotion)
+    if (handOn() || gliding || settling()) { spareSoon(); return; }   // (settling: not while a slide's cards come in, frame.js holdMotion, nor through a slide change, beginChange)
     // (Twice the zoom's own sharpness, stepped as paintTissue steps it, within the bitmap's largest size.)
     const dpr = lzDensity(...hostSize()), cap = worldCap(G, dpr);
     const dark = isDark(), cs = styles(), ws = worldStateOf(m, G, dark, cs), sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2) * 2, cap, seenCap(G));
@@ -2777,14 +2778,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) { if (o) o.part = 'cv'; return true; }
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.bile ? !bileOn : t.lymph && !lymphOn)) continue;   // (the bile and the lymph only while their layers are on)
       // (The radius where the point is nearest, not the middle's: a sleeve of Disse is wide at the portal edge and thin at the vein. Where vessels
       // overlap, the one drawn on top there wins, so a tap in a sinusoid's lumen is the sinusoid's, never the sleeve's round it: lobule-pick.js.)
       const d = distTo(t.pts, x, y), r = radiusAt(t, Math.round(distU * (N - 1))), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = pickRank(d, r, Z_OF[t.kind] ?? 0, t.kind === 'tw' ? 2 : 0, tierOf(t.kind));
       if (d < tol && score < bd) { bd = score; best = t; }
     }
-    if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }
+    if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.bile ? best.kind : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) { if (o) o.part = 'septum'; return true; } }
@@ -2914,6 +2915,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       elXf.rot = 0; elXf.Z = 1; elXf.tx = 0; elXf.ty = 0;
       placeArg.opacity = 0; placeArg.dive = null; placeArg.isOpen = false;
       sv.place(placeArg);
+      mirrorRelease();   // (the layer is straight again: the names read while it was scaled are read again)
       return;
     }
     // On the way in the view's resting place is read afresh each frame: the dock and the side pieces leave as the
@@ -3157,7 +3159,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y, out = false) {
       if (k < 0.9999) resCoverEnd();
-      diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
+      diveScaled = k < 0.9999; if (!diveScaled) { diveDrawn = false; mirrorRelease(); }
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
       // Landed with a Sinusoid tap waiting (made during the dive): on into the sinusoid now.
       sinOnLanding();

@@ -187,3 +187,12 @@ test('a trial not yet read against its paper says so on the card, in the handout
   assert.doesNotMatch(trialWords(TRIALS.predesci), /Not yet checked/);
   assert.match(trialWords(TRIALS.predesci), /Beta-blocker 16%, Placebo 27%/);
 });
+
+test('a trial card never cuts a caveat: no drawn line ends in an ellipsis, at any width (B17, 16 Nov 2026)', () => {
+  for (const id of Object.keys(TRIALS)) for (const W of [240, 340, 360, 480]) for (const compact of [false, true]) {
+    const L = trialLayout(TRIALS[id], W, 12, measure, { verdict: 'fits', rows: [] }, { compact });
+    for (const s of L.texts) assert.ok(!s.t.endsWith('…'), `${id}@${W}${compact ? ' compact' : ''}: "${s.t}"`);
+    const words = L.texts.filter((s) => s.look === 'trial.note').map((s) => s.t).join(' ');
+    if (TRIALS[id].note) assert.equal(words.replace(/\s+/g, ' '), TRIALS[id].note.replace(/\s+/g, ' '), `${id}@${W}: the whole note is drawn`);
+  }
+});

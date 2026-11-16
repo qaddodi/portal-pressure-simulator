@@ -175,9 +175,11 @@ export const ADOPTED = {
   'gastric-varices/brto': ['procedure'],
   'gastric-varices/bato': ['procedure'],
   'gastric-varices/eusglue': ['procedure'],
-  'hyperdynamic/loss': ['question'],
-  'hyperdynamic/forward': ['kind:curve'],   // (the portal pressure and flow by splanchnic tone, beside its slider)
-  'hyperdynamic/over': ['ripple'],   // (the pressure rising across the portal system as the units go in)
+  'hyperdynamic/loss': ['question', 'kind:shift'],
+  // (the change from healthy, one chart from the healthy slide to the eight units: Mohammad's pick, 16 Nov 2026, tool-shift.js)
+  'hyperdynamic/rest': ['kind:shift'], 'hyperdynamic/dilate': ['kind:shift'], 'hyperdynamic/resist': ['kind:shift'], 'hyperdynamic/volume': ['kind:shift'],
+  'hyperdynamic/forward': ['kind:shift'], 'hyperdynamic/full': ['kind:shift'],
+  'hyperdynamic/over': ['ripple', 'kind:shift'],   // (the pressure rising across the portal system as the units go in)
   'variceal-bleed/before': ['calipers'],
   'variceal-bleed/oct': ['ripple', 'kind:criteria'],
   'variceal-bleed/blood': ['cite'],

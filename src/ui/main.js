@@ -73,6 +73,7 @@ import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
 import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
+import { focusBack } from './focus-flow.js';
 import { deepMerge, sanitizeParamsReport } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { createSampleOwing } from './frame-samples.js';
@@ -1135,7 +1136,7 @@ function labelLevelSeg() {
     return b;
   }));
 }
-// The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
+// The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
 function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
@@ -1143,7 +1144,8 @@ function lobuleLayerItems() {
   return [
     menuSection('Show on the lobule',
       menuToggle(!!l.zones, 'zones', 'Zones', 'Zones 1 to 3, portal to central vein', (on) => set({ zones: on })),
-      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on }))),
+      menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Where lymph forms and drains', (on) => set({ lymph: on })),
+      menuToggle(!!l.bile, 'bile', 'Bile', 'Where bile forms and drains', (on) => set({ bile: on }))),
   ];
 }
 function lensKeys() { return Object.keys(LENSES); }
@@ -1357,7 +1359,7 @@ function openSettings(anchor, withSearch = false) {
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
       // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
-      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyBody()) }),
+      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyList()) }),
         menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),
       fullscreenControl()),
     menuSection('Appearance',
@@ -1664,10 +1666,8 @@ function syncPanelToggle() {
 // (Safari does not focus a clicked button, so the card's own button stands in for the opener.) A card put away because
 // another opens keeps focus where it is.
 function giveFocusBack(card, to) {
-  const a = document.activeElement;
-  if (a && a !== document.body && !card.contains(a)) return;
-  // (A button that is not drawn takes no focus: focus() leaves it where it is, with no box read to ask first.)
-  if (to?.isConnected) to.focus(FOCUS_NO_SCROLL);
+  // (A button that is not drawn takes no focus, and a card opened by a click on the figure has no opener: focus-flow.js hands it to the figure, never the page.)
+  focusBack(card, to);
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
@@ -1849,6 +1849,10 @@ function wireFloating() {
     const ac = card?.el, acUp = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') + 8 : 0;
     const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8 + acUp);
     if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
+    // (While a talk plays, the deck's own controls fill the foot of the screen (the slide pill and Exit, under the card on a phone): the toasts it lets through, errors
+    // and cards with buttons, come down from the top bars instead, never over a control or the card's words (B20, 16 Nov 2026). --toast-top: the top bar's foot.)
+    const toastTop = px(Math.max(0, readBox(tb).bottom) + 8);
+    if (pubVals.toastTop !== toastTop) { pubVals.toastTop = toastTop; document.documentElement.style.setProperty('--toast-top', toastTop); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
     if (pubVals.occ !== occ) { pubVals.occ = occ; document.documentElement.style.setProperty('--thumb-occ', occ); document.documentElement.style.setProperty('--sheet-foot-screen', occ); }
@@ -2456,6 +2460,8 @@ function firstRun() {
 // first vessel or organ is picked or the card is dismissed. Its own key, so devices that opened the app before see it once.
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
+// Whether a sheet covers the lower part of the figure (a phone's Tests, patient chart, Treat or History), as the camera's framing counts it.
+const sheetOverFigure = () => isPhone() && (app.classList.contains('dock-open') || panelShown() || treatOpen() || historyOpen());
 function showFirstHint() {
   if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
@@ -2463,12 +2469,18 @@ function showFirstHint() {
   try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
   if (seen) return;
   const show = () => {
-    if (store.get().selection || presenter.active()) return;
+    if (store.get().selection || presenter.active() || sheetOverFigure()) return;
     const verb = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Click' : 'Tap';
     let off = null, offTalk = null;
     const done = (why) => { off?.(); off = null; offTalk?.(); offTalk = null; if (why === 'talk') return; try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { caught('main:2194', e); /* storage unavailable */ } };
     const close = toast(`${verb} a vessel or the liver to change it.`, '', { sticky: true, onClose: done });
     off = store.on('selection', (sel) => { if (sel) close(); });
+    // A sheet over the figure (Tests, the chart, Treat or History on a phone) takes the hint away: it sat over the strip of figure the sheet left.
+    // Like a talk it is not counted as read: it comes again on a later visit.
+    const onOcc = () => { if (sheetOverFigure()) close('talk'); };
+    addEventListener('pps:occ', onOcc);
+    const offOcc = () => removeEventListener('pps:occ', onOcc);
+    const offBase = off; off = () => { offBase(); offOcc(); };
     // A talk beginning takes the hint away with the Explore screen it spoke of (it stayed over the slides, sticky). It is not counted as
     // read: a person who went straight to a talk meets it on their next visit to Explore.
     offTalk = store.on('presenting', (on) => { if (on) close('talk'); });

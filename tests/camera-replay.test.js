@@ -97,7 +97,7 @@ function moves() {
       const box = cam === 'fit' || !cam ? FIT_BOX : regionBox(cam, REGIONS);
       if (!box) { prev = null; return; }
       const cur = { box, kMax: s.kMax || 3.2, at: `${id} ${i}` };
-      if (prev) out.push({ from: prev, to: cur });
+      if (prev) { out.push({ from: prev, to: cur }); out.push({ from: cur, to: prev, back: true }); }   // (Next, and Back along the same pair: 16 Nov 2026, Carvedilol going back from 6 to 5 panned at one zoom and then zoomed)
       prev = cur;
     });
   }
@@ -144,7 +144,7 @@ for (const [name, scr] of Object.entries(SCREENS)) {
       judge((u) => p.at(u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), p.arc, `${name}, ${from.at} to ${to.at}`);
       n++;
     }
-    assert.ok(n > 250, `the decks have their moves (${n})`);
+    assert.ok(n > 500, `the decks have their moves, forward and back (${n})`);
     assert.ok(arcs <= n);
   });
 }

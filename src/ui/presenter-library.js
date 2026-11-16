@@ -11,7 +11,7 @@ import { store } from './store.js';
 import { askText, closeModal, confirmDialog, h, icon, openModal, toast } from './util.js';
 
 export function createLibrary(st, live) {
-  const { deckNumbers, fromScript, pview, rerenderHome, start } = st;
+  const { deckNumbers, fromScript, pview, rerenderHome, start, warm } = st;
   // ── Library (the menu's Present column) ──
   function captureStep() {
     const st = store.get();
@@ -110,7 +110,7 @@ export function createLibrary(st, live) {
     return id;
   }
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
-  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: live.TESTING, start, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: live.TESTING, start, warm, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
     startView: (id, at) => { pview.open(); return start(id, at); },   // (N1: the window opens inside the tap, then the talk starts)
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => live.deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });

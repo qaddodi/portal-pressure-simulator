@@ -93,7 +93,7 @@ export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-
 // Transition properties that paint without moving a box; and ones that do not move the box of a piece they run inside of.
 export const PAINT_ONLY = new Set(['color', 'background-color', 'background', 'border-color', 'outline-color', 'box-shadow', 'text-shadow', 'fill', 'stroke', 'filter', 'backdrop-filter']);
 export const INNER_FREE = new Set(['transform', 'translate', 'rotate', 'scale', 'opacity', 'visibility']);
-export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .dop-probe, .pz-prog, #topbar, #vdock';
+export const PLACED = '[data-safe], .stage-blocker, .pz-shade, #zoomPill, .pz-fk, .stage-clock, .menu, .umenu, .why-pop, .modal-back, .home, .scan-probe, .dop-probe, .pz-prog, .toast-wrap.foot, #topbar, #vdock';
 
 /**
  * A watch over what measured layout depends on, so a check that reads boxes (forcing a layout in the middle of the model's

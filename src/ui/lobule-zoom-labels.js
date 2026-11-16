@@ -82,7 +82,7 @@ export function createLobuleLabels(st, live) {
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
     else setLab('lymph', 'Lymphatic', 'Lymph', shown(stLy, m.lymph, 1), lymphUnit(Math.round(m.lyProt * 100)), '', null);
-    // The arteriole and the ductule: named only while a slide's term points at them (see named()).
+    // The arteriole and the ductule: named, with no reading (the model has no pressure of their own); a slide's term ranks them up (named()).
     setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
     setLab('bd', 'Bile ductule', 'Ductule', '', '', '', 'var(--bile-duct)');
     if (live.sinTo || live.sinU > 0) live.sv.setModel(m);
@@ -154,6 +154,7 @@ export function createLobuleLabels(st, live) {
   }
   function measureRun() {
     live.measT = 0;
+    if (live.layerScaled) { measHeld = true; return; }   // (the letters' boxes are read in the layer's own px: see mirrorRun)
     const env = sizeEnv(), els = [...measQ], want = live.labWant;
     measQ.clear(); live.labWant = null;
     flushRestAttrs();   // (a pill's kind changes its border and so its size: written before it is measured)
@@ -348,7 +349,6 @@ export function createLobuleLabels(st, live) {
   // the middle of the free space (so it does not jump about).
   // A presenter slide that lights lobule terms dims every other label and zone name to 35 % (app.css, dimmed): they keep their places and their room.
   const LIT_OK = ['triad', 'arteriole', 'ductule', 'sinusoid', 'central', 'lymph', 'zone1', 'zone3'].map((t) => `lobule:${t}`);
-  const LIT_RE = /(^| )(lobule|sinusoid):/;
   const litOf = () => {
     if (!live.appEl?.isConnected) live.appEl = document.querySelector('.app');
     const r = live.appEl?.dataset.lit;
@@ -358,7 +358,6 @@ export function createLobuleLabels(st, live) {
   // (Each label's lit term, and each zone name's, written out once: no text is made to ask for them.)
   const LIT_OF = {};
   for (const k of Object.keys(LZ_TARGET)) LIT_OF[k] = `lobule:${LZ_TARGET[k]}`;
-  const ZONE_LIT = ['lobule:zone1', 'lobule:zone2', 'lobule:zone3'];
   const named = (k) => litOf().has(LIT_OF[k]);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
   // A sinusoid's reading sits half way from the portal tract to the central vein: along the middle generation's
@@ -463,7 +462,7 @@ export function createLobuleLabels(st, live) {
     for (let i = 0; i < 6; i++) { d = keepBuf[i + 1]; d.x = sX(C[i][0]); d.y = sY(C[i][1]); d.r = Math.max(14, (g.rt || 6) * TRACT_KEEP * V.k); }
     return keepBuf;
   };
-  const DESIGN = ['triad', 'lymph', 'cv', 'sin'];   // the labels with a designed spot (layoutLabels designed)
+  const DESIGN = ['triad', 'lymph', 'cv', 'sin', 'ha', 'bd'];   // the labels with a designed spot (layoutLabels designed)
   const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.
@@ -612,11 +611,9 @@ export function createLobuleLabels(st, live) {
   // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
   // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
   const zoneEls = [];   // (made once, kept for good: see placeZones; a layer's names are faded out and in, never dropped)
-  // ── The lobule's layers (the Layers menu, store.lobuleLayers) and the names that belong to them ──
-  // A name in LAYERS is a layer and live.<name>On its switch. A name that belongs to a layer shows only while it is on and fades out and in with it:
-  // the zone names ('zones') and the station labels in LAB_LAYER. A new layer is its name here, its labels in LAB_LAYER and its switch on live;
-  // the layout starts over when a layer switches (sameBase) and fades every name of a layer that is off (placeZones, labelLayerOff).
-  const LAYERS = ['zones', 'lymph'];
+  // ── The lobule's layers (store.lobuleLayers): LAYERS names them, live.<name>On is each switch, LAB_LAYER the station labels that belong to one. A name of a
+  // layer that is off is faded out (placeZones, labelLayerOff) and faded in with it; a new layer is a line in each, and the layout starts over when it switches (sameBase). ──
+  const LAYERS = ['zones', 'lymph', 'bile'];
   const LAB_LAYER = { lymph: 'lymph' };   // (a station label: the layer it belongs to; the others are always there)
   const layerOn = (name) => !!live[name + 'On'];
   const labelLayerOff = (k) => { const n = LAB_LAYER[k]; return !!n && !layerOn(n); };
@@ -648,8 +645,7 @@ export function createLobuleLabels(st, live) {
   const zBox = { l: 0, r: 0, t: 0, b: 0 };
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
   function placeZones(fr0, hx, hy, lesion = null) {
-    // The Zones layer off: every zone name fades out where it stands and stays in zoneEls, hidden. It is never taken out of the list: the GPU's
-    // captions (capSync) draw from that list, so a name taken out of it was left drawn at its last alpha, standing on the lobule with the layer off.
+    // Zones off: each name fades out where it stands and stays in zoneEls (capSync draws from it: a name taken out stayed drawn at its last alpha).
     if (!layerOn('zones')) { for (let i = 0; i < zoneEls.length; i++) fadeOut(zoneEls[i]); return NO_BOXES; }
     const { R, cx, cy } = live.geo, a = Math.PI / 2, ap = R * 0.866, boxes = zoneBoxesBuf;
     boxes.length = 0;
@@ -726,9 +722,6 @@ export function createLobuleLabels(st, live) {
   const handOn = () => touches.size > 0 || !!live.cancelFlick || (!!live.wheelKind && !wheelQuiet(250));
   // The hand let go (or paused): place the labels again for where the view now is.
   function followEnd() { if (handOn()) { live.followT = setTimeout(followEnd, 140); return; } if (live.panOn || live.rough || live.rides) { live.rough = false; live.layoutKey = ''; viewChanged(); } }
-  // Boxes and leader ends the ride's check works in, kept and written in place (a pool grows by index, once, to the most labels there are).
-  const rhBox = [], rhLead = [], rhOth = [];
-  const poolBox = (pool, i) => pool[i] || (pool[i] = { l: 0, r: 0, t: 0, b: 0 });   // alloc-once: a pool grows the first time a larger count is asked for, then it is reused
   // Whether the labels as laid out (follow.ride), each carried with its spot to the view now, still keep the layout's rules: no label on
   // another, a zone's name or a chip, none on another's leader, no two leaders crossed, none on a structure (which grows as the view
   // zooms in) or a card, each inside the free space and what it names still in it, and no chip's spot come back into view.
@@ -776,8 +769,13 @@ export function createLobuleLabels(st, live) {
     if (callEl) mirQ.add(callEl);
     if (!mirT) mirT = restPass(mirrorRun);
   };
+  // The names are read in the layer's own px: not while the dive or the sinusoid zoom scales it (a name read at scale 28 was drawn 28 times too big for good,
+  // the sin, cv and triad names gone after a Sinusoid visit). The queue waits and is read once the layer is straight (mirrorRelease).
+  let mirHeld = false, measHeld = false;   // (a read, and a measuring, that waited for the layer to stand straight)
+  const mirrorRelease = () => { if (live.layerScaled) return; if (measHeld) { measHeld = false; if (!live.measT) live.measT = restPass(measureRun); } if (mirHeld) { mirHeld = false; mirrorAll(); } };
   function mirrorRun() {
     mirT = 0;
+    if (live.layerScaled) { mirHeld = true; return; }
     flushRestAttrs();   // (shown or hidden, as the frame asked: written before the page is read)
     for (const [key, e] of capItems()) {
       if (!mirQ.has(e) || !e.isConnected || e.hidden) continue;
@@ -906,5 +904,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }

@@ -106,7 +106,7 @@ export const LANDMARK_TRIALS = {
       id: 'bleed', preset: 'cirr-decomp', action: [BLEED, UNIT], cam: 'fit', tool: { kind: 'vitals', show: ['hr', 'map'] }, data: 'tiles', tiles: ['pv'], key: ['pv'],
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis, Child–Pugh C 11, presented with hematemesis this morning. A bleeding varix was banded and octreotide is infusing.',
       kicker: 'Variceal bleeding', site: 'sin', title: 'After a variceal bleed, how much blood to give is a trial question',
-      line: 'One unit of packed red cells brings his MAP to {map}. His portal vein pressure is {pv}. The transfusion trial asked when to give the next unit.',
+      line: 'One unit of packed red cells brings his blood pressure to {map}. His portal vein pressure is {pv}. The transfusion trial asked when to give the next unit.',
       notes: 'The transfusion trial (Villanueva, N Engl J Med 2013) randomized 921 adults with severe acute upper GI bleeding of any cause, with or without cirrhosis. One arm was transfused when the hemoglobin fell below 7 g/dL (restrictive), the other below 9 g/dL (liberal). The model\'s hemoglobin does not fall at the moment of the bleed; it falls over hours as plasma refills the circulation (the variceal bleeding talk shows it), so this slide shows his blood pressure and heart rate instead.',
       ask: ['Which two transfusion thresholds did the trial compare?', 'A hemoglobin <7 g/dL (restrictive) and <9 g/dL (liberal).'],
     },

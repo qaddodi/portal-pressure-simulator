@@ -277,7 +277,7 @@ export function createQuestion(st, live) {
   }
   // (A days chart that starts from an earlier slide's state, tool.view.since: that state's readings of the chart's two lines, for its first day.)
   const viewBefore = (t, i) => chartBefore(live.slides, live.stateOf, live.states, i);   // (chart-start.js: the state before the change the slide makes at once, or the slide's own view.since)
-  const showTool = (s, i, lap = false, forward = false) => live.ui.tools.show(s.tool, { slide: i, stateKey: live.stateOf[i], forward, before: viewBefore(s.tool, i), chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: live.states[live.stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
+  const showTool = (s, i, lap = false, forward = false) => live.ui.tools.show(s.tool, { slide: i, stateKey: live.stateOf[i], forward, before: viewBefore(s.tool, i), chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: live.states[live.stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i, lap), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
   // ── Cards that stay between slides ──
   // A slide change used to fade both cards out and build both again. When the next slide's data card is the same (the same instrument
   // and options, the same tiles, title and layout: card-keep.js dataPlan) it stays where it is, live, and only the words swap; when the
@@ -375,10 +375,11 @@ export function createQuestion(st, live) {
   // model state (snapshot, params, fingerprint), its extra work (st.extra, see stepOf), the live params (with any what-if slider
   // or compare button), other slides' fingerprints by id, the healthy fingerprint, and requests to the presenter's own
   // calculation worker (never the live model). P0.md in review/deck-visuals-build has the full list.
-  function ctxOf(s, i) {
+  function ctxOf(s, i, lap = false) {
     const st = live.states[live.stateOf[i]] || null, d = live.deck;
     return {
       slide: s, index: i, deck: d, slides: live.slides, stage, store, app,
+      reveal: lap ? 0 : 1,   // (0: the slide's time-lapse is still to play, and an instrument that draws its days waits for them: tool-shift.js)
       state: st, snap: st?.snap ?? null, params: st?.params ?? null, fp: st?.fp ?? null,
       // (ref: the fingerprint the slide counts its changes from, its delta or its tool's; the beat-by-beat card draws where the patient stood)
       ref: s.tool || s.delta != null ? refOf(s.tool?.delta != null ? { ...s, delta: s.tool.delta } : s, i) : null,
@@ -387,6 +388,8 @@ export function createQuestion(st, live) {
       whenExtra: () => stateReady(i).then((x) => x?.extra ?? null),
       liveParams: () => store.get().params,
       fpOf, healthy: () => live.base,
+      // (every slide's state, for a chart that holds across the talk, tool-shift.js: slide j's computed state, or null while it is computed; the slides' state indexes)
+      stateAt: (j) => live.states[live.stateOf[j]] ?? null, stateKeys: () => live.stateOf,
       shown: () => live.deck === d && live.shown?.i === i,
       request: (type, payload = {}) => getCalc().request(type, payload),
       // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
@@ -528,7 +531,7 @@ export function createQuestion(st, live) {
       if (r.blank.includes(k)) return h('td', { class: 'num blank', title: NOT_MEASURABLE }, noneEl(), h('span', { class: 'sr-only' }, NOT_MEASURABLE_LC));
       if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return pendEl();
       if (k === 'spleen' && !(fpv(k, r.f) > 0)) return h('td', { class: 'num none' }, 'Removed');
-      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
+      if (isRef(r, n)) return h('td', { class: k === 'map' ? 'num ref bp' : 'num ref', 'data-rate': rel ? null : rateAbs(k, dirAbs(k, r.f)) }, val(k, r.f));
       const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
       // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
@@ -536,7 +539,7 @@ export function createQuestion(st, live) {
       // (miss, missPart: a gradient that does not span this patient's resistance, or spans only part of it (the Gradients talk's summary): its arrow
       // dimmed, with an outlined tag that says so.)
       const miss = r.miss.includes(k) ? 'Misses' : r.missPart.includes(k) ? 'Misses part' : '';
-      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (miss ? ' miss' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: miss ? `${v}, ${miss.toLowerCase()} the resistance` : v },
+      return h('td', { class: 'num dir' + (k === 'map' ? ' bp' : '') + (d ? '' : ' zero') + (rel ? ' rel' : '') + (miss ? ' miss' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: miss ? `${v}, ${miss.toLowerCase()} the resistance` : v },
         arrowEl(d), miss ? h('span', { class: 'pz-miss', 'aria-hidden': 'true' }, miss) : null, h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}${miss ? `, ${miss.toLowerCase()} the resistance` : ''}`));
     };
     // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,

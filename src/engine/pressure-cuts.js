@@ -87,7 +87,8 @@ export const HVPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('Mil
 // (R09/§6.2, external production review, 15 Nov 2026: "Normal" and "Bleed risk" read as established clinical categories). PPG_LINE_NOTE is the one caveat sentence.
 export const PPG_LINE_NOTE = 'The color lines at 6 and 12 mmHg are this model\'s reference lines, not guideline cut-offs: the guidelines grade the HVPG.';
 export const EUS_LINE_NOTE = 'The EUS-PPG is read on the HVPG\'s lines (5 and 10 mmHg) as a model reference, not a validated cut-off. Anesthesia and a different sampled site (portal and left hepatic vein) can bias it, with the hepatic venous pressure overestimated (ENCOUNTER, PMID 40689144).';
-export const PPG_WORDS = Object.freeze({ ok: pair('Normal', 'Below the model\'s PPG reference line'), caution: pair('High', 'Above the model\'s PPG reference line (portal hypertension)'), danger: pair(BLEED_WORD, 'Above the model\'s upper PPG line: the model reads a risk of variceal bleeding') });
+export const PPG_WORDS = Object.freeze({ ok: pair('Normal', 'Below the model\'s PPG reference line'), caution: pair('High', 'Above the model\'s PPG reference line (portal hypertension)'), danger: pair('Very high', 'Above the model\'s upper PPG line (12 mmHg)') });
+// The bleed-risk word belongs to the HVPG only (the model's rupture line, HVPG 12): a PPG band never says it, so a patient at HVPG 11.6 (CSPH) and PPG 13.5 reads "CSPH" and "Very high", never CSPH beside "Bleed risk" (play-test 16 Nov 2026).
 export const hvpgWord = (v, long = false) => HVPG_WORDS[hvpgSev(v)][long ? 1 : 0];
 export const ppgWord = (v, long = false) => PPG_WORDS[ppgSev(v)][long ? 1 : 0];
 

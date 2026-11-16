@@ -40,6 +40,7 @@ import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL, JOIN_F_NOFADE } from './tube-join-glsl.js';
 import { celToneGLSL, CEL } from './tube-cel-glsl.js';
+import { CHEV_GLSL } from './chevron-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
 function fnText(text, head) {
@@ -120,6 +121,7 @@ vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ${ENT_W}, t / ${ENT_W}), 0); return (i & 1) == 0 ? v.xy : v.zw; }
 // (alongAt, radAt, the noise styles, bloodAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
 ${compLumenFns()}
+${CHEV_GLSL}
 
 ${TROUBLE_GLSL}
 
@@ -220,6 +222,7 @@ void main() {
     }
   }
   bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks)
+  bool isBi = f1.x < -1.5;   // (a bile row, lobule-bile.js bileFlowInto: arrowheads only)
   if (blood == 1 && blendA.x > 0.0 && f1.z > 0.0 && !isLy) {
     // Blood that shows trouble (V7, blood-trouble.js; style P only): a shimmer where the flow reverses, a jet and eddies at a narrowing. The place
     // the streaks are drawn at is bent, their density (the flux) scaled; untroubled blood is (s1, y1, 1) and byte for byte as before.
@@ -229,7 +232,19 @@ void main() {
     float a = A.a * (1.0 - castAt(id1, s1, len1));
     if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
   }
-  if (blood == 1 && isLy && f1.z > 0.0) {
+  if (blood == 1 && isBi && f1.z > 0.0) {
+    // Bile (Mohammad, 16 Nov 2026: arrows "similar to the blood chevrons"; he picked the green of four inks): the blood's own head
+    // (chevron-glsl.js chevHead) and its size rule (veins-gl.js chevAt: half the caliber, 4 to 8 CSS px, never wider than the duct), a
+    // leaf-green core with a dark olive rim, spaced f0.y apart (world units, wider than the blood's) and moving toward the row's end, the
+    // ductule (f0.x: the phase, advanced on the CPU at one speed). f0.z: world units per CSS px. None on a duct under 3 px across.
+    float P = max(f0.y, 1.0), u = (fract((s1 - f0.x) / P) - 0.5) * P, ay = abs(y1) * R1, cpx = max(f0.z, 1e-4);
+    float hw = min(0.8 * R1, clamp(0.5 * R1, 4.0 * cpx, 8.0 * cpx));
+    vec2 h = chevHead(u, ay, hw, pxW, 0.0) * smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(1.2, 1.6, R1 / max(pxW, 1e-3));
+    float k = vis * flowA * f1.z;
+    col = mix(col, vec3(0.14, 0.18, 0.05), clamp(h.y * 0.75 * k, 0.0, 1.0));
+    col = mix(col, vec3(0.64, 0.88, 0.30), clamp(h.x * k, 0.0, 1.0));
+  }
+  if (blood == 1 && isLy && !isBi && f1.z > 0.0) {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the dashes' phase, pitch, protein and theme in flow texel 0, as before. A row that ALSO
     // carries a stream in texel 7 (x: the distance now, y: the signed speed, blood's D and vd; y = 0: none) is drawn as streaks, the same style
     // as the blood (bloodAt, so the Tube's style P / D4 mist), coloured by the protein: a cool ink at 0 %, albumin amber at 100 % (dark on a light channel, light on a dark one) (the protein f0.z is the lobule's lyProt scaled 0.42 … 0.84 to 0 … 1), fainter when poorer. A row with no stream keeps the dashes.

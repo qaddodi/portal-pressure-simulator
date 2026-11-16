@@ -8,7 +8,7 @@
 }
 @media (hover: hover) { .tl-hist:hover { border-color: var(--border-strong); background: var(--surface-2); } }
 .tl-hc:empty { display: none; }   /* an empty badge would still take a grid row and push the clock icon up */
-.tl-hc:not(:empty) { animation: scale-settle var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.tl-hc:not(:empty) { animation: scale-settle var(--d-small) var(--ease); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }   /* (One 44 px width for every speed, 1x to "1 wk/s": it was 30 px, then as wide as its words, so Pause, Compare and the clock stepped 20 px sideways, 16 Nov 2026.) */
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-pop-empty { margin: 0; padding: 8px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-3); }
 .tl-pop-row { transition: opacity var(--d-small) var(--ease); }
@@ -319,7 +319,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .tl-split .ib.play.lapse { background: color-mix(in srgb, var(--lapse) 22%, var(--surface)); color: var(--lapse-ink); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lapse) 70%, transparent); }
 .tl-split .tl-speed.lapse { color: var(--lapse-ink); font-weight: 700; }
 .tl-split .tl-speed { white-space: nowrap; }
-.tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: auto; min-width: 30px; padding: 0 7px; font-size: 12px; }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed, .tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: 44px; min-width: 44px; padding: 0 1px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* Measure on desktop (batch A): a quiet text tab row with an underline, and one 16px edge for
    head, tabs and body; a softer edge so the card sits lightly over the map. */
@@ -336,6 +336,10 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   /* The 1 / 2 slot number sits after the name, in the row, so it never covers a neighbour. */
   .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 16px; height: 16px; font: 600 12px/16px var(--font-ui); }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
+  .treat-tabs { margin: 2px 12px 10px; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); }   /* (Treat's tabs wear the phone's one segmented pill on every screen, 16 Nov 2026: the chosen tab was only a little bolder here. The Tests row keeps its text tabs: review ST-14.) */
+  .treat-tabs .instr-tab, .treat-tabs .instr-tab[aria-selected="true"] { flex: 1 1 0; justify-content: center; height: 30px; margin-left: 0; padding: 0 8px; border-radius: 7px; font-weight: 600; color: var(--text-2); }
+  .treat-tabs .instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
+  @media (forced-colors: none) { .treat-tabs.seg-glide::before { display: block; } .treat-tabs.seg-glide .instr-tab[aria-selected="true"] { background: none; box-shadow: none; } } @media (hover: hover) { .treat-tabs .instr-tab:hover { color: var(--text); } }
   .instrument-workspace .dock-head { padding: var(--card-head-pad) !important; }
   .instrument-workspace .dock-pane { padding-left: 16px; padding-right: 16px; }
 }
@@ -460,11 +464,13 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 }
 
 /* The presenter's start: a calm cover while the projector layout, the first patient and the first slide are set up. */
-.pz-cover { position: fixed; inset: 0; z-index: var(--z-cover); display: grid; place-items: center; background: var(--stage-bg); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
+.pz-cover { position: fixed; inset: 0; z-index: var(--z-cover); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: color-mix(in srgb, var(--stage-bg) 90%, transparent);   /* (the scene stays faintly under it: the screen is dimmed while the talk is made ready, never blanked) */ opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .pz-cover.on { opacity: 1; pointer-events: auto; transition-duration: var(--d-small); }
 .pz-cover.cut, .pz-cover.cut.on { transition: none; }
 .pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite, crossfade var(--d-surface) var(--ease) .9s backwards; }
-@media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition-property: opacity; } .pz-cover i { animation: crossfade .01s 1.2s backwards; } }
+.pz-cover span { max-width: min(80vw, 420px); text-align: center; font: 500 var(--fs-14)/1.35 var(--font-ui); color: var(--text-2); animation: crossfade var(--d-surface) var(--ease) .9s backwards; }   /* (the cue: what is opening, so a long wait is a loading, not a blank) */
+.pz-cover span small { display: block; font-size: var(--fs-12); color: var(--text-3); }
+@media (prefers-reduced-motion: reduce) { .pz-cover, .pz-cover.on { transition-property: opacity; } .pz-cover i, .pz-cover span { animation: crossfade .01s 1.2s backwards; } }
 .pz-load { position: absolute; left: var(--pz-l, 0px); right: var(--pz-r, 0px); top: var(--pz-t, 0px); bottom: var(--pz-b, 0px); display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .pz-load.on { opacity: 1; transition-delay: .12s; }
 .pz-load i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite; }
@@ -945,4 +951,4 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .app.thumb .instrument-workspace.float-ui:not(.side) .ab-read { padding-right: 0; }
   .app.thumb .instrument-workspace.float-ui:not(.side) .ab-ctl { margin-top: var(--ab-g); padding: calc(var(--ab-g) - 5px) 0 0; border-top: 1px solid var(--hairline); border-left: 0; align-content: start; }
 }
-
+.tl-pin > span { min-width: 8ch; text-align: center; }   /* (Compare / Stop: the pin keeps the width of its longer word, so the controls after it stay put, 16 Nov 2026) */
