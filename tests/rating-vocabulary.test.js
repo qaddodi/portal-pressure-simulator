@@ -24,8 +24,13 @@ const VALUES = [...Array.from({ length: 421 }, (_, i) => (i - 20) / 10), HVPG_CU
 
 test('the band words are the standard, short and long, and frozen', () => {
   assert.deepEqual(HVPG_WORDS, { ok: ['Normal', 'Normal'], caution: ['Mild', 'Mild portal hypertension'], danger: ['CSPH', 'Clinically significant portal hypertension (CSPH)'] });
-  assert.deepEqual(PPG_WORDS, { ok: ['Normal', 'Below the model\'s PPG reference line'], caution: ['High', 'Above the model\'s PPG reference line (portal hypertension)'], danger: [BLEED_WORD, 'Above the model\'s upper PPG line: the model reads a risk of variceal bleeding'] });   // (the long forms: the PPG by IR's result line, ir-ppg.js)
+  assert.deepEqual(PPG_WORDS, { ok: ['Normal', 'Below the model\'s PPG reference line'], caution: ['High', 'Above the model\'s PPG reference line (portal hypertension)'], danger: ['Very high', 'Above the model\'s upper PPG line (12 mmHg)'] });   // (the long forms: the PPG by IR's result line, ir-ppg.js)
   assert.equal(BLEED_WORD, 'Bleed risk');
+  // The bleed-risk word is the HVPG's (the model's rupture line, HVPG 12). No PPG band, tile or plane line may say it: HVPG 11.6 (CSPH) with PPG 13.5 must not read "CSPH" beside "Bleed risk" (play-test 16 Nov 2026).
+  for (const s of SEVS) for (const form of PPG_WORDS[s]) assert.ok(!/bleed/i.test(form), `PPG ${s}: ${form}`);
+  assert.equal(ppgWord(13.5), 'Very high');
+  assert.equal(hvpgWord(11.6), 'CSPH');
+  for (const pl of [PLANES['hvpg-ppg'], PLANES['flow-ppg']]) for (const n of Object.values(pl.lineNames?.y ?? {})) assert.ok(!/bleed/i.test(n), `plane line ${n}`);
   for (const W of [HVPG_WORDS, PPG_WORDS]) {
     assert.ok(Object.isFrozen(W));
     assert.deepEqual(Object.keys(W), SEVS);
@@ -82,7 +87,7 @@ test('the cut-off lines are named with the band words', () => {
   assert.equal(xCutName('hvpg', HVPG_CUTS.red), HVPG_WORDS.danger[0]);
   const p = PLANES['hvpg-ppg'];
   assert.equal(p.lineNames.x[HVPG_CUTS.red], `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}`);
-  assert.equal(p.lineNames.y[PPG_CUTS.red], `${BLEED_WORD} ≥${PPG_CUTS.red}`);
+  assert.equal(p.lineNames.y[PPG_CUTS.red], `PPG ≥${PPG_CUTS.red}`);
 });
 
 test('a number not known prints as the one em dash; in running text a value to come is the ellipsis', () => {

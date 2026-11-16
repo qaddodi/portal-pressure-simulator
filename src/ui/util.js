@@ -16,6 +16,7 @@ export { themeChanged, rideChanged } from './label-theme.js';   // (the page's l
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
 import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
+import { focusIn, focusBack } from './focus-flow.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
 import { readMetric, readBox } from './layout-snap.js';
@@ -431,6 +432,8 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
 
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
+  // (Never two menus in the page: one still fading out from a quick close and open (three taps 30 ms apart on Settings) is taken out at once, as the new one comes in. 16 Nov 2026.)
+  for (const old of sheetLayer().querySelectorAll(':scope > .menu.leaving, :scope > .um-scrim.out')) old.remove();
   const asSheet = sheet && matchMedia(STACK_MQ).matches;   // (the one breakpoint, shared with the main menu: a phone held sideways is a popover, as on a Mac)
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
@@ -514,10 +517,11 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   const kbSheet = asSheet ? keyboardSheet(el) : null;
   openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); kbSheet?.off(); onClose?.(); } };
   restAttr(anchor, 'aria-expanded', 'true');   // (a screen reader's state, written between frames)
-  // Opened from the keyboard (the button shows its focus ring): focus goes in, so Tab does not have to cross the whole page to reach
-  // the menu. A mouse or a touch leaves focus where it was.
-  // alloc-rare: only a menu opened from the keyboard, once, as it opens
-  if (anchor.matches?.(':focus-visible')) setTimeout(() => { if (openMenu?.el === el) el.querySelector('button, input, [tabindex="0"]')?.focus({ preventScroll: true }); }, 0);
+  // Focus goes in however it was opened (focus-flow.js): from the keyboard to its first control, from a mouse or a finger to the menu itself, so the keys
+  // act on it and Tab starts inside it, not on the button behind it. (Whether it was the keyboard is read now: a mouse click moves :focus-visible by the timer.)
+  // alloc-rare: once as a menu opens
+  const byKey = !!anchor.matches?.(':focus-visible');
+  setTimeout(() => { if (openMenu?.el === el) focusIn(el, { keyboard: byKey }); }, 0);
   return el;
 }
 /** A list that scrolls fades at its bottom edge while there is more below it (class .more), as the docked
@@ -694,12 +698,15 @@ export function reconcile(list, rows) {
     const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
     a.finished.then(() => g.remove(), () => g.remove());
   }
+  // (A row that comes in takes its room at once, so the rows under it slide down into place over the whole of its entrance, and it fades in only as
+  // they get there: it never stands drawn over the row it pushes, 16 Nov 2026. A row that only goes or moves keeps the short slide.)
+  const slide = fresh.size ? D_SMALL : D_FLIP, hold = fresh.size && was ? D_FLIP : 0;
   if (was) for (const [e, y0] of was) {
     const dy = y0 - e.offsetTop;
-    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE, composite: 'add' });
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: slide, easing: EASE_MOVE, composite: 'add' });
   }
   if (shown) {
-    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
+    for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: Math.max(going.length ? 80 : 0, hold), fill: 'backwards' });
   }
 }
 /**
@@ -1033,7 +1040,7 @@ export function closePopover() {
   // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
   const el = openMenu.el;
   // (Focus inside the menu goes back to its button before the menu is made inert; otherwise it would fall to the page.)
-  if (el.contains(document.activeElement) && openMenu.anchor.isConnected) openMenu.anchor.focus?.(NO_SCROLL);
+  focusBack(el, openMenu.anchor);
   // (A menu already out of the page has nothing to fade or remove. With Reduce Motion it still fades: app.css turns popOut into a fade.)
   // A sheet swiped away is already sliding down; it leaves when it is out of sight.
   // (Over the thumb dock it sinks behind the dock, as the cards do, in the same step: a leave is one flip, app.css dock-sheet-out.)

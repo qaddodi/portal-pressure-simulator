@@ -59,6 +59,7 @@ import { classSoon, classHas, textSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, createGlideTracker, lobuleMs, LOBULE_MS_MAX, D_SMALL } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
+import { TRIAD_A, TRIAD_D } from './lobule-tract-labels.js';
 import { camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
 import { diveMapInto } from './dive-map.js';
@@ -105,8 +106,7 @@ function curve(f, m = 160) {
   return { pts, len };   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 }
 // The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
-// far round either side of the outward direction, and the lymphatic straight out.
-const TRIAD_D = 0.09, TRIAD_A = 0.98;
+// far round either side of the outward direction, and the lymphatic straight out (TRIAD_D, TRIAD_A: lobule-tract-labels.js, its labels' spokes).
 // (A vessel seen end-on: a disc.)
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 // The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
@@ -2084,7 +2084,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
     // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
     // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
-    const lyOn = lymphOn && !m.hide; const biOn = bileOn && !m.hide; if (!flowSame && biOn) bileFlowInto(flowData, tubeSet, motionOf, { R: G.R, dt, dark, still: reduce.matches, texels: FLOW_TEXELS });   // (the Bile layer: faint arrowheads toward the ductule)
+    const lyOn = lymphOn && !m.hide; const biOn = bileOn && !m.hide; if (!flowSame && biOn) bileFlowInto(flowData, tubeSet, motionOf, { R: G.R, dt, dark, still: reduce.matches, texels: FLOW_TEXELS, cssW: 1 / V.k });   // (the Bile layer: faint arrowheads toward the ductule)
     if (!flowSame && lyOn) {
       const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
@@ -2778,14 +2778,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) { if (o) o.part = 'cv'; return true; }
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || t.bile || (t.lymph && !lymphOn)) continue;   // (the bile is not picked: it has no reading)
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.bile ? !bileOn : t.lymph && !lymphOn)) continue;   // (the bile and the lymph only while their layers are on)
       // (The radius where the point is nearest, not the middle's: a sleeve of Disse is wide at the portal edge and thin at the vein. Where vessels
       // overlap, the one drawn on top there wins, so a tap in a sinusoid's lumen is the sinusoid's, never the sleeve's round it: lobule-pick.js.)
       const d = distTo(t.pts, x, y), r = radiusAt(t, Math.round(distU * (N - 1))), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = pickRank(d, r, Z_OF[t.kind] ?? 0, t.kind === 'tw' ? 2 : 0, tierOf(t.kind));
       if (d < tol && score < bd) { bd = score; best = t; }
     }
-    if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }
+    if (best) { if (o) { o.part = best.kind === 'tw' ? 'ha' : best.bile ? best.kind : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind; o.tube = best.id; o.tri = best.tri; } return true; }
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) { if (o) o.part = 'septum'; return true; } }

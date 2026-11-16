@@ -467,6 +467,8 @@ const CV_CONG = 'Raised outflow pressure congests zone 3 first: sinusoidal dilat
 const HA_A = 'Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).';
 const HA_BUFFER = (x) => `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(x, 1)}).`;
 const BD_A = 'Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.';
+const BS_A = 'Hepatocytes secrete bile into canaliculi, channels between neighboring hepatocytes sealed by tight junctions. Bile flows outward toward the portal tract, against the blood, and enters a canal of Hering at the limiting plate.';
+const BH_A = 'The canal of Hering joins the canaliculi to the bile ductule of the portal tract. It is lined partly by hepatocytes and partly by cholangiocytes, and harbors the progenitor cells that give rise to the ductular reaction in chronic liver injury.';
 const LV_A = 'Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.';
 const LV_UP = 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Beyond lymphatic capacity, the excess transudes from the liver surface as ascites.';
 const LV_DOWN = 'Less filtration than the comparison: lymph flow has fallen.';
@@ -514,6 +516,8 @@ function buildLobuleCards() {
       verbs: [lobuleAbout((m, o) => { o.push(HA_A); if (m.art > 1.15) o.push(memoTenth(c, m.art, HA_BUFFER)); })] });
   }
   cards.set('bd', { ...LOBULE_BASE, title: 'Bile ductule', value: () => BILE, verbs: [lobuleSaid(BD_A)] });
+  cards.set('bs', { ...LOBULE_BASE, title: 'Bile canaliculus', value: () => BILE, verbs: [lobuleSaid(BS_A)] });
+  cards.set('bh', { ...LOBULE_BASE, title: 'Canal of Hering', value: () => BILE, verbs: [lobuleSaid(BH_A)] });
   {
     const h = newHold();
     cards.set('lv', { ...LOBULE_BASE, title: 'Lymphatic',

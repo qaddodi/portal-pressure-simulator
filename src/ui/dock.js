@@ -3,6 +3,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
+import { wallShare, WALL_MEANING } from '../engine/wall-read.js';
 import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, bandSwap, recolorWords } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { lobuleFlows } from './lobule-model.js';
@@ -85,15 +86,15 @@ export const TILES = [
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 9 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 15 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
-  { id: 'liver', ...fromTile('liver'), group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', why: 'sinFlow', v: (m) => m.liverPerfPct,
+  { id: 'liver', ...fromTile('liver'), group: 'flow', hideKey: 'model', k: 'Liver flow vs healthy', ks: 'Liver flow', why: 'sinFlow', v: (m) => m.liverPerfPct,
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
-  { id: 'shunt', ...fromTile('shunt'), group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100,
+  { id: 'shunt', ...fromTile('shunt'), group: 'flow', k: 'Portal blood shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100,
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
-  { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratioShown * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal variceal wall stress (Laplace: pressure × radius ÷ wall thickness; an educational index, not a measured quantity), as a % of the stress at which the varix ruptures in the model.',
+  { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => wallShare(m.varix) * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal variceal wall stress (Laplace: pressure × radius ÷ wall thickness; an educational index, not a measured quantity), as a % of the stress at which the varix ruptures in the model. ' + WALL_MEANING,
     scale: [0, 100], ticks: [40, 70, 90],
-    st: (v, m) => (m.varix.ratioShown >= 0.9 ? 'critical' : m.varix.ratioShown >= 0.7 ? 'danger' : m.varix.ratioShown >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
+    st: (v, m) => (wallShare(m.varix) >= 0.9 ? 'critical' : wallShare(m.varix) >= 0.7 ? 'danger' : wallShare(m.varix) >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale signs' : m.varix.grade.label),
     ss: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale' : m.varix.grade.label) },
   { id: 'ascites', ...fromTile('asc'), group: 'effects', pane: 'abdomen', k: 'Ascites', why: 'ascites', v: (m) => m.ascites.volume / 1000,

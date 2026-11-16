@@ -41,3 +41,9 @@ test('layoutParagraph: a no-wrap run is never split, a word wider than the colum
   const wide = layoutParagraph([{ text: 'Supercalifragilistic is', weight: 400, size: 16 }], 40).lines;
   assert.equal(wide.length, 2);
 });
+
+test('mayBreak: a number\'s unit after a slash stays with it ("160,000/µL"), a word pair may still break', () => {
+  assert.equal(mayBreak('/', 'µ', '0'), false);
+  assert.equal(mayBreak('/', 'm', '5'), false);
+  assert.equal(mayBreak('/', 'v', 's'), true);
+});

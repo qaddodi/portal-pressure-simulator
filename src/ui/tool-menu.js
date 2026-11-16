@@ -102,7 +102,7 @@ export function geo(w, h, f, dots, base, steps = false, baseLabel = '') {
   const read = 'PPG, mmHg', size = 'Dot size: portosystemic shunt fraction', two = cw(read, f, 1) + cw(size, f, 1) + 4 * f > w, keyH = (two ? 2 : 1) * rowH + 0.2 * f;
   const stepKey = steps ? stepKeyOf(dots, w, f, base ? baseLabel : '') : null, stepH = stepKey?.rows ? stepKey.rows * rowH + 0.3 * f : 0;
   const most = clamp(Math.floor((h - 3.3 * f - stepH - keyH - 2 * f) / (1.6 * f)) + 1, 3, 7), sL = leftScale('ppg', ys, most, [12]);
-  const ax = { name: 'Sinusoidal flow, % of normal', unit: '%', d: 0, k: 'liver' };
+  const ax = { name: 'Liver blood flow, % of healthy', unit: '%', d: 0, k: 'liver' };
   const tw = Math.max(...sL.ticks.map((v) => cw(fmtTick(v, 0), f))), L = Math.ceil(tw + 14), R = Math.floor(w - 10);
   const { xt, nameAt } = xAxisRow(x0, x1, L, R, w, f, ax, Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f)))));
   const foot = (nameAt == null ? 3.1 : 1.7) * f, T = keyH + 1.4 * f, B = h - foot - 0.2 * f - stepH;

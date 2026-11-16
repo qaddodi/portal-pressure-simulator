@@ -17,6 +17,8 @@ class FakeEl {
   contains() { return false; }
   closest(sel) { let e = this; while (e) { if (sel === '.thumb-bar' ? e.className.includes('thumb-bar') : sel === '.vdock' ? e.className.includes('vdock') : false) return e; e = e.parent; } return null; }
   get nodeType() { return 1; }
+  querySelectorAll() { return []; }
+  focus() {}
 }
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };

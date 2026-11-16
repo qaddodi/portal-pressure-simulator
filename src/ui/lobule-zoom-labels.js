@@ -462,7 +462,7 @@ export function createLobuleLabels(st, live) {
     for (let i = 0; i < 6; i++) { d = keepBuf[i + 1]; d.x = sX(C[i][0]); d.y = sY(C[i][1]); d.r = Math.max(14, (g.rt || 6) * TRACT_KEEP * V.k); }
     return keepBuf;
   };
-  const DESIGN = ['triad', 'lymph', 'cv', 'sin'];   // the labels with a designed spot (layoutLabels designed)
+  const DESIGN = ['triad', 'lymph', 'cv', 'sin', 'ha', 'bd'];   // the labels with a designed spot (layoutLabels designed)
   const CORE = ['cv', 'sin', 'triad'];   // the vessel labels: never left out for the slide's pill
   // The ring on the spot: its centre and radius on screen (null while the spot is out of view), and how far from the ring's
   // centre everything else keeps (the radius, half its 4 px stroke and a small gap), so no label or pill ever touches it.

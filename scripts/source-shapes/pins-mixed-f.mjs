@@ -371,7 +371,6 @@ export default [
   { file: 'src/ui/stage-label-items.js', need: [/deltaHere\(id\) && badge\(/, 'The figure\'s callouts after the 17 Oct design review:'] },   // (was a slice of the file)
   { file: 'src/ui/stage-label-items.js', need: [/const signed = \(d, txt\) => `\$\{d > 0 \? '\+' : '−'\}\$\{txt\}`;/, 'The figure\'s callouts after the 17 Oct design review:'] },   // (was a slice of the file)
   { file: 'src/ui/stage-label-items.js', need: [/const deltaHere = \(id\) => \{ const st = store\.get\(\); return st\.presenting \? !!termTone\(id\) : selStation\(id\) \|\| st\.colorMode === 'delta' \|\| !!st\.compareSnap; \};/, 'The figure\'s callouts after the 17 Oct design review:'] },   // (was a slice of the file)
-  { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\);/, 'The figure\'s callouts after the 17 Oct design review: (the unit is said once, in the legend)'] },   // (was a slice of the file)
   { file: 'styles/app-*.css', need: [/\.lb-delta \{ fill: var\(--text\); \}/, 'The figure\'s callouts after the 17 Oct design review:'] },
   { file: 'styles/app-*.css', need: [/#labels \.lb\.term [^{]*\.lb-delta \{ fill: var\(--term\); \}/, 'The figure\'s callouts after the 17 Oct design review:'] },
   { file: 'src/ui/stage-label-solve.js', need: [/if \(shown\.some\(\(it\) => it\.short === 1\)\)/, 'The figure\'s callouts after the 17 Oct design review:'] },   // (was a slice of the file)

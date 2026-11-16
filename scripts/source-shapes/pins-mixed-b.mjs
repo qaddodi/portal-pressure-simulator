@@ -293,13 +293,13 @@ export default [
   { file: 'src/ui/vitals-gl.js', need: [/drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'the vitals monitor is all GPU: no 2D context, no cached pictures (one capsule per strip segment)'] },
   // wall-numbers-agree
   { file: 'src/ui/instruments.js', need: [/const wr = wallRead\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/instruments.js', need: [/v\.ratioShown > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
-  { file: 'src/ui/instruments.js', need: [/wMean = v\.ratioShown/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
-  { file: 'src/ui/dock.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/compare.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/inspector.js', need: [/metrics\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/inspector.js', need: [/wallShare\(f\.metrics\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/inspector.js', need: [/metrics\.gastricVarix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/engine/explain.js', need: [/m\.varix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/engine/explain.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   // warm-vis
   { file: 'src/ui/stage*', need: [/const seen = warmVis\(o\.id\);/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },
   { file: 'src/ui/stage*', need: [/\(wmVis && !wmVis\[2 \* \(t < 0\.5 \? i0 : i1\) \+ \(side > 0 \? 1 : 0\)\]\)/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },
@@ -314,4 +314,10 @@ export default [
   { file: 'src/ui/lobule-zoom*', need: [/const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout'] },
   { file: 'src/ui/lobule-zoom*', need: [/\+ hex\.share\(cBox\) \* INSIDE_COST \+ c4/, 'the pointer pill prefers spots outside the lobule'] },
   { file: 'src/ui/credit.js', need: [/\.lz-call, \.lz-call-r\.on,/, 'the credit keeps clear of the lobule pointer pill ring'] },
+  // play-test fixes, 16 Nov 2026
+  { file: 'styles/app-04-presenter.css', need: [/\.pz-panel\.pz-grows \{ top: calc\(50% - var\(--pz-open-h\) \/ 2\); translate: -50% 0; \}/, 'A centred card that grows (the quick check\'s answers) hangs its top where its open height centres, so it lengthens downward and nothing above moves (7d)'] },
+  { file: 'src/ui/presenter-zoom.js', need: [/el\.style\.setProperty\('--pz-open-h', `\$\{readMetric\(el, 'offsetHeight'\)\}px`\)/, 'The open height is read while every answer is open (7d)'] },
+  { file: 'src/ui/chart-looks/path.js', forbid: [/tok\('border-strong'\)/, 'A path figure\'s quiet lines are the third text ink at about half, never the pale border colour (7c)'] },
+  { file: 'src/ui/chart-looks/path.js', forbid: [/opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'An unlit word or line in a path figure keeps at least UNLIT (70%) of its colour (7c)'] },
+  { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\) \|\| unitNow\(\);/, 'A figure label on a slide always carries its unit (B2); off a slide the unit is said once, in the legend'] },
 ];

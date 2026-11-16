@@ -3,6 +3,7 @@
 import { classHas, classSoon } from './class-soon.js';
 import { LONG_LEAD, SHORT_LEAD, discInto, needsLeader } from './label-place.js';
 import { runInside } from './leader-end.js';
+import { fanCost, fanSpot, mkFan, tractFan } from './lobule-tract-labels.js';
 import { restAttr, restPass } from './rest-pass.js';
 import { camId, camSet, camThen } from './scene-cam.js';
 import { createSearchBudget } from './search-budget.js';
@@ -36,8 +37,7 @@ export function createLobuleRecords(st, live) {
   }
   // (The layout's geometry, shared with the zoom's ride check: rideHolds.)
   const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
-    * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
-  const into = discInto;
+    * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t)), into = discInto;
   // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
   // (The segment's parameter range, narrowed by each axis in turn: kept here, so a test makes no array.)
   let ct0 = 0, ct1 = 1;
@@ -75,7 +75,7 @@ export function createLobuleRecords(st, live) {
     ux: -1, uy: 0, nx: 0, ny: -1, tractR: 14, paired: false, pairN: 0, triIt: null, lyIt: null, px: 0, py: 0,
     cand: new Float64Array(2048), cb: { l: 0, r: 0, t: 0, b: 0 }, bb: { l: 0, r: 0, t: 0, b: 0 }, q: [0, 0], disc: { x: 0, y: 0, r: 10 },
     room: { fr: [0, 0, 0, 0], pad: 0, hx: 0, hy: 0, keep: [], nk: 0, cards: null },
-    vb: '', vbW: -1, vbH: -1,
+    vb: '', vbW: -1, vbH: -1, fan: mkFan(),
   };
   const SOL_A = mkSol(), SOL_B = mkSol();
   const N7 = [0, -1, 1, -2, 2, -3, 3], R3 = [1, 1.6, 2.4];
@@ -114,6 +114,7 @@ export function createLobuleRecords(st, live) {
   // Sets LC.px, LC.py to the label's preferred spot.
   function setPreferred(k, a, w, hh) {
     const ux = LC.ux, uy = LC.uy, nx = LC.nx, ny = LC.ny, hx = LC.hx, hy = LC.hy, keep = LC.keep, triIt = LC.triIt, paired = LC.paired;
+    if (fanSpot(LC.fan, k, LC)) return;   // (the portal tract's labels: each out along its own spoke, lobule-tract-labels.js)
     const ex = Math.abs(ux) * w / 2 + Math.abs(uy) * hh / 2, ey = Math.abs(ux) * hh / 2 + Math.abs(uy) * w / 2;
     // (Offsets reach past each box's margins (hx, hy): the box's inner corner just clears the tract's disc, or the lymphatic's own spot.)
     const mx = Math.abs(ux) * hx + Math.abs(uy) * hy, my = Math.abs(ux) * hy + Math.abs(uy) * hx;
@@ -123,8 +124,7 @@ export function createLobuleRecords(st, live) {
     else if (k === 'lymph') { LC.px = a[0]; LC.py = a[1] - hh / 2 - 14; }
     else if (k === 'cv') { const sd = triIt && triIt.a[0] > a[0] + 1 ? -1 : 1; LC.px = a[0] + sd * (keep[0].r + hx + 2 + w / 2); LC.py = a[1]; }
     else if (k === 'sin') { LC.px = a[0]; LC.py = a[1] + hh / 2 + hy + 14; }
-    else if (k === 'ha') { LC.px = a[0] - w / 2 - 14; LC.py = a[1] - hh / 2 - 10; }
-    else if (k === 'bd') { LC.px = a[0] + w / 2 + 14; LC.py = a[1] - hh / 2 - 10; }
+    else if (k === 'ha' || k === 'bd') { LC.px = a[0] + (k === 'ha' ? -1 : 1) * (w / 2 + 14); LC.py = a[1] - hh / 2 - 10; }   // (only with no spoke: fanSpot)
     else { LC.px = a[0]; LC.py = a[1]; }
   }
   // Places the labels of `order` one at a time into `S` (a kept solution: its result for each label, its boxes and its leaders), on top of
@@ -210,7 +210,7 @@ export function createLobuleRecords(st, live) {
           + cardS
           + (rd > 0 ? 1e6 + rd * 1e3 : 0)
           + keepS
-          + (into(disc, cb) > 0 ? 1e6 : 0)
+          + (into(disc, cb) > 0 ? 1e6 : 0) + fanCost(LC.fan, k, a, q)
           + lead * 8 + Math.max(0, lead - 3 * hh) * 60 + Math.max(0, lead - SHORT_LEAD) * 30 + Math.hypot(x - px, y - py) * pw
           // A label no slide names (the lymph, an arteriole, a ductule) is left out sooner than sent far from what it names
           // on a leader across the lobule (a phone once ran the Lymph label's 420 px over it, past every other label).
@@ -501,7 +501,7 @@ export function createLobuleRecords(st, live) {
       const over = lim - far;
       if (over > 0) pairN += over + 1;
     }
-    LC.pairN = pairN;
+    LC.pairN = pairN; tractFan(LC.fan, g.triads[pick.triad], [g.cx * V.k + V.x, g.cy * V.k + V.y], V, g.R, keep[pick.triad + 1].r, items, (pick.lt ?? pick.triad) === pick.triad, fr, hx, hy);   // alloc-rare: one pair a layout, never a frame of a hand's move
     let sol = solve(items, base, LC.ld0, SOL_A);
     // (Mid-pinch, the first order is kept; the full search runs once the hand lets go.)
     live.rough = sol.total >= 1e5 && handOn();

@@ -428,7 +428,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .pal { --pal-veil: 0 0 0 100vmax var(--scrim); width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--pal-veil); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
-.pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
+.pal-input { flex: 1; min-width: 0; text-overflow: ellipsis; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
 .pal-list { max-height: min(56svh, 440px, var(--pal-room, 100svh)); overflow: auto; padding: 8px; }   /* (--pal-room: the room above the on-screen keyboard, set by palette.js while it is up) */
 .pal-item { display: grid; grid-template-columns: 72px 1fr; gap: 2px 12px; width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-card); background: transparent; text-align: left; cursor: pointer; color: var(--text); }
 .pal-list.glides { position: relative; }   /* (one highlight under the rows glides to the active one; palette.js) */

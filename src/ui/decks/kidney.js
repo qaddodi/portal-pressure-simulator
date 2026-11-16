@@ -65,7 +65,7 @@ export const KIDNEY = {
       eq: [mi('APP') + mo('=') + mi('MAP') + mo('−') + mi('IAP'), 'Abdominal perfusion pressure: mean arterial pressure minus intra-abdominal pressure'],
       caveat: 'The APP is a pressure, not kidney function: the model has no GFR, creatinine or urine output, and no guideline gives the APP a normal range.',
       kicker: 'Abdominal perfusion pressure', site: 'sin', title: 'The abdominal perfusion pressure is the MAP minus the IAP',
-      line: 'The intra-abdominal pressure (IAP) is subtracted from the MAP. At a MAP of {map}, the abdominal perfusion pressure (APP) is {rpp}.',
+      line: 'The intra-abdominal pressure (IAP) is subtracted from the MAP. At a blood pressure of {map}, the abdominal perfusion pressure (APP) is {rpp}.',
       notes: 'The abdominal perfusion pressure is the mean arterial pressure minus the intra-abdominal pressure (APP = MAP − IAP), the definition of the World Society of the Abdominal Compartment Syndrome (WSACS). In health the IAP is about 5 mmHg and lowers the APP little. The tile is a number only: Baveno VIII gives no cut-off for it, and the WSACS consensus did not support an APP-directed resuscitation target (PMID 23673399), so the tile has no normal or low band. The blood pressure itself keeps Baveno VIII 4.6\'s lines (systolic <90 mmHg, MAP <65 mmHg). The tile is a pressure, not renal perfusion or kidney function: the model has no glomerular filtration, creatinine or urine output, and it cannot say whether a kidney is injured or recovering.',
       ask: ['The MAP is 80 mmHg and the IAP is 15 mmHg. What is the APP?', '65 mmHg: the MAP minus the IAP.'],
     },
