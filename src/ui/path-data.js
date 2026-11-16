@@ -66,8 +66,8 @@ export const outcomeOf = (of, L) => algoOf(of).outcomeOf?.(L) ?? null;
 export const OUTCOMES = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, a.outcomes || []]));
 /** The phone's reading for one outcome: { head, tone, stmt, why, next }, in words, from the patient's own numbers. */
 export const readingFor = (of, key, p) => algoOf(of).reading?.(key, p) ?? null;
-/** The patient's numbers as a short list of words ('LSM 31 kPa', 'Child–Pugh C11'), for the card's header. */
-export const chipsOf = (of, p) => algoOf(of).chips?.(p) || [];
+/** The patient's numbers as a short list of words ('LSM 31 kPa', 'Child–Pugh C11'), for the card's header (tiled: the tile keys the card's header row already shows, whose readings the list leaves out). */
+export const chipsOf = (of, p, tiled) => algoOf(of).chips?.(p, tiled) || [];
 /** The patient a slide's tool names: the slide's own facts (tool.patient), over which the live model's readings go where it has them. */
 export const patientFor = (t, fp, shown = (k, v) => v) => algoOf(t?.of).patientFor(t, fp, shown);
 /** The longest patient each algorithm can print (every chip, the widest numbers), so a card reserves room for any patient: it never changes size. */

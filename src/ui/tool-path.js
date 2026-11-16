@@ -27,6 +27,7 @@ import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
 import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, isLive, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
+import { headKeys } from './card-tiles.js';
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
@@ -45,6 +46,9 @@ export const ROLE = {
   // the ladder's stage label, "Patient is here", what the stage means, and the way back (its lead and its words)
   sn: { weight: 500, size: 11, lh: 14 }, yo: { weight: 600, size: 11, lh: 14 }, sw: { weight: 600, size: 12, lh: 16 }, bk: { weight: 400, size: 12, lh: 16 }, bb: { weight: 600, size: 12, lh: 16 },
 };
+
+/** The readings the card's header row already shows as tiles (card-tiles.js headKeys: the slide's tiles beside its instrument), so the card does not say them again. */
+export const tiledOf = (s, phone = false) => new Set(headKeys(s, phone));
 
 /** A reading as its tile prints it (the cut-offs are judged on what the tile shows). */
 export function shownOf(k, v) { const T = TILE[k] || {}; return +(v * (T.x ?? 1)).toFixed(T.d ?? 1); }
@@ -174,7 +178,7 @@ export function createPath() {
   const pic = h('div', { class: 'pzp-pic' });
   const gl = createSvgGL(pic, { host: 'path' });
   const el = h('div', { class: 'pz-path' }, pic);
-  let t = null, spec = null, of = 'first-visit', sl = null, card = false, W = 0, patient = null, lay = null, shownKey = '', ready = false, asked = false;
+  let t = null, slide = null, spec = null, of = 'first-visit', sl = null, card = false, W = 0, patient = null, lay = null, shownKey = '', ready = false, asked = false;
 
   function ctxFor() { try { const cx = chartCtx(pic); delete cx.svk; gl.setCtx(cx); } catch { /* (no card round it yet: the sizes as they stand) */ } }
   function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
@@ -188,11 +192,13 @@ export function createPath() {
     ctxFor();
     const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
     let y = 0;
-    L.y.kick = y; y += PILL_H + 6;
-    // (the patient's numbers: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
-    const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], Wv).h : 0);
+    // (no head row of its own: the card's header row names the card and carries the tiles' readings; the source's pill stands in the foot row with the figure's number)
+    // (the patient's numbers the header's tiles do not already show: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
+    const tiled = tiledOf(slide, phone);
+    const chipsH = (p) => (chipsOf(of, p, tiled).length ? flow([[{ text: chipsOf(of, p, tiled).join(' · '), face: 'chips' }]], Wv).h : 0);
     // (a card kind's patient is the slide's own and never changes while it is up: its row is this patient's alone, none when it has no chips)
-    L.chipsH = card ? chipsH(base) : isLive(of) ? Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh) : Math.max(chipsH(base), ROLE.chips.lh);
+    L.tiled = tiled;
+    L.chipsH = card ? chipsH(base) : isLive(of) ? Math.max(chipsH(base), chipsH(worst)) : chipsH(base);
     L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
     L.y.pic = y;
     if (card) {
@@ -219,7 +225,10 @@ export function createPath() {
     L.y.rule2 = y; y += 7;
     L.y.foot = y;
     L.foot = flow([[{ text: spec.foot, face: 'foot' }]], Wv);
-    y += L.foot.h;
+    // (the foot row: the figure's number on the left, the source's pill on the right, centred on one line)
+    L.pillW = Math.ceil(textWidth(spec.kick, { weight: ROLE.kick.weight, size: ROLE.kick.size })) + 2 * PILL_PAD;
+    L.footH = Math.max(L.foot.h, PILL_H);
+    y += L.footH;
     L.H = Math.ceil(y); L.Wv = Wv; L.sc = sc;
     // (a chart or card taller than the data card can hold is drawn smaller, all of it together, rather than cut off at the bottom: the card keeps
     // about half the window's height for it; the phone's small map has its own room)
@@ -239,16 +248,19 @@ export function createPath() {
     const kids = [], lit = [], dim = [], oy = lay.y.pic;
     const place = (items, ox, ot, on, tone) => { for (const i of items) kids.push(piece(i.face, ox + i.x, ot + i.y, i.text, on, tone)); };
     const rule = (y) => kids.push(svg('path', { d: `M0,${y + 0.5}H${lay.Wv}`, 'data-look': 'path.rule' }));
-    // the head: the algorithm's source and the patient's numbers
-    // the source in a pill (as the pills of the app: a quiet fill, the words in the second ink)
-    const pw = Math.ceil(textWidth(spec.kick, { weight: ROLE.kick.weight, size: ROLE.kick.size })) + 2 * PILL_PAD;
-    kids.push(svg('rect', { x: 0, y: lay.y.kick, width: pw, height: PILL_H, rx: PILL_H / 2, 'data-look': 'path.pill' }));
-    kids.push(piece('kick', PILL_PAD, lay.y.kick + (PILL_H - ROLE.kick.lh) / 2 + 12.5, spec.kick, false, 'text'));
-    if (lay.chipsH) place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], lay.Wv).items, 0, lay.y.chips, false, 'text');
+    // the head: the patient's numbers that no tile in the card's header row shows
+    if (lay.chipsH) place(flow([[{ text: chipsOf(of, patient, lay.tiled).join(' · '), face: 'chips' }]], lay.Wv).items, 0, lay.y.chips, false, 'text');
+    // the foot: the figure's number and, in a pill (as the pills of the app: a quiet fill, the words in the second ink), the source it comes from
+    const foot = () => {
+      const fy = lay.y.foot, px = lay.Wv - lay.pillW, py = fy + (lay.footH - PILL_H) / 2;
+      place(lay.foot.items, 0, fy + (lay.footH - lay.foot.h) / 2, false, 'text');
+      kids.push(svg('rect', { x: px, y: py, width: lay.pillW, height: PILL_H, rx: PILL_H / 2, 'data-look': 'path.pill' }));
+      kids.push(piece('kick', px + PILL_PAD, py + (PILL_H - ROLE.kick.lh) / 2 + 12.5, spec.kick, false, 'text'));
+    };
     if (card) {
       kids.push(...cardModel(spec.algo, lay.card, patient, CARD_HELPERS, oy));
       rule(lay.y.rule2);
-      place(lay.foot.items, 0, lay.y.foot, false, 'text');
+      foot();
       return svg('svg', { width: W, height: lay.Hr, viewBox: `0 0 ${lay.Wv} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}. ${said}` }, ...kids);
     }
     // the chart or the map: connectors first (grey under, the path over), then the nodes
@@ -276,7 +288,7 @@ export function createPath() {
       }
     }
     rule(lay.y.rule2);
-    place(lay.foot.items, 0, lay.y.foot, false, 'text');
+    foot();
     return svg('svg', { width: W, height: lay.Hr, viewBox: `0 0 ${lay.Wv} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
   }
 
@@ -284,12 +296,12 @@ export function createPath() {
   function paint() {
     if (!spec || !patient || !lay) return;
     const Lit = litOf(of, patient), out = outcomeOf(of, Lit), r = out ? readingFor(of, out, patient) : null;
-    const chips = chipsOf(of, patient).join(' · ');
+    const chips = chipsOf(of, patient, lay.tiled).join(' · ');
     // (the key holds all that shows: the answers lit, the width and layout, the chips, and the reading's words)
     const key = `${[...Lit].sort().join()}|${W}|${lay.compact}|${chips}|${(card || lay.compact) && r ? `${card ? `${r.head}|` : ''}${r.why}${r.next}` : ''}`;
     if (key === shownKey) return;
     shownKey = key;
-    gl.show(modelOf(Lit, lay.compact ? out : null, r ? `${chips ? `${chips}. ` : ''}${r.head}. ${r.why} ${r.next}`.trim() : chips), false);
+    gl.show(modelOf(Lit, lay.compact ? out : null, `${chipsOf(of, patient).join(', ')}${r ? `. ${r.head}. ${r.why} ${r.next}` : ''}`.replace(/^\. /, '').trim()), false);   // (what a screen reader hears has every number, tiled or not)
   }
 
   function pin(fp) {
@@ -308,6 +320,7 @@ export function createPath() {
     el,
     configure(tool, ctx) {
       t = tool || {};
+      slide = ctx?.slide || null;
       of = knownOf(t.of);
       spec = PATHS[of];
       card = isCardKind(spec.kind);
