@@ -43,9 +43,9 @@
 .instrument-workspace.float-ui .dop-stats dd small { font-size: 12px; }
 .instrument-workspace.float-ui .dop-stats > div.on, .instrument-workspace.float-ui .dop-stats > div[data-out="true"] { border-color: var(--hairline); }
 /* The speed carries its usual range: a short track with the band, and its two numbers under it. (Out of range, the figure turns amber.) */
-.instrument-workspace .dop-speed .dop-range { display: block; margin: 3px 0 0; }
+.instrument-workspace .dop-speed .dop-range { display: block; margin: 9px 1px 0; }   /* (a hand's width under the reading and in from the tile's two sides, so '15 | 40' stands clear of 'Speed 24 cm/s': play-test 16 Nov 2026) */
 .instrument-workspace .dop-speed .dop-track { height: 5px; border-radius: 3px; }
-.instrument-workspace .dop-speed .dop-ticks { height: 14px; margin-top: 2px; font-size: 12px; line-height: 14px; }
+.instrument-workspace .dop-speed .dop-ticks { height: 14px; margin-top: 4px; font-size: 12px; line-height: 14px; }
 .instrument-workspace .dop-speed .dop-ticks > .dop-g-zero { display: none; }
 .instrument-workspace .dop-speed .dop-ticks > span[data-u]:not([data-u=""])::after { content: none; }
 

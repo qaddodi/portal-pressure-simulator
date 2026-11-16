@@ -312,7 +312,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .tl-jumps { display: flex; align-items: center; gap: 2px; flex: none; }
 .tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: transparent; color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .tl-pin { --hv-bg: var(--surface-2); --hv-bd: var(--border-strong); --hv-bw: 1px; } .tl-pin:hover::before { opacity: 1 } }
-.tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+.tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }
 .tl-pop { display: flex; flex-direction: column; gap: 0; width: min(320px, calc(100vw - 24px)); max-height: 360px; overflow: auto; }
 .tl-pop-row { padding: 4px 6px 5px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
 .tl-pop-row:last-child { border-bottom: 0; }
