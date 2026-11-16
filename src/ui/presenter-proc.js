@@ -50,7 +50,7 @@ export function createProc(st, live) {
   function frameTo(cam, s, ms, opt = {}) {
     // (A Circuit slide's cam is a Circuit region, a raw box in circuit units or 'fit'; a name the circuit lacks is the fit.)
     const circ = s.view === 'circuit', cb = circ && cam !== 'fit' ? regionBox(cam, CIRC_REGIONS) : null;
-    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else { const o = live.alongOk && !opt.drift && !opt.steady ? { ...opt, along: true } : opt; stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, live.caseExit && !opt.drift ? { ...o, slow: true } : o); }   // (slow: the move in from a case card's whole patient takes the time the move out took, 900 ms: Mohammad, 15 Nov 2026, "after the case card the camera does a funky move")
+    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, live.caseExit && !opt.drift ? { ...opt, slow: true } : opt);   // (slow: the move in from a case card's whole patient takes the time the move out took, 900 ms: Mohammad, 15 Nov 2026, "after the case card the camera does a funky move")
   }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);

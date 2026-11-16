@@ -4,7 +4,7 @@ export default [
   { file: 'src/ui/instruments.js', need: [/showRate = balanceLine\(rateEl, rateArrow, rateTxt\)/, 'the belly\'s daily balance never flashes (19 Oct): one balanceLine, no dip-and-return timer'] },
   { file: 'src/ui/instruments.js', forbid: [/ab-rate-out|rateTimer/, 'the belly\'s daily balance never flashes (19 Oct): one balanceLine, no dip-and-return timer'] },
   // cam-arc
-  { file: 'src/ui/stage*', need: [/function frameBox\([\s\S]{0,700}animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}\)/, 'long camera moves pull back and come in (camera recs B, 29 Oct); Reduce Motion keeps the short plain glide'] },
+  { file: 'src/ui/stage*', need: [/function frameBox\([\s\S]{0,700}animateVT\(to, ms, \{ arc: true, steady: !!opt\.steady, scale: !opt\.steady, slide \}\)/, 'long camera moves pull back and come in (camera recs B, 29 Oct); Reduce Motion keeps the short plain glide'] },
   { file: 'src/ui/stage*', need: [/opt\.arc && !reduceMotion\.matches/, 'long camera moves pull back and come in (camera recs B, 29 Oct); Reduce Motion keeps the short plain glide (reduced motion keeps the short plain glide)'] },
   // cath-settle
   { file: 'src/ui/presenter*', need: [/later = glide && !ct && !!ui/, 'a catheter slide with a new patient changes the patient before its camera moves, the catheter then drives the view once the organs have settled'] },   // (was a slice of the file)

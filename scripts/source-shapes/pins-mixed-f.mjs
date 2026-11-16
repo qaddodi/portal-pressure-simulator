@@ -742,7 +742,7 @@ export default [
   { file: 'src/ui/lobule-zoom*', forbid: [/const qi = /, 'Fable review (16 Oct), graphics G18, G20, G21 and G22:'] },
   // slide-one-move
   { file: 'src/ui/presenter*', forbid: [/ONE_MOVE|QUICK_SLIDE|onemove|quickslide/, 'A slide change is one move (premium-feel R1):'] },
-  { file: 'src/ui/presenter*', need: [/const CARDS_AT = 0\.75, MORPH_ONE_MS = 1200;/, 'A slide change is one move (premium-feel R1):'] },
+  { file: 'src/ui/presenter*', need: [/const CARDS_AT = 1, MORPH_ONE_MS = 1200;/, 'A slide change is one move (premium-feel R1):'] },
   { file: 'src/ui/presenter*', need: [/const MORPH_MS = 2000;/, 'A slide change is one move (premium-feel R1): (the old window stays for a question\'s answer)'] },
   { file: 'src/ui/stage*', need: [/(?:live\.)?vtGliding = true; (?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?vtMs = ms;/, 'A slide change is one move (premium-feel R1):'] },
   { file: 'src/ui/stage*', need: [/glideLeft: \(\) => \((?:live\.)?vtGliding \|\| (?:live\.)?viewXf \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/, 'A slide change is one move (premium-feel R1):'] },
