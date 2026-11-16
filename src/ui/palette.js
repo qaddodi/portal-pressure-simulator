@@ -16,6 +16,7 @@ import { DRUGS } from '../engine/scenario.js';
 import { HIDDEN_EDGES } from './anatomy.js';
 import { LOOKS } from './looks.js';
 import { SURGICAL, SURGICAL_BY_ID, shuntName, surgicalVerbs } from './surgical-shunts.js';
+import { procLabel } from './procedure-names.js';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
@@ -67,7 +68,7 @@ export function createPalette({ ctx }) {
     for (const k of Object.keys(DRUGS)) add('Treat', DRUGS[k].label, () => updateParams((p) => { p.drugs[k] = !p.drugs[k]; return p; }, { label: DRUGS[k].label }), { kw: 'drug start stop' });
     add('Treat', 'Diuretics', () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }), { kw: 'spironolactone furosemide' });
     add('Treat', 'Anticoagulation', () => updateParams((p) => { p.anticoag = !p.anticoag; return p; }, { label: 'Anticoagulation' }), { kw: 'heparin' });
-    add('Treat', 'Band ligation', () => { ctx.select({ type: 'organ', id: 'varices' }); ctx.action({ kind: 'band' }); }, { kw: 'evl varices' });
+    add('Treat', procLabel('band'), () => { ctx.select({ type: 'organ', id: 'varices' }); ctx.action({ kind: 'band' }); }, { kw: 'evl varices' });
     add('Treat', 'Paracentesis', (n) => ctx.action({ kind: 'paracentesis', mL: Math.min(10, Math.max(1, n ?? 5)) * 1000, albumin: true }), { num: 'L', kw: 'drain ascites tap' });
     add('Treat', '1 L crystalloid', () => ctx.action({ kind: 'infuse', fluid: 'crystalloid' }), { kw: 'fluid saline' });
     add('Treat', '1 unit PRBC', () => ctx.action({ kind: 'infuse', fluid: 'prbc' }), { kw: 'transfuse blood' });
@@ -77,7 +78,7 @@ export function createPalette({ ctx }) {
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
     // The surgical shunts, as the Treat card's Procedures tab makes them (surgical-shunts.js), each with its take-down.
     for (const x of SURGICAL) add('Treat', shuntName(x), () => surgical.placeShunt(x.id), { kw: `${x.kw} ${x.sub}` });
-    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}`, when: SURGICAL_BY_ID[id].key === 'portocaval' ? !!P.portocaval : SURGICAL_BY_ID[id].on(P) });
+    for (const [id, name] of [['warren', 'distal splenorenal shunt (DSRS)'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}`, when: SURGICAL_BY_ID[id].key === 'portocaval' ? !!P.portocaval : SURGICAL_BY_ID[id].on(P) });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time

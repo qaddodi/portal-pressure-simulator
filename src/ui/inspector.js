@@ -11,6 +11,7 @@ import { h, fmt, fmtFlow, fp, ff, clamp, units, tooltipFor, infoButton, icon, sv
 import { liveBalance } from './balance-hold.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { runSoon, propSoon, attrSoon } from './class-soon.js';
+import { procLabel } from './procedure-names.js';
 const nextFrame = frameFor('inspector');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -111,7 +112,7 @@ export const CONTROLS = {
   brto: { type: 'toggle', key: 'occluded', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
   splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => SPLENIC_RX[v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the splenic arterial supply, splenectomy removes all of it. Lower splenic inflow lowers portal pressure and variceal inflow.' },
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', get: (p) => p.portocaval, set: (p, v) => { p.portocaval = v; if (!v) p.portocavalSide = false; }, info: 'End-to-side: total diversion; the liver loses all portal perfusion. Side-to-side (the shunt\u2019s own card) keeps the portal trunk, which then carries hepatofugal flow out of the liver.' },
-  dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: the coronary vein is ligated and the gastroesophageal varices decompress through the short gastric veins and the splenic vein to the left renal vein, while SMV blood still perfuses the liver.' },
+  dsrs: { type: 'toggle', key: 'dsrs', label: procLabel('dsrs'), ...prop('dsrs'), info: 'Selective: the coronary vein is ligated and the gastroesophageal varices decompress through the short gastric veins and the splenic vein to the left renal vein, while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
   rex: { type: 'toggle', key: 'rex', label: 'Meso-Rex bypass', ...prop('rex'), info: 'A vein graft from the superior mesenteric vein to the left portal vein, past a thrombosed main portal vein, restoring splanchnic inflow to the liver.' },
   gestation: { type: 'slider', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, ...prop('gestation'), format: (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant'), def: 0, info: PREGNANCY_INFO },

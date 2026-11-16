@@ -600,7 +600,10 @@ button.finding { cursor: pointer; }
 .sv-region-bc { font-size: calc(var(--t-cap) * var(--label-scale, 1)); color: color-mix(in srgb, var(--bile-duct) 80%, var(--text)); } .sv-region-bc > * { opacity: .9; }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). The zoom pill keeps its place at the bottom right: its minus and fit step back out to the lobule, its plus rests (there is nothing closer to go to). */
 #zoomPill .ib:disabled { opacity: .35; pointer-events: none; }
-#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #dock, #panel, #treatCard, #stageCenter) { display: none !important; }
+#app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep) { display: none !important; }   /* (the top bar's own: topbar-motion.js fades each out as a ghost and glides the rest) */
+/* The cards leave by a fade too, never a pop (play-test, Mac, 16 Nov 2026: they came back by a fade and went by an instant display: none). They stay laid out for the
+   fade, then drop out of the layout (display is a discrete transition); a browser without it hides them at once as before. */
+#app.sin-focus :is(#dock, #panel, #treatCard, #stageCenter) { display: none !important; opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease), display var(--d-small) allow-discrete; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
 /* The names, their leaders, pills and the legend drawn by the GPU (caption-gl.js) on a canvas under the names' page model, inside the

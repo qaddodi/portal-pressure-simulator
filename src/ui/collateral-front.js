@@ -22,6 +22,12 @@ const sstep = (x) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
 export const frontOpen = (p, out, s) => (out ? 1 - sstep((p * REACH - (1 - s)) / FRONT_SPAN) : sstep((p * REACH - s) / FRONT_SPAN));
 /** The radius factor at s (see frontOpen), from the hairline up to 1. */
 export const frontScale = (p, out, s) => FRONT_FLOOR + (1 - FRONT_FLOOR) * frontOpen(p, out, s);
+/** The last share of a closing over which the whole vessel, by then a hairline, fades out (and the first share of an opening over which it fades in):
+ *  the front leaves a hairline of FRONT_FLOOR, and a hairline that is taken off the figure in one frame is a pop (Mohammad, 16 Nov 2026). */
+export const FRONT_FADE = 0.3;
+/** How much of the vessel shows (0 nothing, 1 whole) when p of an opening (out false) or a closing (out true) has gone: the hairline comes
+ *  in over the first FRONT_FADE of an opening and goes over the last FRONT_FADE of a closing, so the vessel is never taken off whole. */
+export const frontAlpha = (p, out) => (out ? 1 - sstep((p - (1 - FRONT_FADE)) / FRONT_FADE) : sstep(p / FRONT_FADE));
 /** The share of the change gone at `now` for a reveal record {t0, dur}. */
 export const frontP = (r, now) => clamp((now - r.t0) / r.dur, 0, 1);
 /** s for the sample at u (0 at the vessel's first point): a record's dir is 1 when the flow runs from the first point, -1 when it runs to it. */

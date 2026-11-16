@@ -36,7 +36,7 @@ export default [
   { file: 'styles/app-*.css', forbid: [/\.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) > span:first-child \{[^}]*min-width: 0/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
   // deck-nav
   { file: 'src/ui/presenter*', need: [/want = clamp\(i, 0, slides\.length - 1\);\s*const tx = \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\);\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);\s*noteResume\(deck\.id, want, slides\.length\);/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
-  { file: 'src/ui/presenter*', need: [/resumeAt: \(d\) => resumeFor\(d\.id, \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.length\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
+  { file: 'src/ui/presenter*', need: [/resumeAt: \(d\) => resumeFor\(d\.id, slideCount\(d\)\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/lib\.start\(d\.id, r\?\.at \?\? 0\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/`Resume \$\{r\.at \+ 1\} \/ \$\{r\.n\}`/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/'From the start'/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
