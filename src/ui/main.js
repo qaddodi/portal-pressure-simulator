@@ -2162,7 +2162,7 @@ function openTreat() {
     count.textContent = n ? runningText : '';
   };
   sync.push(paintCount);
-  const [tabs, pane] = chart.treatBody(sync, () => {});
+  const [tabs, pane, fit] = chart.treatBody(sync, () => {});
   const body = h('div', { class: 'tc-body' }, pane, chart.treatChanges(sync));
   const grab = el.querySelector('.sheet-grab'), plate = el.querySelector(':scope > .sheet-plate');   // (the plate stays: put in once at setup, sheetParts; dropped, the sheet had no paper and the bar and pill showed through it)
   el.replaceChildren(...[plate, grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, h('span', {}, 'Treat')), count,
@@ -2172,6 +2172,7 @@ function openTreat() {
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
   arrive(el);
   el.hidden = false;
+  fit();   // (the pane's height on before the observer's first report: chart.js spare)
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
   refitStage();
