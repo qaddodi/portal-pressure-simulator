@@ -384,6 +384,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/gl\.scissor\(CELL_BOX\[i \* 4\][^\n]*tissue\(u, 1\); \}\n\s+gl\.disable\(gl\.SCISSOR_TEST\);/, "each box is its own scissored draw, and the test is switched off again for what is drawn after"],
   ]);
 
+  // The path card's head and foot (16 Nov 2026, Mohammad: "the info on top is redundant given we have the tiles"; "the Baveno citation can go down in the same line as the fig 1 text"): source shapes kept here (PR-02), each with its reason.
+  need('src/ui/tool-path.js', [
+    [/L\.footH = Math\.max\(L\.foot\.h, PILL_H\)/, "the source's pill stands in the foot row, level with the figure's number"],
+    [/px = lay\.Wv - lay\.pillW/, 'the pill sits at the right end of the foot row'],
+    [/chipsOf\(of, p, tiled\)/, "the chips leave out the readings the card's header tiles already show"],
+  ]);
+  forbid('src/ui/tool-path.js', /[Ll]ay?\.y\.kick/, "the source's pill is never a row above the figure again");
+
   // The bile canaliculus (16 Nov 2026, Mohammad: "Build the named canaliculus"): source shapes kept here (PR-02), each with its reason.
   need('src/ui/sinusoid-gl.js', [
     [/float vm = HEP \* \(0\.3 \+ 0\.4 \* h1\(j, sd \+ 9\)\), bend = 4\.0 \* \(h1\(j, sd \+ 10\) - 0\.5\)/, "the shader's cell border is the one canaliculusAt() follows, so the name's leader lands on the canaliculus drawn"],

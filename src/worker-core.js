@@ -10,6 +10,7 @@ import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
 import { setYours } from './engine/yours.js';
+import { calmTrail } from './engine/trail-calm.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -573,12 +574,20 @@ export function createCore(post) {
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
     // The steady state's last `secs` seconds, for an instrument whose window opens empty (see History above).
     history({ secs, reqId }) { startHistory(secs, reqId); },
-    restore({ snap }) { stateChanged(); morph = null; relaxUntil = 0; eng.restore(snap); lapse = null; paramsDirty = true; },
+    // keepBeat: the presenter's restore as an easing lands (applyState): the heart goes on from the beat it is at, as the morph carried it,
+    // not from the phase the slide's snapshot was taken at (that put a beat in the wrong place, or twice, on every slide that changes the patient).
+    restore({ snap, keepBeat }) {
+      stateChanged(); morph = null; relaxUntil = 0;
+      const cyc = eng.cyc, COf = eng.COf;
+      eng.restore(snap);
+      if (keepBeat && Number.isFinite(cyc)) { eng.cyc = cyc; if (COf !== undefined) eng.COf = COf; }
+      lapse = null; paramsDirty = true;
+    },
     // The presenter's change of patient, eased over ms from the live state (wherever it is, a change under way included) to snap.
     morph({ snap, ms }) {
       stateChanged();
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
-      if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
+      if (!(ms > 0)) { morph = null; const cyc = eng.cyc, COf = eng.COf; eng.restore(snap); if (Number.isFinite(cyc)) { eng.cyc = cyc; if (COf !== undefined) eng.COf = COf; } paramsDirty = true; return; }   // (a change with no easing keeps the beat too)
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
       morphParamsAt = morph.t0; paramsDirty = true;   // (the start posts the params once; the ticks then post them about 4 times a second)
       stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
@@ -659,7 +668,7 @@ export function createCore(post) {
           const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
           before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
         }
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, before, ...(extra ? { extra } : {}) });
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

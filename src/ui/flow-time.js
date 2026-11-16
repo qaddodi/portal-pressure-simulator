@@ -84,6 +84,25 @@ function fitSteps(a, b, n) {
 const scaleOf = ({ lo, step }, n) => { const ticks = ticksOf(lo, lo + n * step, step); return { min: ticks[0], max: ticks.at(-1), ticks }; };
 // A line with a scale of its own, [min, max, step] (body weight: 84 to 100% in fours, its 88% on a gridline).
 const fixedScale = ([lo, hi, step]) => scaleOf({ lo, step }, Math.round((hi - lo) / step));
+// Two lines on their own axes can end (or start) at nearly the same height, their dots and value labels one on the other (the Carvedilol
+// slide "HVPG and LSM over two years": 13.4 mmHg and 28.6 kPa, one line's label across the other's line; Mohammad, 16 Nov 2026). Each axis
+// is fitted tight to its own line, so where a line lands is up to the fit alone: when the ends are closer than END_APART of the plot's
+// height (the starts, START_APART), pairScales widens ONE axis (more room above its line, or below it, in the same nice steps) until they
+// stand clear. The ticks stay round and the axis honest (a wider axis shows the same line smaller, it does not change it), and a line is
+// never widened past STRETCH_MAX times its tight fit. The end counts first: starts are the pre-change state and often alike.
+export const END_APART = 0.28, START_APART = 0.18, STRETCH_MAX = 3.4, STRETCH_STARTS = 2.2;   // (a widening that clears only the starts is kept smaller)
+const WIDEN = [0.3, 0.6, 1, 1.5, 2];
+const fracOf = (sc, v) => (v - sc.min) / (sc.max - sc.min);
+/** An axis's scales in n steps for the range [a, b]: tight, then each wider above and each wider below. [{ sc, ext, span }] */
+function plans(a, b, n) {
+  const w = b - a, mk = (lo, hi, ext) => { const sc = scaleOf(fitSteps(lo, hi, n), n); return { sc, ext, span: sc.max - sc.min }; };
+  return [mk(a, b, 0), ...WIDEN.flatMap((e) => [mk(a, b + e * w, e), mk(Math.max(0, a - e * w), b, e)])];
+}
+/** 0: the ends and the starts stand apart; 1: only the starts are close; 2: the ends are close (and the starts apart); 3: both close. */
+export function apartTier(L, U, vl, vu) {
+  const e = Math.abs(fracOf(L, vl.at(-1)) - fracOf(U, vu.at(-1))), s = Math.abs(fracOf(L, vl[0]) - fracOf(U, vu[0]));
+  return (e >= END_APART ? 0 : 2) + (s >= START_APART ? 0 : 1);
+}
 /** The two axes of a chart, left (the lower line, vl) and right (the upper, vu), each fitted tight to its own line so each fills the
  *  plot's whole height, and cut in the same number of steps so the gridlines are one set and both axes' numbers sit on them. A line
  *  with a scale given (LINE option scale) keeps it and the other is fitted to its step count; else the count (2 to 5) that wastes the
@@ -100,12 +119,20 @@ export function pairScales(vl, vu, optL = {}, optU = {}, same = false) {
   if (optL.scale) { const L = fixedScale(optL.scale), n = L.ticks.length - 1, [a, b] = rangeOf(vu, optU.pad); return [L, scaleOf(fitSteps(a, b, n), n)]; }
   if (optU.scale) { const U = fixedScale(optU.scale), n = U.ticks.length - 1, [a, b] = rangeOf(vl, optL.pad); return [scaleOf(fitSteps(a, b, n), n), U]; }
   const [la, lb] = rangeOf(vl, optL.pad), [ua, ub] = rangeOf(vu, optU.pad);
+  const tier0 = apartTier(...[scaleOf(fitSteps(la, lb, 4), 4), scaleOf(fitSteps(ua, ub, 4), 4)], vl, vu), cap = tier0 >= 2 ? STRETCH_MAX : STRETCH_STARTS;
   let best = null;
   for (const n of [4, 3, 5, 2]) {
-    const L = fitSteps(la, lb, n), U = fitSteps(ua, ub, n), waste = Math.max(n * L.step / (lb - la), n * U.step / (ub - ua));
-    if (!best || waste < best.waste - 1e-9) best = { n, L, U, waste };
+    for (const L of plans(la, lb, n)) {
+      for (const U of plans(ua, ub, n)) {
+        if (L.ext && U.ext) continue;   // (one axis is widened, never both: the other stays on its tight fit)
+        const cost = Math.max(L.span / (lb - la), U.span / (ub - ua));
+        if ((L.ext || U.ext) && cost > cap) continue;   // (a line is never flattened to a sliver of its axis to clear a label)
+        const tier = apartTier(L.sc, U.sc, vl, vu);
+        if (!best || tier < best.tier || (tier === best.tier && cost < best.cost - 1e-9)) best = { tier, cost, L: L.sc, U: U.sc };
+      }
+    }
   }
-  return [scaleOf(best.L, best.n), scaleOf(best.U, best.n)];
+  return [best.L, best.U];
 }
 
 /** trail: [[day, ...the model's lines], ...] → { min (the clock: minutes, or days), pv (the lower line), flow (the upper), one
@@ -113,11 +140,9 @@ export function pairScales(vl, vu, optL = {}, optU = {}, same = false) {
  *  (0 min), its last the end of the rise; on the 'days' clock each model day is its own step. lines: their keys, their scales;
  *  given: the end value of a line the slide gives (LINE option given), which climbs from 0 to it as the time-lapse runs.
  *  view (the days clock, optional; the slide's tool): { scales: { key: [min, max, step] } (a line's own scale in place of a fitted one: a
- *  pressure from zero, so a change keeps its true size; both lines need one, in as many steps), smooth: n (each model day is the mean of the
- *  2n + 1 days around it, fewer toward the two ends, whose own readings stay: the model's day-by-day readings carry the beat's and the
- *  breath's phase at the moment each was taken, a ripple of a few tenths of a mmHg that is no part of a two-month trend), before: { key:
+ *  pressure from zero, so a change keeps its true size; both lines need one, in as many steps), before: { key:
  *  value } (the state before the change the time-lapse starts from, drawn at day 0 on the day of the change; the model's own first day
- *  is then day 1, a step at the very left, as sudden as the change is) }. */
+ *  is then day 1, a step at the very left, as sudden as the change is) }. The trail's days are already calmed: the worker does it where they are made (engine/trail-calm.js). */
 export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given = null, view = null) {
   const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
   const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));
@@ -135,25 +160,11 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
   const lead = clock === 'days' && view?.before && lines.every((k) => Number.isFinite(view.before[k])) ? 1 : 0;   // (days drawn from the state before the change)
   const col0 = (j) => Array.from({ length: min.length }, (_, k) => (k < lead ? view.before[lines[j]] * x[j] : at(j, min[k])));
-  const calm = (a, j) => (clock !== 'days' || !(view?.smooth > 0) || opt(lines[j]).given ? a : smoothed(a, view.smooth, lead));
-  const pv = calm(col0(0), 0), flow = calm(col0(1), 1);
+  const pv = col0(0), flow = col0(1);
   const o = (j) => (view?.scales?.[lines[j]] ? { ...opt(lines[j]), scale: view.scales[lines[j]] } : opt(lines[j]));
   const [pScale, fScale] = pairScales(pv, flow, o(0), o(1), !opt(lines[0]).given && !opt(lines[1]).given && LINE[lines[0]]?.[1] === LINE[lines[1]]?.[1]);
   return { min, pv, flow, pScale, fScale, ax };
 }
-// Each value from index `from` on, the mean of the values within h days of it (the window shortened toward either end so it stays centred,
-// the first and last readings kept as they are, so the ends match the numbers beside the chart). The first `from` values are left alone.
-function smoothed(a, h, from = 0) {
-  const n = a.length;
-  return a.map((v, i) => {
-    if (i <= from || i === n - 1) return v;
-    const r = Math.min(h, i - from, n - 1 - i);
-    let t = 0;
-    for (let k = i - r; k <= i + r; k++) t += a[k];
-    return t / (2 * r + 1);
-  });
-}
-
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = svgModel;
 // The plot, drawn at the chart's own size in pixels with the card's small type (f): both lines over the plot's full height, the

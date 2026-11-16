@@ -19,7 +19,7 @@
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //   tool: { kind: 'evgraph', title? }                a TIPS, BRTO or BATO slide's procedure graph (event-graph.js) in the data card, drawn live after the stent as the presenter plays it
 //   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too;
-//   view: { scales, smooth, since } shapes the days chart, see flowTimeSeries: since is a slide's id, whose state the lines start from)
+//   view: { scales, since } shapes the days chart, see flowTimeSeries: since is a slide's id, whose state the lines start from)
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
@@ -178,7 +178,7 @@ export function createTools({ host, stage }) {
       cur = inst; kind = k;
       box.dataset.kind = k === 'evgraph' ? 'flowtime' : k;   // (the procedure's graph is the flow-time chart's box and looks: its card sizes and fits as that one does)
       if (k === 'talk') inst.set(chain);
-      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view || before ? { scales: t.view?.scales, smooth: t.view?.smooth, before } : null });
+      else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given, view: t.view || before ? { scales: t.view?.scales, before } : null });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
       if (startOver) { if (held) primeWait = true; else prime(inst, k); }
     },

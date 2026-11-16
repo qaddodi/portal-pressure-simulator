@@ -5,7 +5,6 @@
 import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { ALGOS, PATHS, chipsOf, patientFor } from '../src/ui/path-data.js';
 import { tiledOf, shownOf } from '../src/ui/tool-path.js';
 import { DECKS } from '../src/ui/decks.js';
@@ -47,10 +46,6 @@ test('every deck slide with a path card and header tiles: the chips repeat none 
   assert.ok(n >= 1, 'at least one deck slide pairs a path card with tiles');
 });
 
-test('the source pill stands in the foot row with the figure number, not above the figure', () => {
-  const src = readFileSync(new URL('../src/ui/tool-path.js', import.meta.url), 'utf8');
-  assert.ok(!/L\.y\.kick|lay\.y\.kick/.test(src), 'no head row for the pill');
-  assert.match(src, /L\.footH = Math\.max\(L\.foot\.h, PILL_H\)/, 'the foot row holds the pill');
-  assert.match(src, /px = lay\.Wv - lay\.pillW/, 'the pill sits at the right end of the foot row');
+test('every algorithm has a source for its pill, which stands in the foot row (scripts/rules-lint.mjs holds the layout rule)', () => {
   for (const [id, p] of Object.entries(PATHS)) assert.ok(p.kick, `${id} has a source for its pill`);
 });
