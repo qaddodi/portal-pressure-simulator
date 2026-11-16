@@ -566,6 +566,12 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }
 /* (And what the % is of: "Sinusoids 93% of healthy", "Portal in −21% of healthy, reversed"; the bar's other tiles hide it for room, the lobule's two have it.) */
 .app .vdock .readouts.lob .metric .v .u-x { display: inline; }
+/* (A phone's slim bar, about 73 px a reading, has no room for "of healthy" beside the number: at 390 the four readings ran 67 px past the bar, the last cut off (play-test T02, 16 Nov 2026).
+   The words are left to the reading's title and its spoken form; only a reversed flow still says so, in the unit's small type, as the unmeasured HVPG does.) */
+@media (max-width: 480px) {
+  .app.thumb .vdock .readouts.lob .metric .v .u-x { font-size: 0; margin: 0; }
+  .app.thumb .vdock .readouts.lob .metric .v .u-x[data-rev]::after { content: 'reversed'; font-size: var(--fs-12); margin-left: 3px; color: var(--text-3); }
+}
 
 /* A phone held sideways (U4, 13 Nov 2026): the toolbar (Treat, Tests, History, Settings, Search) stands in one narrow glass rail at the trailing edge,
    icons only, so the top bar is one row (the patient and the colour key) and the figure has the height the second row took. The rail is at

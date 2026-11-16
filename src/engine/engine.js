@@ -853,12 +853,16 @@ export class Engine {
 
   /** Whether solved pressures Pn put any open vein on the other side of its collapse point (computeG's waterfall test). */
   collapseFlips(Pn) {
+    const EDGE_BAND = 1;
     for (const k of this.veins) {
       if (this.G[k] === 0) continue;
       const f = this.edgeF[k], t = this.edgeT[k], x = this.vx[k];
       const up = Pn[f] >= Pn[t] ? f : t, dn = up === f ? t : f;
       const w = Pn[dn] - x < 0 && Pn[up] - x > 0.5 ? (up === f ? 1 : -1) : 0;
       if (w !== this.wf[k] && w === this.wfPrev[k]) return true;
+      // (A vein that sits within a mmHg of its collapse point is at that edge whichever side the step left it: a long step carries it across and a
+      // shorter one back, three or four steps to the cycle, so the sos patient with 2 L of ascites never settled to one number. It is stepped by halves.)
+      if (Math.abs(Pn[dn] - x) < EDGE_BAND && Pn[up] - x > 0.5) return true;
     }
     return false;
   }
