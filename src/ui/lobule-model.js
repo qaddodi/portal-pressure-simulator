@@ -9,6 +9,7 @@ import { NODES, EDGES } from '../engine/topology.js';
 import { clamp } from './util.js';
 import { oxygenFor } from './blood.js';
 import { sinceNow } from './since-ref.js';
+import { readAt } from './slide-read.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -32,6 +33,18 @@ export function lobuleFlowsInto(out, f, H) {
   out.art = ratioOf(Q, HQ, LOBE.a); out.iap = asc?.iap ?? 5; out.lymph = asc?.hepLymph ?? 0; out.lyProt = asc?.lymphProt ?? 0.88; out.sigma = asc?.lymphSigma ?? 0.15;
   out.lymph0 = H?.metrics?.ascites?.hepLymph || 0.8;
   return out;
+}
+
+/** On a slide, the readings the slide's own state also gives (its fingerprint, which its tiles and words print; a what-if or a time-lapse keeps it
+ *  to the live model's: stage.siteFp) are read from it while the live model agrees to within a breath (slide-read.js). So the lobule's three
+ *  pressures and its lymph and protein print the number the card and the words print, on every slide of one state (16 Nov 2026, play-test:
+ *  17.3 on the figure, 16.7 on the card). Every consumer of the model (labels, cards, the sinusoid's) reads the pinned value. */
+function pinToSlide(m, st) {
+  const fp = st.presenting && !st.compareSnap ? st.presentFp : null, at = fp?.at?.P;
+  if (!at || m.hide) return;
+  m.P1 = readAt(m.P1, at[NI[LOBE.pv]]); m.P2 = readAt(m.P2, at[NI[LOBE.sin]]); m.P3 = readAt(m.P3, at[NI[LOBE.cv]]);
+  m.lymph = readAt(m.lymph, fp.hepLymph, Math.max(0.1, 0.08 * Math.abs(fp.hepLymph || 0)));
+  m.lyProt = readAt(m.lyProt, fp.lymphProt, 0.03);
 }
 
 /** The lens a store state has the vessels coloured by: the imaging view's neutral, a comparison's change, or the chosen "Colored by". */
@@ -67,6 +80,7 @@ export function lobuleStateInto(m, f, st, since = sinceOf(st), P = f.P) {
   const Hs = m.H ||= [0, 0, 0, 0, 0];   // alloc-rare: only the first time an output object is filled (then written in place)
   for (let i = 0; i < 5; i++) Hs[i] = HP?.[NI[NODE_IDS[i]]];
   lobuleFlowsInto(m, f, H);
+  pinToSlide(m, st);
   m.zone = zone; m.s = sc; m.cong = cong; m.hide = !!st.imaging; m.fib = fib; m.hvpg = f.metrics?.hvpg;
   m.fibSin = clamp(Math.log(zone.sin) / 3.2, 0, 1); m.fibPre = clamp(Math.log(zone.pre) / 5.4, 0, 1) ** 0.6; m.fibPost = clamp(Math.log(zone.post) / 4.8, 0, 1) ** 0.6;
   m.congU = clamp(cong / 12, 0, 1); m.shuntU = clamp((sc - 0.45) / 0.35, 0, 1); m.septU = clamp((sc - 0.3) / 0.5, 0, 1);

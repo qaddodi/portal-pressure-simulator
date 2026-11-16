@@ -1,6 +1,7 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
+import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
 import { wallShare, WALL_MEANING } from '../engine/wall-read.js';
@@ -118,10 +119,10 @@ export const LOBULE_TILES = [
   { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Hepatic arteriolar inflow to the lobule, as a percentage of the healthy patient\u2019s inflow. It rises when portal inflow falls (hepatic arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art', f, st) * 100, d: 0, u: '%', ux: ' of healthy',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'High' : 'Normal') },
-  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 0.8 mL/min; above about three times that, the excess enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lobuleVal('lymph', f, st), d: 1, u: 'mL/min',
-    scale: [0, 5], ticks: [1.2, 2.4],
-    st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
-    s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Hepatic lymph, formed in the space of Disse and drained to the portal tract. Normal is about 1,150 mL/day; above about three times that, the excess enters the peritoneal cavity (ascites).', why: 'hepLymph', v: (f, st) => lymphDay(lobuleVal('lymph', f, st)), d: 0, u: LYMPH_UNIT,
+    scale: [0, 7200], ticks: [1730, 3460],
+    st: (v, f, st) => { const r = v / lymphDay(lobuleFlows(f, st.healthy).lymph0); return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
+    s: (v, f, st) => { const r = v / lymphDay(lobuleFlows(f, st.healthy).lymph0); return r >= 3 ? 'Overflow' : r >= 1.5 ? 'High' : 'Normal'; } },
 ];
 // Collapsed, the lobule view keeps its two key flows: through the sinusoids and in from the portal venule.
 export const LOBULE_PRIMARY = new Set(['lz-sin', 'lz-pv']);

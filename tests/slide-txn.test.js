@@ -101,7 +101,7 @@ test('go() begins the transaction before anything else of the change, and the pr
 });
 
 test('transitionRun checks its transaction after every await before it publishes content, visibility, camera or marks', () => {
-  const run = PZ.slice(PZ.indexOf('async function transitionRun('), PZ.indexOf('function paintOverlays('));
+  const run = PZ.slice(PZ.indexOf('async function transitionRun('), PZ.indexOf('const reFit = '));
   assert.match(run, /cut = \(\) => !deck \|\| want !== to \|\| gen !== g \|\| !txnLive\(tx\);/);
   const code = run.replace(/\/\/[^\n]*/g, '');
   const re = /if \(!await\b|\bawait\s+(\w+)?|cut\(\)|\b(cardsIn|figureIn|applyState|paintOverlays|camera|cathTo)\(|shown = \{/g;
