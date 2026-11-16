@@ -468,7 +468,7 @@ export function createLobuleField(st, live) {
       case 'bc': return t.taper ? Math.max(0.36, R * lerp(0.0011, 0.0026, smooth(0.2, 1, i / (N - 1)))) : Math.max(0.36, R * 0.0013);
       case 'bm': return Math.max(0.6, R * 0.0032);
       case 'bh': return Math.max(0.9, R * lerp(0.0036, 0.0058, i / (N - 1)));
-      case 'bs': return Math.max(0.22, R * lerp(0.0004, 0.0036, smooth(0.04, 1, t.rho[i]) ** 1.2));   // (almost nothing at the central vein, thickening outward)
+      case 'bs': return Math.max(0.16, R * lerp(0.0004, 0.0036, smooth(0.04, 1, t.rho[i]) ** 1.2) * smooth(0, 0.22, i / (N - 1)));   // (almost nothing where it starts, thickening outward)
       case 'bx': return Math.max(0.6, R * 0.0022 * (1 - 0.4 * i / (N - 1)));
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);

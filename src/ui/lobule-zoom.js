@@ -1376,7 +1376,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       for (let e = 0; e < 6; e++) {
         const A = C[e], B = C[(e + 1) % 6], tr = triads[(e + 1) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(mx - cx, my - cy), nx = (mx - cx) / nl, ny = (my - cy) / nl;
         const hp = (s) => [lerp(A[0], B[0], s) + nx * HOFF * (1 - 0.35 * smooth(0.8, 1, s)), lerp(A[1], B[1], s) + ny * HOFF * (1 - 0.35 * smooth(0.8, 1, s))];
-        const t = add('bh', curve((u) => { const s = lerp(0.1, 0.9, u), e2 = smooth(0.82, 1, u), p = hp(s); return [lerp(p[0], tr.bd[0], e2), lerp(p[1], tr.bd[1], e2)]; }), { tri: (e + 1) % 6, lymph: true, edge: e, bile: true });
+        // From the ductule of the tract at its start (round outside its corner), along the edge, to the ductule of the next: one canal joins the portal tracts in a ring.
+        const trS = triads[e], cA = Math.atan2(trS.bd[1] - C[e][1], trS.bd[0] - C[e][0]), p0 = hp(0.1);
+        let cB = Math.atan2(p0[1] - C[e][1], p0[0] - C[e][0]); cB = cA + ((cB - cA) % TAU + TAU) % TAU;
+        const rA = Math.hypot(trS.bd[0] - C[e][0], trS.bd[1] - C[e][1]), rB = Math.hypot(p0[0] - C[e][0], p0[1] - C[e][1]), poly = [];
+        for (let k = 0; k <= 14; k++) { const u = k / 14, an = lerp(cA, cB, u), rr = lerp(rA, rB, u) + R * 0.045 * Math.sin(Math.PI * u); poly.push([C[e][0] + Math.cos(an) * rr, C[e][1] + Math.sin(an) * rr]); }
+        for (let k = 1; k <= 28; k++) { const u = k / 28, s = lerp(0.1, 0.9, u), e2 = smooth(0.82, 1, u), p = hp(s); poly.push([lerp(p[0], tr.bd[0], e2), lerp(p[1], tr.bd[1], e2)]); }
+        const t = add('bh', curve((u) => at(poly, u)), { tri: (e + 1) % 6, lymph: true, edge: e, bile: true });
+        join(trS.bd[0], trS.bd[1], [trS.bdT, t], R * 0.004);
         hering[e] = { t, hp, A, B, nx, ny };
         join(tr.bd[0], tr.bd[1], [tr.bdT, t], R * 0.004);
       }
@@ -1418,22 +1425,39 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           }
         }
       }
-      // d: a channel beside every sinusoid (on its plate side), almost nothing at the central vein, thickening outward, easing onto the vessel at each
-      // junction so the channels merge where the sinusoids do, then out to the canal of Hering along the edge and on to the ductule.
+      // d: a channel beside every sinusoid, on the plate side, never touching it: one per leaf path, thin where it starts near the central vein (or in the crotch of a
+      // branch, where its side would otherwise cross a sinusoid), keeping to its side of the vessel round every bend, thickening outward, out to the canal of Hering.
       if (BILE === 'd') {
-        const bside = rsN * 2.7, rampU = (u) => smooth(0, 0.24, u) * smooth(1, 0.76, u);
-        const lane = (t, headPts) => {
-          const P = t.pts, Q = P.map((q, i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, o = bside * rampU(i / (N - 1)); return [q[0] - ((b[1] - a[1]) / L) * o, q[1] + ((b[0] - a[0]) / L) * o]; });
-          return add('bs', curve((u) => at([...headPts, ...Q], u)), { lymph: true, bile: true });
+        const rsK = { s0: 1, s1: 1.15, s2: 1.3 }, unit = (x, y) => { const L = Math.hypot(x, y) || 1; return [x / L, y / L]; };
+        const sideOf = (ch, par) => { const dP = unit(par.pts[0][0] - par.pts[1][0], par.pts[0][1] - par.pts[1][1]), dC = unit(ch.pts[N - 2][0] - ch.pts[N - 1][0], ch.pts[N - 2][1] - ch.pts[N - 1][1]); return dP[0] * dC[1] - dP[1] * dC[0] >= 0 ? 1 : -1; };
+        // a tube's points in the bile's direction (central vein to portal tract), each stepped to one side
+        const lanePts = (T, side, from) => {
+          const P = T.pts, out = [], off = rsN * (rsK[T.kind] || 1) * 2.25;
+          for (let i = N - 1 - from; i >= 0; i--) {
+            const a = P[Math.min(N - 1, i + 1)], b = P[Math.max(0, i - 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]);
+            out.push([P[i][0] - ty * side * off, P[i][1] + tx * side * off]);
+          }
+          return out;
         };
-        const lanes = new Map();
-        for (const t of L0) {
-          const h = hering[t.edge], q0 = t.pts[0], hp = h.t.pts[Math.min(N - 1, nearOn(h.t, q0[0], q0[1]) + 5)], pre = [lerp(hp[0], q0[0], 0.55), lerp(hp[1], q0[1], 0.55)];
-          const b = lane(t, [hp, pre]); lanes.set(t.id, b); join(hp[0], hp[1], [h.t, b], R * 0.003);
+        for (const leaf of L0) {
+          const P1 = leaf.parent != null ? tubes[leaf.parent] : null, P2 = P1 && P1.parent != null ? tubes[P1.parent] : null;
+          const side = P1 ? sideOf(leaf, P1) : 1, chain = [leaf];
+          if (P1) { chain.unshift(P1); if (P2 && sideOf(P1, P2) === side) chain.unshift(P2); }
+          let poly = [];
+          chain.forEach((T, k) => {
+            let from = 0;
+            if (k === 0) from = T === P2 || (T === P1 && !P2) ? 0 : Math.ceil(0.14 * N);   // (the first tube: from the central vein's rim, or a little past the crotch)
+            let Q = lanePts(T, side, from);
+            if (k === 0 && T.kind === 's2') Q = Q.filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > rcv0 * 1.35);
+            else if (k === 0 && T === P1 && P2 === null) Q = Q.filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > rcv0 * 1.35);
+            poly = poly.concat(k === 0 ? Q : Q.slice(1));
+          });
+          if (poly.length < 3) continue;
+          const h = hering[leaf.edge], q0 = poly[poly.length - 1], hp = h.t.pts[Math.min(N - 1, nearOn(h.t, q0[0], q0[1]) + 5)];
+          const full = smoothPoly([...poly, [lerp(q0[0], hp[0], 0.5), lerp(q0[1], hp[1], 0.5)], hp]);
+          const t = add('bs', curve((u) => at(full, u)), { lymph: true, bile: true });
+          join(hp[0], hp[1], [h.t, t], R * 0.003);
         }
-        for (const t of [...L1, ...L2]) lanes.set(t.id, lane(t, []));
-        for (let m = 0; m < n1.length; m++) { const p = n1[m]; join(p[0], p[1], [lanes.get(L0[2 * m].id), lanes.get(L0[2 * m + 1].id), lanes.get(L1[m].id)], R * 0.0025); }
-        n2.forEach((p, m) => { const kids = L1.filter((_, j) => Math.min(n2.length - 1, j >> 1) === m).slice(0, 3); join(p[0], p[1], [...kids.map((k) => lanes.get(k.id)), lanes.get(L2[m].id)], R * 0.0025); });
       }
       // Ductular reaction: three short fine ducts curl out of the canal's end beside the tract; they fade in with portal fibrosis.
       for (let e = 0; e < 6; e++) {
