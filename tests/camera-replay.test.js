@@ -27,6 +27,7 @@ import { isCamOn, regionBox } from '../src/ui/cam-frame.js';
 import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, SLIDE_MS_MIN, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
 import { diveAlong, diveMapInto } from '../src/ui/dive-map.js';
 import { viewBoxAt, viewXfCameraInto, viewXfRetarget } from '../src/ui/view-xf.js';
+import { createCamLock, judgeSlideMove, lockedWrite } from '../src/ui/slide-cam.js';
 
 const { createGlide } = await import('../src/ui/stage-glide.js');
 const { createRide } = await import('../src/ui/stage-ride.js');
@@ -192,10 +193,20 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         // a late first frame (the move's own layout pass), then 16 ms frames, a 1 s stall somewhere in the move (seeded by the move), a near refit
         // half way, and a near refit 300 ms after the landing
         const stallAt = 0.15 + ((j * 0.37) % 0.75), late = 120 + (j % 4) * 60;
-        let t = late, stalled = false, refit = false;
+        let t = late, stalled = false, refit = false, tamper = false;
         for (let guard = 0; guard < 2000 && (r.live.vtGliding || guard === 0); guard++) {
           const u = Math.max(0, (t - late) / ms);
           if (!stalled && u >= stallAt) { stalled = true; t += 1000; stalls++; }
+          // (every other writer of the camera tries while the move runs: the vessel layer's home fit set outright, another's glide state, a dry
+          // solve that puts the view back, the stage's home fit asked as a glide. None may bend the move: slide-cam.js, the lock.)
+          if (u >= 0.3 && !tamper) {
+            tamper = true; r.now(t);
+            r.live.vt = nudge(b, vb, 0.25);
+            r.live.vtGliding = false; r.live.vtTarget = null;
+            r.live.camLock.dry(() => { const keep = r.live.vt; r.live.vt = a; r.live.vt = keep; });
+            r.g.animateVT(a, 450, {});
+            r.g.animateVT(nudge(b, vb, 0.004), 400, { steady: true });   // (and last, a near refit: the landing itself)
+          }
           r.run(t); rec();
           if (!refit && u >= 0.5) { refit = true; r.now(t); r.g.animateVT(nudge(b, vb, 0.012), 400, { steady: true }); }
           t += 16;
@@ -203,6 +214,10 @@ for (const [name, scr] of Object.entries(SCREENS)) {
         assert.ok(!r.live.vtGliding, `${name}, ${at}: it lands`);
         r.now(t + 300); r.g.animateVT(nudge(b, vb, -0.015), 400, { steady: true });
         for (let k = 0; k < 60 && r.live.vtGliding; k++) { t += 16; r.run(t + 300); rec(); }
+        // (the slide camera's own record, judged by the judge the app runs on a device: window.pps.cameraGate)
+        const tr = r.live.camLock.traces().at(-1);
+        assert.deepEqual(judgeSlideMove(tr, vb, { lateMs: 400 }), [], `${name}, ${at}: the judge`);
+        assert.ok(tr.blocked.length >= 1 && tr.held.length >= 3, `${name}, ${at}: the other writers were refused and held (${tr.blocked.length}, ${tr.held.length})`);
         const glides = r.moves.filter((m) => m.kind === 'glide');
         assert.equal(glides.length, 1, `${name}, ${at}: one move, not ${glides.length} (${r.moves.map((m) => m.kind).join(', ')})`);
         assert.ok(Math.abs(r.live.vt.k - b.k) < 1e-9 && Math.abs(r.live.vt.x - b.x) < 1e-6 && Math.abs(r.live.vt.y - b.y) < 1e-6, `${name}, ${at}: on the slide's framing`);
@@ -386,7 +401,11 @@ test('with no change in the view box the camera through a change is the plain ev
 function rig(from, room = null) {
   let clock = 0, frames = [];
   const moves = [], vb = room?.vb || camWindow(1440, 800, BOX), wMax = room?.wMax || vb.w, real = performance.now;
-  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vt: { ...from }, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => false, following: false, rideCTM: null, morphTarget: 0, lastFree: null };
+  // (the stage's camera lock and its one write of the view, as stage.js wires them: slide-cam.js)
+  let vtv = { ...from }, hand = false;
+  const camLock = createCamLock();
+  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => hand, following: false, rideCTM: null, morphTarget: 0, lastFree: null, camLock,
+    get vt() { return vtv; }, set vt(v) { if (lockedWrite(camLock, () => hand)) vtv = v; }, setHand(h) { hand = h; } };
   const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [vb.cx, vb.cy], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
   const g = createGlide(st, live);
   return { live, g, vb, moves, now(t) { clock = t; performance.now = () => clock; }, run(t) { clock = t; const c = frames; frames = []; for (const cb of c) cb(t); }, done() { performance.now = real; } };
@@ -545,7 +564,9 @@ test('a real change asked while a slide\'s move runs (a card folded, the screen 
     for (; r.live.vtGliding && t < 6000; t += 16) r.run(t);
     assert.ok(Math.abs(r.live.vt.k - C.k) < 1e-9 && Math.abs(r.live.vt.x - C.x) < 1e-6, 'and then the change, once');
     const kinds = r.moves.map((m) => m.kind);
-    assert.deepEqual(kinds, ['glide', 'held', 'glide'], `the slide's glide, the change held, then its glide (${kinds.join(', ')})`);
+    assert.deepEqual(kinds, ['glide', 'held', 'after', 'glide'], `the slide's glide, the change held, then its glide, named as a move after the landing (${kinds.join(', ')})`);
+    // (and the judge fails that slide: its plan was made before the room it frames was final)
+    assert.ok(judgeSlideMove(r.live.camLock.traces().at(-1), r.vb).some((f) => /second move after the landing/.test(f)), 'the judge names the second move');
     // a new slide, a hand and a slow push are never held
     r.now(t); r.g.animateVT(B, 1500, { arc: true, scale: true, slide: true });
     r.now(t + 100); r.g.animateVT(A, 900, { scale: true, v0: { k: 0, x: 0.1, y: 0 } });

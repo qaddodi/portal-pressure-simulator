@@ -6,6 +6,7 @@ import { CAM_CARRY_MAX, CAM_MS_MAX, camMs, carriedCam, easeMove, slideMs, spring
 import { cancelFrame } from './frame.js';
 import { STALL_MAX, glideClock, lateShift } from './glide-clock.js';
 import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
+import { createSlideClock, planSlide, slideEase } from './slide-cam.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
 
@@ -13,34 +14,78 @@ import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
   const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, screenW, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
   let freeAsk = null;   // (the rectangle frameBox fitted its framing into: set only around its animateVT call)
-  // ── One slide, one straight move (16 Nov 2026, Mohammad: "I THOUGHT WE FIXED THIS AT THE ORIGIN") ──
-  // A slide's move to its framing (opt.slide: the presenter's camera(), presenter-proc.js frameTo) is the rail: one path planned as it sets off
-  // (cam-arc.js lerpVT, the plain glide: the pan tied to the zoom on one eased curve, every point of the figure on a straight line, the zoom on a
-  // log scale and one way; never the pull-back arc), never followed along a vessel (the T4 glide,
-  // deleted 16 Nov 2026: it curved up to 18 % of the move off its line), never bent or restarted by a framing asked while it runs. Such a
-  // framing (a refit to the cards, the figure's home fit, a closed sheet) is held: a near one is dropped, a real change (a card folded, the
-  // screen turned) is the one glide after the landing. For RAIL_SETTLE_MS after the landing a near one is dropped too, so the cards settling
-  // never add a second small leg. A new slide's move, a hand, a slow push and a jump take over at once.
-  const RAIL_NEAR_PAN = 0.03, RAIL_NEAR_ZOOM = Math.log(1.05), RAIL_SETTLE_MS = 2000;   // motion-scale: not a move (a window and two tolerances)
-  let rail = null;   // { to, until, pend }
-  /** Whether view a is within the rail's tolerance of view b: the zoom within 5 %, the middle of the view within 3 % of a screen. */
-  function nearView(a, b) {
-    if (!(Math.abs(Math.log(a.k / b.k)) <= RAIL_NEAR_ZOOM)) return false;
-    const [cx, cy] = vbCenter();
-    return Math.hypot((cx - a.x) / a.k - (cx - b.x) / b.k, (cy - a.y) / a.k - (cy - b.y) / b.k) * b.k <= RAIL_NEAR_PAN * screenW();
+  // ── The slide camera (slide-cam.js: why, and its law) ──
+  // A slide's move (opt.slide: the presenter's camera(), presenter-proc.js frameTo, the stage's fitSlow) runs on its own: slideGlide below,
+  // one plan, one path, one clock, and the camera's lock (live.camLock), which refuses every other write of the view and holds every other
+  // glide while it runs. The rest of this file is the camera for everything else (a hand's glide, a refit at rest, a drift, a catheter).
+  // What follows the camera in the frame it moves, for every glide (a slide's and any other), with u the glide's eased progress.
+  function followCam(u) {
+    if (live.rideCTM) rideStep();   // (a card's zoom, which owns the ride)
+    // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
+    // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
+    if (live.cath.st) { refreshCTM(); live.cathLabelsSoon(); }
+    if (live.sites.list) { refreshCTM(); sitesPaint(); }
+    if (live.scan.on) live.scanPaint();
+    live.dprobePaint();
+    glideXfStep(u);   // (a presenter's glide: the new slide's labels crossed with the old on its progress)
   }
-  /** A framing asked while the rail holds the camera: held (true) or let through (false, the rail let go). */
-  function railHolds(to, ms, opt) {
-    if (!rail) return false;
-    if (opt.slide || opt.v0 || opt.drift || ms <= 0 || live.aiming) { rail = null; return false; }
-    if (live.vtGliding && live.vtTarget === rail.to) {
-      rail.pend = nearView(to, rail.to) ? null : { to, ms, opt };
-      logMove({ t: performance.now(), kind: 'held', pend: !!rail.pend });
+  const vbNow = () => { const [cx, cy] = vbCenter(); return { w: screenW(), h: 0, cx, cy }; };
+  const slideBuf = { k: 1, x: 0, y: 0 };
+  function slideGlide(to, ms) {
+    const lk = live.camLock;
+    live.following = false;
+    cancelFrame(live.vtAnim); live.vtAnim = 0; live.arcRun = null;
+    if (live.drifting) driftEnd();
+    live.drifting = false;
+    const from = { k: live.vt.k, x: live.vt.x, y: live.vt.y }, red = reduceMotion.matches;
+    const plan = planSlide(from, to, screenW(), red && ms > 0 ? reducedMs(ms, true) : ms, red);
+    live.vtTarget = to;
+    if (plan.ms <= 0 || sameView(from, to)) {
+      lk.release('jump');
+      if (!sameView(from, to)) logMove({ t: performance.now(), ms: 0, kind: 'glide', slide: true, jump: true, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+      live.vtGliding = false; live.vt = { k: to.k, x: to.x, y: to.y }; applyVT(); live.CTM = null; camSettle(); live.dprLet(); return;
+    }
+    const run = lk.hold(plan, 'slide'), clock = createSlideClock(plan.ms), vb = vbNow();
+    run.vb = vb;
+    logMove({ t: run.t0, ms: plan.ms, restart: live.vtGliding, kind: 'glide', arc: false, slide: true, k0: from.k, k1: to.k, x0: from.x, y0: from.y, x1: to.x, y1: to.y, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
+    vtTrack.begin();
+    live.vtGliding = true; live.vtUntil = run.t0 + plan.ms; live.vtMs = plan.ms;
+    if (store.get().presenting) glideXfStart(to);
+    live.camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil;
+    stageScope.timer(camSettleIdle, plan.ms + 80);   // (a fallback only: the landing settles it; the timer leaves a glide still running alone)
+    live.dprLet();
+    const step = (now) => {
+      if (!lk.mine(run)) return;   // (let go: a hand, a new slide, a turn, a change of view, a card's zoom)
+      const raw = clock.tick(now), u = slideEase(raw);
+      plan.at(u, slideBuf);
+      lk.as(() => { live.vt = { k: slideBuf.k, x: slideBuf.x, y: slideBuf.y }; });
+      lk.frame(run, now, live.vt);
+      live.vtGliding = true; live.vtTarget = to; live.vtUntil = now + clock.left(); live.vtMs = plan.ms;   // (another's write of these is put right each frame)
+      vtTrack.sample(live.vt, now);
+      applyVT(); live.CTM = null;
+      followCam(u);
+      if (raw < 1) { run.raf = nextFrame(step); return; }
+      live.vtGliding = false; live.arcRun = null;
+      const pend = lk.land(run, vb);
+      camSettle();
+      // (A glide held while the move ran that would land elsewhere: the plan was made before the room it frames was final. It runs now, as
+      // one move after the landing, and the trace names it, so the gate fails it and the cause can be found: never a bend in this move.)
+      if (pend) { logMove({ t: performance.now(), kind: 'after', why: pend.why }); animateVT(pend.to, pend.ms, pend.opt); }
+    };
+    run.raf = nextFrame(step);
+  }
+  /** A glide asked for while the slide's move holds the camera (or just after its landing, near it): held, or let through. */
+  function heldByLock(to, ms, opt) {
+    const lk = live.camLock;
+    if (!lk || live.aiming) return false;
+    if (lk.run) {
+      if (opt.v0 || live.gestureOn?.()) { lk.release('hand'); return false; }   // (a hand's own glide, a spring-back: the person's move)
+      lk.holdAsk(to, { ms, opt, why: opt.why || (opt.drift ? 'drift' : opt.steady ? 'refit' : 'glide') }, vbNow());
+      logMove({ t: performance.now(), kind: 'held' });
       return true;
     }
-    if (rail.until === Infinity) { rail = null; return false; }   // (its glide was stopped short, by a hand or a jump: nothing to keep)
-    if (performance.now() < rail.until && nearView(to, live.vt)) { logMove({ t: performance.now(), kind: 'held', pend: false }); return true; }
-    rail = null;
+    if (opt.v0 || opt.drift || ms <= 0) return false;
+    if (lk.holdAsk(to, { ms, opt }, vbNow())) { logMove({ t: performance.now(), kind: 'held', settle: true }); return true; }
     return false;
   }
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
@@ -58,7 +103,8 @@ export function createGlide(st, live) {
     if (live.aiming) { aimedBuf.k = to.k; aimedBuf.x = to.x; aimedBuf.y = to.y; live.aimed = aimedBuf; return; }   // (asked only where it would go: aimView)
     // (A change between the views running: the framing asked for is the change's new end, and the camera goes there on its clock, no second glide: view-xf.js.)
     if (live.viewXf && viewXfRetargetTo(to)) { live.following = false; return; }
-    if (railHolds(to, ms, opt)) return;
+    if (opt.slide) { slideGlide(to, ms); return; }
+    if (heldByLock(to, ms, opt)) return;
     live.following = false;   // (a glide or a framing set outright takes over from a card the view was following)
     cancelFrame(live.vtAnim);
     const prev = live.arcRun; live.arcRun = null;
@@ -97,7 +143,6 @@ export function createGlide(st, live) {
       const path = camPath(from, to, room.vb, room.wMax);
       if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; newArc = path.at; }
     }
-    if (opt.slide) rail = { to, until: Infinity, pend: null };
     let c0 = 0;
     if (v0 && (!live.arcRun || newArc) && !sameView(from, to)) {
       c0 = springSlope(v0, from, to, screenW(), ms, CAM_CARRY_MAX);
@@ -139,20 +184,9 @@ export function createGlide(st, live) {
         vtTrack.sample(live.vt, now);
       }
       applyVT(); live.CTM = null;
-      if (live.rideCTM) rideStep();   // (a card's zoom, which owns the ride)
-      // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame (the labels and the
-      // vessel layer after the frame's other steps: cathLabelsSoon, then animate's one render pass).
-      if (live.cath.st) { refreshCTM(); live.cathLabelsSoon(); }
-      if (live.sites.list) { refreshCTM(); sitesPaint(); }
-      if (live.scan.on) live.scanPaint();
-      live.dprobePaint();
-      glideXfStep(u);
+      followCam(u);
       if (u < 1) live.vtAnim = nextFrame(step);
-      else {
-        live.vtGliding = false; live.arcRun = null; camSettle(); if (drift) driftEnd();
-        // (The slide's move has landed: a framing held while it ran (a real change) is the one glide after it; near ones stay dropped a while.)
-        if (rail && rail.to === to) { const p = rail.pend; rail.pend = null; rail.until = performance.now() + RAIL_SETTLE_MS; if (p) { rail = null; animateVT(p.to, p.ms, p.opt); } }
-      }
+      else { live.vtGliding = false; live.arcRun = null; camSettle(); if (drift) driftEnd(); }
     };
     live.vtAnim = nextFrame(step);
   }
@@ -214,7 +248,7 @@ export function createGlide(st, live) {
     return box ? boxVT(box, r.kMax, r.clear) : null;
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
-  /** A new slide change begins: the last slide's rail lets go (its catheter or procedure moves are its own). */
-  const railEnd = () => { rail = null; };
+  /** A new slide change begins (Next, Back, a jump): the last slide's move lets go of the camera, and the next counts its start from now (slide-cam.js). */
+  const railEnd = () => { live.camLock?.pressed(); };
   return { animateVT, frameBox, railEnd, riseTo, riseVT, vtFor, zoomToBox };
 }

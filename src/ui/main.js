@@ -458,6 +458,8 @@ async function main() {
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }] = await Promise.all([import('./cam-gate.js'), import('./decks.js')]); return createCameraGate({ presenter, stage, decks: DECKS })(o); };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');

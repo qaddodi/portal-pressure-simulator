@@ -141,7 +141,7 @@ import { createLzGlassSeq } from './lobule-glass-seq.js';
 import { viewMovingOf } from './view-moving.js';
 import { createGeoHold } from './stage-geohold.js';
 import { createAscites } from './stage-ascites.js';
-import { createLobuleLoad } from './stage-lobload.js'; import { labelCourse } from './label-course.js';
+import { createLobuleLoad } from './stage-lobload.js'; import { createCamLock, lockedWrite } from './slide-cam.js'; import { labelCourse } from './label-course.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -585,6 +585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get viewXf() { return viewXf; }, set viewXf(v) { viewXf = v; },
     get vLook() { return vLook; }, set vLook(v) { vLook = v; },
     get vt() { return vt; }, set vt(v) { writeVT(v); },
+    get camLock() { return camLock; },
     get vtAnim() { return vtAnim; }, set vtAnim(v) { vtAnim = v; },
     get vtGliding() { return vtGliding; }, set vtGliding(v) { vtGliding = v; },
     get vtMs() { return vtMs; }, set vtMs(v) { vtMs = v; },
@@ -1208,7 +1209,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vt = { k: 1, x: 0, y: 0 };
   // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
   // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
-  function writeVT(v) { vt = v; CTM = null; }
+  // (16 Nov 2026: and while a slide's move runs it is the only one that may: the lock (slide-cam.js) refuses any other write, and the hand,
+  // which lets go of it, is asked here too, so a pinch or a drag begun mid-move takes the camera at once.)
+  const camLock = createCamLock(), handNow = () => live.gestureOn?.();
+  function writeVT(v) {
+    if (!lockedWrite(camLock, handNow)) return;
+    vt = v; CTM = null;
+  }
   // (How long the change between Anatomy and Circuit takes, VIEW_CHANGE_S: view-xf.js, which the presenter's waits read too.)
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   // The change's clock is a reversible one (motion.js createReversible): tapped back mid-change, the figure and its camera slow over D_FLIP
@@ -3171,6 +3178,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The camera's whole magnification (log scale: the plate's zoom plus the dive's), or null while the lobule fills the view. For the tests: a dive in or out must move it steadily, never stopping part way. */
     sinBusy: () => !!lz?.sinBusy(),
     cameraMoves: (clear) => (clear ? camMoves.splice(0) : [...camMoves]),
+    /** The slide camera's recorded moves, frame by frame (slide-cam.js: plan, frames, held and refused writes, a move after the landing), for its judge. */
+    cameraTraces: (clear) => camLock.traces(clear),
     /** The transform the GPU last drew the figure in, as [a, b, c, d, e, f] from world to stage px (null: not drawn on the GPU). */
     glMatrix: () => (veins && !veins.lost && wrap.classList.contains('gl-on') ? glM?.slice() ?? null : null),   // (a copy: glM is kept and written in place by the next draw)
     /** For the checks: the vessel canvas as it stands (mid-gesture too), then after a whole redraw of it at the same view
