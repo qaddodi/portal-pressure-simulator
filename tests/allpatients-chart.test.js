@@ -207,7 +207,7 @@ test('the drawing: every look it names is in the table, its words are inside the
     for (const k of P.looks) assert.ok(LOOKS[k], `${W}: look ${k}`);
     assert.equal(P.svg.attrs.viewBox, `0 0 ${W} ${P.H}`);
     assert.equal(P.svg.dataset.points, String(36));
-    assert.match(P.svg.attrs['aria-label'], /Hepatitis C 11\.1, 7\.3, 6\.8; Higher start 14\.3, 12\.4, 10\.4; MASLD 7\.2, 5\.1, 3\.7; Alcohol 13\.3, 10\.0, 6\.1 mmHg/);
+    assert.match(P.svg.attrs['aria-label'], /Hepatitis C 11\.1, 7\.3, 6\.8; Higher start 14\.2, 12\.3, 10\.4; MASLD 7\.2, 5\.1, 3\.7; Alcohol 13\.3, 10\.0, 6\.1 mmHg/);
     // four lines, two of them with a dotted second year
     assert.equal(P.paths.filter((p) => p.look === 'cv.line').length, 4);
     assert.equal(P.paths.filter((p) => p.look === 'ap.model').length, 2);
@@ -219,7 +219,7 @@ test('the drawing: every look it names is in the table, its words are inside the
     for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) assert.ok(!hit(box(texts[i], f), box(texts[j], f)), `${W}: "${texts[i].txt}" and "${texts[j].txt}" are apart`);
     // the key says the values in the order before, 1 year, 2 years
     const all = P.texts.map((t) => t.txt);
-    for (const v of ['11.1', '7.3', '6.8', '23.7', '15.3', '14.2', '90', '127', '145', '14.3', '12.4', '10.4', '32.9', '27.4', '22.1', '69', '77', '94', '3.7', '7.1', '216', '6.1', '12.4', '149', 'Resolved', 'Persists', 'Ruled out', 'MASLD*', 'Alcohol*', 'Hepatitis C', 'Higher start', 'CSPH', 'No CSPH', '1 year'.replace('1 year', W < PHONE_W ? '1 yr' : '1 year')]) assert.ok(all.includes(v), `${W}: "${v}" is drawn`);
+    for (const v of ['11.1', '7.3', '6.8', '23.7', '15.3', '14.2', '90', '127', '145', '14.2', '12.3', '10.4', '32.9', '27.4', '22.1', '70', '78', '94', '3.7', '7.1', '216', '6.1', '12.4', '149', 'Resolved', 'Persists', 'Ruled out', 'MASLD*', 'Alcohol*', 'Hepatitis C', 'Higher start', 'CSPH', 'No CSPH', '1 year'.replace('1 year', W < PHONE_W ? '1 yr' : '1 year')]) assert.ok(all.includes(v), `${W}: "${v}" is drawn`);
     const small = P.texts.filter((t) => t.look === 'time.tk' && t.x === +G.note.x.toFixed(1)).map((t) => t.txt).join(' ');
     assert.equal(small, slide.chartFoot.join(' '), `${W}: the small print is drawn whole`);
     assert.ok(!all.includes('Hepatitis C*') && !all.includes('Higher start*'), `${W}: only the two the model carries on are starred`);
