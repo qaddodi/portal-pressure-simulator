@@ -281,7 +281,7 @@ test('the EUS-PPG says which veins it reads, and the model keeps it within 1.5 m
   for (const pr of PRESETS) {
     const e = new Engine(); e.loadPreset(pr.id); e.beat = true;
     const m = computeMetrics(e), fp = fingerprintOf(m, { P: e.Pf || e.P, Q: e.Qf || e.Q, D: null }), gap = fp.ppg - fp.eus;
-    const blind = ['pvt-acute', 'pvt-chronic', 'budd-chiari'].includes(pr.id);   // (a clot between the trunk and the needle, or the hepatic veins blocked: the note's own exceptions)
+    const blind = ['pvt-acute', 'pvt-chronic', 'budd-chiari', 'sos'].includes(pr.id);   // (a clot between the trunk and the needle, or the hepatic veins blocked: the note's own exceptions; SOS, where the central veins carry the block and the left portal vein runs high of the trunk reading)
     if (blind ? gap < 5 : !(gap >= -0.1 && gap <= 1.5)) bad.push(`${pr.id}: PPG ${fp.ppg.toFixed(1)}, EUS-PPG ${fp.eus.toFixed(1)}`);
   }
   assert.deepEqual(bad, []);
