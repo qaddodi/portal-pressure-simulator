@@ -33,7 +33,7 @@ export default [
   { file: 'src/ui/tool-lumen.js', forbid: [/getComputedStyle/, 'the fluid balance and the vessel cross-section read no computed style (chart looks in code, WP10) (tool-lumen)'] },
   // glass-motion-translate
   { file: 'src/ui/glass-gl.js', need: [/if \(AM\.hasT\) \{ tx = AM\.tx; ty = AM\.ty; hasT = true; byProp = AM\.prop; \}/, 'an animation of the translate property moves the glass as a transform\'s does'] },
-  { file: 'src/ui/glass-gl.js', need: [/if \(byProp\) \{[^}]*\} else if \(!inlineTranslate\(im, s\.translate\)\) flag\.bad = true; else \{ tx \+= im\.ux; ty \+= im\.uy; \}/, 'an animation of the translate property moves the glass as a transform\'s does'] },
+  { file: 'src/ui/glass-gl.js', need: [/if \(byProp\) \{[^}]*\} else if \(!inlineTranslate\(im, s\.translate\)\) \{ if \(inlineTranslateNew\(im, s\.translate\)\) flag\.bad = true; \} else \{ inlineTranslateOk\(im\); tx \+= im\.ux; ty \+= im\.uy; \}/, 'an animation of the translate property moves the glass as a transform\'s does'] },
   // gpu-probe
   { file: 'src/ui/frame.js', need: [/if \(gpuProbe\.on\) probed\(tag, cb, now\); else cb\(now\);/, 'the debug overlay\'s GPU readout: off, a step only runs; the name and closure are made only inside the probe'] },
   { file: 'src/ui/frame.js', need: [/function probed\(tag, cb, now\) \{\n {2}gpuProbe\.time\(null, `\$\{tag\} \(script\)`, \(\) => cb\(now\)\);/, 'the debug overlay\'s GPU readout: off, a step only runs; the name and closure are made only inside the probe (the name and the closure are made only inside the probed branch)'] },
