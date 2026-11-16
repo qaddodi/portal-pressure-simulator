@@ -1149,7 +1149,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const dip = swap && !booting && !reduce.matches && !own && freshPatient(s, lap, pre), glide = swap && !booting && !reduce.matches && !dip, later = glide && !ct && !!ui;
-    let morphCt = null;
+    let morphCt = null, drawnP = null;
     if (swap) {
       liveOff = false;
       tx?.phase('morph');
@@ -1159,12 +1159,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         if (dimmed) { await dimmed; if (cut()) return; }   // (begun with the old cards' leave)
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         lensGo(); applyState(st); shownState = own ? -1 : si;
-        await drawn(st);
+        // (The camera frames the new patient's organs, which the engine's first frame of the new state draws (its sizes come with the state); the
+        // figure stays dim until that state's pressures have also come through (drawn), which can take most of a beat. 16 Nov 2026: circuit 6 to 7,
+        // the camera waited 840 ms for them under the dim before it set off. It now sets off on the first frame, and the dim lifts after drawn.)
+        drawnP = drawn(st);
+        { const n0 = frames; await until(() => cut() || frames > n0, 300); await new Promise((done) => nextFrame(done)); }
+        if (!dip) await drawnP;
       }
       if (cut()) return;
       // (The state is in: the recording instruments start now, their window filled with the steady state the slide opens on, tools.hold.
       // A slide whose change eases in after the camera lands does it below.)
-      if (!later && !morphCt) ui?.tools.hold(false);
+      if (!later && !morphCt) { if (drawnP) drawnP.then(() => { if (!cut()) ui?.tools.hold(false); }); else ui?.tools.hold(false); }   // (a new patient's: once its pressures are drawn)
     }
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
@@ -1195,6 +1200,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let prep = null; const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? (prep = bare ? unseenFit(cut) : null, Promise.resolve(prep).then((ok) => (bare && !ok ? null : camera(cam, fv, cut)))) : null;
     tx?.phase('lead');
     if (lead) { await waitCut(150, cut); if (cut()) return; }
+    if (drawnP) { await drawnP; if (cut()) return; }   // (the new patient's pressures are drawn before the dim lifts, as before)
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     // A catheter slide with a new patient changes it before its camera moves (its cards come in at once), and the catheter then drives
