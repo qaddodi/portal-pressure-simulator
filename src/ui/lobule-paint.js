@@ -7,6 +7,17 @@ import { clamp, lerp } from './num.js';
 import { cordToneInto, bandOutlineFlat } from './lobule-look.js';
 
 const TAU = Math.PI * 2;
+// MOCK (not for the preview): ?slab=a|b|c|d draws each hepatocyte as a short block with a side wall to the lower right.
+const SLAB_V = { a: { d: 0.16, lx: 0.3, wall: 0.55, r: 0.38, sh: 0 }, b: { d: 0.32, lx: 0.35, wall: 0.55, r: 0.3, sh: 0 }, c: { d: 0.18, lx: 0.3, wall: 0.3, r: 0.5, sh: 0 }, d: { d: 0.16, lx: 0.3, wall: 0.55, r: 0.38, sh: 1.9 } };
+const SLAB = (() => { try { return SLAB_V[new URLSearchParams(location.search).get('slab')] || null; } catch { return null; } })();
+const SLAB_C = [0, 0, 0];
+function slabOrder(G) {
+  if (G.slabOrder) return G.slabOrder;
+  const idx = G.cells.map((_, i) => i);
+  idx.sort((a, b) => (G.cells[a].y + 0.35 * G.cells[a].x) - (G.cells[b].y + 0.35 * G.cells[b].x));
+  G.slabOrder = idx;
+  return idx;
+}
 const TONE = [0, 0, 0];   // (a cell's tone, written anew for each cell and read at once)
 // A band's centre line along the septum's points o.pts, written into out (the `path` of a band's options: (o, u, out)).
 function septumPath(o, u, out) {
@@ -253,7 +264,9 @@ export function paintLobule(c, P) {
   const cu = m.congU;
   // Each cell's membrane: a 0.6 px line where neighbouring cells meet, so a cord reads as a row of cells (G21).
   c.strokeStyle = tk('--lz-plate-line'); c.lineWidth = Math.max(0.6, 0.6 / (c.getTransform().a || 1));
-  for (let ci = 0; ci < G.cells.length; ci++) {
+  const slabIdx = SLAB ? slabOrder(G) : null;
+  for (let oi = 0; oi < G.cells.length; oi++) {
+    const ci = slabIdx ? slabIdx[oi] : oi;
     const k = G.cells[ci];
     const z3 = k.q < 0.4, dead = z3 && cu > 0.12 && k.drop < cu * (1.25 - k.q * 1.6);
     const t = 0.88 + 0.12 * k.tone;
@@ -265,10 +278,24 @@ export function paintLobule(c, P) {
     else { for (let i = 0; i < 3; i++) CT[i] = base[i] * t + (1 - t) * (dark ? 0.15 : 1) * 0.3; fill = cordToneInto(TONE, CT, k.q, dark); }
     // In cirrhosis the plates thicken and lose their order (regenerating nodules).
     const sj = m.septU, dz = sj * Math.min(k.l, k.w) * 0.45;
+    if (SLAB && !dead) {
+      const sv = SLAB, D = sv.d * k.l, sl = k.l * (1 + 0.12 * sj), sw = k.w * (1 + 0.3 * sj), rr = Math.min(sl, sw) * sv.r;
+      if (sv.sh) {
+        c.save(); c.translate(k.x + k.jx * dz + sv.lx * D * sv.sh, k.y + k.jy * dz + D * sv.sh); c.rotate(k.a + k.ja * sj * 0.9);
+        for (let i = 0; i < 3; i++) SLAB_C[i] = fill[i] * 0.3; fillRGB(c, SLAB_C, 0.3);
+        c.beginPath(); c.roundRect(-sl / 2, -sw / 2, sl, sw, rr); c.fill(); c.restore();
+      }
+      for (let z = 1; z >= 0.15; z -= 0.17) {
+        c.save(); c.translate(k.x + k.jx * dz + sv.lx * D * z, k.y + k.jy * dz + D * z); c.rotate(k.a + k.ja * sj * 0.9);
+        for (let i = 0; i < 3; i++) SLAB_C[i] = fill[i] * (1 - sv.wall * (0.6 + 0.4 * z));
+        fillRGB(c, SLAB_C, 1);
+        c.beginPath(); c.roundRect(-sl / 2, -sw / 2, sl, sw, rr); c.fill(); c.restore();
+      }
+    }
     c.save(); c.translate(k.x + k.jx * dz, k.y + k.jy * dz); c.rotate(k.a + k.ja * sj * 0.9);
     const lw = (dead ? k.l * 0.7 : k.l) * (1 + 0.12 * sj), ww = (dead ? k.w * 0.7 : k.w) * (1 + 0.3 * sj);
-    fillRGB(c, fill, dead ? 0.6 : dark ? 0.8 : 0.92);
-    c.beginPath(); if (c.roundRect) c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.38); else c.rect(-lw / 2, -ww / 2, lw, ww); c.fill();
+    fillRGB(c, fill, dead ? 0.6 : SLAB ? 1 : dark ? 0.8 : 0.92);
+    c.beginPath(); if (c.roundRect) c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * (SLAB ? SLAB.r : 0.38)); else c.rect(-lw / 2, -ww / 2, lw, ww); c.fill();
     if (!dead) c.stroke();
     if (!dead) { c.fillStyle = tk('--lz-nodule-ink'); c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
     c.restore();
