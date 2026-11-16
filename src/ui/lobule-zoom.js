@@ -67,7 +67,7 @@ import { hitLabel } from './label-explain.js';
 import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 import { createLobuleField } from './lobule-zoom-field.js';
-import { mouthSite, mouthWords } from './lobule-mouths.js';
+import { mouthSite, mouthWords, twigPath } from './lobule-mouths.js';
 import { createLobuleRecords } from './lobule-zoom-records.js';
 import { createLobuleLabels } from './lobule-zoom-labels.js';
 const nextFrame = frameFor('lobule-zoom');
@@ -1244,9 +1244,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Arterioles: from each triad's arteriole into the first stretch of a sinusoid (zone 1).
     for (const tr of triads) {
       const target = L0.find((t) => t.edge === tr.i && t.tri === tr.i) || L0[tr.i * N0];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      const q = at(target.pts, 0.2), A = tr.ha;
-      const cxp = lerp(A[0], q[0], 0.5) + (cx - tr.x) * 0.06, cyp = lerp(A[1], q[1], 0.5) + (cy - tr.y) * 0.06;
-      const t = add('tw', curve((u) => [(1 - u) ** 2 * A[0] + 2 * u * (1 - u) * cxp + u * u * q[0], (1 - u) ** 2 * A[1] + 2 * u * (1 - u) * cyp + u * u * q[1]]), { tri: tr.i });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const q = at(target.pts, 0.2), q2 = at(target.pts, 0.28), A = tr.ha, tl = Math.hypot(q2[0] - q[0], q2[1] - q[1]) || 1;
+      const t = add('tw', curve(twigPath(A, q, [(q2[0] - q[0]) / tl, (q2[1] - q[1]) / tl], [cx, cy])), { tri: tr.i });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     }
     // Portal-central septa (advanced cirrhosis): from three triads into the central vein's

@@ -7,7 +7,7 @@ import { createFieldGL } from './field-gl.js';
 import { easeNow } from './frame.js';
 import { FX_GPU } from './fx-gl.js';
 import { LIGHT } from './light.js';
-import { flareAt } from './lobule-mouths.js';
+import { flareAt, twigRadius } from './lobule-mouths.js';
 import { FADE_MID, FIELD_RS, NEIGHBOUR_FLAT, SIN_NARROW, dullSinusoidInto, fadeOuter, fieldBlend, fieldDof, greyStep, neighbourBlur, surroundGrade } from './lobule-look.js';
 import { disseJ, lensModeOf, lobuleStateInto, lymphRate } from './lobule-model.js';
 import { fibrousBand, fibrousCuff, fibrousTract, scarGrowth } from './lobule-paint.js';
@@ -459,7 +459,7 @@ export function createLobuleField(st, live) {
       case 'ha': return Math.max(1.6, R * 0.0115 * clamp(m.art, 0.6, 2.2) ** 0.3);   // (the triad's smallest vessel: 0.014 read as a big red bulb, 6 Nov)
       case 'bd': return Math.max(1.6, R * 0.0145);
       // The arteriole's twig into zone 1 is a fine, faint thread (6 Nov: at 0.0055 it read as a thick red bar; see TW_ALPHA).
-      case 'tw': return Math.max(0.8, R * 0.0026 * clamp(m.art, 0.6, 2.2) ** 0.3);
+      case 'tw': { const b = Math.max(0.8, R * 0.0026 * clamp(m.art, 0.6, 2.2) ** 0.3); return twigRadius(b, 0.62 * Math.max(1.6, R * 0.0115 * clamp(m.art, 0.6, 2.2) ** 0.3), 0.55 * rs * 1.0, i / (N - 1)); }   // (leaves the arteriole wide, tapers to its thread, opens into the sinusoid: lobule-mouths.js twigPath)
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
       // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
       // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
@@ -584,7 +584,7 @@ export function createLobuleField(st, live) {
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
+  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.08, ha: 0.7 };   // (the twig runs under the inlet venule and under the sinusoid it joins, so it slips in beneath the sinusoid wall instead of ending in a round cap over its lumen: 16 Nov 2026)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (live.drawKey === '' || cw !== live.dW || ch !== live.dH) return false;

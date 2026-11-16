@@ -70,3 +70,29 @@ export function flareAt(d, r) {
   const s = 1 - u * u * (3 - 2 * u);
   return 1 + FLARE * s * s;
 }
+
+/**
+ * The arteriole's twig: from the arteriole (A, seen end-on in the portal tract) into the first stretch of a periportal sinusoid at q, as a cubic that leaves A toward the lobule and
+ * arrives running with the sinusoid's own flow (tq, the unit direction the sinusoid runs at q, portal to central) at MERGE_ANGLE to it from A's side, so it merges like a Y,
+ * not a stick meeting a side wall (16 Nov 2026, Mohammad: "should be more elegant"). c: the lobule's centre. Returns u in 0..1 to [x, y].
+ */
+export const MERGE_ANGLE = 0.85;
+export function twigPath(A, q0, tq, c, off = 0) {
+  const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+  const side = Math.sign(-tq[1] * (A[0] - q0[0]) + tq[0] * (A[1] - q0[1])) || 1, n = [-tq[1] * side, tq[0] * side];   // n: from the sinusoid toward A
+  const q = [q0[0] + n[0] * off, q0[1] + n[1] * off];   // (the twig ends `off` toward A from the sinusoid's centre: at its wall, where its own fade into the sinusoid begins)
+  const dir = unit(q[0] - A[0], q[1] - A[1]), inw = unit(c[0] - A[0], c[1] - A[1]), L = Math.hypot(q[0] - A[0], q[1] - A[1]);
+  const t0 = unit(dir[0] * 0.6 + inw[0] * 0.4, dir[1] * 0.6 + inw[1] * 0.4);
+  const t1 = [tq[0] * Math.cos(MERGE_ANGLE) - n[0] * Math.sin(MERGE_ANGLE), tq[1] * Math.cos(MERGE_ANGLE) - n[1] * Math.sin(MERGE_ANGLE)];
+  const p1 = [A[0] + t0[0] * L * 0.4, A[1] + t0[1] * L * 0.4], p2 = [q[0] - t1[0] * L * 0.3, q[1] - t1[1] * L * 0.3];
+  return (u) => {
+    const v = 1 - u, a = v * v * v, b = 3 * v * v * u, d = 3 * v * u * u, e = u * u * u;
+    return [a * A[0] + b * p1[0] + d * p2[0] + e * q[0], a * A[1] + b * p1[1] + d * p2[1] + e * q[1]];
+  };
+}
+
+/** The twig's radius along it (u 0..1): it leaves the arteriole at `r0` (a share of the disc's own) and tapers to its thread `base`, then opens to `rEnd` where it merges into the sinusoid. */
+export function twigRadius(base, r0, rEnd, u) {
+  const e = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+  return base + (Math.max(r0, base) - base) * (1 - e(0, 0.5, u)) + (Math.max(rEnd, base) - base) * e(0.7, 1, u);
+}
