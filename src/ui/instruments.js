@@ -5,6 +5,7 @@ import { NODES } from '../engine/topology.js';
 import { gastricUp } from '../engine/scenario.js';
 import { wallRead, wallShare, WALL_WORDS, WALL_MEANING } from '../engine/wall-read.js';
 import { pressureColor } from './colormap.js';
+import { fmtG } from './num.js';
 import { h, fmt, canvasSize, cssVar, cssAlpha, clamp, icon, swapText, putText, countTo } from './util.js';
 import { wordSetter } from './gl-words.js';
 import { simTime, isPaused } from './clock.js';
@@ -827,7 +828,7 @@ export function createAbdomen({ onAction }) {
   const rateArrow = h('i', { class: 'ab-rate-a', 'aria-hidden': 'true' }), rateTxt = h('span');
   const rateEl = h('span', { class: 'ab-rate', 'data-dir': 'steady' }, rateArrow, rateTxt);
   const rateHold = balanceHold(), showRate = balanceLine(rateEl, rateArrow, rateTxt);
-  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmt(b, 0)} mL/day`] : ['down', '▼', `${fmt(-b, 0)} mL/day`]);   // alloc-rare: called only when the held balance changes (below)
+  const rateLabel = (b) => (b === 0 ? ['steady', '', 'Steady'] : b > 0 ? ['up', '▲', `${fmtG(b, 0)} mL/day`] : ['down', '▼', `${fmtG(-b, 0)} mL/day`]);   // alloc-rare: called only when the held balance changes (below)
   function paintRate(raw) {
     const b = rateHold.step(raw, performance.now());
     if (b != null) showRate(...rateLabel(b));   // alloc-rare: balanceHold gives a value only when the shown hundred changes, at most once every 1.5 s

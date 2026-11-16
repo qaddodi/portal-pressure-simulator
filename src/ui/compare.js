@@ -5,7 +5,8 @@
 
 import { store } from './store.js';
 import { wallShare } from '../engine/wall-read.js';
-import { h, fmt, svgIcon } from './util.js';
+import { h, fmt as fmt1, svgIcon } from './util.js';
+import { fmtG } from './num.js';
 import { liveBalance } from './balance-hold.js';
 import { activeInterventions } from './inspector.js';
 
@@ -64,7 +65,7 @@ export function createCompare() {
     const A = st.compareSnap.metrics, B = f.metrics;
     const rows = ROWS.map(([lab, g, d, u]) => {
       const a = g(A), b = g(B, true), dd = b - a;
-      const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;
+      const same = Math.abs(dd) < Math.pow(10, -d) * 0.5, fmt = u === 'mL/day' ? fmtG : fmt1;   // (a daily volume takes its thousands comma, as the lymph tile does)
       return [lab, u, fmt(a, d), fmt(b, d), 'd ' + (same ? 'same' : dd > 0 ? 'up' : 'down'), same ? '' : dd > 0 ? '▲' : '▼', same ? '—' : `${dd > 0 ? '+' : '−'}${fmt(Math.abs(dd), d)}`];
     });
     const names = [st.compareSnap.names?.[0] || 'Then', st.compareSnap.names?.[1] || 'Now'];

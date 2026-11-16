@@ -73,8 +73,8 @@ export function fluidBars(f) {
 /** The line under the bars. */
 export function fluidWords(f) {
   const d = Math.round(Math.abs(f.perDay) / 10) * 10;
-  if (f.net > 0 && d >= 10) return `Ascites accumulates at about ${d} mL/day.`;
-  if (f.net < 0 && d >= 10) return `Ascites decreases by about ${d} mL/day.`;
+  if (f.net > 0 && d >= 10) return `Ascites accumulates at about ${d.toLocaleString('en-US')} mL/day.`;
+  if (f.net < 0 && d >= 10) return `Ascites decreases by about ${d.toLocaleString('en-US')} mL/day.`;
   return f.over > 0.005 ? 'Ascites is stable: peritoneal reabsorption matches transudation.' : 'No ascites: lymphatic drainage matches lymph formation.';
 }
 

@@ -129,7 +129,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       let sev, s;
       if (v == null) { const nm = t.id === 'hvpg' && hvBlocked(store.get().params); x.nm = nm; setNone(x.val, nm ? NOT_SHOWN : '?'); if (!follow) countTo(x.val, null); s = nm ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
       else {
-        countTo(x.val, v, t.d, { eased });   // (a paused edit or a treatment rolls to the new number: P17)
+        countTo(x.val, v, t.d, { eased, g: !!t.g });   // (a paused edit or a treatment rolls to the new number: P17)
         const vs = shownOf(v, t.d);   // (the word judges the number shown)
         s = measured ? 'Measured' : t.s(vs, m);
         sev = t.st(vs, m);

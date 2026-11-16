@@ -9,7 +9,7 @@ import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
 import { reduceMotionMQ, easeArrive, COUNT_MS } from './motion.js';
-import { fmt, clamp, lerp } from './num.js';
+import { fmt, fmtG, clamp, lerp } from './num.js';
 import { leaveFromHere } from './menu-leave.js';
 import { rideStop, rideIn, rideOut, menuRide } from './sheet-ride.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
@@ -903,7 +903,7 @@ function rollStep(now) {
     // number it started from, and a patient load showed an HVPG of -50 for a moment.)
     const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeArrive(u);
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
-    putNum(el, fmt(c.shown, c.d));
+    putNum(el, (c.g ? fmtG : fmt)(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }
   }
   if (rolling.size) rollRaf = frame(rollStep, 'numbers');
@@ -1009,13 +1009,15 @@ function odoBuildRest(el, o, a, b, up, ms, easing) {
 export const odoOn = () => true;   // (switch deleted; kept for presenter.js until its own pass)
 function odoRoll(el, c, from, to) {
   c.shown = to;
-  if (!odoSwap(el, fmt(from, c.d), fmt(to, c.d), to > from)) { putNum(el, fmt(to, c.d)); fadeNum(el); }
+  const f = c.g ? fmtG : fmt;
+  if (!odoSwap(el, f(from, c.d), f(to, c.d), to > from)) { putNum(el, f(to, c.d)); fadeNum(el); }
 }
 const NO_COUNT = Object.freeze({});
-export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
+export function countTo(el, v, d = 1, { eased = false, g = false } = NO_COUNT) {
   let c = counts.get(el);
-  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });   // alloc-rare: a number's first count on this element, kept in counts
-  c.d = d;
+  if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d, g: false });   // alloc-rare: a number's first count on this element, kept in counts
+  c.d = d; c.g = g;   // (g: the thousands comma, num.js fmtG: a big number such as the lymph's mL/day)
+  const fm = g ? fmtG : fmt;
   // A number being worked out again (NaN or Infinity while the model recomputes after a change; not null, which is a reading that is not taken)
   // keeps the last number on show, dimmed (.recompute), and is never swapped for a mark. It lands, undimmed, on the next number that is whole.
   if (v != null && !Number.isFinite(v) && c.shown != null) { if (!c.stale) { c.stale = true; classSoon(el, 'recompute', true); } return; }
@@ -1025,19 +1027,19 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   if (!eased && v != null && Number.isFinite(v) && c.t0 == null) {
     // (A roll under way that is asked for the value it rolls to keeps going; any other value rolls on from the one it lands on.)
     if (odo) { if (Math.abs(v - c.shown) < Math.pow(10, -d) * 0.5) return; odoEnd(el); }
-    const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
+    const same = c.shown != null && fm(c.shown, d) === fm(v, d);
     // (Not on a readout the GPU words own (putText made them): a roll's strips replace the element's children, picture and canvases with
     // them, while the page's words are clear, so the number vanished for the roll's length. Such a number counts up through GPU words instead.)
     if (!same && c.shown != null && !reduceMotionMQ.matches && el.isConnected && hasBox(el) && !wordsOfEl.has(el)) { odoRoll(el, c, c.shown, v); return; }
   }
   if (v == null || !Number.isFinite(v)) { rolling.delete(el); c.t0 = null; const was = c.shown != null; c.shown = null; putNum(el, nones.get(el) ?? '?'); if (was) fadeNum(el); return; }
   if (c.t0 != null) {   // (a roll under way)
-    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fmt(v, d)); } else c.to = v; return; }
+    if (eased || reduceMotionMQ.matches) { if (reduceMotionMQ.matches) { rolling.delete(el); c.t0 = null; c.shown = v; putNum(el, fm(v, d)); } else c.to = v; return; }
     if (Math.abs(v - c.to) < Math.pow(10, -d) * 0.5) return;
     c.from = c.shown; c.to = v; c.t0 = performance.now(); return;
   }
-  const same = c.shown != null && fmt(c.shown, d) === fmt(v, d);
-  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { const fresh = c.shown == null; c.shown = v; putNum(el, fmt(v, d)); if (fresh) fadeNum(el); return; }
+  const same = c.shown != null && fm(c.shown, d) === fm(v, d);
+  if (eased || same || c.shown == null || reduceMotionMQ.matches || !el.isConnected || !hasBox(el)) { const fresh = c.shown == null; c.shown = v; putNum(el, fm(v, d)); if (fresh) fadeNum(el); return; }
   c.from = c.shown; c.to = v; c.t0 = performance.now();
   rolling.add(el);
   if (!rollRaf) rollRaf = frame(rollStep, 'numbers');
