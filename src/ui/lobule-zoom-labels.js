@@ -1,5 +1,6 @@
 // Station labels, their sizes, the glide and the names on the GPU
 // (moved out of lobule-zoom.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { createCallGeoFade } from './call-geo-fade.js';
 import { caught } from './caught.js';
 import { classHas, classSoon, runSoon } from './class-soon.js';
 import { deltaColor, oxygenColor } from './colormap.js';
@@ -209,16 +210,17 @@ export function createLobuleLabels(st, live) {
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
   // A label's glide is one object on it, written again in place (a glide begun on another carries from where this one stands now).
   const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });
-  function noteAt(L, glide) {
+  function noteAt(L, fade) {
     const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
     const now = tlNow();
     let px = x, py = y;
     if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
-    // A label a layout moves while the camera holds still (a layer switched, a card, a lit term: `glide`, layoutLabels) glides to its new spot, as the others
-    // ease; after a pan or zoom the labels take their final spots at once (they ride the view, V-LBL-1).
-    const eased = !!glide;
+    const eased = false;   // (a label laid out to another slot is there in this frame and its name fades there, below: V-LBL-1, V-LBL-3)
+    // A name a layout moves while the camera holds still (a layer switched, a card, a lit term, the end of a pan or zoom: `fade`, layoutLabels) fades out where
+    // it stood and in at its new spot, on the GPU (label-captions.js moveFade); one that travels with the camera is never faded.
+    if (fade) L.fadeMove = true;
     const o = glOf(L);
     if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
     o.x1 = x; o.y1 = y; o.t0 = now;
@@ -775,6 +777,10 @@ export function createLobuleLabels(st, live) {
   // the sin, cv and triad names gone after a Sinusoid visit). The queue waits and is read once the layer is straight (mirrorRelease).
   let mirHeld = false, measHeld = false;   // (a read, and a measuring, that waited for the layer to stand straight)
   const mirrorRelease = () => { if (live.layerScaled) return; if (measHeld) { measHeld = false; if (!live.measT) live.measT = restPass(measureRun); } if (mirHeld) { mirHeld = false; mirrorAll(); } };
+  // The names measured and read now, in this task, not at the rest passes behind a landing (labelsAhead, lobule-zoom.js): done before a dive or a zoom scales the layer,
+  // so they are placed and drawn when the view begins to fade in, and fade in with it.
+  function measureNow() { if (live.measT) { cancelRest(live.measT); live.measT = 0; } measureRun(); }
+  function mirrorNow() { mirrorAll(); if (mirT) { cancelRest(mirT); mirT = 0; } mirrorRun(); }
   function mirrorRun() {
     mirT = 0;
     if (live.layerScaled) { mirHeld = true; return; }
@@ -808,8 +814,6 @@ export function createLobuleLabels(st, live) {
     if (live.fade <= 0) return false;
     const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)
     let moving = false;
-    // (A gliding label's leader ends on its letters where they are drawn now: syncLeaders, the lobule's own, writes the ends from each label's glide.)
-    for (let i = 0; i < LAB_KEYS.length; i++) if (labGliding(labs[LAB_KEYS[i]], now)) { live.syncLeaders?.(); break; }
     for (const [key, e, L] of capItems()) {
       const m = mirKeep.get(e);
       let p = seenPos.get(e);
@@ -818,7 +822,8 @@ export function createLobuleLabels(st, live) {
       if (L && labGliding(L, now)) { const g = L.gl, k = easeLab(g, now); x = g.x0 + (g.x1 - g.x0) * k; y = g.y0 + (g.y1 - g.y0) * k; moving = true; }
       const call = e === callEl, zone = !L && !call;
       const off = !e.isConnected || gone(e) || (call && !classHas(callEl, 'on'));
-      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t);
+      const fade = !off && (L ? L.fadeMove : !!e._fm); if (L) L.fadeMove = false; else e._fm = false;   // (this layout's move, asked for once)
+      cap.place(key, zone ? x : x + m.w / 2, zone ? y : y + m.h / 2, off ? 0 : !call && dimmed(e.dataset.target) ? DIM_A : 1, off && gone(e) ? D_SMALL : D_SURFACE, call ? (off ? 0.94 : 1) : -1, t, fade);
       if (L) {
         // The station's leader and dot, drawn with its name by label-gl (the lead's near end is the name's, its far end the figure's point).
         const hid = off || classHas(L.line, 'ld-gone') || classHas(L.line, 'lz-hid') || classHas(L.el, 'edge');
@@ -841,7 +846,20 @@ export function createLobuleLabels(st, live) {
   labels.addEventListener('focusout', (ev) => mirrorSoon(ev.target.closest?.('.lz-lab')));
   if (typeof MutationObserver === 'function') new MutationObserver(() => mirrorAll()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
   darkMQ.addEventListener?.('change', () => mirrorAll());
+  // The pointer's leader and ring fade out where they stood and in at the new place with the pill (call-geo-fade.js); written between frames, as the pill's own class is.
+  const CALL_G = ['cx', 'cy', 'r'];
+  const callFade = createCallGeoFade({
+    read(g) { for (let i = 0; i < 3; i++) g[i] = +geoOf(callRing, CALL_G[i]) || 0; g[3] = +geoOf(callLine, 'x1') || 0; g[4] = +geoOf(callLine, 'y1') || 0; g[5] = +geoOf(callLine, 'x2') || 0; g[6] = +geoOf(callLine, 'y2') || 0; },
+    write(g) { for (let i = 0; i < 3; i++) setGeo(callRing, CALL_G[i], g[i]); setGeo(callLine, 'x1', g[3]); setGeo(callLine, 'y1', g[4]); setGeo(callLine, 'x2', g[5]); setGeo(callLine, 'y2', g[6]); leadGL.paint(); },
+    isOn: () => classHas(callRing, 'on'), pillOn: () => classHas(callEl, 'on'),
+    setOn(on) { classSoon(callLine, 'on', on); classSoon(callRing, 'on', on); runSoon(leadPaint); },
+    schedule: (fn, ms) => setTimeout(fn, ms), cancel: (t) => clearTimeout(t), ms: D_SMALL,
+  });
+  // A layout's own puts (the zone names, the call-out pill) are marked to fade to their new spot (layFade, set by layoutLabels while the camera is not carrying them).
+  let layFade = false;
+  const setLayFade = (v) => { layFade = v; };
   function put(e, x, y) {
+    if (layFade) e._fm = true;
     const p = spot.get(e);
     if (p) { p[0] = x; p[1] = y; } else spot.set(e, [x, y]);   // alloc-once: the first spot an element is given; after it the pair is written in place
     tr(e, x, y);
@@ -910,5 +928,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureNow, measureRun, measureShown, mirrorAll, mirrorNow, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, setLayFade, callFade, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }

@@ -240,14 +240,30 @@ function monOn({ ctx, w, h: hh }, S, st) {
     ctx.strokeStyle = C.bg; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
   }
   // (A step's tick and its words come with the step, not before: the balloon's "balloon up", Mohammad, 12 Nov 2026.)
+  let nTaken = 0;
   for (let i = 0; i < S.ticks.length; i++) {
     const [at, word] = S.ticks[i];
     if (t < at) continue;
     ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(word, X(at), bot + FS + 3);
     ctx.fillStyle = C.line; ctx.fillRect(X(at) - 0.5, bot, 1, 4);
+    const half = ctx.measureText(word).width / 2 + 6;
+    if (nTaken < TAKEN.length) { TAKEN[nTaken++] = X(at) - half; TAKEN[nTaken++] = X(at) + half; }
+  }
+  // The time axis (a script with secs: true): a mark every two seconds from the start of the window, a number where it clears a step's words and the previous number.
+  if (S.secs) {
+    ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    let lastRight = -Infinity;
+    for (let sec = 0; axT0 + sec * 1000 <= tNow; sec += 2) {
+      const xs = X(axT0 + sec * 1000), word = `${sec} s`, hw = ctx.measureText(word).width / 2 + 4;
+      ctx.fillStyle = C.line; ctx.fillRect(Math.round(xs) - 0.5, bot, 1, 4);
+      let free = xs - hw > lastRight;
+      for (let k = 0; k < nTaken && free; k += 2) if (xs + hw > TAKEN[k] && xs - hw < TAKEN[k + 1]) free = false;
+      if (free && xs - hw >= L && xs + hw <= R) { ctx.fillStyle = C.text; ctx.fillText(word, xs, bot + FS + 3); lastRight = xs + hw; }
+    }
   }
 }
+const TAKEN = new Float64Array(16);   // (the x-extents of the step words drawn on the time axis this frame: [from, to] pairs)
 const cLv0 = cell(), cLv1 = cell(), cRes = { v: undefined, w: '', s: '' };
 
 // The trace from a to b (ms on the script's clock), swept as far as tNow; a stretch where the script reads nothing (NaN: the needle out, another

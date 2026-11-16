@@ -8,7 +8,7 @@ const BAND = { kind: 'band' };
 // (The varices themselves are seen through the scope ring on the figure, scope-lens.js; the card follows the pressures since the bleed.)
 const SINCE = { kind: 'trace', range: 'talk', since: 'after' };
 // (A time-lapse slide plots its lapse day by day instead: the varix and the HVPG over the ten months, flow-time.js.)
-const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months' };
+const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months', scales: { hvpg: [0, 20, 5], varix: [0, 8, 2] } };   // (both axes from zero: the HVPG's small dip would draw as a big fall on an axis from 15, play-test 16 Nov 2026)
 const NONE = { drugs: { propranolol: false, carvedilol: false } };
 // (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a clear response
 // (Baveno VIII Table 3: a fall of 10% or more, or to 12 mmHg or less); the model's usual patient falls about 19%.)
@@ -61,15 +61,15 @@ export const NEXT_BLEED = {
       id: 'slough', days: 300,
       question: 'Will the varices recur with EVL alone?', lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: MONTHS, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'EVL alone', site: 'sin', title: 'Bands slough and the varices recur',
-      line: 'Without surveillance for ten months, the varices regrow to {varix}: the portal pressure never fell. Hence endoscopy 6 months after eradication, then every 12 months.',
+      line: 'Without surveillance for ten months, the varices regrow to {varix} while the HVPG stays at {hvpg}. Hence endoscopy 6 months after eradication, then every 12 months.',
       notes: 'EVL is a local treatment. As long as the portal pressure stays high, portal flow keeps reopening the left gastric (coronary) vein and the esophageal collaterals, and new varices form where the old ones were. Surveillance endoscopy finds them and bands them again, 6 months after eradication and then every 12 months (AASLD 2024 statement 20). The slide shows the course with no endoscopy in between, to make the point. This is why EVL alone is not enough after a bleed. Post-banding ulcers form where the bands slough, and they can bleed. Baveno VIII calls this rare but serious (5.47). Management is individualized: a vasoactive drug, endoscopic hemostasis, a temporary stent or balloon tamponade, and a rescue TIPS when needed. The risk is highest with a MELD score >18 or after emergency banding. There is not enough evidence to give a PPI routinely to prevent these ulcers (5.48). Ulcers are one reason the sessions are spaced 2 to 4 weeks apart. The model loses one banding session\'s effect about every 50 days, a simplification of how varices return. (AASLD 2024 statement 20.)',
       ask: ['Why do varices recur after eradication by EVL?', 'The portal pressure that caused them has not changed, so portal flow reopens the same collaterals.'],
     },
     {
       id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after', cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
-      line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the heart rate to {hr}. A fall of ≥10%, or to {<=12 mmHg}, is a response.',
-      notes: 'Carvedilol is started at 6.25 mg/day and increased to 12.5 mg/day if blood pressure allows. It reduces portal inflow, as propranolol does, and also lowers intrahepatic resistance, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. A response is a fall in HVPG of ≥10% from baseline, or to ≤12 mmHg (Baveno VIII Table 3, which states it for primary prophylaxis; the guidelines cited here give no separate, stricter target after a bleed, so the same rule is applied). This man is a clear responder, with a fall of about 25%; many patients respond less. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic blood pressure stays <90 mmHg, the MAP <65 mmHg, or AKI develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
+      line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the heart rate to {hr}. The Baveno VIII response, ≥10% or to {<=12 mmHg}, is stated for primary prophylaxis.',
+      notes: 'Carvedilol is started at 6.25 mg/day and increased to 12.5 mg/day if blood pressure allows. It reduces portal inflow, as propranolol does, and also lowers intrahepatic resistance, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. A response is a fall in HVPG of ≥10% from baseline, or to ≤12 mmHg (Baveno VIII Table 3, which states it for primary prophylaxis; Baveno VIII gives no separate, stricter target after a bleed, so the same rule is applied). This man is a clear responder, with a fall of about 25%; many patients respond less. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic blood pressure stays <90 mmHg, the MAP <65 mmHg, or AKI develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
       ask: ['What fall in HVPG marks a response to a beta-blocker?', 'A fall of ≥10% from baseline, or to ≤12 mmHg (Baveno VIII Table 3).'],
     },
     {
@@ -110,7 +110,7 @@ export const NEXT_BLEED = {
       ask: ['After EVL the varix is smaller and the HVPG has not fallen. Why does the varix recur?', 'The portal pressure that caused it persists, so portal flow reopens the same collaterals as the bands slough.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['varix', 'hvpg', 'ppg'], asc: false, rowHead: 'Plan',
+      id: 'summary', visual: 'table', cols: ['varix', 'hvpg', 'ppg'], asc: false, vs: 'first', rowHead: 'Plan',
       of: [{ id: 'after', kicker: 'Baseline', title: 'After the bleed', ref: true }, { id: 'bands', kicker: 'EVL', title: 'EVL alone' }, { id: 'slough', kicker: 'EVL', title: 'EVL, 10 months later' },
         { id: 'nsbb', kicker: 'Drug', title: 'Carvedilol, one band' }, { id: 'both', kicker: 'Both', title: 'Carvedilol and EVL' }, { id: 'held', kicker: 'Both', title: 'Both, 10 months later' }],
       kicker: 'Summary', title: 'EVL treats the varix, carvedilol treats the portal pressure',

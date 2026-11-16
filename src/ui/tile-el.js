@@ -14,7 +14,7 @@ const NO_OPTS = {};
  *   unit    false: no unit (a row of tiles that shares one)
  *   type    the button's type attribute
  *   width   keep room for two whole digits and the decimals, so the tile keeps its width as the reading changes
- * Returns { el, val, tr, st, cmp, fill }: the tile and the parts its loop writes.
+ * Returns { el, val, tr, st, cmp, fill, ux }: the tile and the parts its loop writes.
  */
 export function tileEl(t, opts = NO_OPTS) {
   const { inert = false, primary = false, names = true, unit = true, type = null, width = false } = opts;
@@ -28,10 +28,11 @@ export function tileEl(t, opts = NO_OPTS) {
   // the removed Student role's, tests/no-role.test.js.)
   const attrs = inert ? { class: 'metric inert' + (primary ? ' primary' : ''), 'data-id': t.id, role: 'group' } : { class: 'metric' + (primary ? ' primary' : ''), 'data-id': t.id };
   if (type && !inert) attrs.type = type;
+  const ux = t.ux ? h('span', { class: 'u-x' }, t.ux) : null;
   const el = h(inert ? 'div' : 'button', attrs,
     h('span', { class: 'k' }, names && t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k),
-    h('span', { class: 'v' }, val, unit ? h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null) : null, tr),
+    h('span', { class: 'v' }, val, unit ? h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, ux) : null, tr),
     bar, h('span', { class: 's' }, st, cmp));
   el.title = `${t.title || t.k}${inert ? '' : t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
-  return { el, val, tr, st, cmp, fill };
+  return { el, val, tr, st, cmp, fill, ux };
 }

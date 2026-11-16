@@ -386,6 +386,7 @@
 .pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
 /* (In the teaching card the switch sits centred, with no shadow: the card's own layer clipped a shadow to a hard-edged box.) */
 .pz-text .pz-ab { margin-inline: auto; align-self: center; box-shadow: none; background: none; border-color: transparent; }   /* (in the card: no track round the choices, the card is their ground; DG4 17 Oct) */
+.pz-ab-cap { flex: 0 0 100%; text-align: center; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-3); }   /* (what the choices change, above them: variant-toggle.js) */
 .pz-abb { appearance: none; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: 10px; padding: .5em 1.05em; min-height: 40px; font: 600 var(--s-lab)/1.1 var(--font-ui); color: var(--text-2); background: color-mix(in srgb, var(--surface) 55%, transparent); cursor: pointer; transition: scale var(--d-flip) var(--ease); }
 @media (hover: hover) { .pz-abb { --hv-bg: var(--hairline); } .pz-abb:hover::before { opacity: 1 } .pz-abb:hover { color: var(--text); } }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.

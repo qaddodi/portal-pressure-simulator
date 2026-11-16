@@ -293,7 +293,7 @@ export default [
   { file: 'src/ui/vitals-gl.js', need: [/drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'the vitals monitor is all GPU: no 2D context, no cached pictures (one capsule per strip segment)'] },
   // wall-numbers-agree
   { file: 'src/ui/instruments.js', need: [/const wr = wallRead\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture threshold'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },

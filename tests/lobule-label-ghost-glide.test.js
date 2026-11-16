@@ -2,8 +2,9 @@
 //  1. a "ghost" name: on a slide that lights other terms (Circulation 5, "Blood crosses the lobule"), the unlit Lymphatic and Bile ductule names are
 //     drawn at DIM_A over the hexagon's vessels and cells and read as a faint grey ghost that never goes. An unlit name now keeps clear of the outline
 //     (solve) or is left out, and the layout is made again when a slide changes which names are unlit (sameBase's dimMask).
-//  2. a layer switched (Lymph off) moved the Portal venule and Arteriole names to new spots in one frame: with the camera still, a name a layout
-//     moves now glides (noteAt), its leader following (capSync -> syncLeaders). After a pan or zoom the names still take their spots at once.
+//  2. a layer switched (Lymph off) moved the Portal venule and Arteriole names to new spots in one frame: a name a layout moves now fades out where it
+//     stood and in at its new place (label-captions.js moveFade, the 8 Nov "item 10: yes, fade"), in the Lobule and the Sinusoid view, Reduce Motion too;
+//     a name carried by the camera is not faded. tests/captions-move-fade.test.js drives the fade itself.
 //  3. lit names (Portal venule, Sinusoids) were thin on the cells: the Lobule's names wear the Anatomy's heavier outline, 4 px (app-07-floating.css).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,14 +26,35 @@ test("a slide that changes which names are unlit lays the labels out again", () 
   assert.match(LABELS, /\bdm: 0,/, 'mkFollow keeps the field');
 });
 
-test('a name a layout moves while the camera holds still glides, and its leader follows', () => {
-  assert.match(LABELS, /function noteAt\(L, glide\)/);
-  assert.match(LABELS, /const eased = !!glide;/);
-  assert.match(RECORDS, /noteAt\(L, still && !L\.peek\)/, 'only a name already showing glides');
+test('a name a layout moves fades from its old place to the new (never a snap, never a slide), unless it travels with the camera', () => {
+  const SV = read('../src/ui/sinusoid-view.js');
+  assert.match(LABELS, /function noteAt\(L, fade\)/);
+  assert.match(LABELS, /if \(fade\) L\.fadeMove = true;/);
+  assert.match(LABELS, /const eased = false;/, 'no glide');
+  assert.match(LABELS, /D_SURFACE, call \? \(off \? 0\.94 : 1\) : -1, t, fade\);/, 'asked of the shared caption layer');
+  assert.match(RECORDS, /noteAt\(L, still && !L\.peek\)/, 'only a name already showing');
   const still = RECORDS.match(/const still = (.*);\n/)[1];
-  for (const part of ['wasFollow.k === V.k', 'wasFollow.x === V.x', 'wasFollow.y === V.y', 'wasFollow.W === g.W', '!live.layerScaled', '!handOn()', '!reduce.matches']) assert.ok(still.includes(part), part);
-  assert.match(LABELS, /labGliding\(labs\[LAB_KEYS\[i\]\], now\)\) \{ live\.syncLeaders\?\.\(\); break; \}/);
-  assert.match(ZOOM, /live\.syncLeaders = syncLeaders;/);
+  assert.equal(still, '!handOn() && !live.gliding && !live.layerScaled', 'carried only while a hand, a camera glide or the dive moves it; Reduce Motion fades too');
+  assert.match(ZOOM, /get gliding\(\) \{ return gliding; \}, set gliding/, 'the camera glide flag the layout reads');
+  assert.match(read('../src/ui/sinusoid-view.js'), /PUT\.fade = !dive && \(!VW\.vel \|\| calm\(VW\.vel\)\);/, 'the Sinusoid view too');
+  assert.match(read('../src/ui/label-captions.js'), /function moveFade\(/);
+  assert.ok(!/live\.syncLeaders/.test(LABELS + ZOOM), 'no glide left to follow');
+  void SV;
+});
+
+test("the zone names' and the call-out pill's moves fade too, as a layout's own (not a ride's) puts", () => {
+  assert.match(LABELS, /let layFade = false;/);
+  assert.match(LABELS, /if \(layFade\) e\._fm = true;/);
+  assert.match(LABELS, /const fade = !off && \(L \? L\.fadeMove : !!e\._fm\);/);
+  assert.match(RECORDS, /function layoutLabels\(\) \{\n {4}try \{ layoutLabelsRun\(\); \} finally \{ setLayFade\(false\); \}/, 'never left on after a layout, so a ride or a bake is not faded');
+  assert.match(RECORDS, /setLayFade\(still\);/);
+});
+
+test("the call-out pointer's leader and ring fade with the pill, through call-geo-fade.js", () => {
+  assert.match(LABELS, /createCallGeoFade\(\{/);
+  assert.match(RECORDS, /const callWas = callFade\.snap\(\);/);
+  assert.match(RECORDS, /callFade\.settle\(callWas, still\);/);
+  assert.ok(RECORDS.indexOf('callFade.snap()') < RECORDS.indexOf('placeCall(fr, placed'), 'snapped before the layout writes the pointer');
 });
 
 test('every lobule, sinusoid and zone name takes the same 4 px outline, nowhere the thinner 3 px', () => {

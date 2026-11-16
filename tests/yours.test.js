@@ -18,8 +18,8 @@ test('the same scenario is the same patient, a different one is not, and the nam
   assert.notEqual(a, yoursId('pvt', { pvt: 0.75 }));
   assert.match(a, /^yours-[0-9a-z]+$/);
   assert.equal(yoursLabel('presin', { presin: 0.6 }), 'Presinusoidal marked');
-  assert.equal(yoursLabel('pvt', { pvt: 0.75 }), 'Portal clot severe');
-  assert.equal(yoursLabel('sinus+constr', { sinus: 0.3, constr: 0.9 }), 'Cirrhosis 30% + Constriction severe', 'a mix names each lesion and how far it is pushed');
+  assert.equal(yoursLabel('pvt', { pvt: 0.75 }), 'Portal vein thrombosis severe');
+  assert.equal(yoursLabel('sinus+constr', { sinus: 0.3, constr: 0.9 }), 'Cirrhosis 30% + Constrictive pericarditis severe', 'a mix names each lesion and how far it is pushed');
 });
 
 test('a record keeps only what the family needs and the readings that are numbers', () => {
@@ -102,6 +102,6 @@ test('the worker takes the saved list and answers with the patient list', async 
 });
 
 test('the readings line names the first few and counts the rest', () => {
-  assert.equal(readingsLine({ whvp: 8, fhvp: 4.5 }), 'WHVP 8.0 mmHg, FHVP 4.5 mmHg');
+  assert.equal(readingsLine({ whvp: 8, fhvp: 4.5 }), 'WHVP 8 mmHg, FHVP 4.5 mmHg');
   assert.match(readingsLine({ whvp: 8, fhvp: 4.5, pv: 20, ra: 4, ivc: 5, lsm: 6, ssm: 60 }), /and 2 more$/);
 });
