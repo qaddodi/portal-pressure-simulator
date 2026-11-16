@@ -78,7 +78,8 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const END_ON_EDGE = { pv: EI[LOBE.pre], ha: EI[LOBE.a], cv: EI[LOBE.post] };
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
-const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
+const BILE_LIGHT = [0.66, 0.6, 0.14], BILE_DARK = [0.88, 0.82, 0.3];   // MOCK: bile, a green-gold (the ductule's olive, brighter)
+const MAXT = 640;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
 const tk = (n, a) => (a === undefined ? cssVar(n) : cssAlpha(n, a));   // a colour token, optionally with an alpha
 useTokens(tk);   // (the tissue's painting, lobule-paint.js, reads the same live tokens on the page)
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -104,6 +105,9 @@ function curve(f, m = 160) {
 // The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
 // far round either side of the outward direction, and the lymphatic straight out.
 const TRIAD_D = 0.09, TRIAD_A = 0.98;
+// MOCK ONLY (16 Nov 2026, bile-duct mock, never on the preview): ?bile=a|b|c draws bile with the Lymph layer: a hairline canaliculus down every plate (a),
+// the same joined into trees toward the portal tract (b), or only the canals of Hering and the ductular reaction (c).
+const BILE = typeof location !== 'undefined' ? (new URLSearchParams(location.search).get('bile') || '') : '';
 // (A vessel seen end-on: a disc.)
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // alloc-rare: build() only: geometry built only on a stage-size change (ensureGeo's geoKey)
 // The point a fraction u along a polyline, written into `out` ([x, y]) and returned: a caller that reads it at once keeps one out.
@@ -623,6 +627,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     viewChanged();
   }
   let aimed = null;
+  // MOCK (bile): window.__lzView(zoom, w, along) frames the lobule at `zoom` × the fit on the point `w` of the way from the portal corner (the left one) toward the centre; `along` slides it along the edge.
+  if (BILE && typeof window !== 'undefined') window.__lzView = (zoom, w = 0.12, along = 0) => {
+    const g = geo, tri = g.lobules[0].corners[3], f = fitV(); kFit = f.k;
+    const x0 = lerp(tri[0], g.cx, w), y0 = lerp(tri[1], g.cy, w) + along * g.R;
+    V.k = f.k * zoom; V.x = g.W / 2 - x0 * V.k; V.y = g.H / 2 - y0 * V.k; atFit = false; viewChanged();
+  };
   // The presenter's framing of a part ('triad' | 'sinusoid' | 'central'), zoom × the fit; kFit must be current.
   function framing(part, zoom = 2) {
     const g = geo, tri = g.lobules[0].corners[3];
@@ -1260,19 +1270,19 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // neighbouring sinusoids holds a plate (two side by side where the sinusoids are far apart, near
     // their forks); along a plate the cells stack outward like beads on a cord.
     const cells = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rsN * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const sinP = [...L0, ...L1, ...L2].map((t) => ({ t, rs: rsN * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const crossAt = (rr) => {   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       const out = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      for (const { rs, P } of sinP) for (let i = 0; i < P.length - 1; i++) {
+      for (const { t, rs, P } of sinP) for (let i = 0; i < P.length - 1; i++) {
         const [r1, a1] = P[i], [r2, b2] = P[i + 1];
         if ((r1 - rr) * (r2 - rr) > 0 || r1 === r2) continue;
         const a2 = unwrap(b2, a1), a = a1 + (a2 - a1) * ((rr - r1) / (r2 - r1));
-        out.push({ a: Math.atan2(Math.sin(a), Math.cos(a)), rs }); break;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+        out.push({ a: Math.atan2(Math.sin(a), Math.cos(a)), rs, t }); break;   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       }
       return out.sort((p, q) => p.a - q.a);   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     };
     const cl = R * 0.052, dg = rs0 * 1.7, wT = R * 0.08;
-    for (let rr = rcv0 * 1.55; rr < R * 1.02; rr += cl) {
+    for (let rr = rcv0 * 1.55, ri = 0; rr < R * 1.02; rr += cl, ri++) {
       const X = crossAt(rr);
       if (X.length < 2) continue;
       for (let j = 0; j < X.length; j++) {
@@ -1284,7 +1294,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           const a = A.a + (A.rs + dg + (c + 0.5) * w) / rr, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
           const q = hexFrac(x, y, cx, cy, R);
           if (q > 0.975) continue;
-          cells.push({ x, y, a, l: cl * (0.84 + r() * 0.08), w: w * (n > 1 ? 0.86 : 0.94), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r(), jx: r() - 0.5, jy: r() - 0.5, ja: r() - 0.5 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+          cells.push({ ri, ga: A.t, gb: B.t, x, y, a, l: cl * (0.84 + r() * 0.08), w: w * (n > 1 ? 0.86 : 0.94), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r(), jx: r() - 0.5, jy: r() - 0.5, ja: r() - 0.5 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
         }
       }
     }
@@ -1335,6 +1345,89 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
     for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+
+    // ── MOCK: the bile (16 Nov 2026) ──
+    // Canaliculi run down the middle of each plate, between its hepatocytes, outward to the limiting plate, where a canal of Hering carries the bile along
+    // the edge (outside the lymphatic) to the ductule of the portal tract: against the blood, central vein to portal tract.
+    if (BILE) {
+      const byRing = new Map();
+      for (const c of cells) { if (!byRing.has(c.ri)) byRing.set(c.ri, []); byRing.get(c.ri).push(c); }
+      const nextOf = new Map(), hasPrev = new Set();
+      for (const ri of [...byRing.keys()].sort((p, q) => p - q)) for (const c of byRing.get(ri)) {
+        const cand = byRing.get(ri + 1); if (!cand) continue;
+        let best = null, bd = Infinity;
+        for (const d of cand) {
+          if (hasPrev.has(d)) continue;
+          const kin = (u, v) => u === v || u.parent === v.id || v.parent === u.id || (u.parent != null && u.parent === v.parent);   // (the same sinusoid, or one that has merged into the other's)
+          if (!kin(c.ga, d.ga) || !kin(c.gb, d.gb)) continue;
+          const da = Math.abs(Math.atan2(Math.sin(d.a - c.a), Math.cos(d.a - c.a))) * Math.hypot(d.x - cx, d.y - cy);
+          if (da < c.w * 0.8 && da < bd) { bd = da; best = d; }
+        }
+        if (best) { nextOf.set(c, best); hasPrev.add(best); }
+      }
+      const chains = [];
+      for (const c of cells) {
+        if (hasPrev.has(c)) continue;
+        const ch = [c]; for (let q = nextOf.get(c); q; q = nextOf.get(q)) ch.push(q);
+        if (ch.length >= 4) chains.push(ch);
+      }
+      // Canals of Hering: along each edge outside the lymphatic, toward the next corner's ductule, thickening as the bile gathers.
+      const HOFF = R * 0.034, hering = [];
+      for (let e = 0; e < 6; e++) {
+        const A = C[e], B = C[(e + 1) % 6], tr = triads[(e + 1) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(mx - cx, my - cy), nx = (mx - cx) / nl, ny = (my - cy) / nl;
+        const hp = (s) => [lerp(A[0], B[0], s) + nx * HOFF * (1 - 0.35 * smooth(0.8, 1, s)), lerp(A[1], B[1], s) + ny * HOFF * (1 - 0.35 * smooth(0.8, 1, s))];
+        const t = add('bh', curve((u) => { const s = lerp(0.1, 0.9, u), e2 = smooth(0.82, 1, u), p = hp(s); return [lerp(p[0], tr.bd[0], e2), lerp(p[1], tr.bd[1], e2)]; }), { tri: (e + 1) % 6, lymph: true, edge: e, bile: true });
+        hering[e] = { t, hp, A, B, nx, ny };
+        join(tr.bd[0], tr.bd[1], [tr.bdT, t], R * 0.004);
+      }
+      const edgeOf = (x, y) => { let a = Math.atan2(y - cy, x - cx); a = ((a % TAU) + TAU) % TAU; return Math.floor(a / (Math.PI / 3)) % 6; };
+      const sOn = (h, x, y) => clamp(((x - h.A[0]) * (h.B[0] - h.A[0]) + (y - h.A[1]) * (h.B[1] - h.A[1])) / (R * R), 0, 1);
+      const nearOn = (t, x, y) => { let b = 0, bdd = Infinity; for (let i = 0; i < t.pts.length; i++) { const d = Math.hypot(t.pts[i][0] - x, t.pts[i][1] - y); if (d < bdd) { bdd = d; b = i; } } return b; };
+      const smoothPoly = (P) => { let Q = P; for (let k = 0; k < 2; k++) Q = Q.map((q, i) => (i === 0 || i === Q.length - 1 ? q : [(Q[i - 1][0] + 2 * q[0] + Q[i + 1][0]) / 4, (Q[i - 1][1] + 2 * q[1] + Q[i + 1][1]) / 4])); return Q; };
+      const ends = [];
+      if (BILE !== 'c') for (const ch of chains) {
+        const last = ch[ch.length - 1], e = edgeOf(last.x, last.y), h = hering[e], s = sOn(h, last.x, last.y);
+        if (s < 0.14 || s > 0.86) continue;
+        ends.push({ ch, e, h, s, last });
+      }
+      if (BILE === 'a') for (const o of ends) {
+        const bi = nearOn(o.h.t, o.last.x, o.last.y), hpnt = o.h.t.pts[Math.min(N - 1, bi + 6)], pre = [o.last.x + (hpnt[0] - o.last.x) * 0.45, o.last.y + (hpnt[1] - o.last.y) * 0.45];
+        const poly = smoothPoly([...o.ch.map((c) => [c.x, c.y]), pre, hpnt]);
+        const t = add('bc', curve((u) => at(poly, u)), { lymph: true, bile: true, gen: 0 });
+        join(hpnt[0], hpnt[1], [o.h.t, t], R * 0.003);
+      }
+      if (BILE === 'b') {
+        // Tributaries: chains that end side by side join before the canal (a Y), and every duct thickens toward the portal tract, as the sinusoids do toward the central vein.
+        for (let e = 0; e < 6; e++) {
+          const h = hering[e], row = ends.filter((o) => o.e === e).sort((p, q) => p.s - q.s);
+          const hAt = (x, y) => h.t.pts[Math.min(N - 1, nearOn(h.t, x, y) + 6)];
+          for (let i = 0; i < row.length; i++) {
+            const o = row[i], q = row[i + 1];
+            if (q && (q.s - o.s) * R < R * 0.1) {
+              const mx = (o.last.x + q.last.x) / 2, my = (o.last.y + q.last.y) / 2, hp = hAt(mx, my), nd = [lerp(mx, hp[0], 0.45), lerp(my, hp[1], 0.45)];
+              const ta = add('bc', curve((u) => at(smoothPoly([...o.ch.map((c) => [c.x, c.y]), nd]), u)), { lymph: true, bile: true, taper: true });
+              const tb = add('bc', curve((u) => at(smoothPoly([...q.ch.map((c) => [c.x, c.y]), nd]), u)), { lymph: true, bile: true, taper: true });
+              const tc = add('bm', curve((u) => at([nd, [(nd[0] + hp[0]) / 2, (nd[1] + hp[1]) / 2], hp], u)), { lymph: true, bile: true, gen: 1 });
+              join(nd[0], nd[1], [ta, tb, tc], R * 0.0035); join(hp[0], hp[1], [h.t, tc], R * 0.004);
+              i++;
+            } else {
+              const hp = hAt(o.last.x, o.last.y), pre = [o.last.x + (hp[0] - o.last.x) * 0.45, o.last.y + (hp[1] - o.last.y) * 0.45];
+              const t = add('bc', curve((u) => at(smoothPoly([...o.ch.map((c) => [c.x, c.y]), pre, hp]), u)), { lymph: true, bile: true, taper: true });
+              join(hp[0], hp[1], [h.t, t], R * 0.003);
+            }
+          }
+        }
+      }
+      // Ductular reaction: three short fine ducts curl out of the canal's end beside the tract; they fade in with portal fibrosis.
+      for (let e = 0; e < 6; e++) {
+        const h = hering[e], tr = triads[(e + 1) % 6], base = h.t.pts[N - 1 - 10];
+        for (let k = 0; k < 3; k++) {
+          const ang = Math.atan2(tr.bd[1] - base[1], tr.bd[0] - base[0]) + (k - 1) * 0.9, L = R * (0.05 + 0.012 * k), ph = r() * TAU;
+          const t = add('bx', curve((u) => [base[0] + Math.cos(ang + 0.5 * Math.sin(u * 3 + ph)) * L * u + (tr.x - cx) * 0.0, base[1] + Math.sin(ang + 0.5 * Math.sin(u * 3 + ph)) * L * u]), { lymph: true, bile: true, tri: tr.i });
+          join(base[0], base[1], [h.t, t], R * 0.003);
+        }
+      }
+    }
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
     // flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). Only where each vessel arrives is kept here; the mask itself is worked out from the radii as drawn (lobule-mouths.js).
     const mouths = new Map();
@@ -2010,13 +2103,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // the selection's ids and the artery's colour; attrKey is '' until they have been made once, and is cleared to make them again.)
       // (The look's casing colour is in the discs' ink line, so a new look makes the attributes again: lookNow, as the draw below keeps it, is brought up to date first.)
       if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
-      const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
+      const lyPq = Math.round(lyProt(m) * 100) + 1000 * Math.round(m.fibPre * 50), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
       const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && akRad === live.radStamp && !selCh;
       if (inkMoved || !akSame) {
         attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig; akRad = live.radStamp;
         tubeData.fill(0);
         if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); }   // alloc-rare: only when the artery's colour token changed (a theme or palette change)
         const art = artRGB;
+        const bileRGB = rgb01(cs.getPropertyValue('--bile-duct').trim()) || (dark ? BILE_DARK : BILE_LIGHT);   // MOCK: the Sinusoid view's bile ink, the same token
         // (The lymph's two inks only where its vessels are drawn: the lymph layer.)
         let LY = null;
         if (lymphOn) {
@@ -2028,8 +2122,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const greyed = origin && lk >= 1;
         for (let p = 0; p < tubeSet.length; p++) {
           const t = tubeSet[p];
-          const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
-          const alpha = (t.kind === 'tw' ? TW_ALPHA : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
+          const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd', isBile = !!t.bile;
+          const alpha = (t.kind === 'tw' ? TW_ALPHA : t.kind === 'bx' ? smooth(0.04, 0.45, m.fibPre) : isBile ? 0.88 : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
@@ -2037,10 +2131,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           // Every vessel seen end-on (those two, the arteriole, the bile ductule: a disc, a vessel cut across) gets the long vessels' pale band just
           // inside its wall instead (F_RING), all round, so it reads as the cut end of a tube (recommendations/picture-blood-fills-look.md, item 9).
           const endOn = t.kind === 'cv' || t.kind === 'pv' || t.kind === 'ha' || t.kind === 'bd';
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (endOn ? F_RING : 0) | (isArt || isBd || isBile || t.kind === 'ly' ? 0 : F_SHADOW | (t.kind === 'cv' || t.kind === 'pv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           // (Row layout: the vessel's two end colours around its wall, then alpha, 1, depth, flags; its length; its outline.)
           if (isBd) { put3(o, BD_FILL); put3(o + 4, BD_FILL); }
           else if (isArt) { put3(o, art); put3(o + 4, art); }
+          else if (isBile) { put3(o, bileRGB); put3(o + 4, bileRGB); }
           else if (t.lymph) { const LYt = t.kind === 'ly' ? LYD : LY; put3(o, LYt); put3(o + 4, LYt); }
           else if (greyed) { put3(o, ORIGIN_RGB); put3(o + 4, ORIGIN_RGB); }
           else { put3(o, inkNow, p * 6); put3(o + 4, inkNow, p * 6 + 3); }
@@ -2086,14 +2181,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!flowSame && lyOn) {
       const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
       for (const t of tubeSet) {
-        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
+        if (t.kind !== 'ly' && t.kind !== 'lt' && t.kind !== 'bh' && t.kind !== 'bm') continue;   // (bile moves only in the canal of Hering and the joined ducts: the canaliculi stay still, 16 Nov 2026)
         const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
-        mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
+        mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw * (t.bile ? 0.6 : 1))) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
         flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 6] = 1;
         // The same lymph as the blood's streaks (the Tube's compositor, tube-lumen-glsl.js: a stream in flow texel 7, x the distance now, y the signed speed,
         // never 0, which means none): the distance advances on the blood's convention (modulo PERIOD, no allocation), coloured there by the protein in f0.z.
         // Classic and Mesh read neither float and keep the dashes. (markRows compares every float of a row, so an advancing distance marks the row as moved.)
-        const lyS = (t.kind === 'ly' ? -1 : 1) * lyVw * 0.5;
+        const lyS = (t.kind === 'ly' ? -1 : 1) * lyVw * (t.bile ? 0.3 : 0.5);
         mo.lyD = ((((mo.lyD ?? (t.id * 977) % PERIOD) + (lyStill ? 0 : lyS * dt)) % PERIOD) + PERIOD) % PERIOD;
         flowData[o + 28] = mo.lyD; flowData[o + 29] = lyStill ? (lyS < 0 ? -1e-3 : 1e-3) : lyS;
       }

@@ -464,6 +464,11 @@ export function createLobuleField(st, live) {
       // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
       // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
       case 'ly': { const j = disseJ(m, t.rho[i]); return rs * (t.lvl === 2 ? 1.3 : t.lvl === 1 ? 1.15 : 1) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
+      // MOCK (bile, 16 Nov 2026): the canaliculus a hairline, the joined ducts and the canal of Hering thicker as the bile gathers; the reaction's ducts fine.
+      case 'bc': return t.taper ? Math.max(0.36, R * lerp(0.0011, 0.0026, smooth(0.2, 1, i / (N - 1)))) : Math.max(0.36, R * 0.0013);
+      case 'bm': return Math.max(0.6, R * 0.0032);
+      case 'bh': return Math.max(0.9, R * lerp(0.0026, 0.0052, i / (N - 1)));
+      case 'bx': return Math.max(0.6, R * 0.0022 * (1 - 0.4 * i / (N - 1)));
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;
@@ -491,7 +496,7 @@ export function createLobuleField(st, live) {
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   const TW_ALPHA = 0.45;   // the arteriole's twig, faint: zone 1's arterial inflow is a hint beside the portal inflow, not a second vessel
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.2, lt: 0.8, lv: 1.1 };
+  const WALL = { bc: 0.35, bm: 0.45, bh: 0.6, bx: 0.4, s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.2, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -584,7 +589,7 @@ export function createLobuleField(st, live) {
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   const LYD = [0, 0, 0], DISSE_DEEP = [0.5, 0.78, 0.82], DISSE_DEEP_DARK = [0.17, 0.48, 0.54];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
+  const Z_OF = { bc: 0.07, bm: 0.27, bh: 0.28, bx: 0.28, s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.05, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (live.drawKey === '' || cw !== live.dW || ch !== live.dH) return false;
