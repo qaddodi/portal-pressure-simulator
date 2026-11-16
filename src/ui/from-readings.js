@@ -27,15 +27,15 @@ export const STEPS = Object.freeze([
   { id: 'pressures', name: 'Pressures', q: 'Do you have pressures?', sub: 'From a hepatic vein catheter, an EUS or a right heart study. Enter any you have.', keys: ['whvp', 'fhvp', 'hvpg', 'pv', 'ppg', 'ivc', 'ra'] },
   { id: 'stiffness', name: 'Stiffness', q: 'Do you have liver or spleen stiffness?', sub: 'Either one helps.', keys: ['lsm', 'ssm'] },
   { id: 'size', name: 'Spleen and blood', q: 'Spleen, platelets and varices?', sub: 'Size on ultrasound or CT, the blood count, the endoscopy.', keys: ['spleen', 'plt', 'varix'] },
-  { id: 'fluid', name: 'Fluid and flow', q: 'Ascites and portal flow?', sub: 'The ultrasound, a tap, the Doppler of the portal vein.', keys: ['asc', 'saag', 'asctp', 'pvVel'] },
+  { id: 'fluid', name: 'Fluid and flow', q: 'Ascites and portal flow?', sub: 'Ultrasound, diagnostic paracentesis, portal vein Doppler.', keys: ['asc', 'saag', 'asctp', 'pvVel'] },
 ]);
 
 // What each row says under its name: where it comes from. It never repeats the row's name (review U7), and the allowed errors are not here: the review explains them once.
 const SUBS = {
   whvp: 'Balloon wedged in a hepatic vein', fhvp: 'The same vein, free', hvpg: 'Only if you do not have both pressures above', pv: 'Direct or by EUS',
   ppg: 'EUS-PPG, if you do not have both pressures above', lsm: 'Transient elastography', ssm: 'Transient elastography',
-  spleen: 'Longest length, ultrasound or CT', plt: 'From the blood count', varix: 'At endoscopy', asc: 'On ultrasound', saag: 'Serum minus ascites albumin', asctp: 'From the same tap as the SAAG',
-  pvVel: 'Mean velocity; 0 is no flow, negative runs away from the liver',
+  spleen: 'Longest length, ultrasound or CT', plt: 'From the blood count', varix: 'At endoscopy', asc: 'On ultrasound', saag: 'Serum albumin − ascitic fluid albumin', asctp: 'From the same paracentesis as the SAAG',
+  pvVel: 'Mean velocity; 0 is no flow, negative is hepatofugal',
 };
 /** A reading the person does not type because it is made from two they did: the field shows it, read-only, and says where it comes from (review U8). */
 const DERIVED = Object.freeze({ hvpg: { from: ['whvp', 'fhvp'], note: 'From WHVP − FHVP' }, ppg: { from: ['pv', 'ivc'], note: 'From portal vein − IVC' } });

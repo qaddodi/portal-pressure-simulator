@@ -14,7 +14,7 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const VESSEL = {
   V_INT: 'Drain the small bowel, carrying absorbed nutrients toward the liver.',
   V_COL: 'Drain the colon into the inferior mesenteric vein.',
-  V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches meet systemic veins: a portosystemic crossroads.',
+  V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches anastomose with systemic rectal veins: the site of anorectal varices.',
   SV_MID: 'The splenic vein midway, where a splenorenal shunt leaves it.',
   V_SPL: 'Drains the spleen. Portal hypertension causes congestive splenomegaly.',
   V_STO: 'Drain the stomach toward the coronary vein.',

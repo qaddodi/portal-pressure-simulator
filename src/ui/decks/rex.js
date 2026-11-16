@@ -94,7 +94,7 @@ export const MESO_REX = {
       id: 'alternative', lens: 'origin', preset: 'pvt-chronic', params: { dsrs: true }, cam: SHUNTS_CAM, mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       compare: [{ label: 'Warren shunt', short: 'Warren', own: true }, { label: 'Meso-Rex bypass', short: 'Rex', params: { dsrs: false, rex: true } }],
       kicker: 'When meso-Rex is not feasible', site: 'pre', title: 'Without a patent intrahepatic portal system, a Warren shunt is an option', cite: 'Baveno VIII 9.34, 9.35',
-      line: 'Back in the first child, a Warren shunt decompresses the varices through the spleen, yet the PPG stays {ppg} and {shunt} of portal flow bypasses the liver.',
+      line: 'Without a patent intrahepatic portal system, a Warren shunt decompresses the varices through the spleen, yet the PPG stays {ppg} and {shunt} of portal flow bypasses the liver.',
       notes: 'When a meso-Rex bypass is not feasible, Baveno VIII advises portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt (9.34). A Warren shunt can be considered for recurrent variceal hemorrhage when there is no hepatopulmonary syndrome, portopulmonary hypertension or encephalopathy (9.35). In the model the Warren shunt decompresses the varices through the splenic vein but leaves portal vein pressure high, and the buttons compare it with the bypass in the same child.',
       ask: ['What does Baveno VIII offer for secondary prophylaxis when a meso-Rex bypass is not feasible?', 'Portal vein recanalization, endoscopic treatment with or without a nonselective beta-blocker, or a distal splenorenal shunt.'],
     },

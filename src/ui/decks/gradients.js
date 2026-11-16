@@ -109,7 +109,7 @@ export const GRADIENTS = {
       kicker: 'HVPG misses', site: 'presin', title: 'In porto-sinusoidal vascular disorder the resistance is presinusoidal',
       line: 'The HVPG is {hvpg}. The EUS-PPG and PPG start in the portal vein, upstream of the resistance: {eus} and {ppg}.',
       notes: 'PSVD puts the resistance in the portal tracts. The sinusoids are spared, so the WHVP and FHVP are close and the HVPG stays low although the portal pressure is high. The EUS-PPG starts in the left portal vein, upstream of the portal tracts, so it spans the resistance and is close to the PPG. EASL 2025 says the HVPG does not capture the presinusoidal component in PSVD and portal vein thrombosis, and that an EUS-guided gradient could overcome this, but it needs general anesthesia, which probably makes the estimate less reliable. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test. Schistosomiasis gives the same pattern.',
-      ask: ['Why does EUS-PPG see the resistance in PSVD when the HVPG does not?', 'Its needle measures the left portal vein, upstream of the portal tracts, while the WHVP reflects only sinusoidal pressure.'],
+      ask: ['Why does the EUS-PPG include the resistance in PSVD when the HVPG does not?', 'Its needle measures the left portal vein, upstream of the portal tracts, while the WHVP reflects only sinusoidal pressure.'],
     },
     {
       id: 'bc', preset: 'budd-chiari', cath: 'blocked', lens: 'drop', mark: { edges: CLOT, label: 'Hepatic vein thrombosis', free: true }, tool: PROFILE, data: 'tiles', tiles: ['ppg'], key: ['ppg'],

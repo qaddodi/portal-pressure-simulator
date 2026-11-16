@@ -75,10 +75,10 @@ export const LOBULE = {
     },
     {
       id: 'wedge-sinusoid', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['sin', 'pv'], key: ['sin'],
-      kicker: 'Measuring', site: 'presin', title: 'In schistosomiasis the sinusoids see a normal pressure',
-      line: 'The resistance lies before the sinusoids, so they stay at {sin} while the portal vein runs high. The wedged column ends in the sinusoids, and reads normal.',
+      kicker: 'Measuring', site: 'presin', title: 'In schistosomiasis the sinusoidal pressure stays normal',
+      line: 'Resistance upstream of the sinusoids keeps the sinusoidal pressure at {sin} while the portal pressure is high. The wedged column ends in the sinusoids, so the WHVP is normal.',
       notes: 'In schistosomiasis the eggs obstruct the portal venules in the portal tracts, upstream of the sinusoids. The sinusoids themselves see a normal pressure, so the static column of blood behind the wedged catheter reads normal and the HVPG stays normal despite a high portal vein pressure. Only a direct portal pressure measurement or the PPG shows the presinusoidal resistance.',
-      ask: ['Why is the wedged pressure normal when the portal vein pressure is high in schistosomiasis?', 'The resistance lies before the sinusoids, so the sinusoids that the wedged column reads see a normal pressure.'],
+      ask: ['Why is the wedged pressure normal when the portal vein pressure is high in schistosomiasis?', 'The resistance lies upstream of the sinusoids, so the sinusoidal pressure, which the WHVP reflects, is normal.'],
     },
     {
       // (The relation chart before the summary: each disease's wedged pressure against its portal vein pressure, on a plane with the
@@ -87,7 +87,7 @@ export const LOBULE = {
       plane: { x: { key: 'pv', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Portal vein pressure, mmHg', short: 'Portal, mmHg' },
         y: { key: 'whvp', min: 0, max: 30, ticks: [0, 10, 20, 30], name: 'Wedged pressure, mmHg', short: 'WHVP, mmHg' }, zones: [], key: 'never', diag: { label: 'WHVP = portal' } },
       of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'cirr', name: 'Cirrhosis' }, { preset: 'sos', name: 'Sinusoidal obstruction', short: 'SOS', site: 'postsin' },
-        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein clot', short: 'Clot', site: 'pre' }],
+        { id: 'cong', name: 'Heart failure', short: 'Heart' }, { id: 'wedge', name: 'Schistosomiasis', short: 'Schisto' }, { preset: 'pvt-chronic', name: 'Portal vein thrombosis', short: 'Clot', site: 'pre' }],
       kicker: 'Summary', title: 'The wedged pressure equals portal pressure only for sinusoidal or downstream resistance',
       line: 'On the dashed line the wedged pressure equals the portal pressure. Below it, the resistance is prehepatic or presinusoidal, and the wedged pressure misses it.',
       notes: 'Each disease is a point: portal vein pressure on the x-axis, wedged pressure on the y-axis. Cirrhosis and sinusoidal obstruction syndrome lie on the line, because the resistance is in or downstream of the sinusoids and the WHVP reflects the pressure upstream of it. Right heart failure lies on it as well, with every pressure high and no gradient. Schistosomiasis and portal vein thrombosis fall far below it: the portal pressure is high, but the WHVP reflects near-normal sinusoids, so the HVPG is normal. Only a direct portal pressure measurement, or the PPG, shows them. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3, the right atrial pressure measured to rule out a post-hepatic component. That the wedged pressure misses presinusoidal resistance is the model\'s own result, from the site of the resistance.)',

@@ -33,7 +33,7 @@ export const ENCEPHALOPATHY = {
     {
       id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'firstpass', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'firstpass',
       kicker: 'Collaterals', site: 'sin', title: 'Portosystemic collaterals divert portal blood around the cirrhotic liver',
-      vignette: 'A 69-year-old taxi driver with hepatitis C cirrhosis, cured 2 years ago, has had two minor car crashes this year. His wife notices that he is slower, and EGD shows large varices.',
+      vignette: 'A 69-year-old taxi driver with cirrhosis from hepatitis C, cured 2 years ago, has had two minor car crashes this year. His wife notices that he is slower, and EGD shows large varices.',
       line: 'Collaterals now carry {shunt} of the portal blood around the liver, and the cirrhotic liver clears less of what still reaches it.',
       notes: 'Covert HE is detectable only on testing, as psychomotor slowing and longer reaction times. It does not count as decompensation, but it predicts overt HE and motor vehicle crashes. A single test, such as animal naming, is enough to detect it, and lactulose treats it. Ask about driving, and look for a precipitant.',
       ask: ['He drives a taxi. What do you test, and what do you start?', 'One test for covert HE, such as animal naming; lactulose if it is abnormal; and advice not to drive until it improves.'],
@@ -117,7 +117,7 @@ export const ENCEPHALOPATHY = {
       // the width. The model's encephalopathy index is High at every width and rises only a little, so the liver's flow is charted. The ring is 8 mm.)
       id: 'relation', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', mark: STENT,
       tool: { kind: 'curve', param: 'tips.d', from: 6, to: 12, step: 1, lines: ['ppg', 'liver'], cuts: [12] },
-      kicker: 'Summary', site: 'sin', title: 'A wider stent lowers the PPG and takes more sinusoidal flow',
+      kicker: 'Summary', site: 'sin', title: 'A wider stent lowers the PPG and diverts more sinusoidal flow',
       line: 'At 8 mm the PPG is {ppg}, meeting the {<12 mmHg} target, and sinusoidal flow is {liver} of normal.',
       notes: 'Each point is the same patient with a stent of that diameter: the PPG and the hepatic sinusoidal flow fall as the diameter increases. Baveno VIII advises the smallest diameter that works, to limit overshunting (HE, heart failure). The model\'s encephalopathy index rises with the diameter too, though it is High at every diameter here, so this chart shows the sinusoidal flow, which shows the change more clearly. The ring is the 8 mm stent. (Baveno VIII 6.5.)',
       ask: ['An 8 mm stent brings the PPG <12 mmHg. Why not dilate it to 12 mm?', 'The PPG is already at target. A wider stent lowers it slightly more and diverts more hepatic flow, with more HE.'],
