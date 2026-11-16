@@ -69,13 +69,14 @@ export function createTxns() {
   };
 }
 
-/** What a slow slide change spent its time on, for the ?perf copy: "slide 5 took 11200 ms: leave 150, state-ready 9800, settle 300, cards-in 0 ..." (each step's length
- *  until the next). '' when the change took under minMs, so a quick one says nothing. The trail is [name, at, name, at ...] (a transaction's own, see begin). */
-export function slowTrail(trail, now, label = 'slide change', minMs = 1500) {
-  if (!trail || trail.length < 2 || now - trail[1] < minMs) return '';
-  const parts = [];
-  for (let k = 0; k < trail.length; k += 2) parts.push(`${trail[k]} ${Math.round((k + 2 < trail.length ? trail[k + 3] : now) - trail[k + 1])}`);
-  return `${label} took ${Math.round(now - trail[1])} ms: ${parts.join(', ')}`;
+/** The steps of a slow slide change and how long each ran, for the ?perf copy: [[phase, ms], ...] (each step's length until the next, the last until now),
+ *  or [] when the change took under minMs, so a quick one says nothing. The trail is [name, at, name, at ...] (a transaction's own, see begin). The steps are a
+ *  fixed set of names, so each can be a note (gpu-probe.js notes are by fixed name): "slow slide step: state-ready" with its milliseconds summed. */
+export function slowSteps(trail, now, minMs = 1500) {
+  if (!trail || trail.length < 2 || now - trail[1] < minMs) return [];
+  const out = [];
+  for (let k = 0; k < trail.length; k += 2) out.push([trail[k], Math.round((k + 2 < trail.length ? trail[k + 3] : now) - trail[k + 1])]);
+  return out;
 }
 
 // (createScope lives in scope.js now; re-exported here so the presenter and its tests keep their import.)

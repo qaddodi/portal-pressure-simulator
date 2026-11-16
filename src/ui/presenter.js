@@ -34,7 +34,7 @@ import { frameFor, cancelFrame, holdMotion, inMotion, beginChange } from './fram
 import { loadGlyphs } from './text-gl.js';
 import { restPass } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
-import { createTxns, createLease, slowTrail } from './slide-txn.js';
+import { createTxns, createLease, slowSteps } from './slide-txn.js';
 import { cathInstant } from './cath-arrival.js';
 import { gpuProbe } from './gpu-probe.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
@@ -989,7 +989,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // is the current one and is over gives the figure back whatever ended it.)
       if (mine && want === to && view.classList.contains('pz-out')) figureIn();
       if (mine) turnDone();
-      if (mine && want === to) { const slow = slowTrail(tx.trail, performance.now(), `slide ${to + 1}`); if (slow) gpuProbe.note(slow); tx.end(); }   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
+      if (mine && want === to) for (const [step, ms] of slowSteps(tx.trail, performance.now())) if (ms >= 400) gpuProbe.note(`slow slide step: ${step}`, ms);   // (?perf: where a slow change spent its time)
+      if (mine && want === to) tx.end();   // (landed, or given up for this slide: its cards' input is given back; a newer change keeps its own)
       creditOff(); changeOff();
     }
   }
@@ -1157,8 +1158,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     tx?.phase('settle');
     await settleRun();
-    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); tx?.phase('cards-in'); }
-    if (cut()) return;
+    if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
+    if (cut()) return; tx?.phase(bare ? 'camera' : 'cards-in');
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
     let prep = null; const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? (prep = bare ? unseenFit(cut) : null, Promise.resolve(prep).then((ok) => (bare && !ok ? null : camera(cam, fv, cut)))) : null;
