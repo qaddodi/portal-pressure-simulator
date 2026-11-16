@@ -120,5 +120,10 @@ test('pps.cameraGate walks each named deck Next and Back by its id and judges ea
   assert.equal(r.fail, 2, 'the two moves onto b\'s slide 2 made a second move after landing');
   assert.match(r.text, /6 of 8 slide moves pass/);
   await assert.rejects(gate({ decks: ['nope'] }), /no deck named nope/);
+  // by its number or its title too; and a presenter that cannot count its slides fails loudly (main.js's facade had no count: "0 of 0", 16 Nov 2026)
+  const g2 = createCameraGate({ presenter, stage, decks: [{ id: 'a', title: 'Deck A' }, { id: 'c' }] });
+  started.length = 0; await g2({ decks: [2, 'deck a'], back: false });
+  assert.deepEqual(started, ['c', 'a'], 'by number (1 first) and by title, any case');
+  await assert.rejects(createCameraGate({ presenter: { ...presenter, count: undefined }, stage, decks: [{ id: 'a' }] })({}), /cannot count/);
   globalThis.document.querySelector = q;
 });

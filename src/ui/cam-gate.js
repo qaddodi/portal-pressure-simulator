@@ -47,7 +47,9 @@ export function createCameraGate({ presenter, stage, decks }) {
   // (decks: the app's list of decks (decks.js DECKS, an array) or a map by id; each named by its own id.)
   const byId = new Map((Array.isArray(decks) ? decks : Object.values(decks)).filter((d) => d?.id).map((d) => [d.id, d]));
   return async function cameraGate({ decks: ids = null, back = true } = {}) {
-    const list = [].concat(ids || [...byId.keys()]);
+    // (a deck is named by its id, its title (any case) or its number in the list, 1 first: pps.decks() lists them)
+    const all = [...byId.values()], name = (x) => (byId.has(x) ? x : typeof x === 'number' || /^\d+$/.test(x) ? all[Number(x) - 1]?.id : all.find((d) => String(d.title || '').toLowerCase() === String(x).toLowerCase())?.id) ?? x;
+    const list = [].concat(ids || [...byId.keys()]).map(name);
     const unknown = list.filter((id) => !byId.has(id));
     if (unknown.length) throw new Error(`cameraGate: no deck named ${unknown.join(', ')} (the ids: ${[...byId.keys()].join(', ')})`);
     const moves = [];
@@ -56,6 +58,7 @@ export function createCameraGate({ presenter, stage, decks }) {
       const opened = await Promise.race([Promise.resolve(presenter.start(id, 0)).then(() => true, () => false), sleep(60000).then(() => false)]);
       if (!opened || !(await settled(60000)).ok || presenter.position?.()?.id !== id) { moves.push({ at: `${id}`, fails: ['the deck did not open'] }); continue; }
       const n = presenter.count?.() ?? 0;
+      if (n < 2) throw new Error(`cameraGate: ${id} opened with ${n} slides: the presenter handed to the gate cannot count them`);   // (16 Nov 2026: main.js's facade had no count, and every deck was walked over 0 slides, "0 of 0" with no error)
       for (let i = 1; i < n; i++) await step(id, i - 1, i, moves);
       if (back) for (let i = n - 2; i >= 0; i--) await step(id, i + 1, i, moves);
       console.log(`cameraGate: ${id} done (${moves.filter((m) => m.at.startsWith(id + ' ') && m.fails.length).length} failing)`);
