@@ -35,6 +35,8 @@ export const zoomRide = {
   /** el rides aff while zoomed; real(): its drawn box (a piece whose getBoundingClientRect answers its rest box), else none. */
   set(el, aff, real = null) { rides.set(el, { aff, real }); },   // alloc-rare: once per element as a zoom opens
   drop(el) { rides.delete(el); },
+  /** Whether el rides a zoom now (its getBoundingClientRect then answers its rest box). */
+  has(el) { return rides.has(el); },
   /** The zoom el rides this frame, or null. */
   of(el) { return (rides.get(el) || ride0).aff; },
   /** Whether anything rides a zoom now. */

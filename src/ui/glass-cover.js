@@ -166,10 +166,11 @@ export function coverBoard() {
   };
   // (The element a glass's words are in, and its box this frame: the glass's own, or the card it is the paper of (cv, its box cvo px off the glass's).)
   const targetOf = (p) => p.cv || p.g;
+  // (p.zf: how many times larger the card is drawn than when its parts' offsets o were read (a card zoomed since: card-zoom.js); the offsets grow with it.)
   function boxOf(p) {
-    const r = p.r, o = p.cv && p.cvo;
+    const r = p.r, o = p.cv && p.cvo, f = p.zf || 1;
     if (!o) return r;
-    tr.left = r.left + o[0]; tr.top = r.top + o[1]; tr.right = r.right + o[2]; tr.bottom = r.bottom + o[3];
+    tr.left = r.left + o[0] * f; tr.top = r.top + o[1] * f; tr.right = r.right + o[2] * f; tr.bottom = r.bottom + o[3] * f;
     tr.width = tr.right - tr.left; tr.height = tr.bottom - tr.top;
     return tr;
   }
@@ -193,8 +194,8 @@ export function coverBoard() {
   }
   // (A part's box this frame: kid.o px off the glass's own box.)
   function kidBox(p, k) {
-    const r = p.r, o = k.o;
-    tr.left = r.left + o[0]; tr.top = r.top + o[1]; tr.right = r.right + o[2]; tr.bottom = r.bottom + o[3];
+    const r = p.r, o = k.o, f = p.zf || 1;
+    tr.left = r.left + o[0] * f; tr.top = r.top + o[1] * f; tr.right = r.right + o[2] * f; tr.bottom = r.bottom + o[3] * f;
     tr.width = tr.right - tr.left; tr.height = tr.bottom - tr.top;
     return tr;
   }
