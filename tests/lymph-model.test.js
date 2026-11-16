@@ -75,3 +75,29 @@ test('ascites never runs away: congested and cirrhotic patients settle below the
     assert.ok(r.asc < 14000, `${f} ${JSON.stringify(p)}: ${r.asc} mL`);
   }
 });
+
+// A note's "about eight times the lymph of a healthy liver" is the model's own multiple on that slide (16 Nov 2026: the overrun notes said seven and
+// nine while the model gave eight and ten). Notes are printed as plain words (presenter view, handout), so this test is what keeps them on the model.
+const WORD = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20 };
+const MULT = /\b(about|more than|over|nearly) (\w+) times (the lymph of a healthy liver|the healthy flow)/g;
+test('every "N times" of the liver\'s lymph in a slide\'s words or notes is the model\'s multiple on that slide', async () => {
+  let seen = 0;
+  for (const d of DECKS) {
+    const texts = d.slides.map((s) => `${s.line ?? ''} ${s.notes ?? ''}`);
+    if (!texts.some((t) => MULT.test(t))) continue;
+    MULT.lastIndex = 0;
+    const fps = await deckStates(d);
+    d.slides.forEach((s, i) => {
+      for (const [, how, w, what] of texts[i].matchAll(MULT)) {
+        const n = WORD[w] ?? Number(w), f = fps[i];
+        assert.ok(Number.isFinite(n), `${d.id}/${s.id}: "${w}" is not a number word`);
+        const r = (what.includes('liver') ? f.hepLymph : f.lymphCap) / healthy;
+        if (how === 'about') assert.ok(Math.abs(r - n) <= 0.6, `${d.id}/${s.id}: "${how} ${w} ${what}" but the model gives ${r.toFixed(1)}`);
+        else if (how === 'nearly') assert.ok(r < n && r > n - 1, `${d.id}/${s.id}: "${how} ${w}" but the model gives ${r.toFixed(1)}`);
+        else assert.ok(r > n, `${d.id}/${s.id}: "${how} ${w} ${what}" but the model gives ${r.toFixed(1)}`);
+        seen++;
+      }
+    });
+  }
+  assert.ok(seen >= 3, 'the Ascites talk\'s multiples are checked');
+});
