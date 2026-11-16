@@ -101,6 +101,14 @@ export function setFramePump(on) {
   }
 }
 
+/** The page's clocks are being swapped (test-clock.js, pps.testClock): a frame asked of the browser's own clock is taken back, `swap()` runs, and the
+ *  frame is asked again of the new one. Else the scheduler waits for a frame the old clock, in a pane the browser is not drawing, may never send. */
+export function retimeFrames(swap) {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = 0; pending = 0; }
+  if (pumpT) { clearTimeout(pumpT); pumpT = 0; pending = 0; }
+  try { swap(); } finally { if (!pending && (queue.size || late.size || fin.size || reads.size)) pending = askFrame(); }
+}
+
 function flush(now) {
   const taskT0 = performance.now();
   pending = 0; rafId = 0;
