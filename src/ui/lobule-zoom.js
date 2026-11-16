@@ -2829,7 +2829,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   // The way out of the sinusoid that goes straight on to the anatomy (chainOut: sinusoidToAnatomy, stage.js): the zoom out of the sinusoid eases in only, so it reaches the lobule still
   // moving, and the rise out of the lobule, which moves from its first frame (RISE_SLOPE), carries straight on from it: one glide, not two zooms with a stop between (Mohammad, 16 Nov 2026).
-  let sinChain = null;
+  let sinCarry = null;
   const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
   const sinPickObj = { tube: 0, w: null };   // (the pick, one object kept: sinPick is the last one made)
@@ -2936,7 +2936,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // zoom starts (and the credit line slides down), so the frame they free settles early in the zoom, which then
     // lands on it, with no second move after it. (On the way out it is kept, so the lobule is reached as it was.)
     if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
-    const g = rm ? 1 : sinChain && sinTo === 0 ? 1 - easeIn(1 - u) : easeIO(u);
+    const g = rm ? 1 : sinCarry && sinTo === 0 ? 1 - easeIn(1 - u) : easeIO(u);
     sinZ = Math.log(D.Z) * g;
     // The lobule: turned and grown about its sinusoid's point, which goes straight to where the view draws it (dive-map.js).
     // (The origin's text made again only when it moves a hundredth of a pixel: it settles early in the zoom, once the space the lobule lands in has opened.)
@@ -2958,7 +2958,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
     el.style.setProperty('--lz-chrome', smooth01(ch).toFixed(3));
   }
-  function resetSinusoid() { sinChain = null; cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  function resetSinusoid() { sinCarry = null; cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   // The Sinusoid button while the lobule is still fading in: kept here (sinPending) and carried on at the landing, with no store write to refuse. True: kept.
   function askSinusoid(on) {
     if (!on) { sinPending = false; return false; }
@@ -2971,7 +2971,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
     if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) setViewKey('lobule'); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
     const to = on ? 1 : 0;
-    if (on) sinChain = null;   // (the sinusoid asked for again: the way on to the anatomy is called off)
+    if (on) sinCarry = null;   // (the sinusoid asked for again: the way on to the anatomy is called off)
     if (to === sinTo && sinU === to) return;
     sinTo = to;
     // (A flick or a button's glide still moving would carry the lobule off the vessel the zoom is aimed at: stopped first.)
@@ -3000,7 +3000,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const step = () => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
       sinU = sinClock.tick(easeNow()); placeSinusoid();
       if (sinU !== to) sinRaf = nextFrame(step);
-      else if (!on) { sinDive = null; drawVersion++; lzLoop.want(fade > 0); if (refitLater) refit(); const go = sinChain; sinChain = null; if (go) go(); }   // (go: the way out that carries on to the anatomy, the frame the zoom lands)
+      else if (!on) { sinDive = null; drawVersion++; lzLoop.want(fade > 0); if (refitLater) refit(); const go = sinCarry; sinCarry = null; if (go) go(); }   // (go: the way out that carries on to the anatomy, the frame the zoom lands)
     };
     sinRaf = nextFrame(step);
   }
@@ -3093,7 +3093,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     sinBusy: () => sinBusyNow(),
     askSinusoid,
     /** The zoom out of the sinusoid, set to carry straight on: `go` runs the frame it lands (the rise out of the lobule). false: not in the sinusoid, nothing set. */
-    chainOut(go) { if (!sv.isOpen()) return false; sinChain = go; return true; },
+    chainOut(go) { if (!sv.isOpen()) return false; sinCarry = go; return true; },
     /** Whether the lobule stands at its fit (the framing the rise starts from), for the way out of the sinusoid that does not stop there. */
     atFitNow() { if (!geo) return true; const F0 = fitV(); return Math.abs(V.k - F0.k) + Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) <= 0.5; },
     // (The vessel canvas keeps no picture between frames (veins-gl.js ownBuf): a reader outside the frame lays it first.)

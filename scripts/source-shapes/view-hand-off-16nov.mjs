@@ -10,8 +10,8 @@ export default [
   { file: 'src/ui/lobule-zoom-field.js', need: [/live\.labelsAhead\(\);/, 'stage() places the lobule\'s names before the dive'] },
   { file: 'src/ui/lobule-zoom.js', need: [/function labelsAhead\(\) \{\n\s*if \(fade > 0 \|\| !geo \|\| diveScaled \|\| sinU > 0\) return;\n\s*measureNow\(\);/, 'the names are measured while the layer stands straight'] },
   // Sinusoid to anatomy is one glide: the zoom out eases in only and the rise begins in the frame it lands.
-  { file: 'src/ui/lobule-zoom.js', need: [/sinChain && sinTo === 0 \? 1 - easeIn\(1 - u\) : easeIO\(u\)/, 'the way out of the sinusoid that carries on eases in only'] },
-  { file: 'src/ui/lobule-zoom.js', need: [/const go = sinChain; sinChain = null; if \(go\) go\(\);/, 'the rise begins in the frame the sinusoid zoom lands'] },
+  { file: 'src/ui/lobule-zoom.js', need: [/sinCarry && sinTo === 0 \? 1 - easeIn\(1 - u\) : easeIO\(u\)/, 'the way out of the sinusoid that carries on eases in only'] },
+  { file: 'src/ui/lobule-zoom.js', need: [/const go = sinCarry; sinCarry = null; if \(go\) go\(\);/, 'the rise begins in the frame the sinusoid zoom lands'] },
   { file: 'src/ui/presenter.js', need: [/stage\.exitSinusoid\(\);/, 'a slide leaving the sinusoid for the anatomy is one glide (stage.exitSinusoid)'] },
   { file: 'src/ui/presenter.js', forbid: [/\{ setViewKey\('lobule'\); await waitCut\(60, cut\); await until\(\(\) => cut\(\) \|\| \(!stage\.sinBusy\(\) && !stage\.sinusoidOpen\(\)\), 4000\)/, 'no stop at the lobule between the sinusoid and the anatomy'] },
 ];
