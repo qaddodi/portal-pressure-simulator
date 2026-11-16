@@ -171,7 +171,7 @@ export function createLobuleLabels(st, live) {
       const peek = shown.map((L) => L.el.hidden), had = shown.map((L) => classHas(L.el, 'stack'));
       shown.forEach((L) => { L.el.hidden = false; L.el.classList.remove('stack'); });
       const w0 = shown.map((L) => L.el.offsetWidth), u2 = shown.map((L) => !!L.el.querySelector('.u2'));
-      const stack = shown.map((x, i) => u2[i]);   // (a label with a second reading (the lymph's protein) always stands it on its own line: one line was wider than the room beside the screen's edge, 16 Nov 2026)
+      const stack = shown.map((x, i) => w0[i] > want.fw && u2[i]);
       shown.forEach((L, i) => { if (stack[i]) L.el.classList.add('stack'); });
       const sizes = shown.map((L) => [L.el.offsetWidth || 100, L.el.offsetHeight || 40]), px = (v) => parseFloat(v) || 0;
       for (const L of shown) {

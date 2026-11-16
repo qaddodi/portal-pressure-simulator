@@ -302,7 +302,7 @@ export function createFluid() {
   const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
   const wallHost = h('div', { class: 'gc-tugbox' });
-  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph formation, liver + gut'), h('div', { class: 'gc-n' }, sMade, h('small', {}, LYMPH_UNIT)), plate, sLimit);
+  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Liver + gut lymph'), h('div', { class: 'gc-n' }, sMade, h('small', {}, LYMPH_UNIT)), plate, sLimit);
   const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Net filtration'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
   const tiles = h('div', { class: 'gc-tiles' }, lyTile, wallTile);
   const ansRow = h('div', { class: 'gc-ans' }, h('span', { class: 'gc-t' }, sTitle), sNet);
