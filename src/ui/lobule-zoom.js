@@ -1603,7 +1603,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         for (const M of mains) { const q = ptAt(M, rr); if (q) row.push({ M, q, a: Math.atan2(q[1] - cy, q[0] - cx) }); }
         row.sort((u, v) => u.a - v.a);
         for (let k = 0; k < row.length; k++) {
-          if ((k + lv) % 2 !== 0 && lv % 3 !== 0) continue;   // (staggered: each gap is bridged at one level or two, never at all of them)
+          if ((k + lv) % 3 !== 0) continue;   // (staggered: each gap is bridged at one level or two, never at all of them)
           const A = row[k], B = row[(k + 1) % row.length];
           let da = B.a - A.a; if (da < 0) da += TAU;
           if (da * rr > R * 0.2 || da * rr < R * 0.02) continue;
@@ -1616,11 +1616,45 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           for (const T of [...mains, ...links]) { if (T === A.M || T === B.M) continue; for (let k2 = 1; k2 < T.pts.length && !bad; k2++) for (let j = 1; j < inner.length && !bad; j++) if (segX(inner[j - 1], inner[j], T.pts[k2 - 1], T.pts[k2])) bad = true; if (bad) break; }
           if (bad) continue;
           const t = add('bs', curve((u) => at(P, u)), { lymph: true, bile: true, fine: true, rung: true });
-          links.push(t); nLink++;
+          links.push(t); nLink++; t.keys = [`${A.M.id}:${lv}`, `${B.M.id}:${lv}`];
           join(A.q[0], A.q[1], [A.M, t], R * 0.002); join(B.q[0], B.q[1], [B.M, t], R * 0.002);
         }
       }
-      if (typeof window !== 'undefined') window.__bileCounts = { mains: mains.length, links: nLink };
+      // Tributaries: a few short ducts start against a sinusoid (tapering in from nothing) and run round the lobule, in a gap between hepatocyte rings, into the duct
+      // across their plate, where no link is near, so those stretches are not left empty.
+      const linkedAt = new Set(links.flatMap((t) => t.keys || []));
+      const hugT = rsN * 1.15 + rs0 * 0.35;
+      let nTrib = 0;
+      for (let lv = 0; lv < LEVELS.length && nTrib < 14; lv++) {
+        const rr = LEVELS[lv];
+        mains.forEach((M, mi) => {
+          if (nTrib >= 14 || (mi * 7 + lv * 3) % 5 !== 0) return;
+          if (linkedAt.has(`${M.id}:${lv}`) || linkedAt.has(`${M.id}:${lv - 1}`) || linkedAt.has(`${M.id}:${lv + 1}`)) return;
+          const q = ptAt(M, rr); if (!q) return;
+          const a0 = Math.atan2(q[1] - cy, q[0] - cx), dA = (R * 0.004) / rr;
+          for (const dir of [1, -1]) {
+            let prev = q, hitS = -1, hitD = false;
+            for (let s = 1; s * R * 0.004 < R * 0.16; s++) {
+              const an = a0 + dir * dA * s, p = [cx + Math.cos(an) * rr, cy + Math.sin(an) * rr];
+              if (s > 1 && [...mains, ...links].some((T) => T !== M && T.pts.some((u, k) => k > 0 && segX(prev, p, T.pts[k - 1], u)))) { hitD = true; break; }
+              if (sinAll.some((T) => T.pts.some((u, k) => k > 0 && segX(prev, p, T.pts[k - 1], u)))) { hitS = s; break; }
+              prev = p;
+            }
+            if (hitD || hitS < 0) continue;
+            const L = hitS * R * 0.004 - hugT;
+            if (L < R * 0.03) continue;
+            const P = [];
+            for (let k = 0; k <= 12; k++) { const an = a0 + dir * (L / rr) * (1 - k / 12); P.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); }
+            P[12] = q;
+            if (cells.some((c) => Math.abs(Math.hypot(c.x - cx, c.y - cy) - rr) < c.l * 0.4 && P.some((u) => Math.hypot(u[0] - c.x, u[1] - c.y) < Math.min(c.l, c.w) * 0.45))) continue;
+            const t = add('bs', curve((u) => at(P, u)), { lymph: true, bile: true, trib: true });
+            join(q[0], q[1], [M, t], R * 0.002);
+            links.push(t); nTrib++;
+            break;
+          }
+        });
+      }
+      if (typeof window !== 'undefined') window.__bileCounts = { mains: mains.length, links: nLink, tribs: nTrib };
       for (let e = 0; e < 6; e++) { const a = mids.get(inlets[e * 2].id), b = mids.get(inlets[((e + 1) % 6) * 2 + 1].id); if (a && b) join(a.pts[0][0], a.pts[0][1], [a, b], R * 0.0036); }
     }
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
