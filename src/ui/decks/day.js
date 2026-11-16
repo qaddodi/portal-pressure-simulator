@@ -45,7 +45,7 @@ export const DAY = {
     {
       id: 'fluid', preset: 'csph', params: {}, action: SALINE, cam: 'fit', data: 'tiles', tiles: ['pv', 'hvpg'], key: ['hvpg'], delta: 'fasting', terms: ['ivc'],
       kicker: 'After eating', site: 'sin', title: 'In the model, a 1 L saline bolus raises every venous pressure but not the HVPG',
-      line: 'Fasting, he receives 1 L of IV saline. The portal vein and IVC pressures rise to {pv} and {ivc}; the WHVP and FHVP rise together, so the HVPG barely moves, from {hvpg@fasting} to {hvpg}.',
+      line: 'Fasting, he receives 1 L of IV saline. The portal vein and IVC pressures rise to {pv} and {ivc}, and the HVPG barely moves, from {hvpg@fasting} to {hvpg}.',
       notes: 'The saline expands the whole venous compartment. The portal vein pressure and the wedged and free hepatic venous pressures (WHVP, FHVP) rise together, so the HVPG, the WHVP minus the FHVP, barely changes. This is why the HVPG is reliable after IV fluid, and why an isolated portal vein pressure is not. The infusion runs over 10 to 15 minutes of model time. Neither guideline gives a figure for it; the numbers are the model\'s.',
       ask: ['In the model, a 1 L saline bolus raises the WHVP and the FHVP by the same amount. What happens to the HVPG?', 'It is unchanged, because it is the WHVP minus the FHVP. In patients, larger volume expansion can raise the HVPG, as in the liberal arm of the 2013 transfusion trial.'],
     },

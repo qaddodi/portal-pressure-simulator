@@ -76,7 +76,7 @@ export const TWO_LESIONS = {
     {
       id: 'unsqueeze', params: { pericardial: 0 }, action: { kind: 'retain', mL: -FLUID }, days: 90, lapse: { seconds: 8 }, lens: 'heat', cam: 'hepatic', labels: ['RHV', 'IVCS', 'RA'], sites: ['ra'], tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'The HVPG and ascites over three months' }, data: 'tiles', tiles: ['hvpg', 'asc'], key: ['hvpg'], delta: 'base',
       kicker: 'Take them out', site: 'cardiac', title: 'Without either lesion, the cirrhosis shows its full gradient',
-      line: 'After pericardiectomy and diuresis the right atrium is down to {ra} and the HVPG is {hvpg}, close to the {hvpg@base} he started with. The cirrhosis was there all along, and the lesions hid it.',
+      line: 'After pericardiectomy and diuresis the right atrium is {ra} and the HVPG {hvpg}, near the {hvpg@base} he started with. The cirrhosis was there all along; the lesions hid it.',
       notes: 'The same man as the first slide, with both lesions gone. The heart and the clot each lowered the HVPG, so for months it understated his portal hypertension. Once both are treated, the number returns to where cirrhosis alone puts it. A gradient that dropped when a lesion arrived says little about the cirrhosis underneath.',
       ask: ['A man\'s HVPG rises after a pericardiectomy. Is the cirrhosis worse?', 'No. The constriction was hiding it. The HVPG returns to what the cirrhosis sets.'],
     },
