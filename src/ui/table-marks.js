@@ -141,8 +141,8 @@ export const TILE = {
   plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min', long: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). Normal ≥0.9 L/min at ≥15 cm/s (Doppler).' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
-  liver: { t: 'Sinusoidal flow, % of normal', n: 'Sinusoid flow', s: 'Portal + arterial, vs healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
-  shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
+  liver: { t: 'Liver blood flow, % of healthy', n: 'Liver flow vs healthy', s: 'Portal + arterial, % of healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
+  shunt: { t: 'Portal blood shunted', n: 'Portal blood shunted', s: '% of portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
   map: { t: 'Blood pressure', n: 'BP', s: 'Systolic/diastolic (mean)', u: 'mmHg', d: 0, bp: true, mean: 'Mean arterial pressure', meanN: 'MAP' },
   // (The systolic alone, for a criteria row or a table column that reads it against Baveno VIII 4.6's 90 mmHg; a slide shows the pressure as map.)
   sbp: { t: 'Systolic pressure', n: 'Systolic', s: 'Arm cuff', u: 'mmHg', d: 0, better: 1 },

@@ -24,7 +24,7 @@ export default {
     menu: { make: () => createMenu(), warm: (t, ctx) => warmMenu(t, ctx), title: () => 'Every treatment option in this case', short: () => 'Treatment menu' },
     flows: {
       make: () => createFlowsTool(),
-      title: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow distribution'),
+      title: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Where portal blood goes, % of portal flow'),
       short: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow'),
     },
   },

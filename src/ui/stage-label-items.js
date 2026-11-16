@@ -104,7 +104,10 @@ export function createLabelItems(st, live) {
   const deltaHere = (id) => { const st = store.get(); return st.presenting ? !!termTone(id) : selStation(id) || st.colorMode === 'delta' || !!st.compareSnap; };
   // The unit is said once, in the lens legend ("Pressure mmHg"); a label carries it only when it differs from the legend's (the
   // pressure unit setting) or when the label is selected. (Not a teaching-number change: every number stays; the unit moves.)
-  const unitHere = (id, u) => u !== 'mmHg' || selStation(id);
+  // (On a slide the legend may be out of sight or be a different lens's: B2, play-test 16 Nov 2026, "Varices 14.4" and "Varices 0.3" on two slides, a pressure and a flow, neither with a unit.
+// A label on a slide always carries its unit: unitNow, and shortenItem keeps it when it trims the change badge.)
+const unitNow = () => !!store.get().presenting;
+  const unitHere = (id, u) => u !== 'mmHg' || selStation(id) || unitNow();
   // Flow layer: blood entering the station (L/min) and its change; velocity layer: the fastest
   // velocity in a vessel at the station as the Doppler reads it (peak, cm/s); oxygen layer: the blood's
   // oxygen saturation at the station (%), the value the lens colours by. Other layers read pressure.
@@ -114,7 +117,7 @@ export function createLabelItems(st, live) {
     if (!store.get().layers.chips) return null;
     const big = { size: 14, weight: 650, cls: 'lb-val' }, unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
     // (These lenses' legends name their unit too (L/min, cm/s, % O₂), so the label says it only when selected.)
-    const withUnit = (t) => (selStation(id) ? [{ ...unit, t }] : []);
+    const withUnit = (t) => (selStation(id) || unitNow() ? [{ ...unit, t }] : []);
     if (lm === 'oxygen') {
       const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
       return { runs: [{ ...big, t: fmt(sat * 100, 0), pad: 3 }, ...withUnit('% O₂')], color: oxygenColor(sat) };
@@ -167,7 +170,7 @@ export function createLabelItems(st, live) {
     if (abbr && abbrevName(it)) return true;
     if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
     // (The reversal icon stays through every step: a label may lose its unit, change and number, never the news that the flow turned.)
-    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val' || r.cls === 'lb-rev') : [];
+    const val = !it.short && it.lines.length === 2 ? it.lines[1].filter((r) => r.cls === 'lb-val' || r.cls === 'lb-rev' || (unitNow() && r.cls === 'lb-unit')) : [];
     if (val.length && val.length < it.lines[1].length) {
       it.lines = [it.lines[0], val]; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = 1;
       return true;
