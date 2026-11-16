@@ -95,7 +95,7 @@ test('paused, the bar repaints on a measurement or a new patient and takes a new
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) assert.match(keys[1], new RegExp(`'${k}'`));
   // (Since 15 Nov 2026 (full app review A1) a band no longer holds 1.5 s while the model runs: it waits for its number to land, then changes
   // (band-settle.js bandStep, tested in band-settle.test.js); paused, a measurement's number lands in its 0.4 s roll and its band with it.)
-  for (const s of [dock, pane]) { assert.match(s, /step = bandStep\(x\.sev, sev, /); assert.doesNotMatch(s, /sevSince > 1500/); }
+  for (const s of [dock, pane]) { assert.match(s, /step = bandStepFor\(x\.sev, sev, /); assert.doesNotMatch(s, /sevSince > 1500/); }
 });
 
 test('every patient loads with its gradients agreeing', () => {

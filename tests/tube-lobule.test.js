@@ -54,12 +54,15 @@ for (const [name, run] of Object.entries(runs)) {
     if (lymph) assert.ok(a.rows > 156, 'the lymph layer added no rows');
   });
 
-  test(`lobule ${name}: every row is on tier 1 and the smallest gap between two z is at least ${Z_GAP_MIN}`, { timeout: BOOT_MS + 10000 }, async (t) => {
-    const a = await run;
+  // (16 Nov 2026: the lymph is drawn in tier 0, under the blood in tier 1, so a sinusoid keeps its wall line over its sleeve of Disse: lobule-pick.js tierOf.)
+  test(`lobule ${name}: every blood row is on tier 1, every lymph row on tier 0, and the smallest gap between two z is at least ${Z_GAP_MIN}`, { timeout: BOOT_MS + 10000 }, async (t) => {
+    const a = await run, blood = lymph ? await runs['blood only'] : a;
     t.diagnostic(`tiers ${JSON.stringify(a.tierHist)}`);
     t.diagnostic(`${a.zValues.length} distinct z: ${a.zValues.map(f4).join(' ')}; smallest gap ${f4(a.zGap.gap)} (between ${f4(a.zGap.lo)} and ${f4(a.zGap.hi)})`);
-    assert.equal(a.minTier, 1, `a row is on tier ${a.minTier}`);
     assert.equal(a.maxTier, 1, `a row is on tier ${a.maxTier}`);
+    assert.equal(a.tierHist[1], blood.rows, `${a.tierHist[1]} rows on tier 1, not the ${blood.rows} blood rows`);
+    assert.equal(a.tierHist[0] ?? 0, a.rows - blood.rows, `${a.tierHist[0] ?? 0} rows on tier 0, not the ${a.rows - blood.rows} lymph rows`);
+    if (lymph) assert.equal(a.minTier, 0, 'the lymph is not under the blood');
     assert.ok(a.zValues.length > 1);
     assert.ok(a.zGap.gap >= Z_GAP_MIN, `z ${f4(a.zGap.lo)} and ${f4(a.zGap.hi)} are only ${f4(a.zGap.gap)} apart: hK = 0.008 could reorder them`);
   });

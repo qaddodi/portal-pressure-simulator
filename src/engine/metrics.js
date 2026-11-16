@@ -193,7 +193,11 @@ export function computeMetrics(eng, out = null) {
   // (Abdominal perfusion pressure (APP; the key is rpp, its first name): the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not renal perfusion or a filtration rate: the model has no kidneys.
   // Both over the breath, as the bar's MAP and the IAP read (full app review ENG-3: this instant's IAP swung the APP by 2 mmHg a breath).)
   r.rpp = hold(eng, 'rpp', vt.map - ax.iap, 1);
-  r.map = map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
+  // (The blood pressure's three numbers are one reading, the vitals' (vt): systolic, diastolic and mean all come through the same two-breath averaging.
+  // The mean was the engine's raw MAPf, one fast stage, beside a systolic and a diastolic averaged over about eight seconds, so in any change of
+  // pressure (the Valsalva strain, a bleed, a drug) a tile printed 102/72 (103), a mean outside its own systolic and diastolic: 16 Nov 2026.
+  // The resistance below is physics and keeps the raw mean.)
+  r.map = vt.map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;
   return r;

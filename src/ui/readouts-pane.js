@@ -5,8 +5,8 @@
 
 import { store, hiddenNow } from './store.js';
 import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving } from './util.js';
-import { bandStep, BAND_RECHECK_MS } from './band-settle.js';
+import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving, recolorWords } from './util.js';
+import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
@@ -38,7 +38,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     const { el, val, tr, st, cmp, fill } = tileEl(t, { names: false, type: 'button' });
     if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
-    els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
+    els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, waitT: 0, trend: '', ariaTxt: '' };
     return el;
   }
 
@@ -56,7 +56,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     el.title = `${v.title}${v.why ? '\nClick for what is driving it.' : ''}`;
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     else el.style.cursor = 'default';
-    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, ariaTxt: '' });
+    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, waitT: 0, ariaTxt: '' });
     return el;
   }
 
@@ -159,11 +159,18 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; fadeIn(x.st); }
       // A reading crossing a cut-off rolls in its old colour; its colour and word change once the number has landed (A1, band-settle.js, as
       // the bar's tiles). Reduce Motion: all three at once.
-      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + t.id), reduce);
-      if (step === 'wait') { if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
-      else if (step !== 'same') {
-        if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
-        tileEl.dataset.sev = sev; x.sev = sev;
+      // (A number that keeps moving past a roll, a live strain, never lands: its band is taken once the number on show has itself entered it, band-settle.js.)
+      const reduce = reduceMotionMQ.matches, waited = x.waitT ? now - x.waitT : 0;
+      const shownSev = waited >= BAND_LONG_MS && v != null ? t.st(shownOf(shownState.or('rpfill:' + t.id, v), t.d), m) : null;
+      const step = bandStepFor(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + t.id), reduce, waited, shownSev);
+      if (step === 'wait') { if (!x.waitT) x.waitT = now; if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else {
+        x.waitT = 0;
+        if (step !== 'same') {
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
+          tileEl.dataset.sev = sev; x.sev = sev;
+          recolorWords(x.val);   // (the number's GPU words read the band's ink again)
+        }
       }
       if (sev === x.sev) { const un = v == null; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
       const aria = `${t.title || t.k}: ${v == null ? s.toLowerCase() : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
@@ -188,11 +195,17 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), x.v.s ? { sbp: x.r?.s } : {}), sev = SEV[cls] ?? 'none';
       const w = none ? 0 : fillQ(clamp((shownState.or('rpfill:' + x.v.id, r.v) - x.S[0]) / (x.S[1] - x.S[0]), 0, 1));
       if (x.fillW !== w) { x.fillW = w; x.fill.style.setProperty('--fl', 0); x.fill.style.setProperty('--fw', w); }
-      const reduce = reduceMotionMQ.matches, step = bandStep(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + x.v.id), reduce);
-      if (step === 'wait') { if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
-      else if (step !== 'same') {
-        if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
-        x.el.dataset.sev = sev; x.sev = sev;
+      const reduce = reduceMotionMQ.matches, waited = x.waitT ? now - x.waitT : 0;
+      const shownSev = waited >= BAND_LONG_MS && !none ? SEV[RATE[x.v.id](shownOf(shownState.or('rpfill:' + x.v.id, r.v), x.v.d), x.v.s ? { sbp: x.r?.s } : {})[0]] ?? 'none' : null;
+      const step = bandStepFor(x.sev, sev, numberMoving(x.val) || shownState.isMoving('rp:' + x.v.id), reduce, waited, shownSev);
+      if (step === 'wait') { if (!x.waitT) x.waitT = now; if (!bandAsk) bandAsk = setTimeout(bandCheck, BAND_RECHECK_MS); }
+      else {
+        x.waitT = 0;
+        if (step !== 'same') {
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
+          x.el.dataset.sev = sev; x.sev = sev;
+          recolorWords(x.val);
+        }
       }
       if (sev === x.sev) { if (step === 'now' && reduce) { putText(x.st, word); x.st.classList.toggle('unmeas', none); } else swapText(x.st, word, () => x.st.classList.toggle('unmeas', none)); }
       const aria = `${x.v.title}: ${none ? 'not measured' : `${x.v.s ? bpText(x.r?.s, x.r?.d, r.v) : fmt(r.v, x.v.d)} ${x.v.u}, ${word}`}`;
