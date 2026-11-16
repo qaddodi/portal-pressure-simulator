@@ -20,7 +20,7 @@ test('a catheter slide with a new patient waits for the organs to settle before 
   const go = run.indexOf('if (ct) await cathTo(ct, st.fp, cut, cathInstant(to, lastAt));');
   assert.ok(wait > 0 && go > wait, 'the wait comes right before the catheter starts');
   // The patient has already changed by then: for a catheter slide the morph runs before the cards (later is false).
-  assert.ok(run.indexOf('if (!later) { if (!await morphTo(st, cut)) return;') < wait);
+  assert.ok(run.indexOf('if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } } }') < wait || run.indexOf('if (morphCt) { if (!await morphCt) return;') < wait, 'the change has landed (serial, or awaited as morphCt) before the catheter starts');
   // Never held for long: a model still drifting lets the catheter go after a few seconds.
   const ms = Number(pres.match(/const CATH_SETTLE_MS = (\d+);/)?.[1]);
   assert.ok(ms > 0 && ms <= 5000, `CATH_SETTLE_MS ${ms}`);
