@@ -39,7 +39,8 @@ export default {
       const why = [lowSbp(p) && `SBP ${p.sbp} mmHg is <90`, lowMap(p) && `MAP ${p.map} mmHg is <65`, p.hrs && 'there is HRS-AKI'].filter(Boolean).join(' and ');
       return { head: p.held ? 'Stay off carvedilol' : 'Reduce or stop carvedilol', tone: 'bad', stmt: '4.6', why: `${why.charAt(0).toUpperCase()}${why.slice(1)}.`, next: 'Restart when the HRS-AKI has resolved and the BP has recovered.' };
     }
-    if (key === 'back') return { head: 'Restart and re-titrate', tone: 'ok', stmt: '4.7', why: 'The HRS-AKI has resolved and the BP has recovered.', next: 'Re-titrate to the dose the patient tolerates.' };
+    // (Said from the patient on the card: a case with no HRS-AKI has none to have "resolved", and the card must not say it had. 16 Nov 2026.)
+    if (key === 'back') return { head: 'Restart and re-titrate', tone: 'ok', stmt: '4.7', why: `The BP has recovered (SBP ${p.sbp} mmHg${Number.isFinite(p.map) ? `, MAP ${p.map} mmHg` : ''}) and there is no HRS-AKI.`, next: 'Re-titrate to the dose the patient tolerates.' };
     return { head: 'Continue carvedilol', tone: 'ok', stmt: '4.6', why: `SBP ${p.sbp} mmHg is ≥90${Number.isFinite(p.map) ? `, MAP ${p.map} mmHg is ≥65` : ''} and there is no HRS-AKI.`, next: 'Monitor BP and renal function at every visit.' };
   },
   chips: (p) => [p.held ? 'Carvedilol held' : 'On carvedilol', `SBP ${p.sbp}`, Number.isFinite(p.map) && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
