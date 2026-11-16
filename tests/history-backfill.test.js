@@ -146,7 +146,8 @@ test('every recording instrument takes the history, and the presenter lets its i
   assert.match(tools, /if \(startOver\) \{ if \(held\) primeWait = true; else prime\(inst, k\); \}/, 'a card up while the state lands is filled at the landing');
   assert.match(tools, /ready\(ms\)/);
   // The presenter: released once the state is in (both ways a state lands), and the cards wait for the window, at most 900 ms.
-  assert.match(pres, /if \(!later\) ui\?\.tools\.hold\(false\);/);
+  assert.match(pres, /if \(!later && !morphCt\) ui\?\.tools\.hold\(false\);/, 'released at once unless the change runs under the cards');
+  assert.match(pres, /if \(morphCt\) \{ if \(!await morphCt\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/, 'and then when that change has landed');
   assert.match(pres, /if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /if \(morphP\) \{ if \(!await morphP\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /await ui\.tools\.ready\(900\)/);
