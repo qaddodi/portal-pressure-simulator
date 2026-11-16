@@ -283,6 +283,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
+  // The names wait for the zoom's last part and come in with the view's detail (NAMES_AT of its eased progress), going out as it turns back: never over the lobule
+  // before the view is there, and never all at once a second after it landed (16 Nov 2026: their page model and looks were made at the first rest after the zoom).
+  const NAMES_AT = 0.72;
+  let capHold = false;
   // Figure resolution: taken up as the sinusoid opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "the lobule and sinusoid are not obeying resolutions") waits (svWant) for it to be open and still (not mid-zoom), then eases in:
   // svSwap.
@@ -1115,13 +1119,13 @@ export function createSinusoidView({ host, before = null, share = null }) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
       cap.measure(R.key, R.lines);
-      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = R.covered || (R.key === 'bc' && !bcOn) ? 0 : dimA(R); PUT.now = now;
+      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = capHold || R.covered || (R.key === 'bc' && !bcOn) ? 0 : dimA(R); PUT.now = now;
       cap.put(R.key, PUT);
     }
     for (const key in lead) {
       const L = lead[key];
       if (L.x1 == null) continue;
-      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide || (L.key === 'bc' && !bcOn) ? 0 : L.show * (regions[L.key] ? dimA(regions[L.key]) : 1); LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
+      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = capHold || L.hide || (L.key === 'bc' && !bcOn) ? 0 : L.show * (regions[L.key] ? dimA(regions[L.key]) : 1); LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
       LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = LEAD_LOOK.line;
       cap.lead(L.key, LEADO);
     }
@@ -1219,6 +1223,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && darkMQ.matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
+    const hold = !!dive && dive.g < NAMES_AT;
+    if (hold !== capHold) { capHold = hold; layoutBusy = true; }   // (laid out again as they are let in, or held)
     const lkNew = layoutKeyChanged();
     // (A name still on its way to a place the layout moved it to is laid out again next frame, until it has arrived.)
     askRest();
@@ -1420,6 +1426,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
           for (const k in S) delete S[k];
           // Arrive with the wall already at work: a few seconds of traffic run before the first frame.
           draw(0, false);
+          pageRun();   // (the names' page model and looks now, not at the rest after the zoom: the next frame lays them out and they come in with the view)
           for (let i = 0; i < 40; i++) stepMovers(0.1);
         }
       }
