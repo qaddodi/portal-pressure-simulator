@@ -6,6 +6,7 @@ import { paintClauses, slideTargets } from './presenter-words.js';
 import { SCALE_NAME, pickedScale, scaleCentre, scaleView } from './scale-switch.js';
 import { beatView } from './slide-beats.js';
 import { store } from './store.js';
+import { dataSoon } from './class-soon.js';
 import { clamp, h, icon } from './util.js';
 
 export function createScales(st, live) {
@@ -362,6 +363,7 @@ export function createScales(st, live) {
     pview.publish(live.deck, live.slides, i, live.beat, lastBeat(i) + 1);
     live.ui.prog.style.setProperty('--p', String((i + 1) / n));
     announce();
+    const views = lastBeat(i) + 1;
     const ph = phone(), skip = live.lapseOn && live.lapseLeft > 0, more = !skip && live.beat < lastBeat(i), last = i === n - 1 && !skip && !more;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
@@ -378,14 +380,17 @@ export function createScales(st, live) {
       // picture, and through a case or question card, the busiest part of a slide change, the pill stood with no number for the whole card.
       // The number is written in place, at once: a speaker glances at it to pace the talk. The pill's width is measured again, 9 to 10 widens it.)
       const countTxt = `${i + 1} / ${n}`;
-      if (k.count.textContent !== countTxt) k.count.textContent = countTxt;
+      if (k.num.textContent !== countTxt) k.num.textContent = countTxt;
+      dataSoon(k.pips, 'n', String(views)); dataSoon(k.pips, 'at', String(live.beat));
       k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
       if (k.prev) k.prev.disabled = i === 0 && live.beat === 0;
       if (k.next) { k.next.disabled = last; k.next.classList.toggle('skipping', skip); k.next.setAttribute('aria-label', nextLabel); k.next.title = nextTitle; }
       placeBar();
       return;
     }
-    const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, `${i + 1} / ${n}`);
+    // (The views of a slide that has several (one per Next, up to three) as short strokes under the count, the one on show full: a Next that only turns the figure is no longer unseen. They fade, never pop.)
+    const num = h('span', { class: 'pzb-nt' }, `${i + 1} / ${n}`), pips = h('span', { class: 'pzb-pips', 'aria-hidden': 'true', 'data-n': String(views), 'data-at': String(live.beat) }, h('i'), h('i'), h('i'));
+    const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, num, pips);
     const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0 && live.beat === 0, onclick: prev }, icon('chev-left'));
     const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': nextLabel, title: nextTitle, disabled: last, onclick: next }, icon('chev-right'));
     if (ph) {
@@ -395,7 +400,7 @@ export function createScales(st, live) {
       const kids = tab ? [prevBtn(), countBtn, nextBtn()] : [countBtn];
       live.ui.bar.replaceChildren(...kids, live.gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
-      live.ui.bar._pill = { sig, count: countBtn, prev: tab ? kids[0] : null, next: tab ? kids[2] : null };
+      live.ui.bar._pill = { sig, count: countBtn, num, pips, prev: tab ? kids[0] : null, next: tab ? kids[2] : null };
       placeBar();
       return;
     }
@@ -408,7 +413,7 @@ export function createScales(st, live) {
       nxb,
       live.gear(),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
-    live.ui.bar._pill = { sig, count: countBtn, prev: pb, next: nxb };
+    live.ui.bar._pill = { sig, count: countBtn, num, pips, prev: pb, next: nxb };
     placeBar();
   }
   return { announce, clearPill, lowKey, onResize, paintChrome, paintScaleSel, paintScales, placeBar, revealMove, setLabels, sizeNow };
