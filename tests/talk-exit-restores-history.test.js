@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import './dom-shim.js';
 import { updateParams, undo, clearHistory, saveHistory, loadHistory, store, replaceParams } from '../src/ui/store.js';
 
+
 test('the undo and redo stacks are kept and put back whole', () => {
   clearHistory();
   replaceParams({ diuretics: false, x: 0 });
@@ -23,4 +24,3 @@ test('the undo and redo stacks are kept and put back whole', () => {
   assert.equal(saveHistory().past.length, 0);
   void store;
 });
-// (That a talk captures the History at its start and puts it back on exit, and that the timeline drops its pending timers on load, are source shapes: scripts/source-shapes/clipboard-slide-history.mjs.)

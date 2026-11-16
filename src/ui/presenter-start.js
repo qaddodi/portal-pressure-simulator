@@ -361,8 +361,8 @@ export function createStart(st, live) {
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await waitCut(ms, gone); if (gone()) return; }
     const st = store.get();
     store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
-    if (st.sinusoid) { setViewKey('lobule'); await waitCut(fadeLen(1000), gone); if (gone()) return; }
-    if (st.lobule) { setViewKey('anatomy'); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
+    if (st.sinusoid) { stage.exitSinusoid(); await waitCut(fadeLen(1000), gone); if (gone()) return; }   // (one glide out of the sinusoid and the lobule, stage.exitSinusoid)
+    if (store.get().lobule) { setViewKey('anatomy'); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
     if (store.get().view !== 'anatomic') { setViewKey('anatomy'); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
     // The patient the viewer had before the talk comes back, with the model's clock (16 Nov 2026, play-test: Esc, the ✕ or Finish dropped a viewer who had

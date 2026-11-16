@@ -68,7 +68,7 @@
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
 import { TILE, SCALE, RATE, numName } from './table-marks.js';
-import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
+import { HVPG_CUTS, HVPG_WORDS, PV_CUTS, PV_WORDS } from '../engine/pressure-cuts.js';
 import { READING_COLOUR } from './reading-colours.js';
 import { frameFor } from './frame.js';
 import { minusFixed as fmt, clamp } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
@@ -96,7 +96,7 @@ export const PARAM = {
 };
 // Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears; and on a curve
 // over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
-const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture threshold', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
 // (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
 // (A reading wears its one colour on every chart and monitor: the WHVP orchid, the FHVP blue, the portal vein magenta, the IVC cyan (theme-tokens.js tr-*; the monitor's
@@ -284,12 +284,17 @@ const dec = (sc) => (sc.ticks.some((v) => Math.abs(v * 10 - Math.round(v * 10)) 
 export const fmtTick = (v, d) => fmt(v, Math.abs(v - Math.round(v)) < 1e-6 ? 0 : d);
 const cw = (t, f, b) => String(t).length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: laid out before it is drawn)
 /** The x axis's name as written under the numbers: the unit after it unless the name already holds it. */
-export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !ax.name.toLowerCase().includes(ax.unit.toLowerCase()) ? `${ax.name}, ${ax.unit}` : ax.name);
+// (The unit counts as held when it stands in the name as a word of its own: "Blood volume" holds no "L", though the letter is in it: Variceal bleed 17, 16 Nov 2026.)
+const holds = (name, unit) => new RegExp(`(^|[^A-Za-z])${unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z])`, 'i').test(name);
+export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !holds(ax.name, ax.unit) ? `${ax.name}, ${ax.unit}` : ax.name);
 /** An axis named by an abbreviation is written out as the app defines it ("HVPG (wedged − free), mmHg"), so the axis reads plainly to
  *  anyone: the x axis's meta with its words spelled out (the same object when there is nothing to add). */
 const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (portal − IVC)' };
 export const spellAxis = (ax) => (X_SPELT[ax.k] ? { ...ax, name: X_SPELT[ax.k] } : ax);
 /** The name a cut-off on the x reading goes by on the chart, or '': the HVPG 10 line is the CSPH line ("CSPH ≥10"). */
+/** What an unnamed cut-off line of a reading marks, in the app's own words ("High >10"), or '' for the reading's name and number: the portal vein
+ *  pressure's two lines are the tile's bands (pressure-cuts.js), a bare "Portal 10" says nothing of them (Variceal bleed 17, 16 Nov 2026). */
+export const cutWords = (k, v) => (k === 'pv' ? (Math.abs(v - PV_CUTS.amber) < 1e-6 ? `${PV_WORDS.caution} >${v}` : Math.abs(v - PV_CUTS.red) < 1e-6 ? `${PV_WORDS.danger} ≥${v}` : '') : '');
 export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? HVPG_WORDS.danger[0] : '');
 /** The x axis's numbers and where its name stands (his G2 look, 27 Oct: the name on the numbers' row, as the planes' x name is, so the plot gains
  *  the row it had of its own). The name takes the widest stretch between the numbers (each 6 px clear, and 8 px in from the panel's edges) when it
@@ -697,10 +702,10 @@ export function createCurve() {
     const cuts = cutVs.map((c) => {
       const nm = t.cutNames?.[c.v], vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), isHeld = held(c);
       // (A named cut-off reads "Grade 2 ≥1.5 L", or just "Grade 2" where its number already stands on the axis; an unnamed one "Ascites 1.5".)
-      const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
+      const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : cutWords(ls[0].k, c.v) || `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
       const el = sv('text', { class: 'pcv-cut', 'data-look': 'cv.cut', 'data-nomorph': '' }, txt);
       // (short: where the whole name has no clear spot, just its number, in the rating's colour, beside its line: two cut-offs a line's width apart, "Liver flow 55" over "Liver flow 75".)
-      cutLabs.push({ el, txt, short: nm ? null : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
+      cutLabs.push({ el, txt, short: nm ? null : cutWords(ls[0].k, c.v) ? txt : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
         cands: [{ x: R - 3, y: y - 0.35 * f, anchor: 'end' }, { x: L + 3, y: y - 0.35 * f, anchor: 'start' },
           { x: R - 3, y: y + 0.35 * f, anchor: 'end', on: true }, { x: L + 3, y: y + 0.35 * f, anchor: 'start', on: true },

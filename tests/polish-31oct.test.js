@@ -69,7 +69,7 @@ test('a coloring has one name: the Colored by menu and the pill say the same wor
 test('the Guide lists every key the figure answers: dye, zoom, color lens, undo, step, settle', () => {
   const main = src('src/ui/main.js');
   const guide = main.slice(main.indexOf('function openHelp('), main.indexOf('// Help and About open at a named section'));
-  for (const kbd of ["'J', 'Inject dye (hold for longer)'", "[keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure']", "'L', 'Next vessel coloring", "'Z', 'Settle to equilibrium'", "'.', 'Step'"]) assert.ok(guide.includes(kbd), kbd);
+  for (const kbd of ["'J', 'Inject dye (hold for longer)'", "keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'", "'L', 'Next vessel coloring", "'Z', 'Settle to equilibrium'", "'.', 'Step'"]) assert.ok(guide.includes(kbd), kbd);
   // each is a key the handler really takes (the handler's start moves with its hardening, so the keys are read from the whole file)
 });
 
@@ -104,7 +104,7 @@ test('a percent hugs its number in the Why headline and on the readout tiles ("6
   const e = new Engine(); e.loadPreset('csph'); for (let i = 0; i < 4; i++) e.settleQuick();
   for (const id of Object.keys(METRICS).filter((k) => METRICS[k].unit.startsWith('%'))) {
     const { sentence } = explain(e, id);
-    assert.match(sentence, /is -?[\d.]+%( of (normal|rupture))?[,.]/, sentence);
+    assert.match(sentence, /is -?[\d.]+%( of (normal|rupture threshold))?[,.]/, sentence);
     assert.doesNotMatch(sentence, /\d %/, sentence);
   }
   // an ordinary unit keeps its space

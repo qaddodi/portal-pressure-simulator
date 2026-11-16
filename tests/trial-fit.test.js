@@ -174,14 +174,14 @@ test('R02: red wale signs are high-risk varices, whatever the size; unknown sign
   assert.equal('redWale' in metricsOfFp({ varix: 3.8, redWale: 'yes' }).varix, false);
 });
 
-test('R01: a full match reads "Matches the modeled criteria. Eligibility is incomplete.", never "fits", "eligible" or "enrolled"', () => {
+test('R01: a full match says what is unchecked, never "fits", "eligible" or "enrolled"', () => {
   const r = fit('earlytips', { bleed: true });   // every defining rule met; the randomization window is a minor rule the model cannot check
   assert.equal(r.verdict, 'fits');
   assert.equal(stillNeeded(r), 'Still needed: randomized within 24 hours');
   assert.equal(fitsWords(r), `${FITS_WORDS} Still needed: randomized within 24 hours.`);
-  assert.equal(FITS_WORDS, 'Matches the modeled criteria. Eligibility is incomplete.');
+  assert.equal(FITS_WORDS, "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked.");
   assert.equal(fitsWords(fit('predesci4', {}, CASE)), `${FITS_WORDS} From the case history: never decompensated.`, 'nothing open: the head, the caveat, and the rule that rests on the case author\'s word');
-  for (const w of [FITS_WORDS, fitsWords(r)]) assert.ok(!/\b(eligible|enrolled|fits)\b/i.test(w.replace('Eligibility is incomplete', '')), w);
+  for (const w of [FITS_WORDS, fitsWords(r)]) assert.ok(!/\b(eligible|enrolled|fits)\b/i.test(w), w);
 });
 
 test('R01: a passing rule plus an unknown one never gives a favorable headline', () => {

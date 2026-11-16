@@ -1,9 +1,9 @@
 // The bar's count and the reader's line are one source (play-test, 16 Nov 2026): a case or question card standing for a slide
-// tells the reader that slide at once, so "2 / n" on the bar never stands beside "Slide 1" in the hidden line. (That the presenter takes both from
-// slide-say.js is a source shape: scripts/source-shapes/clipboard-slide-history.mjs.)
+// tells the reader that slide at once, so "2 / n" on the bar never stands beside "Slide 1" in the hidden line.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { slideCount, slideCountLabel, slideSay, slideSaid } from '../src/ui/slide-say.js';
+
 
 test('the count, its label and the reader\'s line name the same slide number', () => {
   for (const [i, n] of [[0, 12], [1, 12], [11, 12]]) {

@@ -14,9 +14,9 @@ import { gpuProbe } from './gpu-probe.js';
 import { createHvpgMonitor } from './hvpg-proc.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming } from './layout-snap.js';
 import { afterMs, reduceMotionMQ as reduce } from './motion.js';
-import { isResponse } from './nsbb-response.js';
+import { toggleLabels } from './variant-toggle.js';
 import { dropCharts, liveFp, rail, tileVal, wedgeColumn } from './presenter-cards.js';
-import { citeEl, diseaseNodes, equation, gateButtons, lensButtons, revealLine, rich, rulesLine, setFpAt, slideLens, toolButtons } from './presenter-words.js';
+import { citeEl, diseaseNodes, equation, lensButtons, revealLine, rich, setFpAt, slideLens } from './presenter-words.js';
 import { revealCount } from './reveal.js';
 import { EXT, safe } from './slide-ext.js';
 import { store } from './store.js';
@@ -138,7 +138,7 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
-    // (a time-lapse's words start at its start state; the days carry them to the end: presenter-case.js chipsTo)
+    // (a time-lapse's words are typeset from its end state; presenter-case.js chipsTo lands them there if that was not ready)
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -166,7 +166,7 @@ export function createQuestion(st, live) {
   live.variantWords = variantWords;
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i, wst = live.keepArgs?.s === s && live.keepArgs.lap ? live.keepArgs.now : st) {
-    if (s.lapse && rulesLine(s.line)) wst = live.states[live.stateOf[i]] || wst;   // (a sentence that applies a rule to a value states the end state's, from the first frame: presenter-words.js rulesLine)
+    if (s.lapse && s.line) wst = live.states[live.stateOf[i]] || wst;   // (the words of a time-lapse slide state where the days end, from the first frame: presenter-case.js chipsTo)
     const { text, panel } = live.ui;
     evDrop();   // (the last slide's graph is let go)
     paintScales(s, i);
@@ -210,7 +210,8 @@ export function createQuestion(st, live) {
       if (live.bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, sidesEl(s, h, (t) => rich(t, s, wst?.fp, !!st?.params?.tips?.on)), s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
-          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : isResponse(s.compare) ? 'Change how well the beta-blocker works on the live model' : 'Switch treatment on the live model' },
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': toggleLabels(s.compare).aria },
+            h('span', { class: 'pz-ab-cap', 'aria-hidden': 'true' }, toggleLabels(s.compare).caption),
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,

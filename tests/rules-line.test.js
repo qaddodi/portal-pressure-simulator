@@ -1,18 +1,14 @@
-// A sentence that applies a rule to a value is true or false of one value, so on a time-lapse slide it must state the end state's from the first frame
-// (Carvedilol 3, play-test 16 Nov 2026: "LSM 17.1 kPa, which meets ≥25 kPa" for five seconds). presenter-words.js rulesLine; presenter-question.js textIn.
+// The words of a time-lapse slide state where the days end, from the first frame (play-test 16 Nov 2026: Carvedilol 3 read "LSM 17.1 kPa, which meets
+// ≥25 kPa" for five seconds; Two lesions 3 read "ending at 21.2 mmHg", then 18.6). presenter-question.js textIn types the line from the end state and
+// presenter-case.js chipsTo lands it there as the days start; scripts/source-shapes/pins-mixed-b.mjs holds both, and that nothing moves the pills again.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
-import { rulesLine } from '../src/ui/presenter-words.js';
 
-test('a line with a cut-off pill is a rule line; a plain value line is not', () => {
-  for (const t of ['Her LSM is now {lsm}, which meets {>=25 kPa}.', 'His HVPG is {hvpg}, which is {<10 mmHg}.', 'A rise to {≥12 mmHg}']) assert.equal(rulesLine(t), true, t);
-  for (const t of ['The ascites falls to {asc} and sinusoidal flow to {liver}.', 'Over six months the PPG falls to {ppg}.', '', undefined]) assert.equal(rulesLine(t), false, String(t));
-});
-
-test('every time-lapse slide whose words apply a rule to a number is found (so none rides the days)', () => {
-  const found = DECKS.flatMap((d) => d.slides.filter((s) => s.lapse && rulesLine(s.line)).map((s) => `${d.id}/${s.id}`));
-  assert.ok(found.includes('carvedilol/rise'), found.join());
-  assert.ok(found.length >= 3, found.join());
+test('every time-lapse slide that states numbers in its words is typeset from its end state, none opts out, and the end state is what the last step shows', async () => {
+  const withPills = DECKS.flatMap((d) => d.slides.filter((s) => s.lapse && /\{[^}]+\}/.test(s.line || '')).map((s) => ({ s, id: `${d.id}/${s.id}` })));
+  assert.ok(withPills.length >= 30, `${withPills.length} slides`);
+  for (const { s, id } of withPills) assert.ok(!('ride' in s) && !('liveWords' in s), `${id} opts out of the end state`);
+  assert.ok(withPills.some((x) => x.id === 'two-lesions/clot') && withPills.some((x) => x.id === 'carvedilol/rise'));
 });

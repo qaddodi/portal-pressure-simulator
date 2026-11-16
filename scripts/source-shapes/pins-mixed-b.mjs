@@ -293,7 +293,7 @@ export default [
   { file: 'src/ui/vitals-gl.js', need: [/drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'the vitals monitor is all GPU: no 2D context, no cached pictures (one capsule per strip segment)'] },
   // wall-numbers-agree
   { file: 'src/ui/instruments.js', need: [/const wr = wallRead\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture threshold'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
@@ -325,6 +325,7 @@ export default [
   { file: 'src/ui/presenter-scales.js', need: [/class: 'pzb-pips'[^\n]*h\('i'\), h\('i'\), h\('i'\)/, 'A slide with several views shows them as short strokes under the count, the one on show full (Collaterals 2/11: the views were unseen)'] },
   { file: 'styles/app-05-presenter-cards.css', need: [/\.pzb-pips \{[^}]*transition: opacity var\(--d-small\) var\(--ease\); \}/, 'The view dots fade, never pop'] },
   { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\)/, 'While the days play, the sentence and the tiles take the chart head\'s own number (the trail at this share), so they never disagree with the chart (Choose the treatment 3)'] },
-  { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && rulesLine\(s\.line\)\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'A time-lapse slide whose sentence applies a rule to a value is typeset from the end state (Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
-  { file: 'src/ui/presenter-case.js', need: [/!rulesLine\(s\.line\) && live\.ui\?\.text\.querySelector\('\.pz-line'\)/, 'Its pills never ride the days'] },
+  { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && s\.line\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'The words of a time-lapse slide are typeset from its end state, from the first frame (Two lesions 3: "ending at 21.2" before 18.6; Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
+  { file: 'src/ui/presenter-case.js', need: [/chipsTo\(s, end\.fp\);/, 'A time-lapse slide lands its words on the end state as the days start, and no step of the days moves them again'], },
+  { file: 'src/ui/presenter-case.js', forbid: [/if \(s\.lapse\) chipsTo\(s, f\);/, 'The words never ride the days'] },
 ];

@@ -561,6 +561,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 
 /* Lobule readings on the play bar: the % stays after the number, on the phone's slim bar too ("Sinusoids 58%", not "58"). */
 .app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }
+/* (And what the % is of: "Sinusoids 93% of healthy", "Portal in −21% of healthy, reversed"; the bar's other tiles hide it for room, the lobule's two have it.) */
+.app .vdock .readouts.lob .metric .v .u-x { display: inline; }
 
 /* A phone held sideways (U4, 13 Nov 2026): the toolbar (Treat, Tests, History, Settings, Search) stands in one narrow glass rail at the trailing edge,
    icons only, so the top bar is one row (the patient and the colour key) and the figure has the height the second row took. The rail is at
