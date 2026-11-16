@@ -33,6 +33,7 @@ import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
 import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
 import { darkMQ } from './look.js';
 import { createEusPpg } from './eus-ppg.js';
+import { DIAL_VB, dialTickRadius } from './dial-geometry.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -43,7 +44,7 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // a frame that shows a number it has shown before builds nothing.
 const intCache = (make) => { const c = []; return (n) => c[n] ?? (c[n] = make(n)); };
 const intTxt = intCache((n) => String(n));   // alloc-rare: the first time that number is shown
-const tearTxt = intCache((n) => `${n}% of the rupture point`);   // alloc-rare: the first time that percent is shown
+const tearTxt = intCache((n) => `${n}% of the rupture threshold`);   // alloc-rare: the first time that percent is shown
 const slideTxt = intCache((k) => `${k / 10 - 100}% 0px`);   // alloc-rare: the first time that fill is set (slid in from the left inside its track, by tenths of a percent)
 const riseTxt = intCache((p) => `0px ${100 - p}%`);   // alloc-rare: the first time that height is set (risen by sliding up inside the belly, by whole percents)
 // A reading's words: fmt(v, d) then a suffix, rebuilt only when the number it shows changes (a cell is { k, s }, one for each place that prints).
@@ -86,7 +87,7 @@ export function createEndoscopy({ onAction }) {
     h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry-red spots appear once the wall stress exceeds 70% of the rupture point.' }, h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry-red spots appear once the wall stress exceeds 70% of the rupture threshold.' }, h('dt', {}, 'Stigmata'), red));
   // EUS-PPG, played on the anatomy from here (eus-ppg.js): in Tests › Scope, not on a slide's card unless the slide asks (configure).
   const eus = createEusPpg();
   const side = h('div', { class: 'chart-side' }, stats, bandBtn, eus.el);
@@ -439,7 +440,7 @@ export function createVarixWall() {
   const name = (long, short) => h('dt', {}, h('span', { class: 'wall-long' }, long), h('span', { class: 'wall-short' }, short));
   const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
-  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of rupture point'))), wSev = h('span', { class: 'wall-sev' });
+  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of rupture threshold'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
     item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'σ = ΔP · r / w')),
     item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
@@ -467,7 +468,7 @@ export function createVarixWall() {
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
     const share = wallShare(v);   // (the engine's two-breath mean: every screen reads this one number, A6)
-    set(stressTxt, share > 1 ? 'above the rupture point' : tearTxt(Math.round(share * 100)));
+    set(stressTxt, share > 1 ? 'above the rupture threshold' : tearTxt(Math.round(share * 100)));
     const sev = wallState(share);
     dataSoon(stressBar, 'sev', sev);
     // (The stress swings with each beat and each breath: the engine already gives its mean over two breaths, wallShare, so the number reads steady and the same on every screen, folded or open.)
@@ -653,7 +654,7 @@ function iapDial() {
   const C = 64, R = 56, TX = 42;   // pivot on the flat (belly) side, ring radius, the text column
   const pt = (v, r) => { const t = Math.PI / 2 + (v / IAP_MAX) * Math.PI; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
   const arc = (a, b, r) => { const [x0, y0] = pt(a, r), [x1, y1] = pt(b, r); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
-  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: '-12 0 76 128', preserveAspectRatio: 'xMidYMid meet' });
+  const svg = s('svg', { class: 'ab-dial', 'data-look': 'inst.root', viewBox: `${DIAL_VB[0]} 0 ${DIAL_VB[2]} 128`, preserveAspectRatio: 'xMidYMid meet' });
   const live = [];
   for (const [a, b, sev] of IAP_BANDS) {
     const a1 = a ? a + 0.3 : a, b1 = b < IAP_MAX ? b - 0.3 : b, d = arc(a1, b1, R);
@@ -694,8 +695,11 @@ function iapDial() {
     key.setAttribute('font-size', fk.toFixed(2)); unit.setAttribute('font-size', fu.toFixed(2)); word.setAttribute('font-size', fw.toFixed(2));   // (a model's size is its attribute: the table sets none for these)
     const yu = 74 + 0.72 * fu, yw = yu + 3.5 + 0.72 * fw;
     unit.setAttribute('y', yu.toFixed(2)); word.setAttribute('y', yw.toFixed(2));
+    // (The 12 and 20 stand outside the ring, at the type size the screen asks for. A small dial makes that size large in the drawing, and the
+    // "12", on the ring's far left, ran past the drawing's left edge and was cut there: so the ring's radius they stand at is held to what keeps
+    // the whole word inside, DIAL_LEFT of the edge, as near the ring as that needs. 16 Nov 2026, the Ascites card's play-test.)
     for (const [v, tl] of tls) {
-      const [lx, ly] = pt(v, R + 10 + 0.65 * ft);
+      const [lx, ly] = pt(v, dialTickRadius(v, ft, IAP_MAX, C, R));
       tl.setAttribute('font-size', ft.toFixed(2)); tl.setAttribute('x', lx.toFixed(2)); tl.setAttribute('y', (ly + 0.36 * ft).toFixed(2));
     }
     gl.relook();   // (the new type sizes are styles: the model's looks are read again, between frames)

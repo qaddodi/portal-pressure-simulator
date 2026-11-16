@@ -57,9 +57,12 @@ for (const v of VIEWS) {
       for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
         assert.ok(!cut(anchors[ks[i]], spot[ks[i]], anchors[ks[j]], spot[ks[j]]), `corner ${ti}: the ${ks[i]} and ${ks[j]} leaders cross`);
       }
-      // the venule's label is out to the side, never on the lymphatic's spoke
-      const dot = fan.ux.triad * fan.ux.lymph + fan.uy.triad * fan.uy.lymph;
-      assert.ok(Math.abs(dot) < 1e-9, `corner ${ti}: the venule's spoke is not at a right angle to the outward ray`);
+      // round the tract the names run in the order of what they name: arteriole, venule, lymphatic, ductule (the venule's between the arteriole's and the
+      // lymphatic's: Mohammad, 16 Nov 2026), so no leader crosses another
+      const ang = (k) => Math.atan2(spot[k][1] - fan.py, spot[k][0] - fan.px), rel = (k) => { let d = ang(k) - ang('lymph'); while (d <= -Math.PI) d += 2 * Math.PI; while (d > Math.PI) d -= 2 * Math.PI; return d; };
+      const sHa = Math.sign(rel('ha'));
+      assert.ok(sHa !== 0 && Math.sign(rel('triad')) === sHa && Math.abs(rel('triad')) < Math.abs(rel('ha')), `corner ${ti}: the venule's name is not between the arteriole's and the lymphatic's`);
+      assert.ok(Math.sign(rel('bd')) === -sHa, `corner ${ti}: the ductule's name is not on the far side of the lymphatic's`);
       for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
         assert.equal(overlap(box(ks[i], ...spot[ks[i]]), box(ks[j], ...spot[ks[j]])), 0, `corner ${ti}: the ${ks[i]} and ${ks[j]} labels overlap`);
       }

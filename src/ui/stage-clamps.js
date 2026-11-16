@@ -183,6 +183,7 @@ export function createClamps(st, live) {
     if (!same) { okNext = okCur; okCur = o; ovInVer++; }
     return ovInVer;
   }
+  const clotIds = [];   // (the vessels whose clot the last build drew: wanted again while the clots' key holds)
   const vxBin = [NaN, NaN];   // (the bins --vx shows now: varices, gastric varices)
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   function updateOverlays(f, p, gain, t) {
@@ -239,6 +240,10 @@ export function createClamps(st, live) {
     const tk = JSON.stringify([t.toFixed(3), hideDx, p.thrombus, Object.keys(p.thrombus).map((id) => (E[id] ? [E[id].vis, held[`w${id}`]] : 0))]);
     const clots = tk !== live.thrombiKey;
     if (clots) { live.thrombiKey = tk; ov.thrombi.innerHTML = ''; }
+    // (A clot is a mark of its own, `clot:<vessel>` (mark-fade.js): it fades in when it forms and out when it goes, under Reduce Motion and in
+    // imaging too, and is never inserted or taken out whole. Clots keep their own key, so while it holds the clots standing are wanted again as
+    // they are: the marks each build wants are the ones that stay. Mohammad, 16 Nov 2026: nothing pops.)
+    if (!clots) for (const id of clotIds) markA.want(`clot:${id}`, { host: ov.thrombi, vessel: id, anatOnly: false, t: live.ovT });
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (!want.has(id)) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
@@ -252,7 +257,7 @@ export function createClamps(st, live) {
       }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
-      lab._txt = `${Math.round(v * 100)}%`;
+      lab._txt = `${Math.round(v * 100)}% narrowed`;   // (a number alone says nothing: every figure label carries a word or a unit)
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
@@ -264,6 +269,7 @@ export function createClamps(st, live) {
     // as resting on the wall. Below full occlusion the vessel's own blood shows down the open side.
     // Its thickness, length and lumps are smooth in the occlusion (see clot-shape.js), so an eased change
     // eases the clot: it thickens from the wall inwards, then lengthens.
+    if (clots) clotIds.length = 0;
     for (const [id, v] of Object.entries(clots ? p.thrombus : {})) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       // W is a little inside the drawn lumen, so the clot's soft edge never spills onto the vessel wall.
@@ -274,9 +280,11 @@ export function createClamps(st, live) {
       if (n < 3) continue;
       const rOf = (f) => clotRadius(v, W, f, seed);
       const mid = pts.map((q, i) => { const sh = clotShift(W, rOf(i / (n - 1)), side); return [q[0] + ln[i][0] * sh, q[1] + ln[i][1] * sh]; });
-      for (const { cls, k } of clotLayers) ov.thrombi.append(s('path', { class: cls, d: tubeOutline(mid, ln, (f) => rOf(f) * k) }));
+      const els = clotLayers.map(({ cls, k }) => s('path', { class: cls, d: tubeOutline(mid, ln, (f) => rOf(f) * k) }));
       const edge = mid.map((q, i) => { const r = rOf(i / (n - 1)) * CLOT_EDGE; return [q[0] - ln[i][0] * side * r, q[1] - ln[i][1] * side * r]; });
-      ov.thrombi.append(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
+      els.push(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
+      putMark(ov.thrombi, `clot:${id}`, id, els);
+      clotIds.push(id);
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', 'REX', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal || (id === 'DIPS' && !stentOpen(f, EI.DIPS))) continue;

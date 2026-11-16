@@ -6,12 +6,14 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { watchSelection } from './selection-live.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, saveHistory, loadHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
 import { sinusoidSupported } from './gl-support.js';
+import { keyLabel } from './platform-keys.js';
 import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
@@ -94,6 +96,8 @@ import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, o
 import { caught, caughtNow } from './caught.js';
 import { setFpsCounter } from './fps-counter.js';
 import { setDockTop } from './sheet-layer.js';
+import { freeStageOf, setFreeStage, sideBlock, bandOf, FOOT_BAND } from './free-stage.js';
+import { procLabel } from './procedure-names.js';
 // (The frame tags of the traces that draw the model's samples as they come: their scroll needs the frames about ten times a second.)
 const TRACE_TAGS = ['doppler', 'pressure-time', 'vitals-monitor'];
 const nextFrame = frameFor('main');
@@ -249,6 +253,7 @@ async function main() {
     // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
     onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
   });
+  watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
     const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
     // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
@@ -306,7 +311,8 @@ async function main() {
     marks: () => timeline.entries(), onBeat: () => sendBeat(), onFromReadings: (a) => { fromReadingsL.get().then((f) => f.open(a)).catch(() => {}); } });
   presenterL = lazy(() => import('./presenter.js'), ({ createPresenter }) => createPresenter({ openSettings, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => toggleProjector(true), projectorOff: () => toggleProjector(false),
-    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+    poke: () => idleRest?.poke(), closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render(),
+    patientHistory: { save: () => ({ timeline: timeline.save(), stacks: saveHistory() }), load: (k) => { loadHistory(k.stacks); timeline.load(k.timeline); } } }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
@@ -455,6 +461,8 @@ async function main() {
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { resumeUrl, loadPreset, store, updateParams, setTool, dock, details: (sel) => { store.set({ details: sel }); openPanel(); }, stage, host, card, timeline, menu: mainMenu, palette, presenter, get perf() { return framePerf(); }, motionBudget, budget: gpuBudget, get credit() { return creditPlacer; }, caught: caughtNow };   // (caught: the app's counted errors; the assignment above had replaced the one caught.js puts on window.pps, so no device report could read them)
+  // (The slide camera's gate on this device: every deck, Next and Back, each move judged from its own frames. cam-gate.js; loaded when asked.)
+  window.pps.cameraGate = async (o) => { const [{ createCameraGate }, { DECKS }] = await Promise.all([import('./cam-gate.js'), import('./decks.js')]); return createCameraGate({ presenter, stage, decks: DECKS })(o); };
   const linked = await presenter.readLink();
   if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare(), back = new URLSearchParams(location.search).has('back');
@@ -507,7 +515,9 @@ async function main() {
         if (sw && await holdsMine(sw)) return;
         if (offered) return;
         offered = true;
-        const offer = () => { if (presenter.active()) { setTimeout(offer, 30000); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]] }); };
+        // (Held while a talk plays, and put up again once it ends if it was taken away by one: it stood over a slide's teaching card and its tag, 16 Nov 2026.)
+        const retry = () => setTimeout(offer, 30000);
+        const offer = () => { if (presenter.active()) { retry(); return; } toast('A new version of the simulator is ready.', '', { actions: [['Reload', () => location.reload()]], holdInTalk: true, onClose: (why) => { if (why === 'held') retry(); } }); };
         offer();
       });
     }
@@ -819,16 +829,22 @@ function resetEverything() {
 }
 
 // ── Actions ─────────────────────────────────────────
+const BANDS_MAX = 4;   // (the engine's cap, engine.band)
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   if (a.kind === 'band') {
     const fr = store.get().frame;
     if (fr?.metrics && !varicesPresent(fr, 'VAR')) { toast('No varices to band.'); return; }
+    // (Said every time, from Treat or from the card: the bands show on the endoscopy view and the varices card, which may not be the one open, so the tap answers where it was made.)
+    const placed = Math.round(fr?.bands || 0);
+    const quiet = !!store.get().presenting;   // (a slide's own bands say nothing: the talk says it)
+    if (placed >= BANDS_MAX) { if (!quiet) toast(`${BANDS_MAX} bands are already on the varices.`); return; }
+    if (!quiet) toast(`Band (EVL) placed: ${placed + 1} of ${BANDS_MAX}.`);
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
-  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: procLabel('band'), valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
@@ -851,7 +867,7 @@ function shuntHint(only, fine) {
   SHUNT_LINES[0] = h('div', NOATTR, fine ? 'Click a glowing vein to connect it to.' : 'Tap a glowing vein to connect it to.');
   SHUNT_LINES[1] = h('div', NOATTR, 'A portal branch to a ', h('b', NOATTR, 'hepatic vein'), ' makes a TIPS.');
   SHUNT_LINES[2] = h('div', NOATTR, 'A portal branch to the ', h('b', NOATTR, 'IVC'), ' below the hepatic veins makes a DIPS.');
-  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a Warren shunt.');
+  SHUNT_LINES[3] = h('div', NOATTR, 'The splenic vein to the ', h('b', NOATTR, 'left renal vein'), ' makes a distal splenorenal shunt (DSRS).');
   SHUNT_LINES[4] = fine ? h('div', NOATTR, 'Esc cancels.') : null;
   return SHUNT_LINES;
 }
@@ -902,8 +918,8 @@ function buildHud() {
     sendBeat(); syncBloodBtn();
     redraw();
   });
-  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint.
-  document.documentElement.classList.add('chip-open'); for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
+  // A chip that opens a menu says so: aria-expanded from the start (popover() keeps it), which app.css turns into a turned chevron and a held tint. (No class on the root for it: the old `chip-open` stayed there after the menu closed, 16 Nov 2026; the rules read aria-expanded alone.)
+  for (const id of ['btnBlood', 'btnLobuleLayers', 'btnLayers']) $('#' + id).setAttribute('aria-expanded', 'false');
   // Press and hover on every other control eases and answers a finger (app.css, html.press-fx).
   document.documentElement.classList.add('press-fx');
   document.documentElement.classList.add('model-contain');
@@ -1101,7 +1117,7 @@ function menuToggle(checked, ic, label, sub, onChange) {
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
-function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop' }); }
+function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function bloodItems() {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
@@ -1109,7 +1125,7 @@ function bloodItems() {
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Off, with Chevrons on: arrows only', (on) => {
+      toggle(flowOn, 'streaks', 'Streaks', 'Moving blood drawn along each vessel', (on) => {
         store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
         try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
       }),
@@ -1137,7 +1153,7 @@ function labelLevelSeg() {
   }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
-function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
+function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
@@ -1162,7 +1178,7 @@ function openLayers(anchor) {
   popover(anchor, [
     h('div', { class: 'lens-grid', role: 'radiogroup', 'aria-label': 'Color the vessels by' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
-  ], { cls: 'layers-pop' });
+  ], { cls: 'layers-pop', safe: 'bottom' });
 }
 // Active bleeding is a state, not an alarm: the figure shows the blood itself; the readings are drawn again when it starts or stops.
 let lastBleed = false;
@@ -1278,13 +1294,20 @@ function renderBanner() {
   if (s0.compareSnap) {
     const names = s0.compareSnap.names || CMP_NAMES;
     cmpWords(s0.compareSnap.when, names[0], names[1]);
+    const cur = s0.compareView || 'B';
+    // (The same switch with the same words keeps its elements: Then, Now and Change only move the pressed mark, so the selection glides from one to the next (seg-glide.js);
+    // a new switch for each press put the piece down on the new choice with nothing to glide from. Play-test, Mac, 16 Nov 2026.)
+    if (bannerSeg && bannerSeg.isConnected && bannerSeg.parentNode === el && bannerSeg._words === cmpLabel + '|' + cmpNA + '|' + cmpNB) {
+      for (let i = 0; i < 3; i++) bannerSeg.children[i].setAttribute('aria-pressed', cur === 'ABD'[i] ? 'true' : 'false');
+      return renderBannerBadge(s0);
+    }
     bannerLabel = h('span', CMP_LABEL, cmpLabel);
     CMP_SEG['aria-label'] = cmpAria;
-    const cur = s0.compareView || 'B';
     CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
     CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
     CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
     bannerSeg = h('div', CMP_SEG);
+    bannerSeg._words = cmpLabel + '|' + cmpNA + '|' + cmpNB;
     for (let i = 0; i < 3; i++) {
       const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
       b.addEventListener('click', CMP_CLICK[i]);
@@ -1299,6 +1322,9 @@ function renderBanner() {
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
+  renderBannerBadge(s0);
+}
+function renderBannerBadge(s0) {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {
@@ -1327,6 +1353,7 @@ function wireTopbar() {
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
+  { const b = $('#btnPalette'); b.title = `Search (${keyLabel('Ctrl/⌘ K')})`; const k = b.querySelector('kbd'); if (k) k.textContent = keyLabel('Ctrl/⌘ K'); }   // (the page's own text says Ctrl K: a Mac reads ⌘ K)
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat({ focus: true }) : openTreat()));
   // History, beside Treat and Tests: its own card on the right (a phone held sideways keeps the menu sheet).
   $('#btnHistory').addEventListener('click', (e) => (isPhone() ? timeline.openHistory(e.currentTarget) : historyOpen() ? closeHistory({ focus: true }) : openHistory()));
@@ -1397,7 +1424,7 @@ function presenterSettings() { return []; }
 // up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the default (1.5 MP on every device; a phone's was 0.5 until 16 Nov 2026).
 const MP_STEPS = FIG_STEPS;
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
@@ -1756,6 +1783,8 @@ function setPanelTab(tab) {
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
 let panelSheet = null, treatSheet = null, dockSheet = null;
+// A card's rest shift (px along x, none along y), for the camera's framing: where it comes to when its glide aside ends.
+const restShift = (el, x) => { const v = `${Math.round(x)} 0`; if (el.dataset.restTranslate !== v) el.dataset.restTranslate = v; };
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -1837,6 +1866,34 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // The free stage (free-stage.js): the window less the open cards, the bars and the view switch, from the cards' resting boxes. Each side card
+    // counts only on the rows it reaches, so a piece clears the cards that are really beside it (the zoom pill did not move for Treat, which ends
+    // 160 px above it). Written on the root, where the toasts and the menus (outside .app) read it too.
+    const aw = ar.width || innerWidth, ah = ar.height || innerHeight, blocks = [];
+    const rowsOf = (el) => { const q = readBox(el); return [q.top - ar.top, q.bottom - ar.top]; };
+    if (wide) {
+      if (panelOcc) { const [y0, y1] = rowsOf($('#panel')); blocks.push(sideBlock('r', panelOcc, y0, y1)); }
+      if (instrOcc) { const [y0, y1] = rowsOf(ws); blocks.push(sideBlock('r', panelOcc + instrOcc, y0, y1)); }
+      if (treatOcc) { const [y0, y1] = rowsOf(!tc.hidden ? tc : hc); blocks.push(sideBlock('r', panelOcc + instrOcc + treatOcc, y0, y1)); }
+      // (The vessel's card on the left shelf: its box holds still while it fades in and out, so it counts where it rests.)
+      const lc = card?.el;
+      if (lc && !lc.hidden && !lc.classList.contains('docked') && !lc.classList.contains('ac-leaving')) {
+        const q = readBox(lc);
+        if (q.width && q.height) blocks.push(sideBlock('l', q.right - ar.left + gap, q.top - ar.top, q.bottom - ar.top));
+      }
+    }
+    const fs = freeStageOf(aw, ah, tbH, bot, blocks);
+    const footY1 = ah - bot - 8, zoomEl = $('#zoomPill'), zoomH = (zoomEl && readMetric(zoomEl, 'offsetHeight')) || 176;
+    fs.foot = [footY1 - FOOT_BAND, footY1];   // (where a toast and the corner credit stand)
+    fs.zoom = [footY1 - zoomH, footY1];   // (the zoom pill's rows)
+    fs.top = [tbH + 6, tbH + 6 + 48];   // (the Compare banner's rows, under the top bar)
+    setFreeStage(fs);
+    const rootVars = { '--fs-t': px(fs.t), '--fs-b': px(fs.b), '--fs-h': px(fs.h), '--fs-l': px(fs.l), '--fs-r': px(fs.r) };
+    for (const [k, [y0, y1]] of [['foot', fs.foot], ['zoom', fs.zoom], ['top', fs.top]]) { const bd = bandOf(fs, y0, y1); rootVars[`--fs-${k}-l`] = px(bd.l); rootVars[`--fs-${k}-r`] = px(bd.r); }
+    for (const k in rootVars) if (pubVals[k] !== rootVars[k]) { pubVals[k] = rootVars[k]; document.documentElement.style.setProperty(k, rootVars[k]); changed = true; }
+    // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
+    // they come to rest, so it does not follow the glide: util.js translateRest.)
+    if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets rest 8 px above the dock's top edge (the play bar, the timeline, the readouts and the tab row stay
@@ -1869,6 +1926,7 @@ function wireFloating() {
   const soon = () => restTask(publish);
   const ro = new ResizeObserver(soon);
   for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
+  if (card?.el) ro.observe(card.el);   // (the vessel card on the left shelf is as tall as its words: the free stage's rows follow it)
   // (Not for stage-busy, the floating pieces' fade while the figure moves: it changes only their opacity. Announced, every
   // card, the credit, the labels' blockers and the framing were measured and placed again as the menus faded back in, a
   // beat after each pan or pinch, and the figure hitched (Mohammad, 21 Oct: "the hitch syncs with the menu fading back in").)
@@ -2087,7 +2145,7 @@ function openLayersMenu(anchor) {
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers', safe: 'bottom' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
@@ -2353,10 +2411,10 @@ const PRESENT_KEYS = [
 function openHelp(section) {
   // (Grouped by what a person is doing, so the list reads down a column: run it, change the view, reach and act. Every row is a key the handler takes.)
   const groups = [
-    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'],
+    ['Run the model', [['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], [keyLabel('Ctrl/⌘ Z'), 'Back one change on the timeline (Shift: forward)'],
       ['P', 'Compare from here / stop comparing'], ['J', 'Inject dye (hold for longer)']]],
     ['Change the view', [['A', 'Anatomy ⇄ circuit'], ['L', 'Next vessel coloring (Shift: previous)'], ['I', 'Open / close Tests'], ['T', 'Open / close Treat'],
-      ['Ctrl/⌘ + / − / 0', 'Zoom in / out / fit the figure'], ['Ctrl/⌘ K or /', 'Search'], ['?', 'This guide']]],
+      [keyLabel('Ctrl/⌘ + / − / 0'), 'Zoom in / out / fit the figure'], [keyLabel('Ctrl/⌘ K or /'), 'Search'], ['?', 'This guide']]],
     ['Reach and act', [['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'], ['Tab · Enter', 'Reach a vessel, open its actions'],
       ['← → ↑ ↓', 'Step through the stations, mesenteric veins to heart'], ['Shift ← →', 'Follow the vessel in focus along the flow'], ['Esc', 'Cancel · close the card · close']]],
   ];
@@ -2520,10 +2578,10 @@ function armFeedbackAsk() {
   // (The card's answers and options are made once, with the timer, not each time it asks.)
   const answer = (v) => { try { localStorage.setItem(ASK_KEY, v); } catch (e) { caught('main:2230', e); /* storage unavailable */ } };
   const askToast = {
-    sticky: true,
+    sticky: true, holdInTalk: true,   // (held while a talk plays: it stood over a slide's tag chip and the preview badge, 16 Nov 2026; asked again, with the minutes counted anew, once the talk is over)
     actions: [['Send feedback', () => sendFeedback()], ['Not now', () => {}]],
     onClose: (why) => {
-      if (why === 'pushed') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
+      if (why === 'pushed' || why === 'held') { active = 0; last = performance.now(); timer = setInterval(tick, TICK); return; }   // (not an answer)
       try { if (localStorage.getItem(ASK_KEY) !== 'done') answer(was === 'later' ? 'done' : 'later'); } catch (e) { caught('main:2235', e); /* storage unavailable */ }
     },
   };

@@ -29,7 +29,10 @@ import { headStep } from './display-state.js';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
-export const RAIL_LO = 40, RAIL_HI = 150, RAIL_H = 26;   // (the hold rail's scale in mmHg, and the height it takes under the numbers)
+// (B8, play-test 16 Nov 2026, Carvedilol 8/16: the red alarm box behind a breached pressure ran down onto the rail's bar and its MAP <65 tick, so the line the slide teaches could not be read.
+// A box under the numbers ends BOX_BELOW px below their baseline and the rail starts RAIL_GAP px under that, one pair of numbers for both, tests/vitals-rail-clear.test.js.)
+export const BOX_BELOW = 4, RAIL_GAP = 7;
+export const RAIL_LO = 40, RAIL_HI = 150, RAIL_H = 29;   // (the hold rail's scale in mmHg, and the height it takes under the numbers)
 /** Where a MAP stands on the rail, 0 to 1. */
 export const railAt = (v) => clamp((v - RAIL_LO) / (RAIL_HI - RAIL_LO), 0, 1);
 export const HB_LO = 4, HB_HI = 14;   // (the hemoglobin rail's scale in g/dL: a bleed's 13 or so at the start to 4, with the 7 to 8 target a fifth of the way along)
@@ -137,7 +140,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     const rl = rail ? RAIL_H : 0;   // (the rail takes its height from the strip's, so the card keeps its size)
     const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad) - rl, 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
     layW = w; layH = hh; layN = cells.length; layRail = rail;
-    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl, rail: rail ? y0 + 12 + 6 + bigMax + 8 : 0 };   // alloc-rare: only when the size or the cells' words change
+    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl, rail: rail ? y0 + 12 + 6 + bigMax + BOX_BELOW + RAIL_GAP : 0 };   // alloc-rare: only when the size or the cells' words change
     return lay;
   }
   // The pictures' lists for the GPU, kept and written in place (vitals-gl.js draw reads them as it is called): a rectangle or a word is one
@@ -269,7 +272,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
           const bar = val.indexOf('|'), main = bar < 0 ? val : val.slice(0, bar), mean = bar < 0 ? '' : `(${val.slice(bar + 1)})`, small = Math.max(12, Math.round(big * 0.55));
           const nw = textWidth(main, 700, big), rw = textWidth(bar >= 0 ? '888/88' : c.d ? '88.8' : '888', 700, big), mw = mean ? textWidth('(88)', 700, small) + 4 : 0;
           textAt(nt++, c.k, 600, 12, x, y0 + 12, c.bad ? alarm : ink === bright ? text : ink);
-          if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, rw + mw + 10, big * 0.78 + 10, 5, alarm);
+          if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, rw + mw + 10, big * 0.78 + 4 + BOX_BELOW, 5, alarm);
           textAt(nt++, main, 700, big, x + rw - nw, by, c.bad ? bg : ink);
           if (mean) textAt(nt++, mean, 700, small, x + rw + 4, by, c.bad ? bg : ink);
           textAt(nt++, c.u, 500, 12, x + rw + mw + 5, by, c.bad ? alarm : text);

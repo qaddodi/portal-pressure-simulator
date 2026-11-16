@@ -36,7 +36,7 @@ export default [
   { file: 'styles/app-*.css', forbid: [/\.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) > span:first-child \{[^}]*min-width: 0/, 'An instrument card is one fixed card: no readings card tucks behind it or comes out, no handle (Mohammad, 7 Nov 2026:'] },
   // deck-nav
   { file: 'src/ui/presenter*', need: [/want = clamp\(i, 0, slides\.length - 1\);\s*const tx = \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\);\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);\s*noteResume\(deck\.id, want, slides\.length\);/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
-  { file: 'src/ui/presenter*', need: [/resumeAt: \(d\) => resumeFor\(d\.id, \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.length\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
+  { file: 'src/ui/presenter*', need: [/resumeAt: \(d\) => resumeFor\(d\.id, slideCount\(d\)\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/lib\.start\(d\.id, r\?\.at \?\? 0\)/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/`Resume \$\{r\.at \+ 1\} \/ \$\{r\.n\}`/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
   { file: 'src/ui/menu.js', need: [/'From the start'/, 'Getting around the presentations (review U3, U5, U7, U15, U22, U23, U24):'] },
@@ -74,7 +74,7 @@ export default [
   { file: 'src/ui/util.js', need: [/const close = \(why = 'user'\) => \{[^}]*onClose\?\.\(why\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', need: [/t\.addEventListener\('click', \(\) => close\(\)\);/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   { file: 'src/ui/util.js', forbid: [/addEventListener\('click', close\)/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
-  { file: 'src/ui/main.js', need: [/if \(why === 'pushed'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
+  { file: 'src/ui/main.js', need: [/if \(why === 'pushed' \|\| why === 'held'\) \{ active = 0; last = performance\.now\(\); timer = setInterval\(tick, TICK\); return; \}/, 'Beta feedback (18 Oct): Send feedback is one tap into Settings in every mode (talks too), addressed to the one'] },   // (was a slice of the file)
   // glass-gl
   { file: 'styles/app-*.css', need: [/:root \{ --pz-frost: 66%; \}/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
   { file: 'styles/app-*.css', need: [/\.cl-glass \{[^}]*background: var\(--glass-tint\);/, 'The callouts\' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct):'] },
@@ -98,8 +98,8 @@ export default [
   { file: 'src/ui/presenter-ladders.js', need: [/stage\.cathFocus\(cath\.cam, ms, \{ both: true, steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-ladders.js', need: [/\{ drift: true \} : \{ steady: true \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/presenter-proc.js', need: [/stage\.fitSlow\(ms, opt\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (a whole-figure refit takes it)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage-glide.js', need: [/\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
-  { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
+  { file: 'src/ui/stage-glide.js', need: [/\{ arc: true, steady: !!opt\.steady, scale: !opt\.steady, slide \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (and a region\'s)'] },   // (was a slice of the file)
+  { file: 'src/ui/stage*', need: [/fitSlow\(ms = 1300, opt = \{\}\) \{[^\n]*animateVT\(to, ms, opt\.steady \? \{ steady: true \} : \{ scale: true, slide: !!opt\.slide \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage-cath.js', need: [/\{ both = false, near = false, arc = false, steady = false, scale = false \}/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },   // (was a slice of the file)
   { file: 'src/ui/proc-anim.js', need: [/refit\(ms = 700\) \{[^\n]*stage\.cathFocus\(shot, ms, \{ steady: true \}\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ...'] },
   { file: 'src/ui/stage*', need: [/const OPT_STEADY = \{ steady: true \};[\s\S]*animateVT\(d, 400, OPT_STEADY\)/, 'Mohammad, 29 Oct (iPhone): "when I untuck and tuck card stacked ... (the home look)'] },

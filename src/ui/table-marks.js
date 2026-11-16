@@ -7,7 +7,7 @@ import { PPG_CUTS, PV_CUTS, hvpgRate, ppgRate, RATE_OF_SEV, HVPG_WORDS, PPG_WORD
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
 import { KIDNEY_CUTS } from '../engine/kidney-cuts.js';
 import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
-import { LSM_CUTS } from '../engine/lsm-cuts.js';
+import { LSM_CUTS, lsmContext } from '../engine/lsm-cuts.js';
 import { TRANSFUSE } from '../engine/transfusion-cuts.js';
 
 export const NO_ASC = 150;
@@ -28,6 +28,8 @@ const T_ok_Not_portal = tup('ok', 'Not portal');
 const T_info_High = tup('info', 'High');
 const T_mid_SBP_risk = tup('mid', 'SBP risk');
 const T_info_Low = tup('info', 'Low');
+const T_info_Congestion = tup('info', 'Congestion');
+const T_info_Vascular = tup('info', 'Vascular');
 const T_mid_Grade_1 = tup('mid', 'Grade 1');
 const T_hi_Grade_2 = tup('hi', 'Grade 2');
 const T_hi_Grade_3 = tup('hi', 'Grade 3');
@@ -92,10 +94,11 @@ export const RATE = {
   // (rpp, the abdominal perfusion pressure MAP − IAP, has no rating: no guideline gives it a cut-off, kidney-cuts.js.)
   // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the indeterminate zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
-  lsm: (v) => (v >= LSM_CUTS.ruleIn ? T_hi_CSPH : v >= LSM_CUTS.likely ? T_mid_Borderline : v >= LSM_CUTS.unlikely ? T_mid_cACLD : T_ok_Normal),
+  // (A congested liver is stiff from pressure, and a vascular one has no scar to read: the cut-offs are for compensated advanced chronic liver disease, so a raised stiffness reads as gray information there; lsm-cuts.js lsmContext. The spleen's rules are off for congestion only.)
+  lsm: (v, f) => { const c = lsmContext(f); return c === 'congested' ? T_info_Congestion : c === 'vascular' && v >= LSM_CUTS.unlikely ? T_info_Vascular : v >= LSM_CUTS.ruleIn ? T_hi_CSPH : v >= LSM_CUTS.likely ? T_mid_Borderline : v >= LSM_CUTS.unlikely ? T_mid_cACLD : T_ok_Normal; },
   // Spleen stiffness (Baveno VIII, the 100 Hz probe; ssm-cuts.js): over 55 kPa CSPH, under 40 low (the screening scope can be spared
   // without a beta-blocker), the indeterminate zone between. (A healthy spleen reads about 17; the bar's tick at 25 is the resolution cut-off.)
-  ssm: (v) => (v > SSM_CUTS.ruleIn ? T_hi_CSPH : v >= SSM_CUTS.spareScope ? T_mid_Indeterminate : T_ok_Low),
+  ssm: (v, f) => (lsmContext(f) === 'congested' ? T_info_Congestion : v > SSM_CUTS.ruleIn ? T_hi_CSPH : v >= SSM_CUTS.spareScope ? T_mid_Indeterminate : T_ok_Low),
   ra: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
   salb: (v) => (v < 3.5 ? T_mid_Low : T_ok_Normal),
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)

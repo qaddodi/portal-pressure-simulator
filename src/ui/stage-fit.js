@@ -64,7 +64,7 @@ export function createFit(st, live) {
     const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('vd-out')) continue;
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
       const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
       for (const pc of parts || [el]) {
@@ -97,6 +97,13 @@ export function createFit(st, live) {
   snapAgain();
   addEventListener('resize', snapAgain);
   addEventListener('orientationchange', snapAgain);
+  // A turn of the device frames the figure again (16 Nov 2026, style play-test, iPad portrait in Navy: "a leftover zoom crops the figure until Fit is
+  // tapped"). A view the learner zoomed or panned kept its camera through a turn, so the figure, laid out for the other shape, stood cropped; a view at home
+  // followed the new room already. The turn is Fit's moment, as the presenter's is (stage.handClear: a turn or a new window size). Not in the lobule, and not
+  // while presenting (the slide frames itself). Refit measures in the next frame, after the new layout has settled.
+  const turnMQ = matchMedia('(orientation: portrait)');
+  const onTurn = () => { if (live.lobuleOn || live.fitted || store.get().presenting) return; live.handed = false; refit(); };
+  if (turnMQ.addEventListener) turnMQ.addEventListener('change', onTurn); else turnMQ.addListener?.(onTurn);
   const insWrap = () => stageBox();
   function cardSpace() { return { ...insKept('space', cardSpaceFrom, cardsSnap) }; }
   // (Live, for a caller already in the read phase: the catheter's room.)
@@ -372,7 +379,9 @@ export function createFit(st, live) {
     applyVT(); live.CTM = null;
   }
   function setCircuitRotated(on) {
+    live.camLock?.release('turn');   // (the person's own move: a slide's move lets go of the camera, slide-cam.js)
     on = on ? 1 : 0;
+    snapFresh();   // (the bars' boxes as they stand now: the turned map is fitted into the room they leave, and a stale snapshot left its bottom third under the play bar)
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === live.rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
@@ -395,6 +404,9 @@ export function createFit(st, live) {
     if (whole) live.vt = live.morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
     // (The framing the turn lands on, taken now, at the press: the turn's last frame sets it again without measuring the cards.)
     live.rotWhole = whole && live.morphTarget === 1 ? { ...live.vt } : null;
+    // (The turned map is a framing of the circuit like Fit's: it is kept as one, so a resize, a card or the bars changing size take the same framing again for the new room,
+    // as they do for the wide map (stage-tubes.js lookHome). Without it the upright map was fitted once, at the press, and never again: play-test, Mac 1280 x 800, 16 Nov 2026.)
+    if (live.rotWhole) { live.fitted = true; markCirc('whole', live.rotWhole); }
     // (Rec 8: in the landed circuit the camera glides to that framing on the turn's own clock and ease (rotStep), never set outright.)
     live.rotGlide = live.rotWhole && live.morph === 1 && !reduceMotion.matches ? { from, e0: rotEase(live.rotU), x: { from, to: live.rotWhole, vb0: [vbBox.x, vbBox.y, vbBox.width, vbBox.height] } } : null;   // (x: the glide as view-xf.js works it out: the view box turns under the camera)
     if (live.rotGlide) live.vt = from;

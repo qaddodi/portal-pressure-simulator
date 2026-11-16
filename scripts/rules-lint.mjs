@@ -357,6 +357,23 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); (?:live\.)?ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
+  // One glass (16 Nov 2026, style play-test: "the glass is not the same on every panel"; 11 Nov, Mohammad: "Tint and blur of glass should be the same EVERYWHERE"):
+  // every region the page registers with stage.glass.add (sheets, toasts, chrome, menus, the Present cards) asks for the one card glass (card: true: CARD's blur,
+  // the look's surface at CARD.tint, glass-gl.js), whatever its own --gl-tint says. The figure's callouts (stage.js) are the one region with their own ways.
+  for (const f of ['src/ui/main.js', 'src/ui/menu-glass.js', 'src/ui/presenter-start.js']) forbid(f, /(?:\bglass\??\.add|\bapi\??\.add)\((?![^\n]*card: true)/, 'a glass region without card: true wears its own tint and blur, not the one glass');
+  // A turn of the device frames a hand-placed view again (16 Nov 2026, style play-test, iPad portrait in Navy: a leftover zoom cropped the figure until Fit).
+  need('src/ui/stage-fit.js', [[/turnMQ\.addEventListener\('change', onTurn\)/, 'a turn of the device (orientation change) refits a view the learner zoomed or panned, as Fit does']]);
+
+  // The zoom pill's glyphs at rest on a pointer device keep 3:1 on the glass in every look (16 Nov 2026): muted ink at .5 was 2.5:1 in Light and Soft.
+  need('styles/app-07-floating.css', [[/\.zoom-pill \.ib:not\(\.stage-rotate\):not\(:disabled\) \{ opacity: \.7;/, "the zoom pill's resting ink is .7 (3.9:1 or more in all five looks; .5 was 2.5:1 in Light)"]]);
+
+  // The pressure ramps tests/chevron-contrast.test.js judges the heads' ink on (16 Nov 2026): a ramp changed in the styles must change there too.
+  need('styles/tokens.css', [
+    ['--ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;', "Light's pressure ramp, as tests/chevron-contrast.test.js has it"],
+    ['--ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;', "Soft's pressure ramp, as tests/chevron-contrast.test.js has it"],
+    ['--ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;', "the dark looks' pressure ramp, as tests/chevron-contrast.test.js has it"],
+  ]);
+
   // Readouts and the glass at rest (15 Nov 2026, app review WORDS-1): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
   need('src/ui/svg-gl.js', [[/if \(!opts\?\.still && typeof MutationObserver === 'function'\) g\.mo = new MutationObserver\(g\.relook\);/, 'a still picture (a readout) makes no observer of its looks']]);
@@ -506,7 +523,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const pz = text('src/ui/presenter*'), c0 = pz.indexOf('  async function camera('), cam = pz.slice(c0, c0 + 1 + pz.slice(c0 + 1).search(/\n {2}(?:async )?function |\n {2}\/\/ \(left: only the entrances/));   // (the next function after it, or the note that used to follow it)
     if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
     const at = cam.indexOf('const switching = store.get().view !== v;');
-    if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
+    if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl, SLIDE_OPT);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
   }
   {
     // M10 step 2 (8 Nov 2026): a bare `await wait(` is a wait Next cannot cut. The ones left, per file; the number only goes down.
@@ -529,7 +546,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage.js', [
     [/const u = viewXfCamU\(viewXf, viewXfP\(\)\);/, "the change's camera is its share since the last retarget"],
     [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
-    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
+    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget \|\| circWait,/, 'the stage says when the change between the views is still under way'],
     [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
     [/viewXfCameraInto\(viewXf, u, viewBoxAt\(/, "the camera through a change between the views is worked out on the screen against the view box as it stands (a lerp in the box's own units bowed the landing framing off its line and back, 15 Nov 2026)"],
   ]);
@@ -538,13 +555,13 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   need('src/ui/stage-view.js', [[/vb0: \[vbBox\.x, vbBox\.y, vbBox\.width, vbBox\.height\]/, 'a change keeps the view box its camera was written for'], [/sameView\(live\.vt, to\), \[vbBox\.x/, 'a retarget keeps the box the camera it sets out from stands in']]);
   need('src/ui/stage-fit.js', [[/viewXfCameraInto\(g\.x, /, "the phone's turn glide is worked out on the screen too: the view box turns under the camera"]]);
   forbid('src/ui/stage-glide.js', /camMs\([^)]*VIEW\.w|springSlope\([^)]*VIEW\.w/, "a glide's time and carried speed count the screen's real width (stage-ride.js screenW), not the old 1400 plate");
-  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
+  need('src/ui/stage-glide.js', [[/else if \(opt\.slow\) animateVT\(to, ms, \{ arc: true, scale: true, floor: CAM_MS_MAX, slide \}\)/, "the move in from a case card takes the time the move out took (frameBox opt.slow)"]]);
   need('src/ui/presenter.js', [
     [/prep = bare \? unseenFit\(cut\) : null, Promise\.resolve\(prep\)\.then\(\(ok\) => \(bare && !ok \? null : camera\(cam, fv, cut\)\)\)/, "the lead-in camera frames only after the unseen cards' last fitting (Carvedilol 3 to 4, 16 Nov 2026: a framing taken before it was undone by a second move)"],
     [/else if \(cam\) \{ if \(prepWith\) \{ prep \|\|= unseenFit\(cut\); if \(!await prep\) return; \} await camera\(cam, fv, cut, plate \? CARDS_AT : 0\); \}/, "the slide's camera frames only after the unseen cards' last fitting, for every kind of slide change over the plate (same patient, new patient, case card)"],
   ]);
-  need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; alongOk = false; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in follows no vessel path and takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
-  need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.o, slow: true \} : o/, "frameTo asks the move in from a case card slow"]]);
+  need('src/ui/presenter.js', [[/await caseLifted\(cut\); if \(cut\(\)\) return; caseExit = true;/, "the camera behind a case card is at the whole patient: its move in takes 900 ms (presenter-proc.js frameTo reads caseExit)"]]);
+  need('src/ui/presenter-proc.js', [[/live\.caseExit && !opt\.drift \? \{ \.\.\.opt, slow: true \} : opt/, "frameTo asks the move in from a case card slow"]]);
   need('src/ui/stage-glide.js', [[/arcRoom\(freeAsk\)/, "a framing's arc travels the middle of the room the cards left (cam-arc.js camWindow)"]]);
   forbid('src/ui/stage-ride.js', /VIEW\./, 'the arcs read the stage\'s real view box (cam-arc.js camWindow), never the old 1400 x 1000 plate');
   need('src/ui/lobule-zoom*', [[/diveMapInto\(D\.p, D\.c, D\.rot, D\.Z, g, DM\)/, 'the lobule is carried by the dive map: turned and grown about its sinusoid, which goes straight to its place']]);

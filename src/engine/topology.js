@@ -190,7 +190,7 @@ export const EDGES = [
   // (Budd–Chiari) and the cava below them is open. The IVC node is the one below the hepatic veins.
   { id: 'DIPS', from: 'PVH', to: 'IVCI', kind: 'shunt', shunt: 'dips', label: 'DIPS' },
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
-  { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
+  { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal shunt (DSRS)' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
   // The Meso-Rex bypass: a vein graft from the superior mesenteric vein, upstream of the clotted portal trunk, to the left portal
   // vein at the Rex recess (its umbilical part). The one shunt that joins two portal vessels: it is not in PORTOSYSTEMIC_EDGES, so
@@ -330,6 +330,18 @@ export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
  *  anatomical variant unless absent, any other collateral always. */
 /** BRTO plugs the shunt (outflow) and the short gastric feeder (inflow) of the fundal varices. */
 export const isOccluded = (p, id) => !!p.occluded?.[id] || (id === 'C2' && !!p.occluded?.C5);
+/** Whether a placed device (a stent, a surgical shunt, a shunt of the learner's own) is in the patient: the params key that places it (params.tips.on, params.dsrs,
+ *  params.customShunts[id]…). Every other edge is in the patient whatever the params say (its own flow, or its variant, is edgePresent's business). */
+export const deviceInPlace = (e, p) => {
+  if (e?.kind !== 'shunt') return true;
+  switch (e.shunt) {
+    case 'tips': return !!p.tips?.on;
+    case 'dips': return !!p.dips?.on;
+    case 'custom': return !!p.customShunts?.[e.id];
+    case 'portocaval': case 'dsrs': case 'mesocaval': case 'rex': return !!p[e.shunt];
+    default: return true;
+  }
+};
 export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : e.id === 'C2' ? p.spontaneous?.C5 !== false : true);
 
 export const TARGETS = {

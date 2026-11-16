@@ -22,7 +22,7 @@ const ranges = (bits) => {   // runs of open bins, the seam joined
 
 // (The captured tubes carry no kind; the flags and the z the lobule gives each kind say it: the central vein F_RING | F_SHADOW, the portal venule that with F_EDGE,
 // the arteriole and the ductule F_EDGE alone, told apart by z 0.7 and 0.55.)
-const kindOf = (k) => (k.fl === 516 ? 'cv' : k.fl === 580 ? 'pv' : Math.abs(k.z - 0.7) < 1e-6 ? 'ha' : Math.abs(k.z - 0.55) < 1e-6 ? 'bd' : '?');
+const kindOf = (k) => (Math.abs(k.z - 0.8) < 1e-6 ? 'lv' : k.fl === 516 ? 'cv' : k.fl === 580 ? 'pv' : Math.abs(k.z - 0.7) < 1e-6 ? 'ha' : Math.abs(k.z - 0.55) < 1e-6 ? 'bd' : '?');
 
 test('six portal venules, arterioles and ductules and one central vein carry F_RING, and no other row does; the dip texel stays 0', () => {
   const count = {};

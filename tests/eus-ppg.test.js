@@ -265,3 +265,24 @@ test('the esophageal varices fade as the scope goes in, stay faded through the w
   assert.equal(procFrame('eus', T.end).fade, 0);
   assert.equal(procFrame('eusglue', 9000).fade || 0, 0, 'the glue slide leaves the varices as they are');
 });
+
+// Play-test, 16 Nov 2026: the card read PV 7.7 and HV 5.2 where the figure said PV 8.1 and the PPG 4.2. The needle takes the left portal vein and the left hepatic vein, inside the liver,
+// so its gradient differs from the PPG (trunk minus IVC) by the fall along the portal vein and the hepatic vein's step above the IVC. The card says so, and the model keeps the gap small.
+test('the EUS-PPG says which veins it reads, and the model keeps it within 1.5 mmHg of the PPG wherever the needle sees the portal pressure', async () => {
+  const { EUS_SITE_NOTE } = await import('../src/engine/pressure-cuts.js');
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const { PRESETS } = await import('../src/engine/scenario.js');
+  assert.match(EUS_SITE_NOTE, /left portal vein pressure minus the left hepatic vein pressure/);
+  assert.match(EUS_SITE_NOTE, /portal vein minus the IVC/);
+  assert.ok(E.steps.find((s) => s[0] === 'done')[2].includes(EUS_SITE_NOTE), 'the last step says it');
+  const bad = [];
+  for (const pr of PRESETS) {
+    const e = new Engine(); e.loadPreset(pr.id); e.beat = true;
+    const m = computeMetrics(e), fp = fingerprintOf(m, { P: e.Pf || e.P, Q: e.Qf || e.Q, D: null }), gap = fp.ppg - fp.eus;
+    const blind = ['pvt-acute', 'pvt-chronic', 'budd-chiari'].includes(pr.id);   // (a clot between the trunk and the needle, or the hepatic veins blocked: the note's own exceptions)
+    if (blind ? gap < 5 : !(gap >= -0.1 && gap <= 1.5)) bad.push(`${pr.id}: PPG ${fp.ppg.toFixed(1)}, EUS-PPG ${fp.eus.toFixed(1)}`);
+  }
+  assert.deepEqual(bad, []);
+});

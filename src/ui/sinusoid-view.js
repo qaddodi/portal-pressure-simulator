@@ -19,6 +19,7 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
+import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { stageCovered } from './seen.js';
 import { diveAlong } from './dive-map.js';
 import { h, fmt, clamp, lerp } from './util.js';
@@ -41,7 +42,7 @@ import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { cssColor8 } from './css-color.js';
 import { surface } from './gpu-surfaces.js';
 import { restPass, restClass, restAttr } from './rest-pass.js';
-import { hitLabel } from './label-explain.js';
+import { hitLabel, DIM_ALPHA } from './label-explain.js';
 import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
@@ -717,7 +718,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   function lymphTxt(slot, tall) {   // the lymph's reading on one line (the no-break space before the dot keeps the caption from splitting it)
     const m = model;
     if (m.hide) return '?';
-    if (LV[slot] !== m.lymph || LV2[slot] !== m.lyProt) { LV[slot] = m.lymph; LV2[slot] = m.lyProt; LS[slot] = `${fmt(m.lymph, 1)}~mL/min${tall ? ' ' : '\u00a0'}· Protein ${Math.round(m.lyProt * 100)}%`; }   // alloc-rare: when the number changed
+    if (LV[slot] !== m.lymph || LV2[slot] !== m.lyProt) { LV[slot] = m.lymph; LV2[slot] = m.lyProt; LS[slot] = `${lymphText(m.lymph)}~${LYMPH_UNIT}${tall ? ' ' : '\u00a0'}· Protein ${Math.round(m.lyProt * 100)}%`; }   // alloc-rare: when the number changed
     return LS[slot];
   }
   const PV = new Float64Array(2).fill(NaN), PS = [];
@@ -1082,7 +1083,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (!e || e.t !== t) { e = { t, v: rgbaOf(t) }; INK.set(n, e); }   // alloc-rare: when a css colour is first read or changes
     return e.v;
   };
-  const PUT = { x: 0, y: 0, off: null, show: 1, now: 0 }, NO_OFF = [0, 0, 1];
+  const PUT = { x: 0, y: 0, off: null, show: 1, now: 0, fade: false }, NO_OFF = [0, 0, 1];
   const LEGLINES = [[['Protein', 'name']]];   // (one list, so the legend's words are not set again each frame)
   let legDotFor = null, legDecor = null;
   const LEADO = { x1: 0, y1: 0, x2: 0, y2: 0, show: 1, cut: false, of: null, follow: false, sg: 0, colour: null };
@@ -1090,7 +1091,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   // The leaders and dots as the Anatomy and Circuit labels have them (app.css .leader, .leader-dot, .leader-dot-halo): the leader ink, the stage's paper
   // under the dot and round it, the text ink's ring. Read through the token cache, so a theme change shows at once.
   const LEAD_LOOK = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
-  // A slide that lights terms dims every name it does not light to 35 % and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
+  // A slide that lights terms dims every name it does not light to DIM_ALPHA (label-explain.js) and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
   let litRaw = null, litSet = new Set();
   // (The terms a presenting slide lights now, split when they change; none outside a talk.)
   function litNow() {
@@ -1102,12 +1103,14 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const app = document.getElementById('app'), raw = app?.dataset.lit || '';
     if (raw !== litRaw) { litRaw = raw; litSet = new Set(raw ? raw.split(' ') : []); }   // alloc-rare: only when the slide's lit terms change
     if (!raw || !app.classList.contains('presenting') || !/(^| )(lobule|sinusoid):/.test(raw)) return 1;
-    return litSet.has(`sinusoid:${SV_TARGET[R.key] || R.key}`) ? 1 : 0.35;
+    return litSet.has(`sinusoid:${SV_TARGET[R.key] || R.key}`) ? 1 : DIM_ALPHA;
   };
   function putCaps() {
     const now = easeNow();
     LEAD_LOOK.line = inkOf('--leader'); LEAD_LOOK.fill = inkOf('--stage-bg'); LEAD_LOOK.halo = LEAD_LOOK.fill; LEAD_LOOK.ring = inkOf('--text-2');
     cap.leadLook(LEAD_LOOK);
+    // (A name a new layout puts in another place fades there, out where it stood and in at its new place, unless the view is moving it with the camera: label-captions.js moveFade.)
+    PUT.fade = !dive && (!VW.vel || calm(VW.vel));
     for (const key in regions) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
@@ -1126,7 +1129,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     if (LL.sig && LEG.w && cap.hasLook('legend')) {
       const wsz = cap.measure('legend', LEGLINES), ww = wsz[0], dd = LL.dot ? LL.dot.d + LL.gap : 0;
       const left = LEG.x + LL.px;
-      PUT.x = left + dd + ww / 2; PUT.y = LEG.y + LEG.h / 2; PUT.off = NO_OFF; PUT.show = 1; PUT.now = now;
+      PUT.x = left + dd + ww / 2; PUT.y = LEG.y + LEG.h / 2; PUT.off = NO_OFF; PUT.show = 1; PUT.now = now; PUT.fade = false;   // (the legend sits in its card)
       cap.put('legend', PUT);
       if (LL.dot && LL.dot !== legDotFor) {
         legDotFor = LL.dot;
@@ -1176,7 +1179,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     LKN[n++] = Math.round(VW.fe.l); LKN[n++] = Math.round(VW.fe.t); LKN[n++] = Math.round(VW.fe.r); LKN[n++] = Math.round(VW.fe.b);
     for (let i = 0; i < VW.ins.length; i++) LKN[n++] = Math.round(VW.ins[i]);
     LKN[n++] = Math.round(S.lum * 1000); LKN[n++] = S.act > 0.5 ? 1 : 0; LKN[n++] = Math.round(S.por * 20); LKN[n++] = m.hide ? 1 : 0;
-    LKN[n++] = Math.round(m.P2 * 10); LKN[n++] = Math.round(m.lymph * 10); LKN[n++] = Math.round(m.lyProt * 100); LKN[n++] = Math.round(m.P1 * 10); LKN[n++] = Math.round(m.P3 * 10);
+    LKN[n++] = Math.round(m.P2 * 10); LKN[n++] = lymphDay(m.lymph); LKN[n++] = Math.round(m.lyProt * 100); LKN[n++] = Math.round(m.P1 * 10); LKN[n++] = Math.round(m.P3 * 10);
     LKN[n++] = phoneMQ.matches ? 1 : 0; LKN[n++] = Math.round(labelK() * 1000);
     let same = lkValid && lkGeo === geoKey && lkBlock === blockKey();
     for (let i = 0; same && i < n; i++) if (LKN[i] !== LKP[i]) same = false;
@@ -1189,7 +1192,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const DN = new Float64Array(8), DP = new Float64Array(8);
   function descChanged() {
     const m = model;
-    DN[0] = Math.round(S.por * 4); DN[1] = S.col > 0.15 ? 1 : 0; DN[2] = S.act > 0.4 ? 1 : 0; DN[3] = m.hide ? 1 : 0; DN[4] = Math.round(m.P2); DN[5] = Math.round(m.lymph * 10); DN[6] = Math.round(m.lyProt * 100);
+    DN[0] = Math.round(S.por * 4); DN[1] = S.col > 0.15 ? 1 : 0; DN[2] = S.act > 0.4 ? 1 : 0; DN[3] = m.hide ? 1 : 0; DN[4] = Math.round(m.P2); DN[5] = lymphDay(m.lymph); DN[6] = Math.round(m.lyProt * 100);
     let same = descValid;
     for (let i = 0; same && i < 7; i++) if (DN[i] !== DP[i]) same = false;
     if (same) return false;
@@ -1308,7 +1311,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`]; // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and its proteins pass through the open pores into the space of Disse.'
       : S.por > 0.25 ? 'Many of its fenestrae have closed: less protein crosses into the space of Disse.' : 'Its fenestrae have closed (capillarization): protein no longer crosses the wall.');
-    if (!m.hide) parts.push(`Hepatic lymph ${fmt(m.lymph, 1)} milliliters per minute, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
+    if (!m.hide) parts.push(`Hepatic lymph ${lymphText(m.lymph)} milliliters a day, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     if (S.col > 0.15) parts.push('Collagen fills the space of Disse and the hepatocytes have lost their microvilli.');
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, depositing collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' '); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)

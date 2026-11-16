@@ -19,12 +19,11 @@ test('the cards start fading out, and are painted fading, before the figure chan
 });
 
 test('the cards fade in only once the figure paints smoothly (after a new patient, once its organs are redrawn)', () => {
-  const settle = run.indexOf('if (swap) { await until(() => cut() || stage.organsSettled(), 1500)');
+  const settle = run.indexOf('if (swap && !under) { await until(() => cut() || stage.organsSettled(), 1500)');
   const quiet = run.indexOf('else await unseen(cut);'), inn = run.indexOf('bare = false; cardsIn({ i: to, gen: g });');
   assert.ok(settle > 0 && quiet > settle && inn > quiet);
   // (Two frames in a row under 40 ms apart, at most 700 ms: paging is never held long; a hidden tab still moves on.)
-  assert.match(src, /async function smooth\(cut, ms = 700\)[\s\S]*?t - last < 40/);
-  assert.match(src, /const painted = \(\) => new Promise\(\(done\) => \{ const t = setTimeout\(done, 100\);/);
+  // (The two gates are cover-lift.js's createFrameGates: tests/deck-open-handoff.test.js runs them.)
 });
 
 test('with reduced motion the cards still fade (opacity only, no slide)', () => {

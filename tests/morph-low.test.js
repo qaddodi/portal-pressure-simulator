@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { morphLowK, morphLowSize, TRIGGER_MP, TARGET_MP, LOWEST } from '../src/ui/morph-low.js';
 
 test('the default sizes are never lowered; Full on a Retina Mac is held near the target', () => {
-  assert.equal(morphLowK(1.5e6), 0, 'Mac and iPad default, 1.5 MP');
-  assert.equal(morphLowK(0.5e6), 0, 'phone default, 0.5 MP');
+  assert.equal(morphLowK(1.5e6), 0, 'the default on every device, 1.5 MP');
+  assert.equal(morphLowK(0.5e6), 0, 'a lighter choice');
   assert.equal(morphLowK(TRIGGER_MP * 1e6), 0, 'at the trigger');
   const k = morphLowK(3840 * 2346);
   assert.ok(k > 0.5 && k < 0.7, `Full, 9 MP: ${k}`);

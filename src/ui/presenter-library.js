@@ -2,7 +2,7 @@
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { caught } from './caught.js';
 import { checkDeck, parseDeckSource } from './deck-source.js';
-import { DECKS, LEVELS, TOPICS, withOverview } from './decks.js';
+import { DECKS, LEVELS, TOPICS, slideCount } from './decks.js';
 import { download } from './download.js';
 import { openHandout } from './handout.js';
 import { resumeFor } from './resume.js';
@@ -112,7 +112,7 @@ export function createLibrary(st, live) {
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
   const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), testing: live.TESTING, start, warm, shareDeck, notes: (d) => openHandout(d, deckNumbers(d)),
     startView: (id, at) => { pview.open(); return start(id, at); },   // (N1: the window opens inside the tap, then the talk starts)
-    scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => live.deck?.id ?? null,
-    resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
+    scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => live.deck?.id ?? null, count: slideCount,
+    resumeAt: (d) => resumeFor(d.id, slideCount(d)) });
   return { library, readLink };
 }

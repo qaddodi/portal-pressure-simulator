@@ -293,7 +293,7 @@ export default [
   { file: 'src/ui/vitals-gl.js', need: [/drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'the vitals monitor is all GPU: no 2D context, no cached pictures (one capsule per strip segment)'] },
   // wall-numbers-agree
   { file: 'src/ui/instruments.js', need: [/const wr = wallRead\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture point'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
+  { file: 'src/ui/instruments.js', need: [/share > 1 \? 'above the rupture threshold'/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
@@ -320,4 +320,19 @@ export default [
   { file: 'src/ui/chart-looks/path.js', forbid: [/tok\('border-strong'\)/, 'A path figure\'s quiet lines are the third text ink at about half, never the pale border colour (7c)'] },
   { file: 'src/ui/chart-looks/path.js', forbid: [/opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'An unlit word or line in a path figure keeps at least UNLIT (70%) of its colour (7c)'] },
   { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\) \|\| unitNow\(\);/, 'A figure label on a slide always carries its unit (B2); off a slide the unit is said once, in the legend'] },
+  { file: 'src/ui/presenter.js', need: [/const toolStep = \(d\) => shown\?\.i === want && !!ui\?\.tools\?\.canStep\(d\);/, 'A swipe for a Next that only takes the data card\'s next reading lifts no card (Varices 6/11: the upper card moved and sprang back)'] },
+  { file: 'src/ui/tool-hvpg.js', need: [/class: 'mon-steps'/, 'The HVPG tracing card shows its readings as numbered steps, one for each Next (Varices 6/11)'] },
+  { file: 'src/ui/presenter-scales.js', need: [/class: 'pzb-pips'[^\n]*h\('i'\), h\('i'\), h\('i'\)/, 'A slide with several views shows them as short strokes under the count, the one on show full (Collaterals 2/11: the views were unseen)'] },
+  { file: 'styles/app-05-presenter-cards.css', need: [/\.pzb-pips \{[^}]*transition: opacity var\(--d-small\) var\(--ease\); \}/, 'The view dots fade, never pop'] },
+  { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\)/, 'While the days play, the sentence and the tiles take the chart head\'s own number (the trail at this share), so they never disagree with the chart (Choose the treatment 3)'] },
+  { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && s\.line\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'The words of a time-lapse slide are typeset from its end state, from the first frame (Two lesions 3: "ending at 21.2" before 18.6; Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
+  { file: 'src/ui/presenter-case.js', need: [/chipsTo\(s, end\.fp\);/, 'A time-lapse slide lands its words on the end state as the days start, and no step of the days moves them again'], },
+  { file: 'src/ui/presenter-case.js', forbid: [/if \(s\.lapse\) chipsTo\(s, f\);/, 'The words never ride the days'] },
+  { file: 'styles/app-*.css', need: [/\.pz \.pz-data\.has-tool > \.pz-dh > \.pz-hr:not\(\[data-n="0"\]\) \{[^}]*flex-wrap: wrap;[^}]*max-width: 100%;/, 'An instrument card\'s readings wrap whole to a second row, never run past the card\'s edge under the expand icon (Lowering portal pressure 7: "BP 123/75 (89) mmHg · APP 83 mmHg · PORTAL FLOW 0.4 L/mi…")'] },
+  { file: 'styles/app-*.css', need: [/\.pz:not\(\.low\) \.pz-rail ol \{ padding-left: var\(--pl\); \}/, 'The tilted level names start the six columns far enough in that "Pre-hepatic" stays inside the card (Sites and causes 2: the rotated legend labels were clipped at the card\'s left edge)'] },
+  { file: 'styles/app-*.css', need: [/\.pz:not\(\.stack\) \.pz-panel\.pz-grows \{ top: calc\(50% - \(var\(--pz-cm\) \+ 44px\) \/ 2 - var\(--pz-open-h\) \/ 2\); \}/, 'The quick check, a centred card that grows, hangs from its open height centred above the nav pill; the full-panel top rule (0,3,0) beat the grows rule and left it running under the pill (Choose the treatment 14)'] },
+  { file: 'src/ui/tool-fluid.js', need: [/net = r1\(shownOut - shownPull\)/, 'The Starling net filtration is the difference of the two forces as printed, so ΔP 1.3 − σΔπ 0.5 never reads 0.9 (Circulation 6)'] },
+  { file: 'src/ui/talk-trace.js', need: [/un\[i\] \/ uMax/, 'The milestones chart spaces its points by visit, so time between visits reads as distance and one visit carries one day name, never "Day 0" twice (talk chart play-test, 16 Nov)'] },
+  { file: 'src/ui/decks/treatment.js', need: [/lines: \['hvpg'\], gap: true,/, 'Lowering portal pressure 11: carvedilol and propranolol lie about 1 mmHg apart, so the band between the two lines is shaded and the slide\'s claim shows (tester, 16 Nov)'] },
+  { file: 'src/ui/tool-curve.js', need: [/class: 'pcv-gap', 'data-look': 'cv\.gap'/, 'A curve chart with gap: true shades the band between its two swept lines'] },
 ];

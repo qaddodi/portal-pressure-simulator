@@ -8,7 +8,7 @@ import { flowReversed } from './velNormal.js';
 import { FRONT_MS } from './collateral-front.js';
 import { stepLeft } from './change-order.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
-import { fadeMs, reduceMotionMQ as reduceMotion } from './motion.js';
+import { D_SMALL, fadeMs, reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { createDiaphragm } from './stage-diaphragm.js';
 import { createFocus } from './stage-focus.js';
@@ -37,7 +37,7 @@ export function createTransitions(st, live) {
   // (Each vessel's reveal record, made once here and written in place by revealOf: a reveal starting makes nothing.)
   // (fade: where nothing may draw on (Reduce Motion, imaging) the vessel fades in or out whole instead, over fadeMs: never at once, owner 15 Nov 2026.)
   for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false, fade: false };
-  const revealOf = (x, t0, dur, dir, out, fade = false) => { const r = x.rv; r.t0 = t0; r.dur = fade ? fadeMs(dur, true) : dur; r.dir = dir; r.out = out; r.fade = fade; return r; };
+  const revealOf = (x, t0, dur, dir, out, fade = false) => { const r = x.rv; r.t0 = t0; r.dur = fade ? fadeMs(dur, true) : dur; r.dir = dir; r.out = out; r.fade = fade; r.ghostIn = false; return r; };
   const appEl = document.getElementById('app');
   // The Meso-Rex graft is long (the superior mesenteric vein up to the Rex recess): it draws on from the gut end slowly enough to be seen growing.
   const REX_GROW_MS = 2600;
@@ -55,7 +55,7 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && !x.reveal && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
+      if (was === false && open && (!x.reveal || x.reveal.ghostIn) && canFade(x)) setReveal(x, revealOf(x, e.kind === 'shunt' ? now : t0, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false, quiet));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
@@ -72,7 +72,14 @@ export function createTransitions(st, live) {
     if (!live.F) return;
     live.edgeRev++;   // (the labels' signature: R04)
     if (!edgeVisible(x, live.F)) x.vis = false;
-    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, live.F)) x.ghost = true;
+    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, live.F)) {
+      x.ghost = true;
+      // (The dotted outline a closed collateral leaves comes in with a fade, as the closing's hairline goes out: it never appears whole. A fade
+      // record, the vessel's own alpha rides it: stage-vessels.js colPass. ghostIn lets a reopening take it over: trackChanges.)
+      const r = revealOf(x, live.fxAt ?? performance.now(), D_SMALL, 1, false, true);
+      r.ghostIn = true;
+      setReveal(x, r);
+    }
   }
   function stepReveals(now) {
     if (!live.revealN) return;   // (nothing draws on or off: no walk over the vessels, rev 2 §2.8)

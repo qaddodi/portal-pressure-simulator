@@ -44,7 +44,7 @@ scheduler, layout reads through `layout-snap.js`) are in `AGENTS.md`. Related fi
 ## Resolution and the quality rule
 
 - **Figure size** (Settings › Display, `pps.fig.cap`): the figure picture's pixel budget, from 0.25
-  megapixels to Full. The default is per device: 2 MP on a Mac and an iPad, 1 MP on an iPhone. The
+  megapixels to Full. The default is 1.5 MP on every device (an iPhone's was 0.5 until 16 Nov 2026; its old "Sharper" step is now its Standard). The
   canvas the labels, leaders and glass are drawn in stays at 1 device pixel per CSS pixel at least,
   the picture is upscaled onto it with its edges steepened, and cards, labels and readings stay
   sharp (`stage-res.js`; `docs/recommendations/sharp-at-quarter-megapixel.md`).

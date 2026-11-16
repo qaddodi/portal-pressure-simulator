@@ -515,11 +515,17 @@ export function createCore(post) {
       // (Healthy, with no days, is the bedside's rest itself: its readings hold still from the first frame and equal the reference, bedside-rest.js.)
       if (id === 'healthy' && days == null) { const seed = eng.params.seed; eng = restingEngine(); eng.params.seed = seed; }
       else {
-        yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
+        // (16 Nov 2026, style play-test: "loading a patient freezes the sim clock for 5-8 s" on a slow laptop. The settle and the years of disease are the
+        // cost, about 1.3 s a load of Decompensated on a fast machine; a patient loaded before comes back from its kept snapshot, as a deck's chain has it,
+        // so picking the same patient again, or one a slide or a "work backward" fit loaded already, is not paid for twice.)
+        yield* loadPresetKept(eng, keptPresets, id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
         // The other patients open at their bedside rest too (play-test A1, 16 Nov 2026): the settle that made them runs without the breath and the pulse, and the
         // beating model's means sit a little off it (HVPG 0.1 to 0.6 mmHg, MAP about 1), so a patient picked drifted for 8 to 10 s (Decompensated 16.7, then 16.0).
         // Twelve seconds of the live clock's own steps, before the page is told, start it there.
         if (beat) { eng.beat = true; for (let i = 0; i < WARM_STEPS; i++) { eng.step(WARM_DT); if (i % 250 === 249) yield; } }
+        // The patient's starting state, for the History's events (events.js), is taken from where the patient now stands, after the run-in: taken before it, a reading a
+        // few tenths from its cut-off crossed it in the first seconds and "Ascites forming" fired on a patient that began with ascites (play-test, 16 Nov 2026).
+        if (beat) { eng.evState = {}; eng.evAvg = null; detectEvents(eng, true); eng.newEvents = []; }
       }
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },

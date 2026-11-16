@@ -1,9 +1,24 @@
 // Pins moved out of source-regex tests (B6 slimming, 15 Nov 2026): each keeps its one-line reason. Pattern gone = the code it guarded changed: look before editing the rule.
 export default [
+  // label-dim-contrast (16 Nov 2026): one dim value for every label a slide does not light, 3:1 over the vessels
+  { file: 'styles/tokens.css', need: [/--label-dim: \.65;/, 'A dimmed label reads 3:1 over the vessels (tests/label-dim-contrast.test.js measures DIM_ALPHA, which equals this token)'] },
+  { file: 'styles/app-*.css', forbid: [/\.(?:spot-dim|unlit)[^{]*\{ opacity: \.35; \}/, 'A dimmed label takes var(--label-dim), never its own number'] },
+  { file: 'src/ui/sinusoid-view.js', forbid: [/\? 1 : 0\.35;/, 'A dimmed sinusoid name takes DIM_ALPHA (label-explain.js), never its own number'] },
+  // slide-one-number (16 Nov 2026, play-test, Ascites: one value, one number on every screen)
+  { file: 'src/ui/stage.js', need: [/import \{ breath \} from '\.\/slide-read\.js'/, 'One number on a slide (the anatomy\'s stations and the lobule share one tolerance, slide-read.js)'] },
+  { file: 'src/ui/stage.js', forbid: [/const breath = /, 'One number on a slide (no second copy of the tolerance)'] },
+  { file: 'src/ui/stage.js', need: [/siteFp\(fp\) \{ if \(fp && store\.get\(\)\.presenting\) store\.set1\('presentFp', fp\);/, 'One number on a slide (a time-lapse\'s or what-if\'s fingerprint reaches the lobule\'s labels through the store)'] },
+  { file: 'src/ui/lobule-zoom-labels.js', forbid: [/Math\.abs\(m\.P2 - fs\) < 0\.6/, 'One number on a slide (no per-label tolerance: lobule-model.js pinToSlide pins every reading)'] },
+  { file: 'src/ui/lobule-zoom-labels.js', need: [/lymphText, LYMPH_UNIT/, 'One number on a slide (the lymph label prints mL/day through lymph-day.js, as the fluid card does)'] },
+  { file: 'src/ui/sinusoid-view.js', need: [/lymphText\(m\.lymph\)\}~\$\{LYMPH_UNIT\}/, 'One number on a slide (the sinusoid\'s lymph label prints mL/day through lymph-day.js)'] },
+  { file: 'src/ui/actions.js', need: [/lymphText\(m\.lymph\)/, 'One number on a slide (the lobule\'s lymph card prints mL/day through lymph-day.js)'] },
+  { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\), ref, 0\)/, 'One number on a slide (a time-lapse\'s tiles are set at once, never through the follower that lags the chart and the figure)'] },
+  { file: 'src/ui/decks/ascites.js', forbid: [/portal tracts carry many times their usual flow/, 'Words match the model (the overrun slide\'s liver lymph is lower than the first lymph slide\'s: the ascites has raised the belly pressure)'] },
   // fluid-window
   { file: 'src/ui/presenter*', forbid: [/!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'The fluid balance\'s day card (tool { kind: (no tiles stand beside any instrument now (7 Nov 2026))'] },
   { file: 'styles/app-*.css', need: [/\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'The fluid balance\'s day card (tool { kind: (hidden really hides the flex rows)'] },
-  { file: 'src/ui/ext-instruments.js', need: [/'Fluid balance · mL\/day'/, 'The fluid balance\'s day card (tool { kind: (the title carries the unit)'] },
+  { file: 'src/ui/ext-instruments.js', forbid: [/'Fluid balance · mL\/day'/, 'The fluid balance\'s day card (tool { kind: (the title carries no unit: the two tiles have different ones, mL/day and mmHg, and each prints its own)'] },
+  { file: 'src/ui/tool-fluid.js', need: [/h\('small', \{\}, LYMPH_UNIT\)/, 'The fluid balance\'s day card (tool { kind: (the lymph tile prints its own unit, mL/day)'] },
   { file: 'src/ui/tool-fluid.js', forbid: [/'Leaked '|'Reabsorbed '|'Each day'/, 'The fluid balance\'s day card (tool { kind: (the legend rows of the old strip are gone: one sentence says what leaked and what was taken back)'] },
   { file: 'src/ui/tool-fluid.js', forbid: [/taken back:|mL a day · model rates/, 'The fluid balance\'s day card (tool { kind: (no "taken back:" words and no model sentence on the card)'] },
   { file: 'src/ui/tool-fluid.js', forbid: [/swBack|swBuild|segBlue|segShrink|segRoom|gs-lab/, 'The fluid balance\'s day card (tool { kind: (no legend, no strip parts of the old card)'] },
@@ -64,7 +79,7 @@ export default [
   { file: 'src/ui/main.js', need: [/const flip = setGlassMode\(root, on \? 'field' : 'off'\);\n\s*root\.removeAttribute\('data-noglass-auto'\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'styles/app-*.css', need: [/:root\[data-noglass\] \*, :root\[data-noglass\] \*::before, :root\[data-noglass\] \*::after \{ -webkit-backdrop-filter: none !important; backdrop-filter: none !important; \}/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/frame.js', need: [/const figOpts = \{ move: 1, glow: 1, cap: capDefault,/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
-  { file: 'src/ui/frame.js', need: [/const capDefault = isPhone\(\) \? 0\.5 : 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the device default: 0.5 MP on a phone, 1.5 on a Mac and an iPad)'] },
+  { file: 'src/ui/frame.js', need: [/const capDefault = 1\.5;/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (the default: 1.5 MP on every device, a phone too since 16 Nov 2026)'] },
   { file: 'src/ui/stage*', need: [/const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/stage*', need: [/const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9:'] },
   { file: 'src/ui/trace-gl.js', need: [/webglcontextrestored/, 'Reviewer\'s checklist, 1 Nov 2026, sections 7 and 9: (trace-gl.js: no restore)'] },
@@ -303,7 +318,7 @@ export default [
   { file: 'src/ui/main.js', need: [/fine \? 'Click the ' : 'Tap the '/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'hepatic vein'\), ' makes a TIPS\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
-  { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'left renal vein'\), ' makes a Warren shunt\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
+  { file: 'src/ui/main.js', need: [/h\('b', NOATTR, 'left renal vein'\), ' makes a distal splenorenal shunt \(DSRS\)\.'/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/fine \? h\('div', NOATTR, 'Esc cancels\.'\) : null/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'src/ui/main.js', need: [/shuntHint\(only, matchMedia\('\(hover: hover\) and \(pointer: fine\)'\)\.matches\)/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },
   { file: 'index.html', forbid: [/Live instrument workspace/, 'Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch):'] },

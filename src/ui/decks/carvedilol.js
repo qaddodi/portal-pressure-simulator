@@ -25,7 +25,7 @@ const CARV = { drugs: { carvedilol: true } };
 const SCOPE = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' };
 
 export const CARVEDILOL = {
-  id: 'carvedilol', level: 'advanced', title: 'Carvedilol, from the first visit to the transplant list', minutes: 12,
+  id: 'carvedilol', level: 'advanced', title: 'Carvedilol, from the first visit to stopping', minutes: 12,
   sections: [['Compensated', ['First visit', 'Starting']], ['Ascites and hypotension', ['Ascites and varices', 'Hypotension']], ['A bleed and a TIPS', ['After a bleed', 'After a TIPS']], ['Stopping', ['Stopping']]],
   objectives: [
     'State when to start carvedilol, and why not before CSPH',
@@ -132,7 +132,7 @@ export const CARVEDILOL = {
       id: 'cure', preset: 'cirr-decomp', params: CARV, days: 730, ramp: { cirrhosis: [0.85, 0.45], albumin: [2.8, 3.9] }, lapse: { seconds: 9, from: 'Still drinking', to: 'Two years abstinent' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over two years' }, data: 'tiles', tiles: ['hvpg', 'asc'], key: ['hvpg'],
       vignette: 'A 49-year-old man with alcohol-associated cirrhosis, ascites and varices, on carvedilol. He stopped drinking two years ago. His ascites has resolved off diuretics, and his albumin is 3.9 g/dL.',
       kicker: 'Stopping', site: 'sin', title: 'An HVPG on carvedilol cannot show that CSPH has resolved',
-      line: 'In another man, abstinent for two years, the HVPG is {hvpg} on carvedilol. Baveno VIII asks for the HVPG off the drug, so this reading cannot confirm resolution.',
+      line: 'He has been abstinent for two years, and his HVPG on carvedilol is {hvpg}. Baveno VIII asks for the HVPG off the drug, so this reading cannot confirm resolution.',
       notes: 'Source: Baveno VIII 7.4, 7.16. He meets the recompensation criteria: the cause is removed, the ascites has resolved off diuretics, and his liver function is back to Child–Pugh A. CSPH resolution is confirmed by an HVPG <10 mmHg measured off carvedilol or another NSBB (7.16), because the drug itself lowers the HVPG. The model shows the HVPG on carvedilol here; the next slide stops the drug for a month.',
       ask: ['Why must the HVPG be measured off carvedilol to confirm that CSPH has resolved?', 'Carvedilol lowers the HVPG itself, so a reading on the drug could hide CSPH that is still there (Baveno VIII 7.16).'],
     },
