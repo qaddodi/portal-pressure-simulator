@@ -260,3 +260,15 @@ test('the platelet count on a case card is the count the model gives that patien
   });
   assert.deepEqual(bad, []);
 });
+
+// The speaker notes of the next-bleed relation slide quote the model run by run (16 Nov 2026: they carried an older run's 17.9, 12.8 and 13.6).
+test('the next-bleed notes quote the model\'s varix sizes, HVPGs and carvedilol response', async () => {
+  const { d, fps } = (await decks()).find((x) => x.d.id === 'next-bleed');
+  const at = (id) => fps[d.slides.findIndex((s) => s.id === id)];
+  const notes = (id) => d.slides.find((s) => s.id === id).notes;
+  const mm = (id) => `${at(id).varix.toFixed(1)} mm`, hv = (id) => `${at(id).hvpg.toFixed(1)} mmHg`;
+  const rel = notes('relation');
+  for (const w of [mm('after'), mm('bands'), mm('slough'), mm('both'), mm('held'), hv('bands'), hv('nsbb'), hv('both')]) assert.ok(rel.includes(w), `the relation notes give ${w}`);
+  const fall = Math.round((1 - at('nsbb').hvpg / at('after').hvpg) * 100);
+  assert.ok(notes('nsbb').includes(`about ${fall}%`), `the carvedilol notes give a fall of about ${fall}%`);
+});
