@@ -52,6 +52,9 @@
      and never takes a touch, so the head under it gets the tap or the drag. */
   .app.thumb :is(.panel-grab, .sheet-grab) { pointer-events: none; }
   html.thumb-ui .menu.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 10px; border-radius: var(--r-sheet); }
+  /* (16 Nov 2026) The Layers sheet and the Colored-by sheet change the figure, so they stop at under half the screen: the camera frames the figure in the strip above
+     them (util.js popover `safe`), each toggle shows, and the rows scroll. The rule is tied to --thumb-top and --thumb-bot as the sheet's own cap is. */
+  html.thumb-ui .menu.as-sheet.layers-pop { max-height: min(48dvh, calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px))); }
   html.thumb-ui .why-pop.as-sheet { box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); --thumb-bot: max(var(--thumb-occ, 0px), calc(env(safe-area-inset-bottom, 0px) + 6px)); bottom: var(--thumb-bot); max-height: calc(100dvh - var(--thumb-bot) - max(72px, var(--thumb-top, 0px) + 8px)); padding-bottom: 14px; border-radius: var(--r-sheet); }
 }
 /* Fit and the circuit's turn upright live in the Layers tab's menu (15 Oct, option 2), so nothing floats over the figure

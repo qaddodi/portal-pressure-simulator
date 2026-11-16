@@ -1102,7 +1102,7 @@ function menuToggle(checked, ic, label, sub, onChange) {
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
-function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop' }); }
+function openBlood(anchor) { popover(anchor, bloodItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function bloodItems() {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
@@ -1110,7 +1110,7 @@ function bloodItems() {
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Off, with Chevrons on: arrows only', (on) => {
+      toggle(flowOn, 'streaks', 'Streaks', 'Moving blood drawn along each vessel', (on) => {
         store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
         try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
       }),
@@ -1138,7 +1138,7 @@ function labelLevelSeg() {
   }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands, the lymph and the bile.
-function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop' }); }
+function openLobuleLayers(anchor) { popover(anchor, lobuleLayerItems(), { cls: 'blood-pop', safe: 'bottom' }); }
 function lobuleLayerItems() {
   const l = store.get().lobuleLayers || {};
   const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
@@ -1163,7 +1163,7 @@ function openLayers(anchor) {
   popover(anchor, [
     h('div', { class: 'lens-grid', role: 'radiogroup', 'aria-label': 'Color the vessels by' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This view shows anatomy only until you measure.') : null,
-  ], { cls: 'layers-pop' });
+  ], { cls: 'layers-pop', safe: 'bottom' });
 }
 // Active bleeding is a state, not an alarm: the figure shows the blood itself; the readings are drawn again when it starts or stops.
 let lastBleed = false;
@@ -2094,7 +2094,7 @@ function openLayersMenu(anchor) {
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers', safe: 'bottom' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;
