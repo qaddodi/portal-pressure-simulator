@@ -328,4 +328,6 @@ export default [
   { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && s\.line\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'The words of a time-lapse slide are typeset from its end state, from the first frame (Two lesions 3: "ending at 21.2" before 18.6; Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
   { file: 'src/ui/presenter-case.js', need: [/chipsTo\(s, end\.fp\);/, 'A time-lapse slide lands its words on the end state as the days start, and no step of the days moves them again'], },
   { file: 'src/ui/presenter-case.js', forbid: [/if \(s\.lapse\) chipsTo\(s, f\);/, 'The words never ride the days'] },
+  { file: 'styles/app-*.css', need: [/\.pz \.pz-data\.has-tool > \.pz-dh > \.pz-hr:not\(\[data-n="0"\]\) \{[^}]*flex-wrap: wrap;[^}]*max-width: 100%;/, 'An instrument card\'s readings wrap whole to a second row, never run past the card\'s edge under the expand icon (Lowering portal pressure 7: "BP 123/75 (89) mmHg · APP 83 mmHg · PORTAL FLOW 0.4 L/mi…")'] },
+  { file: 'styles/app-*.css', need: [/\.pz:not\(\.low\) \.pz-rail ol \{ padding-left: var\(--pl\); \}/, 'The tilted level names start the six columns far enough in that "Pre-hepatic" stays inside the card (Sites and causes 2: the rotated legend labels were clipped at the card\'s left edge)'] },
 ];
