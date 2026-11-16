@@ -79,16 +79,15 @@ export const SHUNTS = {
       ask: ['A woman with refractory ascites is referred for TIPS. Which three areas do you assess first?', 'Cardiac, renal and neurologic: heart failure, renal function, and the history of hepatic encephalopathy, with rifaximin considered.'],
     },
     {
-      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: { kind: 'tips', then: 'tipsgrad' }, tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: 'tips', tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       kicker: 'The stent', site: 'sin', title: 'TIPS is placed through transjugular access to the portal vein',
       line: 'Through right internal jugular access, the catheter reaches the right hepatic vein. A needle traverses the parenchyma to the right portal vein, and a covered stent lines the tract.',
-      notes: 'A TIPS is an intrahepatic tract between a hepatic vein and a portal vein branch. Access is transjugular, so there is no abdominal incision. A covered stent keeps the tract patent: Baveno VIII specifies polytetrafluoroethylene (PTFE)-covered stents. Once the stent is deployed, portal pressure falls immediately. (Baveno VIII 5.31.) Step 5 measures the portosystemic gradient across the new stent: the same catheter records portal pressure through the stent, is withdrawn to the IVC at the hepatic vein confluence, and records again. With a PPG <12 mmHg, a beta-blocker is not required after TIPS (AASLD 2024). The measurement immediately after the procedure can be affected by general anesthesia and vasoactive drugs (Baveno VIII), so it may not reflect the long-term gradient.',
+      notes: 'A TIPS is an intrahepatic tract between a hepatic vein and a portal vein branch. Access is transjugular, so there is no abdominal incision. A covered stent keeps the tract patent: Baveno VIII specifies polytetrafluoroethylene (PTFE)-covered stents. Once the stent is deployed, portal pressure falls immediately. (Baveno VIII 5.31.)',
       ask: ['Which type of stent does Baveno VIII specify for preemptive TIPS?', 'A polytetrafluoroethylene (PTFE)-covered stent.'],
     },
     {
       // (The gradient across the stent, read on the app's one pressure monitor: the catheter's own measurement played alone (proc-anim.js MEASURES.tipsgrad),
-      // the stent already in as on the slide after. The slide before keeps the stent graph as its instrument and plays this reading at its end, so the
-      // monitor, which would stand blank while the stent opens, is here. The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
+      // the stent already in as on the slide before. (The placement itself plays no reading after it, 16 Nov 2026: this slide is where the gradient is taught.) The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
       id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 1, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
       kicker: 'The stent', site: 'sin', title: 'The PPG target after a TIPS is <12 mmHg',
       line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. The target after a TIPS is {<12 mmHg}.',

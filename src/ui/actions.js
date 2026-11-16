@@ -343,6 +343,7 @@ const VARIX_ESO_ACTS = VARIX_ESO.filter((v) => v.type === 'button'), VARIX_GAS_A
 
 const SPLEEN_RX = ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'];
 const REMOVED = { v: 'Removed', u: '' };
+const OBLITERATED = { v: 'Obliterated', u: '' };
 const FMT1 = (x) => fmt(x, 1);
 const PLATELETS = (n) => `${(Math.round(n) * 1000).toLocaleString('en-US')}/µL`;
 function buildOrganCard(id) {
@@ -398,7 +399,8 @@ function buildOrganCard(id) {
     const n = NI[eso ? 'VAR' : 'GV'];
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,
-      value: (f, lens, ref) => readP(h, (f.Pf || f.P)[n], ref?.[n], 'mmHg'),
+      // (A varix closed off by BRTO or coils is a clot, not a vein with a pressure: its card says so rather than print the bed's pressure beside Grade none.)
+      value: (f, lens, ref) => (vx(f).closed ? OBLITERATED : readP(h, (f.Pf || f.P)[n], ref?.[n], 'mmHg')),
       status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ST_BLEEDING : vx(f).redWale ? ST_WALE : null),
     };
   }

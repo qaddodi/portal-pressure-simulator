@@ -9,6 +9,7 @@ export function createZoom(st, live) {
   const zoomM6 = [1, 0, 0, 1, 0, 0], zoomT = [0, 0];
   const zoomGlass = [], zoomHid = [], zoomAff = { s: 1, dx: 0, dy: 0, ox: 0, oy: 0 };   // (the callouts' glass bodies given the zoom, and the callouts that go out under the zoomed card; zoomAff: C in client px, written in place each frame, the record the glass reads through zoomRide)
   function zoomOpen() {
+    live.camLock?.release('card zoom');
     if (live.zoomBase) return false;
     if (live.lobuleOn && live.lz?.zoomOpen) { if (!live.lz.zoomOpen()) return false; live.zoomBase = { lz: true }; live.zoomLz = true; return true; }
     if (!viewNow()) return false;

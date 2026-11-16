@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const MOVES_ONLY = new Map([
-  ['html.chip-open :is(.chip-btn, .lens-btn) .chev', 'a chevron turning'],
+  ['html:root :is(.chip-btn, .lens-btn) .chev', 'a chevron turning'],
   ['.seg-glide.glide-still::before', 'the segment pill held still on a resize (it is shown, not shown again)'],
   ['input[type=range]::-webkit-slider-thumb', 'the slider thumb moving'],
   ['input[type=range]::-moz-range-thumb', 'the slider thumb moving'],

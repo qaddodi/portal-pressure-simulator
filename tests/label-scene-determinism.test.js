@@ -31,8 +31,8 @@ const same = (id, a, b, what) => {
 test('the portal vein, the hepatic artery and the HVPG pair are shown, with a number, in every patient; and the same however the page got there', async () => {
   // (Each patient alone on a page of its own, twice, the second with more frames and a solve asked every few: the labels are the same. A patient opened
   // after another would still have that one's vessel widths easing, which is the figure, not the labels.)
-  const [a, all, h1, h2, c1, c2] = await Promise.all([open({ presets: ALL, base: 30 }), open({ presets: ['csph'], level: 'all' }),
-    open({ presets: ['healthy'] }), open({ presets: ['healthy'], frames: 23, solves: true }), open({ presets: ['csph'] }), open({ presets: ['csph'], frames: 31, solves: true })]);
+  const [a, all, h1, h2, c1, c2, circ] = await Promise.all([open({ presets: ALL, base: 30 }), open({ presets: ['csph'], level: 'all' }),
+    open({ presets: ['healthy'] }), open({ presets: ['healthy'], frames: 23, solves: true }), open({ presets: ['csph'] }), open({ presets: ['csph'], frames: 31, solves: true }), open({ presets: ['ivc-web', 'csph', 'cirr-decomp'], view: 'circuit', base: 30 })]);
   for (const id of ALL) {
     const keys = a[id].map((it) => it.key);
     for (const k of ['n:CONF', 'n:HA', 'n:SIN_R', 'n:RHV']) assert.ok(keys.includes(k), `${id}: ${k} is shown (${keys.join(' ')})`);
@@ -43,4 +43,8 @@ test('the portal vein, the hepatic artery and the HVPG pair are shown, with a nu
   // (at the All level every station is asked for; a narrowing's two stations are flagged at the Key level)
   for (const k of ['n:CONF', 'n:SIN_R', 'n:RHV', 'n:IVCS', 'n:IVCI', 'n:RA', 'n:SV', 'n:SMV']) assert.ok(all.csph.some((it) => it.key === k), `All level, CSPH: ${k} is shown (${names(all.csph)})`);
   for (const k of ['n:IVCS', 'n:RA']) assert.ok(a['ivc-web'].some((it) => it.key === k), `IVC web: ${k} is shown (${names(a['ivc-web'])})`);
+  // (No label is a bare number: each carries a word, in the Anatomy and in the Circuit; the stenosis clamp's "60%" had stood alone on the IVC web.)
+  const words = (rows, where) => { for (const [id, list] of Object.entries(rows)) if (id.endsWith('#all')) for (const it of list) assert.match(it.text, /[A-Za-z]{2,}/, `${where}, ${id.slice(0, -4)}: "${it.text}" (${it.key}) is a bare number`); };
+  words(a, 'Anatomy'); words(circ, 'Circuit');
+  assert.ok(a['ivc-web#all'].some((it) => it.key === 'clamp' && /narrowed/.test(it.text)), 'the IVC web names its narrowing');
 });

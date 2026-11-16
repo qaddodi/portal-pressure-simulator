@@ -63,11 +63,15 @@ const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
  * lymph row, f0.y) and moving as the lymph does, toward the tract in the terminal lymphatics and out along the space of Disse.
  */
 export const LYMPH_INK = {
-  onLight: [0.0, 0.42, 0.5],   // the head on a light channel: a clear teal (the deep blue-green of 10 Nov read grey on the light sleeves)
+  onLight: [0.0, 0.3, 0.38],   // the head on a light channel: a deep teal (17 Nov: 6:1 on the pale sleeves; the first, 0.42/0.5, was 4:1 and small)
   onDark: [0.82, 0.96, 0.96],  // the head on a dark channel: pale cyan
   luma: [0.45, 0.6],     // the channel's luma (of vc): under the first it is dark (light head), over the second light (dark head), eased between
-  strength: 0.85,        // the heads' strength: faint, never faded out
-  across: [1.2, 1.6],    // the head's size rule, as the bile arrows': none on a channel under this many device px across (eased), full over the second
+  strength: 1.0,         // the heads' strength: as the blood's chevrons (16 Nov, Mohammad: "I don't see chevrons in the lymph"; at .85 and the bile arrows' size they were a few specks)
+  gapCss: 110,           // the spacing of the heads on screen, CSS px (the blood's is 130): the lattice doubles by whole octaves as the view zooms, the odd heads fading out as they go
+  octaves: 5,            // the lattice doubles at most this many times (the CPU's phase runs over base * 2 ** octaves, so a wrap shifts the lattice by a whole period of every octave)
+  size: [0.55, 0.85, 4, 16],  // the head's half width: this share of the channel's radius, at most the second share of it, at least 4 CSS px, at most 16
+  stretch: 1.0,          // a sleeve's head, along the flow: up to this much longer than it is tall when the rim is under 2 CSS px (to 6: the usual shape)
+  across: [0.9, 1.4],    // the head's size rule, as the bile arrows': none on a channel under this many device px across (eased), full over the second
 };
 
 /** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
@@ -253,10 +257,23 @@ void main() {
       float cl = dot(vc1, vec3(0.299, 0.587, 0.114));
       float onLight = smoothstep(${f(LYMPH_INK.luma[0])}, ${f(LYMPH_INK.luma[1])}, cl);   // 1: a light channel, dark head; 0: a dark one, light head
       vec3 ink = mix(vec3(${LYMPH_INK.onDark.join(', ')}), vec3(${LYMPH_INK.onLight.join(', ')}), onLight);
-      float P = max(f0.y, 1.0), dirL = sd.y < 0.0 ? -1.0 : 1.0, cpx = max(f1.y, 1e-4);
-      float u = (fract((s1 - f0.x) / P) - 0.5) * P * dirL, ay = abs(y1) * R1;
-      float hw = min(0.8 * R1, clamp(0.5 * R1, 4.0 * cpx, 8.0 * cpx));
-      vec2 h = chevHead(u, ay, hw, pxW, 0.0) * smoothstep(0.0, P * 0.5, min(s1, len1 - s1)) * smoothstep(${f(LYMPH_INK.across[0])}, ${f(LYMPH_INK.across[1])}, R1 / max(pxW, 1e-3));
+      float base = max(f0.y, 1.0), dirL = sd.y < 0.0 ? -1.0 : 1.0, cpx = max(f1.y, 1e-4);
+      // The spacing: about gapCss CSS px on screen at every zoom, as the blood's heads are (chevLevel, chevKeep): the lattice of base doubles n times (n = the octave
+      // the view asks for); a head of the finer lattice that is not on the coarser one fades out as the view asks for the next octave, so none pops.
+      float lv = clamp(log2(max(${f(LYMPH_INK.gapCss)} * cpx / base, 1.0)), 0.0, ${f(LYMPH_INK.octaves)});
+      float n = floor(lv), P = base * exp2(n), q = (s1 - f0.x) / P, jj = floor(q);
+      float keep = mod(jj, 2.0) < 0.5 || n >= ${f(LYMPH_INK.octaves)} ? 1.0 : 1.0 - (lv - n);
+      // A Disse sleeve (sd.z: its sinusoid's row + 1, sd.w: how far along the sleeve that sinusoid starts) is drawn under the sinusoid, so only its rim shows: the head is
+      // laid on the sinusoid's wall (ay measured from it, the tip against the wall, the arms out across the rim, one each side) and fitted to the rim's width, longer
+      // than tall as the rim gets thin. A channel of its own (the terminal and tract lymphatics: sd.z 0) takes the whole width as before.
+      int sib = int(sd.z + 0.5) - 1;
+      float Ri = 0.0, rim = R1;
+      if (sib >= 0) { float ls = max(T(sib, 5).z, 1.0); Ri = min(radAt(sib, clamp(s1 - sd.w, 0.0, ls), ls), R1); rim = R1 - Ri; }
+      float stretch = sib >= 0 ? 1.0 + ${f(LYMPH_INK.stretch)} * (1.0 - smoothstep(2.0, 6.0, rim / cpx)) : 1.0;
+      float u = (q - jj - 0.5) * P * dirL / stretch, ay = max(abs(y1) * R1 - Ri, 0.0);
+      float hw = sib >= 0 ? min(0.95 * rim, ${f(LYMPH_INK.size[3])} * cpx)
+                          : min(${f(LYMPH_INK.size[1])} * R1, min(${f(LYMPH_INK.size[3])} * cpx, max(${f(LYMPH_INK.size[0])} * R1, ${f(LYMPH_INK.size[2])} * cpx)));
+      vec2 h = chevHead(u, ay, hw, pxW, 0.0) * keep * smoothstep(0.0, 0.5 * ${f(LYMPH_INK.gapCss)} * cpx, min(s1, len1 - s1)) * smoothstep(${f(LYMPH_INK.across[0])}, ${f(LYMPH_INK.across[1])}, rim / max(pxW, 1e-3));
       col = mix(col, ink, clamp(h.x * ${f(LYMPH_INK.strength)} * aLy * (1.0 - castAt(id1, s1, len1)), 0.0, 1.0));
     } else {
       float lc, lk;
@@ -327,6 +344,18 @@ export function lymphInkJS(vc) {
   const cl = 0.299 * vc[0] + 0.587 * vc[1] + 0.114 * vc[2];
   const lu = clamp((cl - L.luma[0]) / (L.luma[1] - L.luma[0]), 0, 1), onLight = lu * lu * (3 - 2 * lu);   // (a smoothstep in the channel's luma, not in time)
   return { ink: [0, 1, 2].map((i) => L.onDark[i] * (1 - onLight) + L.onLight[i] * onLight), onLight, strength: L.strength };
+}
+
+/**
+ * The lymph heads' layout for one place, as the GLSL works it out: the spacing along the channel (world units and CSS px), the head's half width and whether it shows.
+ * base: the row's pitch (flow texel 0 y), cpx: world units per CSS px, R1: the channel's radius, Ri: the sinusoid's radius under a Disse sleeve (0 for a channel of its own).
+ */
+export function lymphLayoutJS({ base, cpx, R1, Ri = 0, pxW = cpx }) {
+  const L = LYMPH_INK, rim = R1 - Ri, sleeve = Ri > 0;
+  const lv = clamp(Math.log2(Math.max(L.gapCss * cpx / base, 1)), 0, L.octaves), n = Math.floor(lv);
+  const pitch = base * 2 ** n, hw = sleeve ? Math.min(0.95 * rim, L.size[3] * cpx) : Math.min(L.size[1] * R1, Math.min(L.size[3] * cpx, Math.max(L.size[0] * R1, L.size[2] * cpx)));
+  const e = clamp((rim / pxW - L.across[0]) / (L.across[1] - L.across[0]), 0, 1);
+  return { pitch, pitchCss: pitch / cpx, hw, hwCss: hw / cpx, shows: e * e * (3 - 2 * e) > 0.5 && hw / cpx > 0.5 };
 }
 
 /** packFlow's arc and across, packed and unpacked in JS (the compositor's `float(g.y) / 16.0 - S_OFF` and `float(g.z) / 32767.5 - 1.0`). */

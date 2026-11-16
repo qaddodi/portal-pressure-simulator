@@ -7,6 +7,11 @@
 /** The most one frame may advance a refit glide, in ms (two frames at 50 fps). */
 export const STEP_MAX = 40;
 
+/** The most any other glide of the camera moves on in one frame, in ms (a frame at 15 fps): a longer frame (a stall: the cards' entry, a label
+ *  pass, a solve) holds the glide where it stood for the rest, so the move goes on from there and never lands its next part in one jump
+ *  (16 Nov 2026, Sites and causes 2 to 3 on his Mac: a 1 s stall near the end landed the last 8 to 21 % of the move as a jump). stage-glide.js. */
+export const STALL_MAX = 66;
+
 /** A clock for one glide: call it with each frame's time; it answers the milliseconds into the glide (0 on the first frame). */
 export function glideClock() {
   let last = null, at = 0;
