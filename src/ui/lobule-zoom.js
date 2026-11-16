@@ -1189,8 +1189,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Arteriole, lymphatic and ductule side by side on an arc outside the venule, in the portal tract between
       // the two inlet venules' courses; each far enough out that none touches the venule or another.
       const a = Math.atan2(y - cy, x - cx), d = R * TRIAD_D;
-      const ha = [x + Math.cos(a + TRIAD_A) * d, y + Math.sin(a + TRIAD_A) * d];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-      const bd = [x + Math.cos(a - TRIAD_A) * d, y + Math.sin(a - TRIAD_A) * d];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const haA = BILE === 'e' ? a + 0.8 : a + TRIAD_A, haD = BILE === 'e' ? R * 0.085 : d;   // MOCK e: the arteriole nearer the bisector, the ductule out on it
+      const ha = [x + Math.cos(haA) * haD, y + Math.sin(haA) * haD];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+      const bd = BILE === 'e' ? [x + Math.cos(a) * R * 0.16, y + Math.sin(a) * R * 0.16] : [x + Math.cos(a - TRIAD_A) * d, y + Math.sin(a - TRIAD_A) * d];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
       return { i, x, y, a, ha, bd, pv: add('pv', dot(x, y), { tri: i }), haT: add('ha', dot(...ha), { tri: i }), bdT: add('bd', dot(...bd), { tri: i }) };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     });
     // Inlet venules: from each triad along both of its edges, a little inside the lobule.
@@ -1349,7 +1350,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // ── MOCK: the bile (16 Nov 2026) ──
     // Canaliculi run down the middle of each plate, between its hepatocytes, outward to the limiting plate, where a canal of Hering carries the bile along
     // the edge (outside the lymphatic) to the ductule of the portal tract: against the blood, central vein to portal tract.
-    if (BILE) {
+    if (BILE && BILE !== 'e') {
       const byRing = new Map();
       for (const c of cells) { if (!byRing.has(c.ri)) byRing.set(c.ri, []); byRing.get(c.ri).push(c); }
       const nextOf = new Map(), hasPrev = new Set();
@@ -1479,6 +1480,88 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           const ang = Math.atan2(tr.bd[1] - base[1], tr.bd[0] - base[0]) + (k - 1) * 0.9, L = R * (0.05 + 0.012 * k), ph = r() * TAU;
           const t = add('bx', curve((u) => [base[0] + Math.cos(ang + 0.5 * Math.sin(u * 3 + ph)) * L * u + (tr.x - cx) * 0.0, base[1] + Math.sin(ang + 0.5 * Math.sin(u * 3 + ph)) * L * u]), { lymph: true, bile: true, tri: tr.i });
           join(base[0], base[1], [h.t, t], R * 0.003);
+        }
+      }
+    }
+    // MOCK e (16 Nov 2026): each plate's one lane runs beside its sinusoid on the side toward the middle of the edge, leaves the sinusoid for the plate's centre line near
+    // the limiting plate, passes straight under the inlet venule and the lymphatic as a canal of Hering, and joins a ductule that runs outside them along the edge to the
+    // tract's bile ductule. Plates near the middle of an edge end blind (the watershed); no ring, no branching inside the lobule.
+    if (BILE === 'e') {
+      const unit = (x, y) => { const L = Math.hypot(x, y) || 1; return [x / L, y / L]; };
+      const rsK = { s0: 1, s1: 1.15, s2: 1.3 }, off0 = rsN * 2.25;
+      const smoothPoly = (P, n = 1) => { let Q = P; for (let k = 0; k < n; k++) Q = Q.map((q, i) => (i === 0 || i === Q.length - 1 ? q : [(Q[i - 1][0] + 2 * q[0] + Q[i + 1][0]) / 4, (Q[i - 1][1] + 2 * q[1] + Q[i + 1][1]) / 4])); return Q; };
+      const sideOf = (ch, par) => { const dP = unit(par.pts[0][0] - par.pts[1][0], par.pts[0][1] - par.pts[1][1]), dC = unit(ch.pts[N - 2][0] - ch.pts[N - 1][0], ch.pts[N - 2][1] - ch.pts[N - 1][1]); return dP[0] * dC[1] - dP[1] * dC[0] >= 0 ? 1 : -1; };
+      const lanePts = (T, side, from) => {
+        const P = T.pts, out = [], off = off0 * (rsK[T.kind] || 1) / 1;
+        for (let i = N - 1 - from; i >= 0; i--) {
+          const a = P[Math.min(N - 1, i + 1)], b = P[Math.max(0, i - 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]);
+          out.push([P[i][0] - ty * side * off, P[i][1] + tx * side * off]);
+        }
+        return out;
+      };
+      const nearIdx = (pts, x, y) => { let b = 0, bd = Infinity; for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - x, pts[i][1] - y); if (d < bd) { bd = d; b = i; } } return b; };
+      // the inlet's outward normal at point i (away from the central vein)
+      const outN = (inl, i) => { const a = inl.pts[Math.max(0, i - 1)], b = inl.pts[Math.min(N - 1, i + 1)], [tx, ty] = unit(b[0] - a[0], b[1] - a[1]); let nx = -ty, ny = tx; if (nx * (inl.pts[i][0] - cx) + ny * (inl.pts[i][1] - cy) < 0) { nx = -nx; ny = -ny; } return [nx, ny]; };
+      const J = N0 === 8 ? 3 : 2, rIn = R * 0.012;
+      const halfInfo = new Map();   // inlet id -> { inl, e, h, conn: [{ic, canal}] }
+      L0.forEach((leaf, li) => {
+        const e = leaf.edge, k = leaf.k ?? (li % N0), h = k < N0 / 2 ? 0 : 1, jj = h === 0 ? k : N0 - 1 - k;
+        const inl = tubes[leaf.inl], A = C[e], B = C[(e + 1) % 6], ed = unit(B[0] - A[0], B[1] - A[1]), want = h === 0 ? 1 : -1;
+        const P1 = leaf.parent != null ? tubes[leaf.parent] : null, P2 = P1 && P1.parent != null ? tubes[P1.parent] : null;
+        // the side facing the middle of the edge
+        const q0 = leaf.pts[0], q1 = leaf.pts[1], [tx, ty] = unit(q0[0] - q1[0], q0[1] - q1[1]);
+        const side = (-ty * ed[0] + tx * ed[1]) * want >= 0 ? 1 : -1;
+        let poly = [];
+        if (P1 && sideOf(leaf, P1) === side) {
+          const chain = [P1, leaf]; if (P2 && sideOf(P1, P2) === side) chain.unshift(P2);
+          chain.forEach((T, ci) => { const Q = lanePts(T, side, 0).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.5); poly = poly.concat(ci === 0 || !poly.length ? Q : Q.slice(1)); });
+        } else {
+          poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter((q) => Math.hypot(q[0] - cx, q[1] - cy) > R * 0.5);   // (in the crotch of a pair: starts a little past it)
+        }
+        if (poly.length < 3) return;
+        // the plate's centre on the inlet
+        const nb = L0[li + (h === 0 ? 1 : -1)], mid = jj === N0 / 2 - 1 || !nb || nb.edge !== e ? inl.pts[N - 1] : nb.pts[0];
+        const ic = nearIdx(inl.pts, (q0[0] + mid[0]) / 2, (q0[1] + mid[1]) / 2), P = inl.pts[ic], nO = outN(inl, ic), inw = [-nO[0], -nO[1]];
+        const conn = jj < J, dEnd = conn ? rIn + R * 0.012 : R * 0.05;
+        const dOf = (q) => (P[0] - q[0]) * nO[0] + (P[1] - q[1]) * nO[1];
+        let pts = [];
+        for (const q of poly) {
+          const d = dOf(q); if (d <= dEnd) break;
+          const w = 1 - smooth(R * 0.035, R * 0.1, d);   // (leaves its sinusoid for the plate's centre line in the last tenth of R)
+          pts.push([q[0] + w * (P[0] + inw[0] * d - q[0]), q[1] + w * (P[1] + inw[1] * d - q[1])]);
+        }
+        if (pts.length < 3) return;
+        pts.push([P[0] + inw[0] * dEnd, P[1] + inw[1] * dEnd]);
+        if (!conn) {
+          const t = add('bs', curve((u) => at(smoothPoly(pts, 1), u)), { lymph: true, bile: true, blind: true });
+          return;
+        }
+        const key = inl.id;
+        if (!halfInfo.has(key)) halfInfo.set(key, { inl, e, h, conn: [], corner: tubes[leaf.inl].tri });
+        halfInfo.get(key).conn.push({ pts, P, nO, ic, jj });
+      });
+      // per half edge: the ductule outside the lymphatic, down to the corner's bile ductule
+      for (const hf of halfInfo.values()) {
+        const { inl, conn } = hf, tr = triads[inl.tri], o = R * 0.07;
+        const far = Math.max(...conn.map((c) => c.ic)), iEnd = Math.round(0.3 * (N - 1)), leg = [];
+        const outAt = (i) => { const n = outN(inl, i), q = inl.pts[i]; return [q[0] + n[0] * o, q[1] + n[1] * o]; };
+        for (let i = Math.min(N - 1, far + Math.round(0.03 * (N - 1))); i >= iEnd; i--) leg.push(outAt(i));
+        const Pe = leg[leg.length - 1], Pp = leg[leg.length - 2], tc = unit(Pe[0] - Pp[0], Pe[1] - Pp[1]), D = tr.bd;
+        const bis = [Math.cos(tr.a), Math.sin(tr.a)], inB = [-bis[0], -bis[1]];
+        const rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
+        let rv = rot(inB, 0.7); if (rv[0] * (Pe[0] - D[0]) + rv[1] * (Pe[1] - D[1]) < 0) rv = rot(inB, -0.7);
+        const P1c = [Pe[0] + tc[0] * R * 0.06, Pe[1] + tc[1] * R * 0.06], P2c = [D[0] + rv[0] * R * 0.05, D[1] + rv[1] * R * 0.05];
+        for (let k = 1; k <= 14; k++) { const u = k / 14, v = 1 - u; leg.push([v * v * v * Pe[0] + 3 * v * v * u * P1c[0] + 3 * v * u * u * P2c[0] + u * u * u * D[0], v * v * v * Pe[1] + 3 * v * v * u * P1c[1] + 3 * v * u * u * P2c[1] + u * u * u * D[1]]); }
+        const legT = add('bh', curve((u) => at(smoothPoly(leg, 2), u)), { tri: tr.i, lymph: true, bile: true });
+        join(D[0], D[1], [tr.bdT, legT], R * 0.004);
+        // each connected plate: its lane, under the inlet and the lymphatic, to the ductule
+        for (const c of conn) {
+          const tgt = outAt(Math.max(0, c.ic - Math.round(0.04 * (N - 1)))), li = nearIdx(legT.pts, tgt[0], tgt[1]), Lp = legT.pts[li];
+          const cp = [...c.pts, [c.P[0], c.P[1]], [c.P[0] + c.nO[0] * R * 0.03, c.P[1] + c.nO[1] * R * 0.03]];
+          const m = [lerp(c.P[0] + c.nO[0] * R * 0.055, Lp[0], 0.5), lerp(c.P[1] + c.nO[1] * R * 0.055, Lp[1], 0.5)];
+          cp.push(m, Lp);
+          const t = add('bs', curve((u) => at(smoothPoly(cp, 1), u)), { lymph: true, bile: true });
+          join(Lp[0], Lp[1], [legT, t], R * 0.003);
         }
       }
     }

@@ -467,8 +467,8 @@ export function createLobuleField(st, live) {
       // MOCK (bile, 16 Nov 2026): the canaliculus a hairline, the joined ducts and the canal of Hering thicker as the bile gathers; the reaction's ducts fine.
       case 'bc': return t.taper ? Math.max(0.36, R * lerp(0.0011, 0.0026, smooth(0.2, 1, i / (N - 1)))) : Math.max(0.36, R * 0.0013);
       case 'bm': return Math.max(0.6, R * 0.0042);
-      case 'bh': return Math.max(0.9, R * lerp(0.0036, 0.0058, i / (N - 1)));
-      case 'bs': return Math.max(0.16, R * lerp(0.0004, 0.0036, smooth(0.46, 1, t.rho[i])) * smooth(0, 0.18, i / (N - 1)));   // (almost nothing where it starts, halfway out, thickening toward the portal tract)
+      case 'bh': return Math.max(0.9, R * lerp(0.004, 0.0078, i / (N - 1)));
+      case 'bs': return Math.max(0.16, R * lerp(0.0004, 0.0036, smooth(0.46, 1, t.rho[i])) * smooth(0, 0.18, i / (N - 1)) * (t.blind ? smooth(0, 0.12, (N - 1 - i) / (N - 1)) : 1));   // (almost nothing where it starts, halfway out, thickening toward the portal tract)
       case 'bx': return Math.max(0.6, R * 0.0022 * (1 - 0.4 * i / (N - 1)));
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
