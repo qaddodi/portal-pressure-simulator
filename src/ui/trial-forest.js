@@ -73,7 +73,7 @@ export function forestRange(rows) {
 }
 
 // The longest start of `s` that fits w, with an ellipsis when cut ('' when not even one letter and the ellipsis do).
-function clip(s, w, font, meas) {
+export function clip(s, w, font, meas) {
   if (!s || w <= 0) return '';
   if (meas(s, font) <= w) return s;
   let t = s;
@@ -119,14 +119,17 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
       // (The picked trial's first row here carries a second line: the one rule the patient fails, or how many rules were checked.)
       const line = t.id === selected && !shownWhy.has(t.id) ? why?.[t.id] : null;
       if (line) shownWhy.add(t.id);
-      const on = lit(t), rowH = Math.round(lh + f * 1.25) + (line ? Math.round(f * 0.95) : 0);
+      // (B23, play-test 16 Nov 2026: "Death or liver tran…". What a row counts is never cut: beside the name when it fits, else in full on its own lines under the interval.)
+      const ofText = r.vs || r.of || '', ofRoom = W - 2 * ip - meas(t.short ?? t.name, font(lit(t) ? 600 : 500)) - meas(ratioText(r), font(500, fs)) - f * 1.2;
+      const ofLines = ofText && meas(ofText, font(500, fs)) > ofRoom ? wrapWords(ofText, W - 2 * ip, fs, 500, meas, Infinity) : null;
+      const on = lit(t), rowH = Math.round(lh + f * 1.25) + (ofLines ? Math.round(ofLines.length * fs * 1.3 + f * 0.4) : 0) + (line ? Math.round(f * 0.95) : 0);
       if (t.id === selected) rects.push({ x: 0, y, w: W, h: rowH, r: Math.round(f * 0.6), look: 'forest.sel' });
       const name = t.short ?? t.name, val = ratioText(r), nw = meas(name, font(on ? 600 : 500)), vw = meas(val, font(500, fs));
       say(ip, y + f, name, on ? 'forest.nm' : 'forest.nm.dim');
       say(W - ip, y + f, val, on ? 'forest.val' : 'forest.val.dim', 'end');
       // (A three-arm trial's row names its comparison, which tells its rows apart; another names what it counted.)
-      const of = r.vs || r.of || '';
-      say(ip + nw + f * 0.45, y + f, clip(of, W - 2 * ip - nw - vw - f * 1.2, font(500, fs), meas), 'forest.of');
+      if (!ofLines) say(ip + nw + f * 0.45, y + f, ofText, 'forest.of');
+      else ofLines.forEach((ln, k) => say(ip, y + lh + f * 1.3 + fs * 1.1 + k * fs * 1.3, ln, 'forest.of'));
       const ty = Math.round(y + lh + f * 0.55), s = Math.round(f * 0.7);
       lines.push({ x1: X(r.lo), y1: ty, x2: X(r.hi), y2: ty, look: on ? 'forest.ci' : 'forest.ci.dim' });
       rects.push({ x: X(r.est) - s / 2, y: ty - s / 2, w: s, h: s, r: 1.5, look: on ? 'forest.mk' : 'forest.mk.dim' });
@@ -136,7 +139,7 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
       if (r.lo < a - 1e-9) { const x = X(a); lines.push({ x1: x + ah, y1: ty - ah * 0.8, x2: x, y2: ty, look }, { x1: x + ah, y1: ty + ah * 0.8, x2: x, y2: ty, look }); }
       // (TC-V2: the line at 1 runs through the interval's band only, never through the words above it: one short stroke per row.)
       lines.push({ x1: X(1), y1: ty - s, x2: X(1), y2: ty + s, look: 'forest.ref' });
-      if (line) say(ip, y + lh + f * 0.9 + fs * 1.1, clip(line, W - 2 * ip, font(500, fs), meas), 'forest.why');
+      if (line) say(ip, y + lh + f * 0.9 + fs * 1.1 + (ofLines ? Math.round(ofLines.length * fs * 1.3 + f * 0.4) : 0), line, 'forest.why');
       hits.push({ id: t.id, y, h: rowH });
       y += rowH;
     }
@@ -150,9 +153,11 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     y += f * 0.4 + fs + f * 0.45;
     const one = X(1), lw = meas(FAVORS[0], font(500, fs)), rw = meas(FAVORS[1], font(500, fs)), gap = f * 0.5;
     const right = one + gap + rw <= W - ip, left = right && one - gap - lw >= ip;   // (both beside the line, or both at the ends: never one over the other)
+    // (Both at the ends and too wide to stand on one line: one over the other, so neither is cut or runs into the other.)
+    const stacked = !left && lw + rw + gap > W - 2 * ip;
     say(left ? one - gap : ip, y + fs, FAVORS[0], 'forest.ends', left ? 'end' : 'start');
-    say(right ? one + gap : W - ip, y + fs, FAVORS[1], 'forest.ends', right ? 'start' : 'end');
-    y += lh;
+    say(right ? one + gap : W - ip, y + fs + (stacked ? lh : 0), FAVORS[1], 'forest.ends', right ? 'start' : 'end');
+    y += stacked ? 2 * lh : lh;
   }
   // The detail of the trial picked: its two rates over what they count and for how long, and the caller's note.
   const sel = list.find((t) => t.id === selected);
@@ -161,11 +166,10 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     lines.push({ x1: 0, y1: y, x2: W, y2: y, look: 'forest.rule' });
     y += f * 0.45;
     const rt = ratesText(sel);
-    say(ip, y + f, clip(`${sel.short ?? sel.name}${rt ? `: ${rt}` : ''}`, W - 2 * ip, font(600), meas), 'forest.dt');
-    y += lh;
+    for (const dl of wrapWords(`${sel.short ?? sel.name}${rt ? `: ${rt}` : ''}`, W - 2 * ip, f, 600, meas, Infinity)) { say(ip, y + f, dl, 'forest.dt'); y += lh; }
     const fu = sel.followUp ? `, ${sel.followUp.charAt(0).toLowerCase()}${sel.followUp.slice(1)}` : '';
     const note = notes?.[sel.id];
-    for (const s of wrapWords(`${sel.endpoint || ''}${fu}.${note ? ` ${note}` : ''}`, W - 2 * ip, fs, 500, meas, 3)) { say(ip, y + fs, s, 'forest.dx'); y += fs * 1.4; }
+    for (const s of wrapWords(`${sel.endpoint || ''}${fu}.${note ? ` ${note}` : ''}`, W - 2 * ip, fs, 500, meas, Infinity)) { say(ip, y + fs, s, 'forest.dx'); y += fs * 1.4; }
   }
   // The trials with no ratio: their rates, no marker.
   const bare = list.map((t, i) => ({ t, i })).filter((q) => !ratiosOf(q.t).length).sort((p, q) => (lit(q.t) - lit(p.t)) || (p.i - q.i));
@@ -176,11 +180,14 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     say(ip, y + fs, NO_RATIO, 'forest.k');
     y += lh;
     for (const { t } of bare) {
-      const on = lit(t), rowH = Math.round(lh + f * 0.3), rt = ratesText(t), rw = meas(rt, font(500, fs));
+      const on = lit(t), rt = ratesText(t), rw = meas(rt, font(500, fs));
+      const bareRoom = W - 2 * ip - meas(t.short ?? t.name, font(on ? 600 : 500)) - rw - f * 1.2, bareLines = t.endpoint && meas(t.endpoint, font(500, fs)) > bareRoom ? wrapWords(t.endpoint, W - 2 * ip, fs, 500, meas, Infinity) : null;
+      const rowH = Math.round(lh + f * 0.3) + (bareLines ? Math.round(bareLines.length * fs * 1.3) : 0);
       if (t.id === selected) rects.push({ x: 0, y, w: W, h: rowH, r: Math.round(f * 0.6), look: 'forest.sel' });
       const name = t.short ?? t.name, nw = meas(name, font(on ? 600 : 500));
       say(ip, y + f * 1.05, name, on ? 'forest.nm' : 'forest.nm.dim');
-      say(ip + nw + f * 0.45, y + f * 1.05, clip(t.endpoint || '', W - 2 * ip - nw - rw - f * 1.2, font(500, fs), meas), 'forest.of');
+      if (!bareLines) say(ip + nw + f * 0.45, y + f * 1.05, t.endpoint || '', 'forest.of');
+      else bareLines.forEach((ln, k) => say(ip, y + f * 1.05 + fs * 1.3 * (k + 1), ln, 'forest.of'));
       say(W - ip, y + f * 1.05, rt, on ? 'forest.val' : 'forest.val.dim', 'end');
       hits.push({ id: t.id, y, h: rowH });
       y += rowH;

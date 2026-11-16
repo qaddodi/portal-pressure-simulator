@@ -314,4 +314,10 @@ export default [
   { file: 'src/ui/lobule-zoom*', need: [/const hexOf = \(\) =>/, 'the lobule outline on screen is measured each layout'] },
   { file: 'src/ui/lobule-zoom*', need: [/\+ hex\.share\(cBox\) \* INSIDE_COST \+ c4/, 'the pointer pill prefers spots outside the lobule'] },
   { file: 'src/ui/credit.js', need: [/\.lz-call, \.lz-call-r\.on,/, 'the credit keeps clear of the lobule pointer pill ring'] },
+  // play-test fixes, 16 Nov 2026
+  { file: 'styles/app-04-presenter.css', need: [/\.pz-panel\.pz-grows \{ top: calc\(50% - var\(--pz-open-h\) \/ 2\); translate: -50% 0; \}/, 'A centred card that grows (the quick check\'s answers) hangs its top where its open height centres, so it lengthens downward and nothing above moves (7d)'] },
+  { file: 'src/ui/presenter-zoom.js', need: [/el\.style\.setProperty\('--pz-open-h', `\$\{readMetric\(el, 'offsetHeight'\)\}px`\)/, 'The open height is read while every answer is open (7d)'] },
+  { file: 'src/ui/chart-looks/path.js', forbid: [/tok\('border-strong'\)/, 'A path figure\'s quiet lines are the third text ink at about half, never the pale border colour (7c)'] },
+  { file: 'src/ui/chart-looks/path.js', forbid: [/opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'An unlit word or line in a path figure keeps at least UNLIT (70%) of its colour (7c)'] },
+  { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\) \|\| unitNow\(\);/, 'A figure label on a slide always carries its unit (B2); off a slide the unit is said once, in the legend'] },
 ];

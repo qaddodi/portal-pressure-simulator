@@ -5,7 +5,6 @@ import './dom-shim.js';
 // tool-path.js ROLE (every role 12 px or more, FIT_MIN keeps the smallest drawn word at FIG_TEXT_MIN) and chart-looks/path.js (UNLIT, QUIET).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { ROLE, FIG_TEXT_MIN, ROLE_MIN, ROLE_SMALL, FIT_MIN } from '../src/ui/tool-path.js';
 import { UNLIT } from '../src/ui/chart-looks/path.js';
 
@@ -16,9 +15,6 @@ test("every path-figure role is at least 12 px (the small phone grid's answer an
   assert.ok(FIG_TEXT_MIN >= 10);
 });
 
-test('an unlit word or line keeps at least 70% of its colour, and no quiet line is the pale border colour', () => {
+test('an unlit word or line keeps at least 70% of its colour (the looks themselves are pinned in scripts/source-shapes/pins-mixed-b.mjs)', () => {
   assert.ok(UNLIT >= 0.7);
-  const src = readFileSync(new URL('../src/ui/chart-looks/path.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'a path look with an opacity under 0.7');
-  assert.doesNotMatch(src, /tok\('border-strong'\)/, 'the pale border colour in a path look');
 });

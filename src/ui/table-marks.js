@@ -159,7 +159,7 @@ export const TILE = {
   hbTo: { t: 'Hemoglobin to come', n: 'Hb to come', s: 'After plasma re-equilibration', u: 'g/dL', better: 1 },
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
-  he: { t: 'Encephalopathy risk', n: 'HE risk', s: 'Model index from shunt fraction and hepatic blood flow, high ≥0.45', u: '', d: 2, better: -1 },
+  he: { t: 'Encephalopathy risk', n: 'HE risk index', s: 'Model index, 0 to 1, from shunt fraction and hepatic blood flow; high ≥0.45', u: '/1', d: 2, better: -1 },
 };
 // Tiles worked out by the presenter rather than read from the live fingerprint: the HVPG response (slide field hvpgResp), the fall
 // from a named slide's HVPG.
