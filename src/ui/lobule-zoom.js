@@ -1418,6 +1418,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           }
         }
       }
+      // d: a channel beside every sinusoid (on its plate side), almost nothing at the central vein, thickening outward, easing onto the vessel at each
+      // junction so the channels merge where the sinusoids do, then out to the canal of Hering along the edge and on to the ductule.
+      if (BILE === 'd') {
+        const bside = rsN * 2.7, rampU = (u) => smooth(0, 0.24, u) * smooth(1, 0.76, u);
+        const lane = (t, headPts) => {
+          const P = t.pts, Q = P.map((q, i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, o = bside * rampU(i / (N - 1)); return [q[0] - ((b[1] - a[1]) / L) * o, q[1] + ((b[0] - a[0]) / L) * o]; });
+          return add('bs', curve((u) => at([...headPts, ...Q], u)), { lymph: true, bile: true });
+        };
+        const lanes = new Map();
+        for (const t of L0) {
+          const h = hering[t.edge], q0 = t.pts[0], hp = h.t.pts[Math.min(N - 1, nearOn(h.t, q0[0], q0[1]) + 5)], pre = [lerp(hp[0], q0[0], 0.55), lerp(hp[1], q0[1], 0.55)];
+          const b = lane(t, [hp, pre]); lanes.set(t.id, b); join(hp[0], hp[1], [h.t, b], R * 0.003);
+        }
+        for (const t of [...L1, ...L2]) lanes.set(t.id, lane(t, []));
+        for (let m = 0; m < n1.length; m++) { const p = n1[m]; join(p[0], p[1], [lanes.get(L0[2 * m].id), lanes.get(L0[2 * m + 1].id), lanes.get(L1[m].id)], R * 0.0025); }
+        n2.forEach((p, m) => { const kids = L1.filter((_, j) => Math.min(n2.length - 1, j >> 1) === m).slice(0, 3); join(p[0], p[1], [...kids.map((k) => lanes.get(k.id)), lanes.get(L2[m].id)], R * 0.0025); });
+      }
       // Ductular reaction: three short fine ducts curl out of the canal's end beside the tract; they fade in with portal fibrosis.
       for (let e = 0; e < 6; e++) {
         const h = hering[e], tr = triads[(e + 1) % 6], base = h.t.pts[N - 1 - 10];
