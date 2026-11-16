@@ -16,8 +16,9 @@
 // then taken from the outlines drawn) and painted by the charts' shared context (svg-gl.js, looks in chart-looks/path.js). No page text and no
 // layout read: the page holds the empty box, and the picture's label carries the summary for a screen reader.
 // The whole chart (a column of at least COL_MIN px a leaf) is drawn where the card is that wide and the page is not the phone layout; a phone,
-// an iPad held upright and any narrower card get a small map with the one reading under it. Both reserve room for the widest patient and
-// the longest reading, so the card never changes size with the case.
+// an iPad held upright and any narrower card get a small map with the one reading under it. The trees reserve room for the widest patient and
+// the longest reading, so the card never changes size with the case; a score card, grid or ladder is sized for the slide's own patient
+// (it never changes while the card is up), so no room is kept for another patient's rows (tests/path-phone-height.test.js holds the height on a phone).
 
 import { h, PHONE_MQ } from './util.js';
 import { viewSize } from './layout-snap.js';
@@ -177,12 +178,13 @@ export function createPath() {
     L.y.kick = y; y += PILL_H + 6;
     // (the patient's numbers: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
     const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], Wv).h : 0);
-    L.chipsH = card && !chipsH(base) && !chipsH(worst) ? 0 : Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
+    // (a card kind's patient is the slide's own and never changes while it is up: its row is this patient's alone, none when it has no chips)
+    L.chipsH = card ? chipsH(base) : Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
     L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
     L.y.pic = y;
     if (card) {
       // (a score card, a grid or a ladder: path-cards.js lays out the tallest body any patient can have)
-      L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS);
+      L.card = cardLayout(spec.algo, Wv, compact, base, CARD_HELPERS, true);
       y += L.card.H + GAP;
     } else if (compact) {
       L.k = mapType(W) / 12;

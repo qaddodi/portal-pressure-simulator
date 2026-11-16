@@ -177,15 +177,14 @@ test('ladder: each stage lights its step and says what it means; the way back is
     assert.ok(!L.has('back'));
     const r = readingFor('ladder', `s${s}`, { s, rc: false });
     assert.deepEqual([r.head, r.tone], [ladder.steps[s][0], ladder.steps[s][3]]);
-    assert.deepEqual(chipsOf('ladder', { s, rc: false }), [ladder.steps[s][0]]);
+    assert.deepEqual(chipsOf('ladder', { s, rc: false }), [], 'the stage is lit on the card: no chip says it again');
   }
   assert.deepEqual(ladder.steps.map((x) => x[0]), ['cACLD', 'cACLD with CSPH', 'First decompensation', 'Further decompensation']);
   assert.deepEqual(ladder.steps.map((x) => x[3]), ['n', 'warn', 'bad', 'bad']);
   assert.ok(litOf('ladder', { s: 2, rc: true }).has('back'));
   assert.ok(litOf('ladder', { s: 3, rc: true }).has('back'));
   assert.ok(!litOf('ladder', { s: 1, rc: true }).has('back'), 'a compensated patient has nothing to come back to');
-  assert.deepEqual(chipsOf('ladder', { s: 2, rc: true }), ['First decompensation', 'Recompensated since']);
-  assert.deepEqual(chipsOf('ladder', { s: 1, rc: true }), ['cACLD with CSPH']);
+  assert.deepEqual(chipsOf('ladder', { s: 2, rc: true }), [], 'the way back says Recompensated: no chip');
   assert.equal(patientsOf(ladder).length, 8);
   const P = Object.fromEntries(ladder.presets);
   assert.deepEqual(Object.values(P).map((p) => outcomeOf('ladder', litOf('ladder', p))), ['s1', 's2', 's3', 's2']);
@@ -388,9 +387,26 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
 test('the card draws the new kinds on the GPU, with no page text and no layout read, and the head, rule and foot stay the card\'s', () => {
   const card = read('src/ui/path-cards.js'), path = read('src/ui/tool-path.js');
   for (const src of [card, path]) assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth|offsetHeight|readMetric|readBox|textContent|innerHTML|innerText/, 'no raw frame, no layout read, no canvas 2D, no SVG DOM, no page words');
-  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS\)/);
+  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS, true\)/);
   assert.match(path, /cardModel\(spec\.algo, lay\.card, patient, CARD_HELPERS, oy\)/);
   assert.match(path, /gl\.show\(/);
   assert.match(path, /the answers lit, the width and layout, the chips, and the reading's words/, 'the paint key holds all that shows');
   assert.match(read('src/ui/path-data.js'), /psvdscore, recomp, pvtgrid, ladder\]/);
+});
+
+test('the small stages card: the lit stage in full, every other stage one line (number and name), and room for this patient alone', () => {
+  for (const [, W, phone] of WIDTHS.filter((x) => x[2])) for (const p of patientsOf(ladder)) {
+    const { ops, h } = drawCard(ladder, W, cardCompact(W, phone), p, H), words = ops.filter((o) => o.k === 't');
+    assert.equal(words.filter((o) => o.face === 't').length > 0, true, 'the lit stage says what it means');
+    const sd = words.filter((o) => o.face === 't'), lines = new Set(sd.map((o) => o.y));
+    assert.ok(sd.every((o) => o.on), `stage ${p.s + 1}: only the lit stage has its criteria`);
+    assert.deepEqual(words.filter((o) => o.face === 'sn').map((o) => o.text), ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4']);
+    assert.equal(words.filter((o) => o.face === 'yo').length, 1, 'one "Patient is here"');
+    assert.ok(lines.size <= 3, 'the criteria in at most three lines');
+    // the whole card is the slide's patient's: no room kept for another stage's criteria or a way back this stage has not
+    assert.equal(Math.ceil(h), layout(ladder, W, true, p, H, true).H);
+    assert.ok(layout(ladder, W, true, p, H, true).H <= layout(ladder, W, true, p, H).H);
+  }
+  const s1 = layout(ladder, 340, true, { s: 1, rc: false }, H, true).H, s3 = layout(ladder, 340, true, { s: 3, rc: true }, H, true).H;
+  assert.ok(s1 < s3 && s1 <= 200, `a compensated patient's card is short (${s1} px) and has no room for the way back`);
 });

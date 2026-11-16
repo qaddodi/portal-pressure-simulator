@@ -17,7 +17,7 @@ export const cardCompact = (W, phone) => !!phone || !(W >= CARD_WIDE_MIN);
 export const CARD_KINDS = ['score', 'grid', 'ladder'];
 export const isCardKind = (kind) => CARD_KINDS.includes(kind);
 
-const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10;
+const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10, STAGE_COL = 52;   // (STAGE_COL: the small ladder's column of "Stage n" ahead of each name)
 const memo = new WeakMap();   // alloc-rare: lines broken once for each helpers object, text and width, kept (a card has a dozen)
 function fl(H, paras, width, o = {}) {
   let m = memo.get(H);
@@ -300,10 +300,27 @@ function drawLadder(spec, W, compact, p, H) {
       y = Math.max(y, top + 3 + 8 + stepWords(st, i, x, top + 3 + 8, cw, true));
     });
   } else {
+    // the small layout (a phone, an iPad held upright): the lit stage in full, every other stage one line, its number and its name (their criteria
+    // are the lit stage's own words and the slide's; Mohammad, 16 Nov 2026: the Stages card filled 60 % of an iPhone)
     spec.steps.forEach((st, i) => {
-      const top = y, h = stepWords(st, i, 13, top, W - 13, false);
-      ops.push(line('path.step', 1.5, top, 1.5, top + h, i === s, TOKEN[st[3]]));
-      y = top + h + (i < n - 1 ? 8 : 0);
+      const top = y, on = i === s, tone = TOKEN[st[3]], nameW = W - 13 - STAGE_COL;
+      let yy = top;
+      if (on) { ops.push(text('yo', 13, yy + baseOf(ROLE.yo), 'Patient is here', true, tone)); yy += ROLE.yo.lh; }
+      ops.push(text('sn', 13, yy + (ROLE.r.lh - ROLE.sn.lh) / 2 + baseOf(ROLE.sn), `Stage ${i + 1}`, on, tone));
+      const name = fl(H, [[{ text: hyphenate(H, 'r', st[0], nameW), face: 'r' }]], nameW);
+      put(ops, name.items, 13 + STAGE_COL, yy, on, tone);
+      yy += name.h;
+      if (on) {
+        yy += 4;
+        const sd = fl(H, [[{ text: st[1], face: 't' }]], W - 13);
+        put(ops, sd.items, 13, yy, true, tone);
+        yy += sd.h + 4;
+        const sw = fl(H, [[{ text: st[2], face: 'sw' }]], W - 13);
+        put(ops, sw.items, 13, yy, true, tone);
+        yy += sw.h;
+      }
+      ops.push(line('path.step', 1.5, top, 1.5, yy, on, tone));
+      y = yy + (i < n - 1 ? 8 : 0);
     });
   }
   if (s >= 2) {
@@ -323,11 +340,13 @@ export function drawCard(spec, W, compact, p, H) {
 
 /**
  * The room a card of this kind needs at this width: the tallest body over every patient the algorithm can have (and the one given), so the
- * card never changes size with the case. → { kind, W, compact, H } (H in px, whole).
+ * card never changes size with the case (own: this patient's alone, for a slide that fixes it). → { kind, W, compact, H } (H in px, whole).
  */
-export function layout(spec, W, compact, patient, H) {
+export function layout(spec, W, compact, patient, H, own = false) {
   let max = 0;
-  for (const q of [...patientsOf(spec), ...(patient ? [patient] : [])]) max = Math.max(max, drawCard(spec, W, compact, q, H).h);
+  // (own: the slide's one patient alone. A guideline card's patient is the slide's own facts and never changes while it is up, so reserving the
+  // tallest body of every other patient left dead space: the Stages card on an iPhone, 16 Nov 2026. Without it, every patient's, as before.)
+  for (const q of own && patient ? [patient] : [...patientsOf(spec), ...(patient ? [patient] : [])]) max = Math.max(max, drawCard(spec, W, compact, q, H).h);
   return { kind: spec.kind, W, compact, H: Math.ceil(max) };
 }
 
