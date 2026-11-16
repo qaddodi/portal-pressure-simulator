@@ -8,6 +8,7 @@
 // It answers { pass, fail, moves, text }: text is the report, one line a move that failed (and its stalls), ready to paste; it is also
 // copied when the page may write the clipboard.
 import { judgeSlideMove } from './slide-cam.js';
+import { frameFor } from './frame.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -20,6 +21,11 @@ export function createCameraGate({ presenter, stage, decks }) {
   // hidden pane reported late starts of 1 to 6 s whose steps were each one throttled second.)
   let hidden = false;
   const look = () => { if (document.visibilityState === 'hidden') hidden = true; };
+  // (And the page's own frames through the whole change, its waits before the camera included: two that come about a second apart, the
+  // throttle's tick, mark it. A pane flipping between shown and hidden showed its steps a second each with no stall in the move itself.)
+  const ask = frameFor('cam-gate');
+  let probing = false, lastF = 0, ticks = 0;
+  const probe = () => { if (!probing) return; const t = performance.now(); if (lastF && t - lastF >= 900 && t - lastF <= 1150 && ++ticks >= 2) hidden = true; lastF = t; ask(probe); };
   async function settled(limit = 30000) {
     const t0 = performance.now();
     let quiet = 0, lifted = false;
@@ -37,8 +43,10 @@ export function createCameraGate({ presenter, stage, decks }) {
   async function step(deckId, from, to, out) {
     stage.cameraTraces(true);
     hidden = false; look();
+    probing = typeof requestAnimationFrame === 'function'; lastF = 0; ticks = 0; if (probing) ask(probe);   // (no frames to watch outside a browser: the unit test)
     presenter.go(to);
     const s = await settled();
+    probing = false;
     const traces = stage.cameraTraces(), at = `${deckId} ${from + 1}→${to + 1}`;
     if (!s.ok) out.push({ at, fails: ['did not land within 30 s'] });
     traces.forEach((tr, n) => {

@@ -1071,6 +1071,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const dimmed = !booting && !reduce.matches && !!ui && freshPatient(s, lap, pre) && shownState >= 0 && (si !== shownState || liveOff) && !ask && !(s.vignette && !noCase && to > lastAt) && !cath.on && !view.classList.contains('pz-out') ? figureOut(cut) : null;
     tx?.phase('leave');
     if (outMs || thrown) { await painted(); await painted(); }
+    tx?.phase('left-painted');   // (the two frames the leave is seen begun in: each step of the leave is named, so a slow one is found by its name)
     if (cut()) return;
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
@@ -1089,6 +1090,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     strainStop(); stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
     // (Landed on done, the last step is the one on show, as it stands after the play-through; a slide arrived at forward shows none until its first Next.)
     procShown = procRing = procDoneAt === to ? procSteps(s).length - 1 : -1; procShownAt = procRingAt = procDoneAt === to ? to : -1;
+    tx?.phase('fade-out');
     if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
@@ -1192,7 +1194,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (keepNow.text) { /* (kept words stay on screen as they are) */ }
     else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
     tx?.phase('settle');
-    await settleRun();
+    await settleRun(tx);
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return; tx?.phase(bare ? 'camera' : 'cards-in');
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
@@ -1345,11 +1347,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; if (ui.data.classList.contains('pz-hide')) fadeIn(ui.data); ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
   let bare = false;
-  async function settleRun() {
-    await Promise.race([document.fonts?.ready, wait(400)]);
+  async function settleRun(tx = null) {
+    if (document.fonts?.status === 'loading') { tx?.phase('fonts'); await Promise.race([document.fonts.ready, wait(400)]); }   // (only while a face is loading: its step is named)
+    tx?.phase('settle-frames');
     await new Promise((done) => nextFrame(() => nextFrame(done)));
     if (!ui) return;
     layout();
+    tx?.phase('keep-fall');
     await keepFall(keepCut);   // (a kept card this layout would change leaves after all, and is built again)
   }
   // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); otherwise zones off and lymph as the viewer had it.
