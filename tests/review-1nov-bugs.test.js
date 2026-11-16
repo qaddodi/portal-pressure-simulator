@@ -91,7 +91,9 @@ test('A2: the presenter\'s catheter monitor has its readings as text, written wh
 // ── A3: the slide announcement ──
 test('A3: a slide is announced once it is on screen, and the cards say they are changing meanwhile', () => {
   const a = body(PZ, 'function announce(force = false)');
-  assert.match(a, /\(force \|\| landedNow\(\)\) && (?:live\.)?ui\.say\.textContent !== t/);
+  assert.match(a, /\(force \|\| onScreenNow\(\)\) && (?:live\.)?ui\.say\.textContent !== t/);
+  // (A case or question card standing for the slide counts as on screen too, tests/slide-say.test.js: the reader is told that slide, not the one before.)
+  assert.match(PZ, /const onScreenNow = \(\) => landedNow\(\) \|\| slideSaid\(\{ want: (?:live\.)?want, card: (?:live\.)?caseCard \}\);/);
   assert.match(a, /aria-(?:live\.)?busy/);
   assert.match(PZ, /const landedNow = \(\) => !!(?:live\.)?shown && (?:live\.)?shown\.i === (?:live\.)?want && (?:live\.)?shown\.gen === (?:live\.)?gen;/);
   const chrome = body(PZ, 'function paintChrome()');
