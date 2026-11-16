@@ -1151,14 +1151,33 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const dip = swap && !booting && !reduce.matches && !own && freshPatient(s, lap, pre), glide = swap && !booting && !reduce.matches && !dip, later = glide && !ct && !!ui;
+    // (The new cards, built and settled unseen: a new patient's while the figure dims (below), so the camera, which frames into the room
+    // they leave, need not wait for them after the change. 16 Nov 2026, circuit 8 to 7 and 8 to 9: the cards were built only once the dim
+    // and the new patient's first frame were done, and the move set off 0.9 s after the press.)
+    const wordsUp = async (said) => {
+      ui?.root.classList.add('pz-prep');
+      // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
+      // measurement while the catheter drives the camera.)
+      bare = !booting && !!ui && !ct;
+      wordsIn(s, said, to, swap, lap, st);
+      // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
+      // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
+      if (keepNow.text) { /* (kept words stay on screen as they are) */ }
+      else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+      tx?.phase('settle');
+      await settleRun(tx);
+    };
     let morphCt = null, drawnP = null;
+    let wordsP = null;
     if (swap) {
       liveOff = false;
       tx?.phase('morph');
       // (A catheter slide's cards come in over the patient's change, not after it, where the organs are on the GPU and a frame stays short: the words carry the slide's own readings. The catheter still waits for the change, below.)
       if (glide) { shownState = -1; if (!later) { lensGo(); if (ct && stage.canDrift?.()) { morphCt = morphTo(st, cut); } else { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } } }
       else {
+        if (dip && ui && !lap && !holdQ && !own) wordsP = wordsUp(st);   // (built while the figure dims: a new patient's words are its own state's)
         if (dimmed) { await dimmed; if (cut()) return; }   // (begun with the old cards' leave)
+        tx?.phase('dimmed');
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         lensGo(); applyState(st); shownState = own ? -1 : si;
         // (The camera frames the new patient's organs, which the engine's first frame of the new state draws (its sizes come with the state); the
@@ -1184,17 +1203,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // and the camera frames once, into the space they really leave (see settle).
     // The new cards are laid out and measured where they will rest while still unseen (bare), so the camera makes one eased move
     // straight to the framing that fits around them; only then do they come in, whole, and the camera stays put.
-    ui?.root.classList.add('pz-prep');
-    // (A catheter slide comes in at once: its teaching card carries the live tracing, which stays on screen through the
-    // measurement while the catheter drives the camera.)
-    bare = !booting && !!ui && !ct;
-    wordsIn(s, said, to, swap, lap, st);
-    // (Bare, the teaching card and its glass stay out whole until the camera has landed, never an empty card first. Behind a case
-    // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
-    if (keepNow.text) { /* (kept words stay on screen as they are) */ }
-    else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
-    tx?.phase('settle');
-    await settleRun(tx);
+    if (wordsP) { await wordsP; if (cut()) return; } else await wordsUp(said);
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return; tx?.phase(bare ? 'camera' : 'cards-in');
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
