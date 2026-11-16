@@ -31,7 +31,7 @@ import { isPaused } from './clock.js';
 import { store } from './store.js';
 import { STEP_MAX } from './glide-clock.js';
 import { sinusoidTargets } from './sinusoid-model.js';
-import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js';
+import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, canaliculusAt, SLOT, SEED, UM, CELL } from './sinusoid-gl.js';
 import { placeFenDisse } from './fen-place.js';
 import { frameFor, noteDraw, saver, paceMs, frameGapFor, restGapFor, renderScale, onRenderScale, figOpt, easeNow } from './frame.js';
 import { figureDensity } from './pixel-budget.js';
@@ -77,8 +77,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
   let exKey = null;
   const SV_NOTE = { fen: 'pores: plasma passes to the space of Disse', disse: 'perisinusoidal space between the endothelium and the hepatocytes', lymph: 'drains filtered fluid and protein',
     hep: 'hepatocytes: uptake and metabolism of plasma solutes', hsc: 'stores vitamin A; deposits collagen when activated', kup: 'resident macrophage of the sinusoid', sin: 'blood from the portal tract and the hepatic artery mixes here',
-    in: 'blood arrives from the portal venule', out: 'blood leaves to the central vein' };
-  const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
+    in: 'blood arrives from the portal venule', out: 'blood leaves to the central vein', bc: 'sealed channel between hepatocytes: bile drains to the portal tract, against the blood' };
+  const SV_TARGET = { bc: 'canaliculus', fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // Page writes asked for inside a frame (a caption made, its words, the fenestrae's share) land between frames (rest-pass.js), in the
   // order asked, so a frame does no DOM work (2 Nov 2026, "Move everything to GPU"); its look is read after it is in.
   const mountQ = [], capQ = new Map();
@@ -733,8 +733,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const lymphR = (x) => region('lymph', 'Lymph', lymphTxt(0, false), x, hepIn(x) + 1.2, O_LYMPH);
   const hepR = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + UM.hep * (HEP_CELL.nv < 0.5 ? 0.78 : 0.22), NO_OPT);
   const PFD = { pores: null, nsd: 0, lo: 0, hi: 0, hs: [0, 0], fh: 0, dh: 0, fp: 0, xs: 0, far: 0 };   // (placeFenDisse's options, written in place)
+  let bcOn = 0;   // (whether this layout named a bile canaliculus: a portrait screen names it only while a slide points at it; else its name fades out)
   function layoutTags() {
     const g = geo, m = model, V = g.vert;
+    bcOn = 0;
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
     if (g.tall) { layoutTall(); return; }
     for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].show = 0;   // (across the screen only the lymph and the fenestrae have leaders)
@@ -787,6 +789,16 @@ export function createSinusoidView({ host, before = null, share = null }) {
     }
     // The lymph's numbers are tied by a short leader, straight up, to the space of Disse that carries it.
     leader('lymph', ly, ly.x, wallIn(ly.x) + disseW(ly.x) * 0.5);
+    // A bile canaliculus named in the far plate, just beyond it, clear of the hepatocyte's name and the lymph's numbers.
+    bileName(pickTags(V ? 0.3 : 0.8), 1, SEED.plateDn);
+  }
+  // A bile canaliculus named in its plate, a little beyond it, with a short leader to it (sinusoid-gl.js draws it at canaliculusAt).
+  const O_BC = [{ along: false, side: -1, slide: false }, { along: false, side: 1, slide: false }];
+  function bileName(x, sg, sd, yName, along = 0) {
+    const xe = canaliculusAt(Math.round(x / CELL), sd), yd = sg * (hepIn(xe) + UM.hep * 0.5);
+    bcOn = 1;
+    const R = yName == null ? region('bc', 'Bile canaliculus', '', xe, yd + sg * 3, O_BC[sg > 0 ? 1 : 0]) : region('bc', 'Bile\ncanaliculus', '', xe + along, yName);
+    leader('bc', R, xe, yd + sg * 1.4);
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
@@ -815,6 +827,27 @@ export function createSinusoidView({ host, before = null, share = null }) {
     leader('lymph', region('lymph', 'Lymph', lymphTxt(1, true), x, midTall(x)), x + 2, disX(x + 2));
     // The Kupffer cell's name in the plate beside it (the lumen is narrower than its name), a short leader across the lining to its body.
     { const kx = geo.xk, ky = halfW(kx) - 2.5 * clamp(halfW(kx) / 5.2, 0.6, 1); region('kup', 'Kupffer\ncell', '', kx, midTall(kx)); const kc = regions.kup.cell || (regions.kup.cell = [0, 0]); kc[0] = kx; kc[1] = ky; }   // alloc-rare: the Kupffer cell's place, made once
+    // A portrait screen has no free place for a seventh name: the bile canaliculus is named only while a slide points at it. Then, of the
+    // canaliculi in either plate, the one whose name, a little along from it, leaves the widest gap (screen px, the names' own heights
+    // counted) to the other names in its column, inside the band between the ends' names.
+    if (litNow().has('sinusoid:canaliculus')) {
+      const hb = regions.bc?.hh || 40;
+      let best = null, bs = -Infinity;
+      for (const sg of [-1, 1]) {
+        const sd = sg < 0 ? SEED.plateUp : SEED.plateDn, used = sg < 0 ? [regions.fen, regions.hsc, regions.hep] : [regions.disse, regions.lymph, regions.kup];
+        for (let j = Math.floor(tallU0 / CELL) - 1; j <= Math.ceil(tallU1 / CELL) + 1; j++) {
+          const xe = canaliculusAt(j, sd);
+          for (const al of [-3.4, 3.4]) {
+            const sy = toScreen(xe + al, sg * midTall(xe))[1];
+            if (sy - hb / 2 < BAND[0] || sy + hb / 2 > BAND[1]) continue;
+            let sc = Infinity;
+            for (const R of used) if (R?.cy != null) sc = Math.min(sc, Math.abs(sy - R.cy) - (hb + (R.hh || 0)) / 2);
+            if (sc > bs) { bs = sc; best = { xe, sg, sd, al }; }
+          }
+        }
+      }
+      if (best) bileName(best.xe, best.sg, best.sd, best.sg * midTall(best.xe), best.al);
+    }
   }
   // (The fenestrae's and Disse's names on a wide screen take a place a layout moved them to at once, with the view, as every label does: no catching
   // up `sd` µm behind it on an ease, 5 Nov 2026 review #8, labels move 100% with the figure.)
@@ -924,7 +957,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     TRY[0] = 0; TRY[1] = i & 1 ? PL[o + 2] - dgy - 1 - (cy + (hh / 2) * sc) : PL[o + 3] + dgy + 1 - (cy - (hh / 2) * sc);
     return true;
   }
-  const DECK = ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup'];
+  const DECK = ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup', 'bc'];
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
     const W = geo.W, lk = labelK();
@@ -1059,6 +1092,12 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const LEAD_LOOK = { line: '', lw: 1, r: 2.4, fill: '', ring: '', rw: 1.3, halo: '', haloR: 5 };
   // A slide that lights terms dims every name it does not light to 35 % and keeps its place (Mohammad's pick 14.3 B, 3 Nov): the page's lit terms, split when they change.
   let litRaw = null, litSet = new Set();
+  // (The terms a presenting slide lights now, split when they change; none outside a talk.)
+  function litNow() {
+    const app = document.getElementById('app'), raw = app?.classList.contains('presenting') ? app.dataset.lit || '' : '';
+    if (raw !== litRaw) { litRaw = raw; litSet = new Set(raw ? raw.split(' ') : []); }   // alloc-rare: only when the slide's lit terms change
+    return litSet;
+  }
   const dimA = (R) => {
     const app = document.getElementById('app'), raw = app?.dataset.lit || '';
     if (raw !== litRaw) { litRaw = raw; litSet = new Set(raw ? raw.split(' ') : []); }   // alloc-rare: only when the slide's lit terms change
@@ -1073,13 +1112,13 @@ export function createSinusoidView({ host, before = null, share = null }) {
       const R = regions[key];
       if (R.cx == null || !cap.hasLook(R.key)) continue;
       cap.measure(R.key, R.lines);
-      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = R.covered ? 0 : dimA(R); PUT.now = now;
+      PUT.x = R.cx; PUT.y = R.cy; PUT.off = R.off || NO_OFF; PUT.show = R.covered || (R.key === 'bc' && !bcOn) ? 0 : dimA(R); PUT.now = now;
       cap.put(R.key, PUT);
     }
     for (const key in lead) {
       const L = lead[key];
       if (L.x1 == null) continue;
-      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide ? 0 : L.show * (regions[L.key] ? dimA(regions[L.key]) : 1); LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
+      LEADO.x1 = L.x1; LEADO.y1 = L.y1; LEADO.x2 = L.x2; LEADO.y2 = L.y2; LEADO.show = L.hide || (L.key === 'bc' && !bcOn) ? 0 : L.show * (regions[L.key] ? dimA(regions[L.key]) : 1); LEADO.cut = !!L.hide; LEADO.of = regions[L.key] ? L.key : null;
       LEADO.follow = !!L.follow; LEADO.sg = L.sg || 0; LEADO.colour = LEAD_LOOK.line;
       cap.lead(L.key, LEADO);
     }
@@ -1314,7 +1353,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     explainHit(x, y) {
       const snap = cap.snapshot(), r = boxOf(labels);
       for (const it of snap.items) { it.x += r.left; it.y += r.top; }
-      const hit = hitLabel(snap.items, x, y, 8, (k) => !!SV_NOTE[k] && !!regions[k]);
+      const hit = hitLabel(snap.items, x, y, 8, (k) => !!SV_NOTE[k] && !!regions[k] && (k !== 'bc' || !!bcOn));
       return hit ? { key: hit.key, target: `sinusoid:${SV_TARGET[hit.key] || hit.key}` } : null;
     },
     setExplain(key) { exKey = key; },

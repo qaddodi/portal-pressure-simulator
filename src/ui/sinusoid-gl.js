@@ -32,6 +32,11 @@ export function poreAt(j, sd) {
 export const poreOpenness = (th, por) => { const t = Math.min(1, Math.max(0, (por - th + 0.06) / 0.12)); return t * t * (3 - 2 * t); };
 /** Boundary j of a plate's cells (seed). */
 export const cellEdge = (j, sd) => CELL * j + 7 * (h1(j, sd) - 0.5);
+/** Where (µm along) the shader draws the bile canaliculus on border j of a plate (seed sd): the border at mid-plate, its edgeAt(j, sd, HEP / 2). */
+export function canaliculusAt(j, sd) {
+  const vm = UM.hep * (0.3 + 0.4 * h1(j, sd + 9)), bend = 4 * (h1(j, sd + 10) - 0.5);
+  return cellEdge(j, sd) + bend * (Math.abs(UM.hep * 0.5 - vm) / (0.5 * UM.hep) - 0.5);
+}
 /** The cell of a plate (seed) holding x: its ends and its nucleus (u along, v across, radius, two nuclei). */
 export function cellAt(x, sd) {
   return cellAtInto(x, sd, { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false });   // alloc-rare: the answer for a caller that keeps it; the layout each frame writes into its own (cellAtInto)
@@ -335,8 +340,17 @@ vec3 plate(float x, float v, int sd, float det) {
     c = mix(c, mix(c, cNuc, 0.6), cov(length(nq - vec2(0.3, -0.25) * rr) - 0.16 * rr) * det);
   }
   vec3 outC = mix(cUnder, c, cov(d) * 0.96);
-  // Bile canaliculi between neighbouring cells, mid-plate.
-  for (int k = 0; k < 2; k++) outC = mix(outC, cBile, cov(sdE(vec2(x - edgeAt(j + k, sd, 0.5 * HEP), v - 0.5 * HEP), vec2(0.5, 0.36))) * 0.75 * det);
+  // Bile canaliculi between neighbouring cells, mid-plate, each cut across as a journal figure draws it: a small lumen of pale bile in a
+  // groove of both cells, its own membrane, and the tight junctions (a short dark bar across the border either side) that seal it off from
+  // the blood's side. Still: canalicular bile moves by diffusion, not as a stream (Vartak, Hepatology 2021). canaliculusAt() is its centre.
+  for (int k = 0; k < 2; k++) {
+    vec2 q = vec2(x - edgeAt(j + k, sd, v), v - 0.5 * HEP);
+    // (The tight junctions either side of it: each a short dark bar across the border.)
+    for (int s = -1; s <= 1; s += 2) outC = mix(outC, mix(cBile, cNuc, 0.35), cov(sdE(q - vec2(0.0, float(s) * 0.98), vec2(0.62, 0.11))) * 0.85 * det);
+    float dl = sdE(q, vec2(0.68, 0.56));
+    outC = mix(outC, mix(cBile, vec3(1.0), 0.5 - 0.3 * uDark), cov(dl) * det);
+    outC = mix(outC, mix(cBile, cNuc, 0.2), line(dl, 0.17) * det);
+  }
   return outC;
 }
 
