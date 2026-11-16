@@ -209,14 +209,16 @@ export function createLobuleLabels(st, live) {
   const labGliding = (L, now) => !!L.gl && (L.gl.x0 !== L.gl.x1 || L.gl.y0 !== L.gl.y1) && now - L.gl.t0 < D_SURFACE;
   // A label's glide is one object on it, written again in place (a glide begun on another carries from where this one stands now).
   const glOf = (L) => L.gl || (L.gl = { x0: 0, y0: 0, x1: 0, y1: 0, t0: 0 });
-  function noteAt(L) {
+  function noteAt(L, glide) {
     const sp = spot.get(L.el) || ZERO2, x = sp[0], y = sp[1], g = L.gl;
     if (g && g.x1 === x && g.y1 === y) return;
     const now = tlNow();
     let px = x, py = y;
     if (g) { const e = easeLab(g, now); px = g.x0 + (g.x1 - g.x0) * e; py = g.y0 + (g.y1 - g.y0) * e; }
     // (Only a label already shown glides: one coming out of hidden starts where it is written, as the page shows it.)
-    const eased = false;   // (a label laid out to another slot is there in this frame, not glided to over a short time: V-LBL-1, V-LBL-3)
+    // A label a layout moves while the camera holds still (a layer switched, a card, a lit term: `glide`, layoutLabels) glides to its new spot, as the others
+    // ease; after a pan or zoom the labels take their final spots at once (they ride the view, V-LBL-1).
+    const eased = !!glide;
     const o = glOf(L);
     if (eased) { o.x0 = px; o.y0 = py; } else { o.x0 = x; o.y0 = y; }
     o.x1 = x; o.y1 = y; o.t0 = now;
@@ -692,7 +694,7 @@ export function createLobuleLabels(st, live) {
   // (Two kept records, taken in turn: a layout writes the one not standing in place while the other still stands, so a layout that has to
   // wait for the labels to be measured can put the standing one back. Their inputs are compared as numbers, in place: a key string built
   // from them on every frame was garbage, 2 Nov 2026.)
-  const mkFollow = () => ({ W: 0, H: 0, ly: LAYERS.map(() => false), ha: false, bd: false, hasCall: false, callAt: '', callLabel: '', lks: ['', '', '', '', '', ''],
+  const mkFollow = () => ({ W: 0, H: 0, ly: LAYERS.map(() => false), ha: false, bd: false, dm: 0, hasCall: false, callAt: '', callLabel: '', lks: ['', '', '', '', '', ''],
     t: 0, b: 0, l: 0, r: 0, k: 0, x: 0, y: 0, ride: null,
     rideBuf: { labs: [], chips: [], zones: [], nl: 0, nc: 0, nz: 0, cards: null, ix: 0, iy: 0 } });
   const follows = [mkFollow(), mkFollow()];
@@ -703,7 +705,7 @@ export function createLobuleLabels(st, live) {
   // Whether the layout's inputs but the view are those record f was taken for: the labels' make-up, the zone and lymph switches, the
   // slide's pointer and the free space.
   function sameBase(f, fr0, g) {
-    if (f.W !== g.W || f.H !== g.H || f.ha !== named('ha') || f.bd !== named('bd')) return false;
+    if (f.W !== g.W || f.H !== g.H || f.ha !== named('ha') || f.bd !== named('bd') || f.dm !== dimMask()) return false;
     for (let i = 0; i < LAYERS.length; i++) if (f.ly[i] !== layerOn(LAYERS[i])) return false;
     if (f.hasCall !== !!live.call || (live.call && (f.callAt !== live.call.at || f.callLabel !== live.call.label))) return false;
     if (f.t !== fr0.t || f.b !== fr0.b || f.l !== fr0.l || f.r !== fr0.r) return false;
@@ -711,7 +713,7 @@ export function createLobuleLabels(st, live) {
     return true;
   }
   function fillBase(f, fr0, g) {
-    f.W = g.W; f.H = g.H; f.ha = named('ha'); f.bd = named('bd');
+    f.W = g.W; f.H = g.H; f.ha = named('ha'); f.bd = named('bd'); f.dm = dimMask();
     for (let i = 0; i < LAYERS.length; i++) f.ly[i] = layerOn(LAYERS[i]);
     f.hasCall = !!live.call; f.callAt = live.call ? live.call.at : ''; f.callLabel = live.call ? live.call.label : '';
     f.t = fr0.t; f.b = fr0.b; f.l = fr0.l; f.r = fr0.r;
@@ -792,6 +794,8 @@ export function createLobuleLabels(st, live) {
   const DIM_A = 0.35;   // (an unlit name's alpha on a slide that lights terms: Mohammad's pick 14.3 B)
   // (The leaders in this layer fade with their names: a class on each, as the sheet's presenting-and-lit rule set their strength, read again by the picture.)
   const syncDim = () => { for (const k in labs) { const L = labs[k]; if (!L.line) continue; const d = dimmed(L.el.dataset.target); classSoon(L.line, 'lz-dim', d); classSoon(L.dotEl, 'lz-dim', d); } };
+  // Which labels a lit slide leaves unlit, as a bit for each of LAB_KEYS: a slide's words lighting other terms change the layout (an unlit name keeps off the hexagon, records solve).
+  const dimMask = () => { let m = 0; for (let i = 0; i < LAB_KEYS.length; i++) if (dimmed(LIT_OF[LAB_KEYS[i]])) m |= 1 << i; return m; };
   const dimmed = (t) => {
     const lit = litOf();
     if (!live.litRaw || !/(^| )(lobule|sinusoid):/.test(live.litRaw) || !live.appEl?.classList.contains('presenting')) return false;
@@ -804,6 +808,8 @@ export function createLobuleLabels(st, live) {
     if (live.fade <= 0) return false;
     const now = tlNow();   // (the page's clock, which the labels' glides are noted on; t: the names' own, for their fades)
     let moving = false;
+    // (A gliding label's leader ends on its letters where they are drawn now: syncLeaders, the lobule's own, writes the ends from each label's glide.)
+    for (let i = 0; i < LAB_KEYS.length; i++) if (labGliding(labs[LAB_KEYS[i]], now)) { live.syncLeaders?.(); break; }
     for (const [key, e, L] of capItems()) {
       const m = mirKeep.get(e);
       let p = seenPos.get(e);
@@ -904,5 +910,5 @@ export function createLobuleLabels(st, live) {
       L.gl = null;
     }
   }
-  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
+  return { CORE, DESIGN, LAB_KEYS, LAY_ORDER, LIT_OF, anchorOf, callOutMain, callRingAt, cvKeep, explainSet, fadeIn, fadeOut, fillBase, followEnd, follows, freezeLabelGlides, gone, handOn, hexOf, hitKind, isHid, dimmed, keepDiscs, labGliding, labKey, labWH, labelLayerOff, labs, leadOff, leadOn, measQ, measureRun, measureShown, mirrorAll, mirrorRelease, mkCallOut, named, noteAt, panel, pick, pickAnchors, placeCall, placeZones, put, ride, rideList, rimFrac, ringDepth, sameBase, seenAt, setHid, shiftGeo, sinAt, sinTube, sizeEnv, spot, syncDim, tlNow, trClear, unglide };
 }
