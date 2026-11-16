@@ -64,7 +64,7 @@ export const MASLD = {
     },
     {
       id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.42 }, relax: 365, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
-      vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has an LSM of 15 kPa and platelets of 160,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
+      vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has an LSM of 14 kPa and platelets of 151,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
       kicker: STIFF, site: 'sin', title: 'Without CSPH, a falling LSM can be followed', cite: 'Baveno VIII 1.15, 2.6',
       line: 'In another patient, an LSM of {lsm} with platelets of {plt} rules CSPH out. Without CSPH, Baveno VIII reads a large, confirmed fall in LSM as possible fibrosis regression.',
       notes: 'An LSM ≤15 kPa with platelets ≥150,000/µL rules CSPH out (Baveno VIII 1.15). The statement on regression applies only to patients without CSPH: with CSPH, a falling LSM is not interpreted this way. LSM is measured fasting and confirmed on repeat measurement (1.4).',
