@@ -1587,36 +1587,35 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         dbg.blocked++;
         return null;
       };
-      let nFine = 0, nRung = 0; const dbg = { short: 0, noTie: 0, cand0: 0, candN: 0, blocked: 0 };
-      L0.forEach((leaf, li) => {
-        const e = leaf.edge, k = leaf.k ?? (li % N0), h = k < N0 / 2 ? 0 : 1, A = C[e], B = C[(e + 1) % 6], ed = unit(B[0] - A[0], B[1] - A[1]), want = h === 0 ? 1 : -1;
-        const P1 = leaf.parent != null ? tubes[leaf.parent] : null, P2 = P1 && P1.parent != null ? tubes[P1.parent] : null;
-        const q0 = leaf.pts[0], q1 = leaf.pts[1], [tx, ty] = unit(q0[0] - q1[0], q0[1] - q1[1]);
-        const side = (-ty * ed[0] + tx * ed[1]) * want >= 0 ? -1 : 1;   // (the other side: the plate's bare side)
-        const inBand = (q) => { const d = Math.hypot(q[0] - cx, q[1] - cy); return d > R * 0.3 && d < R * 0.78; };
-        let poly = [];
-        if (P1 && sideOf(leaf, P1) === side) {
-          const chain = [P1, leaf]; if (P2 && sideOf(P1, P2) === side) chain.unshift(P2);
-          chain.forEach((T, ci) => { const Q = lanePts(T, side, 0).filter(inBand); poly = poly.concat(ci === 0 || !poly.length ? Q : Q.slice(1)); });
-        } else poly = lanePts(leaf, side, Math.ceil(0.14 * N)).filter(inBand);
-        if (poly.length < 6) { dbg.short++; return; }
-        // (sampled as the tube will be, so the cross-ducts meet it on its own course)
-        const cS = curve((u) => at(smoothPoly(poly, 1), u)), P = cS.pts, ties = [];
-        for (const i0 of [0, N - 1]) {
-          let got = null;
-          for (const di of [0, 2, 4, 6]) { const i = i0 === 0 ? i0 + di : i0 - di; got = rungFrom(P, i, null); if (got) { got.i = i; break; } }
-          if (!got) { dbg.noTie++; return; }
-          ties.push(got);
+      // Cross-links: like the sinusoids' own cross-links, a short fine duct joins each channel to its neighbour round the lobule, at staggered levels, passing under the
+      // one sinusoid between them. A link that would meet more than one sinusoid, or another bile channel, is not drawn.
+      const sinMain = tubes.filter((t) => t.kind === 's0' || t.kind === 's1' || t.kind === 's2');
+      const hits = (P, list) => { let n = 0; for (const T of list) { let hit = false; for (let k = 1; k < T.pts.length && !hit; k++) for (let j = 1; j < P.length && !hit; j++) if (segX(P[j - 1], P[j], T.pts[k - 1], T.pts[k])) hit = true; if (hit) n++; } return n; };
+      const angAt = (T, rr) => { let b = -1, bd = Infinity; for (let i = 0; i < T.pts.length; i++) { const d = Math.abs(Math.hypot(T.pts[i][0] - cx, T.pts[i][1] - cy) - rr); if (d < bd) { bd = d; b = i; } } return bd < R * 0.012 ? b : -1; };
+      const LEVELS = [0.38, 0.47, 0.56, 0.65, 0.74, 0.83], links = [];
+      let nLink = 0;
+      for (let lv = 0; lv < LEVELS.length; lv++) {
+        const rr = R * LEVELS[lv], row = [];
+        for (const M of mains) { const i = angAt(M, rr); if (i >= 0) { const q = M.pts[i]; row.push({ M, i, q, a: Math.atan2(q[1] - cy, q[0] - cx) }); } }
+        row.sort((u, v) => u.a - v.a);
+        for (let k = 0; k < row.length; k++) {
+          if ((k + lv) % 2 !== 0) continue;   // (staggered: each gap is bridged at one level or two, never at all of them)
+          const A = row[k], B = row[(k + 1) % row.length];
+          let da = B.a - A.a; if (da < 0) da += TAU;
+          if (da * rr > R * 0.2 || da * rr < R * 0.02) continue;
+          const P = [];
+          for (let s = 0; s <= 12; s++) { const u = s / 12, an = A.a + da * u, r0 = lerp(Math.hypot(A.q[0] - cx, A.q[1] - cy), Math.hypot(B.q[0] - cx, B.q[1] - cy), u) - R * 0.012 * Math.sin(Math.PI * u); P.push([cx + Math.cos(an) * r0, cy + Math.sin(an) * r0]); }
+          P[0] = A.q; P[12] = B.q;
+          if (hits(P, sinMain) !== 1) continue;
+          const inner = P.slice(1, 12); let bad = false;
+          for (const T of [...mains, ...links]) { if (T === A.M || T === B.M) continue; for (let k2 = 1; k2 < T.pts.length && !bad; k2++) for (let j = 1; j < inner.length && !bad; j++) if (segX(inner[j - 1], inner[j], T.pts[k2 - 1], T.pts[k2])) bad = true; if (bad) break; }
+          if (bad) continue;
+          const t = add('bs', curve((u) => at(P, u)), { lymph: true, bile: true, fine: true, rung: true });
+          links.push(t); nLink++;
+          join(A.q[0], A.q[1], [A.M, t], R * 0.002); join(B.q[0], B.q[1], [B.M, t], R * 0.002);
         }
-        const S = add('bs', cS, { lymph: true, bile: true, fine: true }); nFine++;
-        const mid = rungFrom(P, N >> 1, S); if (mid) { mid.i = N >> 1; ties.push(mid); }
-        for (const c of ties) {
-          const p = P[c.i];
-          const t = add('bs', curve((u) => [lerp(p[0], c.q[0], u), lerp(p[1], c.q[1], u)]), { lymph: true, bile: true, fine: true, rung: true });
-          join(p[0], p[1], [S, t], R * 0.002); join(c.q[0], c.q[1], [c.M, t], R * 0.002); nRung++;
-        }
-      });
-      if (typeof window !== 'undefined') window.__bileCounts = { mains: mains.length, fine: nFine, rungs: nRung, ...dbg, sinT: sinT.length, clear };
+      }
+      if (typeof window !== 'undefined') window.__bileCounts = { mains: mains.length, links: nLink };
       for (let e = 0; e < 6; e++) { const a = mids.get(inlets[e * 2].id), b = mids.get(inlets[((e + 1) % 6) * 2 + 1].id); if (a && b) join(a.pts[0][0], a.pts[0][1], [a, b], R * 0.0036); }
     }
     // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so the vessel
