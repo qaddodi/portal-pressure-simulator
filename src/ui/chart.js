@@ -211,7 +211,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       tabs.append(b);
     }
     show(treatTab);
-    return [tabs, body];
+    return [tabs, body, spare];   // (spare: the card puts the height on once it is in the page, openTreat, so the observer's first report finds it already so and writes nothing)
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
