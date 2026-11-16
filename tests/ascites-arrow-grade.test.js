@@ -22,10 +22,12 @@ test('ascites arrows: a small gain is one arrow, only a moderate or tense belly 
   assert.equal(rel(1600, 7000), -2);
 });
 
-test('Two lesions: "Cirrhosis and clot" has little ascites and shows one arrow against the cirrhosis row; congestion with it shows two', async () => {
+// (Lymph model, 16 Nov 2026: ascites is the lymph made beyond the lymphatics' capacity. The clot's liver makes less lymph than the lymphatics carry,
+// so "Cirrhosis and clot" has none, as the cirrhosis row has none: no arrow. Congestion past the capacity gives a tense belly: two.)
+test('Two lesions: "Cirrhosis and clot" has no more ascites than the cirrhosis row and shows no arrow; congestion with it shows two', async () => {
   const fps = await deckStates(D), at = (id) => fps[D.slides.findIndex((s) => s.id === id)];
   const base = at('base'), clot = at('clot'), both = at('both');
-  assert.ok(clot.asc > 150 && clot.asc < ASC_G2, `clot ascites ${clot.asc.toFixed(0)} mL is below the moderate grade`);
-  assert.equal(dirRel('asc', clot, base), 1);
+  assert.ok(clot.asc < ASC_G2, `clot ascites ${clot.asc.toFixed(0)} mL is below the moderate grade`);
+  assert.equal(dirRel('asc', clot, base), 0);
   assert.equal(dirRel('asc', both, base), 2);
 });
