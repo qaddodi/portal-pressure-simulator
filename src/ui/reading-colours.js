@@ -21,6 +21,9 @@ export const READING_COLOUR = {
   pv: '--tr-pv', ppg: '--tr-ppg', hvpg: '--tr-hvpg', whvp: '--tr-wedge', fhvp: '--tr-hv', sin: '--tr-sin', ivc: '--tr-ivc', ra: '--tr-ra', map: '--tr-cav', rpp: '--tr-cav',
   // flows and the blood
   pvFlow: '--tr-hv', pvVel: '--tr-var', liver: '--tr-pv', co: '--tr-hv', shunt: '--tr-cav',
+  // (the change-from-healthy chart, tool-shift.js: the SVR and the blood volume share its upper panel with the cardiac output and the MAP, the splanchnic
+  // inflow its lower one with the portal pressure; no token is free of all five, so each takes one its own panel's partners do not wear)
+  svr: '--tr-hvpg', bv: '--tr-var', spl: '--tr-ivc',
   // the body
   asc: '--tr-hv', wt: '--tr-hv', spleen: '--tr-hv', salb: '--tr-cav', plt: '--tr-ivc', lsm: '--tr-scler', ssm: '--tr-scler',
   // the varix and what presses on it
