@@ -11,6 +11,7 @@ import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
+import { hvBlocked } from './pressure-cuts.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -20,7 +21,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 const JUNCTION_HAIR = 1e-6;   // (mmHg: how far a junction's pressure sits off the end of its vein it is joined at, so the order along the vein holds)
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
 const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45, tauReopen: 8 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kBlocked: 0.4, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45, tauReopen: 8 };
 // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget.)
 // (tauFall: the time constant, in days of the disease clock, of the FALL of a varix's resting size. The size the pressure sets still
 // rises at once (a bleed's surge, a meal, a Valsalva strain, a worse scar), but a fall in the pressure, from a drug, a TIPS or a cured
@@ -147,7 +148,8 @@ const MAP_SET = 93, MAP_DROP = 14;
 // is the mass the marrow restores it to. The chronic anemia is the calibration's own (every preset was tuned at its hematocrit), so
 // the blood's viscosity reads rbc (hctEq): only a change from the patient's own (a bleed refilled, a transfusion) thins or thickens it.
 export const RED = { refillTau: 10 * 3600, cirr: 0.25, spleen: 0.01, spleenFrom: 12, min: 0.6, marrowDays: 60, upDays: 30, downDays: 60 };
-export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
+export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5, mapDrop: 0 };
+// (mapDrop: how far the baroreflex's set point falls with the vasodilation of pregnancy, mmHg, by pregnancyLevel. 0 for now: 8 (Clapp & Capeless, Am J Cardiol 1997) lowered the portal pressure of the pregnancy preset by 0.7 mmHg and took its varices from Large back to Small, so it needs the preset's own retuning with the deck's numbers first, 16 Nov 2026.)
 /** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
 export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
 /** The uterus's share of the late rise in intra-abdominal pressure, 0 until 20 weeks, 1 at 40. */
@@ -535,7 +537,7 @@ export class Engine {
     // (The lower arterial pressure of the hyperdynamic circulation (mapSetOf) drives the gut arteries less: their tone falls with
     // it, a little more than in proportion, so the splanchnic inflow, the portal pressures and the slow portal vein of a disease
     // stay those tuned at 93 mmHg: decompensated cirrhosis 0.76 L/min and 14.8 cm/s against 0.74 and 14.2 before.)
-    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf() / MAP_SET) ** 1.25;
+    const spl = p.splanchnicTone * meal * (1 - PREGNANCY.spl * pg) * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6) * (this.mapSetOf(true) / MAP_SET) ** 1.25;   // (the hyperdynamic reset only: pregnancy's own lower set point does not feed the gut less, so the portal numbers of the pregnancy patient stay those tuned)
     // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
     // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
     const sys = p.systemicTone * (1 - PREGNANCY.sys * pg) * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
@@ -1607,7 +1609,9 @@ export class Engine {
     const p = this.params;
     const ex = site === 'VAR' ? this.routeExcess([p.dsrs ? 'LGV' : 'CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     const ex0 = this.varixObliterated(site) ? -1e9 : ex;
-    return clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + this.varixMature(site) * (VARIX.rMax - VARIX.r0Healthy));
+    // (Hepatic veins blocked, Budd–Chiari: the portal bed has outlets cirrhosis lacks, the caval, capsular and intrahepatic collaterals, so the gradient from the portal vein to the right atrium sizes an esophageal varix less than it does there: VARIX.kBlocked. Left whole, the cirrhosis rule gave an 11 mm varix and a wall stress three times the tear point, 16 Nov 2026.)
+    const k = (site === 'GV' ? VARIX.kGV : VARIX.k) * (hvBlocked(p) ? VARIX.kBlocked : 1);
+    return clamp(VARIX.r0Healthy + k * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + this.varixMature(site) * (VARIX.rMax - VARIX.r0Healthy));
   }
 
   /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
@@ -1631,8 +1635,8 @@ export class Engine {
     return h != null && h > d ? h : d;
   }
 
-  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */
-  mapSetOf() { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1); }
+  /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation and of pregnancy (tone: the first only, which sets the gut's tone). */
+  mapSetOf(tone = false) { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1) - (tone ? 0 : PREGNANCY.mapDrop * pregnancyLevel(this.params.gestation)); }
 
   /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
   varixMature(site) {

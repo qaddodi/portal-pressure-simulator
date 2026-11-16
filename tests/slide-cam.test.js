@@ -127,3 +127,23 @@ test('pps.cameraGate walks each named deck Next and Back by its id and judges ea
   await assert.rejects(createCameraGate({ presenter: { ...presenter, count: undefined }, stage, decks: [{ id: 'a' }] })({}), /cannot count/);
   globalThis.document.querySelector = q;
 });
+
+// A hidden or throttled page (frames a second apart) says nothing about the app's start times: the gate does not judge them and says so;
+// and a way out of the lobule (to-anatomy, the rise) is a move of its own, so the slide's start is counted from its end. (16 Nov 2026: a run in a
+// hidden pane failed 27 moves on late starts whose steps were each one throttled second.)
+test('pps.cameraGate leaves a throttled move\'s start times unjudged and counts a lobule rise\'s move from its end', async () => {
+  const { createCameraGate } = await import('../src/ui/cam-gate.js');
+  const plan = planSlide(A, B, vb.w, 1500);
+  const slowTr = () => { const clock = createSlideClock(plan.ms), tr = { plan, t0: 0, end: 'landed', frames: [], held: [], blocked: [] }; for (let t = 0; ; t += 1000) { const v = plan.at(slideEase(clock.tick(t))); tr.frames.push([t, v.k, v.x, v.y]); if (clock.left() <= 0) break; } tr.vb = vb; tr.press = -2500; tr.t0 = 0; tr.steps = [['leave', 5], ['hush-out', 900], ['settle', 1000], ['camera', 2500]]; return tr; };
+  const riseTr = () => { const tr = traceOf(plan, frames(plan.ms), (t) => Math.min(1, t / plan.ms)); tr.vb = vb; tr.press = -4200; tr.t0 = 0; tr.steps = [['leave', 5], ['to-anatomy', 300], ['state-ready', 3900], ['camera', 4100]]; return tr; };
+  let traces = [], deck = null;
+  const presenter = { start: async (id) => { deck = id; }, go: () => { traces = [deck === 'slow' ? slowTr() : riseTr()]; }, busy: () => false, count: () => 2, position: () => ({ id: deck, at: 0 }), skipLapse() {}, stop() {} };
+  const stage = { gliding: () => false, cameraTraces: (clear) => { const t = traces; if (clear) traces = []; return t; } };
+  const q = globalThis.document.querySelector; globalThis.document.querySelector = () => null;
+  const r = await createCameraGate({ presenter, stage, decks: [{ id: 'slow' }, { id: 'rise' }] })({ back: false });
+  globalThis.document.querySelector = q;
+  assert.equal(r.fail, 0, r.text);
+  assert.match(r.text, /NOT TIMED: 1 moves/);
+  assert.equal(r.moves.find((m) => m.at.startsWith('slow')).timed, false);
+  assert.equal(r.moves.find((m) => m.at.startsWith('rise')).rise, 3900);
+});

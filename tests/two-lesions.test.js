@@ -21,7 +21,7 @@ test('the clot raises the PPG and lowers the HVPG; congestion lowers both gradie
   const s = await at();
   assert.ok(s.clot.ppg - s.base.ppg > 3, `clot: PPG rises (${s.base.ppg} to ${s.clot.ppg})`);
   assert.ok(s.base.hvpg - s.clot.hvpg > 1.5, `clot: HVPG falls (${s.base.hvpg} to ${s.clot.hvpg})`);
-  assert.ok(s.clot.pvFlow < 0.05, 'the occluded trunk carries no flow');
+  assert.ok(Math.abs(s.clot.pvVel) < 1, 'the occluded trunk carries no flow (the cavernoma around it does: pvFlow)');
   assert.ok(s.unclot.ra > 12 && s.unclot.fhvp > 12, `congestion: right atrium and FHVP high (${s.unclot.ra}, ${s.unclot.fhvp})`);
   assert.ok(s.base.hvpg - s.unclot.hvpg > 1.5, `congestion: HVPG falls (${s.base.hvpg} to ${s.unclot.hvpg})`);
   assert.ok(s.base.ppg - s.unclot.ppg > 2, `congestion: PPG falls (${s.base.ppg} to ${s.unclot.ppg})`);

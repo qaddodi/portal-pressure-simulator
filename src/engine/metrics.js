@@ -189,7 +189,9 @@ export function computeMetrics(eng, out = null) {
   r.ppg = tenthGap(pv, ivc, pv - ivc);
   r.pv = pv; r.pvh = P[ni.PVH]; r.sv = P[ni.SV]; r.ra = hold(eng, 'ra', ra); r.ivc = ivc;
   r.pvFlow = qf(eng, 'PV_TRUNK') * 0.06; r.pvVel = eng.dopplerVelocity('PV_TRUNK');
-  r.pvFlowMean = (eng.pvQm ?? qf(eng, 'PV_TRUNK')) * 0.06; r.pvVelMean = hold(eng, 'pvVel', eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'), 1);
+  // Portal flow is the blood the portal system brings to the liver. With the trunk thrombosed, that is what the cavernoma, the periportal collaterals (C8), carries round the clot: about a litre a minute months after the clot (chronic PVT: hepatopetal),
+  // little in the first days, before it has formed (acute: the two-lesions deck's clot carries none); the trunk's own flow and Doppler velocity stay zero (pvVelMean), as the main portal vein shows on ultrasound (16 Nov 2026: "0.0 L/min, Stasis" beside a cavernoma).
+  r.pvFlowMean = ((eng.params.thrombus?.PV_TRUNK ?? 0) >= 0.9 ? qf(eng, 'C8') : (eng.pvQm ?? qf(eng, 'PV_TRUNK'))) * 0.06; r.pvVelMean = hold(eng, 'pvVel', eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'), 1);
   // (the vitals over a breath, engine.js controllers: what the bar and Readouts show)
   r.vitals = vt;
   r.pvPI = p.pulsatile || eng.beat ? eng.pi.value : null;
