@@ -74,6 +74,7 @@ test('TC-T1, T2: every trial has a short lesson and outcome word; every Baveno V
   for (const id of TRIAL_IDS) {
     const t = trialOf(id);
     assert.ok(t.lesson && t.lesson.length <= 160, `${id}: lesson ${t.lesson?.length}`);
+    assert.ok(['approved', 'draft'].includes(t.lessonStatus), `${id}: lessonStatus`);
     assert.ok(t.outcome && t.outcome.length <= 16, `${id}: outcome "${t.outcome}"`);
     for (const k of t.bav || []) assert.ok(BAVENO_VIII[k], `${id}: Baveno VIII ${k} has its words`);
     assert.match(sourceLine(t), new RegExp(`${t.n} randomized${t.pmid ? ` · PMID ${t.pmid}` : ''}$`));

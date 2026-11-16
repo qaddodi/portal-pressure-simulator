@@ -335,7 +335,7 @@ export const TRIALS = {
 
 // ---- The teaching words (TC-L2, TC-T1, trials card review, 15 Nov 2026). Not from the audit and never a number: what a row's rate counts, in a word
 // or two ("bled", "alive"), and what the trial taught, in one plain sentence, shown first when a trial is opened. The lessons were drafted on
-// 15 Nov 2026 for Mohammad's review (lessonStatus 'draft' until he approves a line). response: the trial's own rule for a drug response, where the
+// 15 Nov 2026 and approved by Mohammad as written on 16 Nov 2026 (lessonStatus 'approved'; a new or changed line is 'draft' until he approves it). response: the trial's own rule for a drug response, where the
 // audit gives one, shown beside the model's fall in the HVPG (TC-T3).
 //   outcome   at most 16 characters, lower case, read after the rates: "16% vs 27% decompensated"
 //   lesson    one sentence, at most 160 characters, no number the record does not hold
@@ -363,7 +363,7 @@ const TEACH = {
   bass: { outcome: 'overt HE', lesson: 'Rifaximin, mostly on top of lactulose, halved breakthrough HE in patients in remission.' },
   sharma: { outcome: 'overt HE again', lesson: 'Lactulose after recovery from overt HE lowered its recurrence.' },
 };
-for (const [id, w] of Object.entries(TEACH)) Object.assign(TRIALS[id], w, { lessonStatus: 'draft' });
+for (const [id, w] of Object.entries(TEACH)) Object.assign(TRIALS[id], { lessonStatus: 'approved' }, w);
 
 /** The Baveno VIII statements the trials cite, each in one short line, from guidelines/baveno-viii-2026.pdf (TC-T2): a learner reads what the
  *  statement says, not its number alone. Shortened, never strengthened; the PDF's own words where they fit. */
