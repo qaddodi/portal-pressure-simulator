@@ -30,7 +30,7 @@ test('item 3: a small belly lets the balance take two lines that hug the words, 
   // The litres' unit is 12 px at least on the small belly (it was half the 20 px number: 10 px).
   assert.match(css, /\.dock-pane > \.instrument-view\.ab \.ab-belly > \.ab-big > b small \{ font-size: max\(12px, \.5em\) !important; \}/);
   // The text between the rate's number and its unit is a plain space, the one place the line may break.
-  assert.match(instr, /`\$\{fmt\(b, 0\)\} mL\/day`/);
+  assert.match(instr, /`\$\{fmtG\(b, 0\)\} mL\/day`/);
 });
 
 test('item 4: on a 320 px phone the albumin switch stays as low as the one-line one, so the tiles keep their gutter', () => {
