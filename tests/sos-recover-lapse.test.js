@@ -41,12 +41,12 @@ test('a dotted ramp key eases that nested param day by day', async () => {
 // (Healed over the whole month, the Recovered row reads PV 8.5 and FHVP 4.7, up from 8.0 and 4.3 when the veins healed
 // before the days: Mohammad kept the new numbers, 18 Oct. 22 Oct the SOS preset itself carries the block of 32 and
 // runs its 21 days with it, so the patient arrives a little more congested: PV 8.6, FHVP 4.8. 15 Nov 2026 the block is 34, to take SOS off
-// the HVPG's red line (full app review ENG-5), and the row reads FHVP 4.9 and HVPG 2.4.)
-test('the Recovered row: PV 8.6, FHVP 4.9, HVPG 2.4, no ascites', async () => {
+// the HVPG's red line (full app review ENG-5), and the row reads FHVP 4.9 and HVPG 2.4. 16 Nov 2026 the numbers are the bedside's, the beat's means: PV 8.9, FHVP 5.4, HVPG 2.2.)
+test('the Recovered row: PV 8.9, FHVP 5.4, HVPG 2.2, no ascites', async () => {
   const fps = await deckStates(OUTFLOW), f = fps[OUTFLOW.slides.findIndex((x) => x.id === 'recover')];
-  assert.equal(fmt(f.pv), '8.6');
-  assert.equal(fmt(f.fhvp), '4.9');
-  assert.equal(fmt(f.hvpg), '2.4');
+  assert.equal(fmt(f.pv), '8.9');
+  assert.equal(fmt(f.fhvp), '5.4');
+  assert.equal(fmt(f.hvpg), '2.2');
   assert.ok(f.asc < 0.5, `ascites ${f.asc}`);
 });
 

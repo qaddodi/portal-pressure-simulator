@@ -4,6 +4,7 @@ import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js';
 import { clamp } from './physiology.js';
 import { tenthGap } from './gap.js';
 import { ssmOf } from './ssm-cuts.js';
+import { bedsideMean } from './bedside-mean.js';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
@@ -159,6 +160,9 @@ export function computeMetrics(eng, out = null) {
   // (Systolic and diastolic, engine bpNow: the arm cuff's reading, beside the MAP, which stays the true mean.)
   const bp = eng.bpNow ? eng.bpNow(spareOf(r).bp || (spareOf(r).bp = { sbp: NaN, dbp: NaN })) : { sbp: NaN, dbp: NaN };
   vt.sbp = eng.vitM?.[5] ?? bp.sbp; vt.dbp = eng.vitM?.[6] ?? bp.dbp;
+  // (The blood pressure is one triple everywhere: the mean is the bedside one, diastolic plus a third of the pulse pressure, which a physician checks by hand
+  // against "S/D (M)". The model's own time-mean of the aortic pressure ran 2 to 4 mmHg under it; the engine keeps it for its flows (MAPf).)
+  if (Number.isFinite(vt.sbp) && Number.isFinite(vt.dbp)) vt.map = bedsideMean(vt.sbp, vt.dbp);
 
   r.t = eng.t; r.day = eng.day;
   // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and

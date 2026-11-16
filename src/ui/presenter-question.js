@@ -138,7 +138,7 @@ export function createQuestion(st, live) {
     if (!live.ui) return;
     live.keepArgs = { s, st, i, fresh, lap, now };
     live.ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
-    // (a time-lapse's words start at its start state; the days carry them to the end: presenter-case.js chipsTo)
+    // (a time-lapse's words are its end state's and stay there: presenter-case.js)
     if (!live.keepNow.text) textIn(s, st, i);
     if (live.keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -394,12 +394,14 @@ export function createQuestion(st, live) {
       request: (type, payload = {}) => getCalc().request(type, payload),
       // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
       // step's { snap, params, fp, extra? }, or null when the worker failed.)
-      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
+      // (a chart's steps go on from the slide's settled model, never the copy run at the bedside: its ring sits on its line)
+      run: (steps, from = st?.base ?? st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
     };
   }
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
-  // no slide shows, computed after the slides.
-  const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? live.slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? live.stateOf[i] : live.extraOf.get(xKey(o))]; };
+  // no slide shows, computed after the slides. A row with an id and `at: { preset, params, relax }` links to its slide but shows that patient
+  // instead of the slide's own state (the case as it presents, before the treatment the slide plays).
+  const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? live.slides.findIndex((x) => x.id === id) : -1, at = typeof o === 'object' ? o.at : null; return [i, at ? live.extraOf.get(xKey(at)) : i >= 0 ? live.stateOf[i] : live.extraOf.get(xKey(o))]; };
   const rowIdx = (s) => (s.of || []).map((o) => rowAt(o)[1]).filter((k) => k != null && k >= 0);
   function rowsOf(s) {
     return (s.of || []).map((o) => {

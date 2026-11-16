@@ -85,7 +85,7 @@ export const NEXT_BLEED = {
     {
       id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Both together', site: 'sin', title: 'Carvedilol plus EVL is first-line',
-      line: 'EVL shrinks the varices to {varix}, and with carvedilol the HVPG is {hvpg}, against {hvpg@bands} with EVL alone.',
+      line: 'EVL shrinks the varices to {varix}. With carvedilol HVPG is {hvpg}, above the {hvpg@nsbb} with one band because banding closes a collateral, and below the {hvpg@bands} with EVL alone.',
       notes: 'Compared with EVL alone, adding an NSBB lowered rebleeding in every subgroup and improved survival in Child–Pugh B and C. The two act on different targets: EVL obliterates the varix, and carvedilol lowers the portal pressure that refills it. A patient who cannot receive one of the two continues the other. (Baveno VIII 4.8; AASLD 2024 statement 38.)',
       ask: ['Why combine an NSBB with EVL instead of EVL alone?', 'EVL obliterates the varix; the NSBB lowers the portal pressure that refills it. Together they reduce rebleeding further.'],
     },

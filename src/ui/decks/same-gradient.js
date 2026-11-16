@@ -3,12 +3,12 @@
 // What lies upstream of the wedge (the PPG), how much blood crosses the liver (the portal flow) and where blood leaves it (the collaterals)
 // sit outside it. Each patient is the engine's own, tuned so the rounded HVPG is 12.0 mmHg in all four: `cirrhosis` is the one setting moved
 // to match it, on the preset named, and `relax` lets the spleen and the platelets settle to that setting (a preset's years of disease run at
-// the preset's own cirrhosis, params set after that leave them where they were). Fingerprints on 14 Nov 2026 (tests/same-gradient.test.js
+// the preset's own cirrhosis, params set after that leave them where they were). Fingerprints on 14 Nov 2026, the cirrhosis settings and PPGs retuned at the bedside on 16 Nov (tests/same-gradient.test.js
 // keeps the matches and the contrasts):
-//   ref    csph, cirrhosis 0.621:                 HVPG 12.0, PPG 13.8, portal flow 1.13 L/min, 20% of the portal blood shunted, liver flow 92%
-//   up     masld-csph, cirrhosis 0.655:           HVPG 12.0, PPG 15.2, portal flow 1.00,       39% shunted, liver flow 82%
-//   flow   csph, cirrhosis 0.584, tone 0.75:      HVPG 12.0, PPG 14.3, portal flow 1.43,       23% shunted, liver flow 109%
-//   shunt  cirr-hepatofugal, cirrhosis 0.925:     HVPG 12.0, PPG 12.0, portal flow -0.54,     100% shunted, liver flow 32%, encephalopathy index 0.83
+//   ref    csph, cirrhosis 0.638:                 HVPG 12.0, PPG 13.7, portal flow 1.13 L/min, 20% of the portal blood shunted, liver flow 92%
+//   up     masld-csph, cirrhosis 0.675:           HVPG 12.0, PPG 15.0, portal flow 1.00,       39% shunted, liver flow 82%
+//   flow   csph, cirrhosis 0.602, tone 0.75:      HVPG 12.0, PPG 14.2, portal flow 1.43,       23% shunted, liver flow 109%
+//   shunt  cirr-hepatofugal, cirrhosis 1:         HVPG 12.0, PPG 12.0, portal flow -0.54,     100% shunted, liver flow 32%, encephalopathy index 0.83
 // Sources, checked 14 Nov 2026 against the files in guidelines/: Baveno VIII 2.5 (in MASLD-related cACLD the HVPG may underestimate the true
 // portal pressure gradient, and an HVPG ≥10 mmHg still carries risk); AASLD 2024 guidance statements 3 (the HVPG is the gold standard in
 // cirrhosis), 4 (CSPH is an HVPG ≥10 mmHg), 5 (it may underestimate the portal pressure in some obese and NASH cirrhosis) and 6 (decompensation,
@@ -21,11 +21,11 @@ const PROFILE = { kind: 'profile' };   // the pressure ladder from gut to heart,
 const FLOWS = { kind: 'flows' };       // where the portal blood goes
 const LIVER = ['CONF', 'SIN_R', 'RHV'];
 
-// The four patients, one per slide, each from its own preset. `cirrhosis` is the setting tuned to an HVPG of 12.0 mmHg.
-const REF = { preset: 'csph', params: { cirrhosis: 0.621 }, relax: 365 };
-const UP = { preset: 'masld-csph', params: { cirrhosis: 0.655 }, relax: 365 };
-const FLOW = { preset: 'csph', params: { cirrhosis: 0.584, splanchnicTone: 0.75 }, relax: 365 };
-const SHUNT = { preset: 'cirr-hepatofugal', params: { cirrhosis: 0.925 }, relax: 365 };
+// The four patients, one per slide, each from its own preset. `cirrhosis` is the setting tuned to an HVPG of 12.0 mmHg at the bedside (retuned 16 Nov 2026, when a slide's numbers became the bedside's).
+const REF = { preset: 'csph', params: { cirrhosis: 0.638 }, relax: 365 };
+const UP = { preset: 'masld-csph', params: { cirrhosis: 0.675 }, relax: 365 };
+const FLOW = { preset: 'csph', params: { cirrhosis: 0.602, splanchnicTone: 0.75 }, relax: 365 };
+const SHUNT = { preset: 'cirr-hepatofugal', params: { cirrhosis: 1 }, relax: 365 };
 
 export const SAME_GRADIENT = {
   id: 'same-gradient', level: 'advanced', title: 'Same gradient, different patient', minutes: 11,
@@ -44,7 +44,7 @@ export const SAME_GRADIENT = {
   slides: [
     {
       id: 'ref', ...REF, lens: 'drop', cam: 'route', labels: LIVER, tool: PROFILE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
-      vignette: 'A 58-year-old man with alcohol-associated cirrhosis, abstinent for two years, has small esophageal varices on EGD, platelets of 87,000/µL and no ascites.',
+      vignette: 'A 58-year-old man with alcohol-associated cirrhosis, abstinent for two years, has small esophageal varices on EGD, platelets of 84,000/µL and no ascites.',
       kicker: 'Reference', site: 'sin', title: 'With purely sinusoidal resistance the PPG is close to the HVPG',
       line: 'All of his resistance lies in the sinusoids, so the HVPG, {hvpg}, accounts for nearly all of the PPG, {ppg}. The portal vein carries {pvFlow}.',
       notes: 'The first of four men whose HVPG is the same. His resistance is sinusoidal, between the wedged and the free hepatic vein positions, so the HVPG captures nearly all of it (AASLD 2024 statement 3, the HVPG as the gold standard in cirrhosis). The PPG is a little higher because it also includes the small drop along the portal vein and from the hepatic vein to the IVC. An HVPG of 10 mmHg or more is clinically significant portal hypertension (AASLD 2024 statement 4). The model sets the cirrhosis of each of the four patients so that the HVPG reads the same, to one decimal; every other number on the next slides is what the model then gives.',
@@ -61,7 +61,7 @@ export const SAME_GRADIENT = {
     },
     {
       id: 'flow', ...FLOW, cam: 'portal', labels: ['SMV', 'CONF'], tool: FLOWS, data: 'tiles', tiles: ['hvpg', 'pvFlow'], key: ['pvFlow'], delta: 'ref',
-      vignette: 'A 52-year-old man with hepatitis C cirrhosis has small esophageal varices on EGD, mild ascites and platelets of 75,000/µL.',
+      vignette: 'A 52-year-old man with hepatitis C cirrhosis has small esophageal varices on EGD, mild ascites and platelets of 73,000/µL.',
       caseQ: 'Same HVPG. Will his portal flow match?',
       kicker: 'Portal flow', site: 'sin', title: 'The same HVPG can mean more portal flow through a less resistant liver',
       line: 'In another patient with CSPH, the portal vein carries {pvFlow}, against {pvFlow@ref} in the first. The HVPG is {hvpg}, so the sinusoidal resistance must be lower.',
@@ -72,7 +72,7 @@ export const SAME_GRADIENT = {
       id: 'shunt', ...SHUNT, lens: 'direction', cam: ['splenic', 'portal'],
       marks: [{ edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, { edges: ['PV_TRUNK'], label: 'Portal vein, reversed', kind: 'note' }],
       tool: FLOWS, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'], delta: 'ref',
-      vignette: 'A 63-year-old man with cirrhosis on diuretics has had two admissions for overt hepatic encephalopathy. Platelets are 141,000/µL and EGD shows no large varices.',
+      vignette: 'A 63-year-old man with cirrhosis on diuretics has had two admissions for overt hepatic encephalopathy. Platelets are 138,000/µL and EGD shows no large varices.',
       caseQ: 'His HVPG is the same. What will his PPG be?',
       kicker: 'Collaterals', site: 'sin', title: 'A large splenorenal shunt brings the PPG down to the HVPG and reverses the portal flow',
       line: 'The shunt carries the portal blood away from the liver. The PPG is {ppg}, level with the HVPG, and the portal flow is {pvFlow}: hepatofugal.',
@@ -84,7 +84,7 @@ export const SAME_GRADIENT = {
       kicker: 'Collaterals', site: 'sin', title: 'The shunt decompresses the varices and spares the platelets but cuts hepatic portal perfusion',
       line: 'The varices are {varix} and the platelets {plt}, better than in the first man. The liver gets {liver} of its normal flow, and the encephalopathy risk is high.',
       notes: 'In the model the shunt lowers the portal vein pressure, so the spleen is smaller, the platelets higher and the varices smaller than in the first man. Those are the markers a clinic watches, and here they flatter him. The liver receives about a third of its normal blood flow, and the model\'s encephalopathy index, built from the shunt fraction and the hepatic blood flow, is the highest of the four: it is the model\'s index, not a clinical score. The overt encephalopathy in the case is the clue that a catheter reading would not give.',
-      ask: ['A man with an HVPG of 12 mmHg has small varices, a platelet count of 141,000/µL and recurrent encephalopathy. Is that reassuring?', 'No. The same gradient can hide a shunt that spares the varices and the platelets while hepatic portal perfusion falls.'],
+      ask: ['A man with an HVPG of 12 mmHg has small varices, a platelet count of 138,000/µL and recurrent encephalopathy. Is that reassuring?', 'No. The same gradient can hide a shunt that spares the varices and the platelets while hepatic portal perfusion falls.'],
     },
     {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: [{ id: 'ref', name: 'Sinusoidal' }, { id: 'up', name: 'Upstream share' }, { id: 'flow', name: 'High inflow' }, { id: 'shunt', name: 'Shunt' }],

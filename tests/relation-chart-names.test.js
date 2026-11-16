@@ -58,7 +58,7 @@ function workOut(deck) {
     let from = i;
     while (from > 0 && !d.slides[from].preset) from--;
     const st = (await seq(d.slides.slice(from, i + 1).filter((x, k) => k === 0 || changes(x)).map(stepOf))).at(-1);
-    return { states: await seq(curveSteps(s.tool), patientOf(s.tool) ? null : st.snap), fp: (await deckStates(d))[i] };
+    return { states: await seq(curveSteps(s.tool), patientOf(s.tool) ? null : st.base), fp: (await deckStates(d))[i] };
   })());
   return worked.get(deck);
 }

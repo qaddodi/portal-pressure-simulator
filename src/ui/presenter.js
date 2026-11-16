@@ -296,7 +296,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The calc's steps for a list of slides: each slide's model step, then the patients a visual compares that no slide shows (and a compare slide's buttons switch to), each fresh.
   function solvePlan(sl) {
-    const extraRows = sl.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.compare || []).filter((o) => o.preset)]);
+    const extraRows = sl.flatMap((s) => [...(s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id), ...(s.of || []).filter((o) => typeof o === 'object' && o.at?.preset), ...(s.compare || []).filter((o) => o.preset)].map((o) => (o.at?.preset ? o.at : o)));
     const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()], presetAt = []; let pid = store.get().presetId;
     sl.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[sl.length + k] = o.preset; });
@@ -317,7 +317,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const first = sl[0]?.preset ? null : (await host.request('snapshot')).snap;
       if (!base) c.request('presetMetrics', { ids: ['healthy'] }).then((m) => { base = m.result?.healthy || null; });
       const end = await c.sequence(pl.steps, first, (m) => {
-        const st = { snap: m.snap, params: m.params, fp: m.fp, trail: m.trail, presetId: pl.presetAt[m.i] };
+        const st = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, trail: m.trail, presetId: pl.presetAt[m.i] };
         if (m.start) st.start = { ...m.start, presetId: pl.presetAt[m.i] };
         if (m.before) st.before = { ...m.before, presetId: pl.presetAt[m.i] };
         if (m.extra) st.extra = m.extra;

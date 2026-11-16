@@ -22,9 +22,9 @@ test('terlipressin raises the mean arterial pressure by 5 to 10 mmHg at every st
   }
 });
 
-test('the decompensated patient goes from the low 80s to the high 80s, not past a normal pressure', () => {
+test('the decompensated patient goes from the mid 80s to about 90, not past a normal pressure', () => {
   const off = go('cirr-decomp').m.map, on = go('cirr-decomp', ter).m.map;
-  assert.ok(off >= 79 && off <= 84, `off ${off.toFixed(1)}`);
+  assert.ok(off >= 80 && off <= 86, `off ${off.toFixed(1)}`);
   assert.ok(on >= 86 && on <= 92, `on ${on.toFixed(1)}`);
 });
 

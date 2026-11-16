@@ -36,7 +36,7 @@ export const CARVEDILOL = {
   checks: [
     ['Cirrhosis, liver stiffness measurement (LSM) 12 kPa, platelets 160,000/µL. Does she start carvedilol?', 'No. CSPH is ruled out, and Baveno VIII advises against a nonselective beta-blocker (NSBB) to prevent decompensation without CSPH. LSM is repeated in 12 months.'],
     ['A man with CSPH takes carvedilol. Does he need a screening endoscopy?', 'No. Endoscopy would not change his management (Baveno VIII 3.18). Only a patient who cannot take an NSBB needs endoscopy, unless LSM <20 kPa with platelets ≥150,000/µL, or spleen stiffness (SSM) <40 kPa.'],
-    ['After a bleed her MAP is 61 mmHg and she takes carvedilol. What now, and when is it restarted?', 'Reduce the dose or stop it. Restart and re-titrate once the blood pressure has recovered and any HRS-AKI has resolved (Baveno VIII 4.6, 4.7).'],
+    ['After a bleed her blood pressure is {map@low} and she takes carvedilol. What now, and when is it restarted?', 'Reduce the dose or stop it. Restart and re-titrate once the blood pressure has recovered and any HRS-AKI has resolved (Baveno VIII 4.6, 4.7).'],
     ['After recompensation the HVPG, measured off carvedilol, is 8 mmHg. May the drug be stopped, and what if the varices are still there?', 'Yes: an HVPG <10 mmHg off carvedilol confirms that CSPH has resolved. Varices that remain do not argue against stopping (7.16 to 7.18).'],
   ],
   summary: 'Carvedilol through every stage: why not before CSPH, when to start it, who can forgo screening endoscopy, when to reduce or hold it and when to restart it, EVL after a bleed, a TIPS, and the HVPG that lets it stop.',
@@ -82,7 +82,7 @@ export const CARVEDILOL = {
       ask: ['A patient with CSPH cannot take an NSBB. His LSM is 18 kPa and his platelet count 170,000/µL. Does he need a screening endoscopy?', 'No. LSM <20 kPa with platelets ≥150,000/µL makes screening endoscopy unnecessary (Baveno VIII 1.19).'],
     },
     {
-      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'varix'], keepTiles: true, title: 'Ascites and varix over four years' }, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
+      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.68, 0.9], albumin: [4, 2.6] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'varix'], keepTiles: true, title: 'Ascites and varix over four years' }, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
       kicker: 'Ascites and varices', site: 'sin', title: 'Ascites and large varices despite carvedilol: continue it',
       line: 'Six years in, four on carvedilol, she has {asc} of ascites and varices of {varix}. The ascites came despite carvedilol; Baveno VIII still advises it, to prevent a first bleed.',
       notes: 'Source: Baveno VIII 4.4; AASLD 2024. In patients with ascites and varices carvedilol is recommended to prevent a first bleed and to lower the risk of ascites-related complications, and it is preferred over the other nonselective beta-blockers. AASLD 2024 adds that these drugs are safe and probably beneficial in ascites, but a systolic blood pressure <90 mmHg may abolish the survival benefit, so blood pressure is checked at every visit. Ascites is her first decompensation, and from here she should also be considered for liver transplantation (Baveno VIII 4.3).',
@@ -103,7 +103,7 @@ export const CARVEDILOL = {
       kicker: 'Hypotension', site: 'sin', title: 'Reduce or stop carvedilol while the blood pressure is low',
       line: 'A large bleed lowers her blood pressure to {map}. Systolic {<90 mmHg}, MAP {<65 mmHg} or HRS-AKI means carvedilol is reduced or stopped.',
       notes: 'Source: Baveno VIII 4.6; AASLD 2024. Carvedilol is dose-reduced or stopped for persistent hypotension (systolic blood pressure <90 mmHg or MAP <65 mmHg) and/or HRS-AKI. Any one of the three is enough. Hemorrhage is one cause; infection and overdiuresis are others. The chart reads her blood pressure from the model; the model does not simulate HRS-AKI, so it is a fact of the case: she has none. Carvedilol is still on in the model on this slide, which is the state that triggers the rule.',
-      ask: ['She bleeds and her blood pressure falls to 75/55 (61) mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The systolic is <90 mmHg and the MAP is <65 mmHg.'],
+      ask: ['She bleeds and her blood pressure falls to 78/57 (64) mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The systolic is <90 mmHg and the MAP is <65 mmHg.'],
     },
     {
       id: 'restart', action: [UNIT, UNIT], cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
