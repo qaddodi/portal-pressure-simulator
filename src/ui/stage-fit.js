@@ -373,6 +373,7 @@ export function createFit(st, live) {
   }
   function setCircuitRotated(on) {
     on = on ? 1 : 0;
+    snapFresh();   // (the bars' boxes as they stand now: the turned map is fitted into the room they leave, and a stale snapshot left its bottom third under the play bar)
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === live.rotTarget) return;
     // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
@@ -395,6 +396,9 @@ export function createFit(st, live) {
     if (whole) live.vt = live.morphTarget === 1 ? circWhole() : { k: 1, x: 0, y: 0 };
     // (The framing the turn lands on, taken now, at the press: the turn's last frame sets it again without measuring the cards.)
     live.rotWhole = whole && live.morphTarget === 1 ? { ...live.vt } : null;
+    // (The turned map is a framing of the circuit like Fit's: it is kept as one, so a resize, a card or the bars changing size take the same framing again for the new room,
+    // as they do for the wide map (stage-tubes.js lookHome). Without it the upright map was fitted once, at the press, and never again: play-test, Mac 1280 x 800, 16 Nov 2026.)
+    if (live.rotWhole) { live.fitted = true; markCirc('whole', live.rotWhole); }
     // (Rec 8: in the landed circuit the camera glides to that framing on the turn's own clock and ease (rotStep), never set outright.)
     live.rotGlide = live.rotWhole && live.morph === 1 && !reduceMotion.matches ? { from, e0: rotEase(live.rotU), x: { from, to: live.rotWhole, vb0: [vbBox.x, vbBox.y, vbBox.width, vbBox.height] } } : null;   // (x: the glide as view-xf.js works it out: the view box turns under the camera)
     if (live.rotGlide) live.vt = from;
