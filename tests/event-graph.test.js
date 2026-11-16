@@ -11,8 +11,8 @@ import { fingerprintOf } from '../src/engine/fingerprint.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { PPG_CUTS } from '../src/engine/pressure-cuts.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
-const { LINE } = await import('../src/ui/flow-time.js');
-const { eventLines, eventGraphOf, eventScale, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');
+const { LINE, END_APART } = await import('../src/ui/flow-time.js');
+const { eventLines, eventGraphOf, eventScale, eventScales, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');
 const { specOf, procKindOf } = await import('../src/ui/proc-anim.js');
 
 const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`))))
@@ -119,4 +119,19 @@ test('after BRTO the fundal varix closes at once and the PPG rises over the seco
   assert.ok(at.at(-1).ppg > b.ppg + 0.5, `the PPG rises after it (${b.ppg.toFixed(1)} to ${at.at(-1).ppg.toFixed(1)} mmHg)`);
   const ps = eventScale('ppg', [st.before.fp.ppg, st.fp.ppg]), gs = eventScale('gv', [st.before.fp.gv, st.fp.gv]);
   for (const f of at) assert.ok(f.ppg <= ps.max && f.gv <= gs.max, 'every reading inside its fixed scale');
+});
+
+test('two lines that would end on one spot get one axis widened, so their dots and values stand apart (16 Nov 2026)', () => {
+  const spec = { kind: 'tips', word: 'Stent open', lines: ['hvpg', 'liver'], target: null };
+  const frac = (S, j, v) => (v * (LINE[spec.lines[j]][4] ?? 1) - S[j].min) / (S[j].max - S[j].min);
+  const b = [16, 40], end = [9, 35];
+  const tight = [eventScale('hvpg', [b[0], end[0]]), eventScale('liver', [b[1], end[1]])];
+  assert.ok(Math.abs(frac(tight, 0, end[0]) - frac(tight, 1, end[1])) < END_APART, 'fixture: tight scales end close together');
+  const S = eventScales(spec, b, end);
+  assert.ok(Math.abs(frac(S, 0, end[0]) - frac(S, 1, end[1])) >= END_APART - 1e-9, 'the ends stand apart');
+  assert.deepEqual([S[0].min, S[0].max], [tight[0].min, tight[0].max], 'one axis stays as it was');
+  assert.ok(S[1].max > tight[1].max && S[1].min === tight[1].min, 'the other has more room over its line, from the same start');
+  // Lines that already stand apart, or a graph whose end is not known yet, keep their scales.
+  assert.deepEqual(eventScales(spec, [16, 40], [9, 80]), [eventScale('hvpg', [16, 9]), eventScale('liver', [40, 80])]);
+  assert.deepEqual(eventScales(spec, b, null), [eventScale('hvpg', [16, null]), eventScale('liver', [40, null])]);
 });

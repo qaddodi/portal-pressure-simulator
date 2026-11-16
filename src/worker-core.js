@@ -10,6 +10,7 @@ import { detectEvents } from './engine/events.js';
 import { explain } from './engine/explain.js';
 import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
 import { setYours } from './engine/yours.js';
+import { calmTrail } from './engine/trail-calm.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -659,7 +660,7 @@ export function createCore(post) {
           const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
           before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
         }
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, before, ...(extra ? { extra } : {}) });
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail: trail && calmTrail(trail, tk.length), start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });

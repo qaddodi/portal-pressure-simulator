@@ -10,6 +10,7 @@ import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
+import { calmed, calmRadius, CALM_MIN } from '../engine/trail-calm.js';
 import { HVPG_CUTS, hvpgSev, HVPG_WORDS, BLEED_WORD, TOKEN_OF_SEV, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { firstAtOrAbove, firstAbove } from './sorted.js';
 import { limitLabelX as labelX } from './limit-label.js';
@@ -300,10 +301,11 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     sweepLapse = f.clock === 'disease' && (range === 'beats' || stripDays);
     const m = f.metrics;
     const last = days[days.length - 1];
-    if (last && f.day < last.day) days = [];
+    if (last && f.day < last.day) { days = []; calmDays(); }
     if (!days.length || days[days.length - 1].day !== f.day) {
       days.push({ day: f.day, v: { hvpg: m.hvpg, ...Object.fromEntries(TRACES.filter((t) => t.day).map((t) => [t.id, t.day(m)])) } });
       if (days.length > 1500) days.shift();
+      calmDays();
     } else {
       // Keep today's point current (a treatment changes it without a new day).
       const d = days[days.length - 1];
@@ -366,8 +368,24 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       return out;
     }
     out.x.length = out.mid.length = 0;
-    for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); }
+    // (The days' readings are taken in whatever phase of the beat and breath the disease clock is in on that day, a ripple that is no part of the trend,
+    // so the line is drawn calmed, as every time-lapse chart is, engine/trail-calm.js; its latest reading stays the live one.)
+    const c = calmKept.get(key);
+    if (!c) { for (const d of days) if (d.v[key] != null && d.day >= x0) { out.x.push(d.day); out.mid.push(d.v[key]); } return out; }
+    const n = c.x.length;
+    for (let i = 0; i < n; i++) if (c.x[i] >= x0) { out.x.push(c.x[i]); out.mid.push(i === n - 1 ? days[days.length - 1].v[key] : c.mid[i]); }   // (today's point stays the live reading)
     return out;
+  }
+  const calmKept = new Map();
+  // The days' series of each trace, calmed: made when a day is added, dropped or the clock goes back (not in a frame).
+  function calmDays() {
+    // alloc-rare: only when a day is added or the clock goes back
+    for (const k of days.length ? Object.keys(days[days.length - 1].v) : []) {
+      const x = [], v = [];
+      for (const d of days) if (d.v[k] != null) { x.push(d.day); v.push(d.v[k]); }
+      calmKept.set(k, { x, mid: v.length >= CALM_MIN ? calmed(v, calmRadius(v.length)) : v });
+    }
+    if (!days.length) calmKept.clear();
   }
 
   // ── Crosshair ─────────────────────────────────────
@@ -1317,7 +1335,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   function redraw() { if (!frame) return; if (!(ticking && live())) draw(); updateHero(); }
   const offs = ['hiddenReadouts', 'hvpgMeasured', 'showHvpg'].map((k) => store.on(k, () => { yr.pressure = yr.hvpg = null; }));
   // A new patient (or the same one restarted) starts with empty traces.
-  function clear() { clearHemo(); days = []; redraw(); }
+  function clear() { clearHemo(); days = []; calmDays(); redraw(); }
   function pin(fp) { pinned = fp || null; if (frame) redraw(); }
   /** The window ahead of the record filled with the steady state the card opened on (backfill.js): the samples before its first one go in
    *  front, and the record it has made itself stays. The two minutes' bins and the strip's beats are made from them as from live ones. */
