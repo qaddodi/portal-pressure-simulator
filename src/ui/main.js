@@ -1424,7 +1424,7 @@ function presenterSettings() { return []; }
 // up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the default (1.5 MP on every device; a phone's was 0.5 until 16 Nov 2026).
 const MP_STEPS = FIG_STEPS;
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));

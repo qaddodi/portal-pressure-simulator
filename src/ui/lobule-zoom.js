@@ -855,7 +855,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Figure resolution: taken up as the lobule opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "when I check manual 25% for example the lobule doesn't change") waits (lzWant) for the lobule to stand still and whole (not
   // mid-dive, mid-rise or inside a sinusoid), then eases in: resSwap.
-  // The figure's pixel budget (Settings › Figure size, frame.js figOpt('cap'), 1.5 MP on a Mac and an iPad, 0.5 MP on a phone) holds for the lobule as it
+  // The figure's pixel budget (Settings › Figure size, frame.js figOpt('cap'), 1.5 MP on every device) holds for the lobule as it
   // does for the anatomy (14 Nov 2026: the anatomy's canvas was capped and the lobule drawn at the screen's own density whatever the setting, so the two
   // pictures differed in sharpness and the lobule cost far more heat). lzCap is the cap the layers were drawn for, taken up with the scale (lzWant, resSwap).
   let lzK = renderScale(), lzCap = figOpt('cap'), lzWant = null;

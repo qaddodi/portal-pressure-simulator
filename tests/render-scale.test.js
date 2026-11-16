@@ -115,12 +115,12 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 
-test('the further options: all off by default but the per-device megapixel budget (1.5, or 0.5 on a phone), stored, and each one heard', async () => {
+test('the further options: all off by default but the per-device megapixel budget (1.5 on every device), stored, and each one heard', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
   assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (a Mac or an iPad: 1.5 MP)`);
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (1.5 MP)`);
   assert.equal(f.figDefault('cap'), 1.5); assert.equal(f.figDefault('move'), 1);
   let heard = 0;
   f.onRenderScale(() => heard++);
@@ -304,7 +304,7 @@ test('Full with every option off and the 8-megapixel budget chosen: the canvas a
   assert.match(stage, /if \(renderSetting\(\) !== 'auto' && (?:live\.)?autoK === 1 && !(?:live\.)?moveLow && !figOpt\('adapt'\) && (?:live\.)?adaptK === 1\) return;/);
 });
 
-test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac and an iPad (12 Nov 2026)', async () => {
+test('the figure size default is 1.5 MP on every device, an iPhone too (16 Nov 2026: the phone\'s old Sharper is its Standard)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const was = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -314,17 +314,21 @@ test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac 
   };
   try {
     const phone = await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 5, 'p');
-    assert.equal(phone.figOpt('cap'), 0.5); assert.equal(phone.figDefault('cap'), 0.5); assert.equal(phone.isPhone(), true);
+    assert.equal(phone.figOpt('cap'), 1.5); assert.equal(phone.figDefault('cap'), 1.5);
+    const { figDetailWords, FIG_STEPS } = await import('../src/ui/fig-detail-words.js');
+    assert.equal(figDetailWords(FIG_STEPS, phone.figDefault('cap'))[FIG_STEPS.indexOf(1.5)], 'Standard', 'the phone\'s Standard is 1.5 MP, the step it called Sharper before');
     const pad = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 5, 'i');
     assert.equal(pad.figOpt('cap'), 1.5);
     const mac = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 0, 'm');
-    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.isPhone(), false);
+    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.figDefault('cap'), phone.figDefault('cap'), 'one default for every device');
+    assert.ok(!('isPhone' in mac), 'no per-device branch left in the cap default');
     // a stored choice wins on any device, and the phone's own default stores nothing
     store.set('pps.fig.cap', '4');
     assert.equal((await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148', 5, 'c')).figOpt('cap'), 4);
     store.clear();
-    phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the phone default is stored');
-    phone.setFigOpt('cap', 0.5); assert.ok(!store.has('pps.fig.cap'), 'the phone default stores nothing');
+    phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the default is stored');
+    phone.setFigOpt('cap', 1.5); assert.ok(!store.has('pps.fig.cap'), 'the default stores nothing');
+    phone.setFigOpt('cap', 0.5); assert.equal(store.get('pps.fig.cap'), '0.5', 'the old phone default is now a choice (Softer) and is kept');
   } finally {
     if (was) Object.defineProperty(globalThis, 'navigator', was); else delete globalThis.navigator;
     delete globalThis.localStorage;
