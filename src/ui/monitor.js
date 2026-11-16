@@ -275,7 +275,10 @@ function level(ctx, p, colr, txt, ly, narrow, R, c, x0) {
   const x1 = R, dy = Math.round(Y(p));   // (to the right axis, where its name stands: Mohammad, 13 Nov 2026)
   if (x1 - x0 > 3) {
     ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.5;
-    for (let xx = x0; xx < x1; xx += DASH + DASH_GAP) ctx.fillRect(xx, dy, Math.min(DASH, x1 - xx), 1);   // (boxes, not a stroked dash: see seg)
+    // (The dashes keep their places counted back from the right axis, not from x0: x0 follows the sweep's head while its trace runs, and dashes counted from it would march along
+    // with the head. Fixed, they are only uncovered as the head passes. Boxes, not a stroked dash: see seg.)
+    const P = DASH + DASH_GAP;
+    for (let xx = x1 - Math.ceil((x1 - x0) / P) * P - DASH_GAP; xx < x1; xx += P) { const a = Math.max(xx, x0), b = Math.min(xx + DASH, x1); if (b > a) ctx.fillRect(a, dy, b - a, 1); }
     ctx.restore();
   }
   if (!narrow) {

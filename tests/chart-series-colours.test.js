@@ -65,7 +65,7 @@ function charts() {
 
 test('the checker itself: the same colour twice, and two colours too near, are caught', () => {
   assert.equal(clashes([{ k: 'pv', c: '--tr-pv' }, { k: 'ppg', c: '--tr-pv' }]).length, 1, 'the one colour');
-  assert.ok(clashes([{ k: 'pv', c: '--tr-pv' }, { k: 'whvp', c: '--tr-wedge' }]).length > 0, 'magenta and orchid are 11 apart');
+  assert.ok(clashes([{ k: 'pv', c: '--tr-pv' }, { k: 'sin', c: '--tr-sin' }]).length > 0, 'magenta and orchid are 11 apart');
   assert.deepEqual(clashes([{ k: 'pv', c: '--tr-pv' }, { k: 'pvFlow', c: '--tr-hv' }]), []);
   assert.deepEqual(clashes([{ k: 'gv', c: '--tr-var' }, { k: 'gv', c: '--tr-var', dash: true }]), [], 'a dashed repeat keeps its reading\'s colour');
 });

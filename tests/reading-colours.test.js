@@ -1,4 +1,4 @@
-// One colour per reading on every chart and monitor (unification audit, finding 2; 13 Nov 2026): the portal vein magenta (tr-pv), the WHVP orchid
+// One colour per reading on every chart and monitor (unification audit, finding 2; 13 Nov 2026): the portal vein magenta (tr-pv), the WHVP amber
 // (tr-wedge), the FHVP blue (tr-hv), the IVC cyan (tr-ivc). The bedside monitor is dark in every look, so its colours (mon-*) are the dark looks' trace
 // colours, one value each (theme-tokens.js DARK_TRACE). The sinusoidal pressure has a token of its own (tr-sin), so the WHVP's colour means the WHVP.
 import './dom-shim.js';
@@ -44,10 +44,8 @@ test('the beat trace, the parameter curve and the flow-time chart draw each read
   for (const look of ['light', 'dark']) assert.ok(TOKENS[look]['tr-sin'], `${look} defines tr-sin`);
 });
 
-test('the talk trace: the portal vein in its token; the WHVP and FHVP wait on one colour change (violet and grey until then)', () => {
-  // (Its WHVP line runs beside the portal vein's: pink against orchid is OKLab ΔE 9.9 on the dark looks, under the palette floor of 15, so the talk trace keeps
-  // violet --s7 and a grey dashed FHVP. The standard is to change tr-wedge once, everywhere, monitor included: the owner's colour pick. When it is made, this
-  // test moves to tr-wedge and tr-hv.)
+test('the talk trace: the portal vein in its token; its WHVP and FHVP stay violet and a dashed grey, the chart standing still (the strips that scroll draw all three solid, in their tokens)', () => {
+  // (Violet is the HVPG's colour on this chart and the parameter curves, and its FHVP a dashed reference line: nothing on it scrolls, so no dash marches.)
   const c = Object.fromEntries(TALK.map(([k, , col]) => [k, col]));
   assert.equal(c.pv, '--tr-pv');
   assert.deepEqual({ whvp: c.whvp, fhvp: c.fhvp }, { whvp: '--s7', fhvp: '--text-3' });
