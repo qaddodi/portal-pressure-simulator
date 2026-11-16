@@ -81,7 +81,7 @@ export const STIFFNESS = {
       id: 'path', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, cam: 'liver', glow: ['liver'],
       tool: { kind: 'path', of: 'first-visit', short: 'First-visit path', patient: { bmi: false, ant: false } },
       whatIf: { label: 'Fibrosis', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
-      vignette: 'A 57-year-old woman with MASH cirrhosis and a BMI of 28 is seen for the first time. She feels well and has never had ascites or bleeding. Her ANTICIPATE probability is below 75%.',
+      vignette: 'A 57-year-old woman with MASH cirrhosis and a BMI of 28 is seen for the first time. She feels well, with no ascites or bleeding. Her ANTICIPATE probability is <75%.',
       caseQ: 'Where does she fall on the first-visit algorithm?',
       kicker: 'The rules', title: 'Her LSM and platelet count place her on the chart',
       line: 'Her LSM is {lsm} and her platelet count {plt}. The lit branches are her path through the Baveno VIII first-visit algorithm.',

@@ -7,7 +7,7 @@ import { detectEvents } from '../src/engine/events.js';
 // few milliseconds of model time) and 8x posts one per 0.8 s of model time; both wait the same quarter second now.
 test('events hold on model time: many evaluations at one instant fire nothing, a quarter second of model time does', () => {
   const e = new Engine(); e.loadPreset('cirr-decomp'); e.beat = true;
-  e.evState = {};   // (the preset's load marked its conditions as known: forgotten, they are newly on)
+  e.evState = {}; e.evStart = null;   // (the preset's load marked its conditions as known: forgotten, they are newly on)
   for (let i = 0; i < 25; i++) e.step(0.004);
   for (let i = 0; i < 50; i++) detectEvents(e);   // fifty frames with the clock stopped (a drag)
   assert.equal(e.newEvents.length, 0, 'no event fires while no model time has passed');

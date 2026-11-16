@@ -81,6 +81,7 @@ export function createRide(st, live) {
   const viewNow = () => (live.following || live.zoomBase || live.vtGliding || live.drifting || live.lobuleOn || live.morphTarget !== 0 || live.morph > 0 || live.diveT > 0 ? null : { k: live.vt.k, x: live.vt.x, y: live.vt.y });
   function followStart(v0, v1) {
     if (!v0 || !v1 || sameView(v0, v1) || !viewNow()) return false;
+    live.camLock?.release('card');
     cancelFrame(live.vtAnim); driftEnd();
     live.following = true; live.follow0 = { ...v0 }; live.follow1 = { ...v1 };
     // (A camera-only move, 4 Nov 2026, Mohammad: "the whole figure view moves instead of this being a camera only move with everything sticking to

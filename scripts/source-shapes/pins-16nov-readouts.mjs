@@ -27,6 +27,9 @@ export default [
   { file: 'src/ui/doppler.js', need: [/pulsatility\(shownV\(hiV\), shownV\(loV\)\)/, 'The Pulsatility tile follows its formula from the rounded numbers beside it (36, 21 and 0.17 did not agree, 16 Nov 2026)'] },
   { file: 'src/ui/doppler.js', need: [/beatwise \? r\.beatHi : r\.vmax/, 'A portal vein\'s Max and Trough are its median beat\'s, the beat Pulsatility and the calipers read'] },
   { file: 'src/ui/doppler.js', need: [/CI: 'Congestion index \(CI\)/, 'CI is spelled out where it is hovered, with the same kind of tooltip as Max'] },
+  // the HVPG tracing has a time axis (seconds along its bottom, numbers where they clear the stage words)
+  { file: 'src/ui/hvpg-proc.js', need: [/secs: true,/, 'The HVPG tracing\'s script asks for the seconds axis (tester, 16 Nov 2026: only stage words along the bottom)'] },
+  { file: 'src/ui/monitor.js', need: [/if \(S\.secs\) \{/, 'The catheter monitor draws a seconds axis for a script that asks for one'] },
   // the pin toasts do not repeat the compare bar's label
   { file: 'src/ui/timeline.js', forbid: [/toast\(`Comparing with/, 'The toast that pins a moment does not repeat the label the compare bar shows'] },
 ];

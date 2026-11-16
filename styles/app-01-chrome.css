@@ -194,11 +194,11 @@ html.model-contain .stage-view.gl-on :is(svg#stage, svg#labels) { contain: layou
 @media (hover: hover) { .chip-btn { --hv-bg: var(--surface-2); --hv-bd: var(--border-strong); --hv-bw: 1px; } .chip-btn:hover::before { opacity: 1 } }
 .chip-btn :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); } .chip-btn .ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
 .chip-btn .chev { width: var(--ic-s); height: var(--ic-s); color: var(--text-3); }
-/* A chip whose menu is open answers it: the chevron turns over (as the patient pill's does) and the chip holds the pressed tint, both easing back as the menu goes (?chipopen=0 leaves them off). */
-html.chip-open .chip-btn .chev, html.chip-open .lens-btn .chev { transition: rotate var(--d-small) var(--ease-move); }
-html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] .chev { rotate: 180deg; }
-html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--surface-2); }
-@media (prefers-reduced-motion: reduce) { html.chip-open :is(.chip-btn, .lens-btn) .chev { transition: none; rotate: none; } }
+/* A chip whose menu is open answers it: the chevron turns over (as the patient pill's does) and the chip holds the pressed tint, both easing back as the menu goes. (Read from aria-expanded alone: a class on the root for it, `chip-open`, stayed there after the menu closed. `html:root` keeps the weight the root class gave the rules.) */
+html:root :is(.chip-btn, .lens-btn) .chev { transition: rotate var(--d-small) var(--ease-move); }
+html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] .chev { rotate: 180deg; }
+html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--surface-2); }
+@media (prefers-reduced-motion: reduce) { html:root :is(.chip-btn, .lens-btn) .chev { transition: none; rotate: none; } }
 .chip-btn[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; --hv-bg: var(--text); --hv-bd: transparent; }   /* (--hv-bg: the hover tint lies over the button's own fill, so a light one hid the light words on the dark pill: Stop, Compare on, 16 Nov 2026) */
 .chip-btn[aria-pressed="true"] :is(svg, .ic) { color: currentColor; }
 

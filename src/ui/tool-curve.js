@@ -64,6 +64,7 @@
 //   param: 'scope.air' (from 0, to 20), lines: ['seen', 'across']
 //                     a curve over the scope's air in the esophagus, an instrument option, not a model setting: worked out from
 //                     the slide's own varix as the scope works it (the size seen, the pressure across the wall), nothing run.
+//   gap: true         with two swept lines against one x (against, pair): the band between them, tinted, so their difference reads as a shape.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
@@ -406,13 +407,13 @@ export function placeDotNames(items, f, half, ob) {
     }
     return cs;
   };
-  const trial = (it, c, bx, sg) => {
+  const trial = (it, c, bx, sg, tight = 0) => {
     let x0 = c.anchor === 'end' ? c.x - it.w : c.anchor === 'middle' ? c.x - it.w / 2 : c.x, y = c.y;
     if (lim) {
       const dx = clamp(x0 - 3, lim[0], Math.max(lim[0], lim[2] - it.w - 6)) - (x0 - 3), dy = clamp(y - 0.85 * f - 1, lim[1], Math.max(lim[1], lim[3] - 1.15 * f - 2)) - (y - 0.85 * f - 1);
       x0 += dx; y += dy;
     }
-    const box = [x0 - 3, y - 0.85 * f - 1, x0 + it.w + 3, y + 0.3 * f + 1], rect = [x0, y - 0.8 * f, x0 + it.w, y + 0.25 * f];
+    const pd = 3 - 2 * tight, box = [x0 - pd, y - 0.85 * f - 1 + 0.2 * f * tight, x0 + it.w + pd, y + 0.3 * f + 1 - 0.1 * f * tight], rect = [x0, y - 0.8 * f, x0 + it.w, y + 0.25 * f];
     const qx = clamp(it.x, rect[0], rect[2]), qy = clamp(it.y, rect[1], rect[3]), d = Math.hypot(qx - it.x, qy - it.y);
     const lead = d > gap ? [it.x + (qx - it.x) / d * (half - 1), it.y + (qy - it.y) / d * (half - 1), qx, qy] : null;
     let n = boxScore(box, { ...ob, boxes: bx, segs: sg });
@@ -439,7 +440,47 @@ export function placeDotNames(items, f, half, ob) {
     out[i] = { x: ax, y: best.y, anchor: best.anchor, box: best.box, lead: ok ? best.lead : null, ok, cross: best.cross };
     if (ok) { boxes.push(best.box); if (best.lead) segs.push(Object.assign([...best.lead], { w: 2 })); }
   });
+  // (A name the crowd left no clear spot gets one more try with the padding round words and dots drawn in to a point: close, but clear.)
+  const shrink = (b) => [b[0] + 2, b[1] + 2, b[2] - 2, b[3] - 2];
+  out.forEach((q, i) => {
+    if (q.ok) return;
+    const it = items[i], bx = boxes.map(shrink), sg = segs;
+    let best = null;
+    for (const c of spotsOf(it)) {
+      const t = trial(it, c, bx, sg, 1), cost = (t.n ? 1e3 + t.n : 0) + t.d + (t.lead ? 0.6 * f : 0) + t.cross * f;
+      if (!best || cost < best.cost) best = { ...t, cost, anchor: c.anchor };
+    }
+    if (!best || best.n) return;
+    const ax = best.anchor === 'end' ? best.box[2] - 1 : best.anchor === 'middle' ? (best.box[0] + best.box[2]) / 2 : best.box[0] + 1;
+    out[i] = { x: ax, y: best.y, anchor: best.anchor, box: best.box, lead: best.lead, ok: true, cross: best.cross };
+    boxes.push(best.box); if (best.lead) segs.push(Object.assign([...best.lead], { w: 2 }));
+  });
+  uncross(items, out, half);
   return out;
+}
+/** Leaders that cross are untangled the way a label maker does it: two names of one width swap places (each leader then runs to the
+ *  other's spot), which shortens both and uncrosses them; kept only when no leader crosses more than before. Mutates out. */
+function uncross(items, out, half) {
+  const leadTo = (it, b, w) => {
+    const rect = [b[0] + 3, b[1] + 1 + 0.05 * (b[3] - b[1]), b[0] + 3 + w, b[3] - 1 - 0.05 * (b[3] - b[1])];
+    const qx = clamp(it.x, rect[0], rect[2]), qy = clamp(it.y, rect[1], rect[3]), d = Math.hypot(qx - it.x, qy - it.y);
+    return d > half + 4 ? [it.x + (qx - it.x) / d * (half - 1), it.y + (qy - it.y) / d * (half - 1), qx, qy] : null;
+  };
+  const crossings = () => { let n = 0; for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) if (out[i]?.lead && out[j]?.lead && segsCross(out[i].lead, out[j].lead)) n++; return n; };
+  const len = (l) => l ? Math.hypot(l[2] - l[0], l[3] - l[1]) : 0;
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+      const a = out[i], b = out[j];
+      if (!a?.ok || !b?.ok || !a.lead || !b.lead || !segsCross(a.lead, b.lead) || Math.abs(items[i].w - items[j].w) > 1.5) continue;
+      const before = crossings(), la = leadTo(items[i], b.box, items[i].w), lb = leadTo(items[j], a.box, items[j].w);
+      const keep = [a, b];
+      out[i] = { ...b, lead: la, cross: 0 }; out[j] = { ...a, lead: lb, cross: 0 };
+      if (crossings() < before && len(la) + len(lb) <= len(a.lead) + len(b.lead) + 1e-6) changed = true;
+      else { out[i] = keep[0]; out[j] = keep[1]; }
+    }
+    if (!changed) break;
+  }
 }
 
 /** The x the slide's case sits at, and each line's value there (shown units): from the live params and fingerprint while a
@@ -777,6 +818,12 @@ export function createCurve() {
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
         name: G.ag ? sv('text', { class: 'pcv-name', 'data-look': 'cv.name', 'data-p-c': tokName(l.c), 'data-nomorph': '' }, l.name) : null };
     });
+    // (gap: true, two swept lines read against the same x: the band between them, so a difference of a mmHg or two shows as a shape, the claim of the slide.)
+    let gapEl = null;
+    if (t.gap && ser && G.ag && lines.length >= 3) {
+      const at = (j) => (ser.ys[j] || []).map((y, i) => (Number.isFinite(y) ? [X(lineX(j)[i]), lines[j].Y(y)] : null)).filter(Boolean), a = at(1), b = at(2).reverse();
+      if (a.length > 1 && b.length > 1) gapEl = sv('path', { class: 'pcv-gap', 'data-look': 'cv.gap', d: `M${[...a, ...b].map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')}Z` });
+    }
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
     let nth = 0;
@@ -807,7 +854,7 @@ export function createCurve() {
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      sv('defs', {}, panel.clip), panel.back, zone, gapEl, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
@@ -944,14 +991,6 @@ export function createCurve() {
       if (d.lead) restClass(d.lead, 'off', !pl.lead);
       if (pl.ok) { boxes.push(pl.box); if (pl.lead) leads.push(Object.assign([...pl.lead], { w: 2 })); }
     });
-    // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
-    if (ob.zoneLab) {
-      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
-      for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
-      const pl = placeWord(cands, tw, f, { ...ob, boxes });
-      boxes.push(pl.box);
-      ob.zoneLab.setAttribute('x', pl.x.toFixed(1)); ob.zoneLab.setAttribute('y', pl.y.toFixed(1)); ob.zoneLab.setAttribute('text-anchor', pl.anchor);
-    }
     // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
@@ -972,6 +1011,14 @@ export function createCurve() {
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
       restClass(c.el, 'on', !!p.on);
+    }
+    // (The zone's name inside it, low and away from the lines, after the cut-offs' names so it keeps clear of them ("HVPG 5" and "Response" stood on each other): the right corner, else the left or the middle.)
+    if (ob.zoneLab) {
+      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
+      for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
+      const pl = placeWord(cands, tw, f, { ...ob, boxes });
+      boxes.push(pl.box);
+      ob.zoneLab.setAttribute('x', pl.x.toFixed(1)); ob.zoneLab.setAttribute('y', pl.y.toFixed(1)); ob.zoneLab.setAttribute('text-anchor', pl.anchor);
     }
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`

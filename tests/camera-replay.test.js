@@ -1,25 +1,33 @@
 // Every slide-to-slide camera move, replayed (15 Nov 2026, Mohammad: "make sure the camera movement is not funky, like going around in circles
 // while zooming in or out or panning in slides"). Node only: each deck's neighbouring framings are worked out the way the stage frames a region
 // (a box fitted into the room the cards leave, centred there), on the three screens, and the path the camera takes between them is the app's own
-// (cam-arc.js camPath and lerpVT, cam-routes.js alongPath, ease.js easeMove and carried), judged on the screen:
+// (cam-arc.js camPath and lerpVT, ease.js easeMove and carried, and stage-glide.js animateVT itself on a clock the test moves), judged on the screen:
 //   - the framing the slide lands on never goes away from where it will be and back (no reversal), never curls (turning of its screen path), and
 //     comes in on one straight line;
 //   - the zoom never overshoots the two framings (a plain move) or goes out once and back in (a pull-back), and a pull-back never goes wider than
 //     the whole figure's fit;
 //   - no frame jumps: the step between two frames stays within a small share of the whole move.
+// (16 Nov 2026, Mohammad, Sites and causes 2 to 3: "I THOUGHT WE FIXED THIS AT THE ORIGIN". The path was one straight glide; what read as
+// funky was its clock: 480 ms for a third of a screen, and a 1 s frame stall near its end that landed the last fifth in one jump. This file
+// judged only the path's shape, on the decks' raw slide lists (no outline, a visual with no camera breaking the chain), never the glide as it
+// runs. It now also walks every deck as presented, both ways, on four screens, through animateVT with a stall, a late first frame and the
+// cards' refits injected: one move per slide, every point of the figure on a straight line, no frame jumping, the slide's time.)
 // The window the paths are worked out in is the stage's real view box (cam-arc.js camWindow), never the 1400 x 1000 plate the arcs and the glide's
 // times read until 15 Nov 2026, which put every width, overlap test and pull-back out by the plate's ratio (differently on a phone and a Mac).
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DECKS, REGIONS } from '../src/ui/decks.js';
+import { DECKS, REGIONS, withOverview } from '../src/ui/decks.js';
+import { oneLadder } from '../src/ui/teach-extras.js';
+import { instrumentOf } from '../src/ui/slide-instrument.js';
+import { STALL_MAX } from '../src/ui/glide-clock.js';
 import { VB_ANAT, VB_CIRC, VIEW } from '../src/ui/anatomy.js';
 import { camPath, camWindow, geomView, lerpVT, viewGeom, blendPaths } from '../src/ui/cam-arc.js';
-import { alongPath, ALONG_OFF } from '../src/ui/cam-routes.js';
 import { isCamOn, regionBox } from '../src/ui/cam-frame.js';
-import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
+import { CAM_CARRY_MAX, CAM_MS_FAR, CAM_MS_MAX, SLIDE_MS_MIN, camMs, carriedCam, carried, easeMove, createGlideTracker, slideMs } from '../src/ui/ease.js';
 import { diveAlong, diveMapInto } from '../src/ui/dive-map.js';
 import { viewBoxAt, viewXfCameraInto, viewXfRetarget } from '../src/ui/view-xf.js';
+import { createCamLock, judgeSlideMove, lockedWrite } from '../src/ui/slide-cam.js';
 
 const { createGlide } = await import('../src/ui/stage-glide.js');
 const { createRide } = await import('../src/ui/stage-ride.js');
@@ -29,6 +37,7 @@ const SCREENS = {
   iPhone: { sw: 390, sh: 520, free: { l: 8, t: 60, r: 382, b: 330 } },
   iPad: { sw: 1024, sh: 700, free: { l: 360, t: 60, r: 1004, b: 680 } },
   Mac: { sw: 1440, sh: 800, free: { l: 500, t: 70, r: 1420, b: 770 } },
+  'iPhone on its side': { sw: 844, sh: 340, free: { l: 330, t: 20, r: 830, b: 330 } },
 };
 const FRAMES = 120;
 
@@ -83,23 +92,37 @@ function judge(at, from, to, vb, cap, arc, what) {
   for (let i = 1; i < ks.length; i++) assert.ok(Math.abs(Math.log(ks[i] / ks[i - 1])) < 0.12, `${what}: frame ${i} zooms in a jump`);
 }
 
-// The anatomic neighbours of every deck: a slide framed on a region (or the fit) beside the next one framed so. A circuit slide, a lobule or
-// sinusoid framing, a visual and a view change are other moves (view-xf.js, the lobule's own camera): they are not on the plate's camera.
+// Every slide-to-slide move of every deck as it is presented (withOverview: the outline first; the presenter's own slide mapping), Next and
+// Back: the framing the camera stands at on leaving a slide (its time-lapse's end, lapse.cam, when it has one) to the framing it frames on
+// arriving (going forward a time-lapse opens on its own camera; going back, on where its days end). A visual with no camera leaves the camera
+// where it is, so the move after it starts from the framing before it. A circuit slide, a lobule or sinusoid framing and a catheter slide are
+// other moves (view-xf.js, the lobule's own camera, the catheter's choreography): they break the chain.
+const SHOWN = (d) => withOverview(d).slides.map(oneLadder).map(instrumentOf);
+function frameOf(s, cam) {
+  if (isCamOn(cam)) cam = cam.near;
+  if (typeof cam === 'string' && /^(lobule|sinusoid)/.test(cam)) return null;
+  const fit = !cam || cam === 'fit', box = fit ? FIT_BOX : regionBox(cam, REGIONS);
+  return box ? { box, kMax: fit ? 1.15 : s.kMax || 3.2 } : null;
+}
 function moves() {
   const out = [];
-  for (const [id, deck] of Object.entries(DECKS)) {
-    let prev = null;
-    (deck.slides || []).forEach((s, i) => {
-      if (s.view === 'circuit' || s.visual) { prev = null; return; }
-      let cam = s.cam || 'fit';
-      if (isCamOn(cam)) cam = cam.near;
-      if (typeof cam === 'string' && /^(lobule|sinusoid)/.test(cam)) { prev = null; return; }
-      const box = cam === 'fit' || !cam ? FIT_BOX : regionBox(cam, REGIONS);
-      if (!box) { prev = null; return; }
-      const cur = { box, kMax: s.kMax || 3.2, at: `${id} ${i}` };
-      if (prev) { out.push({ from: prev, to: cur }); out.push({ from: cur, to: prev, back: true }); }   // (Next, and Back along the same pair: 16 Nov 2026, Carvedilol going back from 6 to 5 panned at one zoom and then zoomed)
-      prev = cur;
+  for (const deck of Object.values(DECKS)) {
+    let prev = null, n = 0;   // (prev: the slide the camera last framed, and where it left it)
+    SHOWN(deck).forEach((s, i) => {
+      n++;
+      if (s.view === 'circuit' || s.cath) { prev = null; return; }
+      const cam = s.visual ? s.cam || null : s.cam || 'fit';
+      if (!cam) return;   // (a visual over the figure with no camera: the camera stays)
+      const lc = !s.visual && s.lapse?.cam ? s.lapse.cam : null, arrive = frameOf(s, cam), arriveBack = lc ? frameOf(s, lc) : arrive, leave = arriveBack;
+      if (!arrive || !leave) { prev = null; return; }
+      const at = `${deck.id} ${i + 1}`;
+      if (prev) {
+        out.push({ from: prev.leave, to: arrive, at: `${prev.at} to ${at}` });
+        out.push({ from: leave, to: prev.arriveBack, back: true, at: `${at} back to ${prev.at}` });   // (16 Nov 2026, Carvedilol going back from 6 to 5)
+      }
+      prev = { leave, arriveBack, at };
     });
+    assert.ok(n > 0, `${deck.id} has slides`);
   }
   return out;
 }
@@ -136,18 +159,89 @@ test('the stage\'s arc room and screen width are its real view box\'s, the free 
 for (const [name, scr] of Object.entries(SCREENS)) {
   test(`${name}: every slide-to-slide move of every deck lands straight, in zoom without overshoot, and never reverses`, () => {
     const vb = camWindow(scr.sw, scr.sh, BOX, scr.free), fit = framing(FIT_BOX, scr, 1.15), wMax = vb.w / fit.k;
-    let n = 0, arcs = 0;
-    for (const { from, to } of moves()) {
-      const a = framing(from.box, scr, from.kMax), b = framing(to.box, scr, to.kMax), p = camPath(a, b, vb, wMax);
-      if (p.arc) arcs++;
-      // (the glide's own progress: eased by the quintic; each path asked at the eased value, as animateVT's step does)
-      judge((u) => p.at(u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), p.arc, `${name}, ${from.at} to ${to.at}`);
+    let n = 0;
+    for (const { from, to, at } of moves()) {
+      const a = framing(from.box, scr, from.kMax), b = framing(to.box, scr, to.kMax);
+      // (a slide's move is always the plain glide, never the pull-back: stage-glide.js; each asked at the quintic's eased value, as animateVT's step does)
+      judge((u) => lerpVT(a, b, u), a, b, vb, Math.max(wMax, vb.w / a.k, vb.w / b.k), false, `${name}, ${at}`);
       n++;
     }
-    assert.ok(n > 500, `the decks have their moves, forward and back (${n})`);
-    assert.ok(arcs <= n);
+    assert.ok(n > 600, `the decks have their moves, forward and back (${n})`);
+  });
+
+  // The glide as it runs: animateVT on the test's clock, asked as the presenter's camera() asks a slide's framing (1500 ms, an arc allowed,
+  // scaled, the slide's own move), with what a real slide change throws at it: a late first frame, the cards' entry making a 1 s frame, and
+  // the cards' refits (a near one while it runs and just after it lands, a real change while it runs).
+  test(`${name}: every deck's slide moves run as one straight glide, through a stall, a late first frame and the cards' refits`, () => {
+    const vb = camWindow(scr.sw, scr.sh, BOX, scr.free), fit = framing(FIT_BOX, scr, 1.15), wMax = vb.w / fit.k;
+    let n = 0, worstStep = 0, stalls = 0;
+    const list = moves();
+    list.forEach(({ from, to, at }, j) => {
+      const a = framing(from.box, scr, from.kMax), b = framing(to.box, scr, to.kMax);
+      if (Math.abs(a.k - b.k) < 1e-3 * a.k && Math.hypot(a.x - b.x, a.y - b.y) < 1) return;   // (the same framing: no move)
+      const r = rig(a, { vb, wMax });
+      try {
+        // the slide's points: the middle of the landing framing and four more across the figure, as the viewer sees them
+        const g1 = viewGeom(b, vb), pts = [[g1.cx, g1.cy], [400, 200], [1000, 250], [500, 800], [950, 750]], track = pts.map(() => []), ks = [];
+        const rec = () => { const v = r.live.vt; pts.forEach((P, i) => track[i].push([v.k * P[0] + v.x, v.k * P[1] + v.y])); ks.push(v.k); };
+        r.now(0); rec();
+        r.g.animateVT(b, 1500, { arc: true, scale: true, slide: true });
+        const plan = r.moves[0], ms = plan?.ms;
+        assert.ok(plan && plan.slide, `${name}, ${at}: the slide's move is asked`);
+        assert.equal(plan.arc, false, `${name}, ${at}: a slide's move never pulls back (the zoom one way)`);
+        assert.ok(ms >= SLIDE_MS_MIN && ms <= Math.round(CAM_MS_FAR * 1.3), `${name}, ${at}: a slide's glide takes ${ms} ms, never under ${SLIDE_MS_MIN}`);
+        // a late first frame (the move's own layout pass), then 16 ms frames, a 1 s stall somewhere in the move (seeded by the move), a near refit
+        // half way, and a near refit 300 ms after the landing
+        const stallAt = 0.15 + ((j * 0.37) % 0.75), late = 120 + (j % 4) * 60;
+        let t = late, stalled = false, refit = false, tamper = false;
+        for (let guard = 0; guard < 2000 && (r.live.vtGliding || guard === 0); guard++) {
+          const u = Math.max(0, (t - late) / ms);
+          if (!stalled && u >= stallAt) { stalled = true; t += 1000; stalls++; }
+          // (every other writer of the camera tries while the move runs: the vessel layer's home fit set outright, another's glide state, a dry
+          // solve that puts the view back, the stage's home fit asked as a glide. None may bend the move: slide-cam.js, the lock.)
+          if (u >= 0.3 && !tamper) {
+            tamper = true; r.now(t);
+            r.live.vt = nudge(b, vb, 0.25);
+            r.live.vtGliding = false; r.live.vtTarget = null;
+            r.live.camLock.dry(() => { const keep = r.live.vt; r.live.vt = a; r.live.vt = keep; });
+            r.g.animateVT(a, 450, {});
+            r.g.animateVT(nudge(b, vb, 0.004), 400, { steady: true });   // (and last, a near refit: the landing itself)
+          }
+          r.run(t); rec();
+          if (!refit && u >= 0.5) { refit = true; r.now(t); r.g.animateVT(nudge(b, vb, 0.012), 400, { steady: true }); }
+          t += 16;
+        }
+        assert.ok(!r.live.vtGliding, `${name}, ${at}: it lands`);
+        r.now(t + 300); r.g.animateVT(nudge(b, vb, -0.015), 400, { steady: true });
+        for (let k = 0; k < 60 && r.live.vtGliding; k++) { t += 16; r.run(t + 300); rec(); }
+        // (the slide camera's own record, judged by the judge the app runs on a device: window.pps.cameraGate)
+        const tr = r.live.camLock.traces().at(-1);
+        assert.deepEqual(judgeSlideMove(tr, vb, { lateMs: 400 }), [], `${name}, ${at}: the judge`);
+        assert.ok(tr.blocked.length >= 1 && tr.held.length >= 3, `${name}, ${at}: the other writers were refused and held (${tr.blocked.length}, ${tr.held.length})`);
+        const glides = r.moves.filter((m) => m.kind === 'glide');
+        assert.equal(glides.length, 1, `${name}, ${at}: one move, not ${glides.length} (${r.moves.map((m) => m.kind).join(', ')})`);
+        assert.ok(Math.abs(r.live.vt.k - b.k) < 1e-9 && Math.abs(r.live.vt.x - b.x) < 1e-6 && Math.abs(r.live.vt.y - b.y) < 1e-6, `${name}, ${at}: on the slide's framing`);
+        // every point on one straight line, never back along it
+        track.forEach((P, i) => { const w = wander(P); assert.ok(w.dev < 0.5 + 0.002 * w.L && w.back < 0.5, `${name}, ${at}: point ${i} is off its line by ${w.dev.toFixed(1)} of ${w.L.toFixed(0)}, back ${w.back.toFixed(1)}`); });
+        // the zoom one way
+        let turns = 0, dir = 0;
+        for (let i = 1; i < ks.length; i++) { const d = Math.sign(ks[i] - ks[i - 1]); if (Math.abs(ks[i] - ks[i - 1]) > 1e-9 * ks[i]) { if (dir && d !== dir) turns++; dir = d; } }
+        assert.equal(turns, 0, `${name}, ${at}: the zoom turns back ${turns} times`);
+        // no frame jumps, the stall's and the late first frame's included: a frame moves the landing point no more than STALL_MAX of the
+        // quintic's top speed (1.875 times its mean) allows, times the zoom's own lead (zf)
+        const L = track[0], span = Math.max(1, Math.hypot(L[0][0] - L[L.length - 1][0], L[0][1] - L[L.length - 1][1])), zr = b.k / a.k, zf = Math.abs(zr - 1) < 1e-9 ? 1 : (Math.abs(Math.log(zr)) * Math.max(zr, 1)) / Math.abs(zr - 1), cap = (1.875 * STALL_MAX * zf) / ms;   // (zf: the plain glide's screen pace runs ahead of its eased progress by up to this, the zoom on a log scale)
+        for (let i = 1; i < L.length; i++) { const st = Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]) / span; worstStep = Math.max(worstStep, st); assert.ok(st <= cap + 0.002, `${name}, ${at}: frame ${i} jumps ${(st * 100).toFixed(1)} % of the move (at most ${(cap * 100).toFixed(1)})`); }
+        assert.ok(Math.hypot(L[1][0] - L[0][0], L[1][1] - L[0][1]) / span < 0.02, `${name}, ${at}: the late first frame shows the start`);
+        n++;
+      } finally { r.done(); }
+    });
+    assert.ok(n > 200 && stalls === n, `the walk runs the decks' moves (${n})`);
+    assert.ok(worstStep > 0, 'and measures them');
   });
 }
+
+/** The view b moved by `f` of a screen sideways (a refit to cards that settled a little). */
+function nudge(b, vb, f) { return { k: b.k, x: b.x + f * vb.w, y: b.y }; }
 
 test('a far move pulls back once and lands straight, on every screen', () => {
   let seed = 3;
@@ -163,32 +257,6 @@ test('a far move pulls back once and lands straight, on every screen', () => {
     }
   }
   assert.ok(arcs > 100, `the sweep reaches the pull-back (${arcs})`);
-});
-
-test('a glide that follows a vessel never goes back along it, and stays within its calm band of the straight line', () => {
-  let seed = 11;
-  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  const lines = [[[400, 300], [550, 330], [700, 350], [850, 330], [1000, 300]], [[600, 100], [620, 300], [640, 500], [630, 700]]];
-  let followed = 0;
-  for (const [name, scr] of Object.entries(SCREENS)) {
-    const vb = camWindow(scr.sw, scr.sh, BOX, scr.free);
-    for (let i = 0; i < 3000; i++) {
-      const k0 = 1 + rnd() * 2.5, k1 = k0 * (1 + (rnd() - 0.5) * 0.8);
-      const a = geomView({ cx: 400 + rnd() * 600, cy: 100 + rnd() * 600, w: vb.w / k0 }, vb), b = geomView({ cx: 400 + rnd() * 600, cy: 100 + rnd() * 600, w: vb.w / k1 }, vb);
-      const p = alongPath(a, b, lines, vb);
-      if (!p) continue;
-      followed++;
-      const g0 = viewGeom(a, vb), g1 = viewGeom(b, vb), d = Math.hypot(g1.cx - g0.cx, g1.cy - g0.cy);
-      let last = -Infinity;
-      for (let j = 0; j <= FRAMES; j++) {
-        const g = viewGeom(p.at(easeMove(j / FRAMES)), vb), f = ((g.cx - g0.cx) * (g1.cx - g0.cx) + (g.cy - g0.cy) * (g1.cy - g0.cy)) / (d * d), off = Math.abs((g.cx - g0.cx) * (g1.cy - g0.cy) - (g.cy - g0.cy) * (g1.cx - g0.cx)) / d / d;
-        assert.ok(f >= last - 1e-9, `${name} #${i}: the glide goes back along the vessel`);
-        assert.ok(off <= ALONG_OFF + 1e-6, `${name} #${i}: the glide swings off the straight line (${off.toFixed(3)})`);
-        last = f;
-      }
-    }
-  }
-  assert.ok(followed > 200, `the sweep reaches the vessel-following glide (${followed})`);
 });
 
 test('a refit while a move runs takes the move over without a jump or a turn back', () => {
@@ -330,11 +398,15 @@ test('with no change in the view box the camera through a change is the plain ev
 // ── A framing asked for while a move runs ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 // animateVT itself, run on a clock the test moves (as camera-hand.test.js does), on a Mac's window, with the stage's other parts stood in for.
-function rig(from) {
+function rig(from, room = null) {
   let clock = 0, frames = [];
-  const moves = [], vb = camWindow(1440, 800, BOX), real = performance.now;
-  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vt: { ...from }, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => false, following: false, rideCTM: null, morphTarget: 0, lastFree: null };
-  const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax: vb.w }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [0, 0], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
+  const moves = [], vb = room?.vb || camWindow(1440, 800, BOX), wMax = room?.wMax || vb.w, real = performance.now;
+  // (the stage's camera lock and its one write of the view, as stage.js wires them: slide-cam.js)
+  let vtv = { ...from }, hand = false;
+  const camLock = createCamLock();
+  const live = { aiming: false, vtAnim: 0, arcRun: null, drifting: false, vtTarget: null, vtGliding: false, cath: {}, sites: {}, scan: {}, camMove: false, dprLet() {}, dprobePaint() {}, gestureOn: () => hand, following: false, rideCTM: null, morphTarget: 0, lastFree: null, camLock,
+    get vt() { return vtv; }, set vt(v) { if (lockedWrite(camLock, () => hand)) vtv = v; }, setHand(h) { hand = h; } };
+  const st = { CIRC_C: [0, 0], applyVT() {}, arcRoom: () => ({ vb, wMax }), screenW: () => vb.w, camSettle() {}, camSettleIdle() {}, circVB: () => [0, 0, 1000, 600], dpr: {}, driftEnd() {}, glideXfStart() {}, glideXfStep() {}, logMove: (m) => moves.push(m), nextFrame: (cb) => { frames.push(cb); return frames.length; }, refreshCTM() {}, rideStep() {}, safeInsets: () => ({ l: 0, t: 0, r: 0, b: 0 }), sameView: (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1, sitesPaint() {}, svg: { clientWidth: 1440, clientHeight: 800 }, vbCenter: () => [vb.cx, vb.cy], vtTrack: createGlideTracker(), viewXfRetargetTo: () => false, geo: {} };
   const g = createGlide(st, live);
   return { live, g, vb, moves, now(t) { clock = t; performance.now = () => clock; }, run(t) { clock = t; const c = frames; frames = []; for (const cb of c) cb(t); }, done() { performance.now = real; } };
 }
@@ -381,8 +453,8 @@ test('the move in from a case card\'s whole patient lands straight on every scre
         if (typeof cam !== 'string' || /^(lobule|sinusoid)/.test(cam)) return;
         const box = cam === 'fit' ? FIT_BOX : regionBox(cam, REGIONS);
         if (!box) return;
-        const b = framing(box, scr, s.kMax || 3.2), p = camPath(fit, b, vb, wMax);
-        judge((u) => p.at(u), fit, b, vb, Math.max(wMax, vb.w / b.k), p.arc, `${name}, ${id} ${i}, in from the case card`);
+        const b = framing(box, scr, s.kMax || 3.2);   // (a slide's move, the move in from a case card's whole patient too: the plain glide)
+        judge((u) => lerpVT(fit, b, u), fit, b, vb, Math.max(wMax, vb.w / b.k), false, `${name}, ${id} ${i}, in from the case card`);
         n++;
       });
     }
@@ -396,7 +468,6 @@ test('the move in from a case card\'s whole patient lands straight on every scre
       r.live.vt = { ...A }; r.now(0);
       r.g.frameBox(box, 1500, 3.2, false, slow ? { slow: true } : {});
       assert.equal(r.moves.length, 1, 'one move');
-      assert.equal(r.moves[0].along, false, 'no path along a vessel from the whole patient');
       if (slow) assert.ok(r.moves[0].ms >= CAM_MS_MAX, 'in from a case card: never quicker than the move out');
       else assert.ok(r.moves[0].ms <= CAM_MS_FAR);
     } finally { r.done(); }
@@ -410,8 +481,8 @@ test('a slide\'s glide time grows with the reach, never stops short of a hand\'s
   for (let x = 0; x <= 8000; x += 25) {
     const b = { k: 1, x, y: 0 }, m = slideMs(at, b, w);
     assert.ok(m >= last, `monotone at ${x}`); last = m;
-    assert.ok(m >= camMs(at, b, w) && m <= CAM_MS_FAR, `between a hand's glide and the ceiling at ${x}`);
-    if (camMs(at, b, w) < CAM_MS_MAX) assert.equal(m, camMs(at, b, w), 'the same time where a hand\'s glide has not stopped');
+    assert.ok(m >= camMs(at, b, w) && m >= SLIDE_MS_MIN && m <= CAM_MS_FAR, `between a hand's glide (and a slide's least) and the ceiling at ${x}`);
+    if (camMs(at, b, w) < CAM_MS_MAX) assert.equal(m, Math.max(SLIDE_MS_MIN, camMs(at, b, w)), 'a hand\'s time where it has not stopped, never under a slide\'s least');
   }
   assert.ok(slideMs(at, { k: 1, x: 1600, y: 0 }, w) > CAM_MS_MAX + 100 && slideMs(at, { k: 1, x: 6400, y: 0 }, w) > CAM_MS_FAR - 60, 'two screens are slower than 900, many nearly the ceiling');
   // no kink in the time: the steps between neighbouring reaches stay small across the 900 ms knee
@@ -470,4 +541,35 @@ test('the camera\'s carried progress leaves at the old speed, rises without over
     let last = 0;
     for (let i = 0; i <= 2000; i++) { const t = i / 2000, v = p(t); assert.ok(v >= last - 1e-12 && v <= 1 + 1e-12, `c=${c} t=${t}: monotone and under 1 (${v})`); last = v; }
   }
+});
+
+// ── The slide's one move against a real change while it runs ─────────────────────────────────────────────────────────────────────────────
+test('a real change asked while a slide\'s move runs (a card folded, the screen turned) is one glide after the landing, never a bend in it', () => {
+  const A = { k: 1.2, x: -100, y: -50 }, B = { k: 1.9, x: -700, y: -300 }, C = { k: 1.6, x: -400, y: -100 };
+  const r = rig(A);
+  try {
+    const g1 = viewGeom(B, r.vb), T = [g1.cx, g1.cy], first = [];
+    r.now(0); r.g.animateVT(B, 1500, { arc: true, scale: true, slide: true });
+    const ms = r.live.vtMs;
+    let t = 16;
+    for (; r.live.vtTarget === B && t < 4000; t += 16) {
+      r.run(t);
+      first.push([r.live.vt.k * T[0] + r.live.vt.x, r.live.vt.k * T[1] + r.live.vt.y]);
+      if (r.live.vtTarget !== B) break;   // (landed, and the change set off from there)
+      if (Math.abs(t - Math.round(ms / 2 / 16) * 16) < 1) { r.now(t); r.g.animateVT(C, 400, { steady: true }); }
+    }
+    assert.ok(Math.abs(first.at(-1)[0] - (B.k * T[0] + B.x)) < 1e-6, 'the slide\'s move ran to its own framing');
+    const w = wander(first);
+    assert.ok(w.dev < 0.5 + 0.002 * w.L && w.back < 0.5, `the slide's move kept its line (off by ${w.dev.toFixed(1)}, back ${w.back.toFixed(1)})`);
+    for (; r.live.vtGliding && t < 6000; t += 16) r.run(t);
+    assert.ok(Math.abs(r.live.vt.k - C.k) < 1e-9 && Math.abs(r.live.vt.x - C.x) < 1e-6, 'and then the change, once');
+    const kinds = r.moves.map((m) => m.kind);
+    assert.deepEqual(kinds, ['glide', 'held', 'after', 'glide'], `the slide's glide, the change held, then its glide, named as a move after the landing (${kinds.join(', ')})`);
+    // (and the judge fails that slide: its plan was made before the room it frames was final)
+    assert.ok(judgeSlideMove(r.live.camLock.traces().at(-1), r.vb).some((f) => /second move after the landing/.test(f)), 'the judge names the second move');
+    // a new slide, a hand and a slow push are never held
+    r.now(t); r.g.animateVT(B, 1500, { arc: true, scale: true, slide: true });
+    r.now(t + 100); r.g.animateVT(A, 900, { scale: true, v0: { k: 0, x: 0.1, y: 0 } });
+    assert.equal(r.live.vtTarget, A, 'a hand takes over at once');
+  } finally { r.done(); }
 });

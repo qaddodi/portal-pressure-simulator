@@ -89,7 +89,7 @@ export const VARICES = {
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: 'ticks', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'],
         dots: [{ slide: 'collat', name: 'CSPH' }] },
       kicker: 'Summary', site: 'sin', title: 'Varices grow once the HVPG exceeds 10 mmHg',
-      line: 'At an HVPG <10 mmHg the esophageal veins keep a normal caliber. Above it, varix size and wall stress climb together: at {hvpg}, the varix is {varix}.',
+      line: 'At an HVPG <10 mmHg the esophageal veins keep a normal caliber. Above it, varix size and wall stress climb together. In decompensated cirrhosis, at {hvpg}, the varix is {varix}.',
       notes: 'Each point is the model\'s cirrhosis settled for a year, the varix diameter and its wall stress (as a fraction of the rupture stress) read against the HVPG. Collaterals form once the gradient reaches about 10 mmHg (AASLD 2024 Fig. 2), and the varix then widens with it. The wall stress rises faster than the size, because by Laplace\'s law it grows with the transmural pressure and the radius together (AASLD 2024 p. 1193). Red wale marks appear from about 70% of the rupture stress. The amber 2.5 and red 5 on the left scale are the small and large varix cut-offs, in mm. The ring is decompensated cirrhosis; the point is CSPH, the first slide\'s patient. (AASLD 2024 Fig. 2, p. 1193.) One model patient per point; real patients vary far more.',
       ask: ['Why does the wall stress climb faster than the varix diameter?', 'Wall stress is proportional to transmural pressure × radius, so the two rising together multiply.'],
     },
