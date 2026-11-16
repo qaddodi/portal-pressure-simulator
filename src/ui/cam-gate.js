@@ -15,7 +15,7 @@ export function createCameraGate({ presenter, stage, decks }) {
   if (!presenter || !stage) throw new Error('cameraGate: the presenter and the stage are not ready yet');
   // (Waits until the slide has landed: no slide change running, no camera moving, for 400 ms. A case or question card is tapped away and a
   // time-lapse is sped to its end, as a person would; `lifted` says a card was, so its move's start is not counted from the press.)
-  // (hidden: the page was hidden at some look, or a 100 ms timer took most of a second, where the browser draws about one frame a second and stretches every timer to a second: a
+  // (hidden: the page was hidden at some look, or a 100 ms timer took over 400 ms, or the move's frames kept landing a second apart, where the browser draws about one frame a second and stretches every timer to a second: a
   // change's frame waits, a few frames and timers of about 300 ms in all on a shown screen, then take seconds. 16 Nov 2026: a run in a
   // hidden pane reported late starts of 1 to 6 s whose steps were each one throttled second.)
   let hidden = false;
@@ -29,7 +29,7 @@ export function createCameraGate({ presenter, stage, decks }) {
       if (card) { card.click(); lifted = true; }
       presenter.skipLapse?.();
       if (!presenter.busy() && !stage.gliding() && !document.querySelector('.pz-load.on, .pz-cover')) { quiet += 100; if (quiet >= 400) return { ok: true, lifted }; } else quiet = 0;
-      const t = performance.now(); await sleep(100); if (performance.now() - t > 600) hidden = true;   // (a 100 ms timer that took most of a second: timers are throttled here)
+      const t = performance.now(); await sleep(100); if (performance.now() - t > 400) hidden = true;   // (a 100 ms timer that took four times as long: timers are throttled here)
     }
     return { ok: false, lifted };
   }
@@ -48,7 +48,10 @@ export function createCameraGate({ presenter, stage, decks }) {
       const press = s.lifted || tr.press == null ? undefined : tr.press + rise;
       const fails = judgeSlideMove(tr, vbOf(tr), { lateMs: 120, pressMs: 900, press });
       // (Frames about a second apart are a hidden or throttled page, not the app: its start times are not judged, and the report says so.)
-      const gaps = tr.frames.slice(1).map((f, i) => f[0] - tr.frames[i][0]).sort((x, y) => x - y), slow = gaps.length > 2 && gaps[gaps.length >> 1] > 400;
+      // (Or frames that keep landing about a second apart, the throttle's own tick, even between quicker ones: a hidden pane at 2 to 11 frames a
+      // second showed stalls of 1000 to 1050 ms on every move and was never caught by the median, 16 Nov 2026.)
+      const gaps = tr.frames.slice(1).map((f, i) => f[0] - tr.frames[i][0]).sort((x, y) => x - y), ticks = gaps.filter((g) => g >= 900 && g <= 1150).length;
+      const slow = (gaps.length > 2 && gaps[gaps.length >> 1] > 400) || ticks >= 2;
       const timed = !(hidden || slow);
       const untimed = [];
       for (let i = fails.length - 1; i >= 0; i--) if ((s.lifted && /after the press/.test(fails[i])) || (!timed && /after (the press|it was asked)/.test(fails[i]))) { if (!s.lifted || !/after the press/.test(fails[i])) untimed.unshift(fails[i]); fails.splice(i, 1); }

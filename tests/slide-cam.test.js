@@ -146,4 +146,11 @@ test('pps.cameraGate leaves a throttled move\'s start times unjudged and counts 
   assert.match(r.text, /NOT TIMED: 1 moves/);
   assert.equal(r.moves.find((m) => m.at.startsWith('slow')).timed, false);
   assert.equal(r.moves.find((m) => m.at.startsWith('rise')).rise, 3900);
+  // a pane at a few frames a second whose frames keep landing a second apart (not most of them: the median alone missed it)
+  const ticky = () => { const tr = traceOf(plan, frames(plan.ms), (t) => Math.min(1, t / plan.ms)); tr.frames.forEach((f, i) => { f[0] += (i > 10 ? 1000 : 0) + (i > 30 ? 1000 : 0); }); tr.vb = vb; tr.press = -3000; tr.t0 = 0; tr.steps = [['leave', 5], ['camera', 3000]]; return tr; };
+  presenter.go = () => { traces = [ticky()]; };
+  globalThis.document.querySelector = () => null;
+  const r2 = await createCameraGate({ presenter, stage, decks: [{ id: 'slow' }] })({ back: false });
+  globalThis.document.querySelector = q;
+  assert.equal(r2.moves[0].timed, false, r2.text);
 });
