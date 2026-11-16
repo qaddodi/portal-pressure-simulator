@@ -357,6 +357,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); (?:live\.)?ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 
+  // The zoom pill's glyphs at rest on a pointer device keep 3:1 on the glass in every look (16 Nov 2026): muted ink at .5 was 2.5:1 in Light and Soft.
+  need('styles/app-07-floating.css', [[/\.zoom-pill \.ib:not\(\.stage-rotate\):not\(:disabled\) \{ opacity: \.7;/, "the zoom pill's resting ink is .7 (3.9:1 or more in all five looks; .5 was 2.5:1 in Light)"]]);
+
+  // The pressure ramps tests/chevron-contrast.test.js judges the heads' ink on (16 Nov 2026): a ramp changed in the styles must change there too.
+  need('styles/tokens.css', [
+    ['--ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;', "Light's pressure ramp, as tests/chevron-contrast.test.js has it"],
+    ['--ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;', "Soft's pressure ramp, as tests/chevron-contrast.test.js has it"],
+    ['--ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;', "the dark looks' pressure ramp, as tests/chevron-contrast.test.js has it"],
+  ]);
+
   // Readouts and the glass at rest (15 Nov 2026, app review WORDS-1): source shapes moved out of tests (PR-02), each with its reason.
   need('src/ui/gl-words.js', [[/createSvgGL\(host, \{ still: true \}\)/, 'a GPU readout\'s picture follows no class or child writes on its own element (the page\'s words landing and the glw-on mark), or each new number drew three times']]);
   need('src/ui/svg-gl.js', [[/if \(!opts\?\.still && typeof MutationObserver === 'function'\) g\.mo = new MutationObserver\(g\.relook\);/, 'a still picture (a readout) makes no observer of its looks']]);

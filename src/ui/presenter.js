@@ -1134,10 +1134,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
     const dip = swap && !booting && !reduce.matches && !own && freshPatient(s, lap, pre), glide = swap && !booting && !reduce.matches && !dip, later = glide && !ct && !!ui;
+    let morphCt = null;
     if (swap) {
       liveOff = false;
       tx?.phase('morph');
-      if (glide) { shownState = -1; if (!later) { lensGo(); if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } }
+      // (A catheter slide's cards come in over the patient's change, not after it, where the organs are on the GPU and a frame stays short: the words carry the slide's own readings. The catheter still waits for the change, below.)
+      if (glide) { shownState = -1; if (!later) { lensGo(); if (ct && stage.canDrift?.()) { morphCt = morphTo(st, cut); } else { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } } }
       else {
         if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         lensGo(); applyState(st); shownState = own ? -1 : si;
@@ -1146,7 +1148,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (cut()) return;
       // (The state is in: the recording instruments start now, their window filled with the steady state the slide opens on, tools.hold.
       // A slide whose change eases in after the camera lands does it below.)
-      if (!later) ui?.tools.hold(false);
+      if (!later && !morphCt) ui?.tools.hold(false);
     }
     // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
     // through its fade back in, so the eye sees one motion, not a fade and then a move.
@@ -1183,6 +1185,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // the camera at once. While the liver and the fluid ease, the organs are the live SVG drawing (stage.js hidePlate), which every camera
     // frame paints again whole, its diaphragm mask stretched over the abdomen by the flank: the route's glide ran at about 1 fps (HVPG
     // slide 9, Budd–Chiari). So the catheter sets off once the organs are back on the GPU copy, as every other slide's camera moves over it.
+    if (morphCt) { if (!await morphCt) return; shownState = own ? -1 : si; ui?.tools.hold(false); }   // (the change that ran under the cards has landed: the catheter and the instruments now start)
     if (ct && swap && glide) { await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS); if (cut()) return; }
     // Behind a case card the camera holds the whole patient until the tap; then it zooms to the slide as the card fades.
     if (caseCard) { await caseLifted(cut); if (cut()) return; alongOk = false; caseExit = true; }   // (the camera is at the whole patient, not at the last slide's framing: no path along a vessel, and the move in takes the time the move out took)
