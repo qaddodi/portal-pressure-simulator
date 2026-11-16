@@ -96,3 +96,11 @@ export function twigRadius(base, r0, rEnd, u) {
   const e = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   return base + (Math.max(r0, base) - base) * (1 - e(0, 0.5, u)) + (Math.max(rEnd, base) - base) * e(0.7, 1, u);
 }
+
+/** The sinusoids' width as a share of the healthy width at distance `rho` (of the lobule's radius) from its centre: 1 at the portal end, 1.3 at the central vein, smooth between. One curve of position, so
+ *  every leg of a merge, which meets at one place, has the same width there (16 Nov 2026, Mohammad: "on the bifurcation a disconnect"). */
+export const SIN_WIDEN = 0.3;
+export function sinK(rho) {
+  const x = Math.min(1, Math.max(0, (rho - 0.07) / 0.88)), e = x * x * (3 - 2 * x);
+  return 1 + SIN_WIDEN * (1 - e);
+}

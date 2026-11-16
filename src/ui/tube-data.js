@@ -135,7 +135,8 @@ export function joinLegs(ent, q, pts, nRows) {
  * vessel at an end when that end is a leg of a join with a row that runs through it (the join's marked trunk, else the first member with two legs); it continues
  * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count; out.ended: the rows with a join end.
  */
-export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
+export const F_ENDS = 8192;   // a row flag (tubeData float 10) for `only` below: this row's ends in a join are worked out
+export function tubeRows(tubeData, nRows, joinEntries, out, pts = null, only = 0) {
   if (!out.rows || out.rows.length < nRows * TUBE_ROW_FLOATS) out.rows = new Float32Array(nRows * TUBE_ROW_FLOATS);   // alloc-rare: grown with the vessel rows
   const rows = out.rows;
   for (let r = 0; r < nRows; r++) {
@@ -175,6 +176,8 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       }
       if (!(joinEntries[q + 2] > 0) || legsOf(joinEntries, q, pts, nRows) < 2) continue;
       const nl = S.n;
+      // `only` (the lobule, 16 Nov 2026): the joins whose every row carries this flag have their ends worked out; the rest keep the lobule's own way (round caps laid over each other, no cuts).
+      if (only !== 0) { let all = true; for (let a = 0; a < nl && all; a++) all = (Math.floor(tubeData[S.row[a] * TUBE_FLOATS + T_FLAGS] + 0.5) & only) !== 0; if (!all) continue; }
       const setEnd = (a, code) => {   // a: a leg that is an end of its row; the first end given wins
         const b = S.row[a] * TUBE_ROW_FLOATS + (S.sample[a] === 0 ? 1 : 2);
         if (rows[b] === TUBE_NO_END) { rows[b] = code; const kb = S.row[a] * TUBE_ROW_FLOATS + 3; if (rows[kb] < 2.5) rows[kb] = 4; return true; }   // (kind 4: exact only for the end, so its prepass is the join-only depth program; a dotted or clipped row stays 3)

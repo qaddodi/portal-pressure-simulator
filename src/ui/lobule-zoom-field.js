@@ -7,7 +7,7 @@ import { createFieldGL } from './field-gl.js';
 import { easeNow } from './frame.js';
 import { FX_GPU } from './fx-gl.js';
 import { LIGHT } from './light.js';
-import { flareAt, twigRadius } from './lobule-mouths.js';
+import { flareAt, twigRadius, sinK } from './lobule-mouths.js';
 import { FADE_MID, FIELD_RS, NEIGHBOUR_FLAT, SIN_NARROW, dullSinusoidInto, fadeOuter, fieldBlend, fieldDof, greyStep, neighbourBlur, surroundGrade } from './lobule-look.js';
 import { disseJ, lensModeOf, lobuleStateInto, lymphRate } from './lobule-model.js';
 import { fibrousBand, fibrousCuff, fibrousTract, scarGrowth } from './lobule-paint.js';
@@ -444,14 +444,15 @@ export function createLobuleField(st, live) {
     }
     return mv;
   }
+  // The sinusoids widen toward the central vein, 1 at the portal end to 1.3 by the vein, as one smooth curve of the distance from the centre (the old 1, 1.15, 1.3 by generation
+  // gave every merge a wider parent and narrower kids: with swollen sinusoids, a visible step in the wall; lobule-mouths.js sinK). A merge is at one place, so all its legs share one width.
   function radiusAt(t, i) {
     const m = rzOf(), g = live.geo, R = g.R;
     const z3 = 1 - smooth(0.24, 0.56, t.rho[i]);
     const rs = g.rs0 * SIN_NARROW / m.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
     switch (t.kind) {
-      case 's0': return rs;
-      case 's1': return rs * 1.15;
-      case 's2': return rs * 1.3 * flareAt(t.rho[i] * R - R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost), rs * 1.3);   // (opens like a trumpet into the central vein: lobule-mouths.js flareAt)
+      case 's0': case 's1': return rs * sinK(t.rho[i]);   // (one width along the lobule, not one a generation: a wider parent met its narrower kids at a step in the wall, and the larger the sinusoids the larger the step)
+      case 's2': return rs * sinK(t.rho[i]) * flareAt(t.rho[i] * R - R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost), rs * 1.3);   // (opens like a trumpet into the central vein: lobule-mouths.js flareAt)
       case 'an': return rs * 0.68;
       case 'in': { const r = lerp(R * 0.015, R * 0.009, i / (N - 1)) / (1 + 0.45 * m.fibPre); return r * flareAt(Math.hypot(t.pts[i][0] - t.pts[0][0], t.pts[i][1] - t.pts[0][1]) - R * 0.042 / (1 + 0.35 * m.fibPre), r); }   // (and from the portal venule's side: the same flare)
       case 'pv': return R * 0.042 / (1 + 0.35 * m.fibPre);
@@ -463,7 +464,7 @@ export function createLobuleField(st, live) {
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
       // Wet Disse (Mohammad, 16 Nov 2026): the space of Disse is a sleeve round its sinusoid, drawn under it, as wide as the fluid filtered
       // at that point (lobule-model.js disseJ: the engine's hepatic lymph spread along the sinusoid by its pressure). A healthy liver's is a hairline.
-      case 'ly': { const j = disseJ(m, t.rho[i]); return rs * (t.lvl === 2 ? 1.3 : t.lvl === 1 ? 1.15 : 1) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
+      case 'ly': { const j = disseJ(m, t.rho[i]); return rs * sinK(t.rho[i]) + g.rs0 * (0.12 + 0.42 * Math.sqrt(j)) * (0.55 + 0.45 * smooth(0.07, 0.24, t.rho[i])); }
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
       case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;

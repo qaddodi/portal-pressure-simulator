@@ -3070,7 +3070,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame rows), the rows that have any, the joins' list, the joins' patches (only where a renderer draws them) and the Tube's stage 2 record (B.s2, tube-stage2.js
   // stage2Prepare). The figure's own binning has one bundle (mainB, made again when it is: B.dirty); each morph set keeps its own (S.derived), made when the set is
   // (prepareSet), so a set change inside the switch swaps references and builds nothing. MG's fields point into the bundle in use.
-  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null, noEnds: who === 'lobule' });   // alloc-rare: one a binning kind (noEnds: its rows carry no join ends in the lobule, tube-join-glsl.js)
+  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null, noEnds: who === 'lobule' });   // alloc-rare: one a binning kind (noEnds: in the lobule only the sinusoids' merges carry join ends, F_ENDS in tube-data.js tubeRows)
   const mainB = newBundle();
   // Whether the Tube joins its vessels with webs (stage 2 or 3): then no patch is built or uploaded.
   let wjA = null, wjB = null, wjV = false;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOUTH_BINS, FLARE, FLARE_LEN, flareAt, mouthSite, mouthWords, rimSample, binOpen } from '../src/ui/lobule-mouths.js';
+import { MOUTH_BINS, FLARE, FLARE_LEN, flareAt, mouthSite, mouthWords, rimSample, binOpen, sinK } from '../src/ui/lobule-mouths.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { captureLobule } from '../scripts/lobule-joins.mjs';
 import { webInstances } from '../src/ui/tube-data.js';
@@ -66,11 +66,13 @@ test('the lobule\'s central vein: each sinusoid that joins it flares to 1 + FLAR
   const joiners = cap.joins.filter((j) => j.members.includes(cvRow.r)).map((j) => j.members.find((m) => m !== cvRow.r));
   assert.ok(joiners.length >= 8, `${joiners.length} sinusoids join it`);
   const t = cap.tubes[cvRow.r], rD = radius(cvRow.r, 0);
+  const cx = (t.pts[0][0] + t.pts.at(-1)[0]) / 2, cy = (t.pts[0][1] + t.pts.at(-1)[1]) / 2, R = rD / 0.07;   // (the vein's healthy radius is 0.07 of the lobule's)
+  const rhoOf = (o, i) => Math.hypot(o.pts[i][0] - cx, o.pts[i][1] - cy) / R;
   let wide = 0;
   for (const id of joiners) {
     const o = cap.tubes.find((x) => x.id === id), k = rimSample(o.pts, (t.pts[0][0] + t.pts.at(-1)[0]) / 2, (t.pts[0][1] + t.pts.at(-1)[1]) / 2, rD);
     const far = Math.min(N - 1, 0); // (the node end of the sinusoid: sample 0, 0.34 of the lobule's radius out)
-    const ratio = radius(id, k) / radius(id, far);
+    const ratio = radius(id, k) / radius(id, far) / (sinK(rhoOf(o, k)) / sinK(rhoOf(o, far)));   // (the flare alone: the sinusoid's own widening toward the vein taken out)
     if (ratio > 1 + FLARE * 0.8) wide++;
     assert.ok(ratio <= 1 + FLARE + 0.05, `row ${id} flares no more than FLARE (${ratio.toFixed(2)})`);
   }

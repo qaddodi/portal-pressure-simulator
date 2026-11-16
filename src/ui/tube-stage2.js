@@ -9,7 +9,7 @@ import { tubeStripVS } from './tube-geo.js';
 import { tubeWebVS, webIndex, WEB_FLOATS, WEB_FAR_TAPER } from './tube-joint.js';
 import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
-import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS, MOUTH_AT } from './tube-data.js';
+import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS, MOUTH_AT, F_ENDS } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
 import { rowBoxes, rowBoxesFromSwept, rowsInside } from './tube-cull.js';
 
@@ -308,7 +308,7 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
   for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
   webInstances(st.entries, tubeNow, B.pts.pts, st.W, !B.noEnds);
-  tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
+  tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0);
   st.gen = B.gen; st.joinBase = joinBase; st.n = n;
   return st;
 }
@@ -423,7 +423,7 @@ export function createStage2Data(gl, MG) {
     if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && jv === lastJv && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
     if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
-    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
+    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts, B.noEnds ? F_ENDS : 0);
     tubeBuckets(tubeNow, C ? C.mask : B.pts.on, nTubes, st.R.rows, D.tb);
     D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
     D.lumBox.on = !!C && joinBase < 0;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn; not between the views, where the rows' points move)

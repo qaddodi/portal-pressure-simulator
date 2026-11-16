@@ -69,6 +69,7 @@ import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 import { createLobuleField } from './lobule-zoom-field.js';
 import { mouthSite, mouthWords, twigPath } from './lobule-mouths.js';
+import { F_ENDS } from './tube-data.js';
 import { createLobuleRecords } from './lobule-zoom-records.js';
 import { createLobuleLabels } from './lobule-zoom-labels.js';
 const nextFrame = frameFor('lobule-zoom');
@@ -2044,7 +2045,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           else if (t.lymph) { const LYt = t.kind === 'ly' ? LYD : LY; put3(o, LYt); put3(o + 4, LYt); }
           else if (greyed) { put3(o, ORIGIN_RGB); put3(o + 4, ORIGIN_RGB); }
           else { put3(o, inkNow, p * 6); put3(o + 4, inkNow, p * 6 + 3); }
-          tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = tierOf(t.kind); tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
+          tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = tierOf(t.kind); tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags | (t.kind === 's0' || t.kind === 's1' || t.kind === 's2' || t.kind === 'an' ? F_ENDS : 0);   // (F_ENDS: where sinusoids merge or cross-link, the Tube works out the ends: a continuation and a cut branch, not round caps laid over each other, tube-data.js tubeRows) tubeData[o + 11] = 0;
           if (endOn) {
             // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
             // else the cel outline's ink (tube-cel-glsl.js celShade): the look's own casing colour.
