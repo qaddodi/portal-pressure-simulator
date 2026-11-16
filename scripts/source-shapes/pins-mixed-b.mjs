@@ -320,4 +320,8 @@ export default [
   { file: 'src/ui/chart-looks/path.js', forbid: [/tok\('border-strong'\)/, 'A path figure\'s quiet lines are the third text ink at about half, never the pale border colour (7c)'] },
   { file: 'src/ui/chart-looks/path.js', forbid: [/opacity: 0\.[0-6]\d*\b(?!\s*\))/, 'An unlit word or line in a path figure keeps at least UNLIT (70%) of its colour (7c)'] },
   { file: 'src/ui/stage-label-items.js', need: [/const unitHere = \(id, u\) => u !== 'mmHg' \|\| selStation\(id\) \|\| unitNow\(\);/, 'A figure label on a slide always carries its unit (B2); off a slide the unit is said once, in the legend'] },
+  { file: 'src/ui/presenter.js', need: [/const toolStep = \(d\) => shown\?\.i === want && !!ui\?\.tools\?\.canStep\(d\);/, 'A swipe for a Next that only takes the data card\'s next reading lifts no card (Varices 6/11: the upper card moved and sprang back)'] },
+  { file: 'src/ui/tool-hvpg.js', need: [/class: 'mon-steps'/, 'The HVPG tracing card shows its readings as numbered steps, one for each Next (Varices 6/11)'] },
+  { file: 'src/ui/presenter-scales.js', need: [/class: 'pzb-pips'[^\n]*h\('i'\), h\('i'\), h\('i'\)/, 'A slide with several views shows them as short strokes under the count, the one on show full (Collaterals 2/11: the views were unseen)'] },
+  { file: 'styles/app-05-presenter-cards.css', need: [/\.pzb-pips \{[^}]*transition: opacity var\(--d-small\) var\(--ease\); \}/, 'The view dots fade, never pop'] },
 ];

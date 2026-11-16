@@ -1781,9 +1781,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   };
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
+  // (A card that takes its readings one Next at a time, the HVPG tracing, steps before the slide does: its Next is a step, not a change, so a swipe for it lifts nothing.
+  // Mohammad, 16 Nov 2026, Varices 6/11: "the upper card moves then springs back".)
+  const toolStep = (d) => shown?.i === want && !!ui?.tools?.canStep(d);
   const turnsSlide = (dx) => dx < 0
-    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
-    : !procHeld() && !procWait && beat === 0 && want > 0;
+    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && !toolStep(1) && beat >= lastBeat(want) && want < slides.length - 1
+    : !procHeld() && !procWait && !toolStep(-1) && beat === 0 && want > 0;
   const pullCan = (dx) => turnsSlide(dx) && !!ui && !changing() && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)
