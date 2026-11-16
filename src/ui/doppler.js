@@ -371,7 +371,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let i = 0; i < s.t.length; i++) {
         const t = s.t[i] + tOff;
         if (!buf.length || t > buf[buf.length - 1][0]) {
-          buf.push(sample(t, s.vel[i], ps?.[i] ?? NaN));
+          // (A sample with no velocity is of another vessel, from before the probe moved: frame-samples.js. It draws no line, so it is not recorded; its beat still counts.)
+          if (Number.isFinite(s.vel[i])) buf.push(sample(t, s.vel[i], ps?.[i] ?? NaN));
           const ph = s.ph?.[i];
           if (Number.isFinite(ph)) { if (ph < lastPh - 0.5) beatT[beatN++ % BEAT_MAX] = t; lastPh = ph; }
         }
