@@ -417,7 +417,12 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     entries: () => entries, cursor: () => cursor,
     onChange: (fn) => listeners.push(fn),
     save: () => ({ entries: entries.slice(), cursor, baseline: structuredClone(baseline) }),
-    load: (s) => { entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderLen = -1; render(true); for (const fn of listeners) fn(); },
+    load: (s) => {
+      // (Put back as it was kept: an edit being typed in, and every timer an entry of the history before this one started, belong to what is replaced: reset does the same.)
+      if (pending) clearTimeout(pending.timer);
+      tlGen++; pending = null; lastEv = {};
+      entries = s.entries; cursor = s.cursor; baseline = s.baseline; lastRenderLen = -1; render(true); for (const fn of listeners) fn();
+    },
     flush: flushParams,
   };
 }

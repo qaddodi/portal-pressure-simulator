@@ -165,6 +165,18 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   const [pScale, fScale] = pairScales(pv, flow, o(0), o(1), !opt(lines[0]).given && !opt(lines[1]).given && LINE[lines[0]]?.[1] === LINE[lines[1]]?.[1]);
   return { min, pv, flow, pScale, fScale, ax };
 }
+/** The chart's own reading of each model line at share p (0 to 1) of its time-lapse: the trail's value there, the very number its head prints (flowTimeSeries `at`).
+ *  The sentence and the tiles take these while the days play, so one number never reads 3.1 in the words and 4.4 on the chart (Choose the treatment 3, play-test 16 Nov 2026).
+ *  null where the trail holds too few days or lacks a line. { [key]: value } for the model's lines. */
+export function trailReading(trail, lines, p) {
+  const model = modelLines(lines), col = (k) => 1 + model.indexOf(k);
+  const pts = (trail || []).filter((r) => r && model.every((k) => Number.isFinite(r[col(k)])));
+  if (pts.length < 2 || !model.length) return null;
+  const d0 = pts[0][0], span = Math.max(1e-6, pts.at(-1)[0] - d0), d = d0 + span * clamp(p, 0, 1), i = clamp(pts.findIndex((r) => r[0] >= d), 1, pts.length - 1);
+  const f = clamp((d - pts[i - 1][0]) / Math.max(1e-9, pts[i][0] - pts[i - 1][0]), 0, 1), out = {};
+  for (const k of model) out[k] = pts[i - 1][col(k)] + (pts[i][col(k)] - pts[i - 1][col(k)]) * f;
+  return out;
+}
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = svgModel;
 // The plot, drawn at the chart's own size in pixels with the card's small type (f): both lines over the plot's full height, the

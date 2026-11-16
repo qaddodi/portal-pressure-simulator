@@ -33,6 +33,12 @@ export const SPLEEN_ZONES = [
   { to: SSM_CUTS.max, look: 'stiff.z3', words: ['CSPH'] },
 ];
 export const RULE_NOTE = 'Rule of 5: each step of 5 kPa from 10 to 25 carries a higher risk of decompensation (Baveno VIII 1.8).';
+// (From 15 to 25 kPa the liver's stiffness alone does not decide, whatever the platelet count: Baveno VIII Fig. 1 and 1.15 to 1.17 give platelets <150 no part
+// in ruling CSPH in. The next step is the guideline's: a model or the spleen, or a repeat at 12 months. Review of 16 Nov 2026: the card said "not ruled in or out"
+// and stopped there. AASLD 2024's own rule of five, which does presume CSPH at 20 to 25 kPa with platelets <150, is on the AASLD path, not on this Baveno VIII bar.)
+export const INDETERMINATE_NOTE = 'From 15 to 25 kPa the LSM does not decide: ANTICIPATE ≥75% or an SSM >55 kPa rules CSPH in, otherwise re-evaluate in 12 months (Baveno VIII 1.16, 1.17).';
+/** Whether a liver stiffness stands in the indeterminate range (above 15 and under 25 kPa), where the bar names the next step. */
+export const indeterminate = (lsm) => Number.isFinite(lsm) && lsm > LSM_CUTS.likely && lsm < LSM_CUTS.ruleIn;
 export const SPLEEN_NOTE = `100 Hz probe: above ${SSM_CUTS.ruleIn} kPa establishes CSPH (Baveno VIII 1.16c); below ${SSM_CUTS.spareScope} kPa spares screening endoscopy in a patient who cannot take a beta-blocker (1.19).`;
 /** What each organ's bar is made of: its zones, the ticks it prints, the zone a reading stands in, and the name its words use. */
 export const BARS = {
@@ -56,7 +62,7 @@ export function stiffWords(lsm, plt, organ = 'liver') {
   const B = BARS[organ] || BARS.liver, spleen = B === BARS.spleen;
   if (!Number.isFinite(lsm)) return `${B.name} on the ${spleen ? '100 Hz probe' : 'rule of five'}: no reading.`;
   const z = B.zoneOf(lsm), v = spleen ? spleenVerdictOf(lsm) : Number.isFinite(plt) ? verdictOf(lsm, plt) : null;
-  return `${B.name} ${lsm.toFixed(1)} kPa on ${spleen ? 'the 100 Hz probe' : "Baveno VIII's rule of five"}: ${z.words.join(' ')}.${!spleen && Number.isFinite(plt) ? ` ${plateletWords(plt)}.` : ''}${v ? ` ${v[0]}.` : ''}`;
+  return `${B.name} ${lsm.toFixed(1)} kPa on ${spleen ? 'the 100 Hz probe' : "Baveno VIII's rule of five"}: ${z.words.join(' ')}.${!spleen && Number.isFinite(plt) ? ` ${plateletWords(plt)}.` : ''}${v ? ` ${v[0]}.` : ''}${!spleen && indeterminate(lsm) ? ' Next: an ANTICIPATE probability or a spleen stiffness, or re-evaluate in 12 months.' : ''}`;
 }
 
 /** The bar's drawing at width W, base type size f: the words [{ x, y, t, look, anchor }], the rectangles [{ x, y, w, h, r, look }], the arrow's path and the height H.
@@ -116,7 +122,7 @@ export function stiffLayout(W, f, meas, { lsm = null, plt = null, note = false, 
   }
   if (note) {
     y += f * 0.5;
-    const nl = wrapWords(B.note, W, px('stiff.note'), TYPE['stiff.note'][0], meas, 2);
+    const nl = wrapWords(!spleen && indeterminate(lsm) ? INDETERMINATE_NOTE : B.note, W, px('stiff.note'), TYPE['stiff.note'][0], meas, 3);
     nl.forEach((l, i) => say(0, y + px('stiff.note') * 0.85 + i * px('stiff.note') * 1.3, l, 'stiff.note'));
     y += nl.length * px('stiff.note') * 1.3;
   }

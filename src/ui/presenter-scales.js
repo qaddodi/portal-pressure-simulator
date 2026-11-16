@@ -5,6 +5,7 @@ import { readAnims, readBox, readMetric, readStyle, readTiming } from './layout-
 import { paintClauses, slideTargets } from './presenter-words.js';
 import { SCALE_NAME, pickedScale, scaleCentre, scaleView } from './scale-switch.js';
 import { beatView } from './slide-beats.js';
+import { slideCount, slideCountLabel, slideSaid, slideSay } from './slide-say.js';
 import { store } from './store.js';
 import { dataSoon } from './class-soon.js';
 import { clamp, h, icon } from './util.js';
@@ -349,11 +350,15 @@ export function createScales(st, live) {
   // overtaken by the next one never reaches its slide: it was announced all the same, and the page then read out a slide it did not show.
   // (force: a move that ended in an error, whose cards came back; busy: the cards are changing, so a reader waits for them.)
   const landedNow = () => !!live.shown && live.shown.i === live.want && live.shown.gen === live.gen;
+  // (A case or question card is the slide's own first screen: it stands, and the count on the bar reads the slide's number, a long while before the
+  // slide's cards land, so the reader is told that slide too (play-test, 16 Nov 2026: "2 / n" on the bar, "Slide 1" still announced on the case cards
+  // of Choose the treatment and Preventing the next bleed). The card is tagged with the slide it came up for (presenter-case.js cardUp).)
+  const onScreenNow = () => landedNow() || slideSaid({ want: live.want, card: live.caseCard });
   function announce(force = false) {
     poke();   // (a change of slide or a beat wakes a resting page, whoever asked: a clicker, the presenter's window)
     if (!live.ui) return;
-    const i = live.want, t = `Slide ${i + 1} of ${live.slides.length}${live.slides[i]?.title ? `: ${live.slides[i].title}` : ''}`;
-    if ((force || landedNow()) && live.ui.say.textContent !== t) live.ui.say.textContent = t;
+    const i = live.want, t = slideSay(i, live.slides.length, live.slides[i]?.title);
+    if ((force || onScreenNow()) && live.ui.say.textContent !== t) live.ui.say.textContent = t;
     const moving = String(live.busy && !landedNow());
     for (const e of [live.ui.text, live.ui.data]) if (e.getAttribute('aria-busy') !== moving) e.setAttribute('aria-busy', moving);
   }
@@ -367,7 +372,7 @@ export function createScales(st, live) {
     const ph = phone(), skip = live.lapseOn && live.lapseLeft > 0, more = !skip && live.beat < lastBeat(i), last = i === n - 1 && !skip && !more;
     // The count opens the slide list (G).
     // (A list still fading out after a pick counts as closed: the count must not stay grey, as if the list were open, on the slide picked.)
-    const countLabel = `Slide ${i + 1} of ${n}: list the slides`, listOpen = String(!live.ui.jump.hidden && !live.ui.jump.classList.contains('pz-leave'));
+    const countLabel = slideCountLabel(i, n), listOpen = String(!live.ui.jump.hidden && !live.ui.jump.classList.contains('pz-leave'));
     live.ui.bar.classList.toggle('phone', ph); live.ui.bar.classList.toggle('pzb-pill', !ph);
     live.ui.bar.dataset.kind = pillKind();
     const nextLabel = skip ? 'Run the time-lapse to its end' : more ? `Next view, ${live.beat + 2} of ${lastBeat(i) + 1}` : 'Next slide', nextTitle = skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)';
@@ -379,7 +384,7 @@ export function createScales(st, live) {
       // (T2: the count never disappears. It was swapped through a fade to nothing and its words then came back between frames or as a GPU
       // picture, and through a case or question card, the busiest part of a slide change, the pill stood with no number for the whole card.
       // The number is written in place, at once: a speaker glances at it to pace the talk. The pill's width is measured again, 9 to 10 widens it.)
-      const countTxt = `${i + 1} / ${n}`;
+      const countTxt = slideCount(i, n);
       if (k.num.textContent !== countTxt) k.num.textContent = countTxt;
       dataSoon(k.pips, 'n', String(views)); dataSoon(k.pips, 'at', String(live.beat));
       k.count.setAttribute('aria-label', countLabel); k.count.setAttribute('aria-expanded', listOpen);
@@ -389,7 +394,7 @@ export function createScales(st, live) {
       return;
     }
     // (The views of a slide that has several (one per Next, up to three) as short strokes under the count, the one on show full: a Next that only turns the figure is no longer unseen. They fade, never pop.)
-    const num = h('span', { class: 'pzb-nt' }, `${i + 1} / ${n}`), pips = h('span', { class: 'pzb-pips', 'aria-hidden': 'true', 'data-n': String(views), 'data-at': String(live.beat) }, h('i'), h('i'), h('i'));
+    const num = h('span', { class: 'pzb-nt' }, slideCount(i, n)), pips = h('span', { class: 'pzb-pips', 'aria-hidden': 'true', 'data-n': String(views), 'data-at': String(live.beat) }, h('i'), h('i'), h('i'));
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': countLabel, title: 'Slide list (G)', 'aria-expanded': listOpen, onclick: () => toggleJump() }, num, pips);
     const prevBtn = () => h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0 && live.beat === 0, onclick: prev }, icon('chev-left'));
     const nextBtn = () => h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': nextLabel, title: nextTitle, disabled: last, onclick: next }, icon('chev-right'));
