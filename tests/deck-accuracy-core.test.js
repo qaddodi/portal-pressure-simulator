@@ -8,6 +8,7 @@ import { DECKS } from '../src/ui/decks.js';
 import { abChoice } from '../src/ui/presenter.js';
 import { SSM_CUTS } from '../src/engine/ssm-cuts.js';
 import { deckStates, runSteps } from './deck-states.js';
+import { SHIFT_KEYS } from '../src/ui/tool-shift.js';
 
 const MINE = ['circulation', 'circuit', 'two-inflows', 'hyperdynamic', 'sites', 'hvpg', 'stiffness'];
 const deck = (id) => DECKS.find((d) => d.id === id);
@@ -67,7 +68,9 @@ test('The circulation in cirrhosis: the large-varices row is not called decompen
   assert.ok(!/Decompensated/.test(slide('hyperdynamic', 'dilate').lapse.to), 'the time-lapse');
   assert.ok(!h.slides.find((s) => s.id === 'summary').of.some((o) => o.id === 'dilate' && /Decompensated/.test(o.title)), 'the summary row');
   const over = slide('hyperdynamic', 'over');
-  assert.deepEqual(over.tiles, ['pv', 'hb', 'bv']);
+  // (the hemoglobin in its tile; the volume and the portal pressure on the chart that holds across the talk, tool-shift.js, which the slide lights)
+  assert.ok(over.tiles.includes('hb') && over.tool.kind === 'shift');
+  assert.ok(['bv', 'pv'].every((k) => SHIFT_KEYS.includes(k) && over.key.includes(k)));
   const st = await at('hyperdynamic');
   assert.ok(st.over.hb > 12 && st.over.bv > st.full.bv, `the eight units end at ${st.over.hb.toFixed(1)} g/dL and ${st.over.bv.toFixed(0)} mL`);
   assert.match(over.notes, /deliberately more than anyone would give/);

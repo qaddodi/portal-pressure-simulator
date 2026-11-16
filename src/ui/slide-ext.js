@@ -9,7 +9,8 @@
 //   sets      { name: [vessel, target or organ ids] }   '@name' in a slide's glow or a mark's edges stands for these
 //   tools     { kind: { make(env), title(t, slide), short?(t) } }   a data-card instrument (presenter-tools.js); make returns
 //             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }; warm?(t, ctx) starts its work
-//             once the deck's states are in (a curve over model days)
+//             once the deck's states are in (a curve over model days); trail?(slide) names the readings a time-lapse slide keeps
+//             day by day for it (worker-core.js trail), and the instrument's progress?(k, trail) then draws the days as they play
 //   visuals   { name: (slide, ctx) => Element }        a whole-panel visual (slide.visual)
 //   columns   { key: { heading, cut?, unit?, cell(row, ctx) => Element | string } }   a summary-table column (slide.cols)
 //   steps     [(slide) => ({ explain?, wave? }) | null]   extra work on a slide's step in the presenter's own worker
@@ -83,6 +84,11 @@ export function warmOf(s, ctx) {
   if (tw) return tw(s.tool, ctx);
   const vw = s?.visual && Object.hasOwn(EXT.visuals, s.visual) ? EXT.visuals[s.visual].warm : null;
   return vw ? vw(s, ctx) : null;
+}
+/** The readings a slide's time-lapse keeps day by day for its instrument (worker-core.js trail): the package tool's trail(slide), else false. */
+export function trailOf(s) {
+  const k = s?.tool?.kind, tr = k && Object.hasOwn(EXT.tools, k) ? EXT.tools[k].trail : null;
+  return tr ? safe(() => tr(s) || false, false, 'tools.trail') : false;
 }
 const setRef = (id) => typeof id === 'string' && id[0] === '@';
 /** A list of ids (a glow, a mark's edges) with each '@name' replaced by the named set's ids; an entry { id: '@name', … }
