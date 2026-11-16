@@ -16,7 +16,7 @@ import { readAnims, readBox, readMetric, readStyle, readTiming } from './layout-
 import { afterMs, reduceMotionMQ as reduce } from './motion.js';
 import { isResponse } from './nsbb-response.js';
 import { dropCharts, liveFp, rail, tileVal, wedgeColumn } from './presenter-cards.js';
-import { citeEl, diseaseNodes, equation, gateButtons, lensButtons, revealLine, rich, setFpAt, slideLens, toolButtons } from './presenter-words.js';
+import { citeEl, diseaseNodes, equation, gateButtons, lensButtons, revealLine, rich, rulesLine, setFpAt, slideLens, toolButtons } from './presenter-words.js';
 import { revealCount } from './reveal.js';
 import { EXT, safe } from './slide-ext.js';
 import { store } from './store.js';
@@ -166,6 +166,7 @@ export function createQuestion(st, live) {
   live.variantWords = variantWords;
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i, wst = live.keepArgs?.s === s && live.keepArgs.lap ? live.keepArgs.now : st) {
+    if (s.lapse && rulesLine(s.line)) wst = live.states[live.stateOf[i]] || wst;   // (a sentence that applies a rule to a value states the end state's, from the first frame: presenter-words.js rulesLine)
     const { text, panel } = live.ui;
     evDrop();   // (the last slide's graph is let go)
     paintScales(s, i);

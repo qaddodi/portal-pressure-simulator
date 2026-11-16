@@ -6,7 +6,8 @@ import { nb } from './glue.js';
 import { readMetric, readStyle } from './layout-snap.js';
 import { fadeMs as fadeLen, reduceMotionMQ as reduce } from './motion.js';
 import { liveFp } from './presenter-cards.js';
-import { rich } from './presenter-words.js';
+import { trailReading } from './flow-time.js';
+import { rich, rulesLine } from './presenter-words.js';
 import { glideOpacity, glideStop, glideTranslate } from './script-glide.js';
 import { figureHooks } from './slide-ext.js';
 import { store } from './store.js';
@@ -60,7 +61,7 @@ export function createCase(st, live) {
   // and tiles were still at the start). The line is typeset from the state the days start from (presenter.js wordsIn); each step gives its pills the
   // live reading, and the last lands them on the end state's, so no number jumps. Only the pills' text, tone and rate change: the card keeps its fit.
   function chipsTo(s, f) {
-    const line = s.line && f && live.ui?.text.querySelector('.pz-line');
+    const line = s.line && f && !rulesLine(s.line) && live.ui?.text.querySelector('.pz-line');
     if (!line) return;
     const have = line.querySelectorAll('.pz-val'), to = h('p', {}, ...rich(s.line, s, f, !!store.get().params?.tips?.on)).querySelectorAll('.pz-val');
     if (!have.length || have.length !== to.length) return;
@@ -82,6 +83,7 @@ export function createCase(st, live) {
     stage.siteFp?.(f);   // (and a callout's)
     figureHooks('update', f, s);   // (and a deck visuals package's, slide-ext.js)
   }
+  const chartFp = (s, end, f, k) => (s.tool?.kind === 'flowtime' && s.tool.clock === 'days' && end.trail && s.tool.lines ? { ...f, ...trailReading(end.trail, s.tool.lines, k) } : f);
   async function playLapse(s, to, cut) {
     const end = await stateReady(live.stateOf[to]);
     if (!end || cut()) return;
@@ -108,7 +110,8 @@ export function createCase(st, live) {
       live.ui?.tools.progress(d / days);
       // (Only once a day has run: before that the live figure is at the bedside, its numbers swinging with each beat, while
       // the card already shows the settled start.)
-      if (fr?.metrics && d >= 1) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
+      // (The days' chart draws the worker's calmed trail, and its head prints the trail's number at this share of the days: the words and the tiles take that same number for the chart's lines, so the three never part.)
+      if (fr?.metrics && d >= 1) dataTo(s, chartFp(s, end, liveFp(fr), d / days), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
       if (d > dBest) { dBest = d; moveAt = performance.now(); } else if (performance.now() - moveAt > 3000 * (s.lapse.seconds || 8)) { live.degrade('lapse-stall'); break; }
     }

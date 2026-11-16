@@ -324,4 +324,7 @@ export default [
   { file: 'src/ui/tool-hvpg.js', need: [/class: 'mon-steps'/, 'The HVPG tracing card shows its readings as numbered steps, one for each Next (Varices 6/11)'] },
   { file: 'src/ui/presenter-scales.js', need: [/class: 'pzb-pips'[^\n]*h\('i'\), h\('i'\), h\('i'\)/, 'A slide with several views shows them as short strokes under the count, the one on show full (Collaterals 2/11: the views were unseen)'] },
   { file: 'styles/app-05-presenter-cards.css', need: [/\.pzb-pips \{[^}]*transition: opacity var\(--d-small\) var\(--ease\); \}/, 'The view dots fade, never pop'] },
+  { file: 'src/ui/presenter-case.js', need: [/dataTo\(s, chartFp\(s, end, liveFp\(fr\), d \/ days\)/, 'While the days play, the sentence and the tiles take the chart head\'s own number (the trail at this share), so they never disagree with the chart (Choose the treatment 3)'] },
+  { file: 'src/ui/presenter-question.js', need: [/if \(s\.lapse && rulesLine\(s\.line\)\) wst = live\.states\[live\.stateOf\[i\]\] \|\| wst;/, 'A time-lapse slide whose sentence applies a rule to a value is typeset from the end state (Carvedilol 3: LSM 17.1 meets >=25 kPa)'] },
+  { file: 'src/ui/presenter-case.js', need: [/!rulesLine\(s\.line\) && live\.ui\?\.text\.querySelector\('\.pz-line'\)/, 'Its pills never ride the days'] },
 ];
