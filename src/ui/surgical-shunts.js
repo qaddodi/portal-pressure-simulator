@@ -16,7 +16,7 @@ import { procLabel } from './procedure-names.js';
 /** One record per order: the params key, the vessel it selects, its names, and pure checks and patches on a params record. */
 export const SURGICAL = [
   { id: 'warren', key: 'dsrs', edge: 'S_DSR', proc: 'dsrs', label: procLabel('dsrs'), the: 'distal splenorenal shunt (DSRS)', sub: 'splenic → left renal vein, coronary vein ligated',
-    kw: 'distal splenorenal dsrs selective surgical shunt coronary left gastric tie ligate varices',
+    kw: 'warren distal splenorenal dsrs selective surgical shunt coronary left gastric tie ligate varices',
     on: (p) => !!p.dsrs, apply: (p) => { p.dsrs = true; return p; }, remove: (p) => { p.dsrs = false; return p; }, blocked: () => '',
     done: 'Distal splenorenal shunt (DSRS) created: splenic vein → left renal vein, with ligation of the coronary vein.' },
   { id: 'pc-es', key: 'portocaval', edge: 'S_PC', label: 'Portocaval, end-to-side', the: 'end-to-side portocaval shunt', short: 'Portocaval shunt (end-to-side)', sub: 'portal vein transected → IVC',

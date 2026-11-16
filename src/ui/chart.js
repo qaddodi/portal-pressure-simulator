@@ -136,7 +136,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'band', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      placed(proc('balloon', 'balloon', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Inflate the gastric balloon in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
+      // (A procedure is done by its Treat button, as the TIPS is: the gastric balloon is the first step and goes up at once; the esophageal balloon, the second, is the varices card's switch.)
+      placed(proc('balloon', 'balloon', 'gastric balloon first, then esophageal', () => {
+        const up = store.get().params.balloonGas;
+        if (!up) updateParams({ balloonGas: true }, { label: 'Gastric balloon' });
+        select({ type: 'organ', id: 'varices' });
+        toast(up ? 'The gastric balloon is already up; the esophageal balloon is the second step, in the varices card.' : 'Gastric balloon inflated. The esophageal balloon is the second step, in the varices card.');
+      }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
       placed(proc('stent', 'tips', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
@@ -155,7 +161,14 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       // shows its vessel, whose card takes it down. The Meso-Rex bypass is always listed: for a patient without a clotted trunk the tap
       // says why it is not made. (A shunt of the learner's own, between any two veins, is still drawn from a vein's card: Add shunt.)
       ...SURGICAL.map((x) => placed(proc('stent', x.proc || x.label, x.sub, () => surgical.placeShunt(x.id)), x.on)),
-      placed(proc('occlude', 'brto', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
+      placed(proc('occlude', 'brto', 'occlude the gastrorenal shunt', () => {
+        const p0 = store.get().params;
+        if (p0.spontaneous.C5 === false) { select({ type: 'organ', id: 'gastric' }); toast('There is no gastrorenal shunt (see Advanced › anatomical variants).'); return; }
+        const on = !!p0.occluded?.C5;
+        if (!on) updateParams((p) => { p.occluded = { ...p.occluded, C5: true }; return p; }, { label: 'BRTO' });
+        select({ type: 'organ', id: 'gastric' });
+        toast(on ? 'The gastrorenal shunt is already occluded; the Fundal varices card takes it down.' : 'BRTO: the gastrorenal shunt is occluded and the fundal varices are obliterated.');
+      }), (p) => !!p.occluded?.C5),
       // The spleen's two treatments are two orders, each named for what it does (one button that cycled untreated → embolization → splenectomy
       // was just "Spleen", and its meaning lived in a tooltip, 16 Nov 2026). Taking one in place takes the other down; pressing it again undoes it.
       ...[[1, 'Splenic embolization', 'partial splenic artery embolization', 'Partial splenic embolization'], [2, 'Splenectomy', 'spleen removed', 'Splenectomy']].map(([v, name, sub, label]) => placed(proc('occlude', name, sub, () => {
