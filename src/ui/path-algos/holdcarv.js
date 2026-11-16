@@ -3,7 +3,7 @@
 // Patient { held, sbp, hrs, map? }: a slide that types sbp or map is judged on what it types (a story the model's patient does not show); one that
 // types neither reads the model's own blood pressure (engine.js bpNow), so a bleed or a drug moves the path.
 import { MAP_BETA_CUT, SBP_BETA_CUT } from '../../engine/kidney-cuts.js';
-import { inheritTone } from './helpers.js';
+import { inheritTone, NONE } from './helpers.js';
 
 const tree = inheritTone({
   id: 'root', t: 'Decompensated cirrhosis, carvedilol', r: 'Monitor BP and renal function', stmt: '4.6, 4.7', tone: 'n', kids: [
@@ -42,7 +42,7 @@ export default {
     if (key === 'back') return { head: 'Restart and re-titrate', tone: 'ok', stmt: '4.7', why: 'The HRS-AKI has resolved and the BP has recovered.', next: 'Re-titrate to the dose the patient tolerates.' };
     return { head: 'Continue carvedilol', tone: 'ok', stmt: '4.6', why: `SBP ${p.sbp} mmHg is ≥90${Number.isFinite(p.map) ? `, MAP ${p.map} mmHg is ≥65` : ''} and there is no HRS-AKI.`, next: 'Monitor BP and renal function at every visit.' };
   },
-  chips: (p) => [p.held ? 'Carvedilol held' : 'On carvedilol', `SBP ${p.sbp}`, Number.isFinite(p.map) && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
+  chips: (p, tiled = NONE) => [p.held ? 'Carvedilol held' : 'On carvedilol', !tiled.has('sbp') && `SBP ${p.sbp}`, Number.isFinite(p.map) && !tiled.has('map') && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
   patientFor(tool, fp, shown = (k, v) => v) {
     const t = tool?.patient || {}, b = { ...DEFAULT, ...t };
     const typed = Number.isFinite(t.sbp) || Number.isFinite(t.map), live = !typed && fp && Number.isFinite(fp.sbp) && Number.isFinite(fp.map);

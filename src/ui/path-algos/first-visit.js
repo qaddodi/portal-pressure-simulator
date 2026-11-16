@@ -1,6 +1,6 @@
 // First visit with suspected cACLD: Baveno VIII Fig. 1 and 1.3, 1.14 to 1.19 (see the notes in path-data.js). Moved out of path-data.js unchanged
 // (7 Nov 2026) so every algorithm is one module of the same shape (path-algos/README in the contract: tree, mapWords, lit, outcomes, reading, chips, patientFor, worst).
-import { act, inheritTone } from './helpers.js';
+import { act, inheritTone, NONE } from './helpers.js';
 
 const tree = inheritTone({
   id: 'root', t: 'cACLD suspected', s: 'Fasting LSM by VCTE and platelet count.', tone: 'n', kids: [
@@ -43,7 +43,7 @@ export default {
       default: return { head: 'Rules CSPH in', tone: 'bad', stmt: '1.16b', why: `LSM ${p.lsm} kPa is ≥25.`, next: 'Start an NSBB, carvedilol preferred.' };
     }
   },
-  chips: (p) => [`LSM ${p.lsm} kPa`, `Platelets ${p.plt}`, p.bmi && 'BMI ≥30', p.ant && (p.bmi ? 'ANTICIPATE-NASH ≥75%' : 'ANTICIPATE ≥75%'), p.ssm && 'SSM >55 kPa'].filter(Boolean),
+  chips: (p, tiled = NONE) => [!tiled.has('lsm') && `LSM ${p.lsm} kPa`, !tiled.has('plt') && `Platelets ${p.plt}`, p.bmi && 'BMI ≥30', p.ant && (p.bmi ? 'ANTICIPATE-NASH ≥75%' : 'ANTICIPATE ≥75%'), p.ssm && 'SSM >55 kPa'].filter(Boolean),
   /** The slide's own facts (tool.patient), over which the live model's readings go where it has them (fp: lsm, plt, ssm), each as the tile prints it. */
   patientFor(t, fp, shown = (k, v) => v) {
     const base = { ...(t?.patient || {}) };
