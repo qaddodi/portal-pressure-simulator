@@ -3,7 +3,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { EDGES } from '../engine/topology.js';
-import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, recolorWords } from './util.js';
+import { h, fmt, svgIcon, closePopover, clamp, shownOf, isPhoneLayout, SIDEWAYS_MQ, swapFade, scrollBehavior, countTo, swapText, fadeIn, glideOnResize, foldHidden, hasBox, putText, fadeShown, numberMoving, bandSwap, recolorWords } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { lobuleFlows } from './lobule-model.js';
 import { createProfile } from './charts.js';
@@ -234,8 +234,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // (A band waiting for its number to land looks again on a timer, band-settle.js: a paused model sends no frame to look again with.)
     x.bandAsk = 0;
     x.bandCheck = () => { x.bandAsk = 0; if (frame) paintStrip(frame); };
+    x.recolor = () => recolorWords(x.val);   // (the number's GPU words read their ink again once a band written at once is in the page)
     x.waitT = 0;   // (when its band began to wait for a number that keeps moving, ms; 0: it is not waiting)
-    x.recolor = () => recolorWords(x.val);   // (the number's GPU words read their ink again once the band's attribute is written: runSoon, below)
     x.ariaPass = () => {
       x.ariaAsk = false;
       const v = x.ariaV, s = x.ariaS;
@@ -278,7 +278,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', {}, v.k), pre, val, post, toNum ? h('i', { class: 'v-to', 'aria-hidden': 'true' }, '→', toNum) : null);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     // (recolor: the GPU words of its three numbers read their ink again when the red of a reading out of range comes or goes, gl-words.js recolor.)
-    return { v, el, val, pre, post, preT: null, bs: NaN, bd: NaN, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false, badOn: false, recolor: () => { recolorWords(val); recolorWords(pre); recolorWords(post); } };
+    return { v, el, val, pre, post, preT: null, bs: NaN, bd: NaN, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false, badOn: false, badShown: false };
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
@@ -448,8 +448,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         if (step !== 'same') {
           // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
           if (x.sev && RANKS[sev] > RANKS[x.sev]) flashTile(el);
-          dataSoon(el, 'sev', sev); x.sev = sev;
-          runSoon(x.recolor);   // (after the attribute is written, in the same task: the number is drawn in the band's colour from here on)
+          // (The number fades out and back as the band's word does, and wears the band's colour from the dip on: bandSwap. A first band, or one from or to
+          // "not measured", is written at once.)
+          const was = x.sev; x.sev = sev;
+          if (!was || was === 'none' || sev === 'none') { dataSoon(el, 'sev', sev); runSoon(x.recolor); } else bandSwap([x.val], () => dataSoon(el, 'sev', sev));
         }
       }
       // (The status word is handed on only when it or its class changed since it was last handed on: swapText returns at once for the same
@@ -472,9 +474,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         const t = hid || !Number.isFinite(x.bs) || !Number.isFinite(x.bd) || x.shown == null ? '' : `${Math.round(x.bs)}/${Math.round(x.bd)} (`;
         if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.post, t ? ')' : ''); }
       }
+      // (The red of a reading out of range comes and goes under its numbers as they fade out and back, bandSwap, never in one frame.)
       const badNow = !hid && !!x.bad;
-      classSoon(x.el, 'bad', badNow);
-      if (badNow !== x.badOn) { x.badOn = badNow; runSoon(x.recolor); }
+      if (badNow !== x.badOn) {
+        x.badOn = badNow;
+        const fades = x.pre ? [x.val, x.pre, x.post] : [x.val];   // alloc-rare: only when a reading goes out of range or back
+        bandSwap(fades, () => { x.badShown = x.badOn; classSoon(x.el, 'bad', x.badShown); });
+      }
+      classSoon(x.el, 'bad', x.badShown);
       if (x.toNum) {
         const on = !hid && x.toV != null;
         classSoon(x.el, 'heading', on); classSoon(x.el, 'heading-up', on && x.toUp);

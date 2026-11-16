@@ -5,7 +5,7 @@
 
 import { store, hiddenNow } from './store.js';
 import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
-import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving, recolorWords } from './util.js';
+import { h, svgIcon, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText, numberMoving, bandSwap } from './util.js';
 import { bandStepFor, BAND_RECHECK_MS, BAND_LONG_MS } from './band-settle.js';
 import { reduceMotionMQ } from './motion.js';
 import { vitalReading, bpText } from './vital-read.js';
@@ -168,8 +168,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         x.waitT = 0;
         if (step !== 'same') {
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { tileEl.classList.remove('flash'); void tileEl.offsetWidth; tileEl.classList.add('flash'); }
-          tileEl.dataset.sev = sev; x.sev = sev;
-          recolorWords(x.val);   // (the number's GPU words read the band's ink again)
+          const was = x.sev; x.sev = sev;
+          if (!was || was === 'none' || sev === 'none') { tileEl.dataset.sev = sev; bandSwap([], () => {}, [x.val]); } else bandSwap([x.val], () => { tileEl.dataset.sev = sev; });   // (the number fades out and back under its band's colour: bandSwap)
         }
       }
       if (sev === x.sev) { const un = v == null; if (step === 'now' && reduce) { putText(x.st, s); x.st.classList.toggle('unmeas', un); } else swapText(x.st, s, () => x.st.classList.toggle('unmeas', un)); }
@@ -203,8 +203,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
         x.waitT = 0;
         if (step !== 'same') {
           if (x.sev && RANKS[sev] > RANKS[x.sev]) { x.el.classList.remove('flash'); void x.el.offsetWidth; x.el.classList.add('flash'); }
-          x.el.dataset.sev = sev; x.sev = sev;
-          recolorWords(x.val);
+          const was = x.sev; x.sev = sev;
+          if (!was || was === 'none' || sev === 'none') { x.el.dataset.sev = sev; bandSwap([], () => {}, [x.val]); } else bandSwap([x.val], () => { x.el.dataset.sev = sev; });
         }
       }
       if (sev === x.sev) { if (step === 'now' && reduce) { putText(x.st, word); x.st.classList.toggle('unmeas', none); } else swapText(x.st, word, () => x.st.classList.toggle('unmeas', none)); }
