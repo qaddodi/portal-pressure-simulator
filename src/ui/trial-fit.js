@@ -43,7 +43,7 @@
 // "cirrhosis" alone used to make a compensated patient fit both early-TIPS trials); 'unknown' otherwise, that is when a defining rule is open
 // (the model cannot tell) or the trial lists no rules. 'unknown' is never shown as eligible.
 // Even 'fits' is not "eligible" or "enrolled": the entry list is the audited abstract's, not the protocol's whole eligibility set, so the words for it
-// (FITS_WORDS) read "Matches the modeled criteria. Eligibility is incomplete." and name the rules still open (R01, external review 15 Nov 2026).
+// (FITS_WORDS) read "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked." and name the rules still open (R01, external review 15 Nov 2026).
 
 import { hvBlocked } from '../engine/pressure-cuts.js';
 import { varixGrade, ascitesGrade, VARIX_NONE_MM } from '../engine/metrics.js';
@@ -158,7 +158,7 @@ export function fitTrial(trial, metrics, params, facts = null) {
 
 /** What a fit that matches every defining rule may say: never eligible, never enrolled (R01). */
 export const FITS_HEAD = 'Matches the modeled criteria';
-export const FITS_WORDS = `${FITS_HEAD}. Eligibility is incomplete.`;
+export const FITS_WORDS = `${FITS_HEAD}. The protocol's other entry rules, such as its exclusions, are not checked.`;   // (says what is missing, not just that something is: the card lists the audited abstract's rules, not the protocol's whole set)
 /** "Still needed: …": the rules the model cannot check, defining rules first, or '' when none is open. */
 export const stillNeeded = (fit) => { const o = openRows(fit); return o.length ? `Still needed: ${o.map((x) => lcFirst(x.rule)).join(', ')}` : ''; };
 /** A fit that matches in full, in one line: the head, that eligibility is incomplete, what is still needed, and which rules rest on a case author's word. */

@@ -31,7 +31,7 @@ export function wallRead(v) {
  *  explainer give one number, not the breath's own (A6, play-test 16 Nov 2026: 139% on one tab, 153% on the other, for one patient). v: metrics.varix. */
 export const wallShare = (v) => (Number.isFinite(v.ratioMean) ? v.ratioMean : v.ratioShown);
 
-/** The wall stress's bands in words, one table (B7, play-test 16 Nov 2026: "143% of rupture point / Rupture risk" in a patient who never bleeds). Past 100% the model's tear point is passed; whether the varix then tears is a separate switch. */
-export const WALL_WORDS = Object.freeze({ ok: 'Low', caution: 'High', danger: 'Near rupture point', critical: 'Past rupture point' });
+/** The wall stress's bands in words, one table (B7, play-test 16 Nov 2026: "143% of rupture threshold / Rupture risk" in a patient who never bleeds). Past 100% the model's tear point is passed; whether the varix then tears is a separate switch. */
+export const WALL_WORDS = Object.freeze({ ok: 'Low', caution: 'High', danger: 'Near rupture threshold', critical: 'Past rupture threshold' });
 /** What a share over 100% means, said once for the tile's tooltip, the card's note and the explainer. */
 export const WALL_MEANING = 'Above 100% the varix is past the stress at which this model can tear it. The model tears a varix only when spontaneous bleeding is switched on (off by default), so a patient above 100% with it off stays intact: read it as risk, never as a bleed.';
