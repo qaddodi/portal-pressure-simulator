@@ -1,7 +1,7 @@
 // One of the six ladders zoomed; layout and fit
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { throwLanded, throwing } from './card-throw.js';
-import { COMPACT, SIDEWAYS_MAX_H, WIDE, sidewaysWords } from './card-type.js';
+import { COMPACT, SIDEWAYS_MAX_H, WIDE, pairRise, sidewaysWords } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ as reduce } from './motion.js';
@@ -261,7 +261,7 @@ export function createLadders(st, live) {
     // On a laptop or tablet the data card always stacks under the words' card, at its width, a gap below it (0.6 of the margin),
     // above the controls; what does not fit is made smaller in fixed steps, never moved to the top right. A card in view that
     // changes place fades out, moves while unseen and fades back in.
-    let below = false, gap = 0, cw = 0, foot = H, wordsCap = Infinity;   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
+    let below = false, gap = 0, cw = 0, foot = H, wordsCap = Infinity, rise = 0;   // (rise: how far a stacked pair that is a few px too tall for the screen stands higher, into its top margin, so the data card keeps its whole height)   // (wordsCap: the height the words' card is held to where the data card needs the room, below)
     slip.base = 0;
     const top0 = cardOn && t ? sm : 0;   // (the cards' top: one margin from the top, as from the side)
     if (cardOn && !low && t && !off(dd)) {
@@ -352,11 +352,21 @@ export function createLadders(st, live) {
         // data card the rest: Doppler 3 on an iPhone on its side had a strip of spectrum under 5 lines of words, 11 Nov 2026.)
         if (!below && H <= SIDEWAYS_MAX_H * k) {
           trim = 2;
-          if (!sidewaysWords(put, () => minText(live.ui.text)).last) put(WIDE.title, WIDE.words);   // (not even the first step keeps 12 px: Compact, as before)
+          // (16 Nov 2026, play-test, iPhone 844 x 390, Circulation 3: the words' last fit, 0.984, was left from Regular's height, where the card had
+          // overflowed its cap. Every step below it was then judged with that zoom on top, its smallest lettering read 11.8 px, the first step was refused
+          // and the words fell back to Compact, 232 px tall: the Gut to heart chart got the 105 px left and ran off the screen. The steps are judged
+          // at their own size, the fit cleared, and the words are fitted once more at the step kept.)
+          const fz = ts.getPropertyValue('--pz-fit'), zz = ts.getPropertyValue('--pz-z');
+          const own = { clear: () => { ts.removeProperty('--pz-fit'); ts.removeProperty('--pz-z'); }, restore: () => { if (fz) ts.setProperty('--pz-fit', fz); if (zz) ts.setProperty('--pz-z', zz); } };
+          if (!sidewaysWords(put, () => minText(live.ui.text), own).last) put(WIDE.title, WIDE.words);   // (not even the first step keeps 12 px: Compact, as before)
+          fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
           below = true;
         }
         if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
+      // (A phone on its side where the pair is still a few px too tall at the words' last step: the pair rises into its top margin (never closer than 4 px
+      // to the top) rather than the data card's chart being cut off by its cap, 16 Nov 2026, play-test. A cut-off chart is a bug; a thinner margin is not.)
+      if (below && H <= SIDEWAYS_MAX_H * k && !wideSheet(dd)) rise = pairRise(top0 + t.height + 2 * pad + gap + ch - foot, top0, 4 * k);
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
       live.foldHeld = dd.classList.contains('pz-folds') ? foldKey : null;
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -482,13 +492,13 @@ export function createLadders(st, live) {
       // empty space to a downward move that would leave too little room for its final height.
       const cardH = !ws && parseFloat(dd.style.getPropertyValue('--ft-card')) || tuckH;
       const stackH = t.height + 2 * pad + gap + cardH * k;
-      shift = Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
+      shift = rise > 0 ? -rise : Math.max(0, Math.min((H - stackH) / 2 - top0, foot - top0 - stackH));
       // (Centred once per slide: while only the data card's readings change (a time-lapse, a what-if slider), the pair keeps the place
       // it came in at, so the words never ride up and down with a reading that measured a pixel taller.)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (lockKey && shiftLock?.key === lockKey && readingsOnly()) shift = shiftLock.v; else if (lockKey) shiftLock = { key: lockKey, v: shift };
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      if (shift > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
+      if (Math.abs(shift) > 0.5) { dd.style.top = `${((y + shift) / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y - shift) / k); } else shift = 0;
       // (How far the words rise with the readings all out: the readings' whole travel, so the instrument card never moves (Mohammad, 22 Oct:
       // "It's ok if the top of the teaching card slips behind upper part of the screen as the info below is more pertinent").)
       if (ws) slip.lift = dpx + slip.base;   // (in all: a Gut to heart chart's own rise, slip.base, and then the readings' travel)

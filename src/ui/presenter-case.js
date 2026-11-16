@@ -6,6 +6,7 @@ import { nb } from './glue.js';
 import { readMetric, readStyle } from './layout-snap.js';
 import { fadeMs as fadeLen, reduceMotionMQ as reduce } from './motion.js';
 import { liveFp } from './presenter-cards.js';
+import { endMix } from './event-graph.js';
 import { trailReading } from './flow-time.js';
 import { rich } from './presenter-words.js';
 import { glideOpacity, glideStop, glideTranslate } from './script-glide.js';
@@ -31,12 +32,23 @@ export function createCase(st, live) {
   // graph's seconds have run; the tiles stop on the same reading the graph ends on.
   function evRun(s, i) {
     if (!live.evg || live.evg.s !== s || live.evg.i !== i) return null;
-    const g = live.evg;
+    const g = live.evg, [a, b] = g.spec.lines;
     g.ft.start();
+    // (The graph and the tiles end on the slide's settled state, the numbers its words print: the model's own course ends a little off them, play-test B12.)
+    const settled = () => live.states[live.stateOf[i]]?.fp || null;
     return {
       secs: g.ft.secs,
-      sample(t, f) { if (live.evg !== g) return true; g.ft.push(t, f[g.spec.lines[0]], f[g.spec.lines[1]]); return t >= g.ft.secs; },
-      end() { if (live.evg === g) { const k = g.ft.kept(); if (k) evKept.set(g.s, k); } },
+      sample(t, f) {
+        if (live.evg !== g) return true;
+        const e = settled(), w = e && Number.isFinite(e[a]) && Number.isFinite(e[b]) ? endMix(t, g.ft.secs) : 0;
+        g.ft.push(t, w ? f[a] + (e[a] - f[a]) * w : f[a], w ? f[b] + (e[b] - f[b]) * w : f[b]);
+        return t >= g.ft.secs;
+      },
+      end() {
+        if (live.evg !== g) return;
+        const k = g.ft.kept(); if (k) evKept.set(g.s, k);
+        const e = settled(); if (e) dataTo(g.s, e, live.refOf(g.s, g.i), 280);
+      },
     };
   }
   function evBack(s) { if (live.evg?.s === s) { live.evg.ft.reset(); evKept.delete(s); } }
