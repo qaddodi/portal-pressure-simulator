@@ -1756,6 +1756,8 @@ function setPanelTab(tab) {
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
 let panelSheet = null, treatSheet = null, dockSheet = null;
+// A card's rest shift (px along x, none along y), for the camera's framing: where it comes to when its glide aside ends.
+const restShift = (el, x) => { const v = `${Math.round(x)} 0`; if (el.dataset.restTranslate !== v) el.dataset.restTranslate = v; };
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -1837,6 +1839,9 @@ function wireFloating() {
     };
     let changed = false;
     for (const k in vars) if (pubVals[k] !== vars[k]) { pubVals[k] = vars[k]; app.style.setProperty(k, vars[k]); changed = true; }
+    // (Treat, History and the side Tests card glide aside for the card to their right by `translate` (app-07-floating.css --occ-x); the camera frames for where
+    // they come to rest, so it does not follow the glide: util.js translateRest.)
+    if (wide) { restShift(tc, -(panelOcc + instrOcc)); restShift(hc, -(panelOcc + instrOcc)); if (wsOn && ws.classList.contains('side')) restShift(ws, -panelOcc); }
     // (A phone's menu sheets open above the thumb dock, 8 px clear of its top edge like the cards. Measured from the
     // screen's bottom, since the sheets are fixed to it and the dock sits above the home indicator's safe area.)
     // The cards and sheets rest 8 px above the dock's top edge (the play bar, the timeline, the readouts and the tab row stay
