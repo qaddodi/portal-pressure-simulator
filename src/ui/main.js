@@ -1281,13 +1281,20 @@ function renderBanner() {
   if (s0.compareSnap) {
     const names = s0.compareSnap.names || CMP_NAMES;
     cmpWords(s0.compareSnap.when, names[0], names[1]);
+    const cur = s0.compareView || 'B';
+    // (The same switch with the same words keeps its elements: Then, Now and Change only move the pressed mark, so the selection glides from one to the next (seg-glide.js);
+    // a new switch for each press put the piece down on the new choice with nothing to glide from. Play-test, Mac, 16 Nov 2026.)
+    if (bannerSeg && bannerSeg.isConnected && bannerSeg.parentNode === el && bannerSeg._words === cmpLabel + '|' + cmpNA + '|' + cmpNB) {
+      for (let i = 0; i < 3; i++) bannerSeg.children[i].setAttribute('aria-pressed', cur === 'ABD'[i] ? 'true' : 'false');
+      return renderBannerBadge(s0);
+    }
     bannerLabel = h('span', CMP_LABEL, cmpLabel);
     CMP_SEG['aria-label'] = cmpAria;
-    const cur = s0.compareView || 'B';
     CMP_BTN[0]['aria-pressed'] = cur === 'A' ? 'true' : 'false'; CMP_BTN[0].title = cmpTitleA;
     CMP_BTN[1]['aria-pressed'] = cur === 'B' ? 'true' : 'false'; CMP_BTN[1].title = 'The live model';
     CMP_BTN[2]['aria-pressed'] = cur === 'D' ? 'true' : 'false'; CMP_BTN[2].title = cmpTitleD;
     bannerSeg = h('div', CMP_SEG);
+    bannerSeg._words = cmpLabel + '|' + cmpNA + '|' + cmpNB;
     for (let i = 0; i < 3; i++) {
       const b = h('button', CMP_BTN[i], h('b', NOATTR, i === 0 ? cmpNA : i === 1 ? cmpNB : 'Change'));
       b.addEventListener('click', CMP_CLICK[i]);
@@ -1302,6 +1309,9 @@ function renderBanner() {
   // The switch's height, for views that place their own controls under it (the lobule's).
   // (Its height as the browser last reported it, geom.js: the switch just built is reported after this layout and written again then.)
   syncCmpH();
+  renderBannerBadge(s0);
+}
+function renderBannerBadge(s0) {
   // "Showing <then>" fades in and out (styles: .cmp-badge) instead of popping.
   const badge = view.querySelector('.cmp-badge:not(.leaving)');
   if (s0.compareSnap && s0.compareView === 'A') {

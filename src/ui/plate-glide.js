@@ -5,7 +5,7 @@
 // a fixed size laid out once, keeps only its outer edge's hairline and shadow (a still clip cuts the rest), and rides one eased
 // translate and scale, all on the same curve, so together they are always one rounded plate from the old box to the new. Nothing
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
-import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 import { morphGlass } from './glass-morph.js';
 
@@ -93,7 +93,7 @@ export function glidePlateOn(host, made, from, to, { R = 16, duration = D_SURFAC
 /** Keeps a plated box (a glass pill whose size follows its content: a button that comes and goes) easing to each new size by
  *  transform: when its laid-out size changes, its glass glides from the old box to the new (glidePlate) and the pieces in it slide
  *  from where they stood (FLIP). Sizes and places are read once per change, in the ResizeObserver, after layout and before paint;
- *  nothing is laid out per frame. Reduce Motion: the box takes its new size at once. Returns a function that stops watching. */
+ *  nothing is laid out per frame. Reduce Motion: no travel, a short fade from part strength (nothing pops). Returns a function that stops watching. */
 export function glideOnResize(host, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE } = {}) {
   const still = reduceMotionMQ;
   let last = null, end = null;
@@ -103,7 +103,9 @@ export function glideOnResize(host, { R = 16, duration = D_SURFACE, easing = EAS
     const now = read(), was = last;
     last = now;
     if (!was || !now.w || !now.h || !was.w || !was.h || (Math.abs(now.w - was.w) < 0.5 && Math.abs(now.h - was.h) < 0.5)) return;
-    if (still.matches || !host.getClientRects().length) return;
+    if (!host.getClientRects().length) return;
+    // (Reduce Motion: no travel, but the box never takes its new size in one frame either (nothing pops, 15 Nov 2026): it comes in at part strength and settles.)
+    if (still.matches) { host.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); return; }
     end?.();
     end = glidePlate(host, { x: was.x - now.x, y: was.y - now.y, w: was.w, h: was.h }, { x: 0, y: 0, w: now.w, h: now.h }, { R, duration, easing, done: () => { end = null; } });
     for (const [c, [x1, y1, w1, h1]] of now.kids) {
