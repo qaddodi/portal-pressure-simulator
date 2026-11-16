@@ -421,7 +421,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         s = measured ? 'Measured' : lz ? sf(vs, f, st0) : sf(vs, m);
         sev = lz ? t.st(vs, f, st0) : t.st(vs, m);
         // (A flow that can run backwards names its direction beside the number: "−21% of healthy, reversed". Written only when the words change, by the cross-fade.)
-        if (t.uxs && x.ux) { const w = t.uxs(vs); if (w !== x.uxW) { x.uxW = w; swapText(x.ux, w); } }
+        if (t.uxs && x.ux) { const w = t.uxs(vs); if (w !== x.uxW) { x.uxW = w; swapText(x.ux, w); dataSoon(x.ux, 'rev', /reversed/.test(w) ? '' : null); } }   // (data-rev: a phone's bar says only "reversed", styles/app-11-deck-visuals.css)
         const w = pos(t, shownState.or(x.kFill, v)), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         const fl = fillQ(Math.min(w, o) / 100), fw = fillQ(Math.abs(w - o) / 100);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
