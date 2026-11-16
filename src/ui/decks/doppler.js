@@ -33,7 +33,7 @@ export const DOPPLER = {
     {
       id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true, mode: 'color' },
       kicker: 'Doppler', title: 'Hepatic vein flow is phasic with the cardiac cycle',
-      line: 'Flow toward the heart lies below the baseline: S and D waves each cardiac cycle. Atrial contraction briefly reverses flow (a wave), with a small v wave between.',
+      line: 'Flow toward the heart lies below the baseline: S and D waves each cardiac cycle, with a small v wave between them. Atrial contraction briefly reverses flow (the a wave).',
       notes: 'The hepatic veins drain into the right atrium through a short segment of IVC, so their waveform reflects right atrial pressure. Flow toward the heart is displayed below the baseline in blue, and the reversal in orange-red. The normal waveform has four components: the a wave (atrial contraction) briefly reverses flow, the S wave carries blood toward the heart in ventricular systole, the small v wave turns toward the baseline as the atrium fills, and the D wave carries blood forward again in diastole. Tricuspid regurgitation enlarges the v wave. A noncompliant cirrhotic liver dampens the waveform to biphasic or monophasic. A tall a wave and S-wave reversal point to tricuspid regurgitation or an elevated right atrial pressure.',
       ask: ['What causes the brief reversal in the normal hepatic vein waveform?', 'Atrial contraction (the a wave).'],
     },
@@ -95,7 +95,7 @@ export const DOPPLER = {
       id: 'a4', terms: ['pv'], preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', pair: true, calipers: true },
       vignette: 'A 72-year-old woman with severe tricuspid regurgitation has ascites and lower-extremity edema. Her liver tests are mildly elevated.',
       caseQ: 'What will her portal vein waveform look like?',
-      kicker: 'Outflow', site: 'cardiac', title: 'Pulsatile portal flow: the heart',
+      kicker: 'Outflow', site: 'cardiac', title: 'Pulsatile portal flow points to the right heart',
       line: 'Portal vein flow is pulsatile, in phase with the hepatic vein below it. A pulsatility index {>=30%} is abnormal. Right atrial pressure is {ra} and the HVPG stays {hvpg}.',
       notes: 'In right heart failure, tricuspid regurgitation and constrictive pericarditis, elevated right atrial pressure is transmitted through the sinusoids and portal flow becomes pulsatile; with severe regurgitation it may reverse in systole. The pulsatility index, (Vmax − Vmin) / Vmax, is abnormal at ≥30% and severe at ≥50%. The HVPG is normal because the wedged and free hepatic venous pressures (WHVP, FHVP) rise together. A dilated IVC and hepatic veins point to the heart, not the liver. The narrow trace below the portal vein is the right hepatic vein: each portal pulsation coincides with its waves.',
       ask: ['Pulsatile portal flow with a normal HVPG: where is the resistance?', 'Downstream of the liver, in the heart: elevated right atrial pressure is transmitted back through the sinusoids.'],

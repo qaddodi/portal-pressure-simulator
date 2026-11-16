@@ -45,17 +45,17 @@ export const DAY = {
     {
       id: 'fluid', preset: 'csph', params: {}, action: SALINE, cam: 'fit', data: 'tiles', tiles: ['pv', 'hvpg'], key: ['hvpg'], delta: 'fasting', terms: ['ivc'],
       kicker: 'After eating', site: 'sin', title: 'A 1 L saline bolus raises every venous pressure and leaves the HVPG unchanged',
-      line: 'Fasting again, he receives 1 L of IV saline. The portal vein pressure rises to {pv} and the IVC pressure to {ivc}, so the HVPG stays at {hvpg}.',
+      line: 'Fasting, he receives 1 L of IV saline. The portal vein and IVC pressures rise to {pv} and {ivc}; the WHVP and FHVP rise together, so the HVPG stays {hvpg}.',
       notes: 'The saline expands the whole venous compartment. The portal vein pressure and the wedged and free hepatic venous pressures (WHVP, FHVP) rise together, so the HVPG, the WHVP minus the FHVP, barely changes. This is why the HVPG is reliable after IV fluid, and why an isolated portal vein pressure is not. The infusion runs over 10 to 15 minutes of model time. Neither guideline gives a figure for it; the numbers are the model\'s.',
       ask: ['A 1 L saline bolus raises the portal and IVC pressures by the same amount. What happens to the HVPG?', 'It is unchanged, because it is the WHVP minus the FHVP and both rose.'],
     },
     {
       id: 'breath', preset: 'csph', params: { respDepth: 3 }, cam: 'portal', tool: BEATS, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       compare: [{ label: 'Quiet breathing', short: 'Quiet', params: { respDepth: 1 } }, { label: 'Deep breathing', short: 'Deep', own: true, params: { respDepth: 3 } }],
-      kicker: 'Breathing and straining', site: 'sin', title: 'Respiration makes the portal pressure vary from beat to beat',
+      kicker: 'Breathing and straining', site: 'sin', title: 'Respiration makes the portal pressure vary from breath to breath',
       line: 'With deep breathing, the portal pressure varies with each respiratory cycle. The mean stays {pv}, and the HVPG stays {hvpg}.',
       notes: 'Each respiratory cycle changes intrathoracic and intra-abdominal pressure. The portal pressure oscillates with it around the same mean, and the model\'s HVPG, which is calculated from mean pressures, does not change. The strip on the trace is a schematic rhythm timed to the model\'s heart rate, not a modeled ECG. In practice the HVPG is read from the mean over a stable stretch of tracing for the same reason.',
-      ask: ['Why does respiration not change the HVPG?', 'The pressure oscillates around the same mean, and the HVPG is calculated from mean pressures.'],
+      ask: ['Why does respiration not change the HVPG?', 'Respiration moves the WHVP and FHVP together, so their difference, the HVPG, does not change.'],
     },
     {
       id: 'strain', preset: 'csph', params: {}, cam: 'fit', strain: true, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'],

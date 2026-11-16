@@ -36,12 +36,12 @@ const kv = (label, text, follows = false) => (follows ? { label, text, follows }
  * settings(u): the exact engine settings [{ label, text }], patch(u), days(u), volume(u); limits: what the model cannot say about it; ev: the guideline line.
  */
 const LESIONS = [
-  { id: 'sinus', short: 'Cirrhosis', label: 'Cirrhosis (sinusoidal block)', sub: 'The cirrhosis slider: scar that raises the resistance in the sinusoids.', group: 'Sinusoidal', slot: 'liver', step: 0.1,
+  { id: 'sinus', short: 'Cirrhosis', label: 'Cirrhosis (sinusoidal block)', sub: 'The cirrhosis slider: fibrosis that raises sinusoidal resistance.', group: 'Sinusoidal', slot: 'liver', step: 0.1,
     set: (u) => ({ scar: r2(u), alb: r1(4 - 1.4 * bound((u - 0.55) / 0.4, 0, 1)) }),
     patch: (u) => { const s = LES_SET.sinus(u); return { cirrhosis: s.scar, ...(s.alb < 4 ? { albumin: s.alb, diuretics: true } : {}) }; },
     settings: (u) => { const s = LES_SET.sinus(u); return [kv('Cirrhosis slider', pctText(s.scar)), kv('Albumin', `${s.alb} g/dL`, true)]; },
     days: (u) => (u > 0.8 ? 540 : 365), volume: () => 0,
-    limits: 'The model has no histological stage and no cause: one slider, 0 to 100%, sets the sinusoidal resistance. What it makes is read as HVPG and LSM. Albumin falls with the slider from about 55%.',
+    limits: 'The model has no histological stage and no etiology: one slider, 0 to 100%, sets the sinusoidal resistance, and the HVPG and LSM follow from it. Albumin falls with the slider from about 55%.',
     ev: 'HVPG 10 mmHg or more is clinically significant portal hypertension (Baveno VIII; AASLD 2024).',
     outside: 'Liver biopsy or elastography for the cause and stage; the model has neither.' },
   { id: 'presin', short: 'Presinusoidal', label: 'Presinusoidal block', sub: 'Narrowed portal venules and no cirrhosis. PSVD and schistosomiasis are one lesion to the model.', group: 'Presinusoidal', slot: 'pre', step: 0.1,
@@ -52,48 +52,48 @@ const LESIONS = [
     limits: 'The model has one presinusoidal lesion. PSVD, schistosomiasis and other causes read the same here; history and biopsy decide between them.',
     ev: 'Baveno VIII 8.40 to 8.44 (PSVD without cirrhosis): in PSVD an SSM above 40 kPa is a specific sign of portal hypertension (8.44).',
     outside: 'Liver biopsy for obliterative portal venopathy and to exclude cirrhosis; history and imaging for the cause.' },
-  { id: 'pvt', short: 'Portal clot', label: 'Portal vein thrombosis', sub: 'Clot in the trunk, collaterals formed (a cavernoma).', group: 'Pre-hepatic', slot: 'trunk', step: 0.1,
+  { id: 'pvt', short: 'Portal clot', label: 'Portal vein thrombosis', sub: 'Thrombus in the main portal vein, with collaterals (cavernoma).', group: 'Pre-hepatic', slot: 'trunk', step: 0.1,
     set: (u) => ({ clot: Math.round(40 + 50 * u) }),
     patch: (u) => ({ thrombus: { PV_TRUNK: LES_SET.pvt(u).clot / 100 } }),
-    settings: (u) => [kv('Clot in the trunk', `${LES_SET.pvt(u).clot}%`)],
+    settings: (u) => [kv('Main portal vein occlusion', `${LES_SET.pvt(u).clot}%`)],
     days: () => 240, volume: () => 0,
-    limits: 'A clot of 65 to 75% still passes flow, so “no flow” only holds for a nearly complete clot. The model has no cavernoma image to show.', ev: '',
-    outside: 'Doppler or contrast CT or MR of the portal vein: a cavernoma is a picture the model does not make.' },
-  { id: 'rhf', short: 'Right heart failure', label: 'Right heart failure with TR', sub: 'High right atrial pressure carried back to the liver.', group: 'Cardiac', slot: 'heart', step: 0.1,
+    limits: 'A thrombus occluding 65 to 75% of the lumen still allows flow; absent flow needs near-complete occlusion. The model does not draw a cavernoma.', ev: '',
+    outside: 'Doppler or contrast CT or MR of the portal vein, which shows a cavernoma; the model does not draw one.' },
+  { id: 'rhf', short: 'Right heart failure', label: 'Right heart failure with TR', sub: 'High right atrial pressure transmitted back to the liver.', group: 'Cardiac', slot: 'heart', step: 0.1,
     set: (u) => ({ contr: r2(0.7 - 0.5 * u), tr: r2(0.2 + 0.7 * u), vol: Math.round(200 + 1600 * u) }),
     patch: (u) => { const s = LES_SET.rhf(u); return { contractility: s.contr, tr: s.tr }; },
-    settings: (u) => { const s = LES_SET.rhf(u); return [kv('Pump strength', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`)]; },
+    settings: (u) => { const s = LES_SET.rhf(u); return [kv('RV contractility', `${s.contr} (1 is normal)`), kv('Tricuspid regurgitation', `${s.tr} (0 to 1)`)]; },
     days: () => 60, volume: (u) => LES_SET.rhf(u).vol,
-    limits: 'The model’s heart is a pump strength, a leak and the volume it holds; it cannot draw the waveform that tells failure from constriction.', ev: '',
-    outside: 'Echocardiography with the RA waveform; the model cannot draw it.' },
-  { id: 'constr', short: 'Constriction', label: 'Constrictive pericarditis', sub: 'The pericardium holds the right heart; RA pressure is high.', group: 'Cardiac', slot: 'heart', step: 0.1,
+    limits: 'The model’s heart is RV contractility, tricuspid regurgitation and the volume it holds; it cannot draw the RA waveform that separates heart failure from constriction.', ev: '',
+    outside: 'Echocardiography with the RA waveform, which the model cannot draw.' },
+  { id: 'constr', short: 'Constriction', label: 'Constrictive pericarditis', sub: 'Pericardial constriction raises the RA pressure.', group: 'Cardiac', slot: 'heart', step: 0.1,
     set: (u) => ({ peric: r2(0.5 + 0.5 * u), vol: Math.round(200 + 1600 * u) }),
     patch: (u) => ({ pericardial: LES_SET.constr(u).peric }),
     settings: (u) => { const s = LES_SET.constr(u); return [kv('Constriction', `${s.peric} (0 to 1)`)]; },
     days: () => 60, volume: (u) => LES_SET.constr(u).vol,
-    limits: 'The model’s pericardium is one constriction number and the volume it holds. It cannot draw septal bounce or the filling pattern.', ev: '',
+    limits: 'The model’s pericardium is one constriction value and the volume it holds. It cannot show septal bounce or the filling pattern.', ev: '',
     outside: 'Echocardiography and cardiac MR or CT for septal bounce, filling pattern and a thick pericardium.' },
   { id: 'bcs', short: 'Hepatic veins', label: 'Hepatic vein outflow block', sub: 'Budd–Chiari: the hepatic veins are thrombosed.', group: 'Post-hepatic', slot: 'outflow', step: 0.1,
     set: (u) => (u < 0.3 ? { veins: 1, occl: 100 } : u < 0.5 ? { veins: 2, occl: 80 } : { veins: 3, occl: Math.round(50 + 70 * (u - 0.5)) }),
     patch: (u) => { const s = LES_SET.bcs(u); return hvPatch(s.veins, s.occl / 100); },
-    settings: (u) => { const s = LES_SET.bcs(u); return [kv('Hepatic veins thrombosed', `${s.veins} of 3`), kv('How shut', `${s.occl}%`)]; },
+    settings: (u) => { const s = LES_SET.bcs(u); return [kv('Hepatic veins thrombosed', `${s.veins} of 3`), kv('Occlusion', `${s.occl}%`)]; },
     days: () => 60, volume: () => 0,
-    limits: 'With the right hepatic vein shut the app prints no HVPG, so a wedged reading from this patient would not exist.', ev: '',
+    limits: 'With the right hepatic vein occluded it cannot be wedged, so the app gives no HVPG for this patient.', ev: '',
     outside: 'Doppler or MR venography of the hepatic veins and IVC.' },
   { id: 'ivcweb', short: 'IVC web', label: 'IVC web', sub: 'Suprahepatic IVC stenosis: the hepatic veins are high, the right atrium is not.', group: 'Post-hepatic', slot: 'outflow', step: 0.1,
     set: (u) => ({ stenosis: Math.round(30 + 55 * u) }),
     patch: (u) => ({ stenosis: { IVCS_RA: LES_SET.ivcweb(u).stenosis / 100 } }),
-    settings: (u) => [kv('IVC narrowing', `${LES_SET.ivcweb(u).stenosis}%`)],
+    settings: (u) => [kv('IVC stenosis', `${LES_SET.ivcweb(u).stenosis}%`)],
     days: () => 90, volume: () => 800,
-    limits: 'Taken at three months with 800 mL of extra volume held; the model has one IVC narrowing and no image of it.', ev: '',
+    limits: 'Readings at three months with 800 mL of volume expansion; the model has one IVC stenosis and does not draw it.', ev: '',
     outside: 'Cavography or MR venography of the IVC.' },
   { id: 'post', short: 'Central veins', label: 'Postsinusoidal block', sub: 'Resistance at the central veins (sinusoidal obstruction type).', group: 'Postsinusoidal', slot: 'outflow', step: 0.1,
     set: (u) => ({ post: r1(4 * 20 ** u) }),
     patch: (u) => { const v = LES_SET.post(u).post; return { fibrosis: { R: { post: v }, L: { post: v } } }; },
     settings: (u) => [kv('Resistance at the central veins', `×${LES_SET.post(u).post}`)],
     days: () => 21, volume: () => 0,
-    limits: 'The model has one central-vein lesion, taken at three weeks. It does not separate drug, radiation or transplant causes.', ev: '',
-    outside: 'History (drugs, radiation, transplant) and biopsy; the model reads one central-vein lesion.' },
+    limits: 'The model has one central-vein lesion, with readings at three weeks. It does not separate drug, radiation or transplant causes.', ev: '',
+    outside: 'History (drugs, radiation, transplant) and biopsy; the model has one central-vein lesion.' },
 ];
 const LES_SET = Object.fromEntries(LESIONS.map((l) => [l.id, l.set]));
 export const LESION = Object.freeze(Object.fromEntries(LESIONS.map((l) => [l.id, l])));
@@ -107,9 +107,9 @@ export const LESION_IDS = LESIONS.map((l) => l.id);
  * `lo` to `hi` is the slider's own range, `step` the live fit's probe, `round` what the value is kept to.
  */
 const SIDES = [
-  { id: 'vol', label: 'Extra volume held', lo: 0, hi: 2400, probe: 200, round: 10, applies: (a) => a.some((k) => k === 'rhf' || k === 'constr' || k === 'ivcweb'),
+  { id: 'vol', label: 'Volume expansion', lo: 0, hi: 2400, probe: 200, round: 10, applies: (a) => a.some((k) => k === 'rhf' || k === 'constr' || k === 'ivcweb'),
     def: (a, p) => { let m = 0; for (const k of a) m = Math.max(m, LESION_VOLUME[k](p[k])); return m; }, text: (v) => `${Math.round(v)} mL` },
-  { id: 'contr', label: 'Pump strength', lo: 0.15, hi: 1.2, probe: 0.1, round: 0.01, applies: (a) => a.includes('rhf'), def: (a, p) => LES_SET.rhf(p.rhf).contr, text: (v) => `${v} (1 is normal)` },
+  { id: 'contr', label: 'RV contractility', lo: 0.15, hi: 1.2, probe: 0.1, round: 0.01, applies: (a) => a.includes('rhf'), def: (a, p) => LES_SET.rhf(p.rhf).contr, text: (v) => `${v} (1 is normal)` },
   { id: 'tr', label: 'Tricuspid regurgitation', lo: 0, hi: 1, probe: 0.15, round: 0.01, applies: (a) => a.includes('rhf'), def: (a, p) => LES_SET.rhf(p.rhf).tr, text: (v) => `${v} (0 to 1)` },
   { id: 'alb', label: 'Albumin', lo: 1.5, hi: 4.5, probe: 0.4, round: 0.1, applies: (a) => a.includes('sinus'), def: (a, p) => LES_SET.sinus(p.sinus).alb, text: (v) => `${v} g/dL` },
   { id: 'tone', label: 'Splanchnic arteriolar tone', lo: 0.5, hi: 2, probe: 0.2, round: 0.01, applies: (a) => a.length > 0, def: () => 1, text: (v) => `${v} (1 is normal)` },
@@ -164,7 +164,7 @@ function familiesOf() {
       sides: sidesOf(axes).map((x) => x.id),
       settings: (p) => {
         const vol = 'vol' in p ? p.vol : Math.max(...parts.map((l) => l.volume(p[l.id])));   // (the one volume the patient holds: the larger of the lesions', never one line for each)
-        const rows = [...parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))), ...(vol > 0 ? [{ ...kv('Extra volume held', SIDE.vol.text(vol), !('vol' in p)), lesion: parts.find((l) => l.volume(p[l.id]) === Math.max(...parts.map((m) => m.volume(p[m.id])))).id }] : [])];
+        const rows = [...parts.flatMap((l) => l.settings(p[l.id]).map((s) => ({ ...s, lesion: l.id }))), ...(vol > 0 ? [{ ...kv('Volume expansion', SIDE.vol.text(vol), !('vol' in p)), lesion: parts.find((l) => l.volume(p[l.id]) === Math.max(...parts.map((m) => m.volume(p[m.id])))).id }] : [])];
         // A side setting the search chose replaces the lesion's own line for it (or joins the list when the lesion has none), and is listed as chosen, not as what follows.
         for (const x of SIDES) {
           if (x.id === 'vol' || !(x.id in p)) continue;

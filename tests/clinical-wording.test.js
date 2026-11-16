@@ -40,6 +40,36 @@ test('the rules catch lay words and British spelling a US clinician would correc
   assert.deepEqual(rules('Large-volume paracentesis lowers the intra-abdominal pressure (IAP).'), []);
 });
 
+// Mohammad, 16 Nov 2026, on the title "Carvedilol restarts once the blood pressure has recovered": "Who restarts it? I don't understand."
+// A drug or therapy does not start, stop, restart or continue by itself: the clinician does (docs/ai-humanizer.md section 5).
+test('the rules catch a drug as the subject of start, stop, restart or continue, and leave imperatives and passives alone', () => {
+  for (const s of [
+    'Carvedilol restarts once the blood pressure has recovered',
+    'With ascites and large varices, carvedilol continues',
+    'CSPH has resolved, so carvedilol may stop',
+    'Anticoagulation starts at once for ≥6 months',
+    'Anticoagulation comes first and continues long term',
+    'The earlier anticoagulation starts, the likelier recanalization',
+    'Propranolol continues, and Baveno VIII 8.20 says it is safe',
+    'Octreotide, albumin and the NSBB resume after the endoscopy',
+    'The NSBB may continue after a bleed',
+    'How long does anticoagulation continue after recent PVT?',
+  ]) assert.ok(rules(s).includes('drug-as-subject'), s);
+  for (const s of [
+    'Restart carvedilol once the blood pressure has recovered',
+    'Ascites and large varices despite carvedilol: continue it',
+    'Carvedilol is restarted once the blood pressure has recovered',
+    'Once CSPH has resolved, carvedilol may be stopped',
+    'Start anticoagulation at once and continue it for ≥6 months',
+    'Carvedilol lowers the HVPG more than propranolol',
+    'Does ascites mean stopping carvedilol?',
+    'Octreotide is stopped once the bleeding is controlled',
+    'The bleeding stops once the varix is banded',
+    'A TIPS returns portal blood directly to the heart',
+    'Albumin expands the circulating volume as terlipressin constricts the arteries',
+  ]) assert.ok(!rules(s).includes('drug-as-subject'), s);
+});
+
 test('every string of every built-in deck passes the clinical wording rules', () => {
   const found = [];
   for (const d of DECKS) for (const [path, s] of strings(d)) for (const h of check(s)) found.push(`${d.id}.${path}: ${h.rule} "${h.match}" → ${h.fix}`);

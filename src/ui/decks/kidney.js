@@ -65,7 +65,7 @@ export const KIDNEY = {
       eq: [mi('APP') + mo('=') + mi('MAP') + mo('−') + mi('IAP'), 'Abdominal perfusion pressure: mean arterial pressure minus intra-abdominal pressure'],
       caveat: 'The APP is a pressure, not kidney function: the model has no GFR, creatinine or urine output, and no guideline gives the APP a normal range.',
       kicker: 'Abdominal perfusion pressure', site: 'sin', title: 'The abdominal perfusion pressure is the MAP minus the IAP',
-      line: 'The intra-abdominal pressure (IAP) opposes the MAP. At a MAP of {map}, the abdominal perfusion pressure (APP) is {rpp}.',
+      line: 'The intra-abdominal pressure (IAP) is subtracted from the MAP. At a MAP of {map}, the abdominal perfusion pressure (APP) is {rpp}.',
       notes: 'The abdominal perfusion pressure is the mean arterial pressure minus the intra-abdominal pressure (APP = MAP − IAP), the definition of the World Society of the Abdominal Compartment Syndrome (WSACS). In health the IAP is about 5 mmHg and lowers the APP little. The tile is a number only: Baveno VIII gives no cut-off for it, and the WSACS consensus did not support an APP-directed resuscitation target (PMID 23673399), so the tile has no normal or low band. The blood pressure itself keeps Baveno VIII 4.6\'s lines (systolic <90 mmHg, MAP <65 mmHg). The tile is a pressure, not renal perfusion or kidney function: the model has no glomerular filtration, creatinine or urine output, and it cannot say whether a kidney is injured or recovering.',
       ask: ['The MAP is 80 mmHg and the IAP is 15 mmHg. What is the APP?', '65 mmHg: the MAP minus the IAP.'],
     },
@@ -97,9 +97,9 @@ export const KIDNEY = {
       // the slide types none); the next slide is the same rule with a bleed.)
       id: 'path-carv', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'tap',
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, hrs: false } },
-      kicker: 'Carvedilol', site: 'sin', title: 'At this MAP, the algorithm continues carvedilol',
-      line: 'His blood pressure is {map}: neither a systolic {<90 mmHg} nor a MAP {<65 mmHg}, and he has no HRS-AKI. The algorithm continues carvedilol.',
-      notes: 'The Baveno VIII algorithm for carvedilol in decompensated cirrhosis (4.6, 4.7), applied to this case. Carvedilol is dose-reduced or stopped when the blood pressure stays low (systolic <90 mmHg or MAP <65 mmHg) and/or HRS-AKI develops (4.6). It is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered (4.7). His blood pressure is about 115/64 mmHg with a MAP of 79 mmHg, from the model. The model has no kidneys, so HRS-AKI is a fact of the case: he has none. Neither criterion is met, so carvedilol continues. A patient whose carvedilol is already held and who has recovered on both counts takes the restart branch. The next slide takes the same patient through a large hemorrhage.',
+      kicker: 'Carvedilol', site: 'sin', title: 'At this MAP, continue carvedilol',
+      line: 'His blood pressure is {map}: neither a systolic {<90 mmHg} nor a MAP {<65 mmHg}, and he has no HRS-AKI. The algorithm says to continue carvedilol.',
+      notes: 'The Baveno VIII algorithm for carvedilol in decompensated cirrhosis (4.6, 4.7), applied to this case. Carvedilol is dose-reduced or stopped when the blood pressure stays low (systolic <90 mmHg or MAP <65 mmHg) and/or HRS-AKI develops (4.6). It is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered (4.7). His blood pressure is about 115/64 mmHg with a MAP of 79 mmHg, from the model. The model has no kidneys, so HRS-AKI is a fact of the case: he has none. Neither criterion is met, so carvedilol is continued. A patient whose carvedilol is already held and who has recovered on both counts takes the restart branch. The next slide takes the same patient through a large hemorrhage.',
       ask: ['A man on carvedilol has a blood pressure of 115/64 mmHg (MAP 79 mmHg) and no HRS-AKI. What does the algorithm advise?', 'Continue carvedilol. Dose-reduce or stop it only for a systolic pressure <90 mmHg, a MAP <65 mmHg or HRS-AKI.'],
     },
     {

@@ -858,6 +858,7 @@ Key facts for text: normal HVPG 1–5; CSPH is HVPG ≥ 10; bleeding risk rises 
 
 31. **Owner's rules for the cards (Nov 2026).** The teaching card holds words, not graphs: put a chart, trace or table in the instrument or data card (`tool`, `data`, `visual`). Show all of a teaching card's text at once; the card is typeset whole, so nothing reflows. (`reveal: true` is the one opt-in that adds a line clause by clause, with the whole line typeset from the start; no built-in slide uses it since 11 Nov 2026, so every built-in card shows all its text at once.) Glass tint and blur are the same on every card, menu and callout; a deck never sets them. Figure labels are one style, outlined text with no boxes.
 
+32. **Say who acts, and state the order of events (16 Nov 2026).** A drug or therapy never "starts", "stops", "restarts" or "continues": the clinician does, so a title or line that tells the learner what to do is an imperative ("Restart carvedilol once the blood pressure has recovered", "Continue carvedilol despite ascites") and one that reports a decision is a passive ("carvedilol is restarted"). `scripts/clinical-wording.mjs` fails a drug as the subject of those verbs (`drug-as-subject`; docs/ai-humanizer.md section 5). A title that puts an event beside a treatment ("With ascites, carvedilol continues") must say how they relate, with "despite" or "after", never leave the reader to guess a cause. A path card's verdict says only what the patient has (a case with no HRS-AKI never has one that "has resolved").
 ---
 
 ## 10. Blank deck template

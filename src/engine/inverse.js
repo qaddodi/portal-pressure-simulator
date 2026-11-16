@@ -26,7 +26,7 @@ export const READINGS = Object.freeze({
   ssm: { label: 'Spleen stiffness (SSM)', short: 'SSM', unit: 'kPa', kind: 'log', sigma: 0.15, floor: 3, min: 5, max: 100 },
   spleen: { label: 'Spleen length', short: 'Spleen', unit: 'cm', kind: 'abs', sigma: 1.5, min: 5, max: 30 },
   plt: { label: 'Platelets', short: 'Platelets', unit: '×10⁹/L', kind: 'log', sigma: 0.18, floor: 10, min: 10, max: 600 },
-  pvVel: { label: 'Portal vein velocity', short: 'PV velocity', unit: 'cm/s', kind: 'abs', sigma: 6, min: -40, max: 80, note: 'Zero if there is no flow; negative if it runs away from the liver.' },
+  pvVel: { label: 'Portal vein velocity', short: 'PV velocity', unit: 'cm/s', kind: 'abs', sigma: 6, min: -40, max: 80, note: '0 is no flow; negative is hepatofugal.' },
   saag: { label: 'SAAG', short: 'SAAG', unit: 'g/dL', kind: 'abs', sigma: 0.3, min: 0, max: 5 },
   asctp: { label: 'Ascitic total protein', short: 'Ascitic protein', unit: 'g/dL', kind: 'abs', sigma: 0.5, min: 0, max: 8 },
   asc: { label: 'Ascites', short: 'Ascites', unit: '', kind: 'grade', sigma: 0.35, grades: ['None', 'Grade 1', 'Grade 2', 'Grade 3'] },
@@ -137,10 +137,10 @@ export function normalise(raw = {}) {
     delete readings.ppg; dropped.push({ key: 'ppg', why: 'made from the two pressures above' });
   }
   // Physiology checks (review E8): pressures that cannot all be true together are kept, and said, so a wrong zero level or a typing slip is not read as a disease.
-  if ('fhvp' in readings && 'ra' in readings && readings.fhvp < readings.ra - 2) warn('fhvp-below-ra', `FHVP (${f1(readings.fhvp)}) is below the right atrial pressure (${f1(readings.ra)}): the hepatic vein cannot sit lower than the atrium it drains into. Check the zero level.`, ['fhvp', 'ra']);
+  if ('fhvp' in readings && 'ra' in readings && readings.fhvp < readings.ra - 2) warn('fhvp-below-ra', `FHVP (${f1(readings.fhvp)}) is below the right atrial pressure (${f1(readings.ra)}): a hepatic vein cannot be at a lower pressure than the right atrium it drains into. Check the zero level.`, ['fhvp', 'ra']);
   if ('whvp' in readings && 'fhvp' in readings && readings.whvp < readings.fhvp - 1) warn('whvp-below-fhvp', `WHVP (${f1(readings.whvp)}) is below FHVP (${f1(readings.fhvp)}): the wedged pressure is not lower than the free one. Check which is which.`, ['whvp', 'fhvp']);
   if ('ivc' in readings && 'ra' in readings && readings.ivc < readings.ra - 2) warn('ivc-below-ra', `IVC pressure (${f1(readings.ivc)}) is below the right atrial pressure (${f1(readings.ra)}): the IVC drains into the atrium. Check the zero level.`, ['ivc', 'ra']);
-  if ('pv' in readings && 'whvp' in readings && readings.pv < readings.whvp - 3) warn('pv-below-whvp', `Portal vein pressure (${f1(readings.pv)}) is below the wedged pressure (${f1(readings.whvp)}): the wedge normally reads at or below the portal pressure.`, ['pv', 'whvp']);
+  if ('pv' in readings && 'whvp' in readings && readings.pv < readings.whvp - 3) warn('pv-below-whvp', `Portal vein pressure (${f1(readings.pv)}) is below the wedged pressure (${f1(readings.whvp)}): the WHVP is normally at or below the portal pressure.`, ['pv', 'whvp']);
   return { readings, dropped, warnings };
 }
 
@@ -268,8 +268,8 @@ export function whyBeats(readings, a, b) {
  * with two or more scenarios in `play`, and marks each family's `tieGroup`.
  */
 export const NATURAL_TIES = Object.freeze([
-  { id: 'heart', text: 'Right heart failure and constriction look the same to this model; echocardiography with the atrial waveform, or cardiac MR, decides.', key: (id) => (FAMILY[id].axes.includes('rhf') || FAMILY[id].axes.includes('constr') ? id.replace('constr', 'rhf') : null) },
-  { id: 'pre', text: 'A presinusoidal block, a portal clot and a clot on a liver with a little fibrosis look alike here; Doppler or CT of the portal vein and a liver biopsy decide.', set: ['presin', 'pvt', 'sinus+pvt', 'presin+pvt'] },
+  { id: 'heart', text: 'The model cannot separate right heart failure from constrictive pericarditis; echocardiography with the RA waveform, or cardiac MR, decides.', key: (id) => (FAMILY[id].axes.includes('rhf') || FAMILY[id].axes.includes('constr') ? id.replace('constr', 'rhf') : null) },
+  { id: 'pre', text: 'A presinusoidal block, PVT, and PVT with mild fibrosis give the same readings in the model; portal vein Doppler or CT and a liver biopsy decide.', set: ['presin', 'pvt', 'sinus+pvt', 'presin+pvt'] },
 ]);
 export function tiesOf(play) {
   const out = [];
@@ -496,20 +496,20 @@ export function reasonsFor(fam, readings, best) {
   const out = [], has = (id) => fam.parts.includes(id), after = has('rhf') || has('constr') || has('bcs') || has('ivcweb');
   const hvpg = 'whvp' in readings && 'fhvp' in readings ? readings.whvp - readings.fhvp : readings.hvpg;
   const f1 = (v) => (Math.round(v * 10) / 10).toString();
-  if ('fhvp' in readings && readings.fhvp >= 8 && after) out.push(`FHVP ${f1(readings.fhvp)} mmHg is raised: the pressure is already high beyond the sinusoids, which only a block after the liver or a heart lesion does.`);
-  if ('ra' in readings && readings.ra >= 10 && (has('rhf') || has('constr'))) out.push(`RA ${f1(readings.ra)} mmHg puts the cause in the heart; the IVC and hepatic veins carry it back to the liver.`);
-  if ('ra' in readings && readings.ra <= 6 && 'fhvp' in readings && readings.fhvp >= 8 && (has('ivcweb') || has('bcs'))) out.push(`RA ${f1(readings.ra)} mmHg is not raised, so the block sits between the liver and the atrium (hepatic veins or IVC), not in the heart.`);
+  if ('fhvp' in readings && readings.fhvp >= 8 && after) out.push(`FHVP ${f1(readings.fhvp)} mmHg is raised: the pressure downstream of the sinusoids is high, which only a posthepatic block or a cardiac cause produces.`);
+  if ('ra' in readings && readings.ra >= 10 && (has('rhf') || has('constr'))) out.push(`RA ${f1(readings.ra)} mmHg places the cause in the heart; the pressure is transmitted back through the IVC and hepatic veins to the liver.`);
+  if ('ra' in readings && readings.ra <= 6 && 'fhvp' in readings && readings.fhvp >= 8 && (has('ivcweb') || has('bcs'))) out.push(`RA ${f1(readings.ra)} mmHg is normal, so the obstruction lies between the liver and the right atrium (hepatic veins or IVC), not in the heart.`);
   if (hvpg != null && hvpg >= HVPG_CUTS.amber && (has('sinus') || has('presin') || has('post'))) {
     const st = has('sinus') && best ? pctText(LESION.sinus.set(best.p.sinus).scar) : null;
-    out.push(`HVPG ${f1(hvpg)} mmHg needs a block inside the liver${st && hvpg < HVPG_CUTS.red ? `; the cirrhosis slider at ${st} makes it` : ''}.`);
-  } else if (hvpg != null && hvpg < HVPG_CUTS.amber && !has('sinus') && !has('presin') && !has('post')) out.push(`HVPG ${f1(hvpg)} mmHg is small, as in a block entirely before or after the liver.`);
+    out.push(`HVPG ${f1(hvpg)} mmHg requires intrahepatic resistance${st && hvpg < HVPG_CUTS.red ? `; the cirrhosis slider at ${st} produces it` : ''}.`);
+  } else if (hvpg != null && hvpg < HVPG_CUTS.amber && !has('sinus') && !has('presin') && !has('post')) out.push(`HVPG ${f1(hvpg)} mmHg is normal, as with a purely prehepatic or posthepatic block.`);
   if ('lsm' in readings && best) {
     const v = f1(readings.lsm), pct = has('sinus') ? pctText(LESION.sinus.set(best.p.sinus).scar) : null, cong = congests(fam);
     // (Baveno VIII's LSM bands are for compensated advanced chronic liver disease: said only where cirrhosis is in the scenario, and the stiffness is credited to the lesion that makes it.)
-    if (pct) out.push(`LSM ${v} kPa: ${readings.lsm >= LSM_CUTS.unlikely ? lsmBand(readings.lsm) + '; ' : ''}the cirrhosis slider at ${pct} gives it${cong ? ', with the congestion adding to it' : ''}.`);
+    if (pct) out.push(`LSM ${v} kPa: ${readings.lsm >= LSM_CUTS.unlikely ? lsmBand(readings.lsm) + '; ' : ''}the cirrhosis slider at ${pct} produces it${cong ? ', and congestion adds to it' : ''}.`);
     else if (cong) out.push(`LSM ${v} kPa: congestion raises liver stiffness, so the Baveno VIII cut-offs do not apply.`);
   }
-  if ('spleen' in readings && readings.spleen >= 14 && hvpg != null && hvpg < HVPG_CUTS.amber && (has('presin') || has('pvt'))) out.push('A large spleen with a small HVPG points to a block before the sinusoids.');
+  if ('spleen' in readings && readings.spleen >= 14 && hvpg != null && hvpg < HVPG_CUTS.amber && (has('presin') || has('pvt'))) out.push('Splenomegaly with a normal HVPG points to presinusoidal or prehepatic resistance.');
   return out.slice(0, 4);
 }
 
@@ -537,13 +537,13 @@ export function bandsOf(pred, fam = null) {
   // (The no-lesion family has no lesion to qualify the bands: the plain ones apply.)
   const out = [], parts = fam ? fam.parts : ['sinus'], sinus = parts.includes('sinus') || (!!fam && !parts.length), before = parts.some((id) => BEFORE_LIVER.includes(id));
   if (pred.hvpg != null) {
-    const band = before ? `does not show the portal pressure with a block before the liver${pred.ppg != null ? `; the model's PPG is ${f1text(pred.ppg)} mmHg` : ''}` : hvpgBand(pred.hvpg);
+    const band = before ? `underestimates the portal pressure with a presinusoidal or prehepatic block${pred.ppg != null ? `; the model's PPG is ${f1text(pred.ppg)} mmHg` : ''}` : hvpgBand(pred.hvpg);
     out.push({ label: 'HVPG', text: `${f1text(pred.hvpg)} mmHg`, band });
   }
   if (pred.lsm != null) {
     const band = sinus ? lsmBand(pred.lsm) + (congests(fam) ? '; congestion raises it too' : '')
       : congests(fam) ? 'congestion raises it, so the Baveno VIII cut-offs do not apply'
-        : 'the Baveno VIII cut-offs are for cirrhosis and are not applied to a block before the liver';
+        : 'the Baveno VIII cut-offs are for cirrhosis and are not applied to a presinusoidal or prehepatic block';
     out.push({ label: 'LSM', text: `${f1text(pred.lsm)} kPa`, band });
   }
   return out;

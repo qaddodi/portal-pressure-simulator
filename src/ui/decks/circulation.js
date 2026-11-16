@@ -34,7 +34,7 @@ export const CIRCULATION = {
     {
       id: 'lobule', pill: false, terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
       kicker: 'Inside the liver', title: 'Blood crosses the lobule from portal tract to central vein',
-      line: 'Portal venules and hepatic arterioles enter at the corners of this hexagon, about 1 mm across, cross the sinusoids and drain to the central vein.',
+      line: 'Blood from portal venules and hepatic arterioles enters at the corners of this hexagon, about 1 mm across, crosses the sinusoids and drains to the central vein.',
       notes: 'The classic lobule is a hexagon about a millimeter across, with a portal tract at each corner and a central vein (terminal hepatic venule) in the middle. Each portal tract holds a portal venule, a hepatic arteriole and a bile ductule, with lymphatics, in connective tissue; bile leaves through the ductule, against the direction of blood flow. Hepatocyte plates, one cell thick, line the sinusoids. Central veins join into sublobular veins and then the three hepatic veins (right, middle and left), which open into the IVC just below the right atrium. The caudate lobe drains straight into the IVC by its own small veins, which is why it hypertrophies in Budd–Chiari syndrome. In the acinus, zone 1 lies near the portal tract and receives the most oxygen; zone 3, around the central vein, receives the least and is injured first by congestion and hypoperfusion. Presinusoidal diseases (schistosomiasis, porto-sinusoidal vascular disorder) raise resistance in the portal venules, upstream of the sinusoids, and a high right atrial pressure is transmitted back through the hepatic veins into the sinusoids.',
       ask: ['Which hepatocytes receive blood last, and so the least oxygen?', 'Those around the central vein: blood enters at the portal tracts and leaves by the central vein. A portal tract holds a portal venule, a hepatic arteriole and a bile ductule.'],
     },
@@ -47,7 +47,7 @@ export const CIRCULATION = {
     },
     {
       id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
-      kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient >5 mmHg',
+      kicker: 'Definition', site: 'sin', title: 'Portal hypertension is an HVPG >5 mmHg',
       vignette: 'A 52-year-old man with hepatitis C cirrhosis comes to his first hepatology visit. He has never bled or had ascites, and his platelets are 90,000/µL.',
       line: 'In this case of compensated cirrhosis, the HVPG is {hvpg}. An HVPG of 6 to 9 mmHg is subclinical; from 10 mmHg varices and ascites become possible and risk rises.',
       notes: 'Portal hypertension is a portal pressure gradient >5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. An HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH): from there varices and decompensation (ascites, variceal bleeding, encephalopathy) become possible, and the risk rises with the gradient; from about 12 mmHg the risk of variceal bleeding rises. In this cirrhotic liver the largest pressure drop is across the sinusoids.',
@@ -57,7 +57,7 @@ export const CIRCULATION = {
       // (The stages of Baveno VIII Fig. 2 lit for this patient: compensated, with CSPH. The definition slide before gave the HVPG; this one puts it on the stages.)
       id: 'path-ladder', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],
       tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 1, rc: false } },
-      kicker: 'Definition', site: 'sin', title: 'CSPH is the second stage of cirrhosis',
+      kicker: 'Definition', site: 'sin', title: 'CSPH is the second stage of compensated cirrhosis',
       line: 'Compensated cirrhosis has two stages, defined by the HVPG. His HVPG of {hvpg} is {>=10 mmHg}, so he has CSPH. Ascites, variceal bleeding or overt hepatic encephalopathy would mark decompensation.',
       notes: 'Source: Baveno VIII Fig. 2, 3.1 to 3.3. Cirrhosis is compensated while there is no current or past decompensation. Compensated cirrhosis has two stages, without and with clinically significant portal hypertension (CSPH). CSPH is shown by an HVPG ≥10 mmHg, and by a liver stiffness ≥25 kPa, varices or collaterals. The first decompensation is clinically evident ascites, variceal bleeding or overt hepatic encephalopathy; later events are further decompensation, with a higher mortality. He has never bled or had ascites, so he is compensated, at the second stage. The decompensation and recompensation talk follows the stages in order.',
       ask: ['Which three events mark the end of compensated cirrhosis?', 'Clinically evident ascites, variceal bleeding and overt hepatic encephalopathy (Baveno VIII 3.3).'],

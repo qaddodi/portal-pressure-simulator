@@ -43,7 +43,7 @@ export const MASLD = {
       // (Her PPG against her HVPG: the gap above the line for a liver with no presinusoidal fibrosis is the part the wedge leaves out.)
       id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: GAP, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
       kicker: GAPS, site: 'sin', title: 'Part of her PPG comes from resistance the WHVP does not capture', cite: 'Baveno VIII 2.5',
-      line: 'At the same HVPG her PPG sits higher. Presinusoidal resistance lies upstream of the sinusoids, so her HVPG of {hvpg} omits part of her PPG of {ppg}.',
+      line: 'At the same HVPG her PPG is higher. Presinusoidal resistance lies upstream of the sinusoids, so her HVPG of {hvpg} omits part of her PPG of {ppg}.',
       notes: 'Each line is a liver with more or less fibrosis, the HVPG across and the PPG up. In the lower line there is no presinusoidal fibrosis, so the PPG rises with the HVPG. The upper line is her liver: Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient, and the model represents that as presinusoidal fibrosis in the portal venules and periportal tissue. It adds to the PPG and the WHVP does not reflect it, so the gap between the lines is the part the HVPG leaves out. The ring is her. That placement is the model\'s reading of the statement, not a proven mechanism, and the size of the gap is the model\'s own, not a published figure.',
       ask: ['Which component of her PPG does the HVPG omit?', 'The presinusoidal resistance, in the portal venules and periportal fibrosis. The WHVP reflects the sinusoids and everything downstream of them.'],
     },
@@ -57,7 +57,7 @@ export const MASLD = {
     },
     {
       id: 'bmi', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt', 'ssm'],
-      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, a model that includes the BMI decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
+      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, ANTICIPATE-NASH decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
       line: 'Her liver stiffness (LSM) is {lsm} and her platelets {plt}. The 25 kPa rule needs a BMI <30; a model that includes the BMI estimates the probability: ≥75% means CSPH.',
       notes: 'The 25 kPa rule-in covers viral and alcohol-related disease and non-obese (BMI <30) MASLD. In MASLD with obesity (BMI ≥30), Baveno VIII uses ANTICIPATE-NASH, built on LSM, platelet count and BMI, or NICER, to estimate the probability of CSPH, and calls it present at ≥75%. The model has no BMI, so it shows the LSM and platelets and leaves the probability to the calculator. An LSM of 15 to 25 kPa is the indeterminate zone, where a model or spleen stiffness measurement (SSM) decides: an SSM >55 kPa rules CSPH in (1.16). Hers is below that cut-off, so the SSM tile does not decide her case.',
       ask: ['A man with MASH, a BMI of 36 and an LSM of 27 kPa. Is CSPH ruled in?', 'Not by the 25 kPa rule, which is for a BMI <30. ANTICIPATE-NASH decides: ≥75% means CSPH.'],
@@ -106,7 +106,7 @@ export const MASLD = {
     {
       id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.62 }, cam: 'liver', data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
       vignette: 'A 52-year-old man with MASH, type 2 diabetes and a BMI of 31 drinks four beers most evenings. He has compensated cirrhosis with small varices, no ascites and no history of bleeding.',
-      kicker: MORE, site: 'sin', title: 'With alcohol on top, the advice is to stop, not to cut down', cite: 'Baveno VIII 2.1, 2.2, Table 3',
+      kicker: MORE, site: 'sin', title: 'With alcohol use, advise abstinence, not cutting down', cite: 'Baveno VIII 2.1, 2.2, Table 3',
       line: 'In another patient with CSPH, alcohol use adds to the liver injury of MASLD. In alcohol-related disease Baveno VIII favors complete abstinence over reduction, and encourages it in all cirrhosis.',
       notes: 'Return to or continuation of alcohol use is a major driver of liver-related events in alcohol-related cACLD (Baveno VIII 2.1), and in that setting complete abstinence is favored over reduction (2.2). The statement is written for alcohol-related disease. For cirrhosis of any cause, a consensus statement that still stands from earlier Baveno meetings encourages abstinence (Table 3), so a man with MASH who drinks heavily is advised to stop. The model has no alcohol, so the numbers show his cirrhosis only.',
       ask: ['A man with MASH cirrhosis drinks four beers a night. Is cutting down enough?', 'No. Complete abstinence is favored over reduction, and encouraged in all cirrhosis.'],

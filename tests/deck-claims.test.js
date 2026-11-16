@@ -8,11 +8,12 @@
 //   6. No deck says a guideline file is missing, or that no guideline gives a recanalization rate (EASL 2025 does).
 //   7. A slide at LSM 20 to 25 kPa with platelets <150,000/µL never sends the patient to screening endoscopy without naming AASLD.
 //   8. The few teaching errors of the review stay fixed (each pinned to the slide that carried it).
+//   9. A sentence "falls to {x}" or "lowers ... to {x}" agrees with the state just before the slide's change.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import './dom-shim.js';
-import { deckStates } from './deck-states.js';
+import { deckStates, changes } from './deck-states.js';
 
 const DIR = new URL('../src/ui/decks/', import.meta.url);
 const files = readdirSync(DIR).filter((x) => x.endsWith('.js'));
@@ -164,4 +165,39 @@ test('the teaching errors of the 15 Nov review stay fixed', async () => {
   const ab = slide('tipping', 'antibiotic-card');
   assert.ok(ab.s.tiles.includes('tp') && ab.f.tp < 1.5, 'tipping: the tp tile, under 1.5 g/dL');
   assert.match(text(ab.s), /AASLD 2021/);
+});
+
+// 9. Text that contradicts the data (wording audit, 16 Nov 2026: "if the app utters nonsense it's fucked"). A sentence that says a reading
+// "falls to {x}", "lowers the portal pressure to {pv}" or "rises to {x}" claims the change the slide makes, so it is judged against the state
+// just before that change: the slide before, for a slide that changes the same patient (no preset). (Not the tiles' `delta` slide: "a second
+// unit raises the blood pressure to {map}" is the unit's effect, though the tiles count from before the bleed.) A slide that opens a new
+// patient (a preset), or changes nothing, makes no change of its own and is not judged. The verb nearest the brace decides the direction
+// ("the IAP falls and the APP rises to {rpp}" claims a rise).
+const VERB = new RegExp(`\\b(?:${UP}|${DOWN})\\b`, 'g'), IS_UP = new RegExp(`^${UP}$`);
+const lineClaims = (t) => [...t.matchAll(/\bto \{(\w+)(?::\d)?\}/g)].flatMap((m) => {
+  const before = t.slice(Math.max(0, m.index - 70), m.index).split(/[.;{}]/).pop(), verbs = [...before.matchAll(VERB)];
+  return verbs.length ? [{ k: m[1], up: IS_UP.test(verbs.at(-1)[0]), text: before.trim() + ' ' + m[0] }] : [];
+});
+test('a sentence "falls to {x}" or "raises ... to {x}" agrees with the state just before the change the slide makes', async () => {
+  const bad = [];
+  for (const { d, fps } of await decks()) {
+    d.slides.forEach((s, i) => {
+      if (i === 0 || s.preset || !changes(s)) return;
+      for (const t of words(s)) for (const c of lineClaims(t)) {
+        const a = fps[i - 1]?.[c.k], b = fps[i]?.[c.k];
+        if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+        const tol = 0.005 * Math.max(Math.abs(a), Math.abs(b), 0.1);   // (half a percent: a change the tile can show, never rounding noise)
+        if (c.up ? !(b - a > tol) : !(a - b > tol)) bad.push(`${d.id}/${s.id}: "${c.text.slice(-90)}" but ${c.k} is ${a.toFixed(2)} on ${d.slides[i - 1].id} and ${b.toFixed(2)} here`);
+      }
+    });
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('the claim finder reads "falls to {x}" and "lowers the portal pressure to {pv}", and leaves "from {x@id} to {x}" to the test above', () => {
+  assert.deepEqual(lineClaims('Carvedilol lowers portal pressure to {pv} and prevents bleeding.').map((c) => [c.k, c.up]), [['pv', false]]);
+  assert.deepEqual(lineClaims('The HVPG rises to {hvpg}.').map((c) => [c.k, c.up]), [['hvpg', true]]);
+  assert.deepEqual(lineClaims('The IAP falls and the APP rises to {rpp}.').map((c) => [c.k, c.up]), [['rpp', true]]);
+  assert.deepEqual(lineClaims('Anticoagulation is started. The PPG is {ppg}.'), []);
+  assert.deepEqual(lineClaims('The HVPG falls from {hvpg@a} to {hvpg}.'), []);
 });

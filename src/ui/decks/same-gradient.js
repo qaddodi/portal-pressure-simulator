@@ -45,7 +45,7 @@ export const SAME_GRADIENT = {
     {
       id: 'ref', ...REF, lens: 'drop', cam: 'route', labels: LIVER, tool: PROFILE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis, abstinent for two years, has small esophageal varices on EGD, platelets of 87,000/µL and no ascites.',
-      kicker: 'Reference', site: 'sin', title: 'In sinusoidal cirrhosis the PPG runs close to the HVPG',
+      kicker: 'Reference', site: 'sin', title: 'With purely sinusoidal resistance the PPG is close to the HVPG',
       line: 'All of his resistance lies in the sinusoids, so the HVPG, {hvpg}, accounts for nearly all of the PPG, {ppg}. The portal vein carries {pvFlow}.',
       notes: 'The first of four men whose HVPG is the same. His resistance is sinusoidal, between the wedged and the free hepatic vein positions, so the HVPG captures nearly all of it (AASLD 2024 statement 3, the HVPG as the gold standard in cirrhosis). The PPG is a little higher because it also includes the small drop along the portal vein and from the hepatic vein to the IVC. An HVPG of 10 mmHg or more is clinically significant portal hypertension (AASLD 2024 statement 4). The model sets the cirrhosis of each of the four patients so that the HVPG reads the same, to one decimal; every other number on the next slides is what the model then gives.',
       ask: ['In cirrhosis with all the resistance in the sinusoids, how do the HVPG and the PPG compare?', 'They are close, with the PPG slightly higher: the HVPG captures nearly all of the portal pressure gradient.'],
@@ -54,7 +54,7 @@ export const SAME_GRADIENT = {
       id: 'up', ...UP, lens: 'drop', cam: 'route', labels: LIVER, tool: PROFILE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'], delta: 'ref',
       vignette: 'A 61-year-old man with MASH, type 2 diabetes and a BMI of 34 has large esophageal varices on EGD and platelets of 75,000/µL. No ascites.',
       caseQ: 'His HVPG matches the first man\'s. Will his PPG?',
-      kicker: 'Upstream resistance', site: 'sin', title: 'Resistance upstream of the wedge raises the PPG and leaves the HVPG alone',
+      kicker: 'Upstream resistance', site: 'sin', title: 'Resistance upstream of the wedge raises the PPG but not the HVPG',
       line: 'In another patient with CSPH, part of the resistance lies in the portal tracts. The HVPG is {hvpg}, as before. The PPG is {ppg}, against {ppg@ref}.',
       notes: 'Baveno VIII 2.5 and AASLD 2024 statement 5: in obese and MASLD-related cirrhosis the HVPG may underestimate the true portal pressure gradient, and an HVPG of 10 mmHg or more still carries a higher risk of decompensation. The model puts the missing part of the resistance in the portal venules and the periportal fibrosis, upstream of the sinusoids that the wedged pressure reflects. That placement is the model\'s explanation, not a proven mechanism, and it overstates the effect: in patients the difference is smaller and varies. More of his portal blood bypasses the liver than in the first man, and the liver receives less of its normal flow, although the HVPG is the same. The BMI and the diabetes are in the case only; the model has neither.',
       ask: ['Two men have an HVPG of 12 mmHg. One has a PPG of 14 mmHg and the other 16 mmHg. Which has resistance upstream of the wedge?', 'The second. The extra PPG is resistance in the portal tracts, which the WHVP does not reflect.'],
@@ -81,10 +81,10 @@ export const SAME_GRADIENT = {
     },
     {
       id: 'cost', cam: 'route', labels: LIVER, data: 'tiles', tiles: ['he', 'varix'], key: ['he'], delta: 'ref',
-      kicker: 'Collaterals', site: 'sin', title: 'The shunt shrinks the varices and spares the platelets, and costs the liver its blood',
+      kicker: 'Collaterals', site: 'sin', title: 'The shunt decompresses the varices and spares the platelets but cuts hepatic portal perfusion',
       line: 'The varices are {varix} and the platelets {plt}, better than in the first man. The liver gets {liver} of its normal flow, and the encephalopathy risk is high.',
       notes: 'In the model the shunt lowers the portal vein pressure, so the spleen is smaller, the platelets higher and the varices smaller than in the first man. Those are the markers a clinic watches, and here they flatter him. The liver receives about a third of its normal blood flow, and the model\'s encephalopathy index, built from the shunt fraction and the hepatic blood flow, is the highest of the four: it is the model\'s index, not a clinical score. The overt encephalopathy in the case is the clue that a catheter reading would not give.',
-      ask: ['A man with an HVPG of 12 mmHg has small varices, a platelet count of 141,000/µL and recurrent encephalopathy. Is that reassuring?', 'No. The same gradient can hide a shunt that spares the varices and the platelets while the liver loses its blood.'],
+      ask: ['A man with an HVPG of 12 mmHg has small varices, a platelet count of 141,000/µL and recurrent encephalopathy. Is that reassuring?', 'No. The same gradient can hide a shunt that spares the varices and the platelets while hepatic portal perfusion falls.'],
     },
     {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: [{ id: 'ref', name: 'Sinusoidal' }, { id: 'up', name: 'Upstream share' }, { id: 'flow', name: 'High inflow' }, { id: 'shunt', name: 'Shunt' }],

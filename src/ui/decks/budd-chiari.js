@@ -63,10 +63,10 @@ export const BUDD_CHIARI = {
     },
     {
       id: 'anticoag', params: { anticoag: true }, days: 60, lapse: { seconds: 7, from: 'Diagnosis', to: '2 months later' }, cam: 'liver', terms: ['hv'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
-      kicker: 'Stepwise management', site: 'post', title: 'Anticoagulation comes first and continues long term',
-      line: 'Anticoagulation starts as soon as the diagnosis is made. In the model it lowers portal pressure to {pv}, but {asc} of ascites remains.',
-      notes: 'Source: Baveno VIII 8.32, 8.10. Therapeutic anticoagulation starts as soon as possible after the diagnosis and continues long term, including after a liver transplant (8.32). It should not be postponed to wait for endoscopic prophylaxis of variceal bleeding (8.10). In the model anticoagulation prevents thrombus extension and lowers the pressure slightly; it does not recanalize the three occluded veins, which is why the next step is angioplasty and stenting.',
-      ask: ['How long does anticoagulation continue in Budd–Chiari syndrome?', 'Long term, and after a liver transplant too (Baveno VIII 8.32).'],
+      kicker: 'Stepwise management', site: 'post', title: 'Start anticoagulation first and continue it long term',
+      line: 'Start anticoagulation as soon as the diagnosis is made. In the model it lowers portal pressure to {pv}, but {asc} of ascites remains.',
+      notes: 'Source: Baveno VIII 8.32, 8.10. Therapeutic anticoagulation is started as soon as possible after the diagnosis and continued long term, including after a liver transplant (8.32). It should not be postponed to wait for endoscopic prophylaxis of variceal bleeding (8.10). In the model anticoagulation prevents thrombus extension and lowers the pressure slightly; it does not recanalize the three occluded veins, which is why the next step is angioplasty and stenting.',
+      ask: ['How long is anticoagulation continued in Budd–Chiari syndrome?', 'Long term, and after a liver transplant too (Baveno VIII 8.32).'],
     },
     {
       id: 'agent', cam: 'liver', terms: ['hv'], tool: { kind: 'criteria', title: 'Choice of anticoagulant', short: 'Anticoagulant', ticks: false, lead: 'LMWH first, then an oral agent.', rule: 'Baveno VIII 8.5, 8.6',
@@ -81,7 +81,7 @@ export const BUDD_CHIARI = {
       id: 'stent', params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7, from: 'Before the stent', to: '2 months later' }, cam: 'hepatic', terms: ['hv'], mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Stepwise management', site: 'post', title: 'Stenting one short stenosis can decompress the whole liver',
       line: 'A short stenosis amenable to angioplasty is sought. A right hepatic vein stent lowers portal pressure to {pv} and ascites to {asc}.',
-      notes: 'Source: Baveno VIII 8.33, 8.31. Venous stenoses amenable to percutaneous recanalization are actively sought and treated. A short stenosis of a hepatic vein or the IVC is treated by angioplasty, usually with stenting, and anticoagulation continues. In the model one patent hepatic vein can drain the whole liver, as here, and faster than in most patients.',
+      notes: 'Source: Baveno VIII 8.33, 8.31. Venous stenoses amenable to percutaneous recanalization are actively sought and treated. A short stenosis of a hepatic vein or the IVC is treated by angioplasty, usually with stenting, and anticoagulation is continued. In the model one patent hepatic vein can drain the whole liver, as here, and faster than in most patients.',
       ask: ['What is sought after the diagnosis, before TIPS?', 'Short venous stenoses amenable to percutaneous recanalization, with or without stenting (Baveno VIII 8.33).'],
     },
     {

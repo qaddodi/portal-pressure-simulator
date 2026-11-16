@@ -101,6 +101,18 @@ clinicians do ("HVPG 14 mmHg", "a covered 8 mm TIPS", "CTP class C"), not spelle
 - **Name the measurement.** "The WHVP is 18 mmHg", not "the reading is 18". "The tile reads" only for the app's own tile.
 - **Clinical verbs.** Varices "bleed", "are banded" (EVL); ascites "accumulates", "is drained"; the HVPG "falls" or "drops";
   a TIPS "is placed" and "dilated"; a thrombus "recanalizes".
+- **Say who acts.** A drug or therapy never starts, stops, restarts, resumes or continues on its own: a clinician does it. Write the
+  action as an imperative ("Carvedilol restarts once the blood pressure has recovered" is wrong; "Restart carvedilol once the blood
+  pressure has recovered" is right) or a passive with its drug ("carvedilol is restarted", "anticoagulation may be stopped"). A slide
+  title that tells the learner what to do is an imperative: "Start carvedilol at CSPH", "Continue carvedilol despite ascites". The
+  intransitive verbs belong to things that happen on their own (a pressure falls, ascites accumulates, a thrombus recanalizes, a
+  bleed stops). The same goes for "the algorithm continues carvedilol": the algorithm says to continue it.
+  Mohammad, 16 Nov 2026, on the title "Carvedilol restarts once the blood pressure has recovered": "Who restarts it? I don't
+  understand." A sentence that leaves the reader unsure who acts is a defect. Held by the `drug-as-subject` rule (section 6).
+- **Cause and effect in a title.** "With ascites, carvedilol continues" reads as if the drug caused the ascites. Say the order of
+  events with "despite", "after" or "on" only where it is true: "Ascites and large varices despite carvedilol: continue it".
+- **A card says only what the patient shows.** A verdict card (a path's "why" line) is built from the patient's own fields. It never
+  says an event happened (an HRS-AKI that "has resolved") that the case does not have.
 - **Grading and staging as written in the guidelines**: Baveno VIII "CSPH", "cACLD", "decompensation", "recompensation"; AASLD
   ascites grades; West Haven HE grades; varix size small (<5 mm) or large (≥5 mm).
 - **One hedge per claim.** Thresholds are rising risk, not a switch: "bleeding risk climbs from about 12 mmHg".
@@ -114,6 +126,10 @@ The test walks every string in the built-in decks and in the app's text modules 
 3. British spellings in the list of section 3 (colour, grey, haemorrhage, oesophagus, oedema, anaemia, whilst, per cent, centre
    for anatomy...). (Code names such as `--grey` or `centre` in a comment are not learner text.)
 4. Em-dashes (—) in learner text.
+5. A drug or therapy as the subject of start, stop, restart, resume, continue, begin or cease (`drug-as-subject`: carvedilol, propranolol,
+   NSBB, beta-blocker, terlipressin, octreotide, albumin, diuretics, rifaximin, lactulose, antibiotics, anticoagulation and the rest of
+   `THERAPY` in `scripts/clinical-wording.mjs`): "Carvedilol restarts", "the NSBB may continue", "anticoagulation comes first and
+   continues". Write "Restart carvedilol", "carvedilol is restarted", "continue the NSBB".
 A new phrase that a clinician would correct goes into the test's list in the same commit as its fix.
 
 ## 7. Patterns that sound machine-made (still out)
@@ -154,6 +170,9 @@ A new phrase that a clinician would correct goes into the test's list in the sam
 | Drag Scarring to move her across the cut-offs. | Drag Fibrosis to move her across the cut-offs. (notes only) |
 | Less blood from the gut reaches the liver | Splanchnic inflow falls, so portal flow falls |
 | It is crucial to understand that portal hypertension arises from a multifaceted interplay | Portal hypertension has two drivers: higher intrahepatic resistance and higher splanchnic inflow |
+| Carvedilol restarts once the blood pressure has recovered | Restart carvedilol once the blood pressure has recovered |
+| With ascites and large varices, carvedilol continues | Ascites and large varices despite carvedilol: continue it |
+| Anticoagulation starts at once | Start anticoagulation at once |
 | Octreotide leverages splanchnic vasoconstriction to mitigate bleeding | Octreotide causes splanchnic vasoconstriction, lowering portal inflow and portal pressure |
 
 ## 10. Final pass

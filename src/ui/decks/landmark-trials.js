@@ -176,7 +176,7 @@ export const LANDMARK_TRIALS = {
     {
       id: 'rifaximin', lens: 'flow', cam: 'liver', mark: STENT, tool: { kind: 'trial', id: 'rifaximin', at: 'covered' }, data: 'tiles', tiles: ['shunt', 'he'], key: ['he'], delta: 'covered',
       compare: [{ label: 'Before the TIPS', short: 'Before', slide: 'covered' }, { label: 'After the TIPS', short: 'After', own: true }],
-      kicker: 'After the stent', site: 'sin', title: 'The stent sends portal blood past the liver; rifaximin first cut overt HE', cite: 'Baveno VIII 6.16',
+      kicker: 'After the stent', site: 'sin', title: 'The stent sends portal blood past the liver; rifaximin beforehand cut overt HE', cite: 'Baveno VIII 6.16',
       line: 'Now {shunt} of her portal flow bypasses the sinusoids, and her HE risk rises to {he}. In the trial, rifaximin started 14 days before the TIPS lowered overt HE.',
       notes: 'Colored by flow, the stent carries most of the portal blood straight to the hepatic vein, so ammonia and other gut-derived toxins that the liver would clear reach the brain. The model has no rifaximin, so the result is the trial\'s (Bureau, Ann Intern Med 2021): rifaximin 600 mg twice daily from 14 days before the TIPS to 168 days after it, against placebo; overt HE within 168 days in 34% against 53%. Baveno VIII 6.16: rifaximin should be considered to prevent HE in candidates for an elective TIPS.',
       ask: ['Why does a TIPS raise the risk of hepatic encephalopathy, and what is given first?', 'It diverts portal blood around the liver, so gut-derived toxins reach the brain; rifaximin, started 14 days before an elective TIPS.'],
@@ -184,7 +184,7 @@ export const LANDMARK_TRIALS = {
     // ---- Summary
     {
       id: 'forest', cam: 'fit', tool: { kind: 'forest', ids: ['predesci', 'lvtips', 'transfusion', 'rifaximin'] },
-      kicker: 'Summary', title: 'Where a trial gave a ratio',
+      kicker: 'Summary', title: 'Hazard and odds ratios from the trials',
       line: 'Each row is one trial\'s ratio and 95% CI; <1 favors the treatment. The 2010 early TIPS and covered TIPS trials gave none, so they are not here.', pill: false,
       notes: 'Each row is one trial that reported a ratio: the mark is the ratio, the line its confidence interval, and the upright line a ratio of 1, no difference between the arms. The rows are hazard ratios and an odds ratio, each as its abstract reported it. They measure different things, so the chart never pools them into one number. Two of the largest differences in this talk are missing because their trials reported none: the 2010 early TIPS trial (1-year survival 86% against 61%) and the covered TIPS trial (93% against 52%). The timolol and HVPG-guided trials reported no ratio either.',
       ask: ['How do you read a ratio on this chart?', 'A ratio <1 favors the treatment and >1 the control; an interval that crosses 1 shows no clear difference.'],

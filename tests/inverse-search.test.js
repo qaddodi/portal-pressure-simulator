@@ -251,7 +251,7 @@ test('FHVP 24 with WHVP 30 and nothing else: a short list of post-hepatic blocks
   const lead = r.families[0];
   assert.match(reasonsFor(FAMILY[lead.id], r.readings, lead.best).join(' '), /FHVP 24 mmHg is raised/);
   const why = reasonsFor(FAMILY['sinus+constr'], r.readings, { p: { sinus: 0.3, constr: 0.9 } }).join(' ');
-  assert.match(why, /HVPG 6 mmHg needs a block inside the liver; the cirrhosis slider at 30% makes it/);
+  assert.match(why, /HVPG 6 mmHg requires intrahepatic resistance; the cirrhosis slider at 30% produces it/);
 });
 
 test('the same two pressures with a third reading: the atrium splits the heart from the venous block', () => {
@@ -300,12 +300,12 @@ test('the Baveno VIII bands are printed only where they apply: LSM bands with ci
   assert.match(text('rhf'), /LSM 33\.0 kPa: congestion raises it, so the Baveno VIII cut-offs do not apply/);
   assert.doesNotMatch(text('rhf'), /rules clinically significant|cACLD|compensated advanced/, 'no cirrhosis band on a heart card');
   assert.match(text('constr'), /do not apply/); assert.match(text('bcs'), /do not apply/); assert.match(text('ivcweb'), /do not apply/);
-  assert.match(text('presin', { hvpg: 4.5, lsm: 7, ppg: 11.2 }), /HVPG 4\.5 mmHg: does not show the portal pressure with a block before the liver; the model's PPG is 11\.2 mmHg/);
+  assert.match(text('presin', { hvpg: 4.5, lsm: 7, ppg: 11.2 }), /HVPG 4\.5 mmHg: underestimates the portal pressure with a presinusoidal or prehepatic block; the model's PPG is 11\.2 mmHg/);
   assert.doesNotMatch(text('presin', { hvpg: 4.5, lsm: 7 }), /normal range|unlikely/, 'PSVD: no "normal range" for the HVPG and no cACLD band for the LSM');
   assert.doesNotMatch(text('pvt'), /normal range/);
   assert.match(text('sinus', { hvpg: 12, lsm: 27 }), /HVPG 12\.0 mmHg: 10 or more, clinically significant.*LSM 27\.0 kPa: 25 or more/);
   assert.match(text('sinus+rhf', { hvpg: 12, lsm: 27 }), /congestion raises it too/, 'cirrhosis with congestion: the band, with the caution');
-  assert.match(text('sinus+pvt', { hvpg: 7, lsm: 18 }), /does not show the portal pressure/, 'a clot in the mix: the HVPG is not the portal pressure');
+  assert.match(text('sinus+pvt', { hvpg: 7, lsm: 18 }), /underestimates the portal pressure/, 'a clot in the mix: the HVPG is not the portal pressure');
   // every family says something for each measure and never the cirrhosis band without cirrhosis
   for (const f of FAMILIES) {
     const b = bandsOf({ hvpg: 6, lsm: 18, ppg: 9 }, f), lsm = b.find((x) => x.label === 'LSM');
@@ -316,9 +316,9 @@ test('the Baveno VIII bands are printed only where they apply: LSM bands with ci
 
 test('the reasons credit the stiffness to the lesion that makes it, and never print a band that contradicts the slider (review U3)', () => {
   const rd = (v) => ({ whvp: 14, fhvp: 4, lsm: v });
-  assert.match(reasonsFor(FAMILY.sinus, rd(7), { p: { sinus: 0.25 } }).join(' '), /LSM 7 kPa: the cirrhosis slider at 25% gives it\./, 'a low LSM says no band');
+  assert.match(reasonsFor(FAMILY.sinus, rd(7), { p: { sinus: 0.25 } }).join(' '), /LSM 7 kPa: the cirrhosis slider at 25% produces it\./, 'a low LSM says no band');
   assert.doesNotMatch(reasonsFor(FAMILY.sinus, rd(7), { p: { sinus: 0.25 } }).join(' '), /unlikely/);
-  assert.match(reasonsFor(FAMILY.sinus, rd(22), { p: { sinus: 0.7 } }).join(' '), /LSM 22 kPa: over 15, highly likely.*slider at 70% gives it/);
+  assert.match(reasonsFor(FAMILY.sinus, rd(22), { p: { sinus: 0.7 } }).join(' '), /LSM 22 kPa: over 15, highly likely.*slider at 70% produces it/);
   assert.match(reasonsFor(FAMILY.rhf, rd(33), { p: { rhf: 0.8 } }).join(' '), /LSM 33 kPa: congestion raises liver stiffness, so the Baveno VIII cut-offs do not apply/);
   assert.doesNotMatch(reasonsFor(FAMILY.presin, rd(33), { p: { presin: 0.8 } }).join(' '), /LSM/, 'a block before the liver does not make the stiffness');
 });
@@ -327,8 +327,8 @@ test('settings that follow from a lesion are marked, so a card does not list the
   const alb = settingsOf('sinus', { sinus: 0.9 }).find((x) => x.label === 'Albumin');
   assert.equal(alb.follows, true);
   assert.equal(settingsOf('sinus', { sinus: 0.9 }).find((x) => x.label === 'Cirrhosis slider').follows, undefined);
-  assert.ok(settingsOf('rhf', { rhf: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
-  assert.ok(settingsOf('ivcweb', { ivcweb: 0.5 }).find((x) => x.label === 'Extra volume held').follows);
+  assert.ok(settingsOf('rhf', { rhf: 0.5 }).find((x) => x.label === 'Volume expansion').follows);
+  assert.ok(settingsOf('ivcweb', { ivcweb: 0.5 }).find((x) => x.label === 'Volume expansion').follows);
 });
 
 test('the no-lesion family reads with the plain bands, and a fit range inside one word reads as the word (review E2, U3)', () => {
