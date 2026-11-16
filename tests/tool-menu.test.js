@@ -125,3 +125,30 @@ test('the chronic clot’s dots run past 100%, and the axis reaches them', () =>
   assert.ok(G.x1 >= Math.max(...pts.map((q) => q.liver)), `${G.x1}`);
   assert.equal(walk(svg, (n) => n.attrs?.class === 'pcv-dot').length, pts.length);
 });
+
+// (Play-test 16 Nov 2026, Choose the treatment 11: crammed dots, leaders crossing, seven names for eight dots, the carvedilol dot unidentifiable.)
+test('every dot is named or numbered, no two names overlap and no two leaders cross, at phone to Mac sizes', () => {
+  const { pts, fp0 } = run('cirr-decomp');
+  const segsCross = (a, b) => {
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const A = [[a.x1, a.y1], [a.x2, a.y2]], B = [[b.x1, b.y1], [b.x2, b.y2]];
+    return o(A[0], A[1], B[0]) * o(A[0], A[1], B[1]) < 0 && o(B[0], B[1], A[0]) * o(B[0], B[1], A[1]) < 0;
+  };
+  const bad = [];
+  for (const [w, h, f] of [[300, 220, 11], [320, 250, 11], [340, 260, 12], [380, 280, 12], [420, 300, 12], [480, 320, 12], [560, 340, 12]]) {
+    // (As the card draws it: names first, numbers and a key when the names are a crowd and the plot keeps its height.)
+    let b = M.build(w, h, f, pts, fp0, 'No treatment');
+    if (b.crowded) { const b2 = M.build(w, h, f, pts, fp0, 'No treatment', true); if (b2.G.B - b2.G.T >= 5 * f) b = b2; }
+    const svg = b.svg;
+    const names = walk(svg, (n) => n.attrs?.class?.startsWith('pcv-dname')), keyed = walk(svg, (n) => n.attrs?.class === 'pcv-steps').length > 0;
+    if (names.length < pts.length) bad.push(`${w}x${h}: ${names.length} ${keyed ? 'numbers' : 'names'} for ${pts.length} dots`);
+    const leads = walk(svg, (n) => n.attrs?.class === 'pcv-lead').map((n) => ({ x1: +n.attrs.x1, y1: +n.attrs.y1, x2: +n.attrs.x2, y2: +n.attrs.y2 }));
+    for (let i = 0; i < leads.length; i++) for (let j = i + 1; j < leads.length; j++) if (segsCross(leads[i], leads[j])) bad.push(`${w}x${h}: leaders ${i} and ${j} cross`);
+    const boxes = names.map((n) => { const t = words(n), tw = t.length * f * 0.56, x = +n.attrs.x, y = +n.attrs.y, a = n.attrs['text-anchor']; const x0 = a === 'end' ? x - tw : a === 'middle' ? x - tw / 2 : x; return [x0, y - f * 0.8, x0 + tw, y + f * 0.2, t]; });
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const p = boxes[i], q = boxes[j];
+      if (p[0] < q[2] - 1 && q[0] < p[2] - 1 && p[1] < q[3] - 1 && q[1] < p[3] - 1) bad.push(`${w}x${h}: "${p[4]}" overlaps "${q[4]}"`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});

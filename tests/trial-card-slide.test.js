@@ -57,7 +57,7 @@ test('the instrument card asks its fit line of the slide\'s own patient (configu
   assert.equal(fitOf(t, ctx).verdict, 'unknown', 'CSPH, small varices, no ascites: the model cannot say he was never decompensated, so no match on its own');
   const fit = fitOf(t, ctx, CASE);
   assert.equal(fit.verdict, 'fits', 'with the case history: PREDESCI\'s patient');
-  assert.match(fitWords(fit), /^Matches the modeled criteria\. Eligibility is incomplete\./);
+  assert.match(fitWords(fit), /^Matches the modeled criteria\. The protocol's other entry rules/);
   assert.match(fitWords(fit), /From the case history: compensated\./, 'the card says which fact the author supplied');
   assert.deepEqual(TOOL_FACTS, { decompensated: false }, 'the Landmark trials deck supplies it for the patient its vignette describes');
   assert.notEqual(fitOf(t, { fp: { hvpg: 6 }, params: { cirrhosis: 1 } }, CASE).verdict, 'fits', 'an HVPG under 10 does not fit');
@@ -76,7 +76,7 @@ test('design A: the name, the source line, the endpoint, each arm\'s share large
     if (effectOf(t)) assert.ok(L.texts.some((s) => s.look === 'trial.eff'), `${id}: the effect`);
     const bars = L.rects.filter((r) => r.look === 'trial.bar');
     assert.deepEqual(bars.map((b) => b.tone), t.arms.map((a) => (a.side === 'treat' ? 's1' : 'text-3')), `${id}: the treated arm s1, a control the muted tone`);
-    assert.equal(L.texts.filter((s) => s.look === 'trialfit.t').map((s) => s.t).join(' '), 'Matches the modeled criteria. Eligibility is incomplete.', `${id}@${W}: the fit line, whole`);
+    assert.equal(L.texts.filter((s) => s.look === 'trialfit.t').map((s) => s.t).join(' '), "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked.", `${id}@${W}: the fit line, whole`);
   }
   assert.equal(endpointOf(TRIALS.predesci), 'Decompensation or death', 'no follow-up the audit does not give');
   assert.equal(endpointOf(TRIALS.tripathi), `${TRIALS.tripathi.endpoint}, median 20 months`);
@@ -105,8 +105,8 @@ test('two arms stand side by side where their names fit; three arms lay out thre
 
 test('the fit line: one quiet ring for every verdict (a check mark only inside it for a full match, a cross for an exclusion, a dash when unknown), never a filled badge', () => {
   assert.equal(fitWords(null), null);
-  assert.equal(fitWords({ verdict: 'fits', rows: [] }), 'Matches the modeled criteria. Eligibility is incomplete.');
-  assert.equal(fitWords({ verdict: 'fits', rows: [{ rule: 'Randomized within 24 hours', state: 'na', defining: false }] }), 'Matches the modeled criteria. Eligibility is incomplete. Still needed: randomized within 24 hours.');
+  assert.equal(fitWords({ verdict: 'fits', rows: [] }), "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked.");
+  assert.equal(fitWords({ verdict: 'fits', rows: [{ rule: 'Randomized within 24 hours', state: 'na', defining: false }] }), "Matches the modeled criteria. The protocol's other entry rules, such as its exclusions, are not checked. Still needed: randomized within 24 hours.");
   assert.equal(fitWords({ verdict: 'unknown', rows: [] }), 'Cannot tell from the model');
   assert.equal(fitWords({ verdict: 'unknown', rows: [{ state: 'yes' }], met: 2, of: 5 }), 'Possibly fits: 2 of 5 key rules met');
   assert.equal(fitWords({ verdict: 'no', rows: [{ rule: 'HVPG 10 mmHg or more', state: 'no', value: '8.2 mmHg' }] }), 'Does not fit: HVPG 10 mmHg or more (this patient: 8.2 mmHg)');

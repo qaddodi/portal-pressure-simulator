@@ -27,6 +27,7 @@ import { createSvgGL, svgModel } from './svg-gl.js';
 import { readMetric } from './layout-snap.js';
 import { leftScale, xDomain, xAxisRow, xAxisName, fmtTick, placeDotNames, placeWord, namesCrowded, cutsOf } from './tool-curve.js';
 import { SURGICAL_BY_ID } from './surgical-shunts.js';
+import { procLabel } from './procedure-names.js';
 
 const sv = svgModel;
 const CV_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn, as the curve's)
@@ -45,7 +46,7 @@ export const MENU = [
   { id: 'recanalization', name: 'Recanalization', short: 'Recanalize', patch: { thrombus: { PV_TRUNK: 0 } }, has: () => false, can: (p) => (p.thrombus?.PV_TRUNK || 0) >= 0.5 },
   { id: 'tips8', name: 'TIPS, 8 mm', patch: { tips: { on: true, d: 8 } }, has: () => false, can: NO_TIPS },
   { id: 'tips10', name: 'TIPS, 10 mm', patch: { tips: { on: true, d: 10 } }, has: () => false, can: NO_TIPS },
-  { ...surgical('warren', 'warren', 'Warren shunt'), can: (p) => !SURGICAL_BY_ID.warren.on(p) },
+  { ...surgical('warren', 'warren', procLabel('dsrs')), can: (p) => !SURGICAL_BY_ID.warren.on(p) },
   { ...surgical('mesocaval', 'mesocaval', 'Mesocaval shunt', 'Mesocaval') },
   { ...surgical('portocaval', 'pc-es', 'Portocaval shunt', 'Portocaval') },
   { ...surgical('rex', 'rex', 'Meso-Rex bypass', 'Meso-Rex') },
@@ -181,7 +182,7 @@ export function build(w, h, f, dots, base, baseLabel, steps = false) {
   const svg = sv('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: 'img', 'aria-label': label, style: `font-size: ${f.toFixed(2)}px` },
     sv('defs', {}, panel.clip), panel.back, grid, cutEls, keyRow, axis, stepsKey, leadEls, dotEls, ringEl, nameEls);
   svg.dataset.points = String(dots.length);   // (the browser checks read it: 0 until the numbers are there)
-  return { svg, G, crowded };
+  return { svg, G, crowded, spots };
 }
 
 export function createMenu() {

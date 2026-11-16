@@ -15,6 +15,7 @@ import { store } from './store.js';
 import { measure } from './glyph-measure.js';
 import { setGeo, setPts, setWords, setHidden } from './svg-gl.js';
 import { onFontsLoaded } from './font-arrival.js';
+import { lymphDay, LYMPH_UNIT } from './lymph-day.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const num = (x) => (Number.isFinite(+x) ? +x : null);
@@ -79,7 +80,7 @@ export function fluidWords(f) {
  *  sums taken from those parts, so every printed sum is exact (made = liver + gut; overflow = made beyond what the lymphatics
  *  can carry; each day = overflow − taken back). room is what the lymphatics could still take (negative once they are full). */
 export function fluidDay(f) {
-  const r = (x) => Math.round((Math.max(0, x) * 1440) / 10) * 10;
+  const r = lymphDay;   // (the one rounding every lymph reading prints: lymph-day.js, so the lobule's label reads this card's number)
   const liver = r(f.hep), gut = r(f.spl), limit = r(f.cap), back = r(f.back);
   const made = liver + gut, carried = Math.min(made, limit), over = made - carried;
   return { liver, gut, made, limit, carried, over, back, net: over - back, room: limit - made };
@@ -301,7 +302,7 @@ export function createFluid() {
   const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
   const wallHost = h('div', { class: 'gc-tugbox' });
-  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph formation'), h('div', { class: 'gc-n' }, sMade, h('small', {}, 'mL')), plate, sLimit);
+  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph formation, liver + gut'), h('div', { class: 'gc-n' }, sMade, h('small', {}, LYMPH_UNIT)), plate, sLimit);
   const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Net filtration'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
   const tiles = h('div', { class: 'gc-tiles' }, lyTile, wallTile);
   const ansRow = h('div', { class: 'gc-ans' }, h('span', { class: 'gc-t' }, sTitle), sNet);
@@ -476,7 +477,7 @@ export function createFluid() {
       const d = fluidDay(f), sw = dayWords(d);
       day = d;
       Object.assign(goal, { dCar: d.carried, dOver: d.over, dBack: d.back, dRoom: Math.max(0, d.room) });
-      set(sMade, mlInt(d.made)); set(sLimit, sw.limit); set(sTitle, sw.title); set(sNet, sw.net); set(sDetail, sw.detail);
+      set(sMade, mlInt(d.made)); lyTile.title = `Liver ${mlInt(d.liver)} + gut ${mlInt(d.gut)} mL a day. The lobule's Hepatic lymph is the liver's part alone.`; set(sLimit, sw.limit); set(sTitle, sw.title); set(sNet, sw.net); set(sDetail, sw.detail);
       sNet.dataset.dir = sw.dir;
       el.setAttribute('aria-label', `Fluid balance, mL/day: ${sw.title}${d.net ? `, ${mlInt(Math.abs(d.net))}` : ''}. Lymph formation ${mlInt(d.made)} (hepatic ${mlInt(d.liver)}, splanchnic ${mlInt(d.gut)}); thoracic duct and lymphatic drainage ${mlInt(d.carried)}, capacity ${mlInt(d.limit)}${d.room > 0 ? `, ${mlInt(d.room)} unused` : ''}. ${sw.detail}`);
       labels(); kick();

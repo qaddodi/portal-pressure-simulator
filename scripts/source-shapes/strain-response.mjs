@@ -22,7 +22,7 @@ export default [
   { file: 'src/ui/decks.js', need: [/\/\/ {3}strain\s+true or/, 'the slide field is documented where the others are'] },
   { file: 'src/ui/test-decks/demo-all-new-visuals.js', need: [/"id": "r-strain"[\s\S]*?"strain": true/, 'the Testing deck has a slide to try the button on'] },
   // The response control and the hold rail
-  { file: PRES, need: [/isResponse\(s\.compare\) \? 'Change how well the beta-blocker works on the live model'/, 'the response buttons are named for a screen reader'] },
+  { file: 'src/ui/variant-toggle.js', need: [/isResponse\(compare\)\) return \{ caption: 'Beta-blocker response', aria: 'Change how well the beta-blocker works on the live model'/, 'the response buttons are named, in words above them and for a screen reader'] },
   { file: 'src/ui/decks.js', need: [/const withResponse = \(s\) => \(s\.response && !s\.compare \? \{ \.\.\.s, compare: responseButtons\(s\) \} : s\);/, 'a slide with response gets its three buttons when the deck opens; its own compare wins'] },
   { file: MON, need: [/configure\(t\) \{ ids = vitalsShown\(t\); holdLine = t\?\.hold === true;/, 'the vitals tool\'s hold option turns the rail on'] },
   { file: MON, need: [/import \{ MAP_BETA_CUT, SBP_BETA_CUT \} from '\.\.\/engine\/kidney-cuts\.js'/, 'the hold lines are the one MAP and systolic cut-offs, from kidney-cuts.js'] },

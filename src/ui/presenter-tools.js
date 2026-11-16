@@ -226,6 +226,8 @@ export function createTools({ host, stage }) {
     proc(kind, t) { cur?.procAt?.(kind, t); },
     /** Next (1) or Back (-1) on the slide, for a card that takes its readings one Next at a time (the HVPG tracing, tool-hvpg.js): true when it took the step. */
     step(dir) { return !!cur?.step?.(dir); },
+    /** Whether step(dir) would take a reading (nothing is changed): a swipe that only steps lifts no card. */
+    canStep(dir) { return !!cur?.canStep?.(dir); },
     /** The slide's catheter is parked in the hepatic vein (true) or not yet (false): a tracing that follows it starts only then. */
     reach(b) { cur?.reach?.(b); },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },

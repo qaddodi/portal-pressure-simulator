@@ -85,12 +85,12 @@ export const LANDMARK_TRIALS = {
       ask: ['How did PREDESCI choose between propranolol and carvedilol?', 'By the acute HVPG response to IV propranolol: a fall of ≥10% meant propranolol, a smaller fall carvedilol.'],
     },
     {
-      id: 'predesci-arms', params: CARV, cam: 'fit', lens: 'since', since: 'predesci', sinceLabel: 'placebo', ripple: true,
+      id: 'predesci-arms', params: { drugs: { propranolol: true } }, cam: 'fit', lens: 'since', since: 'predesci', sinceLabel: 'placebo', ripple: true,
       tool: { kind: 'trial', id: 'predesci', at: 'predesci', facts: { decompensated: false } }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'predesci',
       compare: [{ label: 'Placebo', slide: 'predesci' }, { label: 'Beta-blocker', own: true }],
       kicker: 'Compensated, with CSPH', site: 'sin', title: 'In CSPH, a beta-blocker prevented decompensation, mostly ascites', cite: 'Baveno VIII 3.15',
-      line: 'Carvedilol lowers his HVPG from {hvpg@predesci} to {hvpg}. In PREDESCI, fewer patients on a beta-blocker decompensated, and most of the difference was ascites.',
-      notes: 'Colored by the change since placebo, the portal tree cools as carvedilol lowers splanchnic inflow and intrahepatic resistance. The model has no placebo and no decompensation, so the result is the trial\'s: decompensation or death in 16% on a beta-blocker against 27% on placebo (hazard ratio 0.51), and for ascites alone a hazard ratio of 0.44. Baveno VIII 3.15: NSBBs, particularly carvedilol, are recommended in compensated cirrhosis with CSPH to prevent decompensation and improve survival.',
+      line: 'On propranolol, the arm his HVPG fall chose, it is {hvpg}, from {hvpg@predesci}. In PREDESCI, fewer patients on a beta-blocker decompensated, and most of the difference was ascites.',
+      notes: 'Colored by the change since placebo, the portal tree cools as propranolol lowers splanchnic inflow (his HVPG fell by ≥10% on propranolol, so propranolol is his arm; a patient who fell less was given carvedilol). The model has no placebo and no decompensation, so the result is the trial\'s: decompensation or death in 16% on a beta-blocker against 27% on placebo (hazard ratio 0.51), and for ascites alone a hazard ratio of 0.44. Baveno VIII 3.15: NSBBs, particularly carvedilol, are recommended in compensated cirrhosis with CSPH to prevent decompensation and improve survival.',
       ask: ['What did PREDESCI find, and which decompensation did the beta-blocker mostly prevent?', 'Fewer patients decompensated or died on a beta-blocker than on placebo; most of the difference was ascites.'],
     },
     {

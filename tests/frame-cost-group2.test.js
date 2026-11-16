@@ -130,7 +130,7 @@ test('item 51: the presenter announces "Slide N of M: title" once, its cards car
   const pz = unsnap(presenterSource()), fk = read('../src/ui/figure-key.js');
   assert.equal((pz.match(/'aria-live'/g) || []).length, 1, 'one live region');
   assert.match(pz, /const say = h\('p', \{ class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' \}\);/);
-  assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{(?:live\.)?slides\.length\}\$\{(?:live\.)?slides\[i\]\?\.title \? `: \$\{(?:live\.)?slides\[i\]\.title\}` : ''\}`/);   // (written by announce(), once the slide is on screen)
+  assert.match(pz, /slideSay\(i, (?:live\.)?slides\.length, (?:live\.)?slides\[i\]\?\.title\)/);   // (the line is slide-say.js's, written by announce() once the slide is on screen)
   assert.match(pz, /'data-empty': '', 'aria-hidden': 'true' \}\);/);
   assert.match(fk, /el\.dataset\.empty = ''; el\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(fk, /delete el\.dataset\.empty; el\.removeAttribute\('aria-hidden'\);/);
