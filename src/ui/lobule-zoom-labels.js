@@ -651,6 +651,7 @@ export function createLobuleLabels(st, live) {
   const NO_BOXES = [];   // (read, never written: no zone names on show)
   const ZONE_Q = [0.83, 0.51, 0.2];
   const zSx = new Float64Array(12), zSy = new Float64Array(12), zTx = new Float64Array(13), zTy = new Float64Array(13), zTd = new Float64Array(13);
+  const zOrder = new Int8Array(3);   // (the zones in the order they are placed)
   let zLesion = null;   // (the lesion ring placeZones is placing for, read by zRing)
   const zRing = (b) => ringDepth(zLesion, b);
   const zoneBoxesBuf = [], zoneBoxPool = [{ l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }, { l: 0, r: 0, t: 0, b: 0 }];   // (placeZones' answer: the boxes of the names on show, kept and written again)
@@ -661,8 +662,12 @@ export function createLobuleLabels(st, live) {
     boxes.length = 0;
     const midx = (fr0.l + fr0.r) / 2, midy = (fr0.t + fr0.b) / 2;
     zLesion = lesion;
-    for (let i = 0; i < 3; i++) {
-      const q = ZONE_Q[i];
+    // The zones the slide lights or names are placed first, so a name that has to give way is an unlit one (lobule-zone-spot.js).
+    let nz = 0;
+    for (let i = 0; i < 3; i++) if (!dimmed(ZONE_TPL[i].dataset.target)) zOrder[nz++] = i;
+    for (let i = 0; i < 3; i++) if (dimmed(ZONE_TPL[i].dataset.target)) zOrder[nz++] = i;
+    for (let n = 0; n < 3; n++) {
+      const i = zOrder[n], q = ZONE_Q[i];
       let z = zoneEls[i];
       if (!z) z = zoneEls[i] = ZONE_TPL[i].cloneNode(true);   // (cloned from its model, made with the view: a frame builds nothing)   // alloc-rare: only the first layout with the Zones layer on
       if (!z.isConnected) mount(labels, z);
@@ -690,7 +695,7 @@ export function createLobuleLabels(st, live) {
       // A zone's name never sits on the slide's lesion ring (the ring is what the slide points at): it takes another
       // spot on its band, or leaves the view for that slide.
       // (Nor on a zone name already placed: on a zoomed phone two zones' in-view spots were one, and their names stood on each other, lobule-zone-spot.js.)
-      const at = zoneSpot(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes.length);
+      const at = zoneSpot(zTx, zTy, nT, w, hh, hx, hy, zRing, boxes, boxes.length, !dimmed(z.dataset.target));
       if (at < 0) { fadeOut(z); continue; }
       fadeIn(z);
       put(z, zTx[at], zTy[at]);

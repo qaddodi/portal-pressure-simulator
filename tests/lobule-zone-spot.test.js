@@ -36,3 +36,23 @@ test('the lesion ring still rules a spot out', () => {
   const ring = (b) => (b.l < 150 ? 5 : 0);
   assert.equal(zoneSpot([100, 400], [100, 100], 2, W, H, HX, HY, ring, [], 0), 1);
 });
+
+test('a kept (lit or named) zone is never left out: no spot clear of the ring takes the first one clear of the zone names', () => {
+  const ring = () => 5;   // the ring shuts every spot
+  assert.equal(zoneSpot([100, 400], [100, 100], 2, W, H, HX, HY, ring, [], 0, false), -1);
+  assert.equal(zoneSpot([100, 400], [100, 100], 2, W, H, HX, HY, ring, [boxAt(100, 100)], 1, true), 1);
+});
+
+test('a kept zone with every spot taken keeps its usual spot rather than leaving', () => {
+  assert.equal(zoneSpot([153.5], [512], 1, W, H, HX, HY, none, [boxAt(153.5, 512)], 1, true), 0);
+});
+
+test('the lit zone is placed first, so the unlit one gives way (the garble case)', () => {
+  // zone 3 is lit and zone 1 is not; both want the one in-view spot. Placed in lit-first order:
+  const placed = [];
+  const lit = zoneSpot([153.5], [512], 1, W, H, HX, HY, none, placed, 0, true);
+  placed.push(boxAt(153.5, 512));
+  const unlit = zoneSpot([153.5], [512], 1, W, H, HX, HY, none, placed, 1, false);
+  assert.equal(lit, 0);
+  assert.equal(unlit, -1);
+});
