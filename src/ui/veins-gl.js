@@ -2958,15 +2958,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // A morph set's bundle, made (or made again after the Tube's joins mode changed) away from the switch's frames: the set need not be the one in use.
   const prepKey = () => (webJoins() ? 'web' : 'patch');
-  function prepareSet(S) {
-    if (lost || !S.entCPU) return;
+  // (In three steps a caller may run in separate slices (17 Nov 2026, his Mac's readout: the view-switch build's longest unit was "prepare" at 98 ms, 63 slices
+  // over its 8 ms): the geometry data, the join patches, the Tube's stage 2 record. Each checks for itself whether it has anything to do, so one run in
+  // pieces, or cut short and made again, ends as the whole one did. True while a step after this one remains.)
+  function prepareSetStep(S, step) {
+    if (lost || !S.entCPU) return false;
     S.prepKey = prepKey();
-    if (!S.prepKey) return;
+    if (!S.prepKey) return false;
     const B = (S.derived ||= newBundle());
-    if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph);
-    if (patchesWanted() && !B.patchOk) deriveJoinPatches(B);
+    if (step === 0) { if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph); return true; }
+    if (step === 1) { if (patchesWanted() && !B.patchOk) deriveJoinPatches(B); return true; }
     if (webJoins()) stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase);
+    return false;
   }
+  function prepareSet(S) { for (let k = 0; prepareSetStep(S, k); k++); }
   // The sets made under another mode than the one now are made again, one a free moment, never while a set is in use.
   const prepTask = { done: () => true, run() {
     if (geoCur) { freeTasks.push(prepTask); return; }
@@ -3814,6 +3819,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * own slice after makeMorphSet. A set is ready (morphSetReady) once uploaded and prepared. Draws nothing and marks nothing changed; the set need not be the one in use.
      */
     prepareMorphSet(S) { if (S && S.owner === api && morphSets.has(S)) prepareSet(S); },
+    /** The same in steps, 0, 1, 2 (each a slice of its own): true while a later step remains. */
+    prepareMorphStep(S, step) { return !!(S && S.owner === api && morphSets.has(S) && prepareSetStep(S, step)); },
     /** Whether a morph set is uploaded and prepared (the pieces ready count). */
     morphSetReady(S) { return !!S && S.owner === api && morphSets.has(S) && !!S.entCPU && S.prepKey !== undefined; },
     /** Draws from a morph set (null: the figure's own binning again). A set uploaded but not prepared is prepared at once. */

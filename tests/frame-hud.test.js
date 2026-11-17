@@ -347,3 +347,18 @@ test('a GPU step as long as one screen refresh on every sample is called a sync 
   assert.ok(!d.top.some((c) => c.name === 'fence floor'), 'the fence probe is never ranked as a cost');
   assert.match(d.top[0].fix, /browser holding the canvas/);
 });
+
+// 17 Nov 2026, his Mac: "may tasks: 4615 run, 6504 waits for budget, 3569 run past their wait". A may task whose cost is over the room a frame leaves it never fits,
+// waits its two frames and runs then, every third frame; the readout names which tasks those are, so the cost to cut is not a guess.
+test('a may task whose cost is over its share runs only past its wait, and mayAgedTop names it', async () => {
+  const f = await import('../src/ui/frame.js');
+  const burn = (ms) => { const t = performance.now(); while (performance.now() - t < ms) { /* a slice of work */ } };
+  let ran = 0;
+  const slice = () => { burn(30); ran++; return ran < 5; };
+  f.mayTask('slow-test-task', slice);
+  for (let i = 0; i < 400 && ran < 5; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.equal(ran, 5, 'every slice ran: none starves');
+  const top = f.mayAgedTop(3).find((r) => r[0] === 'slow-test-task');
+  assert.ok(top && top[1] >= 3, `the slow task ran past its wait (${JSON.stringify(top)})`);
+  assert.ok(top[2] > top[3], 'its predicted cost is over the room a frame leaves a may task');
+});

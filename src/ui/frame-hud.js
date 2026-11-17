@@ -15,7 +15,7 @@
 // frame loop of its own: an idle page stays idle (the panel then says so). The GPU numbers come from fences (gpu-fence.js): one frame in
 // thirty sampled, plus each whole vessel redraw (at most four a second); the waits are left out of the page's script numbers.
 import { counts } from './frame-counts.js';
-import { watchFrames, watchRender, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats, frameCount, cameraMoving, pageRest, calmRuleText, restRuleText } from './frame.js';
+import { watchFrames, watchRender, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats, mayAgedTop, frameCount, cameraMoving, pageRest, calmRuleText, restRuleText } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
@@ -598,7 +598,12 @@ export function startFrameHud() {
     const restRule = restRuleText();   // (rest 30 Hz from 4 s untouched; idle 20 Hz from 30 s (talk idle 20 Hz on one slide): any input, motion or slide change gives the full rate back)
     if (restRule) L.push(`  blood pacing (untouched): ${restRule}${restRule.startsWith('talk') ? ', one slide left 30 s (sharpness unchanged)' : ''}; an open Doppler, pressure or vitals strip steps at the same pace`);
     const may = mayStats();
-    if (may) L.push(`  may tasks: ${may.ran} run, ${may.waited} waits for budget, ${may.aged} run past their wait, ${may.queued} queued`);
+    if (may) {
+      L.push(`  may tasks: ${may.ran} run, ${may.waited} waits for budget, ${may.aged} run past their wait, ${may.queued} queued`);
+      // (A task whose predicted cost is over the share left to a may task never fits and runs only when its wait is up, every third frame: 17 Nov 2026, his Mac, 3569 of 4615 runs.)
+      const top = may.aged ? mayAgedTop(3) : [];
+      if (top.length) L.push(`    run past their wait most: ${top.map(([t, c, ms, lim]) => `${t} ${c} (a run costs about ${f(ms)} ms against ${f(lim)} ms of room a frame${ms > lim ? ': it never fits, cut its slice' : ''})`).join('; ')}`);
+    }
     const cut = tNow - 10000;
     longs = longs.filter((e) => e.startTime + e.duration >= cut);
     const lw = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);

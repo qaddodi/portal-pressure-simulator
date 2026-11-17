@@ -343,10 +343,13 @@ export function createMorph(st, live) {
       // (A piece's geometry data and the Tube's stage 2 record (veins-gl.js prepareMorphSet), a unit of its own after its upload: in one
       // unit with it, an upload slice ran up to 237 ms on Mohammad's Mac, 10 Nov 2026. A frame that draws from a piece not yet prepared
       // has it prepared on the spot (useMorphSet).)
+      // (In steps, each its own unit and so its own slice where it is long: his Mac's readout, 17 Nov 2026, "longest unit: prepare 98 ms", 63 slices over 8 ms.)
       kind = 'prepare';
-      const i = bd.prep.shift(), pc = mt.pieces[i];
-      if (pc?.set) live.veins.prepareMorphSet?.(pc.set);
-      morphMade(bd, i);
+      const i = bd.prep[0], pc = mt.pieces[i], step = bd.prepStep | 0;
+      let more = false;
+      if (pc?.set) { const v = live.veins; more = v.prepareMorphStep ? v.prepareMorphStep(pc.set, step) : (v.prepareMorphSet?.(pc.set), false); }
+      if (more) bd.prepStep = step + 1;
+      else { bd.prep.shift(); bd.prepStep = 0; morphMade(bd, i); }
     } else if (bd.results.length) {
       kind = 'upload';
       const [i, pc, b] = bd.results.shift();

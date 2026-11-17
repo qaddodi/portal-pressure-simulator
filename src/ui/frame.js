@@ -409,6 +409,7 @@ const mayRecs = new Map();
 let mayPass = 0;
 const mayCost = new Map(), mayBatch = [];
 const mayStat = { ran: 0, waited: 0, aged: 0 };
+const mayAgedBy = new Map();   // tag -> how many of its runs came past their wait (17 Nov 2026: 3569 of 4615 on his Mac, and nothing said whose; ?perf names the largest)
 let mayT = 0, mayTAt = 0;
 function newMayRec(tag) {
   const m = { tag, fn: null, waited: 0, notBefore: 0, maxWait: MAY_WAIT, at: 0, cancel: () => cancelMay(tag) };   // alloc-rare: once per tag, at its first ask
@@ -455,6 +456,12 @@ export function cancelMay(tag) { mays.delete(tag); }
 export const mayWaiting = (tag) => mays.has(tag);
 /** The may tasks run, carried to a later frame and run past their wait since the page opened; the ones waiting now. */
 export const mayStats = () => ({ ...mayStat, queued: mays.size });
+/** The may tasks that ran past their wait most often, [tag, count, predicted ms a run, ms of budget left to a may task a frame], largest first: a task whose cost is over its share runs only when its wait is up. */
+export function mayAgedTop(n = 3) {
+  const out = [];   // alloc-rare: once a second, for the readout
+  for (const [tag, c] of mayAgedBy) out.push([tag, c, mayCost.get(tag) ?? 0, MAY_SHARE * frameBudget()]);
+  return out.sort((a, b) => b[1] - a[1]).slice(0, n);
+}
 function mayDue() {
   if (!mays.size) return false;
   const t = performance.now();
@@ -485,7 +492,7 @@ function runMay(now) {
     if (m.notBefore && m.notBefore > t) continue;
     const used = t - frameT0, aged = m.waited >= m.maxWait;
     if (!aged && used + (mayCost.get(tag) ?? CARRY_SEED_MS) > limit) { m.waited++; mayStat.waited++; continue; }
-    if (aged) mayStat.aged++;
+    if (aged) { mayStat.aged++; mayAgedBy.set(tag, (mayAgedBy.get(tag) || 0) + 1); }   // alloc-rare: a tag's count is made at its first aged run
     mays.delete(tag); mayStat.ran++;
     counts.set(tag, (counts.get(tag) || 0) + 1); totals.asks[tag] = (totals.asks[tag] || 0) + 1;
     noteRan(tag);

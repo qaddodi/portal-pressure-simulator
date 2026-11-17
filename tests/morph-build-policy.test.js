@@ -50,12 +50,14 @@ function boot(cost = { joins: 0, set: 0, prep: 0 }) {
   const EV = [mk('a', 0, 'collateral'), mk('b', 1)];
   const geo = { a: { cur: true, wig: 0, spr: 1 }, b: { cur: true, wig: 0, spr: 1 } };
   const shown = { a: true, b: true };
-  const log = { sets: [], sweeps: [], units: 0, preps: [] };
+  const log = { sets: [], sweeps: [], units: 0, preps: [], steps: [] };
   const veins = {
     lost: false, useMorphSet() {}, dropMorphSet() {},
     // (vesselAt writes t into a vessel's points: the stretch a binning is for, in b.t0)
     makeMorphSet(b) { clock.T += cost.set; log.sets.push(b.t0 / 100); return { owner: veins, t0: b.t0 }; },
     prepareMorphSet(S) { clock.T += cost.prep || 0; log.preps.push(S.t0 / 100); },
+    // (In steps, when the cost says so (cost.steps): each step costs its share, and a piece is logged when its last step has run.)
+    ...(cost.steps ? { prepareMorphStep(S, step) { clock.T += (cost.prep || 0) / cost.steps; log.steps.push(step); if (step + 1 < cost.steps) return true; log.preps.push(S.t0 / 100); return false; } } : {}),
   };
   const live = {
     F: {}, morph: 0, morphTarget: 0, lobuleOn: false, rotU: 0, rotTarget: 0, coilEasing: false, veins, using: null,
@@ -231,5 +233,19 @@ test('vessels shown that keep changing (a time-lapse) are built for once they ho
   assert.match(m.mt.stats.restart.reason, /vessels shown/);
   await frames(4000);
   assert.equal(ready(m), 6);
+  cancelMay('view-switch pieces');
+});
+
+// 17 Nov 2026, his Mac's readout: "longest unit: prepare 98 ms", 63 slices over 8 ms. A piece's preparing runs in steps, each its own unit, so no unit
+// is the whole of it, and the build still prepares each piece once and ends with all six made.
+test('a piece is prepared in steps, one unit each, and every piece is prepared once', async () => {
+  const { m, log } = boot({ joins: 0, set: 0, prep: 90, steps: 3 });
+  m.morphTrackSoon();
+  await frames(6000);
+  assert.equal(ready(m), 6, 'six pieces made');
+  assert.equal(log.preps.length, 6, 'each piece prepared once');
+  assert.equal(log.steps.length, 18, 'in three steps each');
+  assert.ok(m.mt.stats.units.prepare.max <= 31, `the longest prepare unit is a step, not the whole (${m.mt.stats.units.prepare.max} ms)`);
+  assert.equal(m.mt.stats.last.bad, 0);
   cancelMay('view-switch pieces');
 });

@@ -64,3 +64,20 @@ test('tubeStage() is a number the Tube\'s stage fills in: 0 before the vessel la
   g.draw([1, 0, 0, 1, 0, 0], { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierGroup: new Array(24).fill(0), tierAlpha: new Array(24).fill(1) }, { on: false });
   assert.equal(g.tubeStage(), 0);
 });
+
+// 17 Nov 2026: the preparing in steps (his Mac, "longest unit: prepare 98 ms"): three, each safe to run alone or again, ending as the whole does.
+test('a set is prepared in three steps with the same result as the whole, and a step run again changes nothing', () => {
+  const a = lobule(), b = lobule();
+  const A = a.g.makeMorphSet(swept()), B = b.g.makeMorphSet(swept());
+  a.g.prepareMorphSet(A);
+  assert.equal(b.g.prepareMorphStep(B, 0), true);
+  assert.equal(b.g.prepareMorphStep(B, 1), true);
+  assert.equal(b.g.prepareMorphStep(B, 2), false);
+  assert.deepEqual(Object.keys(B.derived).sort(), Object.keys(A.derived).sort());
+  assert.equal(B.derived.ent, B.entCPU);
+  const pts = B.derived.pts;
+  b.g.prepareMorphStep(B, 0); b.g.prepareMorphStep(B, 1);
+  assert.equal(B.derived.pts, pts, 'run again, the data made is kept');
+  assert.equal(b.g.prepareMorphStep(null, 0), false);
+  assert.equal(b.g.prepareMorphStep({}, 0), false, 'a set that is not this renderer\'s');
+});
