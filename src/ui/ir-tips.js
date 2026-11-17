@@ -91,7 +91,8 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   btnI.addEventListener('click', () => setSub('inside')); btnA.addEventListener('click', () => setSub('along')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside and Along share one element: the readings go, the figures change)
   const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), editorSlot, subSwitch, inside, crv.el, cmp.el);
+  const stentsRow = h('div', { class: 'ir-stents' }, chips, line, edit);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -119,7 +120,13 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   // The stent cards: the lumen to scale and the bar of where the pressure goes (to the PPG, the part outside the stent hatched). Which stent follows the chip.
   let cfgId = '';
   function showStent() {
-    if (!stent) { stent = createStent(); figs.append(stent.el); cfgId = ''; }   // alloc-rare: once, when the view first opens
+    if (!stent) {
+      stent = createStent(); figs.append(stent.el); cfgId = '';
+      // (The card's Velocity | Pressure switch lives in the view's own header row, beside the stent's chip, not between the pictures: there it took height the figures' band did not
+      // count (the loss bar was cut at the bottom on an iPhone) and floated loose under the drawing. It is the same element, its handlers and its fade; this view gives it the switches' look.)
+      const csw = stent.el.querySelector(':scope > .sc-color');
+      if (csw) { csw.classList.add('pressure-switch', 'ir-color'); stentsRow.append(csw); }
+    }   // alloc-rare: once, when the view first opens
     // (Inside: the side view and where the pressure goes. Along: the side view and the three traces, along the same x. --fig-r: the pictures' width over their height together,
     // so the figures take the height the card has left.)
     const along = sub === 'along', sig = which + (along ? '/along' : '/inside');
