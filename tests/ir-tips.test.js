@@ -400,6 +400,12 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   assert.equal(p.stenosisSite.TIPS, 'proximal');
   assert.ok(Math.abs(p.stentGeom.TIPS.red - 0.4) < 1e-9, 'the waist stays mid stent');
   assert.equal(row('end').querySelector('.se-row-v').textContent, 'Proximal 5.0 mm');
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '0', 'the thumb sits under the pressed choice');
+  panel.querySelector('[data-ctl="site"] .se-seg button:last-of-type').click();
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '1', 'and slides to the other');
+  assert.match(read('styles/app-06-plate.css'), /\.se-panel \.se-seg\[data-at="1"\] \.se-thumb \{ transform: translateX\(100%\); \}/, 'by a transform');
   panel.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(20);
   assert.equal(panel.dataset.open, '', 'Escape gives the rows back');
@@ -410,8 +416,12 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   // The rules: 44 px or more to tap, the app's label sizes, nothing cut short, nothing wider than the card (F33, F38).
   const plate = read('styles/app-06-plate.css');
   const rules = plate.split('\n').filter((l) => /\.stent-editor|\.se-panel|\.se-zone/.test(l)).join('\n');
-  assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 48px;/);
-  for (const sel of ['.se-done', '.se-ph-n', '.se-seg button']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
+  assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 46px;/, 'the mock\'s rows');
+  // (At 468 px, Tests on an iPad, "Waist 6.3 mm × 1.0 cm" was cut in a third of the row and Abrupt | Tapered in a third of the panel: both wait for 560 px.)
+  assert.match(plate, /@container \(min-width: 560px\) \{\n {2}\.se-zone \.stent-editor \.se-rows \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(plate, /@container \(min-width: 560px\) \{ \.se-panel\[data-row="waist"\] \.se-pb \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -8px 0; \}/, 'a 28 px choice to see, 44 px to tap');
+  for (const sel of ['.se-done', '.se-ph-n']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no value is cut short');
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(rules, /\.stent-editor \{[^}]*min-width: 0; max-width: 100%;/);
@@ -577,7 +587,7 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   card.destroy();
   assert.equal(card.panel.isConnected, false, 'its panel goes with it');
   const src = read('src/ui/ir-tips.js');
-  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone \}\)/);
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone, reveal \}\)/);
   assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips' && sub === 'inside'\);/);
   const plate = read('styles/app-06-plate.css');
   assert.match(plate, /\.stent-editor\[data-fold="true"\] \.se-rows \{ display: none; \}/);
@@ -656,6 +666,7 @@ test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one
   assert.match(act, /noValue: id === 'TIPS' \|\| id === 'DIPS',/);
   assert.match(card, /else if \(!m\.noValue\) \{ numEl = h\('span', P_NUM\);/, 'and no reading row');
   assert.match(read('styles/app-06-plate.css'), /\.ac-panel:has\(> \.tv\) \{ position: relative; z-index: 4; \}/, 'the panel covers the actions under the rows');
+  assert.match(read('styles/app-06-plate.css'), /\.tv-zone > \.se-panel \{ min-height: calc\(100% \+ 54px\); \}/, 'and fills down to their bottom: no empty band');
 });
 
 test('The figure\'s geometry: 8 cm of stent fill the same span at every length, the veins squeezed either side; rows by width; round axis tops', async () => {
@@ -683,6 +694,80 @@ test('Every piece the figure fades holds its strength from the start, so the two
   const paths = [...fig.el.querySelectorAll('path, circle')];
   assert.deepEqual(paths.filter((t) => t.getAttribute('opacity') == null).map((t) => t.getAttribute('data-look')), [], 'and every line, bracket and dot');
   fig.dispose();
+});
+
+test('A row opens by growing its nine pieces, and Done, its name and Escape each close it again once the shrink ends (the preview, 17 Nov: an opened row could not be closed)', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const made = [];
+  const proto = window.Element.prototype, oldA = proto.animate, oldR = proto.getBoundingClientRect;
+  // (jsdom has no animations and lays nothing out: a stand-in for each, so the grow runs as it does on a device)
+  proto.animate = function () { let res, rej; const a = { finished: new Promise((r, j) => { res = r; rej = j; }), cancel() { rej(new Error('cancelled')); }, finish() { res(); } }; a.finished.catch(() => {}); made.push(a); return a; };
+  proto.getBoundingClientRect = function () { return { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200, x: 0, y: 0 }; };
+  try {
+    const zone = document.createElement('div');
+    document.body.append(zone);
+    const ed = createStentEditor({ id: 'TIPS', zone });
+    zone.prepend(ed.el);
+    const close = { done: () => ed.panel.querySelector('.se-done').click(), name: () => ed.panel.querySelector('.se-ph-n').click(), escape: () => ed.panel.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) };
+    for (const [how, run] of Object.entries(close)) {
+      made.length = 0;
+      ed.el.querySelector('.se-row[data-row="waist"]').click();
+      assert.equal(ed.panel.dataset.open, 'waist');
+      assert.ok(made.length >= 9, `the nine pieces grow (${made.length} animations)`);
+      for (const a of made) a.finish();
+      made.length = 0;
+      run();
+      assert.equal(ed.opened(), '', `${how}: closing`);
+      assert.ok(made.length >= 9, `${how}: the pieces shrink back to the row`);
+      for (const a of made) a.finish();
+      await wait(0);
+      assert.equal(ed.panel.dataset.open, '', `${how} closes it`);
+      assert.equal(ed.el.querySelector('.se-rows').inert, false, `${how}: the rows are back`);
+    }
+    ed.destroy();
+  } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
+});
+
+test('Tests › IR › TIPS: an opened row grows under the chart, never over it, and the view scrolls down only as far as the panel needs (17 Nov, Mohammad: "I wanna see the graph while editing")', async () => {
+  quiet();
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.update(frameOf()); await wait(60);
+  const L = ir.figure().layout(), top = ir.el.querySelector('.ir-zone').style.getPropertyValue('--se-top');
+  assert.equal(top, `${Math.round(L.h)}px`, 'the panel starts where the chart ends');
+  assert.ok(L.h > L.heroH + 100, 'under the stent and the chart both');
+  const panel = ir.el.querySelector('.ir-zone > .se-panel'), seen = [];
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 500, bottom: 760, width: 300, height: 260 });
+  ir.el.getBoundingClientRect = () => ({ left: 0, right: 300, top: 0, bottom: 700, width: 300, height: 700 });
+  ir.el.scrollBy = (o) => seen.push(o);
+  ir.editor.open('waist');
+  assert.equal(seen.length, 1); assert.equal(seen[0].top, 68, 'down by what the panel overruns, and a little room');
+  ir.editor.close();
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 400, bottom: 600, width: 300, height: 200 });
+  ir.editor.open('dia');
+  assert.equal(seen.length, 1, 'a panel already in sight scrolls nothing');
+  ir.editor.close();
+  ir.setActive(false);
+});
+
+test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad), from none to 6 cm', async () => {
+  quiet();
+  const { createTipsVessel } = await import('../src/ui/tips-vessel.js');
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }), frame: frameOf() });
+  const v = createTipsVessel({ id: 'TIPS' });
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }));
+  for (const [name, root] of [['vessel card', v.el], ['Tests', ir.el]]) {
+    const len = root.querySelector('.se-panel [data-ctl="waist"] input') || (() => { root.querySelector('.se-row[data-row="waist"]').click(); return root.querySelector('.se-panel [data-ctl="waist"] input'); })();
+    assert.ok(len, `${name}: the length slider`);
+    assert.equal(len.step, '0.5', `${name}: 0.5 cm a step`);
+    assert.equal(len.min, '0'); assert.equal(len.max, '6');
+  }
+  const { stentControls } = await import('../src/ui/actions.js');
+  for (const id of ['TIPS', 'DIPS']) assert.equal(stentControls(id).find((c) => c.id === 'waist').step, 0.5, `${id}: the one list both editors read`);
+  v.destroy(); ir.setActive(false);
 });
 
 test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the waist\'s lumen and length, or None', async () => {

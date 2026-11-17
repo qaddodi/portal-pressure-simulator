@@ -13,7 +13,7 @@ export function createLabelDriver(st, live) {
   const { stationRev, E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
-  const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
+  const HAND_STILL_MS = 90;   // motion-scale: not a move (a wait, no motion). (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
   const JOB = { g: null, key: null, solvedFor: null, t0: 0 }, jobKeyArr = [], labelKeyArr = [];   // (the solve in slices: one at a time, its key and the key of the layout that stands, kept)
   const keyInto = (to, from) => { to.length = from.length; for (let i = 0; i < from.length; i++) to[i] = from[i]; return to; };
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
@@ -173,7 +173,7 @@ export function createLabelDriver(st, live) {
   // under way. On a fresh load the first fit moves the figure a few times as the page lays itself out, and labels laid for the first view
   // crossfaded to the next for seconds: two "Right hepatic vein 4.6", one fading over RIGHT ATRIUM, one at the left (F24, iPhone, 17 Nov 2026).
   // Then they fade in once, where they stay. At most LABELS_WAIT_MAX after the first ask, so a figure that never rests still shows its labels.)
-  const LABELS_SETTLE_MS = 300, LABELS_WAIT_MAX = 3000, settle = { w: -1, h: -1, k: 0, x: 0, y: 0, t: 0, t0: -1, ask: 0 };
+  const LABELS_SETTLE_MS = 300, LABELS_WAIT_MAX = 3000, settle = { w: -1, h: -1, k: 0, x: 0, y: 0, t: 0, t0: -1, ask: 0 };   // motion-scale: not a move (a wait for the framing to rest, no motion)
   function firstSettled(b) {
     const now = performance.now(), z = settle, cam = live.vt || NO_VT;
     if (z.t0 < 0) z.t0 = now;

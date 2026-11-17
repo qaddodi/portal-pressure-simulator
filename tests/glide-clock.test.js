@@ -57,7 +57,7 @@ test('the refits to cards that moved are steady: the presenter\'s, the catheter\
 });
 
 test('a slide\'s own framing, the buttons and the catheter\'s trips keep the wall clock, so each ends when the presenter waits for it', () => {
-  assert.equal((stage.match(/steady: true/g) || []).length, 3, 'only the three refits in the stage ask for it');
+  assert.equal((stage.match(/steady: true/g) || []).length, 4, 'only the four refits in the stage ask for it: the Tests card closing, the cards\' refit of a fitted view, the pan that keeps a zoom clear of the cards (17 Nov), and the tubes\' option');
 });
 
 

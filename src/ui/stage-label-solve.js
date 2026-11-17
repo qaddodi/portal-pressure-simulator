@@ -518,7 +518,7 @@ export function createLabelSolve(st, live) {
       // (Named by a slide: an Anatomy slide shows only the stations it names, but a Circuit slide shows every station, so there only those in
       // presentLabels are. Every reading on a Circuit slide had been let keep a spot over a vessel: slide 4 on a Mac, "Spleen 12.0" on the colon's vein.)
       const named = st.presenting && (!circuit || (Array.isArray(st.presentLabels) && st.presentLabels.includes(it.node)));
-      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !must.has(it.node)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
+      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !must.has(it.node) && !it.geom) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot; the stent's own geometry label does too, Mohammad, 17 Nov: "Tips has no label")
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (replace && !best) { if (it.cls === 'lane' && dirs[0] !== 'C') return false; it.ax = replace.ax; it.ay = replace.ay; it.x = replace.x; it.y = replace.y; it.dir = replace.dir; it.leader = replace.leader; it.onVessel = replace.onVessel; placed.push(replace.box); out.push(it); return true; }
       if (!best) {

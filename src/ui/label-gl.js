@@ -778,7 +778,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (Its next step is asked for with ask(), the next frame, never host.ask: called here, inside the label pass of the figure's present, host.ask
   // laid a whole present inside it, which left the GL state its own, and the labels drawn after it went down with blending off: black boxes
   // behind the labels on every card close and slide change, 17 Nov 2026.)
-  const ROOM_MS = 160;
+  const ROOM_MS = 160;   // motion-scale: own pace (a label's whole fade at a card's edge or the screen's, F50: quicker than a state change's D_SMALL so it never shows cut)
   function roomFade(st, x, y, now) {
     const was = st.roomA ?? 1, m = was >= 0.5 ? 0 : 4 * dpr, x1 = x + st.w, y1 = y + st.h;
     let ok = x >= m && y >= m && x1 <= W - m && y1 <= H - m;
@@ -1431,7 +1431,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (R11: the pass builds what the page owes in chunks, new labels first, within REBUILD_MS of a frame's time; the labels it leaves for the
   // next chunk keep the picture they have, or are hidden if they have none, so a slide change that owes many captions does not build
   // them all before one paint. At least REBUILD_LEAST labels go each time, so it always ends.)
-  const REBUILD_MS = 4, REBUILD_LEAST = 12;
+  const REBUILD_MS = 4, REBUILD_LEAST = 12;   // motion-scale: not a move (a slice of a frame's time the rebuild may use, not a duration on screen)
   function dropGhosts() {
     for (const gh of ghosts) {
       const st = sprites.get(gh.s.g), slot = gh.st.slot;

@@ -16,7 +16,7 @@
 import { h, svgIcon, paintRange } from './util.js';
 import { store, updateParams } from './store.js';
 import { frameFor } from './frame.js';
-import { runSoon, propSoon, attrSoon } from './class-soon.js';
+import { runSoon, propSoon, attrSoon, dataSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
 import { readBox } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
@@ -67,11 +67,12 @@ const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.s
 
 /** The nine pieces of the growing surface, each placed for the panel's full size by the stylesheet; grow() moves them from a row's box. */
 const PIECES = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
+const PIECE_CLASS = ['se-s se-s-tl', 'se-s se-s-tc', 'se-s se-s-tr', 'se-s se-s-ml', 'se-s se-s-mc', 'se-s se-s-mr', 'se-s se-s-bl', 'se-s se-s-bc', 'se-s se-s-br'];   // (written out: the stylesheet's check finds each)
 
-/** createStentEditor({ id, lead, onOpen, zone }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
+/** createStentEditor({ id, lead, onOpen, zone, reveal }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
  *  `id` the stent ('TIPS', 'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `onOpen(id)` what the folded line does (opens
  *  Tests › IR › TIPS on that stent); `zone` the element the panel grows to fill (the card's room: it must be the panel's offset parent), else the editor itself. */
-export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null } = {}) {
+export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null, reveal = null } = {}) {
   const born = !lead && [...LEADS].some((l) => l.shown && l.sid() === id);
   const el = h('div', { class: 'stent-editor', role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': born ? 'true' : 'false' });
   const rowsEl = h('div', { class: 'se-rows' });
@@ -81,7 +82,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   summary.inert = !born; summary.tabIndex = born ? 0 : -1;
   summary.addEventListener('click', () => onOpen?.(sid));
   // the panel: its surface, its top line (the row's name and value, and Done) and its body (the open row's controls)
-  const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECES.map((k) => h('i', { class: `se-s se-s-${k}` })));
+  const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECE_CLASS.map((c) => h('i', { class: c })));
+  const surfEls = [...surf.children];   // alloc-rare: once per editor
   const pName = h('button', { type: 'button', class: 'se-ph-n', tabindex: '-1' }), pVal = h('span', { class: 'se-ph-v' });
   const done = h('button', { type: 'button', class: 'se-done' }, 'Done');
   const pTrail = h('span', { class: 'se-ph-tr' }, pVal, done);
@@ -140,9 +142,9 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       b._val = o[0];
       return b;
     });
-    const seg = h('div', { class: 'se-seg', role: 'group', 'aria-label': CAPTION[v.id] || v.label }, btns);
+    const seg = h('div', { class: 'se-seg', role: 'group', 'aria-label': CAPTION[v.id] || v.label, 'data-at': '0' }, h('i', { class: 'se-thumb', 'aria-hidden': 'true' }), btns);   // (the thumb slides under the pressed choice, as the mock's: a transform)
     const cell = h('div', { class: 'se-ctl se-ctl-seg', 'data-ctl': v.id }, h('span', { class: 'se-cap' }, h('span', {}, CAPTION[v.id] || v.label)), seg);
-    return { v, cell, btns, kind: 2, shown: null, dim: null };
+    return { v, cell, seg, btns, kind: 2, shown: null, dim: null };
   }
 
   // ── the grow: the surface's nine pieces from the row's box to the panel's, the top line's two ends from the row's words to their own ──
@@ -159,7 +161,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     const from = { tl: T(sx, sy), tc: T(sx, sy, kx), tr: T(sx + sw - PW, sy), ml: T(sx, sy, 1, ky), mc: T(sx, sy, kx, ky), mr: T(sx + sw - PW, sy, 1, ky), bl: T(sx, sy + shh - PH), bc: T(sx, sy + shh - PH, kx), br: T(sx + sw - PW, sy + shh - PH) };
     const o = { duration: D_SURFACE, easing: EASE_ARRIVE, fill: opening ? 'none' : 'forwards' };
     const run = (e, f) => anims.push(e.animate(opening ? [{ transform: f }, { transform: 'none' }] : [{ transform: 'none' }, { transform: f }], o));
-    surf.children.forEach((e, i) => run(e, from[PIECES[i]]));
+    for (let i = 0; i < surfEls.length; i++) run(surfEls[i], from[PIECES[i]]);   // (an array: an HTMLCollection has no forEach, which threw here and left every panel open, 17 Nov)
     if (rn && hn) run(pName, T(rn.left - hn.left, rn.top - hn.top));
     if (rv && hv) run(pTrail, T(rv.right - hv.right, rv.top - hv.top));
     const fade = { duration: opening ? D_SMALL : D_SMALL * 0.6, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.5 : 0, fill: 'both' };
@@ -188,6 +190,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       panel.dataset.open = rowId; el.dataset.open = rowId;
       panel.inert = false; panel.setAttribute('aria-hidden', 'false'); rowsEl.inert = true;
       grow(to.btn, true);
+      // (`reveal(panel)`: the holder brings an opened panel into sight, Tests › IR, whose panel opens under the chart.)
+      reveal?.(panel);
       const first = to.ctls[0];
       (first?.input || first?.btns?.find((b) => b.getAttribute('aria-pressed') === 'true') || done).focus({ preventScroll: true });
     } else {
@@ -234,7 +238,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
         if (r.lum && r.d !== d) { r.d = d; r.lo = +(d * (1 - r.v.max)).toFixed(1); r.hi = d; propSoon(r.input, 'min', String(r.lo)); propSoon(r.input, 'max', String(r.hi)); force = true; }
         const x = r.v.get(p);
         if ((force || x !== r.shown) && document.activeElement !== r.input) { propSoon(r.input, 'value', String(r.toIn(x))); r.paint(x); }
-      } else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); } }
+      } else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); dataSoon(r.seg, 'at', String(Math.max(0, r.btns.findIndex((b) => b._val === cur)))); } }
       const dim = !!r.v.dimIf?.(p);
       if (dim !== r.dim) { r.dim = dim; r.cell.classList.toggle('se-dim', dim); }
     }

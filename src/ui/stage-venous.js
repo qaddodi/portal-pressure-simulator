@@ -35,13 +35,15 @@ export function createVenous(st, live) {
     const kids = []; let fresh = false;
     for (const [id, v] of vst) {
       const old = v.parts;
-      v.parts = null;
+      v.parts = null; v.rv = E[id]?.glRv | 0;
       if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
       const L = geo[id].len, tips = id === 'TIPS';
       const R = meshR(id, p), d0 = tips ? TIPS_ENDS[0] : VST_SPAN[1] * L, d1 = tips ? L - TIPS_ENDS[1] : VST_SPAN[0] * L;
       // (What the mesh is made from: its two ends and its middle on the vessel, its half-width at both ends and the middle, its bare stretch.)
       const mid = (d0 + d1) / 2;
-      let sig = `${L.toFixed(1)}|${R(d0).toFixed(2)}|${R(mid).toFixed(2)}|${R(d1).toFixed(2)}|${tips ? tipsBare(id).toFixed(1) : 0}`;
+      // (Its half-width at nine places along it, not three: a waist's length, and its ends abrupt or tapered, change the half-width between the three and nothing at them, 17 Nov 2026.)
+      let sig = `${L.toFixed(1)}|${tips ? tipsBare(id).toFixed(1) : 0}`;
+      for (let i = 0; i <= 8; i++) sig += `|${R(d0 + ((d1 - d0) * i) / 8).toFixed(2)}`;
       for (const d of [d0, mid, d1]) { const q = frameAt(id, d); sig += `|${q.x.toFixed(1)},${q.y.toFixed(1)},${q.tx.toFixed(2)},${q.ty.toFixed(2)}`; }
       if (old && vstKids.includes(old.root)) {
         if (old.sig === sig) { v.parts = old; venousMove(id, v); kids.push(old.root); continue; }
@@ -109,7 +111,9 @@ export function createVenous(st, live) {
     if (stented) for (let i = 0; i < stented.length; i++) { const id = stented[i]; if (!vst.has(id) && E[id]) { const v = vstRecs.get(id); v.k = 0; v.parts = null; vst.set(id, v); } }
     for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }
     // (Rebuilt between frames, never in the frame whose geometry changed: 2 Nov 2026, "Move everything to GPU".)
+    // (And when the tube's radii the stent follows have moved since it was drawn: they ease on their own clock, after the geometry's key has changed, so a waist's length and its ends reach the stent a rebuild late, 17 Nov 2026.)
+    if (!rebuilt) for (const [id, v] of vst) if (v.parts && (E[id]?.glRv | 0) !== v.rv) { rebuilt = true; break; }
     if (rebuilt && vst.size) { if (vstRaf) vstDirty = true; else if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
   }
-  return { venousSync };
+  return { venousSync, venousSig: (id) => vst.get(id)?.parts?.sig || '' };
 }

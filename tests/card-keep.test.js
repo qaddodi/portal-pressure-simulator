@@ -186,9 +186,9 @@ test('the presenter decides before the cards leave and falls back if the layout 
   // (a kept card is not built; its fall back is checked after each layout of the unseen cards, before they come in)
   assert.match(src, /if \(!(?:live\.)?keepNow\.text\) textIn\(s, st, i\);\n\s+if \((?:live\.)?keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);
   // (the settle lays the unseen cards out once more, and ends by letting a kept card that layout changed fall; the cards come in after it)
-  const settle = run.indexOf('await settleRun();'), cards = run.indexOf('cardsIn({ i: to, gen: g })');
+  const settle = run.indexOf('await settleRun(tx);'), cards = run.indexOf('cardsIn({ i: to, gen: g })');
   assert.ok(settle > 0 && settle < cards);
-  assert.match(src, /async function settleRun\(\) \{[\s\S]*?\n\s+layout\(\);\n\s+await keepFall\(keepCut\);/);
+  assert.match(src, /async function settleRun\((?:tx = null)?\) \{[\s\S]*?\n\s+layout\(\);\n\s+(?:tx\?\.phase\('keep-fall'\);\n\s+)?await keepFall\(keepCut\);/);
   assert.match(run, /(?:live\.)?keepNow = keepFor\([^\n]*; keepCut = cut;/, 'the settle cuts with the move that chose the cards');
   // (and once more at the last gate before the cards come in, after the unseen cards' own last layout)
   assert.match(src, /async function caseEnd\(cut\) \{\n\s+await keepFall\(cut\);[^\n]*\n\s+if \(cut\(\)\) return;/);

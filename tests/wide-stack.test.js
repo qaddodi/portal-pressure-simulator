@@ -126,7 +126,7 @@ test('a slide of the readings\' card never restyles the figure or lays the cards
   // (And a zoomed card, card-zoom.js: laid out once it is back.)
   assert.match(js, /const (?:live\.)?cardMoving = \(\) => !!(?:live\.)?ui && \((?:live\.)?ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in (?:live\.)?ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
   assert.ok(js.indexOf('const cardMoving') < js.indexOf('const fitWatch'));
-  assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations(?:\?\.)?\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
+  assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations(?:\?\.)?\(\)\.some\((?:\(a\) => a\.playState === 'running'|animRunning)\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
   assert.match(js, /delete data\.dataset\.folding; (?:live\.)?fitDone\.delete\(data\); (?:live\.)?onResize\(\);/, 'laid out once it rests');
   assert.match(js, /new ResizeObserver\(\(\) => \{ if \(!data\.classList\.contains\('pz-sliding'\)\) placeLip\(\); \}\)/, 'the handle is placed by the slide itself while it slides');
 });

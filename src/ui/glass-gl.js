@@ -1874,7 +1874,15 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     // (The one clock's elements now: each glass's chain and the elements its words lie in beside it, never the figure's canvas. What runs on them is
     // taken; one held on an element no longer among them is given back.)
     ownEls.clear();
-    for (const p of panes) { for (const e of p.chain) if (e !== tgt) ownEls.add(e); if (p.also) for (const a of p.also) { ownEls.add(a.el); track(a.el); hook(a.el); } }
+    // (And the parts beside the glass in the element its words are in (cards.cover: a sheet's plate is its glass, its words the plate's siblings), each with
+    // the same leave of its own (.action-card.ac-leaving > *): held with the plate, or the words ran on the browser's clock while the plate stood on the
+    // glass's, and on a phone the vessel card's words slid out under and past its glass as it closed, 17 Nov 2026.)
+    for (const p of panes) {
+      for (const e of p.chain) if (e !== tgt) ownEls.add(e);
+      if (p.also) for (const a of p.also) { ownEls.add(a.el); track(a.el); hook(a.el); }
+      const cv = p.cv;
+      if (cv && cv !== p.g && cv !== tgt && p.chain.includes(cv)) for (const k of cv.children) if (k !== p.g && !ownEls.has(k)) { ownEls.add(k); track(k); hook(k); }
+    }
     if (reveal.size) reveal.releaseIf((an) => !ownEls.has(an.effect?.target));
     ownAll();
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
