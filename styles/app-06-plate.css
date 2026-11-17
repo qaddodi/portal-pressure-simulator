@@ -485,9 +485,8 @@
 .tv-keys { padding: 0 2px; column-gap: 12px; }
 .tv-keys .ir-kv b { font-size: var(--fs-14); }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
-.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: nowrap; column-gap: 12px; min-height: 48px; border-top: 1px solid var(--hairline); }
+.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }
 :is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; }   /* (right under the rows, whatever the card's height: the panel's 54 px reach depends on it) */
-.ac-panel:has(> .tv) + .ac-as .ac-btn.quiet .ac-bl { display: none; }   /* (the mock's one line of actions: IR is its icon, named for a screen reader; Remove at the end) */
 .tv .ir-keys { margin-bottom: 2px; }
 .tv-zone > .se-panel { min-height: calc(100% + 54px); }   /* (the mock: the panel fills the rows and the line of actions under them, 6 + 48 px, so no empty band is left where they faded) */
 .ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { opacity: 0; pointer-events: none; }   /* (the open panel covers the actions: they fade under it, none peeks out below) */
