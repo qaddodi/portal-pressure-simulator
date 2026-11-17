@@ -17,7 +17,7 @@ export const cardCompact = (W, phone) => !!phone || !(W >= CARD_WIDE_MIN);
 export const CARD_KINDS = ['score', 'grid', 'ladder'];
 export const isCardKind = (kind) => CARD_KINDS.includes(kind);
 
-const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10, STAGE_COL = 52;   // (STAGE_COL: the small ladder's column of "Stage n" ahead of each name)
+const ROW_PAD = 9, PAD_X = 9, PAD_Y = 4, PILL_GAP = 6, COL_GAP = 14, STAIR = 18, STEP_GAP = 10, STAGE_COL = 52, NAME_MIN = 110;   // (STAGE_COL: the small ladder's column of "Stage n" ahead of each name)
 const memo = new WeakMap();   // alloc-rare: lines broken once for each helpers object, text and width, kept (a card has a dozen)
 function fl(H, paras, width, o = {}) {
   let m = memo.get(H);
@@ -79,14 +79,16 @@ function drawScore(spec, W, compact, p, H) {
     if (ri) { ops.push(line('path.rule', 0, y + 0.5, W, y + 0.5)); y += 1 + rowPad; }
     const paras = [[{ text: r.n, face: 'rn' }], ...(r.d ? [[{ text: r.d, face: 'rd' }]] : [])];
     let rowH;
-    // (the small layout: a row whose name is one line and whose answers fit beside it puts them on that line, right-aligned, the definition under:
-    // the answers' line stood apart for every row, Mohammad 16 Nov 2026, the phone cards too long)
-    const rowPills = r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP, one = compact && fl(H, [[{ text: r.n, face: 'rn' }]], W - rowPills - 10);
-    if (one && one.h === ROLE.rn.lh) {
-      put(ops, one.items, 0, y + (pillH - ROLE.rn.lh) / 2, false, 'text');
+    // (the small layout: the answers stand at the right of the row on one line, whatever the name's length, and the name wraps in the room they
+    // leave, to two lines or three, the definition under: a long name used to push its answers below it, at the left, on the first row of the
+    // recompensation card only, Mohammad 17 Nov 2026. Only a card too narrow to leave the name NAME_MIN stacks them, as before)
+    const rowPills = r.o.reduce((s, o) => s + pillW(o), 0) + (r.o.length - 1) * PILL_GAP, nameW = W - rowPills - 10;
+    if (compact && nameW >= NAME_MIN) {
+      const nm = fl(H, [[{ text: r.n, face: 'rn' }]], nameW), off = Math.max(0, (pillH - ROLE.rn.lh) / 2);
+      put(ops, nm.items, 0, y + off, false, 'text');
       const ph = pills(r, W - rowPills, y, rowPills);
-      rowH = ph;
-      if (r.d) { const d = fl(H, [[{ text: r.d, face: 'rd' }]], W); put(ops, d.items, 0, y + ph + 4, false, 'text'); rowH += 4 + d.h; }
+      rowH = Math.max(ph, off + nm.h);
+      if (r.d) { const d = fl(H, [[{ text: r.d, face: 'rd' }]], W); put(ops, d.items, 0, y + rowH + 4, false, 'text'); rowH += 4 + d.h; }
     } else {
       const name = fl(H, paras, compact ? W : namesW, { gap: 2 });
       put(ops, name.items, 0, y, false, 'text');
