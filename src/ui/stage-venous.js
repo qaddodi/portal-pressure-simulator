@@ -20,7 +20,10 @@ export function createVenous(st, live) {
   let vstRaf = 0, vstAt = 0, vstDirty = false;
   // (The TIPS is the one stent here the model has: the covered stent, in once the shunt has drawn on and is as wide as a stent (stent-ease.js stentOpen),
   // out as soon as it narrows or retracts, in the circuit as well as the figure.)
-  const vstGoal = (id, anat) => ((id === 'TIPS' ? stentOpen(live.F, EI.TIPS) : anat && store.get().stented?.includes(id)) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
+  // (Never while the view is changing (17 Nov 2026, Mohammad: a zig-zag stent on the wrong route beside the real one, for a second after he switched to the Circuit): the mesh is built once, between frames, on the route the vessel has then, so
+  // through the morph it would stand on the old view's route while the vessel moves to the new one. It fades out as the view starts to change and comes in, built on its new route, once the view has landed.)
+  const morphing = () => { const t = live.lastMorph; return t > 0 && t < 1; };
+  const vstGoal = (id, anat) => ((id === 'TIPS' ? stentOpen(live.F, EI.TIPS) : anat && store.get().stented?.includes(id)) && E[id]?.vis && !E[id].reveal && geo[id]?.cur && !morphing() ? 1 : 0);
   // The mesh is built once, whole (each rebuild of the overlays, not each frame), and each frame sets only its strength: the amount on its
   // key (data-mk "vst:<id>"), which the GPU lays on the stent's draws as it lays every treatment mark's fade (stage-outlines.js fadeEase), and
   // the group's opacity for the SVG copy when the GPU does not draw the marks (markShade). Never an opacity on the pieces: the marks' build
@@ -81,7 +84,7 @@ export function createVenous(st, live) {
     for (const [id, v] of vst) {
       const goal = vstGoal(id, venousAnat);
       if (v.k !== goal) {
-        const step = fadeStep(dt, goal ? VST_MS : VST_MS * 0.6);   // (out quicker than in; under Reduce Motion a short fade, never a jump: owner, 15 Nov 2026)
+        const step = fadeStep(dt, goal ? VST_MS : VST_MS * (morphing() ? 0.2 : 0.6));   // (out quicker than in; under Reduce Motion a short fade, never a jump: owner, 15 Nov 2026)
         const was = v.k;
         v.k = goal ? Math.min(1, v.k + step) : Math.max(0, v.k - step);
         // (A standing stent only changes its strength; one that comes in or goes out is built or taken away.)
