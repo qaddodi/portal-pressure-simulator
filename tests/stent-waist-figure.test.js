@@ -48,7 +48,7 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
 
   // 1b. The callout reads the lumen and the waist's length, and a bracket along the waist is as long as the waist is of the stent.
   const text = () => page.document.querySelector('.clamp-label[data-id="TIPS"]')?._txt;
-  assert.equal(text(), 'Narrowed 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent narrowed 60 %, a 4 cm waist');
+  assert.equal(text(), 'Narrowed 10.0 to 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent narrowed 60 %, a 4 cm waist');
   const bracketLen = () => {
     const d = page.document.querySelector('[data-mk="brk:TIPS"] path')?.getAttribute('d');
     if (!d) return 0;
@@ -58,9 +58,14 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   };
   const ratio = bracketLen() / b.len;
   assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
+  // The bracket carries no words of its own (they would repeat the callout, which the label solver places): no outlines in its mark.
+  assert.equal(page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-text, [data-mk="brk:TIPS"] .dim-halo').length, 0);
+  await set({ stentGeom: { TIPS: { len: 8, waist: 0, trans: 0 } } }, true);
+  await frames(80);
+  assert.equal(bracketLen(), 0, 'a waist of no length has no bracket');
   await set({ stentGeom: { TIPS: { len: 8, waist: 1.5, trans: 0 } } }, true);
   await frames(80);
-  assert.equal(text(), 'Narrowed 4.0 mm × 1.5 cm', 'the callout follows the waist length');
+  assert.equal(text(), 'Narrowed 10.0 to 4.0 mm × 1.5 cm', 'the callout follows the waist length');
   assert.ok(Math.abs(bracketLen() / b.len - 1.5 / 8) < 0.05, `and the bracket ${bracketLen() / b.len}`);
   await set({ stentGeom: { TIPS: { len: 8, waist: 4, trans: 0 } } }, true);
   await frames(80);

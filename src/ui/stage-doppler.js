@@ -72,6 +72,8 @@ export function createDoppler(st, live) {
     // (A narrowing's "60 %" too: the probe stands on the side whose line of sight and flow axis keep off it: Mohammad, 20 Oct.)
     const cl = clampW.children;
     for (let i = 0; i < cl.length; i++) if (cl[i]._box && cl[i].classList.contains('clamp-label')) DPR_AVOID[n++] = cl[i]._box;
+    // (A stent's dimension words and bracket too (stage-label-solve.js dimRects).)
+    for (let i = 0; i < live.dimRects.length; i++) DPR_AVOID[n++] = live.dimRects[i];
     DPR_AVOID.length = n;
     return DPR_AVOID;
   }
