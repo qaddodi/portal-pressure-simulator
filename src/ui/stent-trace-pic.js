@@ -23,8 +23,16 @@ export const traceH = (n) => TR.py0 + TR.pitch * (Math.max(1, n) - 1) + TR.ph + 
 const VB = [0, 1, 2, 3].map((n) => `0 0 320 ${traceH(n)}`);
 export const traceViewBox = (n) => VB[clamp(n, 1, 3)];
 
+const PS = { sh: null, s: 0, site: 0 }, prof = (u) => profileAt(PS.sh, PS.s, PS.site, u);
+/** The trace for the numbers T (sh, s, site, d, flowLpm, tract, wall, ends, jet, ppg, dp), written into rec (a makeTrace() record the caller keeps). */
+export function traceFor(T, rec) {
+  PS.sh = T.sh; PS.s = T.s; PS.site = T.site;
+  const len = T.sh.len, xa = -TR.veinCm, xb = len + TR.veinCm;
+  return stentTrace({ len, q: (Math.abs(T.flowLpm) * 1000) / 60, d: T.d, prof, xa, xb, tract: T.tract, wall: T.wall, entry: T.ends, jet: T.jet, inlet: 0, ppg: T.ppg, dp: T.dp }, rec);
+}
+
 export function createTracePic(sv, gid, colourOf) {
-  const rec = makeTrace(), PS = { sh: null, s: 0, site: 0 }, prof = (u) => profileAt(PS.sh, PS.s, PS.site, u);
+  const rec = makeTrace();
   const strip = sv('path', { 'data-look': 'stent.tr.lumen', fill: `url(#${gid})` });
   const stripBuf = new Float64Array(2 * 2 * (N + 1));
   const stops = Array.from({ length: NS }, (_, i) => sv('stop', { offset: (i / (NS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: first stops, written at the first paint
@@ -61,11 +69,7 @@ export function createTracePic(sv, gid, colourOf) {
     return nOn;
   }
 
-  function run(T) {
-    PS.sh = T.sh; PS.s = T.s; PS.site = T.site;
-    const len = T.sh.len, xa = -TR.veinCm, xb = len + TR.veinCm;
-    return stentTrace({ len, q: (Math.abs(T.flowLpm) * 1000) / 60, d: T.d, prof, xa, xb, tract: T.tract, wall: T.wall, entry: T.ends, jet: T.jet, inlet: 0, ppg: T.ppg, dp: T.dp }, rec);
-  }
+  const run = (T) => traceFor(T, rec);
 
   /** The panels' ranges for the numbers T (nice round ends, so a range moves in steps the follower glides): writes pHi, pLo, vHi into out. */
   function fit(T, out) {
