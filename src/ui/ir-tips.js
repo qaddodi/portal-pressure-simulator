@@ -79,7 +79,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
 
   // ── the title row: the stent (a choice when there are two), its state, the lens, the menu ──
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent', 'data-n': '0' });
-  const status = h('span', { class: 'ir-status', 'data-sev': 'none' }, h('i', { class: 'ir-dot', 'aria-hidden': 'true' }), h('span', { class: 'ir-status-t' }, 'Patent'));
+  const status = h('span', { class: 'ir-status', 'data-sev': 'none' }, h('span', { class: 'ir-status-t' }, 'Patent'));
   const lensV = h('button', { type: 'button', class: 'ps-btn', 'data-lens': 'velocity', 'aria-pressed': 'true' }, 'Velocity');
   const lensP = h('button', { type: 'button', class: 'ps-btn', 'data-lens': 'pressure', 'aria-pressed': 'false' }, 'Pressure');
   const lensSw = h('div', { class: 'pressure-switch ir-lens', role: 'group', 'aria-label': 'What the stent shows' }, lensV, lensP);

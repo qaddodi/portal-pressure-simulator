@@ -60,7 +60,8 @@ test('behind the case card the camera eases out to the whole patient, then the p
   const wait = src.indexOf('if (caseCard) { await caseLifted(cut); if (cut()) return; caseExit = true; }');
   assert.ok(wait > 0 && wait < src.indexOf('else if (cam) { if (prepWith)'));
   // The words are fitted unseen before that; a catheter slide's cards still wait for the lift before they come in.
-  assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
+  // (The unseen cards are built and settled in wordsUp, while the figure dims for a new patient; the cards come in after it.)
+  assert.match(src, /else await wordsUp\(said\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   // (Between the patient's change and the lift, only the waits for a quiet figure, so the cards' fade is seen: slide-fade.test.js.)
   assert.match(src, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap && !under\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}[^\n]*\n\s*if \(prep && !swap && !caseCard\) \{ if \(await prep\) await smooth\(cut, QUICK_SMOOTH\); \} else await unseen\(cut\);[^\n]*\n\s*if \(cut\(\)\) return;\s*const filled = await ui\.tools\.ready\(900\); if \(cut\(\)\) return;\s*if \(!filled\) degrade\('window'\);[^\n]*\n\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");

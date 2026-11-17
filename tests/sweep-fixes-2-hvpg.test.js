@@ -42,7 +42,8 @@ test('item 14: wrapWords keeps every line within the width and loses no word', (
 
 test('items 14 and 15: the monitor note is wrapped between the axis and the edge, 8 px in, on a solid patch', () => {
   // (The one monitor draws the note: monitor.js.)
-  assert.match(mon, /monitorNote\(ctx, [^;]*L \+ 8, Math\.min\(R, x \+ W\) - 8/);
+  // (F48: the note starts 8 px clear of the axis numbers, not of the axis line; the right end is still 8 px in.)
+  assert.match(mon, /monitorNote\(ctx, [^;]*L \+ 3 \+ Math\.ceil\(ctx\.measureText\(tick\(ymax\)\)\.width\) \+ 8, Math\.min\(R, x \+ W\) - 8/);
   assert.match(mon, /ctx\.fillStyle = C\.bg; ctx\.fillRect\(bx, by, bw, bh\)/);
   const pad = +mon.match(/const pad = (\d+), padY = (\d+)/)[1], padY = +mon.match(/padY = (\d+)/)[1];
   assert.ok(pad >= 4 && padY >= 4);

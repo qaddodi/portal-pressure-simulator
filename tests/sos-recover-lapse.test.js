@@ -42,12 +42,12 @@ test('a dotted ramp key eases that nested param day by day', async () => {
 // before the days: Mohammad kept the new numbers, 18 Oct. 22 Oct the SOS preset itself carries the block of 32 and
 // runs its 21 days with it, so the patient arrives a little more congested: PV 8.6, FHVP 4.8. 15 Nov 2026 the block is 34, to take SOS off
 // the HVPG's red line (full app review ENG-5), and the row reads FHVP 4.9 and HVPG 2.4. 16 Nov 2026 the numbers are the bedside's, the beat's means: PV 8.9, FHVP 5.4, HVPG 2.2; later that day, with the
-// lymph model's larger ascites in the SOS patient, FHVP 5.3 and HVPG 2.3 (the quiet settle of this patient wanders by a tenth or two, see tests/preset-no-drift.test.js).)
-test('the Recovered row: PV 8.9, FHVP 5.3, HVPG 2.3, no ascites', async () => {
+// lymph model's larger ascites in the SOS patient, FHVP 5.3 and HVPG 2.3; 17 Nov, with the collapse-edge step in the quiet settle (engine.js collapseFlips) and the bedside decks, FHVP 5.4 and HVPG 2.2 (the quiet settle of this patient can still wander by a tenth, see tests/preset-no-drift.test.js).)
+test('the Recovered row: PV 8.9, FHVP 5.4, HVPG 2.2, no ascites', async () => {
   const fps = await deckStates(OUTFLOW), f = fps[OUTFLOW.slides.findIndex((x) => x.id === 'recover')];
   assert.equal(fmt(f.pv), '8.9');
-  assert.equal(fmt(f.fhvp), '5.3');
-  assert.equal(fmt(f.hvpg), '2.3');
+  assert.equal(fmt(f.fhvp), '5.4');
+  assert.equal(fmt(f.hvpg), '2.2');
   assert.ok(f.asc < 0.5, `ascites ${f.asc}`);
 });
 

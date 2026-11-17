@@ -465,7 +465,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 /* The presenter's start: a calm cover while the projector layout, the first patient and the first slide are set up. */
 .pz-cover { position: fixed; inset: 0; z-index: var(--z-cover); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: color-mix(in srgb, var(--stage-bg) 90%, transparent);   /* (the scene stays faintly under it: the screen is dimmed while the talk is made ready, never blanked) */ opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 /* (While the cover is up the slide's cards are unseen under it: its words are the cover's alone. They come in under it and show as it fades.) */
-html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar, .pz-scl, .pz-fk, .pz-lip) { visibility: hidden; }
+html.pz-covered :is(.pz-shade, .pz-text, .pz-data, .pz-case, .pz-panel, .pz-bar, .pz-fk, .pz-lip) { visibility: hidden; }
 .pz-cover.on { opacity: 1; pointer-events: auto; transition-duration: var(--d-small); }
 .pz-cover.cut, .pz-cover.cut.on { transition: none; }
 .pz-cover i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 12%, transparent); border-top-color: color-mix(in srgb, var(--text) 52%, transparent); animation: pz-spin 1.1s linear infinite, crossfade var(--d-surface) var(--ease) .9s backwards; }

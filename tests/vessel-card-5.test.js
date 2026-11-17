@@ -54,9 +54,8 @@ test('the bar points from inflow to outflow, and across a stent and the liver it
   const liver = cardFor({ type: 'organ', id: 'liver' }, CTX);
   assert.deepEqual(liver.span.el, ['WHVP', 'FHVP']); assert.equal(liver.span.dn, 'HVPG'); assert.equal(liver.span.cut, 'hvpg');
   assert.ok(Math.abs(liver.span.at(f).d - f.metrics.hvpg) < 1e-9, 'the card\'s HVPG is the dock\'s');
-  const tips = cardFor({ type: 'edge', id: 'TIPS' }, CTX);
-  assert.deepEqual(tips.span.el, ['PV', 'IVC']); assert.equal(tips.span.dn, 'PPG'); assert.equal(tips.span.cut, 'ppg');
-  assert.ok(Math.abs(tips.span.at(f).d - f.metrics.ppg) < 1e-9, 'the card\'s PPG is the dock\'s');
+  // (The stent's card has no PV to IVC bar since the TIPS cards became the approved mock, 17 Nov: the PPG is the first number of its own line, the stent's chart's.)
+  assert.equal(cardFor({ type: 'edge', id: 'TIPS' }, CTX).span, null, 'a stent\'s card draws no bar');
   assert.equal(cardFor({ type: 'edge', id: 'PV_TRUNK' }, CTX).span.el, null, 'a vein shows no end labels: the numbers say it');
 });
 

@@ -261,7 +261,7 @@ test('no data-card chart follows the card\'s fit on any layout, so its size can 
 test('the ladder\'s Healthy name eases to a new place, never jumps', () => {
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /nameAt\[n\.c\] = \{ x: n\.x, y: n\.y, fx: px, fy: py, t0: t1 \};/, 'from where it shows now');
-  assert.match(prof, /setGeo\(e, 'x', glideX\(a, t\)\); setGeo\(e, 'y', glideY\(a, t\)\)/, 'drawn where the glide has it');
+  assert.match(prof, /const gx = glideX\(a, t\), gy = glideY\(a, t\), cw = m\.nameW\[c\] \+ 8;\s+setGeo\(e, 'opacity', 1\); setGeo\(e, 'x', gx\); setGeo\(e, 'y', gy\)/, 'drawn where the glide has it');
   assert.match(prof, /\(nameAt\.hl \? t - nameAt\.hl\.t0 < FADE_MS : false\)/, 'frames keep coming while it glides');
 });
 
