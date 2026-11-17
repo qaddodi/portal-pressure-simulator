@@ -313,7 +313,7 @@ export function createHvpgProcedure() {
   store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
-  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start };
+  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start, shown: (on) => tips.setActive(on) };
 }
 
 // The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's

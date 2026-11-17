@@ -22,7 +22,7 @@ import { tileEl } from './tile-el.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
-import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
+import { STENT_RANGE as RANGE } from './table-marks.js';
 import { stentBand } from '../engine/stent-geom.js';
 import { createStent, SIDE, BAR, VW } from './tool-stent.js';
 import { traceH } from './stent-trace-pic.js';
@@ -42,12 +42,12 @@ const mm = (x) => String(Math.round(x * 10) / 10);
 export const stentLine = (st) => (!st ? 'No stent' : st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`);
 
 export const NO_STENT_WHY = 'There is no TIPS or DIPS in this patient. Place one from Treat, and this view fills in.';
-const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read; the target is under 12 mmHg.';
+const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read. 12 mmHg is the reference line, not a target for this patient; the aim is set by the clinical goal.';
 // The four readings: name, unit, decimals, the bar's scale and ticks, the value from the model's metrics, the word under it and its band.
 // (The ids and words are the instrument-cards plan's: "Across stent", "Stent peak velocity". `hide` is the readout set that hides it in Explore.)
 const TILES = [
   { id: 'ppg', k: 'PPG', u: 'mmHg', d: 1, scale: [0, 25], ticks: [PPG_CUTS.red], hide: 'pv', title: PPG_TITLE,
-    v: (m) => m.ppg, word: (v) => tipsGoal(v)[1], sev: (v) => (tipsGoal(v)[0] === 'ok' ? 'ok' : 'danger') },
+    v: (m) => m.ppg, word: (v) => (v < PPG_CUTS.red ? `Below ${PPG_CUTS.red} mmHg` : `Above ${PPG_CUTS.red} mmHg`), sev: () => 'none' },   // (a reference line, not a verdict: it is not a target met or missed)
   { id: 'flow', k: 'TIPS flow', u: 'L/min', d: 1, scale: [0, 3], ticks: [], hide: 'model', title: 'The flow through the stent, from the portal side to the hepatic vein.',
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
@@ -171,7 +171,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     frame = f;
     const st0 = store.get(), p = st0.params;
     syncStents(p);
-    if (view !== 'tips') return;
+    if (view !== 'tips' || !active) return;
     const m = f?.metrics;
     if (!m) return;
     if (sub === 'compare') { cmp.update(f, which); return; }
@@ -204,6 +204,15 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const nk = which === 'DIPS' ? 'DIPS flow' : 'TIPS flow';
     if (tiles[1].lbl !== nk) { tiles[1].lbl = nk; const k = tiles[1].el.querySelector('.k'); if (k) swapText(k, nk); }
   }
+  /** The card is shown or hidden (dock.js pane.shown). Hidden, the sweep is cancelled and the stent pictures are not fed; shown, the live frame is handed over again. */
+  let active = true;
+  function setActive(on) {
+    on = !!on;
+    if (on === active) return;
+    active = on;
+    crv.setActive(on);
+    if (on && frame) update(frame);
+  }
   host.append(el);
-  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, curves: crv };
 }

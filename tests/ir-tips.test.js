@@ -22,7 +22,7 @@ try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigat
 
 const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
-const { curveToolOf, sweepMatters, SWEEPS } = await import('../src/ui/ir-curves.js');
+const { curveToolOf, sweepMatters, SWEEPS, createIrCurves } = await import('../src/ui/ir-curves.js');
 const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
 const { BENCH_DP } = await import('../src/engine/stent-geom.js');
 const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
@@ -116,12 +116,12 @@ test('the TIPS view fills its four readings from the stent; a stent taken away s
   const tiles = [...ir.el.querySelectorAll('.metric')];
   assert.deepEqual(tiles.map((t) => t.querySelector('.k').textContent), ['PPG', 'TIPS flow', 'Across stent', 'Stent peak velocity']);
   const words = tiles.map((t) => t.querySelector('.status').textContent);
-  assert.equal(words[0], 'Target met');
-  assert.equal(tiles[0].dataset.sev, 'ok');
+  assert.equal(words[0], 'Below 12 mmHg');
+  assert.equal(tiles[0].dataset.sev, 'none', 'a reference line, not a verdict');
   ir.update(frameOf({ ppg: 14.2 }));
   await wait(60);
-  assert.equal(tiles[0].querySelector('.status').textContent, 'Above target');
-  assert.equal(tiles[0].dataset.sev, 'danger');
+  assert.equal(tiles[0].querySelector('.status').textContent, 'Above 12 mmHg');
+  assert.equal(tiles[0].dataset.sev, 'none');
   assert.ok(ir.el.querySelector('.ir-chip'), 'one chip names the stent');
   assert.ok(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length >= 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
   store.set({ params: paramsOf() });
@@ -163,10 +163,12 @@ test('Compare: nothing pinned says how, with the table already laid out in dashe
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
   const f = frameOf({ ppg: 9.2 });
   c.update(f, 'TIPS');
-  assert.equal(c.el.querySelectorAll('tbody tr').length, 5, 'five readings, always laid out');
+  assert.equal(c.el.querySelectorAll('tbody tr').length, 8, 'eight readings, always laid out');
   assert.equal(c.el.querySelector('.ir-note').textContent, NOTHING_PINNED);
-  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—']);
+  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—', '—', '—', '—']);
   assert.equal(c.el.querySelector('td.b').textContent, '9.2');
+  const names = [...c.el.querySelectorAll('tbody tr')].map((r) => r.querySelector('.cmp-n').textContent);
+  assert.deepEqual(names, ['PPG', 'Stent flow', 'Across stent', 'Open diameter', 'Narrowest lumen', 'Waist length', 'Taper, each end', 'Stent peak velocity']);
   const then = { ppg: 14.2, tips: { ...f.metrics.tips, flow: 1.2, dp: 5.1, dWaist: 8, vPeak: 150 }, dips: null };
   store.set({ compareSnap: { metrics: then, when: '10:30', names: null } });
   c.update(f, 'TIPS');
@@ -188,7 +190,7 @@ test('Compare: the sub-switch changes the sub-view, and the DIPS names its own f
   assert.equal(ir.sub(), 'compare');
   assert.equal(ir.el.dataset.sub, 'compare');
   ir.update(frameOf()); await wait(60);
-  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 5);
+  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 8);
   ir.el.querySelector('[data-sub="inside"]').click();
   assert.equal(ir.el.dataset.sub, 'inside');
   assert.equal(host.dataset.view, 'tips');
@@ -356,4 +358,79 @@ test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in 
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
   assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
+});
+
+// ---- The curves' life (external review, 17 Nov 2026): idle, waiting, loading, drawn; leaving cancels and forgets; the ring follows the live stent ----
+const lifeKit = (over = {}) => {
+  const log = { requests: 0, configured: [], pins: [], pending: [] };
+  const request = (type) => { log.requests++; return new Promise((res) => { const go = () => res(type === 'snapshot' ? { snap: { s: 1 } } : { result: { tipsFlow: 1, tipsBench: 2 } }); if (over.hold) log.pending.push(go); else go(); }); };
+  const chart = () => ({ el: document.createElement('div'), configure: (t, ctx) => log.configured.push({ t, ctx }), pin: (fp) => log.pins.push({ ...fp }) });
+  const calc = () => ({ sequence: async () => ({}) });
+  return { log, c: createIrCurves({ request, calc, chart, delay: 5, ...over.opts }) };
+};
+const frameWith = (flow, day) => ({ clock: day == null ? undefined : 'disease', day, metrics: { ppg: 9, tips: { s: 0.4, flow, bench: 3 }, dips: null } });
+
+test('Curves life: a change that settles asks once; further frames of the same stent ask nothing and only move the ring', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); assert.equal(c.phase(), 'waiting'); c.update(frameWith(1.51)); assert.equal(log.requests, 0, 'nothing is asked inside the quiet time');
+  await wait(60);
+  assert.equal(c.phase(), 'drawn'); assert.equal(log.configured.length, 1); assert.equal(log.requests, 2);
+  c.update(frameWith(1.2)); c.update(frameWith(1.2)); c.update(frameWith(0.9));
+  assert.equal(log.configured.length, 1, 'the lines are not worked out again'); assert.equal(log.pins.length, 2, 'the ring moved with the stent, once per different reading');
+  assert.equal(log.pins.at(-1).tipsFlow, 0.9);
+});
+
+test('Curves life: leaving before the quiet time ends cancels the sweep, and coming back asks again', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); c.stop(); assert.equal(c.phase(), 'idle');
+  await wait(40); assert.equal(log.requests, 0, 'cancelled before it started');
+  c.update(frameWith(1.5)); await wait(40);
+  assert.equal(c.phase(), 'drawn'); assert.equal(log.configured.length, 1, 're-entering with the same stent still recomputes: it was never drawn');
+});
+
+test('Curves life: leaving while the snapshot is being asked for draws nothing from the answer that comes late', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit({ hold: true });
+  c.update(frameWith(1.5)); await wait(30);
+  assert.equal(c.phase(), 'loading'); c.stop(); assert.equal(c.phase(), 'idle');
+  for (const go of log.pending.splice(0)) go();
+  await wait(20);
+  assert.equal(log.configured.length, 0, 'the late answer is dropped');
+  c.update(frameWith(1.5)); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  assert.equal(log.configured.length, 1, 'and the next visit draws');
+});
+
+test('Curves life: a sweep that is drawn is kept on leaving and returning unchanged; a changed patient, setting, stent or day draws a new one', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 1);
+  c.stop(); c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 1, 'unchanged: kept');
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }) }); c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 2, 'the patient changed');
+  c.setSweep('length'); await wait(40); assert.equal(log.configured.length, 3, 'the setting changed');
+  c.update(frameWith(1.5, 3)); await wait(40); assert.equal(log.configured.length, 4, 'the day changed');
+  c.update(frameWith(1.5, 3.4)); await wait(40); assert.equal(log.configured.length, 4, 'the same day');
+  c.update(frameWith(1.5, 3), 'DIPS'); c.update({ metrics: { ppg: 9, tips: null, dips: { s: 0.4, flow: 1, bench: 2 } } }, 'DIPS'); await wait(40);
+  assert.equal(log.configured.length, 5, 'the other stent'); assert.equal(log.configured.at(-1).t.lines[0], 'dipsFlow');
+});
+
+test('Curves life: an edit while the answer is loading is the sweep that is drawn, not the one before it', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit({ hold: true });
+  c.update(frameWith(1.5)); await wait(30); assert.equal(c.phase(), 'loading');
+  store.set({ params: paramsOf({ tips: { on: true, d: 9 } }) }); c.update(frameWith(1.4)); assert.equal(c.phase(), 'waiting');
+  for (const go of log.pending.splice(0)) go(); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  assert.equal(log.configured.length, 1); assert.equal(log.configured[0].ctx.params.tips.d, 9);
+});
+
+test('Curves life: a hidden card cancels the work, is fed nothing, and picks up again when shown', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); c.setActive(false); await wait(40);
+  assert.equal(log.requests, 0); c.update(frameWith(1.4)); await wait(40); assert.equal(log.requests, 0, 'hidden: nothing is prepared');
+  c.setActive(true); await wait(40); assert.equal(log.configured.length, 1, 'shown again with the last frame it was given');
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  assert.equal(typeof ir.setActive, 'function');
+  assert.match(read('src/ui/hvpg-proc.js'), /shown: \(on\) => tips\.setActive\(on\)/);
 });
