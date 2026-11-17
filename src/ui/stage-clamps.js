@@ -17,7 +17,7 @@ import { s } from './util.js';
 import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
 import { stageScope } from './stage-scope.js';
-import { narrowedText } from './stent-waist.js';
+import { WAIST_KEY, stenosisText, waistText } from './stent-waist.js';
 // The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
 // points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
 const PSE_A = Math.asin(1.8 / 9);
@@ -218,7 +218,11 @@ export function createClamps(st, live) {
     const hideDx = store.get().found ? findingHidden('clot') : live.isImaging();
     // (A narrowing that goes leaves its clamp and "60 %" to fade out in ov.clampsOut, under other classes so the label
     // layout never counts them; one that comes, or comes back, fades in from where it stands.)
+    // (A stent's waist is a narrowing of its own, mid stent (stentGeom.red, stent-geom.js): its clamp and label are keyed `<stent>~waist`, beside
+    // the end stenosis's `<stent>`, so each comes and goes on its own.)
     const want = new Set(Object.entries(p.stenosis).filter(([id, v]) => !hideDx && v > 0 && E[id]?.vis).map(([id]) => id));
+    const waists = [];
+    for (const [id, g] of Object.entries(p.stentGeom || {})) if (!hideDx && g?.red > 0.004 && E[id]?.vis && E[id].e?.kind === 'shunt') { want.add(`${id}${WAIST_KEY}`); waists.push([id, g.red]); }
     if (!clampFading()) live.clampLast = performance.now();
     for (const el of [...ov.clamps.children, ...clampW.children]) {
       const id = el.dataset.id;
@@ -245,24 +249,31 @@ export function createClamps(st, live) {
     // imaging too, and is never inserted or taken out whole. Clots keep their own key, so while it holds the clots standing are wanted again as
     // they are: the marks each build wants are the ones that stay. Mohammad, 16 Nov 2026: nothing pops.)
     if (!clots) for (const id of clotIds) markA.want(`clot:${id}`, { host: ov.thrombi, vessel: id, anatOnly: false, t: live.ovT });
-    for (const [id, v] of Object.entries(p.stenosis)) {
-      if (!want.has(id)) continue;
-      const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt(id, p));
+    const clampAt = (key, id, u, v, txt) => {
+      const [x, y, dx, dy] = pointAt(geo[id].cur, u);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
         const bx = x + nx * sgn * (off + 8), by = y + ny * sgn * (off + 8);
         const tx = x + nx * sgn * off, ty = y + ny * sgn * off;
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
-        ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
+        ov.clamps.append(s('path', { class: 'clamp', 'data-id': key, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
-      const lab = s('g', { class: 'clamp-label', 'data-id': id });
-      lab._txt = (E[id].e && narrowedText(E[id].e, p, v)) || `${Math.round(v * 100)}% narrowed`;   // (a stent's reads its lumen and its waist's length, stent-waist.js; any other vessel's its percentage)   // (a number alone says nothing: every figure label carries a word or a unit)
-      lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
+      const lab = s('g', { class: 'clamp-label', 'data-id': key });
+      lab._txt = txt;
+      lab._c = { id: key, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
-      clampShade(id);
-      if (E[id].e?.kind === 'shunt') stentBracket(id, p);
+      clampShade(key);
+    };
+    for (const [id, v] of Object.entries(p.stenosis)) {
+      if (!want.has(id)) continue;
+      // (a stent's reads its end and its lumen there, stent-waist.js; any other vessel's its percentage: a number alone says nothing, every figure label carries a word or a unit)
+      clampAt(id, id, stenosisAt(id, p), v, (E[id].e?.kind === 'shunt' && stenosisText(E[id].e, p)) || `${Math.round(v * 100)}% narrowed`);
+    }
+    for (const [id, red] of waists) {
+      clampAt(`${id}${WAIST_KEY}`, id, 0.5, red, waistText(E[id].e, p) || `${Math.round(red * 100)}% waist`);
+      stentBracket(id, p);
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one

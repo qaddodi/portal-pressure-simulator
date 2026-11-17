@@ -1,7 +1,7 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
 import { EDGES } from './topology.js';
-import { geomFix, kindOf } from './stent-geom.js';
+import { GEOM_RANGE, geomFix, kindOf } from './stent-geom.js';
 
 export function defaultParams() {
   return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
@@ -11,8 +11,8 @@ export function defaultParams() {
       L: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
-    stentGeom: {},                // stent edgeId → { len, waist, trans } (cm): its hydraulic length, its waist's length and its tapered ends (stent-geom.js; defaults if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
-    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stentGeom: {},                // stent edgeId → { len, waist, trans, red }: its hydraulic length, its mid waist's length and tapered ends (cm), and the waist's diameter reduction red (0–0.8; 0: no waist) (stent-geom.js; defaults if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'distal': the end a stent's stenosis sits at (distal if unset; a waist mid stent is stentGeom.red)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     thrombus: {},                 // edgeId → 0..1 occlusion   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
@@ -193,7 +193,7 @@ const RANGES = {
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
   apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
-const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
+const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 // A switch is a real boolean or nothing: `!!'false'` is true, and a hand-edited link or an imported scenario must never turn a procedure or a drug on
 // because a non-empty string, an array or a 1 arrived (R07, external production review, 15 Nov 2026). Anything else takes the parameter's own default.
@@ -227,13 +227,21 @@ function sanitize(p, rep) {
   }
   pruneTo(out.fibrosis, d.fibrosis, 'fibrosis', fixed);
   for (const k of CLAMPED) for (const id of Object.keys(out[k])) { const v = out[k][id], n = num(v, 0, k === 'stenosis' ? 0.95 : 1, 0); out[k][id] = n; if (rep && n !== v) fixed(`${k}.${id}`, v, n); }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists)
+  // (A stent's stenosis is at an end, proximal or distal; a narrowing mid stent is its waist, stentGeom.red: stent-geom.js. A saved state from
+  // before 17 Nov 2026 may hold a stenosis 'mid': it is the same focal narrowing as a waist of PINCH of the length, so it is carried over as one.)
+  for (const id of Object.keys(out.stenosisSite)) if (out.stenosisSite[id] === 'mid' && STENT_EDGE.has(id)) {   // alloc-rare: checked when parameters are set (a few tiny key lists)
+    const kind = kindOf(STENT_EDGE.get(id)), sten = num(out.stenosis[id], 0, 0.95, 0), g = isObj(out.stentGeom[id]) ? out.stentGeom[id] : {};
+    if (sten > 0) out.stentGeom[id] = { ...geomFix(g, kind), red: Math.max(num(g.red, 0, 1, 0), Math.min(GEOM_RANGE.red[1], sten)) };   // alloc-rare: the same check
+    fixed(`stenosisSite.${id}`, 'mid', sten > 0 ? 'waist' : 'dropped');
+    delete out.stenosis[id]; delete out.stenosisSite[id];
+  }
   for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) { fixed(`stenosisSite.${id}`, out.stenosisSite[id], 'dropped'); delete out.stenosisSite[id]; }   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists),
   // A stent's geometry is a record of three lengths (cm), clamped, with the waist and its ends fitted inside the stent (stent-geom.js geomFix).
   for (const id of Object.keys(out.stentGeom)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
     const v = out.stentGeom[id], kind = kindOf(STENT_EDGE.get(id));
     if (!kind || !isObj(v)) { fixed(`stentGeom.${id}`, v, 'dropped'); delete out.stentGeom[id]; continue; }
     const n = geomFix(v, kind);
-    for (const f of ['len', 'waist', 'trans']) if (rep && v[f] !== undefined && n[f] !== v[f]) fixed(`stentGeom.${id}.${f}`, v[f], n[f]);
+    for (const f of ['len', 'waist', 'trans', 'red']) if (rep && v[f] !== undefined && n[f] !== v[f]) fixed(`stentGeom.${id}.${f}`, v[f], n[f]);
     out.stentGeom[id] = n;
   }
   for (const k of SWITCHED) {

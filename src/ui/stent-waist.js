@@ -4,8 +4,8 @@
 // The profile is src/engine/stent-geom.js profileAt, the one the engine, the Doppler gates and the cards read; here it is smoothed a little
 // (about 0.3 of the drawn width) so the GPU tube has no kinks, and kept as a table made when a number changes, not in a frame.
 import { clamp } from '../engine/physiology.js';
-import { geomOf, kindOf, profileAt, waistSpan } from '../engine/stent-geom.js';
-import { STENT_SITES, stentSite } from '../engine/topology.js';
+import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan } from '../engine/stent-geom.js';
+import { STENT_SITES } from '../engine/topology.js';
 
 /** The smoothing, as a share of the stent's drawn width (the Gaussian's sigma). */
 export const WAIST_SMOOTH = 0.3;
@@ -14,18 +14,18 @@ const FLAT_MIN = 4;
 const M = 128;   // the table's cells
 
 const memo = new Map();   // stent id → { key numbers, fn }: the same function while the numbers hold (alloc-rare: one record per stent, ever)
-const REC = { len: 0, waist: 0, trans: 0 };
+const REC = { len: 0, waist: 0, trans: 0, red: 0 };
 
 /**
- * The lumen's radius factor along the stent's drawn path (u from 0, the portal end, to 1): 1 in the open stent, 1 − s in the waist, the
- * transitions between, smoothed. `g` is the stent's geometry (len, waist, trans, cm), `s` its narrowing, `site` the site's fraction of the
- * path (topology.js STENT_SITES), `wPx` its drawn width and `lenPx` its drawn length (world units).
+ * The lumen's radius factor along the stent's drawn path (u from 0, the portal end, to 1): 1 in the open stent, 1 − s in the end stenosis,
+ * 1 − g.red in the waist mid stent, the transitions between, smoothed. `g` is the stent's geometry (len, waist, trans in cm, red), `s` its end
+ * stenosis, `site` that stenosis's fraction of the path (siteU), `wPx` its drawn width and `lenPx` its drawn length (world units).
  */
 export function stentWaist(id, g, s, site, wPx, lenPx) {
   let m = memo.get(id);
-  if (m && m.s === s && m.site === site && m.w === wPx && m.L === lenPx && m.len === g.len && m.waist === g.waist && m.trans === g.trans) return m.fn;
+  if (m && m.s === s && m.site === site && m.w === wPx && m.L === lenPx && m.len === g.len && m.waist === g.waist && m.trans === g.trans && m.red === (g.red || 0)) return m.fn;
   const sig = clamp((WAIST_SMOOTH * wPx) / Math.max(1, lenPx), 1 / M, 0.2);   // (in fractions of the stent)
-  REC.len = g.len; REC.trans = g.trans; REC.waist = Math.max(g.waist, FLAT_MIN * sig * g.len);
+  REC.len = g.len; REC.trans = g.trans; REC.red = g.red || 0; REC.waist = Math.max(g.waist, FLAT_MIN * sig * g.len);
   const t = new Float64Array(M + 1), K = Math.ceil(3 * sig * M), wt = new Float64Array(2 * K + 1);   // alloc-rare: made when a number changes (a slider's step, an ease's frame), never in a drawn frame otherwise
   let ws = 0;
   for (let k = -K; k <= K; k++) { wt[k + K] = Math.exp(-0.5 * ((k / M) / sig) ** 2); ws += wt[k + K]; }
@@ -36,38 +36,55 @@ export function stentWaist(id, g, s, site, wPx, lenPx) {
   }
   const fn = (u) => { const x = clamp(u, 0, 1) * M, i = Math.min(M - 1, Math.floor(x)); return t[i] + (t[i + 1] - t[i]) * (x - i); };
   if (!m) { m = {}; memo.set(id, m); }   // alloc-rare: the stent's first draw
-  m.s = s; m.site = site; m.w = wPx; m.L = lenPx; m.len = g.len; m.waist = g.waist; m.trans = g.trans; m.fn = fn;
+  m.s = s; m.site = site; m.w = wPx; m.L = lenPx; m.len = g.len; m.waist = g.waist; m.trans = g.trans; m.red = g.red || 0; m.fn = fn;
   return fn;
 }
 
 /**
- * Where a stent's pressure falls, as shares of the stent's whole drop and where along the drawn path (the colour's step):
- * out.jet, the waist's exit jet and inlet loss (a share, 0 to 1), at out.at (the fraction of the path where the waist ends downstream,
- * the flow's sign choosing the end), and out.ends, the device's entrance and exit loss, taken half at each end. `parts` is stentParts' record,
- * in any one unit (a pressure each, or a resistance each). `dir` is the flow's sign along the drawn path (+1: from the portal end).
+ * Where a stent's pressure falls, as shares of the stent's whole drop and where along the drawn path (the colour's steps):
+ * out.jet, the end stenosis's exit jet and inlet loss (a share, 0 to 1), at out.at (the fraction of the path where it ends downstream, the flow's
+ * sign choosing the end); out.jet2 and out.at2 the same for the mid waist; and out.ends, the device's entrance and exit loss, taken half at each
+ * end. `parts` is stentParts' record, in any one unit (a pressure each, or a resistance each). `site` is the end stenosis's fraction of the path
+ * (siteU). `dir` is the flow's sign along the drawn path (+1: from the portal end).
  */
 export function lossShares(parts, g, site, dir, out) {
-  const tot = parts.total > 0 ? parts.total : 1, w = waistSpan(g, site, out.span || (out.span = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }));   // alloc-rare: the record's first use
-  out.jet = clamp((parts.jet + parts.inlet) / tot, 0, 1);
+  const tot = parts.total > 0 ? parts.total : 1;
+  const e = endSpan(g, site, out.span || (out.span = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }));   // alloc-rare: the record's first use
+  const down = dir >= 0;
+  // (A record from before the two narrowings had no jetEnd or jetWaist: its jet is the end stenosis's.)
+  const jE = parts.jetEnd ?? parts.jet + parts.inlet, jW = parts.jetWaist ?? 0;
+  out.jet = clamp(jE / tot, 0, 1);
+  out.at = down ? e.b0 : e.a0;
+  const w = waistSpan(g, out.span2 || (out.span2 = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }));   // alloc-rare: the record's first use
+  out.jet2 = clamp(jW / tot, 0, 1);
+  out.at2 = down ? w.b0 : w.a0;
   out.ends = clamp(parts.entry / tot, 0, 1);
-  out.at = dir >= 0 ? w.b0 : w.a0;
-  out.dir = dir >= 0 ? 1 : -1;
+  out.dir = down ? 1 : -1;
   return out;
 }
 
 /** The stent's open diameter (mm) in params: the TIPS's and the DIPS's own, a drawn stent's from the stent tool; 0 when there is none. */
 export const stentDiameter = (p, id, kind) => (kind === 'tips' ? p?.tips?.d : kind === 'dips' ? p?.dips?.d : p?.customShunts?.[id]) || 0;
 
-const GS = { len: 0, waist: 0, trans: 0 };   // (read at once by narrowedText)
-/** A stent's figure callout: "Narrowed 6.0 mm × 1.5 cm", the lumen at the waist and the waist's length (the card's Stenosis and Waist length), as the mock reads. Null for a vessel that is not a stent. */
-export function narrowedText(e, p, s) {
+const GS = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by narrowedText)
+/** The key suffix of a stent's waist on the figure (its clamp and callout, `<stent>~waist`), beside its end stenosis's own `<stent>`. */
+export const WAIST_KEY = '~waist';
+/** A stent's figure callouts, as its card names its two narrowings: the end stenosis "Distal stenosis 4.0 mm" (its end and the lumen left there)
+ *  and the waist "Waist 6.0 mm × 4.0 cm" (its lumen and its length, mid stent). Null for a vessel that is not a stent, or with no such narrowing. */
+export function stenosisText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
-  const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
-  return `Narrowed ${(d * (1 - s)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm`;
+  const s = endOf(p, e.id);
+  return s > 0.004 ? `${endSiteOf(p, e.id) === 'proximal' ? 'Proximal' : 'Distal'} stenosis ${(stentDiameter(p, e.id, kind) * (1 - s)).toFixed(1)} mm` : null;
+}
+export function waistText(e, p) {
+  const kind = kindOf(e);
+  if (!kind) return null;
+  const g = geomOf(p, e.id, kind, GS);
+  return g.red > 0.004 ? `Waist ${(stentDiameter(p, e.id, kind) * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
 }
 
-/** Where along the stent's drawn path its narrowing sits now (0 to 1): the site as it is eased to (lesion-ease.js, params.stentSiteU), else the site params name
- *  (topology.js stentSite: a waist set along the stent is mid stent). Every reader of the drawn site takes it from here, so the waist, its bracket, the clamp's arrows and the
- *  pressure colour's step move together. */
-export const siteU = (p, id) => p?.stentSiteU?.[id] ?? STENT_SITES[stentSite(p, id)];
+/** Where along the stent's drawn path its end stenosis sits now (0 to 1): the end as it is eased to (lesion-ease.js, params.stentSiteU), else the end params name
+ *  (stent-geom.js endSiteOf). Every reader of the drawn site takes it from here, so the stenosis, the clamp's arrows and the pressure colour's step move together.
+ *  The waist is always mid stent (stent-geom.js waistSpan). */
+export const siteU = (p, id) => p?.stentSiteU?.[id] ?? STENT_SITES[endSiteOf(p, id)];

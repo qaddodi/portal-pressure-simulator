@@ -1,7 +1,6 @@
 // The model-driven transitions and what rides on them: reveal and exit of vessels, reversal hold, circuit nodes, the ascites fluid, the stent mesh and the surgical ties.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, isCoveredStent } from '../engine/topology.js';
-import { siteU } from './stent-waist.js';
 import { geomOf as stentGeomOf, kindOf as stentKindOf, waistSpan } from '../engine/stent-geom.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
@@ -320,13 +319,13 @@ export function createTransitions(st, live) {
   // A stent's waist length as a dimension bracket along it: the waist's flat run, on the stent's left on screen, a hairline with a tick at each end
   // (the mock tips-geometry-on-figure.html), one of the marks (`brk:<stent>`): it fades in with the narrowing and out with it, and its ends
   // slide with the waist as the waist's length eases. Its callout is the clamp's "Narrowed 6.0 mm × 1.5 cm" (stage-clamps.js).
-  const brkG = { len: 0, waist: 0, trans: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
+  const brkG = { len: 0, waist: 0, trans: 0, red: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
   function stentBracket(id, p) {
     const x = E[id], kind = stentKindOf(x?.e), L = geo[id]?.len;
     if (!kind || !(L > 0)) return;
     const g = stentGeomOf(p, id, kind, brkG);
-    if (g.waist < 0.25) return;
-    const w = waistSpan(g, siteU(p, id), brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
+    if (!(g.red > 0.004) || g.waist < 0.25) return;
+    const w = waistSpan(g, brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
     const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), off = sg * (x.width / 2 + (x.wallPx || 1) + 11);
     const f1 = (n) => n.toFixed(1);
     let d = '';

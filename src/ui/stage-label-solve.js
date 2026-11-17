@@ -632,7 +632,7 @@ export function createLabelSolve(st, live) {
             it.canShort = false; it.point = true;   // (a point's name without its number says nothing: whole, or not at all)
             // (Where a point finds no room in its column, the narrowing's jet tries the spots farther out first.)
             const pp = f.viewParams || st.params;
-            it.jet = (pp.stenosis?.[sid] || 0) > 0 && stentSite(pp, sid) === point;
+            it.jet = point === 'mid' ? (pp.stentGeom?.[sid]?.red || 0) > 0 : (pp.stenosis?.[sid] || 0) > 0 && stentSite(pp, sid) === point;   // (the end stenosis at its end, the waist mid stent)
             it.later = false;
             items.push(it);
           }

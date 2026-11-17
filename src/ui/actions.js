@@ -8,8 +8,8 @@
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
 import { edgeWhy } from '../engine/explain-ids.js';
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
-import { GEOM_RANGE, TAPER_CM, geomDefault, geomOf, kindOf, withSite, withWaist } from '../engine/stent-geom.js';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, isStent } from '../engine/topology.js';
+import { GEOM_RANGE, TAPER_CM, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
@@ -158,6 +158,51 @@ const ST_STASIS = ['warn', 'Stasis'], ST_REVERSED = ['rev', 'Reversed flow'], ST
 const ST_BLEEDING = ['bad', 'Bleeding'], ST_WALE = ['warn', 'Red wale signs'], ST_CONGESTED = ['warn', 'Congested'];
 const NONE = [];
 
+// A stent's controls, the one list the vessel card and the Tests card's stent editor (stent-editor.js) both show, so the two can never
+// disagree: Diameter, then its two narrowings, which are clinically different things and never move each other (Mohammad, 17 Nov 2026):
+//   Stenosis and End    dysfunction: a short focal narrowing at the portal (proximal) or hepatic vein (distal) end (params.stenosis, stenosisSite);
+//   Waist, Waist length and Ends   a reduction made on purpose, always mid stent, with its own diameter, length and ends (params.stentGeom.red,
+//                       .waist, .trans). Waist length and Ends dim while there is no waist; End dims while there is no stenosis.
+// Both may be there at once (stent-geom.js stentParts adds them).
+const STENT_CTL = new Map();   // stent id → its controls (made once per stent: alloc-rare)
+export function stentControls(id) {
+  let c = STENT_CTL.get(id);
+  if (c) return c;
+  const e = edgeById(id), kind = kindOf(e);
+  if (!kind) return [];   // alloc-rare: not a stent
+  const k = id === 'TIPS' || id === 'DIPS' ? id.toLowerCase() : null;
+  const geo = (p) => geomOf(p, id, kind);   // alloc-rare: read on a control's own event or a params change, never in a frame
+  const dOf = (p) => (kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id] || 10);
+  const mm = (v) => (dOf(store.get().params) * (1 - v)).toFixed(1);
+  const noWaist = (p) => !(geo(p).red > 0.004), noSten = (p) => !((p.stenosis?.[id] || 0) > 0.004);
+  const diameter = k
+    ? { type: 'slider', id: 'diameter', key: k, label: 'Diameter', icon: 'stent', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
+      get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' }
+    : { type: 'slider', id: 'diameter', key: 'customShunts', label: 'Diameter', icon: 'stent', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label
+      get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` };   // alloc-rare: the slider's setter, run on its own input event
+  c = [diameter,
+    { type: 'slider', id: 'narrow', key: 'stenosis', label: 'Stenosis', icon: 'pinch', min: 0, max: 0.95, step: 0.01, def: 0,
+      format: (v) => (v > 0 ? `${pct(v)} · ${mm(v)} mm` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
+      get: (p) => p.stenosis[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.stenosis[id]; else p.stenosis[id] = +v.toFixed(2); }, hist: `${e.label}: stenosis`,
+      info: 'Stent dysfunction: a short, focal narrowing at one end (End: Proximal, the portal vein end; Distal, the hepatic vein end). Its resistance rises with (1 − s)⁻⁴ and its jet loses energy where the stent widens again.' },
+    { type: 'seg', id: 'site', label: 'End', small: true, options: [['proximal', 'Proximal'], ['distal', 'Distal']], dimIf: noSten,
+      get: () => endSiteOf(store.get().params, id),
+      set: (val) => updateParams((p) => withEnd(p, id, val), { label: `${e.label} stenosis: ${val}` }) },   // alloc-rare: a tap's handler, never in a frame
+    { type: 'slider', id: 'waistD', key: 'stentGeom', label: 'Waist', icon: 'pinch', min: 0, max: GEOM_RANGE.red[1], step: 0.01, def: 0,
+      format: (v) => (v > 0 ? `${mm(v)} mm · ${pct(v)}` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
+      get: (p) => geo(p).red, set: (p, v) => withWaist(p, id, kind, 'red', v <= 0.004 ? 0 : +v.toFixed(2)), hist: `${e.label} waist`,
+      info: 'A reduction made on purpose, always mid stent (a constrained or underdilated stent, a waist placed against encephalopathy): its diameter, shown in mm, with its own length and ends. Model values, not validated.' },
+    { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: 0.5, def: geomDefault(kind).waist, dimIf: noWaist,
+      format: (v) => `${v.toFixed(1)} cm`,   // alloc-rare: the slider's number label, made on the slider's own input event
+      get: (p) => geo(p).waist, set: (p, v) => withWaist(p, id, kind, 'waist', v), hist: `${e.label} waist length`,
+      info: 'How long the waist is, mid stent. A longer waist adds friction along its length; a waist of no length still loses energy where its jet leaves it. The same minimum diameter can then give different pressures.' },
+    { type: 'seg', id: 'ends', label: 'Ends', small: true, options: [['abrupt', 'Abrupt'], ['tapered', 'Tapered']], dimIf: noWaist,
+      get: () => (geo(store.get().params).trans > 0 ? 'tapered' : 'abrupt'),
+      set: (val) => updateParams((p) => withWaist(p, id, kind, 'trans', val === 'tapered' ? TAPER_CM : 0), { label: `${e.label} waist ends: ${val}` }) }];   // alloc-rare: a tap's handler
+  STENT_CTL.set(id, c);
+  return c;
+}
+
 const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
 function buildEdgeCard(e) {
   const id = e.id, k = EI[id];
@@ -201,34 +246,16 @@ function buildEdgeCard(e) {
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
       span = SPAN_PPG;
-      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Diameter', icon: 'stent', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
-        get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
+      verbs.push(stentControls(id)[0]);
       verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, short: 'Remove', icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     } else if (e.shunt === 'custom') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Diameter', icon: 'stent', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
-        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });   // alloc-rare: the slider's setter, run on the slider's own input event, once per pointer move, never in a frame
+      verbs.push(stentControls(id)[0]);
       verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', short: 'Remove', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
-    // A stent narrows at a short pinch in one of the segments Doppler samples: proximal (portal end), mid or distal.
+    // A stent's two narrowings, each its own controls (stentControls): the end stenosis, and the waist mid stent.
     if (isStent(e)) {
       const at = verbs.findIndex((v) => v.id === 'remove');
-      // (The narrowing is the stent's waist, stent-geom.js: its smallest diameter, read in mm beside the %, its length and its ends. One waist per
-      // stent: a reduction placed for encephalopathy and a stenosis are the same hydraulic thing; the slide's words say which it is.)
-      const kind = kindOf(e), geo = (p) => geomOf(p, id, kind), dOf = (p) => (kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id] || 10);
-      // (A waist set along the stent sits mid stent, topology.js stentSite: setting its length or its ends moves the narrowing there, and Proximal or
-      // Distal puts back the short focal stenosis, so the card's Where, Waist length and Ends always read what the model has: stent-geom.js withWaist, withSite.)
-      const setGeo = (p, f, v) => withWaist(p, id, kind, f, v), setSite = (p, val) => withSite(p, id, kind, val);
-      verbs.splice(at < 0 ? verbs.length : at, 0, { ...narrow,
-        format: (v) => (v > 0 ? `${pct(v)} · ${(dOf(store.get().params) * (1 - v)).toFixed(1)} mm` : pct(v)),   // alloc-rare: the slider's number label, made on the slider's own input event
-        info: 'The stent\u2019s waist: its narrowest diameter (shown in mm). Its resistance rises with (1 − s)⁻⁴ along the waist, and the jet leaving it loses energy where the stent widens again.' }, { type: 'seg', id: 'site', label: 'Where', small: true,
-        options: [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']], get: () => stentSite(store.get().params, id),
-        set: (val) => updateParams((p) => setSite(p, val), { label: `${e.label} narrowing: ${val}` }) },
-      { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: 0.5, def: geomDefault(kind).waist, format: (v) => `${v.toFixed(1)} cm`,   // alloc-rare: the slider's number label, made on the slider's own input event
-        get: (p) => geo(p).waist, set: (p, v) => setGeo(p, 'waist', v), hist: `${e.label} waist length`,
-        info: 'How long the narrowed segment is, mid stent (setting it moves the narrowing to Mid; Proximal or Distal is a short focal stenosis). A longer waist adds friction along its length; a waist of no length still loses energy where its jet leaves it. The same minimum diameter can then give different pressures. Model values, not validated.' },
-      { type: 'seg', id: 'ends', label: 'Ends', small: true, options: [['abrupt', 'Abrupt'], ['tapered', 'Tapered']],
-        get: () => (geo(store.get().params).trans > 0 ? 'tapered' : 'abrupt'),
-        set: (val) => updateParams((p) => setGeo(p, 'trans', val === 'tapered' ? TAPER_CM : 0), { label: `${e.label} waist ends: ${val}` }) });
+      verbs.splice(at < 0 ? verbs.length : at, 0, ...stentControls(id).slice(1));
     }
     if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];
