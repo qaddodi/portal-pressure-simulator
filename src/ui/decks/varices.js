@@ -8,7 +8,7 @@ export const VARICES = {
   id: 'varices', level: 'core', title: 'Collaterals and varices', minutes: 14,
   sections: [['How collaterals form', ['Collaterals']], ['Esophageal varices', ['Varices']], ['Other routes', ['Other collaterals']], ['Heart failure', ['Heart failure']]],
   summary: 'Six months of progression, then the esophageal varices, carvedilol at CSPH, and the other collateral routes. Ends with why heart failure rarely causes varices.',
-  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Start carvedilol at clinically significant portal hypertension (CSPH) to prevent decompensation, not only bleeding', 'Explain why heart failure rarely produces varices'],
+  objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Start carvedilol at CSPH to prevent decompensation, not only bleeding'],
   checks: [
     ['Name three places where portosystemic collaterals open.', 'Any three of: the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, including splenorenal and gastrorenal shunts.'],
     ['How does the risk of a variceal bleed change with the HVPG?', 'Varices rarely bleed at an HVPG <12 mmHg; above it the risk rises with the gradient, varix size and red wale marks.'],

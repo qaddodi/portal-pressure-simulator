@@ -16,12 +16,7 @@ const GAPS = 'The two gradients', STIFF = 'Liver stiffness and weight', MORE = '
 export const MASLD = {
   id: 'masld', level: 'advanced', title: 'MASLD and portal hypertension', minutes: 9,
   sections: [[GAPS, [GAPS]], [STIFF, [STIFF]], [MORE, [MORE]]],
-  objectives: [
-    'Explain why the HVPG can underestimate the portal pressure gradient in MASLD cirrhosis with obesity, and why an HVPG ≥10 mmHg still counts',
-    'Use ANTICIPATE-NASH instead of the 25 kPa rule at a BMI ≥30',
-    'State when a fall in liver stiffness after weight loss may indicate fibrosis regression',
-    'State which drugs are safe in MASLD cirrhosis, which are approved for it, and what to advise a patient who also drinks alcohol',
-  ],
+  objectives: ['Explain why the HVPG can underestimate the PPG in MASLD with obesity, and why ≥10 mmHg still counts', 'Use ANTICIPATE-NASH instead of the 25 kPa rule at a BMI ≥30', 'State which drugs are safe in MASLD cirrhosis, and what a falling LSM after weight loss means'],
   summary: 'MASLD cirrhosis with obesity, where part of the resistance is presinusoidal and the HVPG underestimates the portal pressure gradient: what to measure, how a BMI ≥30 changes the liver stiffness rule, what weight loss may do, and which drugs and alcohol advice apply.',
   checks: [
     ['A woman with MASLD cirrhosis and a BMI of 35 has an HVPG of 11 mmHg and a PPG of 14 mmHg. Which measurement better reflects the true gradient, and does the HVPG still count?', 'The PPG: in MASLD cirrhosis the HVPG can underestimate the gradient. An HVPG ≥10 mmHg still goes with a higher risk of decompensation.'],

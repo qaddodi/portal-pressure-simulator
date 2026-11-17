@@ -8,12 +8,7 @@ const INFLOW = { kind: 'flows', of: 'inflow' };
 
 export const TWO_INFLOWS = {
   id: 'two-inflows', level: 'foundation', title: 'Dual blood supply of the liver', minutes: 8,
-  objectives: [
-    'Give the portal venous and hepatic arterial shares of hepatic blood flow and oxygen delivery',
-    'Explain the hepatic arterial buffer response',
-    'Predict hepatic artery flow after portal vein thrombosis and after TIPS',
-    'Explain why the bile ducts depend on the hepatic artery',
-  ],
+  objectives: ['Give the portal venous and hepatic arterial shares of blood flow and oxygen delivery', 'Explain the hepatic arterial buffer response', 'Predict hepatic artery flow after portal vein thrombosis and after TIPS'],
   checks: [
     ['What share of hepatic blood flow comes from the portal vein?', 'About three quarters. The hepatic artery supplies about a quarter.'],
     ['What does the hepatic artery do when portal flow falls?', 'It dilates and its flow rises: the hepatic arterial buffer response.'],

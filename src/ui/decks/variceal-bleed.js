@@ -14,12 +14,7 @@ const BALLOON_CAM = [695, 70, 905, 340];
 
 export const BLEED = {
   id: 'variceal-bleed', level: 'core', title: 'Resuscitating an acute variceal bleed', minutes: 12,
-  objectives: [
-    'Recognize early shock from heart rate and blood pressure, not hemoglobin, and know what blunts them',
-    'Give a vasoactive drug, antibiotic prophylaxis and lactulose before endoscopy',
-    'Transfuse to a hemoglobin of 7 to 8 g/dL and explain why not higher',
-    'Name who needs a preemptive TIPS, and how to manage bleeding that does not stop',
-  ],
+  objectives: ['Recognize early shock from heart rate and blood pressure, not hemoglobin', 'Give a vasoactive drug, antibiotics and lactulose before endoscopy, and transfuse to 7 to 8 g/dL', 'Name who needs a preemptive TIPS, and how to manage bleeding that does not stop'],
   checks: [
     ['What shows shock early in acute variceal bleeding?', 'The heart rate and blood pressure. The hemoglobin falls only later, with hemodilution, and a beta-blocker can blunt the heart rate.'],
     ['Minutes after octreotide is started, the portal pressure falls by about 1.5 mmHg, with no change in the liver. Which lever moved?', 'Splanchnic inflow: octreotide causes splanchnic vasoconstriction, so portal venous inflow falls. Intrahepatic resistance is unchanged.'],

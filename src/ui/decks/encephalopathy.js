@@ -9,12 +9,7 @@ const FLOWS = { kind: 'flows' };
 
 export const ENCEPHALOPATHY = {
   id: 'encephalopathy', level: 'core', title: 'Encephalopathy and shunting', minutes: 9,
-  objectives: [
-    'Explain how portosystemic shunting lets splanchnic venous blood bypass hepatic clearance and reach the brain',
-    'Recognize when to look for a large spontaneous portosystemic shunt, and the consequences of closing it',
-    'Choose the stent diameter and the drug that lower the risk of hepatic encephalopathy (HE) after a TIPS',
-    'Identify and treat the precipitant and the HE first, and reduce the stent diameter only if HE persists',
-  ],
+  objectives: ['Explain how shunting lets splanchnic blood bypass hepatic clearance and reach the brain', 'Recognize when to look for a large spontaneous shunt, and the consequences of closing it', 'Lower HE risk after a TIPS: choose the stent diameter and drug, and treat precipitants first'],
   checks: [
     ['How is covert HE diagnosed and treated?', 'With a single test, such as animal naming, and lactulose if the test is abnormal.'],
     ['Who needs a CT or MRI to look for a large spontaneous shunt, and what are the consequences of closing it?', 'A patient whose HE recurs despite lactulose, rifaximin and treatment of every precipitant. Closing the shunt raises the portal pressure, so varices and ascites can develop or worsen.'],
