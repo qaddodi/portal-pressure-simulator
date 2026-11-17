@@ -17,7 +17,7 @@ import { frameFor } from './frame.js';
 import { runSoon, propSoon, attrSoon, dataSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
 import { LUMEN_STEP, lumenShown, shareFor, waistShown } from '../engine/stent-geom.js';
-import { readBox } from './layout-snap.js';
+import { readBox, readMetric } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';
 import { GLIDE_EVENT } from './card-glide.js';
@@ -194,13 +194,39 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       anims.push(bgM.animate([{ transform: `scaleY(${k.toFixed(4)})` }, { transform: 'none' }], ease));
       for (const e of [bgB, foot]) anims.push(e.animate([{ transform: `translateY(${dy.toFixed(1)}px)` }, { transform: 'none' }], ease));
     }
-    if (kind === 'switch') anims.push(body.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }));
+    if (kind === 'switch') for (const e of [body, footL]) anims.push(e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }));
     return anims[0] || null;
   }
 
-  function show(rowId) {
+  // What was showing goes out by a fade where it stood, never at once (17 Nov 2026, Mohammad: nothing pops): the words and sliders of the tile that closes are
+  // moved, as they are, into a remnant laid over the same place (the stylesheet: .se-leave), which fades and goes, while the next tile's fade in. A swap at
+  // once left the tray blank for a beat while the new controls were still at nothing.
+  function leave(box, host, cls) {
+    const old = [...box.childNodes];
+    if (!old.length || reduced() || !host.animate) return;
+    const ghost = h('div', { class: `${cls} se-leave`, 'aria-hidden': 'true' });
+    ghost.inert = true;
+    ghost.style.width = `${readMetric(box, 'offsetWidth')}px`;   // (the width it had in its place: laid by itself it would take the width it likes, and its choice would jump)
+    ghost.append(...old);
+    host.append(ghost);
+    const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL * 0.5, easing: EASE_ARRIVE, fill: 'forwards' });
+    const gone = () => ghost.remove();
+    a.finished.then(gone, gone);
+  }
+  /** The card's own row of actions (Doppler, Dye, IR, Remove) folds away while a tray is open: it is taken out of the flow at once, but fades where it stood
+   *  (the stylesheet holds it at the numbers written here), never popping off. Written on the tap, before the tray is laid out. */
+  function holdActions() {
+    const strip = el.closest('.ac-panel')?.nextElementSibling;
+    if (!strip?.classList.contains('ac-as') || reduced()) return;
+    strip.style.setProperty('--as-top', `${readMetric(strip, 'offsetTop')}px`);
+    strip.style.setProperty('--as-left', `${readMetric(strip, 'offsetLeft')}px`);
+    strip.style.setProperty('--as-w', `${readMetric(strip, 'offsetWidth')}px`);
+  }
+
+  function show(rowId, switching = false) {
     const r = rows.find((x) => x.id === rowId);
     const cells = r ? r.ctls : [];
+    if (switching) { leave(body, tin, 'se-pb'); leave(footL, foot, 'se-fl'); }
     body.replaceChildren(...cells.filter((c) => c.kind === 1).map((c) => c.cell));
     const pick = cells.find((c) => c.kind === 2);
     const dia = cells.find((c) => c.v.id === 'diameter');
@@ -223,7 +249,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     if (to) {
       const pos = rows.indexOf(to);
       ask();
-      show(rowId);
+      if (!switching) holdActions();
+      show(rowId, switching);
       panel.dataset.open = rowId; el.dataset.open = rowId;
       panel.dataset.pos = pos === 0 ? 'first' : pos === rows.length - 1 ? 'last' : 'mid';
       panel.inert = false; panel.setAttribute('aria-hidden', 'false');

@@ -493,7 +493,7 @@
 .ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }
 :is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; animation: crossfade var(--d-small) var(--ease); }   /* (right under the tiles; back in by a fade when a tray closes) */
 .tv .ir-keys { margin-bottom: 2px; }
-.ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { display: none; }   /* (the open tray's room: the actions fold away, the mock's A) */
+.ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { position: absolute; top: var(--as-top, 0px); left: var(--as-left, 0px); width: var(--as-w, 100%); box-sizing: border-box; margin: 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity var(--d-small) var(--ease), visibility 0s linear var(--d-small); animation: none; }   /* (the open tray's room: the actions leave the flow at once and fade where they stood, under the tray as it unrolls, never popping off, 17 Nov 2026; stent-editor.js holdActions writes where; back in by the fade above when the tray has gone) */
 .tf-stage { width: 100%; height: 60px; }   /* (its height is the figure's own, written when its width changes: tips-figure.js fit) */
 /* The stent editor (stent-editor.js; option A, the tab tray, 17 Nov 2026: /mnt/project-files/stent-tile-mocks/stent-tiles-three-ways.html). Three tiles side by
    side, 64 px: the name and a chevron, the value, one small line. The open tile fills in (its own fill, faded, square at the foot) and the tray unrolls from
@@ -534,6 +534,9 @@
 .se-panel .se-bg-m { top: 12px; bottom: 12px; transform-origin: 0 0; }
 .se-panel .se-bg-b { bottom: 0; height: 12px; border-radius: 0 0 12px 12px; }
 .se-panel .se-join { position: absolute; top: 0; left: 0; width: 0; height: 12px; background: var(--surface-3); transform-origin: 0 0; }
+.se-panel .se-leave { pointer-events: none; }   /* (what a closing tile showed, fading where it stood while the next tile's fade in: stent-editor.js leave) */
+.se-panel .se-pb.se-leave { position: absolute; left: 0; right: 0; top: 0; }
+.se-panel .se-fl.se-leave { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); }   /* (centred as the foot centres its line, and no display of its own: its choice keeps the width it had) */
 .se-panel .se-pb { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 22px; row-gap: 2px; padding: 10px 14px 0; }
 @container (min-width: 460px) { .se-panel .se-pb { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
 .se-panel .se-foot { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0 0 0 14px; }

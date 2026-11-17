@@ -677,7 +677,7 @@ test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one
   assert.match(card, /else if \(!m\.noValue\) \{ numEl = h\('span', P_NUM\);/, 'and no reading row');
   // option A: the tray unrolls under the tiles in the card's flow; the card's actions fold away while it is open and fade back in when it closes
   const plate = read('styles/app-06-plate.css');
-  assert.match(plate, /\.ac-panel:has\(> \.tv \.se-panel:not\(\[data-open=""\]\)\) \+ \.ac-as \{ display: none; \}/);
+  assert.match(plate, /\.ac-panel:has\(> \.tv \.se-panel:not\(\[data-open=""\]\)\) \+ \.ac-as \{ position: absolute; top: var\(--as-top, 0px\);[^}]*opacity: 0; visibility: hidden;/, 'out of the flow at once but fading where it stood, never display: none (tray-no-pop.test.js)');
   assert.match(plate, /:is\(\.ac-body, \.ac-ghost\) > \.ac-panel:has\(> \.tv\) \+ \.ac-as \{ margin-top: 6px; animation: crossfade var\(--d-small\) var\(--ease\); \}/);
   assert.doesNotMatch(plate, /\.tv-zone > \.se-panel/, 'no panel laid over the actions');
 });
