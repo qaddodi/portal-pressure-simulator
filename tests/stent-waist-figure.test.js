@@ -50,7 +50,7 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   const text = () => page.document.querySelector('.clamp-label[data-id="TIPS~waist"]')?._txt;
   assert.equal(text(), 'Waist 10.0 to 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent\'s waist at 60 %, 4 cm long');
   const bracketLen = () => {
-    const d = page.document.querySelector('[data-mk="brk:TIPS"] path')?.getAttribute('d');
+    const d = page.document.querySelector('.clamp-span[data-id="TIPS~waist"]')?.getAttribute('d');
     if (!d) return 0;
     const pts = d.split(' M')[0].match(/-?[\d.]+/g).map(Number);
     let len = 0; for (let i = 2; i < pts.length; i += 2) len += Math.hypot(pts[i] - pts[i - 2], pts[i + 1] - pts[i - 1]);
@@ -58,8 +58,11 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   };
   const ratio = bracketLen() / b.len;
   assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
-  // The bracket carries no words of its own (they would repeat the callout, which the label solver places): no outlines in its mark.
-  assert.equal(page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-text, [data-mk="brk:TIPS"] .dim-halo').length, 0);
+  // The bracket is one of the waist's own marks, beside its arrows in the clamp group (one fade, one exit): no hand-placed words (the label is the solver's), no mark of its own in the stent group.
+  assert.equal(page.document.querySelectorAll('.clamp[data-id="TIPS~waist"]').length, 2, 'the arrows');
+  assert.equal(page.document.querySelectorAll('.clamp-span[data-id="TIPS~waist"]').length, 1, 'and the one bracket, beside them');
+  assert.equal(page.document.querySelector('.clamp-span[data-id="TIPS~waist"]').parentNode, page.document.querySelector('.clamp[data-id="TIPS~waist"]').parentNode);
+  assert.equal(page.document.querySelectorAll('[data-mk^="brk:"], .dim-text, .dim-halo').length, 0, 'no mark of its own and no words');
   await set({ stentGeom: { TIPS: { len: 8, waist: 0, trans: 0, red: 0.6 } } }, true);
   await frames(80);
   assert.equal(bracketLen(), 0, 'a waist of no length has no bracket');
@@ -100,7 +103,14 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   assert.ok(curve && curve[0] === 0 && curve[63] === 1);
   assert.ok(d.loss.at2 > 0 && d.loss.at2 < 1);
   await set({ stentGeom: { TIPS: { len: 8, waist: 2, trans: 0, red: 0 } } }, true);
-  await frames(80);
+  // (The bracket leaves as the arrows do: kept to fade in the clamps' exit group, under its out class, then gone: nothing pops.)
+  let sawOut = false;
+  for (let i = 0; i < 160; i++) {
+    await step();
+    if (page.document.querySelectorAll('.clamp-span-out[data-id="TIPS~waist"]').length) sawOut = true;
+  }
+  assert.ok(sawOut, 'the bracket fades out with the waist, kept under its out class');
+  assert.equal(page.document.querySelectorAll('.clamp-span[data-id="TIPS~waist"], .clamp-span-out[data-id="TIPS~waist"]').length, 0, 'and is gone once faded');
   assert.equal(read(), null, 'no narrowing, no waist and no colour step: the colour mixes by arc');
 
   // 4. Both at once (17 Nov 2026): a distal stenosis and a mid waist, each with its own callout and its own jet in the colour.
