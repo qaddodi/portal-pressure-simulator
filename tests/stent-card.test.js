@@ -13,6 +13,7 @@ import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE } from '../src/ui/tool-stent.js';
+import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
 import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
 
 function settled(setup) {
@@ -216,6 +217,66 @@ test('the card shows the slide\'s pictures and fades the rest; it keeps no frame
   doc.body.append(card.el);
   card.configure({ vessel: 'DIPS', show: ['loss'] });
   const stages = [...card.el.querySelectorAll('.sc-stage')];
-  assert.equal(stages.length, 2);
+  assert.equal(stages.length, 2, 'a card that shows no traces makes no third picture');
+  card.configure({ vessel: 'DIPS', show: ['trace'] });
+  assert.equal(card.el.querySelectorAll('.sc-stage').length, 3, 'made when a slide first asks for it');
+  card.dispose();
+});
+
+test('the trace card: fixed curves that start at the PPG and end at zero, five sites in order, one set of pieces for any stent and any panels', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.5; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['trace'] });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));   // (the glide from nothing to the slide's numbers)
+  const pieces = [...card.el.querySelectorAll('[data-look]')];
+  for (const p of pieces) assert.ok(LOOKS[p.getAttribute('data-look')], `${p.getAttribute('data-look')} is in the table`);
+  const kind = (re) => pieces.filter((p) => re.test(p.getAttribute('data-look')));
+  assert.equal(kind(/^stent\.tr\.line\./).length, 3);
+  assert.equal(kind(/^stent\.tr\.badge$/).length, 5);
+  assert.equal(kind(/^stent\.tr\.site$/).length, 5);
+  const lines = kind(/^stent\.tr\.line\./), nPts = lines.map((p) => p._pts.n);
+  assert.deepEqual(nPts, [161, 161, 161]);
+  for (const l of lines) for (let i = 0; i < 2 * l._pts.n; i++) assert.ok(Number.isFinite(l._pts.buf[i]), `every point is a number ${l.getAttribute('data-look')} ${i} ${l._pts.buf[i]}`);
+  // the pressure curve falls from the PPG's height at the portal end to the baseline at the IVC end; the energy curve rises over the same x
+  const [pr, en] = lines, b = pr._pts.buf, c = en._pts.buf;
+  assert.ok(b[1] < b[2 * 160 + 1] - 1, 'the pressure ends lower than it starts (y runs down the picture)');
+  assert.ok(c[1] > c[2 * 160 + 1] + 1, 'the energy lost ends higher than it starts');
+  for (let i = 1; i <= 160; i++) assert.ok(b[2 * i] > b[2 * i - 2], 'x runs one way');
+  const badges = kind(/^stent\.tr\.badge$/).map((p) => p._g.cx);
+  for (let k = 1; k < 5; k++) assert.ok(badges[k] >= badges[k - 1], 'the sites run portal to IVC');
+  const words = pieces.filter((p) => p._t != null).map((p) => p._t).join(' | ');
+  assert.match(words, /Static pressure/); assert.match(words, /Energy lost/); assert.match(words, /Mean velocity/); assert.match(words, /Schematic/);
+  assert.doesNotMatch(words, /HVPG|wedge/i);
+  // another stent, one panel: the same curves, only moved; the panels the slide did not ask for are out
+  e.params.tips.d = 12; e.params.stentGeom = { TIPS: { len: 10, waist: 4, trans: 1 } };
+  store.set({ params: { ...e.params } });
+  card.configure({ vessel: 'TIPS', show: ['trace'], panels: ['velocity'] });
+  assert.deepEqual(lines.map((p) => p._pts.n), nPts);
+  assert.equal(card.el.querySelectorAll('[data-look^="stent.tr.line."]').length, 3);
+  assert.equal(lines[2]._g.opacity, 1); assert.equal(lines[0]._g.opacity, 0);
+  card.dispose();
+});
+
+test('the bar prints the stent\'s own entry and exit loss, never 0.0 for a patient that has it, under a name that is not the Ends control\'s', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  for (const [d, s] of [[8, 0.25], [8, 0.6], [10, 0.6]]) {
+    const e = new Engine(); e.loadPreset('cirr-decomp');
+    e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d }, stenosis: { TIPS: s }, pulsatile: false, respiration: false })));
+    e.settle(3);
+    const m = computeMetrics(e), fp = fingerprintOf(m, { params: e.params });
+    store.set({ params: { ...e.params } });
+    card.pin(fp); card.configure({ vessel: 'TIPS', show: ['loss'], to: 'ppg' });
+    await new Promise((r) => setTimeout(r, 1500));
+    const word = [...card.el.querySelectorAll('[data-look="stent.key.text"]')].map((p) => p._t).find((t) => /^In and out/.test(t));
+    assert.ok(word, 'the key names it');
+    const want = m.tips.parts.entry * (m.tips.dp / (m.tips.parts.tract + m.tips.parts.wall + m.tips.parts.entry + m.tips.parts.jet + m.tips.parts.inlet));
+    assert.ok(want > 0.05, `this patient has an entry loss (${want})`);
+    assert.ok(Math.abs(parseFloat(word.replace(/^In and out /, '')) - want) <= 0.11, `${word} for ${want.toFixed(2)} at ${d} mm and ${s}`);
+  }
+  assert.ok(![...card.el.querySelectorAll('[data-look="stent.key.text"]')].some((p) => /^Ends/.test(p._t)), 'no part is called Ends');
   card.dispose();
 });
