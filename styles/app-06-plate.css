@@ -483,7 +483,7 @@
 .stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 1px solid var(--accent-line); border-radius: 22px; background: var(--accent-soft); color: var(--accent-ink); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); }
 @container (max-width: 420px) {
   .stent-editor .se-layer { gap: 4px; }
-  .stent-editor .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 4px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
+  .stent-editor .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 1px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
   .stent-editor .se-chip-n { font-size: var(--fs-12); line-height: 16px; }
   .stent-editor .se-chip-c { display: none; }   /* (a phone: the value alone; the open row shows the end or the ends) */
   .stent-editor .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */
@@ -494,7 +494,7 @@
 }
 /* The Tests view's editor is compact at any width (F39: one row, each chip its name over its value, so the drawing sits high): the narrow card's rules. */
 .stent-editor.se-compact .se-layer { gap: 4px; }
-.stent-editor.se-compact .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 4px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
+.stent-editor.se-compact .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 1px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
 .stent-editor.se-compact .se-chip-n { font-size: var(--fs-12); line-height: 16px; }
 .stent-editor.se-compact .se-chip-c { display: none; }   /* (a phone: the value alone; the open row shows the end or the ends) */
 .stent-editor.se-compact .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */

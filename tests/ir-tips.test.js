@@ -585,4 +585,7 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   assert.match(plate, /\.stent-editor \.se-strip, \.stent-editor \.se-summary, \.stent-editor\[data-fold="true"\] \.se-chips, \.stent-editor:not\(\[data-open=""\]\) \.se-chips \{ position: absolute;/, 'a layer not shown takes no room (F40)');
   assert.match(plate, /\.stent-editor\.se-compact \.se-chip \{ flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column;/, 'the Tests view: one row, name over value');
   assert.match(plate, /\.ir-editor \{[^}]*min-width: 0; overflow-x: clip;/, 'never wider than the sheet (F40)');
+  // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
+  // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).
+  assert.match(read('src/ui/dock.js'), /onClose\(\);\n(?:\s*\/\/.*\n)*\s*for \(const p of panes\) p\.shown\?\.\(false\);/);
 });
