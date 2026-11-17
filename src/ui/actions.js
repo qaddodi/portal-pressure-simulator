@@ -159,6 +159,8 @@ function plain(h, v, u) { S.v = v; S.u = u; S.d = null; S.up = false; return ste
 // The direction word at the card's corner: toward the liver or away from it on the portal side, reversed on the systemic side, open for a shunt.
 const ST_STASIS = ['warn', 'Stasis'], ST_REVERSED = ['rev', 'Reversed flow'], ST_PETAL = ['ok', 'Hepatopetal'], ST_FUGAL = ['rev', 'Hepatofugal'], ST_PATENT = ['ok', 'Patent'];
 const ST_BLEEDING = ['bad', 'Bleeding'], ST_WALE = ['warn', 'Red wale signs'], ST_CONGESTED = ['warn', 'Congested'];
+// Collaterals that carry portal blood TOWARD the liver (the cavernoma bypasses the clot into the portal hilum); every other one carries it away.
+const PETAL_COLL = new Set(['C8']);
 const NONE = [];
 
 // A stent's controls, the one list the vessel card and the Tests card's stent editor (stent-editor.js) both show, so the two can never
@@ -309,7 +311,7 @@ function buildEdgeCard(e) {
       if (isShunt) return ST_PATENT;
       const back = flowReversed(q, refQ, throughFlow(e.id, f.Qf || f.Q, EI));
       // A collateral carries portal blood away from the liver; a link between two portal veins has no physiological direction (the pressure picks it).
-      if (isColl) return back ? ST_PETAL : ST_FUGAL;
+      if (isColl) return (back !== PETAL_COLL.has(e.id)) ? ST_PETAL : ST_FUGAL;   // (the periportal bypass runs toward the liver, round the clot: forward is hepatopetal, V-r2 17 Nov)
       if (e.portal) return null;
       if (portalSide) return back ? ST_FUGAL : ST_PETAL;
       return back ? ST_REVERSED : null;
