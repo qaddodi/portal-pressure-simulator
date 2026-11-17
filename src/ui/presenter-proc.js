@@ -3,6 +3,7 @@
 import { hvpgSev } from '../engine/pressure-cuts.js';
 import { CIRC_REGIONS, growBox, isCamOn, regionBox, unionBox } from './cam-frame.js';
 import { anchorsOf, roomFor } from './cam-room.js';
+import { focusRun } from './cam-room.js';
 import { throwState } from './card-throw.js';
 import { REGIONS } from './decks.js';
 import { cancelFrame } from './frame.js';
@@ -13,6 +14,7 @@ import { playProcedure, procBlocked, procKindOf, procOffered, specOf, stepMarks 
 import { procNavPlan } from './proc-nav.js';
 import { store, setViewKey } from './store.js';
 import { clamp, cssVar, fmt } from './util.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createProc(st, live) {
   const { ease, evBack, evRun, liveSet, nextFrame, stage, stopLapse, toAnatomy, viewSettled } = st;
@@ -21,9 +23,9 @@ export function createProc(st, live) {
   // what the throw of the words, their glass, the panel and the data card has still to run, and the browser's own animations still count.)
   const throwCards = () => [live.ui?.text, live.ui?.shade, live.ui?.panel, live.ui?.data];
   const throwEnters = (el, left) => { const s = el && !el.hidden ? throwState(el) : null; return !!s && s.kind !== 'out' && s.left > left; };
-  const cardsEntering = (left = 0) => throwCards().some((el) => throwEnters(el, left)) || [live.ui?.text, live.ui?.panel, live.ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (a.playState !== 'running') return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
+  const cardsEntering = (left = 0) => throwCards().some((el) => throwEnters(el, left)) || [live.ui?.text, live.ui?.panel, live.ui?.data].some((el) => el && !el.hidden && readAnims(el, { subtree: true }).some((a) => { if (!animRunning(a)) return false; const t = readTiming(a.effect); return Number.isFinite(t?.endTime) && t.endTime - (t.localTime || 0) > left; }));
   // Where the way out of the lobule should land for a slide: its framing, asked for when the rise begins (null: the fit).
-  const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear });
+  const riseFor = (cam, s) => (cam === 'fit' ? null : { box: () => camBox(cam, s), kMax: s.kMax || 3.2, clear: !!s.clear, subject: focusRun(s) });
   const figOf = (i) => (live.fig && live.fig.i === i ? live.fig.s : live.slides[i]);
   const lapseCam = (s) => (!s?.visual && !s?.cath && s?.lapse?.cam) || null;
   const figView = (s, lap) => (lapseCam(s) && !lap ? { ...s, cam: s.lapse.cam } : s);
@@ -50,7 +52,7 @@ export function createProc(st, live) {
   function frameTo(cam, s, ms, opt = {}) {
     // (A Circuit slide's cam is a Circuit region, a raw box in circuit units or 'fit'; a name the circuit lacks is the fit.)
     const circ = s.view === 'circuit', cb = circ && cam !== 'fit' ? regionBox(cam, CIRC_REGIONS) : null;
-    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, live.caseExit && !opt.drift ? { ...opt, slow: true } : opt);   // (slow: the move in from a case card's whole patient takes the time the move out took, 900 ms: Mohammad, 15 Nov 2026, "after the case card the camera does a funky move")
+    if (cam === 'fit' || (circ && !cb)) { if (opt.drift) stage.fitDrift(ms); else stage.fitSlow(ms, opt); } else stage.frameBox(circ ? cb : camBox(cam, s), ms, s.kMax || 3.2, !!s.clear, { ...(live.caseExit && !opt.drift ? { ...opt, slow: true } : opt), subject: circ ? null : focusRun(s) });   // (slow: the move in from a case card's whole patient takes the time the move out took, 900 ms: Mohammad, 15 Nov 2026, "after the case card the camera does a funky move")
   }
   function camBox(cam, s) {
     let r = regionBox(isCamOn(cam) ? cam.near : cam, REGIONS);

@@ -430,7 +430,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stage.prepRise?.();
       stage.lobuleHold?.(true);
       if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
-      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);
+      if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear, next.subject);
       stage.exitSinusoid();
       await waitCut(60, cut);
       await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.lobuleSettled()), 9000);
@@ -448,7 +448,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
     if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
-    if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
+    if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear, next.subject);   // (box: a function, asked for when the rise begins)
     setViewKey('anatomy');
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }

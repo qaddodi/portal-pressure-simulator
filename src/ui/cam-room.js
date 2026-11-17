@@ -185,6 +185,19 @@ export function anchorsOf(s, tg) {
   return out;
 }
 
+/**
+ * The slide's subject as a vessel's drawn run, [[x, y], …] in world units (null: it points at no vessel the plate draws): the vessel its first mark rings
+ * (a mark's first shown vessel, as walkMark takes it), else the vessel its Doppler probe lies on. The camera keeps it in the room above a phone's cards
+ * (stage-glide.js boxVT, card-clear.js subjectDelta). A fresh list is not built: the plate's own run is returned, to be read only.
+ */
+export function focusRun(s) {
+  for (const m of s.marks || (s.mark ? [s.mark] : NONE)) {
+    for (const e of expandIds(m.edges || NONE)) if (typeof e === 'string' && !HIDDEN_EDGES.has(e) && vesselRun(e)) return vesselRun(e);
+  }
+  if (s.tool?.kind === 'doppler' && s.tool.probe !== 'scope') return vesselRun(s.tool.vessel || 'PV_TRUNK');
+  return null;
+}
+
 // How far a point is outside a box shrunk by INSET (0 when it is inside).
 const shortOf = (b, [x, y]) => Math.max(b[0] + INSET - x, x - (b[2] - INSET), b[1] + INSET - y, y - (b[3] - INSET), 0);
 /** The anchors the frame misses, each with how far (units) its nearest place is from being inside: [{ ...anchor, short }]. */

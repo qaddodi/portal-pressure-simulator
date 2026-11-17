@@ -31,3 +31,12 @@ for (const card of [true, 'half', 'top']) {   // ('top': a bar across the top of
   });
 }
 
+// Every figure label, not only a narrowing's words, stands wholly inside the free room (the screen's edges and every card) or fades out whole
+// (F50, 17 Nov 2026, iPad portrait with the stent card and Tests open: "Right sinusoids 15…" cut by the screen's left edge, "Rig…" half behind
+// the card). Judged on what the GPU drew: a label carried between layouts counts too.
+for (const o of [{ size: 'ipad', view: 'anatomy', card: 'right', pan: true }, { size: 'mac', view: 'anatomy', card: true }]) {
+  test(`no figure label is drawn past the screen's edge or under a card: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
+    const r = run(o);
+    assert.deepEqual(r.drawnOut, [], 'labels drawn cut by the edge or a card');
+  });
+}

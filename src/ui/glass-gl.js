@@ -13,7 +13,8 @@ import { glCap, fbComplete } from './gl-state.js';
 import { glassCover, stackOf, stackCmp } from './glass-cover.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
-import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js';
+import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw, easeNow } from './frame.js';
+import { createRevealClock, ownable, STALE_MS } from './glass-clock.js';
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
 import { Inline, inlineShift, inlineTranslate, inlineShiftNew, inlineShiftOk, inlineTranslateNew, inlineTranslateOk, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
 import { pathPolys, fanTriangles } from './path-poly.js';
@@ -613,8 +614,18 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const k = (str || '').trim();   // alloc-rare: a colour string the page has not been read with yet (resolveColour reads every one), never in steady state
     return colours.get(k) || parseColour(k || fb);
   }
+  // (The one clock of a card's words and its glass, glass-clock.js: every fade or move of a glass card, of what holds it and of its words beside it
+  // is held off the browser's clock and set from the frame's time, once a frame, just before the glass is drawn from the same time. Mohammad,
+  // 17 Nov 2026: the words of alerts, cards and the Tests card came in and went out ahead of their frost. ownEls: the elements whose animations
+  // it takes (each drawn glass's chain up to its layer, and the elements its words lie in beside it), set with each read of the page.)
+  const reveal = createRevealClock({ now: easeNow, foreign: isDrivenAnimation });
+  const ownEls = new Set();
+  let revealFc = -1, revealT = 0;
+  const revealSweep = () => { revealT = 0; if (reveal.sweep(STALE_MS)) revealT = setTimeout(revealSweep, STALE_MS); };
+  const revealArm = () => { if (reveal.size && !revealT) revealT = setTimeout(revealSweep, STALE_MS); };
+  const revealFree = () => { reveal.releaseAll(); clearTimeout(revealT); revealT = 0; };
   const markOf = new WeakMap();
-  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); cover.clear(); };
+  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); cover.clear(); revealFree(); };
   // (Any glass over any other hides it whole, its words too: the lower one is cut where every glass above it lies, glass-cover.js, on the one
   // board every renderer's glasses share (the cards' and the callouts'), above and below as the page stacks them (p.st, read with the page).
   // cssClip: each card's own clip-path as its page read gives it (one it has is never cut).)
@@ -1140,6 +1151,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!hostOn) {
       hostOn = true; hf = null; gen++;
       if (cards && !co) document.documentElement?.setAttribute?.('data-cardgl', '');
+      ownAll();   // (the fades already running on its cards, onto the one clock from here)
     }
     if (hf && sameKey(keyNow, keyHf)) return panes.length ? 'same' : false;
     { const t = keyHf; keyHf = keyNow; keyNow = t; }
@@ -1601,12 +1613,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     try { rec.kf = compileKeyframes(resolveKeyframes(an.effect?.getKeyframes?.() || null, an.effect?.target)); } catch { rec.kf = null; }   // (a move written against the element's own size or a custom property, in pixels: kf-resolve.js)   // (its keyframes as numbers, once: motionAt reads them each frame and builds nothing)
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
-    const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(0, 'animEnd'); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
+    const stop = (done) => () => { if (done) c.done = true; else { c.idle = true; reveal.drop(an); } wake(); measureSoon(0, 'animEnd'); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     try {
       an.addEventListener?.('finish', stop(true));
       an.addEventListener?.('cancel', stop(false));
       an.addEventListener?.('remove', stop(false));
-      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
+      if (c.s == null) an.ready?.then?.(() => { const s = an.startTime; if (!c.own && Number.isFinite(s) && c.rate !== 0) c.s = s; wake(); }, () => {});   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
     } catch (e) { caught('glass-gl:1233', e); /* (a stand-in with no events: its timing alone) */ }
     return rec;
   }
@@ -1617,11 +1629,25 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const ended = new Map();
   const zoomTr = new WeakMap();   // (a zoomed glass's translate as the zoom took it: measureGeo)
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
-  function addAnim(e, an) {
+  // (later: an animate() call just made, taken once its caller's task has had its say. A caller that scrubs the animation itself (a finger's pull,
+  // num-move.js: animate(), then pause() and its time set by the finger) has paused it by then, and it is left to the caller; taken at once, the
+  // glass's clock ran it on its own time and the sheet's words flew off their glass (Mohammad, 17 Nov 2026, the Layers sheet on the iPhone).)
+  function addAnim(e, an, later = false) {
     let m = anims.get(e);
     if (!m) anims.set(e, (m = new Map()));
-    if (!m.has(an)) m.set(an, timeAnim(an));
+    if (!m.has(an)) { const rec = timeAnim(an); m.set(an, rec); if (later) queueMicrotask(() => own(e, an, rec)); else own(e, an, rec); }
   }
+  // (Taken onto the one clock: an animation of an element of a glass drawn in the figure's canvas, as soon as it is seen, so not one frame of it runs
+  // on the browser's clock. One given back to the browser (the glass off) is followed from its start time again.)
+  function own(e, an, rec) {
+    if (!hostOn || !ownEls.has(e) || !rec?.c || reveal.has(an)) return;
+    if (!ownable(an, rec.kf, OWN_OPTS)) return;
+    if (reveal.take(an, rec.c)) { revealArm(); wake(); }
+  }
+  const OWN_OPTS = { driven: isDrivenAnimation, get timeline() { return document.timeline; } };
+  function ownAll() { for (const e of ownEls) { const m = anims.get(e); if (m) for (const [an, rec] of m) own(e, an, rec); } }
+  // (Whether the element or anything holding it up to the layer is hidden by its attribute now: read from the attribute, no style or layout.)
+  const hiddenIn = (chain) => { for (let i = 0; i < chain.length; i++) if (chain[i].hidden === true) return true; return false; };
   function track(e) {
     if (!e?.getAnimations) return;
     const list = readAnims(e);
@@ -1688,7 +1714,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!e || hooked.has(e) || typeof e.animate !== 'function') return;
     hooked.add(e);
     const own = e.animate;
-    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
+    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an, true); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
   }
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
@@ -1845,6 +1871,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const bare = bareOf();
     geo = { bare, list, cr0: shift(cr, [-cmx, -cmy]), tgt, sr: tgt === source ? cr : source.getBoundingClientRect(),   // (the figure's canvas is both: one read, not two)
       vw, vh, bgs, bg, bgVar, panes, over, vk: host?.view?.() ?? null };
+    // (The one clock's elements now: each glass's chain and the elements its words lie in beside it, never the figure's canvas. What runs on them is
+    // taken; one held on an element no longer among them is given back.)
+    ownEls.clear();
+    for (const p of panes) { for (const e of p.chain) if (e !== tgt) ownEls.add(e); if (p.also) for (const a of p.also) { ownEls.add(a.el); track(a.el); hook(a.el); } }
+    if (reveal.size) reveal.releaseIf((an) => !ownEls.has(an.effect?.target));
+    ownAll();
     if (watchRo) { if (tgt) watchRo.observe(tgt); for (const g of list) watchRo.observe(g); }
     wake();
   }
@@ -1892,9 +1924,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     let cx = 0, cy = 0;
     if (G.tgt) { const m = moveOf(G.tgt, flag); cx = m.x; cy = m.y; }
     const cr = shiftInto(crLive, G.cr0, cx, cy);
+    // (The held fades set to this frame's time, once a frame, before any glass is put where its card is: glass-clock.js.)
+    if (hostOn && reveal.size && framePhase()) { const fc = frameCount(); if (fc !== revealFc) { revealFc = fc; reveal.drive(); revealArm(); } }
     fadedNow.clear(); litNow.clear();
     for (const p of G.panes) {
       if (!p.g.isConnected) continue;
+      // (A card hidden since the page was read (its hidden attribute, on it or on what holds it) is gone this frame, as its words are: its glass
+      // waited for the next read and stayed a frame or more alone.)
+      if (hiddenIn(p.chain)) { fadedNow.add(p.g); continue; }
       const mv = chainMove(p.chain, flag);
       let a = p.aS * mv.o;
       if (p.pe) { const po = pseudoOf(p.g, p.pe, flag); if (po != null) a = p.aC * mv.o * po; }
@@ -2176,7 +2213,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       hostMo?.disconnect();
       for (const off of hostTops) off();
       hostTops = [];
-      unmark();
+      unmark(); ownEls.clear();
       tellHoles(NONE);
       if (hostOn) { hostOn = false; hf = null; if (cards && !co) document.documentElement?.removeAttribute?.('data-cardgl'); host?.now(); }
       hostFree();

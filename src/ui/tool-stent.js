@@ -31,7 +31,7 @@ import { stentNormal } from './velNormal.js';
 import { geomFix, geomOf, profileAt, waistSpan, endSpan } from '../engine/stent-geom.js';
 import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/topology.js';
 import { smooth01 } from './num.js';
-import { createTracePic, traceFor, gateIndex, PANELS } from './stent-trace-pic.js';
+import { createTracePic, traceFor, gateIndex, xAt, PANELS } from './stent-trace-pic.js';
 import { createDropPic, dropLayout } from './stent-drop-pic.js';
 import { makeTrace, TRACE_N } from '../engine/stent-trace.js';
 import { readMetric, readBox } from './layout-snap.js';
@@ -44,8 +44,8 @@ export const VW = 320;
 /** The side view's rows for words of size fs (the picture's units: a narrower card draws its words larger in them, so the rows follow them and never touch): the dimension
  *  words and line above the stent, the stent (drawn up to 12 mm wide), the gates' ticks and numbers under it, the caption, the colour key. Written into o. */
 export function sideLayout(fs, o = {}) {
-  o.pxCm = 26; o.pxMm = 3.1; o.x0 = 30; o.span = 260; o.stubH = 31;
-  o.labY = fs * 0.6 + 1; o.dimY = o.labY + fs * 0.6 + 3; o.cy = o.dimY + 26;
+  o.pxCm = 26; o.pxMm = 3.1; o.x0 = 44; o.span = 232; o.stubH = 31;   // (the veins either side are wide enough for the chart's tick gutter and the pressure sites 1 and 5, which the chart under shares: stent-trace-pic.js xAt)
+  o.labY = fs * 0.6 + 1; o.dimY = o.labY + fs * 0.6 + 3; o.siteY = o.dimY + 12; o.cy = o.dimY + 36;
   o.numY = o.cy + 20 + 5 + fs * 0.55; o.gateTop = o.numY - fs * 0.6 - 1;
   o.capY = o.numY + fs * 1.25; o.keyY = o.capY + fs * 1.25;
   o.bandY = o.cy + 12; o.bandH = o.numY + fs * 0.6 - o.bandY;
@@ -63,9 +63,9 @@ export const N_STOPS = 33;   // (the lumen's colours at 33 places across the pic
 export const PARTS = ['tract', 'wall', 'ends', 'jet'];
 const IDS = { TIPS: 'tips', DIPS: 'dips' };
 // The follower's channels (each divided by its scale so the 12 % jump test means the same for every one).
-const CH = { ex: 0, s: 1, len: 2, waist: 3, trans: 4, site: 5, d: 6, flow: 7, g0: 8, g1: 9, g2: 10, tract: 11, wall: 12, ends: 13, jet: 14, out: 15, outOn: 16, max: 17, pLo: 18, pHi: 19, vHi: 20, ivc: 21, cm: 22, pm: 23, red: 24 };
-const NCH = 25;
-const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 1, 16, 8, 24, 200, 12, 1, 2, 1];
+const CH = { ex: 0, s: 1, len: 2, waist: 3, trans: 4, site: 5, d: 6, flow: 7, g0: 8, g1: 9, g2: 10, tract: 11, wall: 12, ends: 13, jet: 14, out: 15, outOn: 16, max: 17, pLo: 18, pHi: 19, vHi: 20, ivc: 21, cm: 22, pm: 23, red: 24, tr: 25 };
+const NCH = 26;
+const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 1, 16, 8, 24, 200, 12, 1, 2, 1, 1];
 
 // ── the numbers' words, each made once ──
 const TEN = Array.from({ length: 1000 }, (_, i) => (i / 10).toFixed(1));
@@ -236,6 +236,9 @@ export function createStent() {
   const none = sv('text', { 'data-look': 'stent.word', x: VW / 2, y: S.cy, 'text-anchor': 'middle' });
   // the pressure lens: the same three points read in mmHg, its caption, and the colour keys (a strip of the ramp with its ends named)
   const GATES = [1 / 6, 0.5, 5 / 6];   // (the Doppler's three points, as fractions of the stent)
+  // the five pressure sites (the chart under the drawing marks the same five on the same x): a tick down to the lumen's top and its digit
+  const siteTBuf = [0, 1, 2, 3, 4].map(() => new Float64Array(4)), siteTick = siteTBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
+  const siteDig = siteTBuf.map((_, k) => { const e = sv('text', { 'data-look': 'stent.tr.siteNum', y: S.siteY, 'text-anchor': 'middle' }); setWords(e, `${k + 1}`); return e; });
   const numsP = [0, 1, 2].map(() => sv('text', { 'data-look': 'stent.num', y: S.numY, 'text-anchor': 'middle' }));
   const capP = sv('text', { 'data-look': 'stent.cap', x: VW / 2, y: S.capY, 'text-anchor': 'middle' });
   const KEYW = 110, KX = (VW - KEYW) / 2, NKS = 11;
@@ -249,14 +252,14 @@ export function createStent() {
   const nBuf = [new Float64Array(4), new Float64Array(4)], nTicks = [0, 1].map(() => sv('path', { 'data-look': 'stent.gate.tick' }));   // (the usual range's two edges on the velocity strip)
   setWords(none, 'No stent'); setWords(cap, 'Peak at each gate, cm/s'); setWords(capP, 'Static pressure, mmHg');
   const picL = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${S.h}`, role: 'img' },
-    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
+    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...siteTick, ...siteDig, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
 
   // ── the pressure staircase (stent-drop-pic.js) ──
   const drop = createDropPic(sv), picB = drop.svg;
   const recL = makeTrace(), SPAN = [0, 0], dropIn = { o: null, len: 8, px0: 0, px1: 0, ppg: 0, pHi: 8, ex: 0, on: 1, vals: [0, 0, 0, 0, 0], words: ['', '', '', '', ''], ppgWord: '', totWord: '' };
 
   // ── the traces (stent-trace-pic.js) ──
-  const TT = { sh: fix2(), s: 0, site: 0, d: 8, flowLpm: 0, tract: 0, wall: 0, ends: 0, jet: 0, ppg: 0, dp: 0, kd: 1, pLo: 0, pHi: 8, vHi: 100 };
+  const TT = { px0: S.x0, px1: S.x0 + S.span, sh: fix2(), s: 0, site: 0, d: 8, flowLpm: 0, tract: 0, wall: 0, ends: 0, jet: 0, ppg: 0, dp: 0, kd: 1, pLo: 0, pHi: 8, vHi: 100 };
   const RNG = { pHi: 8, pLo: 0, vHi: 100 };
   let panels = PANELS.slice(), tracePick = 'pressure', lastPick = '';   // (the chart the trace shows: the slide asks, the switch changes it)
 
@@ -276,7 +279,7 @@ export function createStent() {
   const swL = h('div', { class: 'sc-lens', role: 'group', 'aria-label': 'What the stent shows' }, lensBtns);
   const el = h('div', { class: 'gl sc' }, stageL, swL, sw, stageB);
   const glL = createSvgGL(stageL), glB = createSvgGL(stageB);
-  const wordsAll = [dimTxt, lenTxt, ...nums, ...numsP, cap, capP, ...kEnds, none, ...drop.words];
+  const wordsAll = [dimTxt, lenTxt, ...siteDig, ...nums, ...numsP, cap, capP, ...kEnds, none, ...drop.words];
   // the traces' picture is made when a slide first asks for it (a card that shows only the side view has no third canvas)
   let tp = null, picT = null, stageT = null, glT = null, swT = null;
   const PICK_NAMES = { pressure: 'Pressure', energy: 'Energy lost', velocity: 'Velocity' };
@@ -307,8 +310,8 @@ export function createStent() {
   }
   function traceMade() {
     if (tp) return tp;
-    tp = createTracePic(sv, `${gid}t`, (v) => stentColour(v, id, TT.d)); picT = tp.svg;
-    stageT = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / 200` }, picT);
+    tp = createTracePic(sv); picT = tp.svg;
+    stageT = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / 150` }, picT);
     el.insertBefore(stageT, stageB);
     glT = createSvgGL(stageT);
     swT = h('div', { class: 'sc-tracesw', role: 'group', 'aria-label': 'Chart along the stent' }, pickBtns);
@@ -355,7 +358,7 @@ export function createStent() {
     } else {
       for (const c of [CH.ivc, CH.flow, CH.g0, CH.g1, CH.g2, CH.tract, CH.wall, CH.ends, CH.jet, CH.out, CH.pLo, CH.pHi, CH.vHi]) G[c] = fol.to[c];
     }
-    G[CH.cm] = colorBy === 'pressure' ? 1 : 0; G[CH.pm] = PANELS.indexOf(tracePick) / SCALE[CH.pm];
+    G[CH.cm] = colorBy === 'pressure' ? 1 : 0; G[CH.pm] = PANELS.indexOf(tracePick) / SCALE[CH.pm]; G[CH.tr] = has('trace') ? 1 : 0;
     G[CH.outOn] = toPpg;
     // (the staircase's top: the next multiple of 4 over the PPG, at least 8, so it steps in round numbers and the follower glides it; a slide's own tool.max holds it)
     if (have) G[CH.max] = (maxMm > 0 ? maxMm : dropTop(R.dp + Math.max(0, (R.ppg ?? 0) - Math.max(0, R.dp)) * toPpg)) / SCALE[CH.max]; else G[CH.max] = fol.to[CH.max];
@@ -370,6 +373,7 @@ export function createStent() {
     sideLayout(fs, S);
     for (const e of [dimTxt, lenTxt]) setGeo(e, 'y', S.labY);
     for (const e of [...nums, ...numsP]) setGeo(e, 'y', S.numY);
+    for (const e of siteDig) setGeo(e, 'y', S.siteY);
     for (const e of [cap, capP]) setGeo(e, 'y', S.capY);
     for (const e of [barV, barP]) setGeo(e, 'y', S.keyY - 2.5);
     for (const e of kEnds) setGeo(e, 'y', S.keyY);
@@ -417,6 +421,19 @@ export function createStent() {
       }
       for (let q = 0; q < 3; q++) setWords(numsP[q], ten(ivc + o.P[gateIndex(GATES[q], TT.sh.len)]));
     }
+    // the five pressure sites as marks on the drawing, on the x the chart under it uses (a tick down to the lumen's top and its digit): they are there with the chart, and fade as it does
+    const tw = clamp(v[CH.tr], 0, 1) * ex;
+    if (tw > 0.002 && tp) {
+      if (cm <= 0.001) fillTrace(TT, v);
+      const o = traceFor(TT, rec2), top = S.siteY + 5;
+      for (let k = 0; k < 5; k++) {
+        const cmK = o.sites[k], xk = xAt(cmK, TT.sh.len, x0, x1, tp.xl());
+        const inside = cmK > 0 && cmK < TT.sh.len, half = inside ? (dPx * profileAt(sh, s, site, cmK / TT.sh.len)) / 2 : S.stubH / 2, tb = siteTBuf[k];
+        tb[0] = xk; tb[1] = top; tb[2] = xk; tb[3] = Math.max(top + 1, cy - half - 1); setPts(siteTick[k], tb, 2, false);
+        setGeo(siteDig[k], 'x', xk);
+      }
+    }
+    for (let k = 0; k < 5; k++) { setGeo(siteTick[k], 'opacity', tw); setGeo(siteDig[k], 'opacity', tw); }
     // the colour key for the velocity lens: the figure's ramp from 0 to twice the usual ceiling, the usual range's edges marked and written in the caption; the pressure lens: 0 to 30 mmHg
     const norm = stentNormal(id, d), bHi = norm && Number.isFinite(norm[1]) ? norm[1] : 190, bLo = norm ? norm[0] : 90;
     for (let i = 0; i < NKS; i++) { setGeo(kStopsV[i], 'stop-color', stentColour((2 * bHi * i) / (NKS - 1), id, d)); setGeo(kStopsP[i], 'stop-color', pressureAt((30 * i) / (NKS - 1))); }
@@ -473,7 +490,7 @@ export function createStent() {
     T.s = clamp(v[CH.s], 0, 1); T.site = v[CH.site]; T.d = v[CH.d] * SCALE[CH.d]; T.flowLpm = v[CH.flow] * SCALE[CH.flow];
     T.tract = v[CH.tract] * SCALE[CH.tract]; T.wall = v[CH.wall] * SCALE[CH.wall]; T.ends = v[CH.ends] * SCALE[CH.ends]; T.jet = v[CH.jet] * SCALE[CH.jet];
     T.dp = T.tract + T.wall + T.ends + T.jet; T.ppg = T.dp + v[CH.out] * SCALE[CH.out];
-    T.kd = scanK(id); T.ivc = v[CH.ivc] * SCALE[CH.ivc];
+    T.kd = scanK(id); T.ivc = v[CH.ivc] * SCALE[CH.ivc]; T.px0 = S.x0; T.px1 = S.x0 + S.span;
     return T;
   }
   function paintTrace(v) {

@@ -10,6 +10,7 @@ import { elBoxInto, chainMat } from './shape-gl.js';
 import { layoutWatch, PLACED, GESTURE_LOOK } from './idle-keys.js';
 import { freeStage, bandOf } from './free-stage.js';
 import { readAnims, readBox, readCTM, readMetric, readStyle, readTiming, worldCTM } from './layout-snap.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 const OWN_BOX = { x: 0, y: 0, width: 0, height: 0 };   // alloc-rare: made once (a shape's own box, read at once)
 // (The art's walk looks at the camera once a frame: in the frame's first, read-only phase (2 Nov 2026), where the layout is the one the
 // browser last drew, never after the frame's writes.)
@@ -757,7 +758,7 @@ export function createCreditPlacer(credit, { keptStyle = null } = {}) {
     const now = performance.now();
     // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
     // (The card and its blocks only: a live instrument deep inside eases all the time and kept the credit hidden.)
-    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => readAnims(c).some((an) => an.playState === 'running' && Number.isFinite(readTiming(an.effect).endTime)))));
+    const settling = gpuProbe.time(null, 'credit: card motion', () => els.some((el) => [el, ...el.children].some((c) => readAnims(c).some((an) => animRunning(an) && Number.isFinite(readTiming(an.effect).endTime)))));
     // (lastSig is empty after a slide change: the first look at the settled cards is taken as it is, with no extra beat.)
     if ((lastSig && sig !== lastSig) || settling) {
       // Something moved: if it now reaches the credit, hide it at once; let it settle before choosing a new spot

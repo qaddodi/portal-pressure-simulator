@@ -57,7 +57,7 @@ test('everything lies inside the picture, for every stent size, length and text 
     for (let k = 1; k < rows.length; k++) assert.ok(rows[k] - rows[k - 1] >= fs * 1.1, `row ${k} clears row ${k - 1} at words ${fs}`);
     assert.ok(S.dimY - S.labY >= fs * 0.55, 'the dimension line is under its words');
     assert.ok(S.keyY + fs * 0.6 <= S.h && S.labY - fs * 0.6 >= -1, 'the first and last rows are inside the picture');
-    assert.ok(S.h <= 130, `no tall blank band (${S.h.toFixed(0)} at words ${fs})`);
+    assert.ok(S.h <= 142, `no tall blank band (${S.h.toFixed(0)} at words ${fs})`);
   }
 });
 
@@ -233,7 +233,7 @@ test('the trace card: fixed curves that start at the PPG and end at zero, five s
   for (const p of pieces) assert.ok(LOOKS[p.getAttribute('data-look')], `${p.getAttribute('data-look')} is in the table`);
   const kind = (re) => pieces.filter((p) => re.test(p.getAttribute('data-look')));
   assert.equal(kind(/^stent\.tr\.line\./).length, 3);
-  assert.equal(kind(/^stent\.tr\.badge$/).length, 5);
+  assert.equal(kind(/^stent\.tr\.siteNum$/).length, 10, 'the five sites as digits on the drawing and again under the chart');
   assert.equal(kind(/^stent\.tr\.site$/).length, 5);
   const lines = kind(/^stent\.tr\.line\./);
   for (const b of [...card.el.querySelectorAll('.sc-tracesw button')].reverse()) { b.click(); await new Promise((r) => setTimeout(r, 1200)); }   // (each chart in turn, ending on the pressure)
@@ -245,10 +245,10 @@ test('the trace card: fixed curves that start at the PPG and end at zero, five s
   assert.ok(b[1] < b[2 * 160 + 1] - 1, 'the pressure ends lower than it starts (y runs down the picture)');
   assert.ok(c[1] > c[2 * 160 + 1] + 1, 'the energy lost ends higher than it starts');
   for (let i = 1; i <= 160; i++) assert.ok(b[2 * i] > b[2 * i - 2], 'x runs one way');
-  const badges = kind(/^stent\.tr\.badge$/).map((p) => p._g.cx);
+  const badges = kind(/^stent\.tr\.siteNum$/).slice(5).map((p) => p._g.x);
   for (let k = 1; k < 5; k++) assert.ok(badges[k] >= badges[k - 1], 'the sites run portal to IVC');
   const words = pieces.filter((p) => p._t != null).map((p) => p._t).join(' | ');
-  assert.match(words, /Static pressure/); assert.match(words, /Energy lost/); assert.match(words, /Mean velocity/); assert.match(words, /Schematic/);
+  assert.match(words, /Static pressure/); assert.match(words, /Energy lost/); assert.match(words, /Mean velocity/); assert.doesNotMatch(words, /Schematic/, 'one caption: the chart\'s title says what it is');
   assert.doesNotMatch(words, /HVPG|wedge/i);
   // another stent, the velocity chart: the same curves, only moved; the chart the slide asked for is the one in view, the switch fades the others
   e.params.tips.d = 12; e.params.stentGeom = { TIPS: { len: 10, waist: 4, trans: 1 } };
@@ -351,6 +351,10 @@ test('the card with one switch: the stent, and under it the chart of the lens (v
   const lum = [...card.el.querySelectorAll('[data-look="stent.lumen"]')];
   const lines = () => [...card.el.querySelectorAll('[data-look^="stent.tr.line."]')].map((p) => p._g.opacity);
   assert.equal(lum[1]._g.opacity, 0, 'velocity colours first');
+  const digs = [...card.el.querySelectorAll('[data-look="stent.tr.siteNum"]')];
+  assert.equal(digs.length, 10);
+  for (let k = 0; k < 5; k++) { assert.ok(Number.isFinite(digs[k]._g.x) && digs[k]._g.opacity > 0.9, `site ${k + 1} is marked on the drawing`); assert.ok(Math.abs(digs[k]._g.x - digs[k + 5]._g.x) < 0.01, `site ${k + 1}: one x on the drawing (${digs[k]._g.x}) and under the chart (${digs[k + 5]._g.x})`); }
+  assert.equal(card.el.querySelectorAll('[data-look="stent.tr.lumen"]').length, 0, 'one stent drawing: the chart has no second lumen');
   assert.deepEqual(lines(), [0, 0, 1], 'and the velocity chart');
   btns[1].click(); await new Promise((r) => setTimeout(r, 1500));
   assert.equal(lum[1]._g.opacity, 1, 'pressure colours');
