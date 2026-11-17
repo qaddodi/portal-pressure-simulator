@@ -12,7 +12,7 @@ import { glyphsReady, loadGlyphs, textWidth } from './text-gl.js';
 import { isModalOpen, restBox } from './util.js';
 
 export function createLadders(st, live) {
-  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsFloor, wordsGlide, wordsHeightAt, wrap } = st;
+  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsGlide, wrap } = st;
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
   // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
@@ -459,30 +459,9 @@ export function createLadders(st, live) {
     const beside = low && tabBeside();
     fitCards(live.ui.data, live.ui.panel);
     if (beside && !tabBeside()) { fitDone.delete(live.ui.panel); fitCards(live.ui.panel); }
-    // The words give way once more for a data card its own fit cannot make whole. At a large text size on a Mac or an iPad on its side, a
-    // card holding the Gut to heart chart (drawn at its own size, never zoomed by the fit, with a smallest height) or readings that would
-    // have to pass half size still ended below its card, cut off by it, the stacked pair being taller than the screen (HVPG 7 at 200 %: the
-    // chart's axis names gone). The words' card, which zooms as a whole, takes what the data card lacks, down to the size where its smallest
-    // lettering is still 12 px on the screen (only at a text size above 100 %: the usual size is laid out exactly as it was), and the data card is fitted again in the room
-    // that gains it. A card that fits is never touched. (A readings' sheet is measured with its readings tucked, as it rests: its
-    // instrument or chart is what the card must hold, and the readings still rise from under it, slip.lift.)
-    if (below && t && !off(dd) && !phone() && stage.labelScale() > 1.001) {
-      for (let n = 0; n < 3; n++) {
-        const cut = overflowOf(dd).v;
-        if (!(cut > 1)) break;
-        const have = t.height / k, z = wordsFloor();
-        if (z >= 1) break;
-        const room = Math.max(wordsHeightAt(z), have - cut);
-        if (!(room < have - 0.5)) break;
-        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        wordsCap = room; ts.maxHeight = `${room.toFixed(1)}px`;
-        fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
-        y = top0 + t.height + 2 * pad + gap + lipK;
-        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        dd.style.top = `${(y / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y) / k);
-        fitDone.delete(live.ui.data); fitCards(live.ui.data);
-      }
-    }
+    // (No step takes the words down for a data card its own fit cannot make whole, 17 Nov 2026: at a text size above 100 % a Mac or an iPad on its side used to
+    // zoom the words' card down, to 12 px at most, and the Gut to heart chart's axis names stayed. The words keep their size at every text size; the data card's
+    // own fit and its fold do what they can. tests/words-never-shrink.test.js.)
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
