@@ -11,10 +11,10 @@ const run = (o) => {
   return JSON.parse(line.slice(5));
 };
 
-for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy' }, { size: 'iphone', view: 'anatomy' }, { size: 'mac', view: 'anatomy', s: 0.5, waist: 2 }]) {
+for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy' }, { size: 'iphone', view: 'anatomy' }, { size: 'mac', view: 'anatomy', s: 0.5 }]) {
   test(`no label shows over a narrowing's words: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
     const r = run(o);
-    assert.ok(r.cl.some((c) => /^(Narrowed|Distal|Proximal|Waist)/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
+    assert.ok(r.cl.some((c) => /narrowed$/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
     assert.deepEqual(r.lap, []);
     assert.deepEqual(r.cross, []);
   });
@@ -30,19 +30,6 @@ for (const card of [true, 'half', 'top']) {   // ('top': a bar across the top of
     assert.ok(!under || r.op[0] < 0.05, `words at ${b} under the card ${r.card} with opacity ${r.op[0]}`);
   });
 }
-
-// A stent with an end stenosis and a waist both narrowed has two callouts ("Distal stenosis …", "Waist …"): they never stand on each other, and
-// each holds its place while the figure stands (the stent thread's heads-up, 17 Nov 2026).
-test('a stent\'s end stenosis and waist callouts stand apart, on a real gap, and no leader runs through them', { timeout: 320000 }, () => {
-  const r = run({ size: 'mac', view: 'anatomy', s: 0.5, waist: 2, red: 0.4 });
-  const w = r.cl.filter((c) => c.box[2] > c.box[0]);
-  assert.ok(w.length >= 2, `two callouts: ${JSON.stringify(r.cl)}`);
-  assert.deepEqual(r.cross, []);
-  for (let i = 0; i < w.length; i++) for (let j = i + 1; j < w.length; j++) {
-    const a = w[i].box, b = w[j].box, g = 8;   // (their boxes are grown 6 px each: 8 more is a real gap between the words)
-    assert.ok(!(a[0] - g < b[2] && a[2] + g > b[0] && a[1] - g < b[3] && a[3] + g > b[1]), `${w[i].t} crowds ${w[j].t}`);
-  }
-});
 
 // Every figure label, not only a narrowing's words, stands wholly inside the free room (the screen's edges and every card) or fades out whole
 // (F50, 17 Nov 2026, iPad portrait with the stent card and Tests open: "Right sinusoids 15…" cut by the screen's left edge, "Rig…" half behind

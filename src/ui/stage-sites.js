@@ -32,7 +32,8 @@ export function createSites(st, live) {
   const SITE_DEF = { pv: { node: 'CONF', kicker: 'Portal vein', cls: 'pv', below: true }, ivc: { node: 'IVCS', kicker: 'IVC', cls: 'ivc' },
     ra: { node: 'RA', kicker: 'Right atrium', cls: 'ivc' },
     web: { node: 'IVCS', kicker: 'IVC, below the web', cls: 'ivc', below: true },   // (with ra above it: the two sides of an IVC web)
-    // split: where portal blood goes, the share that bypasses the liver over a bar split into the liver's and the shunts' shares.
+    // split: where portal blood goes, the share that bypasses the liver over a bar split into the liver's and the shunts' shares. A bare label
+    // (no card: the number, its caption and a hairline bar in the figure's own label look, a thin leader to the vein; Mohammad, 17 Nov 2026, "Build D").
     split: { node: 'PVH', kicker: 'Portal blood', cls: 'split', split: true, below: true },
     // (Both readings stand above the liver's column, clear of the station labels; the zigzags mark where each resistor is.)
     // (Named in full, each ratio bare; "vs healthy liver" is said once, in the group's key: 17 Oct design review.)
@@ -45,7 +46,7 @@ export function createSites(st, live) {
   // (A reading's own box, with its glass in it already for those that have one: cloned on a frame, nothing built there. callout.js withGlass)
   const SITE_EL = [document.createElement('div'), withGlass(document.createElement('div'))];
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
-  const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
+  const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em><em class="sp-pc">%</em><span class="sp-w">bypasses the liver</span></span><span class="sp-cap"><em class="sp-k">Portal blood</em><em class="sp-lt"></em><em class="sp-st"></em></span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span>'; return e; })();
   const RES_LIVER = new Float32Array([812, 303, 888, 303, 812, 387, 888, 387]);
   const resNow = new Float32Array(64), resKey = new Float64Array(13);   // (a record's numbers worked out, and what makes a resistor look as it does: written in place)
   // The token a station's tone names (toneCol's own, var(--x) → --x): its colour is read from the theme's tokens, never from the page.

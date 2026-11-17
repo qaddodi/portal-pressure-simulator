@@ -20,6 +20,7 @@ export function createSitesPaint(st, live) {
   // asked for through the one filter the tiles' bars follow theirs with (display-state.js follow2, SHOWN_TAU): a new share
   // glides in, a share that keeps moving (a running model's mean, a what-if slider) is followed as it goes, and the callout's
   // size never changes.
+  const BARE = { bare: true };
   const SPLIT_TXT = [];   // percent → [the shunts' number, 'To the liver n%', 'Shunts n%']
   for (let i = 0; i <= 100; i++) SPLIT_TXT.push([`${i}`, `To the liver ${i}%`, `Shunts ${i}%`]);
   function splitShow(el, sh) {
@@ -202,12 +203,12 @@ export function createSitesPaint(st, live) {
       let el = made.get(k);
       if (!el) {
         el = SITE_EL[d.res ? 0 : 1].cloneNode(true); el.className = SITE_CLS[k]; el._roll = newRoll();   // (alloc-rare: once per reading's element)
-        if (!d.res) el._glass = glassCallout(el);
+        if (!d.res) el._glass = glassCallout(el, d.split ? BARE : undefined);   // (the portal blood's share has no card, only its leader)
         // (Its parts are cloned from a model made ahead and put in the page, with their words, between frames: late().)
         const [sm, b0, u, kk] = SITE_TPL.cloneNode(true).children, b = d.split ? SPLIT_B.cloneNode(true) : b0;
         // (The share's three readings, taken from its own parts now: they join the callout only between frames (late), so a first paint
         // that looked for them in the callout found none and threw, and the slide was not shown.)
-        if (d.split) el._spW = [...b.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e));
+        if (d.split) el._spW = [...b.querySelectorAll('.sp-n, .sp-lt, .sp-st')].map((e) => glWords(e, { halo: true }));
         el._b = b;   // (its number's box, kept for the same reason)
         late('text', sm, d.kicker); late('text', u, d.split ? '' : d.unit ?? 'mmHg');
         late('append', el, d.res ? [sm, b, u, kk] : [sm, b, u]);

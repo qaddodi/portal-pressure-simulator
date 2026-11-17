@@ -416,7 +416,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     // The bar, or (a structure with no inflow and outflow: the heart, the spleen, the varices, a lobule part) its one reading.
     let numEl = null;
     if (m.span) body.append(spanEl(m.span));
-    else { numEl = h('span', P_NUM); body.append(h('div', P_VALUE, numEl)); }
+    else if (!m.noValue) { numEl = h('span', P_NUM); body.append(h('div', P_VALUE, numEl)); }   // (noValue: a body that reads its own numbers, the TIPS's line: no reading here)
     nr._acK = 1; nr._acNum = numEl; nr._acPill = pillEl; nr._acM = m; nr._acMode = 0; nr._acHas = false;
     live.push(nr);
     // (The controls take one column where a name is long or there is only one of them: the liver's Cirrhosis runs the card's width.)

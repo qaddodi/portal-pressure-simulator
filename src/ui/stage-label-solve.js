@@ -13,6 +13,7 @@ import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
+import { stentFacts } from './stent-waist.js';
 import { spreadDots } from './label-dots.js'; import { createLabelCol } from './stage-label-col.js'; import { labelCourse } from './label-course.js';
 
 // The stations the Anatomy never leaves out for want of room (play-test, 16 Nov 2026: "the PV pressure label must always show"): with no clear spot beside its vessel one stands farther out on a leader or on the ring of spots round its station, and only with none anywhere keeps a spot on a vessel (solid halo).
@@ -605,6 +606,13 @@ export function createLabelSolve(st, live) {
             it.later = false;
             items.push(it);
           }
+          // (The stent's own label, its diameter and where it is narrowed, stands on the column's other side where it is: it is what the narrowing slides teach.)
+          const fx = stentFacts(E[sid].e, f.viewParams || st.params);
+          if (fx && (fx.waist != null || fx.sten != null)) {
+            const [ax, ay] = worldToLocal(...pointAt(geo[sid].cur, STENT_SITES.mid)), it = velItem(sid, f);
+            it.ax = ax; it.ay = ay; it.vw = vw * live.CTM.sc; it.pri = 7; it.side = ptSide === 'W' ? 'R' : 'L';
+            items.push(it);
+          }
         } else if (stentReady(sid, f) && EI[sid] >= 0) {
           let { ax, ay, mid, w: vw } = labelAnchor(sid, t);
           // (While the Doppler samples this stent, the callout points at the third its gate reads, where the stent glows.)
@@ -683,7 +691,9 @@ export function createLabelSolve(st, live) {
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
           const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : must.has(it.node) || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev || must.has(it.node) ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
-          if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
+          const okp = placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }]);
+          if (globalThis.__dbg && it.key === 'n:TIPS') console.error('DBG4', okp, it.w, it.h, it.ax, it.ay, JSON.stringify(view));
+          if (okp) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
           if (it.point) { later.unshift(it); continue; }
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }

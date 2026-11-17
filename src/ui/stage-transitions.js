@@ -277,7 +277,7 @@ export function createTransitions(st, live) {
   // The stent's half-width at arc length d (the tube's own where the tube renderer has it, else the lumen's with a narrowed stent's waist, to the wall's middle).
   function meshR(id, p) {
     const x = E[id], L = geo[id].len;
-    const v = live.isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
+    const v = live.isImaging() ? 0 : p.stenosis[id] || 0, red = live.isImaging() ? 0 : p.stentGeom?.[id]?.red || 0, wf = v > 0.01 || red > 0.01 ? waist(id, v, L, x.width, p) : null;   // (a waist narrows the stent with no end stenosis at all: stentGeom.red)
     if (x.glR?.length > 1) {   // (A stent is as wide as the tube it sits in, which narrows along its run, and stays inside its wall: its ends fit the veins they enter, not a stub wider than the tube, 11 Nov 2026; every stent since 13 Nov)
       const g = x.glR, n = g.length - 1;
       return (d) => { const t = Math.min(1, Math.max(0, d / (L || 1))) * n, i = Math.min(Math.floor(t), n - 1); return Math.max(1.2, g[i] + (g[i + 1] - g[i]) * (t - i) - 0.25); };
@@ -351,7 +351,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, EI, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
+  const { venousSync, venousSig } = createVenous({ E, EI, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
   // Surgical shunts: a running stitch round each join (S1 of the suture mocks, 13 Nov 2026), the seam following the host vein's wall.
   // Where the shunt's end is in no host vein, and in the circuit (no walls to follow), the old three ticks stay.
   // (The Warren shunt's start is the splenic vein turning down, and the end-to-side portocaval shunt's the portal vein itself: nothing is sewn
@@ -413,5 +413,5 @@ export function createTransitions(st, live) {
     putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
       s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
-  return { stentBracket, anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentAmounts, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
+  return { meshR, venousSig, stentBracket, anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentAmounts, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }

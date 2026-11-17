@@ -394,7 +394,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 }
 
 /* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
-.dock-body.pair .pressure-switch:not(.ir-switch):not(.ir-sub):not(.ir-sweep):not(.ir-color) { display: none; }   /* (IR's Measure | TIPS switch is not a pair's: it stays) */
+.dock-body.pair .pressure-switch:not(.ir-switch):not(.ir-lens):not(.ir-sweep) { display: none; }   /* (IR's Measure | TIPS switch is not a pair's: it stays) */
 .pressure-switch { display: flex; gap: 2px; flex: none; align-self: flex-start; padding: 2px; border-radius: 9px; background: var(--surface-2); }
 .ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: none; }
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
