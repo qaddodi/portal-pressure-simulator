@@ -590,14 +590,24 @@ export function createLadders(st, live) {
   let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = live.ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
-    const held = key && phoneLock?.key === key ? phoneLock : null;
+    let held = key && phoneLock?.key === key ? phoneLock : null;
     // (Also while a what-if slider or a compare button drives the live model (liveOff): its data card changes only its numbers,
     // and re-planned on every live reading that measured a pixel taller, the words' cap stepped and the teaching card shook
     // under the finger on a phone, Sites 4's clot slider. The plan made as the slide came in holds until the next slide.)
     // (And through a time-lapse, while it plays and once it has ended: its data card changes only its readings as the days run, a
     // varix appearing on the scope, and re-planned whenever one measured a pixel taller, the words' cap stepped and the teaching card
     // bounced as the days passed, Endoscopy 3 on an iPhone, 18 Oct.)
-    if (held && (held.shut || gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
+    // (A plan that shut the data card is held too, but only until the card is measured smaller than it was planned: planned while its readings or chart were still arriving it came in closed
+    // and stayed closed for the slide, whatever its settled height was. TIPS deck, iPhone, 17 Nov 2026: slides 3, 8, 12-22 docked or open by how soon the reader arrived.)
+    if (held && (gone || readingsOnly())) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
+    if (held && held.shut) {
+      const sv = [ds.maxHeight, ds.getPropertyValue('--pz-fit'), ds.getPropertyValue('--pz-z')];
+      ds.maxHeight = 'none'; ds.removeProperty('--pz-fit'); ds.removeProperty('--pz-z');
+      const now = readMetric(dd, 'offsetHeight') * k + (lipOn(dd) ? LIP * k : 0);
+      ds.maxHeight = sv[0]; if (sv[1]) ds.setProperty('--pz-fit', sv[1]); else ds.removeProperty('--pz-fit'); if (sv[2]) ds.setProperty('--pz-z', sv[2]);
+      if (!(now < held.data - 2) || dd.classList.contains('tool-open') || dd.classList.contains('pz-sliding') || 'folding' in dd.dataset) { phoneShut = held.shut; phoneFig = held.fig; return held.cap; }
+      phoneLock = null; held = null;   // (measured smaller than planned: planned again below)
+    }
     phoneShut = false; phoneFig = FIG_MIN(H);
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const natural = (el, st, fit = 0) => {   // (as it stands unfitted and uncapped; or at that fit)

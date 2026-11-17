@@ -80,3 +80,11 @@ test('on a 667 px phone every deck slide\'s words at Regular fit under the figur
   assert.ok(n > 100, `${n} slides read`);
   assert.deepEqual(bad, [], 'words too long to stand at Regular on a 667 px phone');
 });
+
+test('a plan that shut the data card is planned again once the card measures smaller (TIPS deck, iPhone, 17 Nov 2026: docked or open by how soon the reader arrived)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/presenter-ladders.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(held && \(gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}/);
+  assert.match(src, /if \(!\(now < held\.data - 2\) \|\| dd\.classList\.contains\('tool-open'\)/);
+  assert.match(src, /phoneLock = null; held = null;/);
+});
