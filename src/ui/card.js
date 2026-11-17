@@ -195,6 +195,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   const dockHost = view.closest('.stage-wrap') || view;
   // The card covers the bottom of the figure on a phone: keep the tapped vessel in the part that is left (the figure eases up), and
   // lift the figure's own buttons (Fit, turn) and the credit clear of it.
+  let cardTall = false;   // (the docked card's words are taller than its room: its body scrolls)
   let revealRaf = 0, liftedBy = '', liftFound = false, liftPill = null, liftClock = null;
   // The variable goes on the few elements that use it: set on the whole figure it would make the browser re-check
   // the style of every element under it. (The two are looked for the first time the card moves, the clock is made after the card.)
@@ -218,6 +219,9 @@ export function createCard({ view, stage, ctx, onDetails }) {
     const open = model && !el.hidden && isDocked();
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
+    // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
+    const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
+    if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
     if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
   }
   function reveal() {

@@ -22,6 +22,9 @@ try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigat
 
 const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
+const { curveToolOf, sweepMatters, SWEEPS } = await import('../src/ui/ir-curves.js');
+const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
+const { BENCH_DP } = await import('../src/engine/stent-geom.js');
 const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -145,7 +148,7 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
   assert.match(plate, /\.ir-figs \.gl \{ display: flex; flex-direction: column;/);
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\) \{ display: none; \}/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\) \{ display: none; \}/);
 });
 
 test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
@@ -199,7 +202,7 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
-  const at = (d, vPeak) => ir.update({ metrics: { ppg: 9, tips: { kind: 'tips', d, s: 0, dWaist: d, flow: 1.1, dp: 6, vOpen: 40, vWaist: 40, vPeak, peaks: [vPeak, vPeak, vPeak], parts: {}, geom: {} }, dips: null } });
+  const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
   // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
   at(6, 216); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'In range');
@@ -214,4 +217,69 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   assert.doesNotMatch(peak().title, /provisional/);
   const back = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(back[1] - 190 / 4) < 0.01, `${back}`);
+});
+
+test('Curves: the tool a stent and a setting give is the deck\'s own curve, two lines, the bench dashed, in the flow\'s colour', () => {
+  const t = curveToolOf('TIPS', 'waist');
+  assert.equal(t.kind, 'curve'); assert.equal(t.param, 'stentGeom.TIPS.waist');
+  assert.deepEqual(t.lines, ['tipsFlow', 'tipsBench']);
+  assert.equal(curveToolOf('DIPS', 'diameter').param, 'dips.d');
+  assert.equal(curveToolOf('TIPS', 'length').param, 'stentGeom.TIPS.len');
+  assert.deepEqual(SWEEPS, ['diameter', 'waist', 'length']);
+  const ls = drawnLines(t);
+  assert.equal(ls.length, 2);
+  assert.ok(!ls[0].dash && ls[1].dash === true, 'the bench is the dashed one');
+  assert.equal(ls[0].c, ls[1].c, 'one reading, one colour: the dashes say which state');
+  assert.equal(ls[0].name, 'In the patient'); assert.match(ls[1].name, new RegExp(`Tube alone, ${BENCH_DP} mmHg`));
+  for (const s of SWEEPS) { const xs = curveXs(curveToolOf('TIPS', s)); assert.ok(xs.length >= 5 && xs.length <= 41, `${s}: ${xs.length} points`); assert.equal(curveSteps(curveToolOf('TIPS', s)).length, xs.length); }
+});
+
+test('Curves: a waist length changes nothing for a stent with no narrowing, and the view says so; the other two settings always matter', () => {
+  assert.equal(sweepMatters('waist', { s: 0 }), false);
+  assert.equal(sweepMatters('waist', { s: 0.4 }), true);
+  assert.equal(sweepMatters('diameter', { s: 0 }), true);
+  assert.equal(sweepMatters('length', null), true);
+});
+
+test('Curves: the series carries the patient\'s line and the tube\'s from the worker\'s fingerprints', () => {
+  const t = curveToolOf('TIPS', 'diameter'), xs = curveXs(t);
+  const states = xs.map((x) => ({ fp: { tipsFlow: 1 + 0.1 * x, tipsBench: 0.5 + 0.2 * x } }));
+  const s = curveSeries(t, states);
+  assert.equal(s.xs.length, xs.length); assert.equal(s.ys.length, 2);
+  assert.ok(s.ys[1].at(-1) > s.ys[1][0], 'the bench line rises with the diameter');
+});
+
+test('Curves: no engine key the view needs is missing: the engine\'s stent state carries .bench and the fingerprint passes it on', () => {
+  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP\) \* 0\.06;/);
+  assert.match(read('src/engine/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
+  assert.doesNotMatch(read('src/ui/ir-curves.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
+});
+
+test('Curves: the sub-switch opens the third view, and leaving the TIPS view stops the sweep timer', async () => {
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.el.querySelector('[data-sub="curves"]').click();
+  assert.equal(ir.sub(), 'curves'); assert.equal(ir.el.dataset.sub, 'curves');
+  ir.update(frameOf()); await wait(60);
+  assert.ok(ir.el.querySelector('.ir-curves .pz-curve'), 'the chart is there');
+  assert.equal(ir.el.querySelectorAll('.ir-sweep .ps-btn').length, 3);
+  ir.head.querySelector('[data-view="measure"]').click();
+  assert.equal(host.dataset.view, 'measure');
+});
+
+test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed 7 mmHg; narrowing it costs the tube more than it costs the patient', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const at = (patch) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, patch))); e.settle(3); return fingerprintOf(computeMetrics(e)); };
+  const open = at({ tips: { on: true, d: 10 } }), narrow = at({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.5 }, stentGeom: { TIPS: { waist: 4 } } });
+  assert.ok(open.tipsBench > 0 && Number.isFinite(open.tipsBench), `bench ${open.tipsBench}`);
+  assert.equal(at({}).tipsBench, null, 'no stent, no bench line');
+  assert.ok(narrow.tipsBench < open.tipsBench && narrow.tipsFlow < open.tipsFlow);
+  const tubeLoss = 1 - narrow.tipsBench / open.tipsBench, patientLoss = 1 - narrow.tipsFlow / open.tipsFlow;
+  assert.ok(tubeLoss > patientLoss, `the tube loses ${(100 * tubeLoss).toFixed(0)} % against the patient's ${(100 * patientLoss).toFixed(0)} %`);
+  const wide = at({ tips: { on: true, d: 12 } });
+  assert.ok(wide.tipsBench > open.tipsBench, 'a wider tube carries more');
 });

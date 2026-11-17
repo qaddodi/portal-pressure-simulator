@@ -9,7 +9,7 @@ import {
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
-import { stentParts, geomOf, geomDefault, kindOf } from './stent-geom.js';
+import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP } from './stent-geom.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 import { hvBlocked } from './pressure-cuts.js';
@@ -1540,6 +1540,8 @@ export class Engine {
     const peaks = o.peaks || (o.peaks = [0, 0, 0]);   // alloc-rare: made with the record
     stentReadsOf(p, id, Math.abs(q) / (Math.PI * (this.diameter(id) / 10) * (this.diameter(id) / 10) / 4) * dopplerK(e), peaks);
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
+    // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
+    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP) * 0.06;
     return o;
   }
 

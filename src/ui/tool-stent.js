@@ -16,7 +16,9 @@
 import { h, clamp, fadeShown } from './util.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
-import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { createSvgGL, svgModel, setWords, setGeo, setPts, setPolys } from './svg-gl.js';
+import { flattenPath } from './shape-gl.js';
+import { stentLookD, bareOf } from './stent-mesh.js';
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 import { easeArrive } from './ease.js';
@@ -33,10 +35,10 @@ const sv = svgModel;
 
 // ── what the card draws, in units of its pictures ──
 export const VW = 320;
-export const SIDE = { h: 144, cy: 66, pxCm: 26, pxMm: 3.4, wall: 3, x0: 30, span: 260, dimY: 30, labY: 16, gateTop: 100, numY: 112, bandY: 92, bandH: 28, capY: 134, stubH: 34 };
+export const SIDE = { h: 106, cy: 48, pxCm: 26, pxMm: 3.1, x0: 30, span: 260, dimY: 18, labY: 8, gateTop: 78, numY: 88, bandY: 70, bandH: 26, capY: 99, stubH: 31 };
 export const BAR = { h: 130, x: 6, w: 308, y: 38, bh: 24, markB: 8, markA: 22, brY: 70, brTxt: 86, keyY: [104, 120], keyX: [[6, 108, 210], [6, 108]] };
 export const N_PROFILE = 96;   // (the outline's samples along the stent: 97 each side)
-export const N_STOPS = 13;
+export const N_STOPS = 33;   // (the lumen's colours at 33 places across the picture's fixed span: a gradient in user space, since a path drawn from points has no box to take one from)
 export const PARTS = ['tract', 'wall', 'ends', 'jet'];
 const PART_NAMES = ['Tract', 'Friction', 'Ends', 'Jet'];
 const DEFAULT_MAX = 16;
@@ -68,6 +70,10 @@ export function printedParts(parts, out = []) {
   }
   return total;
 }
+
+/** How much of a part's number shows on its segment: all of it once the segment is as wide as the number is (its characters at the size the words are drawn in, in the
+ *  picture's units), none when it is 3 units narrower, a smooth step between. A fixed width left a short segment half faded where the words are larger (a phone). */
+export const numberOn = (w, chars, fs) => smooth01((w - (0.62 * fs * chars + 3) + 3) / 4);
 
 /** The lumen's outline for the side view, written into buf (2 × 2 × (N_PROFILE + 1) numbers: the top edge from the portal end to the hepatic end, then the bottom
  *  back), at the stent's start x0 and length L (units), its diameter dPx (units), the wall's thickness `wt` outside the lumen (0: the lumen itself), the narrowing s
@@ -151,6 +157,12 @@ export const stentTitle = (t) => {
   return show.includes('lumen') ? `${v}, side view` : `${v}, where the pressure goes`;
 };
 
+/** A vein's two walls running up to the stent, as one open path of 5 points (the pen lifted between): from x a to x b at the axis cy, its half-width hw. */
+function veinLine(buf, a, b, cy, hw) {
+  buf[0] = a; buf[1] = cy - hw; buf[2] = b; buf[3] = cy - hw; buf[4] = NaN; buf[5] = 0; buf[6] = a; buf[7] = cy + hw; buf[8] = b; buf[9] = cy + hw;
+  return buf;
+}
+
 export function createStent() {
   let id = 'TIPS', tool = null, show = ['lumen'], pinned = null, toPpg = 0, maxMm = DEFAULT_MAX, gateIdx = -1;
   const R = { flow: 0, dp: 0, g0: 0, g1: 0, g2: 0, tract: 0, wall: 0, ends: 0, jet: 0, ppg: 0, lumen: 0, vel: 0 };
@@ -161,15 +173,21 @@ export function createStent() {
   const S = SIDE;
   const stubP = sv('rect', { 'data-look': 'stent.vein.p', x: 0, y: S.cy - S.stubH / 2, width: S.x0, height: S.stubH });
   const stubH = sv('rect', { 'data-look': 'stent.vein.h', x: VW - S.x0, y: S.cy - S.stubH / 2, width: S.x0, height: S.stubH });
+  const veinBuf = [new Float64Array(10), new Float64Array(10)];
+  const veinP = sv('path', { 'data-look': 'stent.vein.wall' }), veinH = sv('path', { 'data-look': 'stent.vein.wall' });
   const OUTL = 2 * (N_PROFILE + 1);
-  const wallBuf = new Float64Array(2 * OUTL), lumBuf = new Float64Array(2 * OUTL), ghostBuf = new Float64Array(8), arrowBuf = new Float64Array(14);
-  const wallP = sv('path', { 'data-look': 'stent.wall' });
+  const lumBuf = new Float64Array(2 * OUTL), grfBuf = new Float64Array(2 * OUTL), ghostBuf = new Float64Array(8), arrowBuf = new Float64Array(14);
   const lumP = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid})` });
+  const grfP = sv('path', { 'data-look': 'stent.graft' });
+  // the device as the figure draws it (stent-mesh.js stentLookD: the rings of the bare stretch, the covered stretch's, the gold band and tab), drawn over the lumen
+  const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
+  const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   const ghostP = sv('path', { 'data-look': 'stent.ghost' });
   const stops = Array.from({ length: N_STOPS }, (_, i) => sv('stop', { offset: (i / (N_STOPS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: a gradient's first stops, written at the first paint
-  const grad = sv('linearGradient', { id: gid, x1: 0, y1: 0, x2: 1, y2: 0 }, stops);
+  const grad = sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: S.x0, y1: 0, x2: S.x0 + S.span, y2: 0 }, stops);
   const dimBuf = new Float64Array(8), dimP = sv('path', { 'data-look': 'stent.dim' });
   const dimTxt = sv('text', { 'data-look': 'stent.word', x: VW / 2, y: S.labY, 'text-anchor': 'middle' });
+  const lenTxt = sv('text', { 'data-look': 'stent.word', x: VW / 2, y: S.labY, 'text-anchor': 'middle' });
   const arrowP = sv('path', { 'data-look': 'stent.arrow' });
   const band = sv('rect', { 'data-look': 'stent.gate.band', x: 0, y: S.bandY, width: 10, height: S.bandH });
   const tickBuf = [0, 1, 2].map(() => new Float64Array(4));
@@ -179,7 +197,7 @@ export function createStent() {
   const none = sv('text', { 'data-look': 'stent.word', x: VW / 2, y: S.cy, 'text-anchor': 'middle' });
   setWords(none, 'No stent'); setWords(cap, 'Doppler peak, cm/s');
   const picL = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${S.h}`, role: 'img' },
-    sv('defs', {}, grad), stubP, stubH, ghostP, wallP, lumP, band, dimP, dimTxt, arrowP, ...ticks, ...nums, cap, none);
+    sv('defs', {}, grad), stubP, stubH, veinP, veinH, ghostP, lumP, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, cap, none);
 
   // ── the pressure bar's pieces ──
   const B = BAR;
@@ -206,11 +224,11 @@ export function createStent() {
   const stageB = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / ${B.h}` }, picB);
   const el = h('div', { class: 'gl sc' }, stageL, stageB);
   const glL = createSvgGL(stageL), glB = createSvgGL(stageB);
-  const wordsAll = [dimTxt, ...nums, cap, none, ...segTxt, markAT, markBT, ...brTxt, ...keyTxt];
+  const wordsAll = [dimTxt, lenTxt, ...nums, cap, none, ...segTxt, markAT, markBT, ...brTxt, ...keyTxt];
 
   // ── the state the pictures follow ──
   const fol = createFollowN(NCH), goal = new Float64Array(NCH), GEO = { len: 8, waist: 1, trans: 0 }, parts4 = [0, 0, 0, 0], tenths = [0, 0, 0, 0];
-  let hasShown = false, raf = 0, anim = false, ariaAsk = 0, ariaText = ['', ''];
+  let fsU = 11, hasShown = false, raf = 0, anim = false, ariaAsk = 0, ariaText = ['', ''];
   const animating = (on) => { if (anim !== on) { anim = on; frameAnimating('stent', on); } };
   const kind = () => (id === 'DIPS' ? 'dips' : 'tips');
 
@@ -239,34 +257,55 @@ export function createStent() {
     G[CH.outOn] = toPpg; G[CH.max] = maxMm / SCALE[CH.max];
   }
 
-  const fix = { len: 8, waist: 1, trans: 0 };
+  const fix = { len: 8, waist: 1, trans: 0 }, MESH = { cy: 0, x0: 0, dPx: 0, s: 0, sh: fix, site: 0, L: 0 };
+  // the stent's frame for the figure's own device drawing: a along its length, side across (-1 to 1) at the lumen's wall there
+  const frame = (a, side) => { const u = a / MESH.L; return [MESH.x0 + a, MESH.cy + side * (MESH.dPx * profileAt(MESH.sh, MESH.s, MESH.site, u)) / 2]; };
   function paintLumen(v) {
     const sh = geomFix({ len: v[CH.len] * SCALE[CH.len], waist: v[CH.waist] * SCALE[CH.waist], trans: v[CH.trans] * SCALE[CH.trans] }, kind(), fix);
     const ex = clamp(v[CH.ex], 0, 1), s = clamp(v[CH.s], 0, 1), site = v[CH.site], d = v[CH.d] * SCALE[CH.d], dPx = d * S.pxMm;
     const L = sh.len * S.pxCm, x0 = S.x0 + (S.span - L) / 2, x1 = x0 + L, cy = S.cy;
-    stentOutline(wallBuf, x0, L, cy, dPx, S.wall, s, sh, site); setPts(wallP, wallBuf, OUTL, true);
     stentOutline(lumBuf, x0, L, cy, dPx, 0, s, sh, site); setPts(lumP, lumBuf, OUTL, true);
     ghostBuf[0] = x0; ghostBuf[1] = cy - dPx / 2; ghostBuf[2] = x1; ghostBuf[3] = cy - dPx / 2; ghostBuf[4] = x1; ghostBuf[5] = cy + dPx / 2; ghostBuf[6] = x0; ghostBuf[7] = cy + dPx / 2;
     setPts(ghostP, ghostBuf, 4, true);
+    // the two veins either side, open ended: a faint fill and their walls running up to the stent
     setGeo(stubP, 'width', x0 + 0.5); setGeo(stubH, 'x', x1 - 0.5); setGeo(stubH, 'width', VW - x1 + 0.5);
-    for (const e of [wallP, lumP, dimP, dimTxt, arrowP, cap, ...ticks, ...nums]) setGeo(e, 'opacity', ex);
+    const vh = S.stubH / 2, vb = veinBuf;
+    setPts(veinP, veinLine(vb[0], 0, x0, cy, vh), 5, false);
+    setPts(veinH, veinLine(vb[1], x1, VW, cy, vh), 5, false);
+    for (const e of [lumP, grfP, ...wires, dimP, dimTxt, arrowP, cap, ...ticks, ...nums]) setGeo(e, 'opacity', ex);
     for (const e of [ghostP, none]) setGeo(e, 'opacity', 1 - ex);
-    // the lumen's colours along the stent: the figure's velocity ramp against the stent's range, at the local velocity
+    // the lumen's colours along the stent: the figure's velocity ramp against the stent's range, at the local velocity (the gradient spans the picture's fixed width)
     const v0 = openVelocity(v[CH.flow] * SCALE[CH.flow], d, `${id}`);
-    for (let i = 0; i < N_STOPS; i++) setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, i / (N_STOPS - 1))), id, d));
-    // the narrowing: a dimension line over its length and the lumen there in mm
-    const w = waistSpan(sh, site), dimOp = ex * smooth01((s - 0.01) / 0.05), xa = x0 + w.a1 * L, xb = x0 + w.b1 * L;
-    dimBuf[0] = xa; dimBuf[1] = S.dimY + 4; dimBuf[2] = xa; dimBuf[3] = S.dimY; dimBuf[4] = xb; dimBuf[5] = S.dimY; dimBuf[6] = xb; dimBuf[7] = S.dimY + 4;
-    setPts(dimP, dimBuf, 4, false); setGeo(dimP, 'opacity', dimOp); setGeo(dimTxt, 'opacity', dimOp);
-    setGeo(dimTxt, 'x', clamp(x0 + w.c * L, x0 + 24, x1 - 24));
-    setWords(dimTxt, `${ten(d * (1 - s))} mm`);
+    for (let i = 0; i < N_STOPS; i++) {
+      const u = clamp((S.x0 + (S.span * i) / (N_STOPS - 1) - x0) / L, 0, 1);
+      setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, u)), id, d));
+    }
+    // the device over it, as the figure draws it (a covered stretch with its rings, the bare stretch at the portal end, the gold band and tab), following the lumen's wall
+    MESH.cy = cy; MESH.x0 = x0; MESH.dPx = dPx; MESH.s = s; MESH.sh = sh; MESH.site = site; MESH.L = L;
+    const m = stentLookD(frame, L, bareOf(L, sh.len), 1);
+    for (let i = 0; i < WIRES.length; i++) setPolys(wires[i], flattenPath(m[WIRES[i]] || ''));
+    // (the covered stretch tinted as the cover is, over the lumen: the same outline, from where the bare stretch ends)
+    const ub = clamp(bareOf(1, sh.len), 0, 0.9);
+    for (let i = 0; i <= N_PROFILE; i++) {
+      const u = ub + (1 - ub) * (i / N_PROFILE), half = (dPx * profileAt(sh, s, site, u)) / 2, x = x0 + u * L, q = 2 * N_PROFILE + 1 - i;
+      grfBuf[2 * i] = x; grfBuf[2 * i + 1] = cy - half; grfBuf[2 * q] = x; grfBuf[2 * q + 1] = cy + half;
+    }
+    setPts(grfP, grfBuf, OUTL, true);
+    // the dimension line: the narrowing's length and lumen in mm; with no narrowing the whole stent's length in cm, the same line moving out to the ends
+    const w = waistSpan(sh, site), k = smooth01((s - 0.01) / 0.05), xa = x0 + (w.a1 * k) * L, xb = x1 + (x0 + w.b1 * L - x1) * k, ym = S.dimY;
+    dimBuf[0] = xa; dimBuf[1] = ym + 4; dimBuf[2] = xa; dimBuf[3] = ym; dimBuf[4] = xb; dimBuf[5] = ym; dimBuf[6] = xb; dimBuf[7] = ym + 4;
+    setPts(dimP, dimBuf, 4, false);
+    const lx = clamp((xa + xb) / 2, x0 + 24, x1 - 24);
+    setGeo(dimTxt, 'x', lx); setGeo(lenTxt, 'x', lx);
+    setGeo(dimTxt, 'opacity', ex * k); setGeo(lenTxt, 'opacity', ex * (1 - k));
+    setWords(dimTxt, `${ten(d * (1 - s))} mm`); setWords(lenTxt, `${ten(sh.len)} cm`);
     // the flow's arrow, its size following the flow
-    const k = clamp(0.55 + v[CH.flow] * SCALE[CH.flow] / 3, 0.55, 1.35), ax = Math.max(15, x0 / 2), P = arrowBuf;
+    const ak = clamp(0.55 + v[CH.flow] * SCALE[CH.flow] / 3, 0.55, 1.35), ax = Math.max(15, x0 / 2), P = arrowBuf;
     const AR = [-9, -3, 1, -3, 1, -7, 10, 0, 1, 7, 1, 3, -9, 3];
-    for (let i = 0; i < 7; i++) { P[2 * i] = ax + AR[2 * i] * k; P[2 * i + 1] = cy + AR[2 * i + 1] * k; }
+    for (let i = 0; i < 7; i++) { P[2 * i] = ax + AR[2 * i] * ak; P[2 * i + 1] = cy + AR[2 * i + 1] * ak; }
     setPts(arrowP, arrowBuf, 7, true);
-    // the Doppler's three points: a tick down from the stent, the peak velocity under it, the slide's own third behind it
-    const yb = cy + dPx / 2 + S.wall + 2;
+    // the Doppler's three points: a tick down from the stent's wall, the peak velocity under it, the slide's own third behind it
+    const yb = cy + dPx / 2;
     for (let q = 0; q < 3; q++) {
       const xg = x0 + [1 / 6, 0.5, 5 / 6][q] * L, tb = tickBuf[q];
       tb[0] = xg; tb[1] = yb; tb[2] = xg; tb[3] = S.gateTop; setPts(ticks[q], tb, 2, false);
@@ -286,8 +325,11 @@ export function createStent() {
     for (let i = 0; i < 5; i++) {
       const val = i < 4 ? parts4[i] : out, w = val * kx;
       setGeo(segs[i], 'x', x); setGeo(segs[i], 'width', w); setGeo(segs[i], 'opacity', ex);
-      setGeo(segTxt[i], 'x', x + w / 2); setGeo(segTxt[i], 'opacity', ex * smooth01((w - 20) / 8));
-      setWords(segTxt[i], ten((i < 4 ? tenths[i] : outTen) / 10));
+      // (a part's number is on its segment once the segment is as wide as the number is: its words' width at the size they are drawn in, never a fixed width, so a short
+      // segment on a phone, where the words are larger in these units, is not left half faded)
+      const wd = ten((i < 4 ? tenths[i] : outTen) / 10);
+      setGeo(segTxt[i], 'x', x + w / 2); setGeo(segTxt[i], 'opacity', ex * numberOn(w, wd.length, fsU));
+      setWords(segTxt[i], wd);
       x += w;
       // the key's item: its name and value, dimmed when the part is nothing (no narrowing, no jet), never taken away
       const dim = i < 4 ? (val < 0.05 ? 0.4 : 1) : on * (out < 0.05 ? 0.4 : 1);
@@ -359,6 +401,7 @@ export function createStent() {
     const w = readMetric(stageL, 'offsetWidth') || readMetric(stageB, 'offsetWidth');
     if (w > 0) {
       const fs = clamp(12 / (w / VW), 9, 14);
+      fsU = fs;
       for (const e of wordsAll) e.setAttribute('font-size', fs);
       glL.relook(); glB.relook();
     }

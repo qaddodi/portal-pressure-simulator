@@ -51,6 +51,9 @@
 //                     the curve is drawn on that patient (loaded afresh for each point) rather than on the slide's own; the
 //                     ring stays the slide's case, which may sit off the line.
 //   oneScale: true    both lines on the left scale (a flat line keeps its true size).
+//   lines: ['tipsFlow', 'tipsBench'], oneScale: true, names: { tipsFlow: 'In the patient' }
+//                     the stent's flow in the patient against the same stent as a tube on a bench at a fixed 7 mmHg (stent-geom.js BENCH_DP; the dashed line, in the flow's
+//                     colour), over a stent's setting (param 'stentGeom.TIPS.waist' with label and unit, 'tips.d', 'stentGeom.TIPS.len'). `names` renames a line.
 //   against: [{ label, params, pair?, of? }, …]
 //                     up to two second sweeps. With x, each line's points are read against its own sweep's x reading, or
 //                     with pair: true against the slide's own sweep's (the HVPG before a drug, the HVPG on it). When the own
@@ -165,7 +168,7 @@ export const ownIsRef = (t) => !!againstOf(t) && !!xKeyOf(t) && curveLines(t)[0]
 const AG_C = ['--tr-pv', '--tr-hv'];
 /** The lines drawn: each reading's meta, or with against the one reading once per sweep, named and coloured by its sweep. */
 export function drawnLines(t) {
-  const ls = curveLines(t).map(lineMeta), ag = againstOf(t);
+  const ls = curveLines(t).map(lineMeta).map((l) => (typeof t?.names?.[l.k] === 'string' ? { ...l, name: t.names[l.k] } : l)), ag = againstOf(t);   // (names: { tipsFlow: 'In the patient' } renames a line)
   if (!ag) return ls;
   const l = ls[0], ags = againstsOf(t), of = (a) => (a.of ? lineMeta(a.of) : l);   // (a sweep may draw another reading, of)
   if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: AG_C[j] }))];
@@ -179,10 +182,12 @@ export function drawnLines(t) {
 export const stylesOf = (t) => (againstOf(t) && Array.isArray(t.styles) && t.styles.length === 2 && t.styles.every((x) => typeof x === 'string' && x) ? t.styles : null);
 /** The name the key row and the cut-offs carry when sweeps draw different readings: the slide's `reading`, else the first's own. */
 export const readingName = (t) => (typeof t?.reading === 'string' && t.reading ? t.reading : lineMeta(curveLines(t)[0]).name);
+/** Readings that are no patient's but a bench's (the stent's tube alone, fixed pressure across it): drawn dashed in their reading's colour, the dashes saying which state. */
+const DASHED = new Set(['tipsBench', 'dipsBench']);
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
 export function lineMeta(k, j = 0) {
   const tl = TILE[k] || LINE_ONLY[k] || {};
-  return { k, name: (tl.bp ? tl.meanN : tl.t?.length <= 14 ? tl.t : tl.n || tl.t) || k, unit: tl.u || '', d: tl.d ?? 1, x: tl.x ?? 1, c: COLOR[k] || PLACE[j] || PLACE[0] };
+  return { k, name: (tl.bp ? tl.meanN : tl.t?.length <= 14 ? tl.t : tl.n || tl.t) || k, unit: tl.u || '', d: tl.d ?? 1, x: tl.x ?? 1, c: COLOR[k] || PLACE[j] || PLACE[0], ...(DASHED.has(k) ? { dash: true } : null) };
 }
 /** The x axis's words, unit, decimals and scale. */
 export function axisMeta(t) {

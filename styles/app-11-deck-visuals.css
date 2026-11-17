@@ -174,9 +174,9 @@
 
 /* The stent cards (src/ui/tool-stent.js): the side view and the pressure bar, each a wide picture drawn on the GPU over a box of its own shape
    (the aspect ratio is on the box), one above the other, as wide as the card allows. */
-.pz-tool[data-kind="stent"] .gl { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.pz-tool[data-kind="stent"] .gl-stage { flex: none; width: min(100%, 520px); }
-.pz-tool[data-kind="stent"] .gl-stage[hidden] { display: none; }
+.sc { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+.sc > .sc-stage { flex: none; width: min(100%, 520px); }   /* (a slide's card and the Tests dock's TIPS view alike) */
+.sc > .sc-stage[hidden] { display: none; }
 
 /* V27, the fluid balance (src/ui/tool-fluid.js): the lymph made flowing into what the lymphatics carry, what the belly takes
    back and what stays as ascites, each band as thick as its flow, named beside its node; the forces across the sinusoid wall as two arrows. */

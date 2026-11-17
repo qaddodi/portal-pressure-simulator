@@ -5,9 +5,9 @@ import { breath } from './slide-read.js';
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
-import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, STENT_SITES } from '../engine/topology.js';
 import { geomOf as stentGeomOf, kindOf as stentKindOf } from '../engine/stent-geom.js';
-import { stentWaist } from './stent-waist.js';
+import { siteU, stentWaist } from './stent-waist.js';
 import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, caudateFocus, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
@@ -728,7 +728,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Where along each vessel a stenosis sits (0–1 of its drawn path). A stent's narrowing sits in the segment its card
   // names (the model's short pinch, see engine.js); any other vessel is one lumped segment, drawn narrowed at its middle.
-  const stenosisAt = (id, p) => (isStent(EDGES[EI[id]]) ? STENT_SITES[stentSite(p, id)] : 0.5);
+  const stenosisAt = (id, p) => (isStent(EDGES[EI[id]]) ? siteU(p, id) : 0.5);
   // Lumen radius factor along a stenosed vessel: the diameter narrows by the stenosis fraction
   // (the model's resistance scales as 1/(1−s)⁴), with a smooth waist about 2.5 diameters long.
   // A stent's narrowing is the geometry's profile (stent-geom.js profileAt, smoothed: stent-waist.js): the waist as long as the stent's card
@@ -736,7 +736,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const geomScratch = { len: 0, waist: 0, trans: 0 };   // (read at once by waist)
   function waist(id, v, len, w, p) {
     const e = EDGES[EI[id]], kind = isStent(e) ? stentKindOf(e) : null;
-    if (kind) return stentWaist(id, stentGeomOf(p, id, kind, geomScratch), v, STENT_SITES[stentSite(p, id)], w, len);
+    if (kind) return stentWaist(id, stentGeomOf(p, id, kind, geomScratch), v, siteU(p, id), w, len);
     const u0 = stenosisAt(id, p);
     const sig = Math.max(9, w * 1.25) / Math.max(1, len);
     return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
@@ -1931,7 +1931,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return labelRestK() >= 1.9 || (sel?.type === 'edge' && LIVER_EDGES.has(sel.id)) || (sel?.type === 'node' && LIVER_INNER.has(sel.id));
   }
 
-  const { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals: holdReversals$, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit: startExit$, stentAmounts, stentMesh, stepFluid, stepReveals: stepReveals$, trackChanges: trackChanges$, updateFocus, updateNodesCircuit: updateNodesCircuit$, updateOrganSel, updateOrgans, venousSync } = createTransitions({ E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls }, live);
+  const { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals: holdReversals$, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit: startExit$, stentAmounts, stentBracket, stentMesh, stepFluid, stepReveals: stepReveals$, trackChanges: trackChanges$, updateFocus, updateNodesCircuit: updateNodesCircuit$, updateOrganSel, updateOrgans, venousSync } = createTransitions({ E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls }, live);
   function trackChanges(...a) { return trackChanges$(...a); }   // <stage-split stub>
   function startExit(...a) { return startExit$(...a); }   // <stage-split stub>
   function stepReveals(...a) { return stepReveals$(...a); }   // <stage-split stub>
@@ -2104,7 +2104,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const k of labelSol.keys()) if (FOCUS_SOL_RE.test(k)) labelSol.delete(k);   // (a Map's own order is kept through a delete of the entry it is at)
     ptSide = null; colShown = false; clampD.clear();
   });
-  const { clampFontAt, clampLabelAt, clampLabelPos, clampStep, clampTextBox, colGap, updateOverlays } = createClamps({ E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto }, live);
+  const { clampFontAt, clampLabelAt, clampLabelPos, clampStep, clampTextBox, colGap, updateOverlays } = createClamps({ E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentBracket, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto }, live);
   const { bal, balloonDraw, balloonStep } = createBalloon({ ov }, live);
 
   // ── Labels: a screen-space layer (SVG) laid out every frame ──

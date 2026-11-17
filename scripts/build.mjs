@@ -85,7 +85,7 @@ const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWit
 const inverse = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/inverse-worker.js')], outdir: ASSETS, entryNames: 'inverse-[hash]', write: true, metafile: true });
 const inverseFile = basename(Object.keys(inverse.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
+// 2. The app. Every module that starts a worker (host.js, calc-client.js: the engine; stage-vessels.js: the binning; stage-blood.js:
 // the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
 // moved the binning and dye workers out of stage.js, a filter naming stage.js left the shipped build asking for ./sweep-worker.js, which
 // is not there, so every stretch of the change between the views failed and each of its frames was binned on the CPU (his Mac, 8 Nov

@@ -17,6 +17,7 @@ import { s } from './util.js';
 import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
 import { stageScope } from './stage-scope.js';
+import { narrowedText } from './stent-waist.js';
 // The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
 // points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
 const PSE_A = Math.asin(1.8 / 9);
@@ -36,7 +37,7 @@ function pseFillD(x, y) {
 const CORONARY_TIE = 0.75;
 
 export function createClamps(st, live) {
-  const { E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
+  const { E, EI, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentBracket, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * live.CTM.sc) / 2 + 7);
   // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
@@ -158,7 +159,7 @@ export function createClamps(st, live) {
     o.length = 0;
     if (t !== okT) { okT = t; okTs = t.toFixed(3); }
     o.push(okTs, live.isImaging(), findingHidden('clot'));
-    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.stentGeom); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
+    okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.stentSiteU); okFlat(o, p.stentGeom); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
     okFlat(o, p.tips); okFlat(o, p.dips); o.push(!!p.portocavalSide); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
@@ -257,10 +258,11 @@ export function createClamps(st, live) {
       }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
-      lab._txt = `${Math.round(v * 100)}% narrowed`;   // (a number alone says nothing: every figure label carries a word or a unit)
+      lab._txt = (E[id].e && narrowedText(E[id].e, p, v)) || `${Math.round(v * 100)}% narrowed`;   // (a stent's reads its lumen and its waist's length, stent-waist.js; any other vessel's its percentage)   // (a number alone says nothing: every figure label carries a word or a unit)
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
+      if (E[id].e?.kind === 'shunt') stentBracket(id, p);   // (its bracket and the diameter at each section)
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one

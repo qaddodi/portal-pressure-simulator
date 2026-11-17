@@ -4,7 +4,8 @@
 // The profile is src/engine/stent-geom.js profileAt, the one the engine, the Doppler gates and the cards read; here it is smoothed a little
 // (about 0.3 of the drawn width) so the GPU tube has no kinks, and kept as a table made when a number changes, not in a frame.
 import { clamp } from '../engine/physiology.js';
-import { profileAt, waistSpan } from '../engine/stent-geom.js';
+import { geomOf, kindOf, profileAt, waistSpan } from '../engine/stent-geom.js';
+import { STENT_SITES, stentSite } from '../engine/topology.js';
 
 /** The smoothing, as a share of the stent's drawn width (the Gaussian's sigma). */
 export const WAIST_SMOOTH = 0.3;
@@ -53,3 +54,21 @@ export function lossShares(parts, g, site, dir, out) {
   out.dir = dir >= 0 ? 1 : -1;
   return out;
 }
+
+/** The stent's open diameter (mm) in params: the TIPS's and the DIPS's own, a drawn stent's from the stent tool; 0 when there is none. */
+export const stentDiameter = (p, id, kind) => (kind === 'tips' ? p?.tips?.d : kind === 'dips' ? p?.dips?.d : p?.customShunts?.[id]) || 0;
+
+const GS = { len: 0, waist: 0, trans: 0 };   // (read at once by narrowedText)
+/** A stent's figure callout: "Narrowed 8.0 to 6.0 mm × 1.5 cm", the open stent's diameter, the lumen at the waist and the waist's length (the card's Diameter, Stenosis and
+ *  Waist length), in the one label the solver places like every other (the mock reads "Narrowed 6.0 mm × 4.0 cm"). Null for a vessel that is not a stent. */
+export function narrowedText(e, p, s) {
+  const kind = kindOf(e);
+  if (!kind) return null;
+  const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
+  return `Narrowed ${d.toFixed(1)} to ${(d * (1 - s)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm`;
+}
+
+/** Where along the stent's drawn path its narrowing sits now (0 to 1): the site as it is eased to (lesion-ease.js, params.stentSiteU), else the site params name
+ *  (topology.js stentSite: a waist set along the stent is mid stent). Every reader of the drawn site takes it from here, so the waist, its bracket, the clamp's arrows and the
+ *  pressure colour's step move together. */
+export const siteU = (p, id) => p?.stentSiteU?.[id] ?? STENT_SITES[stentSite(p, id)];
