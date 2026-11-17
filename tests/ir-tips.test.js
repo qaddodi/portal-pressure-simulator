@@ -11,6 +11,7 @@ const dom = new JSDOM('<!doctype html><body></body>');
 globalThis.window = dom.window; globalThis.document = dom.window.document;
 globalThis.Element = dom.window.Element;
 for (const k of ['Node', 'NodeFilter', 'MutationObserver', 'getComputedStyle', 'HTMLElement']) globalThis[k] ??= dom.window[k];
+globalThis.Event = dom.window.Event; globalThis.CustomEvent = dom.window.CustomEvent;   // (the page's own events: util.js makes a slider's input event once, at load, and the page must take it)
 globalThis.addEventListener ??= () => {};
 globalThis.innerWidth ??= 1024; globalThis.innerHeight ??= 768;
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} });
@@ -778,6 +779,31 @@ test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad
   }
   const { stentControls } = await import('../src/ui/actions.js');
   for (const id of ['TIPS', 'DIPS']) assert.equal(stentControls(id).find((c) => c.id === 'waist').step, 0.5, `${id}: the one list both editors read`);
+  // (Mohammad again, 17 Nov 08:04: "Waist cm in 0.5 increments on slider".) The real slider in the tray, dragged by a finger the way util.js
+  // enhanceRanges drags every slider in the app: wherever the finger is, the length lands on a half centimetre, and so do the params, the
+  // slider's own caption and the tile.
+  const { enhanceRanges } = await import('../src/ui/util.js');
+  enhanceRanges(v.el);
+  const len = v.el.querySelector('.se-panel [data-ctl="waist"] input');
+  const R0 = len.getBoundingClientRect;
+  len.getBoundingClientRect = () => ({ left: 0, top: 0, right: 228, bottom: 32, width: 228, height: 32, x: 0, y: 0 });
+  len.setPointerCapture = () => {};
+  const finger = (type, x) => { const e = new window.Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { pointerType: 'touch', pointerId: 7, clientX: x }); return e; };
+  await wait(80);   // (the cards' last writes from the set-up land first)
+  const seen = new Set();
+  for (let x = 0; x <= 228; x += 7) {
+    len.dispatchEvent(finger('pointerdown', x)); len.dispatchEvent(finger('pointerup', x));
+    await wait(30); await until(() => +len.value === store.get().params.stentGeom.TIPS.waist, 1500);
+    const cm = store.get().params.stentGeom.TIPS.waist;
+    assert.equal(cm * 2, Math.round(cm * 2), `a finger at ${x} px: ${cm} cm is on a half centimetre`);
+    assert.equal(+len.value, cm, 'the slider stands where the params are');
+    assert.equal(len.closest('[data-ctl]').querySelector('.se-cv').textContent, `${cm.toFixed(1)} cm`);
+    assert.equal(v.el.querySelector('.se-row[data-row="waist"] .se-ts').textContent, `× ${cm.toFixed(1)} cm`);
+    seen.add(cm);
+  }
+  assert.match(read('src/ui/tips-figure.js'), /setWords\(wT, waistWord\(d \* \(1 - red\), waistShown\(sh\.waist\)\)\);/, 'the IR stent\'s waist label prints its length on the step while the stent glides');
+  assert.ok(seen.size >= 12, `every half centimetre from none to 6 cm is reached (${[...seen].sort((a, b) => a - b).join(', ')})`);
+  len.getBoundingClientRect = R0;
   v.destroy(); ir.setActive(false);
 });
 

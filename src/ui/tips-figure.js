@@ -22,7 +22,7 @@ import { reduceMotionMQ } from './motion.js';
 import { readMetric } from './layout-snap.js';
 import { pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan } from '../engine/stent-geom.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown } from '../engine/stent-geom.js';
 import { STENT_SITES, stentSite } from '../engine/topology.js';
 import { createFollowN, readStent, stentColour, localVelocity, openVelocity, scanK, stentOutline, ten, int, N_PROFILE } from './tool-stent.js';
 import { traceFor, gateIndex, TR } from './stent-trace-pic.js';
@@ -247,7 +247,7 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     wBuf[0] = wa; wBuf[1] = yb + 4; wBuf[2] = wa; wBuf[3] = yb; wBuf[4] = wb; wBuf[5] = yb; wBuf[6] = wb; wBuf[7] = yb + 4; setPts(wBr, wBuf, 4, false);
     const wOn = ex * clamp((red - 0.004) / 0.03, 0, 1);
     setGeo(wBr, 'opacity', wOn); setGeo(wT, 'opacity', wOn); setGeo(wT, 'x', (wa + wb) / 2); setGeo(wT, 'y', L.labY);
-    setWords(wT, waistWord(d * (1 - red), sh.waist));
+    setWords(wT, waistWord(d * (1 - red), waistShown(sh.waist)));   // (its length on the slider's 0.5 cm step while the stent glides: never 3.2 cm)
     // the end stenosis: its lumen over it
     const esp = endSpan(sh, T.site, SPE), ea = x0 + esp.a1 * span, eb = x0 + esp.b1 * span, eOn = ex * clamp((T.s - 0.004) / 0.03, 0, 1);
     eBuf[0] = ea; eBuf[1] = yb + 4; eBuf[2] = ea; eBuf[3] = yb; eBuf[4] = eb; eBuf[5] = yb; eBuf[6] = eb; eBuf[7] = yb + 4; setPts(eBr, eBuf, 4, false);

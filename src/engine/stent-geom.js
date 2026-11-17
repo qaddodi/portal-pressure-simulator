@@ -45,6 +45,11 @@ export const K_C = 0;
 export const PINCH = 0.125;
 /** Tapered ends, cm each side (the card's "Tapered"). */
 export const TAPER_CM = 1;
+/** The waist length's step (cm): the slider moves by it, and every number that prints a waist length shows it on that step, a glide's too (Mohammad, 17 Nov:
+ *  "Waist cm in 0.5 increments on slider"; the figures' labels counted 3.1, 3.2, 3.3 through a glide from 3 to 3.5). */
+export const WAIST_STEP = 0.5;
+/** A waist length as it is printed: on the slider's step. */
+export const waistShown = (cm) => Math.round(cm / WAIST_STEP) * WAIST_STEP;
 /** Ranges (cm). The waist and both transitions always fit inside the stent (geomOf). */
 export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0, 0.95] };
 /** The waist the stent card offers: up to 80 % of the diameter (the model takes up to GEOM_RANGE.red, as a stenosis's 95 %). */

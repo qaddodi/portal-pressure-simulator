@@ -108,3 +108,19 @@ test('the glass reads the scaled plate again in every frame of the glide: its ke
   const W = compileKeyframes(glideFrames(400, 300, true).words.map((k, i) => ({ ...k, offset: i, computedOffset: i, easing: 'linear' })));
   assert.equal(motionAt(W, { at: 0 }), true, 'the words\' ride is a plain translation');
 });
+
+test('a waist length is printed on the slider\'s 0.5 cm step, a glide\'s too: the figures\' labels never count 3.1, 3.2, 3.3 (Mohammad, 17 Nov: "Waist cm in 0.5 increments")', async () => {
+  const { WAIST_STEP, waistShown } = await import('../src/engine/stent-geom.js');
+  const { stentControls } = await import('../src/ui/actions.js');
+  const { stentFacts } = await import('../src/ui/stent-waist.js');
+  const { EDGES } = await import('../src/engine/topology.js');
+  assert.equal(WAIST_STEP, 0.5);
+  assert.equal(stentControls('TIPS').find((c) => c.id === 'waist').step, WAIST_STEP, 'the slider steps by it');
+  assert.deepEqual([3, 3.1, 3.24, 3.26, 3.4, 3.5].map(waistShown), [3, 3, 3, 3.5, 3.5, 3.5]);
+  // the anatomy figure's label reads stentFacts from the params as they ease: a waist halfway through a glide prints on the step
+  const tips = EDGES.find((e) => e.id === 'TIPS');
+  for (const cm of [3.1, 3.3, 3.37, 1.25]) {
+    const f = stentFacts(tips, { tips: { on: true, d: 8 }, stentGeom: { TIPS: { len: 8, waist: cm, trans: 0, red: 0.25 } } });
+    assert.equal(f.wLen * 2, Math.round(f.wLen * 2), `${cm} cm mid-glide prints ${f.wLen}`);
+  }
+});
