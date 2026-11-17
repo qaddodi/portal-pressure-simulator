@@ -479,7 +479,7 @@
 .stent-editor .se-chip.se-dim { opacity: .45; }
 /* The open row: its surface is the pill (three pieces that grow from the chip, stent-editor.js grow), its controls rise into it once it is there. */
 .stent-editor .se-strip { flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 4px 2px 12px; pointer-events: none; }
-.stent-editor .se-pill { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity var(--d-flip) linear var(--d-small); }
+.stent-editor .se-pill { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity var(--d-flip) var(--ease) var(--d-small); }
 .stent-editor .se-pill > i { position: absolute; top: 0; bottom: 0; transform-origin: 0 0; background: var(--se-fill); border: 1px solid var(--se-line); }
 .stent-editor .se-pill-l { left: 0; width: 12px; border-right: 0 !important; border-radius: 12px 0 0 12px; }
 .stent-editor .se-pill-r { right: 0; width: 12px; border-left: 0 !important; border-radius: 0 12px 12px 0; transform-origin: 100% 0 !important; }
@@ -488,7 +488,7 @@
 .stent-editor .se-strip > :not(.se-pill) { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"] > *, .stent-editor[data-open="end"] .se-strip[data-strip="end"] > *, .stent-editor[data-open="waist"] .se-strip[data-strip="waist"] > *,
 .stent-editor[data-open="len"] .se-strip[data-strip="len"] > *, .stent-editor[data-open="ends"] .se-strip[data-strip="ends"] > * { opacity: 1; transition: opacity var(--d-small) var(--ease) calc(var(--d-small) * .45); }
-.stent-editor .se-strip > .se-pill { transition: opacity var(--d-flip) linear var(--d-small) !important; }
+.stent-editor .se-strip > .se-pill { transition: opacity var(--d-flip) var(--ease) var(--d-small) !important; }
 .stent-editor[data-open="dia"] [data-strip="dia"] > .se-pill, .stent-editor[data-open="end"] [data-strip="end"] > .se-pill, .stent-editor[data-open="waist"] [data-strip="waist"] > .se-pill,
 .stent-editor[data-open="len"] [data-strip="len"] > .se-pill, .stent-editor[data-open="ends"] [data-strip="ends"] > .se-pill { opacity: 1; transition: none !important; }
 .stent-editor .se-name { flex: none; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--text-3); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); letter-spacing: .02em; }
@@ -498,8 +498,8 @@
 .stent-editor .se-sub { font-weight: 500; color: var(--text-3); }
 .stent-editor .se-seg { flex: none; display: flex; padding: 2px; gap: 2px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
 .stent-editor .se-seg button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
-.stent-editor .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent); }
-.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-contrast, #fff); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
+.stent-editor .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
 .stent-editor .se-done:active { transform: scale(.96); }
 .stent-editor .se-ctl { flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .stent-editor .se-ctl-seg { flex: 0 0 auto; }
