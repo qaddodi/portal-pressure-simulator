@@ -18,6 +18,9 @@ export const STENT = {
   'stent.vein.wall': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1.2, cap: 'round' } },
   // the lumen, filled by the piece's own gradient (the figure's velocity colours), edged in the stent metal; the cover tinted over the stretch it covers
   'stent.lumen': { base: { stroke: tok('stent-metal'), width: 1, join: 'round' } },
+  // the TIPS figure's cut stent: the cover's two thin bands (one over each wall: they hug the lumen, so they must read on their own) and the veins' names
+  'tf.wall': { base: { fill: tok('dev-graft'), fillOpacity: 0.92, stroke: 'none' } },
+  'tf.vein.name': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.graft': { base: { fill: tok('dev-graft'), fillOpacity: 0.28, stroke: 'none' } },
   // the device as the figure draws it (app-02-controls.css .stent-wire, .stent-glint, .stent-gold): rings of the bare stretch and of the covered one, a glint, the gold band and tab
   'stent.wire.backBare': { base: { fill: 'none', stroke: tok('dev-stent-wire'), width: 1.6, cap: 'round', join: 'round', strokeOpacity: 0.5 } },
