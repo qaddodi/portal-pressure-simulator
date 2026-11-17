@@ -379,6 +379,20 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.match(rules, /\.stent-editor \.se-chip \{[^}]*font: 500 var\(--fs-14\)/, 'the chip at the label size');
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no chip or value is cut short');
   assert.match(rules, /\.stent-editor \.se-layer \{[^}]*flex-wrap: wrap;/, 'a row too narrow for the four wraps');
+  // Play-test F38 (Mac, a 240 px card): an open row wider than its card scrolled the card sideways. Every layer wraps, the slider gives way (min-width 0), the
+  // editor and its card panel never pass their width, and no card body scrolls sideways. (Rules only: jsdom lays nothing out; the play-test checks the pixels.)
+  assert.doesNotMatch(rules, /flex-wrap: nowrap/, 'no open row is kept on one line');
+  assert.match(rules, /\.stent-editor \.se-range \{[^}]*min-width: 0;/);
+  assert.match(rules, /\.stent-editor \{[^}]*min-width: 0; max-width: 100%;/);
+  assert.match(plate, /\.ac-panel \{[^}]*max-width: 100%; overflow-x: clip;/);
+  const lay = read('styles/app-03-layouts.css');
+  for (const k of ['.action-card:not(.docked) > .ac-body {', '.action-card.docked > .ac-body {']) {
+    const rules2 = lay.split('\n').filter((l) => l.startsWith(k)).join('\n');
+    assert.match(rules2, /min-width: 0; overflow-x: hidden;/, `${k} never scrolls sideways`);
+  }
+  // And should anything ever scroll its card sideways, opening or closing a chip puts the card back at its left edge.
+  assert.match(read('src/ui/stent-editor.js'), /const sc = el\.closest\('\.ac-body'\);\n\s*if \(sc\) sc\.scrollLeft = 0;/);
+  for (const id of ['dia', 'end', 'waist', 'len', 'ends']) assert.ok(ed.querySelector(`.se-strip[data-strip="${id}"]`).classList.contains('se-layer'), `${id}'s open row is a wrapping layer`);
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
   assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');
@@ -540,4 +554,38 @@ test('The readings never break inside a word, and in a narrow card (375 px phone
     const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
     assert.deepEqual(bad, [], `${name}: a reading's name must not break inside a word`);
   }
+});
+
+test('One stent editor on screen at a time (play-test F39): while the TIPS view\'s editor is shown, a vessel card\'s for the same stent folds to one line; and no hidden row sizes the editor (F40)', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  // (The DIPS: the views mounted by the tests above lead the TIPS and are never taken down.)
+  store.set({ params: paramsOf({ dips: { on: true, d: 10 }, stenosis: { DIPS: 0.5 }, stenosisSite: { DIPS: 'distal' }, stentGeom: { DIPS: { red: 0.4, waist: 2, trans: 0 } } }) });
+  const card = createStentEditor({ id: 'DIPS' }), lead = createStentEditor({ id: 'DIPS', lead: true, compact: true });
+  await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead not on screen: the card keeps its chips');
+  lead.setShown(true); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true', 'the lead on screen: the card folds');
+  assert.equal(card.el.querySelector('.se-chips').inert, true);
+  assert.equal(card.el.querySelector('.se-summary').textContent, '10.0 mm · stenosis 5.0 mm · Distal · waist 6.0 mm × 2.0 cm · edited in Tests › IR');
+  assert.equal(lead.el.getAttribute('data-fold'), 'false', 'the lead never folds');
+  lead.setStent('TIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead on another stent: the card keeps its chips');
+  lead.setStent('DIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true');
+  lead.setShown(false); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead off screen: the chips come back');
+  lead.setShown(true); lead.destroy(); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'a lead taken down never leaves a card folded');
+  card.destroy();
+  assert.ok(lead.el.classList.contains('se-compact'));
+  const src = read('src/ui/ir-tips.js');
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, compact: true \}\)/);
+  assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips'\);/);
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-strip, \.stent-editor \.se-summary, \.stent-editor\[data-fold="true"\] \.se-chips, \.stent-editor:not\(\[data-open=""\]\) \.se-chips \{ position: absolute;/, 'a layer not shown takes no room (F40)');
+  assert.match(plate, /\.stent-editor\.se-compact \.se-chip \{ flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column;/, 'the Tests view: one row, name over value');
+  assert.match(plate, /\.ir-editor \{[^}]*min-width: 0; overflow-x: clip;/, 'never wider than the sheet (F40)');
+  // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
+  // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).
+  assert.match(read('src/ui/dock.js'), /onClose\(\);\n(?:\s*\/\/.*\n)*\s*for \(const p of panes\) p\.shown\?\.\(false\);/);
 });

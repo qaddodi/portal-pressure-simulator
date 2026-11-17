@@ -87,7 +87,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
 
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent' });
   const line = h('span', { class: 'ir-line' });
-  const editor = createStentEditor({ id: which });
+  const editor = createStentEditor({ id: which, lead: true, compact: true });   // (the lead: a vessel card's editor folds to a line while this one is shown)
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
@@ -115,6 +115,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     if (v === 'tips') showStent(); else crv.stop();
+    editor.setShown(active && v === 'tips');
     onChange();
     if (frame) update(frame);
   }
@@ -230,6 +231,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (on === active) return;
     active = on;
     crv.setActive(on);
+    editor.setShown(on && view === 'tips');
     if (on && frame) update(frame);
   }
   host.append(el);

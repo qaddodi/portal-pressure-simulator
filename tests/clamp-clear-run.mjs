@@ -29,7 +29,7 @@ st.labelLayoutNow(); for (let i = 0; i < 40; i++) await step();
 let card = null;
 if (o.card) {
   const el0 = page.document.querySelector('#stageOver .clamp-label'), b = el0?._box;
-  card = !b ? null : o.card === "half" ? [(b.x0 + b.x1) / 2, b.y0 - 10, b.x1 + 20, b.y1 + 10] : [b.x0 - 20, b.y0 - 10, b.x1 + 20, b.y1 + 10];
+  card = !b ? null : o.card === "top" ? [0, 0, w, b.y1 + 10] : o.card === "half" ? [(b.x0 + b.x1) / 2, b.y0 - 10, b.x1 + 20, b.y1 + 10] : [b.x0 - 20, b.y0 - 10, b.x1 + 20, b.y1 + 10];
   const div = page.document.createElement('div'); div.className = 'stage-blocker'; div.id = 'testCard';
   page.document.querySelector('#stageView').append(div);
   const was = page.dom.window.Element.prototype.getBoundingClientRect;
@@ -41,7 +41,20 @@ if (o.card) {
 const doc = page.document, laid = st.labelLaid().items;
 const cl = [...doc.querySelectorAll('#stageOver .clamp-label')].map((el) => ({ t: el._txt ?? el.textContent, box: el._box ? [el._box.x0, el._box.y0, el._box.x1, el._box.y1].map(Math.round) : [0, 0, 0, 0] }));
 const lap = [];
-for (const c of cl) for (const d of laid) { const [a0, b0, a1, b1] = c.box, [x0, y0, x1, y1] = d.box; if (a0 < x1 && a1 > x0 && b0 < y1 && b1 > y0) lap.push(d.key + ' ' + d.text); }
+// (the words' box is the solver's, grown 9 px round them; a label is over them only past a pixel of it, the rounding of the two boxes)
+for (const c of cl) for (const d of laid) { const [a0, b0, a1, b1] = c.box, [x0, y0, x1, y1] = d.box; if (a0 < x1 - 1 && a1 > x0 + 1 && b0 < y1 - 1 && b1 > y0 + 1) lap.push(d.key + ' ' + d.text); }
+// (every leader that runs through a narrowing's words: from its point to its label's centre, sampled every 2 px)
+const cross = [];
+for (const d of laid) {
+  if (!d.leader) continue;
+  const cx = (d.box[0] + d.box[2]) / 2, cy = (d.box[1] + d.box[3]) / 2;
+  for (const c of cl) {
+    const [a0, b0, a1, b1] = c.box;
+    if (d.ax >= a0 - 8 && d.ax <= a1 + 8 && d.ay >= b0 - 8 && d.ay <= b1 + 8) continue;
+    const n = Math.ceil(Math.hypot(cx - d.ax, cy - d.ay) / 2);
+    for (let i = 0; i <= n; i++) { const x = d.ax + ((cx - d.ax) * i) / n, y = d.ay + ((cy - d.ay) * i) / n; if (x > a0 && x < a1 && y > b0 && y < b1) { cross.push(`${d.key} through ${c.t}`); break; } }
+  }
+}
 const op = [...doc.querySelectorAll('#stageOver .clamp-label')].map((el) => +(el.style.opacity === '' ? 1 : el.style.opacity));
-console.log('CLAMP' + JSON.stringify({ cl, op, card, lap, labels: laid.map((d) => [d.key, d.text, d.box.map(Math.round)]) }));
+console.log('CLAMP' + JSON.stringify({ cl, op, card, lap, cross, labels: laid.map((d) => [d.key, d.text, d.box.map(Math.round)]) }));
 process.exit(0);

@@ -8,14 +8,21 @@
 // Never an HVPG: the portal-to-IVC drop is the PPG, the stent's own is "Across the stent".
 // Nothing is made per frame: fixed pieces, 161-point paths (a stroke lifts the pen where its part takes nothing), words written on pieces. Sized by the words' size so a phone
 // never clips it: its height is fixed for words up to 14 units (the card caps them there), its key re-flows with the words' size (fit).
-// createDropPic(sv) → { svg, words, fit(fs), paint(g) }; g is the record paint reads (see DROP_IN).
+// createDropPic(sv) → { svg, words, fit(fs) → height, paint(g), height() }; g is the record paint reads (see DROP_IN).
 import { setGeo, setPts, setWords } from './svg-gl.js';
 import { clamp } from './util.js';
 import { smooth01 } from './num.js';
 import { TRACE_N } from '../engine/stent-trace.js';
 
 const N = TRACE_N;
-export const DROP = { w: 320, yT: 32, yB: 82, baseY: 95, nameY: 116, valY: 132, totY: 152, h: 164, gutter: 6, dotR: 3.5 };
+export const DROP = { w: 320, gutter: 6, dotR: 3.5, plotH: 50 };
+/** The picture's rows for words of size fs (units: a narrower card draws its words larger in them, so the rows follow them and never touch): the room above the plateau for the PPG's word,
+ *  the plot, the three words under its baseline, the key's names and numbers, the stent's own drop, and the height. Written into o. */
+export function dropLayout(fs, o = {}) {
+  o.yT = 1.4 * fs + 2; o.yB = o.yT + DROP.plotH; o.baseY = o.yB + 0.65 * fs + 4;
+  o.nameY = o.baseY + 1.35 * fs + 4; o.valY = o.nameY + 1.3 * fs + 1; o.totY = o.valY + 1.4 * fs; o.h = o.totY + 0.6 * fs + 3;
+  return o;
+}
 export const COLS = ['out', 'tract', 'ends', 'wall', 'jet'];
 export const DROP_NAMES = { out: 'Outside', tract: 'Tract', ends: 'In and out', wall: 'Friction', jet: 'Jet' };
 const CUM = ['cOut', 'cTract', 'cEnds', 'cWall', 'cJet'];   // (the trace's cumulative share of each part, by place)
@@ -39,30 +46,34 @@ export function createDropPic(sv) {
   const plateau = sv('path', { 'data-look': 'stent.drop.guide' }), plateauBuf = new Float64Array(4);
   const base = sv('path', { 'data-look': 'stent.drop.base' }), baseBuf = new Float64Array(4);
   const guides = [0, 1].map(() => sv('path', { 'data-look': 'stent.drop.guide' })), guideBuf = [new Float64Array(4), new Float64Array(4)];
-  const dots = COLS.map((k) => sv('circle', { 'data-look': `stent.key.dot.${k}`, r: DROP.dotR, cx: 0, cy: DROP.nameY }));
-  const names = COLS.map((k) => { const e = sv('text', { 'data-look': 'stent.key.text', x: 0, y: DROP.nameY, 'text-anchor': 'start' }); setWords(e, DROP_NAMES[k]); return e; });
-  const vals = COLS.map(() => sv('text', { 'data-look': 'stent.lab', x: 0, y: DROP.valY, 'text-anchor': 'start' }));
+  const dots = COLS.map((k) => sv('circle', { 'data-look': `stent.key.dot.${k}`, r: DROP.dotR, cx: 0, cy: 0 }));
+  const names = COLS.map((k) => { const e = sv('text', { 'data-look': 'stent.key.text', x: 0, y: 0, 'text-anchor': 'start' }); setWords(e, DROP_NAMES[k]); return e; });
+  const vals = COLS.map(() => sv('text', { 'data-look': 'stent.lab', x: 0, y: 0, 'text-anchor': 'start' }));
   const wPpg = sv('text', { 'data-look': 'stent.mark.text', x: 4, 'text-anchor': 'start' });
-  const wBase = ['Portal vein', 'Stent', 'IVC'].map((t, i) => { const e = sv('text', { 'data-look': 'stent.cap', y: DROP.baseY, 'text-anchor': i === 0 ? 'start' : i === 1 ? 'middle' : 'end' }); setWords(e, t); return e; });
+  const wBase = ['Portal vein', 'Stent', 'IVC'].map((t, i) => { const e = sv('text', { 'data-look': 'stent.cap', y: 0, 'text-anchor': i === 0 ? 'start' : i === 1 ? 'middle' : 'end' }); setWords(e, t); return e; });
   setGeo(wBase[0], 'x', 4); setGeo(wBase[2], 'x', DROP.w - 4);
-  const wTot = sv('text', { 'data-look': 'stent.mark.text', x: DROP.gutter, y: DROP.totY, 'text-anchor': 'start' });
+  const wTot = sv('text', { 'data-look': 'stent.mark.text', x: DROP.gutter, y: 0, 'text-anchor': 'start' });
   const kids = [area, plateau, base, ...guides, line, ...strokes.map((s) => s.el), wPpg, ...wBase, ...dots, ...names, ...vals, wTot];
-  const svg = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${DROP.w} ${DROP.h}`, role: 'img' }, ...kids);
+  const svg = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${DROP.w} ${dropLayout(11).h.toFixed(1)}`, role: 'img' }, ...kids);
   const words = [wPpg, ...wBase, ...names, ...vals, wTot];
-  const lefts = new Float64Array(COLS.length + 1);
+  const lefts = new Float64Array(COLS.length + 1), G = dropLayout(11);
   let kfs = 12;
 
-  /** Sizes the words: fs everywhere, the key's by what five columns allow, the total line by what its width allows. Lays the key out. */
+  /** Sizes the words: fs everywhere, the key's by what five columns allow, the total line by what its width allows. Lays the rows and the key out; returns the height in units. */
   function fit(fs) {
+    dropLayout(fs, G);
     for (const e of words) e.setAttribute('font-size', fs);
     kfs = keyCols(fs, lefts);
+    for (const e of wBase) setGeo(e, 'y', G.baseY);
+    setGeo(wTot, 'y', G.totY);
+    setGeo(svg, 'viewBox', `0 0 ${DROP.w} ${G.h.toFixed(1)}`);
     for (let c = 0; c < COLS.length; c++) {
       names[c].setAttribute('font-size', kfs); vals[c].setAttribute('font-size', kfs);
-      setGeo(dots[c], 'cx', lefts[c] + DROP.dotR); setGeo(names[c], 'x', lefts[c] + 2 * DROP.dotR + 3); setGeo(vals[c], 'x', lefts[c] + 2 * DROP.dotR + 3);
+      setGeo(dots[c], 'cx', lefts[c] + DROP.dotR); setGeo(dots[c], 'cy', G.nameY); setGeo(names[c], 'y', G.nameY); setGeo(vals[c], 'y', G.valY); setGeo(names[c], 'x', lefts[c] + 2 * DROP.dotR + 3); setGeo(vals[c], 'x', lefts[c] + 2 * DROP.dotR + 3);
     }
     wTot.setAttribute('font-size', Math.min(fs, (DROP.w - 2 * DROP.gutter) / (30 * 0.6)));
     wPpg.setAttribute('font-size', fs);
-    return kfs;
+    return G.h;
   }
 
   /**
@@ -71,13 +82,13 @@ export function createDropPic(sv) {
    */
   function paint(g) {
     const { o, len, px0, px1, ppg, pHi, ex, on } = g;
-    const xa = o.x[0], xb = o.x[N], ky = (DROP.yB - DROP.yT) / Math.max(1e-6, pHi), Y = (v) => clamp(DROP.yB - v * ky, DROP.yT, DROP.yB);
+    const xa = o.x[0], xb = o.x[N], ky = (G.yB - G.yT) / Math.max(1e-6, pHi), Y = (v) => clamp(G.yB - v * ky, G.yT, G.yB);
     const X = (x) => (x <= 0 ? (px0 * (x - xa)) / Math.max(1e-9, -xa) : x >= len ? px1 + ((DROP.w - px1) * (x - len)) / Math.max(1e-9, xb - len) : px0 + (px1 - px0) * (x / Math.max(1e-9, len)));
     for (let i = 0; i <= N; i++) {
       const x = X(o.x[i]), y = Y(ppg - o.loss[i]);
       lineBuf[2 * i] = x; lineBuf[2 * i + 1] = y; areaBuf[2 * i] = x; areaBuf[2 * i + 1] = y;
     }
-    areaBuf[2 * (N + 1)] = X(xb); areaBuf[2 * (N + 1) + 1] = DROP.yB; areaBuf[2 * (N + 2)] = X(xa); areaBuf[2 * (N + 2) + 1] = DROP.yB;
+    areaBuf[2 * (N + 1)] = X(xb); areaBuf[2 * (N + 1) + 1] = G.yB; areaBuf[2 * (N + 2)] = X(xa); areaBuf[2 * (N + 2) + 1] = G.yB;
     setPts(area, areaBuf, N + 3, true); setPts(line, lineBuf, N + 1, false);
     // each part's stroke: the stretch of the line where its cumulative share rises, the pen lifted elsewhere (a step is the one segment between two samples)
     for (let c = 0; c < COLS.length; c++) {
@@ -92,8 +103,8 @@ export function createDropPic(sv) {
       setGeo(s.el, 'opacity', ex * (c === 0 ? on : 1) * smooth01((g.vals[c] - 0.03) / 0.17));
     }
     plateauBuf[0] = 0; plateauBuf[1] = Y(ppg); plateauBuf[2] = DROP.w; plateauBuf[3] = Y(ppg); setPts(plateau, plateauBuf, 2, false);
-    baseBuf[0] = 0; baseBuf[1] = DROP.yB; baseBuf[2] = DROP.w; baseBuf[3] = DROP.yB; setPts(base, baseBuf, 2, false);
-    for (let q = 0; q < 2; q++) { const x = q ? px1 : px0, b = guideBuf[q]; b[0] = x; b[1] = DROP.yT - 6; b[2] = x; b[3] = DROP.yB; setPts(guides[q], b, 2, false); setGeo(guides[q], 'opacity', ex); }
+    baseBuf[0] = 0; baseBuf[1] = G.yB; baseBuf[2] = DROP.w; baseBuf[3] = G.yB; setPts(base, baseBuf, 2, false);
+    for (let q = 0; q < 2; q++) { const x = q ? px1 : px0, b = guideBuf[q]; b[0] = x; b[1] = G.yT - 6; b[2] = x; b[3] = G.yB; setPts(guides[q], b, 2, false); setGeo(guides[q], 'opacity', ex); }
     setGeo(wBase[1], 'x', (px0 + px1) / 2);
     setGeo(wPpg, 'y', Y(ppg) - 0.8 * (Number(wPpg.getAttribute('font-size')) || 12));
     setWords(wPpg, g.ppgWord); setWords(wTot, g.totWord);
@@ -107,5 +118,5 @@ export function createDropPic(sv) {
     setGeo(plateau, 'opacity', ex * 0.7);
     setGeo(wPpg, 'opacity', ex * on);
   }
-  return { svg, words, fit, paint };
+  return { svg, words, fit, paint, height: () => G.h };
 }

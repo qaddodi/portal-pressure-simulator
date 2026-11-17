@@ -170,7 +170,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 /* (17 Nov 2026: the shelf's card is as tall as its words up to 500 px or the room under the case pill, whichever is less; past that its body scrolls, so no row is ever cut off.) */
 .action-card:not(.docked) { max-height: min(500px, calc(100% - var(--top-safe, 56px) - 24px)); }
 .action-card:not(.docked):not([hidden]) { display: flex; flex-direction: column; }
-.action-card:not(.docked) > .ac-body { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.action-card:not(.docked) > .ac-body { flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }   /* (never sideways: play-test F38, a stent editor's open row once ran wider than the card) */
 .action-card:not(.docked) > .ac-body::-webkit-scrollbar { display: none; }
 .ac-ghost { pointer-events: none; }
 .action-card [data-key]::after { display: none; }   /* (the number keys still work; the card shows no key marks) */
@@ -266,7 +266,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
    only what fitted its fixed height. The size is now the least a card is: it grows with its words, as the shelf's card does, as far as the room under the case pill allows, and only
    past that does its body scroll, so a card of any height fits or scrolls on every screen.) */
 .action-card.docked:not([hidden]) { display: flex; flex-direction: column; }
-.action-card.docked > .ac-body { position: relative; inset: auto; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.action-card.docked > .ac-body { position: relative; inset: auto; flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .action-card.docked > .ac-body::-webkit-scrollbar { display: none; }
 .action-card.docked.ac-scroll > .ac-body { touch-action: pan-y; }   /* (set by card.js only while the words are taller than the room: a pull down still puts a card that fits away) */
 .action-card.docked :is(.ac-body, .ac-ghost) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
