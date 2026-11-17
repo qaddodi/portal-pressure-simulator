@@ -21,7 +21,7 @@ import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts, setPolys } from './svg-gl.js';
 import { flattenPath } from './shape-gl.js';
-import { stentLookD, bareOf } from './stent-mesh.js';
+import { stentCutD, bareOf } from './stent-mesh.js';
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
 import { easeArrive } from './ease.js';
@@ -212,11 +212,13 @@ export function createStent() {
   const veinBuf = [new Float64Array(10), new Float64Array(10)];
   const veinP = sv('path', { 'data-look': 'stent.vein.wall' }), veinH = sv('path', { 'data-look': 'stent.vein.wall' });
   const OUTL = 2 * (N_PROFILE + 1);
-  const lumBuf = new Float64Array(2 * OUTL), grfBuf = new Float64Array(2 * OUTL), ghostBuf = new Float64Array(8), arrowBuf = new Float64Array(14);
+  const lumBuf = new Float64Array(2 * OUTL), ghostBuf = new Float64Array(8), arrowBuf = new Float64Array(14);
   const lumP = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid})` });
   const lumQ = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid}p)` });   // (the same outline coloured by the pressure along it: it fades in over the velocity colours)
-  const grfP = sv('path', { 'data-look': 'stent.graft' });
-  // the device as the figure draws it (stent-mesh.js stentLookD: the rings of the bare stretch, the covered stretch's, the gold band and tab), drawn over the lumen
+  const grfP = sv('path', { 'data-look': 'tf.wall' });   // the cover's two thin bands, one over each wall of the cut stent (never across the lumen)
+  // the device as the figure draws it, a cut view (stent-mesh.js stentCutD: only the wall on each side, the cover's bands, the rings along them, the gold mark), over the lumen's edge
+  // The veins' names, in the veins at the stent's two ends (the TIPS figure's too: tips-figure.js): RPV and RHV, the DIPS's far end the IVC.
+  const pvName = sv('text', { 'data-look': 'tf.vein.name', x: 4, y: S.cy, 'text-anchor': 'start', 'font-size': 11, opacity: 0 }), hvName = sv('text', { 'data-look': 'tf.vein.name', x: VW - 4, y: S.cy, 'text-anchor': 'end', 'font-size': 11, opacity: 0 });
   const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   const ghostP = sv('path', { 'data-look': 'stent.ghost' });
@@ -252,7 +254,7 @@ export function createStent() {
   const nBuf = [new Float64Array(4), new Float64Array(4)], nTicks = [0, 1].map(() => sv('path', { 'data-look': 'stent.gate.tick' }));   // (the usual range's two edges on the velocity strip)
   setWords(none, 'No stent'); setWords(cap, 'Peak at each gate, cm/s'); setWords(capP, 'Static pressure, mmHg');
   const picL = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${S.h}`, role: 'img' },
-    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...siteTick, ...siteDig, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
+    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, pvName, hvName, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...siteTick, ...siteDig, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
 
   // ── the pressure staircase (stent-drop-pic.js) ──
   const drop = createDropPic(sv), picB = drop.svg;
@@ -378,10 +380,12 @@ export function createStent() {
     for (const e of [barV, barP]) setGeo(e, 'y', S.keyY - 2.5);
     for (const e of kEnds) setGeo(e, 'y', S.keyY);
     setGeo(band, 'y', S.bandY); setGeo(band, 'height', S.bandH);
+    setGeo(pvName, 'y', S.cy); setGeo(hvName, 'y', S.cy);
     setGeo(none, 'y', S.cy); setGeo(stubP, 'y', S.cy - S.stubH / 2); setGeo(stubH, 'y', S.cy - S.stubH / 2);
     setGeo(picL, 'viewBox', `0 0 ${VW} ${S.h.toFixed(1)}`);
     stageL.style.aspectRatio = `${VW} / ${S.h.toFixed(1)}`;
   }
+  const CUT = { t: 1.6, step: 6, ampB: 3, ampC: 2 };
   const meshKey = new Float64Array(11);   // the numbers the device's mesh was last made from
   const capWords = new Map();   // alloc-rare: a usual range's caption, made when first met
   const usualCaption = (lo, hi) => { const k = Math.round(lo) * 1000 + Math.round(hi); let w = capWords.get(k); if (!w) { w = `Peak at each gate, cm/s (usual ${Math.round(lo)} to ${Math.round(hi)})`; capWords.set(k, w); } return w; };
@@ -398,7 +402,8 @@ export function createStent() {
     const vh = S.stubH / 2, vb = veinBuf;
     setPts(veinP, veinLine(vb[0], 0, x0, cy, vh), 5, false);
     setPts(veinH, veinLine(vb[1], x1, VW, cy, vh), 5, false);
-    for (const e of [lumP, grfP, ...wires, dimP, dimTxt, arrowP, ...ticks]) setGeo(e, 'opacity', ex);
+    for (const e of [lumP, grfP, ...wires, dimP, dimTxt, arrowP, ...ticks, pvName, hvName]) setGeo(e, 'opacity', ex);
+    setWords(pvName, 'RPV'); setWords(hvName, id === 'DIPS' ? 'IVC' : 'RHV');
     for (const e of [ghostP, none]) setGeo(e, 'opacity', 1 - ex);
     const cm = clamp(v[CH.cm], 0, 1);
     setGeo(lumQ, 'opacity', ex * cm);
@@ -446,16 +451,11 @@ export function createStent() {
     const same = mk[7] === 1 && mk[0] === cy && mk[1] === x0 && mk[2] === dPx && mk[3] === s && mk[4] === site && mk[5] === L && mk[6] === sh.len && mk[8] === sh.waist && mk[9] === sh.trans && mk[10] === sh.red;
     if (!same) {
       mk[0] = cy; mk[1] = x0; mk[2] = dPx; mk[3] = s; mk[4] = site; mk[5] = L; mk[6] = sh.len; mk[7] = 1; mk[8] = sh.waist; mk[9] = sh.trans; mk[10] = sh.red;
-      const m = stentLookD(frame, L, bareOf(L, sh.len), 1);
+      CUT.t = clamp(0.55 * pxMm, 1.6, 2.6); CUT.step = Math.max(3, 0.22 * (L / sh.len)); CUT.ampB = Math.min(4, 0.9 * pxMm); CUT.ampC = Math.min(2.4, 0.5 * pxMm);
+      const m = stentCutD(frame, L, bareOf(L, sh.len), CUT);
+      setPolys(grfP, flattenPath(m.wall));
       for (let i = 0; i < WIRES.length; i++) setPolys(wires[i], flattenPath(m[WIRES[i]] || ''));
     }
-    // (the covered stretch tinted as the cover is, over the lumen: the same outline, from where the bare stretch ends)
-    const ub = clamp(bareOf(1, sh.len), 0, 0.9);
-    for (let i = 0; i <= N_PROFILE; i++) {
-      const u = ub + (1 - ub) * (i / N_PROFILE), half = (dPx * profileAt(sh, s, site, u)) / 2, x = x0 + u * L, q = 2 * N_PROFILE + 1 - i;
-      grfBuf[2 * i] = x; grfBuf[2 * i + 1] = cy - half; grfBuf[2 * q] = x; grfBuf[2 * q + 1] = cy + half;
-    }
-    setPts(grfP, grfBuf, OUTL, true);
     // the dimension line: the narrowing's length and lumen in mm; with no narrowing the whole stent's length in cm, the same line moving out to the ends
     // (the narrower of the two narrowings gets the line: its span is the waist's and the end stenosis's, lerped by how much of the narrowing each is, so it glides when the larger changes)
     const red = sh.red || 0, sMax = Math.max(s, red), wr = sMax > 1e-6 ? red / (red + s) : 0, wsp = waistSpan(sh, SPW), esp = endSpan(sh, site, SPE);
