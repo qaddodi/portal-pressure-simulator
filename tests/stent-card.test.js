@@ -395,3 +395,21 @@ test('the flow: a fixed set of streaks carried along the lumen, faster where the
   assert.equal(flow._g.opacity, 0, 'a stent with no flow has no streaks');
   card.dispose();
 });
+
+test('the gate prints the number the tile prints, past 999 too (play-test F41: a 2 mm stenosis read 1248 on the tile and 999 at its gate)', async () => {
+  const { int } = await import('../src/ui/tool-stent.js');
+  assert.equal(int(1248.4), '1248');
+  assert.equal(int(999.4), '999');
+  assert.equal(int(1000), '1000');
+  assert.equal(int(-3), '0');
+  assert.equal(int(1248), int(1248), 'the same word each time');
+  // The tile and the gates read one source: the engine's stentState peaks (stentReadsOf), the tile their highest (vPeak).
+  const { Engine } = await import('../src/engine/engine.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const e = new Engine(); e.loadPreset('cirr-decomp');
+  e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0.8 }, stenosisSite: { TIPS: 'distal' } })));
+  e.settle(3);
+  const t = e.stentState('TIPS');
+  assert.equal(t.vPeak, Math.max(...t.peaks));
+  assert.equal(int(t.vPeak), int(t.peaks[2]), `the tile's ${t.vPeak} is the distal gate's ${t.peaks[2]}`);
+});
