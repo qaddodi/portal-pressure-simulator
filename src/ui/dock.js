@@ -550,7 +550,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     readouts: ['grid', (f) => readouts.summary(f)],
     trials: ['book', () => 'Landmark trials'],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts', trials: 'Trials' };
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'IR', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts', trials: 'Trials' };
   // Narrow cards use these shorter names so all six tabs always fit without scrolling.
   const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
   const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'readouts', 'trials'].filter((id) => byId[id]);
