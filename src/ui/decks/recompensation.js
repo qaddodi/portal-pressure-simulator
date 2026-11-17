@@ -70,7 +70,7 @@ export const RECOMPENSATION = {
       // diuretics is not the more than 6 months the criteria ask. Child–Pugh A is the case's own, not the model's.)
       id: 'path-recomp', cam: 'fit',
       tool: { kind: 'path', of: 'recomp', short: 'Recompensation', patient: { ca: 0, ev: 1, lf: 0 } },
-      kicker: 'Recompensation', site: 'sin', title: 'Two of three criteria are met: he is recompensating',
+      kicker: 'Recompensation', site: 'sin', title: 'Two of three criteria are met: not yet recompensated',
       line: 'He is abstinent and his serum albumin is {salb}. He has been off diuretics for 60 days; once that lasts >6 months, the card reads Recompensated.',
       notes: 'Source: Baveno VIII 7.4, Fig. 2. The card groups the 7.4 criteria in three, and all are needed. First, the cause is removed, controlled or suppressed. Second, no ascites on imaging off diuretics, no clinical HE off lactulose, rifaximin or LOLA and, after a variceal bleed, no recurrent variceal bleeding (carvedilol or an NSBB may be continued), for >6 consecutive months. Third, liver function back to Child–Pugh A5 or A6. The first and third are met here: a year of abstinence, a serum albumin of 3.8 g/dL. The second is not yet, because the ascites has stayed away for 60 days only. The model gives the albumin; the Child–Pugh score is the case\'s. The term applies to a patient who has decompensated (7.1), as he has, and it is not cirrhosis regression (7.2).',
       ask: ['Which criterion is still open for him?', 'The duration: no ascites off diuretics, no HE off lactulose or rifaximin and no rebleeding must last >6 consecutive months, and he is at 60 days.'],
