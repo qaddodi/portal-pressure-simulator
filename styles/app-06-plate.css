@@ -458,8 +458,7 @@
 .ir-chips[data-n="0"] .ir-chip, .ir-chips[data-n="1"] .ir-chip { padding: 0; background: none; color: var(--text); pointer-events: none; }   /* (one stent: its name is the title) */
 .ir-chip:focus-visible, .ir-more:focus-visible, .ir-mi:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-status { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); white-space: nowrap; }
-.ir-status { transition: color var(--d-small) var(--ease); }
-.ir-status[data-sev="caution"] { color: var(--caution); }   /* (no status dot, 15 Oct: the state shows in the colour of its own words) */
+.ir-status[data-sev="caution"] { color: var(--caution-ink); }   /* (no status dot, 15 Oct: the state shows in the colour of its own words) */
 .ir-lens { margin: 0 0 0 auto; flex: none; transition: opacity var(--d-small) var(--ease); }
 .ir-tips:not([data-sub="inside"]) .ir-lens { opacity: 0; pointer-events: none; }   /* (it colours the stent: no stent drawn, no switch; faded, never popped) */
 .ir-more { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-right: -8px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
