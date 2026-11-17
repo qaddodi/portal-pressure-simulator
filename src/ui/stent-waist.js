@@ -82,7 +82,7 @@ export function waistText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
   const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
-  return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${(d * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
+  return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${(d * (1 - g.red)).toFixed(1)} mm × ${waistShown(g.waist).toFixed(1)} cm` : null;
 }
 
 /** What a stent's figure label says of its geometry (Mohammad, 17 Nov: "show the diameter and the waist and length", not the velocity): its open diameter, the
