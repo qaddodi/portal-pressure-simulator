@@ -61,5 +61,7 @@ export function phonePlan({ room, dtop, data, dmax = Infinity, lip = 0, regular,
     : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), regular));
   return { cap: Math.max(120, cap), shut, fig };
 }
-/** The least a phone's figure gives way to: a tenth and a bit of the screen, never under 96 px. */
-export const figFloorOf = (H) => Math.round(Math.max(96, 0.12 * H));
+/** The least a phone's figure gives way to: over a fifth of the screen, never under 150 px (and never over the figure's usual share). A smaller band hid what a slide is
+ *  about behind the words (TIPS 6, an iPhone, 17 Nov 2026: the ascites, bowel and colon stood under the teaching card, the figure squeezed to 12 %). Where the words at
+ *  their Regular size need more than that, the data card closes (phonePlan), as it does when it is too tall. */
+export const figFloorOf = (H) => Math.min(Math.round(Math.max(150, 0.22 * H)), Math.round(Math.max(170, 0.3 * H)));

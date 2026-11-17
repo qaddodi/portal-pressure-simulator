@@ -451,6 +451,7 @@ export function createLabelSolve(st, live) {
           // its stent: Review 15-16 Oct.)
           const mk = dop.all && /^focus/.test(it.key);
           if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
+          if (ps.ownClear && lineHits(r, 3, { only: it.src[1] })) return;   // (a stent's own label, off its own stent whatever else is under it)
           if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return; if (lineHits(r, 1, { only: 'res' })) return;   // (and in any pass, 2 px off its own stent as drawn, and never on a resistor's zigzag: "Azygos 0.2" on the collaterals', 13 Nov)
           // (A leader that may cross at most lmax vessels besides the one it starts on, 3 px off each: 0, one that runs clear.)
           if (ps.lmax != null) { const le = leaderEnd(r, it.ax, it.ay); if (leaderVesselHits(live.segIdx, it.ax, it.ay, le.x, le.y, 3, ps.lmax < 1) > ps.lmax) return; }
@@ -693,7 +694,9 @@ export function createLabelSolve(st, live) {
           const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : must.has(it.node) || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev || must.has(it.node) ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
           // (A stent's own geometry label, up to three lines tall, never takes a spot on its stent or its waist's bracket while there is a clear one farther out on a leader: play-test 17 Nov 2026,
           // "TIPS 10 mm / 5.5 mm × 1.0 cm / distal stenosis 3.5 mm" stood on the stent it describes. Only where nothing clear is left does it stand on the vessel, as before.)
-          const wideGeom = it.geom ? [40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true })) : [];
+          // (Then, with the figure too full of vessels for a spot clear of every one, any spot clear of its own stent: nearest first, farther out on a leader.)
+          const wideGeom = it.geom ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true })),
+            ...[8, 24, 40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: g > 8, clear: false, ownClear: true, inView: true }))] : [];
           const okp = placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, ...wideGeom, { gap: near, leader: false }, { gap: far, leader: true }]);
           if (globalThis.__dbg && it.key === 'n:TIPS') console.error('DBG4', okp, it.w, it.h, it.ax, it.ay, JSON.stringify(view));
           if (okp) continue;

@@ -30,10 +30,18 @@ test('whatever the data card or the words need, the words get their Regular heig
 
 test('the figure gives way before the data card closes, and the data card closes before the words shrink', () => {
   const H = 859, room = H - FOOT - REACH - 8, figMin = figMinOf(H), figFloor = figFloorOf(H), mine = 0.62 * H;
-  // MASLD 6 under Fibroscan on a 395 x 859 phone: a 365 px card and about 270 px of words.
-  const fib = phonePlan({ room, dtop: 8, data: 365, regular: 270, mine, grip: GRIP, figMin, figFloor });
-  assert.equal(fib.shut, false, 'the Fibroscan card stays open: the figure gives its share');
-  assert.ok(fib.fig < figMin && fib.fig >= figFloor && fib.cap >= 270);
+  // A 250 px card with 270 px of words on a 395 x 859 phone: the figure gives part of its share, the card stays open, the words keep Regular.
+  const mid = phonePlan({ room, dtop: 8, data: 250, regular: 270, mine, grip: GRIP, figMin, figFloor });
+  assert.equal(mid.shut, false, 'a card the figure can make room for stays open');
+  assert.ok(mid.fig < figMin && mid.fig >= figFloor && mid.cap >= 270);
+  // MASLD 6 under Fibroscan (365 px) and TIPS 6 under its trial card (about 285 px, 320 of words) on a 390 x 844 phone: the figure would have to go under a fifth of the
+  // screen (play-test 17 Nov 2026: the ascites, bowel and colon stood under the words), so the card comes in closed and the figure keeps its band.
+  for (const [H2, data, regular] of [[859, 365, 270], [844, 285, 320]]) {
+    const r2 = H2 - FOOT - REACH - 8, p = phonePlan({ room: r2, dtop: 8, data, regular, mine: 0.62 * H2, grip: GRIP, figMin: figMinOf(H2), figFloor: figFloorOf(H2) });
+    assert.equal(p.shut, true, `H${H2}: the card closes rather than leave the figure under ${figFloorOf(H2)} px`);
+    assert.ok(p.fig >= figFloorOf(H2) && p.cap >= regular, `H${H2}: the figure keeps ${p.fig} px and the words stay Regular`);
+  }
+  assert.ok(figFloorOf(844) >= 0.2 * 844 && figFloorOf(844) <= figMinOf(844), 'the least share is over a fifth of the screen');
   const huge = phonePlan({ room, dtop: 8, data: 560, regular: 270, mine, grip: GRIP, figMin, figFloor });
   assert.equal(huge.shut, true, 'a card too tall for even the figure to make room closes');
   assert.ok(huge.cap >= 270, 'and the words are still Regular');
