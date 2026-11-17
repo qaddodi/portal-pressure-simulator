@@ -1,10 +1,10 @@
-// The stent cards' looks (src/ui/tool-stent.js, 16 Nov 2026): the side view of a TIPS or DIPS and the bar of where its pressure goes.
+// The stent cards' looks (src/ui/tool-stent.js, 16 Nov 2026): the side view of a TIPS or DIPS and the staircase of where its pressure goes.
 // New entries, so no stylesheet rule is behind them: the colours are the app's own tokens (the stent's metal, the veins' colours, the
 // flow and ramp colours the figure uses), the words' size is the builder's font-size attribute (12 px on screen, as the cross-section's).
 import { tok, mix } from './dsl.js';
 
 const halo = { stroke: tok('surface'), width: 3, join: 'round' };
-const seg = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
+const stroke = (t) => ({ base: { fill: 'none', stroke: t === 'text-3' ? mix('srgb', tok(t), 70, 'transparent') : tok(t), width: 4.5, cap: 'butt', join: 'round' } });
 const dot = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
 
 const area = (t) => ({ base: { fill: mix('srgb', tok(t), 16, 'transparent'), stroke: 'none' } });
@@ -35,34 +35,27 @@ export const STENT = {
   // the Doppler's three points: a tick, the number under it, and a band behind the slide's own third
   'stent.gate.tick': { base: { fill: 'none', stroke: tok('text-2'), width: 1.5, cap: 'round' } },
   'stent.gate.band': { base: { fill: mix('srgb', tok('accent'), 14, 'transparent') } },
-  // the flow's streaks, carried along the lumen
-  'stent.flow': { base: { fill: 'none', stroke: mix('srgb', tok('text'), 55, 'transparent'), width: 1.6, cap: 'round' } },
   // the colour key's strip (a gradient of its own)
   'stent.key.bar': { base: { stroke: mix('srgb', tok('text-3'), 50, 'transparent'), width: 0.8 } },
   'stent.num': { base: { fill: tok('text'), weight: 700, halo, baseline: 'central' } },
   'stent.word': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.cap': { base: { fill: tok('text-3'), weight: 500, halo, baseline: 'central' } },
-  // ── where the pressure goes ──
-  // the bar's segments: the stent's tract (grey), friction along it (the accent), its two ends (the reversed-flow orange), the narrowing's jet (violet)
-  'stent.seg.tract': seg('text-3'),
-  'stent.seg.wall': seg('accent'),
-  'stent.seg.ends': seg('flow-reversed'),
-  'stent.seg.jet': seg('ramp-violet'),
-  // what the PPG counts beyond the stent: hatched grey (the piece's own pattern fill), so it reads as "not this stent's"
-  'stent.seg.out': { base: { stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1 } },
-  'stent.hatch.bg': { base: { fill: mix('srgb', tok('text-3'), 12, 'transparent') } },
-  'stent.hatch.stripe': { base: { fill: tok('text-3'), fillOpacity: 0.5 } },
-  // a part's mmHg on its segment, and its name in the key under the bar (a halo in the card's colour)
-  'stent.lab': { base: { weight: 700, fill: tok('text'), halo, baseline: 'central' } },
-  'stent.key.dot.tract': dot('text-3'),
-  'stent.key.dot.wall': dot('accent'),
+  // ── where the pressure goes (stent-drop-pic.js): the staircase, each part's stretch of it in its colour, and the key's dots, words and numbers ──
+  // the line of pressure left, its area, and one thick stroke over the line where each part takes it: the veins outside the stent (light grey), its tract (the stent's slate), its way in and out (the reversed-flow orange),
+  // the friction along it (the accent), the narrowing's jet (violet)
+  'stent.drop.line': { base: { fill: 'none', stroke: tok('text-2'), width: 1.5, cap: 'round', join: 'round' } },
+  'stent.drop.area': { base: { fill: mix('srgb', tok('text-3'), 12, 'transparent'), stroke: 'none' } },
+  // the stent's two ends and the PPG's level, dotted; the baseline (the IVC's)
+  'stent.drop.guide': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
+  'stent.drop.base': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 55, 'transparent'), width: 1 } },
+  'stent.drop.s.out': stroke('text-3'), 'stent.drop.s.tract': stroke('stent-metal'), 'stent.drop.s.ends': stroke('flow-reversed'), 'stent.drop.s.wall': stroke('accent'), 'stent.drop.s.jet': stroke('ramp-violet'),
+  'stent.key.dot.tract': dot('stent-metal'),
   'stent.key.dot.ends': dot('flow-reversed'),
+  'stent.key.dot.wall': dot('accent'),
   'stent.key.dot.jet': dot('ramp-violet'),
-  'stent.key.dot.out': { base: { fill: mix('srgb', tok('text-3'), 25, 'transparent'), stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1 } },
+  'stent.key.dot.out': { base: { fill: mix('srgb', tok('text-3'), 55, 'transparent'), stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1 } },
   'stent.key.text': { base: { weight: 500, fill: tok('text-2'), halo, baseline: 'central' } },
-  // the two brackets under the bar ("Along the length", "Local"), and the ticks over it (the stent's drop, the PPG)
-  'stent.bracket': { base: { fill: 'none', stroke: tok('text-3'), width: 1.25, cap: 'round', join: 'round' } },
-  'stent.mark': { base: { fill: 'none', stroke: tok('text'), width: 1.75, cap: 'round' } },
+  'stent.lab': { base: { weight: 700, fill: tok('text'), halo, baseline: 'central' } },
   'stent.mark.text': { base: { weight: 600, fill: tok('text'), halo, baseline: 'central' } },
   // ── the traces along the stent (stent-trace-pic.js) ──
   // the lumen with its veins, the five sites' dashed lines, a numbered badge on each, a panel's baseline, its area, its line and a dot where each site reads

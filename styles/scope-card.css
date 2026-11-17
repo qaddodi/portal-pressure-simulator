@@ -148,3 +148,24 @@
 .pz-tool[data-kind="scope"] .eus-panel { display: none; }
 .pz-tool[data-kind="scope"] .pz-inst[data-eus-slide] .eus-panel { display: contents; }
 .pz-tool[data-kind="scope"] .pz-inst[data-eus-slide] .eus-ppg .hvpg-procs { display: none; }
+
+/* Wall mechanics' picture is width first (play-test F30, iPad portrait 768 px, 17 Nov 2026: the ring small in a wide card, σ, w and the arrows in one blob).
+   The box takes the stage's width (up to 560 px) and the height the stage has left, never taller than it is wide: a short, wide stage gives a wide
+   picture, and the extra width is where the names stand (σ and w with a leader each, wall-geometry.js) instead of the picture being a square the height
+   of the stage with empty card either side. The id wins over the square rules that sized it by the height left (app-08-cards.css, app-09-tests.css,
+   app-10-thumb-dock.css) by specificity, not by order. */
+#app .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.wall-box {
+  --ww: min(100cqw, 560px);
+  width: var(--ww); height: min(max(100cqh - 24px, var(--stage-min)), var(--ww)); aspect-ratio: auto; margin-top: 0;
+}
+@media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
+  /* (A phone's short card: 16 px taller than wide, upward into the column's spare room, as before, for the arrows over the varix) */
+  @container tpane (max-height: 330px) and (min-width: 280px) {
+    #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.wall-box {
+      height: min(max(100cqh - 24px, var(--stage-min)), var(--ww) + 16px); margin-top: -16px;
+    }
+  }
+  @media (max-width: 340px) {
+    #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .wall-view .endo-stage > .chart-box.wall-box { height: min(max(100cqh - 22px, var(--stage-min)), var(--ww)); }
+  }
+}

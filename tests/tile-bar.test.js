@@ -27,7 +27,8 @@ test('the bands follow the ratings (Baveno VIII stiffness, platelets lower is wo
 
 test('every tile has its normal bands (Mohammad, 22 Oct: "any tile should always have normals if possible"); none is left bare', () => {
   // (The abdominal perfusion pressure, rpp, is a number only: no guideline gives MAP − IAP a cut-off, so it has no rating, no bar ticks and no bands. R03, 15 Nov 2026.)
-  const NUMBER_ONLY = new Set(['rpp']);
+  // (The stent's own readings are numbers only too: the flow, the tube alone, the drop across it, its narrowest lumen and the local share have no guideline cut-off; its peak velocity alone has the reported range, tipsVel. table-marks.js stentTiles.)
+  const NUMBER_ONLY = new Set(['rpp', ...['tips', 'dips'].flatMap((k) => ['Flow', 'Bench', 'Dp', 'Lumen', 'LocalPct'].map((n) => k + n))]);
   for (const k of NUMBER_ONLY) assert.ok(!RATE[k] && !(SCALE[k]?.[2]?.length), `${k} is a number only`);
   for (const k of Object.keys(TILE).filter((x) => !NUMBER_ONLY.has(x))) {
     assert.ok(RATE[k], `${k} has no rating`);
