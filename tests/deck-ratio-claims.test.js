@@ -95,7 +95,6 @@ const OPEN = {
   'budd-chiari/agent:triple': 'double- or triple-positive antiphospholipid antibodies',
   'circuit/resist:several-fold': 'qualitative',
   'stiffness/aasld:3 times the': 'ALT above 3 times the upper limit of normal (a guideline caution)',
-  'tips-complete/ascites:three times': 'the definition of recurrent ascites (at least three paracenteses in 12 months), not a model value',
   'two-inflows/summary:doubled': 'a case fact in the question (the velocity the asker saw), not a model value',
 };
 
