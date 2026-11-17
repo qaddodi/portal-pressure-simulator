@@ -450,22 +450,35 @@
 .ir-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .ir-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-line { flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
-/* The stent editor (stent-editor.js), built into the TIPS view: two slim rows, the stent and its end stenosis, then its mid waist; each cell its name and value over
-   its slider or its choice, the columns lined up. It fades in with the view and its cells when the chip changes stent; a control that does nothing now dims, never hidden. */
+/* The stent editor (stent-editor.js), built into the TIPS view: one slim row of value chips; a tapped chip turns the row, in the same height, into its slider,
+   its choice and Done. The chips and the strips share one grid cell and crossfade, so the row never changes height and the stent drawing keeps the room. */
 .ir-editor { flex: none; }
-.stent-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr); gap: 4px 12px; padding: 6px 10px 4px; border: 1px solid var(--border); border-radius: var(--r-tile, 10px); background: var(--surface-2); animation: crossfade var(--d-small) var(--ease); }
-.stent-editor .se-cell { min-width: 0; display: flex; flex-direction: column; gap: 1px; animation: crossfade var(--d-small) var(--ease); transition: opacity var(--d-small) var(--ease); }
-.stent-editor .se-cell.se-dim { opacity: .42; }
-.stent-editor .se-top { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; font-size: 11.5px; line-height: 16px; }
-.stent-editor .se-name { flex: none; font-weight: 600; color: var(--text-2); }
-.stent-editor .se-val { flex: none; color: var(--text); font-variant-numeric: tabular-nums; }
-.stent-editor .se-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.stent-editor .se-range { height: 26px; }
-.stent-editor .se-seg { margin-top: 2px; }
-.stent-editor .se-seg button { padding: 3px 4px; font-size: 11.5px; min-width: 0; }
+.stent-editor { display: grid; grid-template-columns: minmax(0, 1fr); animation: crossfade var(--d-small) var(--ease); }
+.stent-editor .se-layer { grid-area: 1 / 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 30px; transition: opacity var(--d-small) var(--ease); }
+.stent-editor:not([data-open=""]) .se-chips, .stent-editor .se-strip { opacity: 0; pointer-events: none; }
+.stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"],
+.stent-editor[data-open="waist"] .se-strip[data-strip="waist"], .stent-editor[data-open="len"] .se-strip[data-strip="len"] { opacity: 1; pointer-events: auto; }
+.stent-editor .se-chip { flex: 1 1 0; min-width: 0; height: 30px; display: flex; align-items: baseline; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; font: 500 12px/28px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
+.stent-editor .se-chip:hover { border-color: var(--accent-line); }
+.stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.stent-editor .se-chip-n { flex: none; color: var(--text-3); font-weight: 600; }
+.stent-editor .se-chip-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.stent-editor .se-dim { opacity: .42; }
+.stent-editor .se-strip { padding: 0 2px 0 0; }
+.stent-editor .se-name { flex: none; padding: 0 2px; border: 0; background: none; color: var(--text-2); cursor: pointer; font: 650 12px var(--font-ui); }
+.stent-editor .se-range { flex: 1 1 0; min-width: 72px; height: 30px; }
+.stent-editor .se-val { flex: none; min-width: 4.6em; text-align: right; font: 500 12px var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stent-editor .se-seg { flex: none; display: flex; }
+.stent-editor .se-seg button { padding: 4px 8px; font-size: 11.5px; }
+.stent-editor .se-done { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); cursor: pointer; font: 650 12px var(--font-ui); }
 @container (max-width: 420px) {
-  .stent-editor { gap: 3px 8px; padding: 5px 8px 3px; }
-  .stent-editor .se-sub { display: none; }   /* (a phone: the millimetres stay, the percentage goes) */
+  .stent-editor .se-layer { gap: 4px; }
+  .stent-editor .se-chip { flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 0 4px; border-radius: 9px; font-size: 11px; line-height: 13px; }
+  .stent-editor .se-chip-n { font-size: 10px; }
+  .stent-editor .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */
+  .stent-editor .se-val { min-width: 0; font-size: 11px; }
+  .stent-editor .se-seg button { padding: 4px 5px; font-size: 11px; }
+  .stent-editor .se-done { padding: 0 8px; }
 }
 .ir-tips .ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }   /* (four readings two by two in a narrow card, in one row from 400 px: below) */
 .ir-tiles .metric { padding: 6px 8px 5px; }

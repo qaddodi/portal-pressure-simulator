@@ -297,7 +297,9 @@ function buildEdgeCard(e) {
       if (isArt) return null;
       const q = f.Qf ? f.Qf[k] : f.Q[k];
       const refQ = store.get().healthy?.Q?.[k] ?? 1;
-      if (stentStill(q)) return ST_STASIS;   // (flow-cuts.js: the one rule, the stents' tiles and Doppler gates read it too)
+      // (A TIPS or DIPS reads the engine's own stent state, engine.js stentState .still, with its memory: the one rule the Doppler, tiles and pictures read too.)
+      const st = id === 'TIPS' ? f.metrics?.tips : id === 'DIPS' ? f.metrics?.dips : null;
+      if (st ? st.still : stentStill(q)) return ST_STASIS;
       if (isShunt) return ST_PATENT;
       const back = flowReversed(q, refQ, throughFlow(e.id, f.Qf || f.Q, EI));
       // A collateral carries portal blood away from the liver; a link between two portal veins has no physiological direction (the pressure picks it).
