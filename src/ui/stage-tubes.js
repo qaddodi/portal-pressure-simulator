@@ -155,7 +155,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
   }
   const OPT_STEADY = { steady: true };   // (a glide's options, read and never changed)
-  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); } };
+  const REFRAMED = new Event('pps:reframed');   // (a vessel card on a phone brings its vessel above itself again: card.js)
+  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); dispatchEvent(REFRAMED); } };
   let homeAsk = 0;
   function homeLookRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
