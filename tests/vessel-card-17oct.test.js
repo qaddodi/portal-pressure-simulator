@@ -33,7 +33,8 @@ const inspector = read('src/ui/inspector.js'), main = read('src/ui/main.js');
 
 test('V4: a clotted or narrowed vessel reads in → out on its card; open vessels keep one number', () => {
   assert.match(actions, /value: \(f, lens, ref\) => edgeValue\(e, f, lens, ref, true\)/);
-  assert.match(actions, /if \(range && \(p\?\.thrombus\?\.\[e\.id\] > 0 \|\| p\?\.stenosis\?\.\[e\.id\] > 0\)\) return \{ v: `\$\{fmt\(P1, 1\)\} → \$\{fmt\(P2, 1\)\}`, u: 'mmHg' \};/);
+  assert.match(actions, /if \(range && \(p\?\.thrombus\?\.\[host\] > 0 \|\| p\?\.stenosis\?\.\[host\] > 0\)\) \{/);
+  assert.match(actions, /return \{ v: `\$\{fmt\(H1, 1\)\} → \$\{fmt\(H2, 1\)\}`, u: 'mmHg' \};/);
   assert.match(main, /edgeValue\(e, f, 'pressure', null\)\.v/, 'the hover tip keeps the one number');
 });
 

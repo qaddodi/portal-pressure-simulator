@@ -94,7 +94,8 @@ export function stentFacts(e, p) {
   if (!kind) return null;
   const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind), s = endOf(p, e.id);
   FACTS.d = d; FACTS.waist = g.red > 0.004 ? lumenShown(d * (1 - g.red)) : null; FACTS.wLen = waistShown(g.waist);   // (on the slider's 0.5 cm step, an easing glide's too)
-  FACTS.sten = s > 0.004 ? lumenShown(d * (1 - s)) : null;   // (the lumens on their 0.5 mm step, a glide's too) FACTS.end = endSiteOf(p, e.id) === 'proximal' ? 'proximal' : 'distal';
+  FACTS.sten = s > 0.004 ? lumenShown(d * (1 - s)) : null;   // (the lumens on their 0.5 mm step, a glide's too)
+  FACTS.end = endSiteOf(p, e.id) === 'proximal' ? 'proximal' : 'distal';   // (its own statement: it was once left inside the comment above, so the label always said "distal", play-test 17 Nov)
   return FACTS;
 }
 

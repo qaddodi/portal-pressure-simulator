@@ -691,7 +691,10 @@ export function createLabelSolve(st, live) {
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
           const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : must.has(it.node) || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [...[40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })), ...(it.rev || must.has(it.node) ? RING_SPOTS.map((at) => ({ at, leader: true, clear: true, inView: true, strict: true })) : [])] : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
-          const okp = placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }]);
+          // (A stent's own geometry label, up to three lines tall, never takes a spot on its stent or its waist's bracket while there is a clear one farther out on a leader: play-test 17 Nov 2026,
+          // "TIPS 10 mm / 5.5 mm × 1.0 cm / distal stenosis 3.5 mm" stood on the stent it describes. Only where nothing clear is left does it stand on the vessel, as before.)
+          const wideGeom = it.geom ? [40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true })) : [];
+          const okp = placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, ...wideGeom, { gap: near, leader: false }, { gap: far, leader: true }]);
           if (globalThis.__dbg && it.key === 'n:TIPS') console.error('DBG4', okp, it.w, it.h, it.ax, it.ay, JSON.stringify(view));
           if (okp) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)

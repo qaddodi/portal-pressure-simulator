@@ -8,7 +8,7 @@
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
 import { edgeWhy } from '../engine/explain-ids.js';
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent } from '../engine/topology.js';
+import { EDGES, JUNCTION_HOST_ENDS, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, partOf } from '../engine/topology.js';
 import { GEOM_RANGE, TAPER_CM, WAIST_MAX, WAIST_STEP, endSiteOf, geomDefault, geomOf, kindOf, lumenShown, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { stentStill } from '../engine/flow-cuts.js';
@@ -349,7 +349,13 @@ function edgeReading(e, f, lens, ref, range) {
     return EV;
   }
   const p = store.get().params;
-  if (range && (p?.thrombus?.[e.id] > 0 || p?.stenosis?.[e.id] > 0)) return { v: `${fmt(P1, 1)} → ${fmt(P2, 1)}`, u: 'mmHg' };
+  // (A vein split by a shunt's junction is one vein: a clot or narrowing is on all its pieces, and its card reads the whole vein, in at its first end and out at its last, never a piece's
+  // ends: the right hepatic vein clotted in Budd–Chiari read 4.0 → 4.0 from the piece beside the cava, while its sinusoidal end stood at 24.8, play-test 17 Nov 2026.)
+  const host = partOf(e.id);
+  if (range && (p?.thrombus?.[host] > 0 || p?.stenosis?.[host] > 0)) {
+    const ends = JUNCTION_HOST_ENDS[host], H1 = ends ? PF[NI[ends[0]]] : P1, H2 = ends ? PF[NI[ends[1]]] : P2;
+    return { v: `${fmt(H1, 1)} → ${fmt(H2, 1)}`, u: 'mmHg' };
+  }
   // The change from the reference reads as the figure's callouts do: signed, one decimal, in the reading's colour.
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   partsP(PRESS_CELL, P, r);

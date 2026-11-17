@@ -33,6 +33,7 @@ test('a TIPS with no narrowing says only its diameter', { timeout: 320000 }, () 
 test('a waist and an end stenosis are two lines of the one label', { timeout: 320000 }, () => {
   const r = run({ extra: { stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' } } });
   assert.equal(r.text, 'TIPS 8 mm / 4.4 mm × 1.0 cm / distal stenosis 4 mm');
+  assert.ok(r.stentGap >= 0, `the three lines stand clear of the stent they describe (${r.stentGap} px)`);
   assert.equal(r.clampLabels, 0);
   assert.equal(r.arrows, 0, 'the waist has none');
   assert.equal(r.overBracket, 0);
@@ -55,3 +56,10 @@ const holds = (text, o) => {
 for (const o of [{ red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, zoom: 0.5 }, { red: 0.25, waist: 2, size: 'iphone', sel: true, zoom: 1.5 }]) {
   test(`the TIPS label is always present, whole lines only: ${JSON.stringify(o)}`, { timeout: 320000 }, () => { holds(run(o).text, o); });
 }
+
+// Play-test 17 Nov 2026: after the stenosis was switched to Proximal the label still read "distal" (stent-waist.js stentFacts had its end statement inside a comment).
+test('the end stenosis line names the end the stenosis is at', { timeout: 320000 }, () => {
+  const r = run({ extra: { stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'proximal' } } });
+  assert.equal(r.text, 'TIPS 8 mm / 4.4 mm × 1.0 cm / proximal stenosis 4 mm');
+  assert.ok(r.stentGap >= 0, `and stands clear of the stent (${r.stentGap} px)`);
+});

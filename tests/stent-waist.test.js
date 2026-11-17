@@ -187,3 +187,14 @@ test('a stent\'s stenosis eases between its ends, a waist never moves it, and a 
   const d = fresh.view(mk('proximal'), 1 / 60);
   assert.ok(!d.stentSiteU || d.stentSiteU.TIPS === STENT_SITES.proximal);
 });
+
+test('a stent label\'s end stenosis names the end the params name, proximal or distal (play-test 17 Nov 2026: it always said "distal", the statement had been left inside a comment)', async () => {
+  const { stentFacts } = await import('../src/ui/stent-waist.js');
+  const { EDGES } = await import('../src/engine/topology.js');
+  for (const id of ['TIPS', 'DIPS']) {
+    const e = EDGES.find((x) => x.id === id), key = id.toLowerCase();
+    const mk = (site) => ({ [key]: { on: true, d: 8 }, stenosis: { [id]: 0.4 }, stenosisSite: { [id]: site } });
+    assert.equal(stentFacts(e, mk('proximal')).end, 'proximal', `${id} proximal`);
+    assert.equal(stentFacts(e, mk('distal')).end, 'distal', `${id} distal`);
+  }
+});
