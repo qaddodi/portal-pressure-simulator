@@ -169,7 +169,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     if (rv && hv) run(pTrail, T(rv.right - hv.right, rv.top - hv.top));
     // The surface is the row's own raised fill only while it moves: it comes up as it leaves the row and is gone by the time it lands back on it, so the
     // panel going away at the end of a close changes nothing on screen (17 Nov, Mohammad: a closing row "snaps" back into place).
-    anims.push(surf.animate(opening ? [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: D_SURFACE, easing: 'linear', fill: opening ? 'none' : 'forwards' }));
+    anims.push(surf.animate(opening ? [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: D_SURFACE, easing: 'linear', fill: opening ? 'none' : 'forwards' }));   // motion-scale: own pace (a fill that must not ease: it is up only while the row moves)
     const fade = { duration: opening ? D_SMALL : D_SMALL * 0.6, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.5 : 0, fill: 'both' };
     anims.push(body.animate(opening ? [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 1 }, { opacity: 0 }], fade));
     anims.push(done.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.4 : 0, fill: 'both' }));

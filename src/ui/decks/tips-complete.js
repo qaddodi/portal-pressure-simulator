@@ -51,7 +51,7 @@ export const TIPS_COMPLETE = {
     {
       id: 'path', lens: 'flow', preset: 'cirr-decomp', params: TIPS8, days: 30, cam: 'fit', sites: ['split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'],
       compare: [{ label: 'No stent', params: { tips: { on: false } }, title: 'Without a stent every liter of portal blood crosses the sinusoids', line: 'Without the stent the PPG is {ppg} and all of the portal blood must cross the sinusoids, whose resistance holds the pressure up.' }, { label: 'TIPS 8 mm', short: '8 mm', own: true }],
-      vignette: 'A 56-year-old man with alcohol-associated cirrhosis has ascites that keeps returning despite diuretics, and large esophageal varices. He is being considered for a stent.',
+      vignette: 'A 56-year-old man with alcohol-associated cirrhosis and large esophageal varices. His ascites kept returning despite diuretics until the stent went in; it has resolved.',
       kicker: 'Choosing the patient', site: 'sin', title: 'A stent gives portal blood a second path past the liver',
       line: 'Blood leaving the gut can cross the sinusoids or cross the stent. Two paths in parallel offer less resistance than the liver alone, so the PPG falls to {ppg}.',
       notes: 'A covered stent joins a hepatic vein to a portal vein branch inside the liver. Paths in parallel add their conductances, so the stent lowers the total resistance and the portal pressure for the same inflow, and the stent carries most of the portal flow. The price is the blood that no longer crosses the sinusoids: hepatic portal perfusion falls, and ammonia and other gut-derived substances reach the systemic circulation. The next slides say who should have the stent and what it costs. The circuit view of the same idea is in the Portal pressure as a circuit talk. The buttons compare the same patient with and without the stent.',
@@ -93,7 +93,7 @@ export const TIPS_COMPLETE = {
     },
     {
       id: 'ascites', preset: 'cirr-decomp', params: REFRACTORY, relax: 200, cam: 'fit', tool: { kind: 'trial', id: 'covered' }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
-      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis needs a 5 L paracentesis every two weeks; diuretics were stopped when her sodium fell to 124 mmol/L. MELD 11, no encephalopathy, normal echocardiogram.',
+      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis needs a 5 L paracentesis every two weeks; diuretics were stopped for a sodium of 124 mmol/L. MELD 11, no encephalopathy, normal echo.',
       caseQ: 'Is she a candidate for TIPS?',
       kicker: 'Choosing the patient', site: 'sin', title: 'Ascites that returns after every paracentesis is an indication for TIPS', cite: 'Baveno VIII 6.3, 6.4',
       line: 'Her ascites is {asc} with a PPG of {ppg}. Her liver, heart and kidneys pass the checks, so TIPS is considered, and discussed together with liver transplant.',
