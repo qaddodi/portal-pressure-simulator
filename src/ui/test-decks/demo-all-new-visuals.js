@@ -1771,7 +1771,7 @@ export const DEMO_ALL = {
           "d": 9
         },
         "stenosis": {
-          "TIPS": 0.6
+          "TIPS": 0.611111
         }
       },
       "cam": "liver",
@@ -1796,7 +1796,7 @@ export const DEMO_ALL = {
           "own": true,
           "params": {
             "stenosis": {
-              "TIPS": 0.6
+              "TIPS": 0.611111
             }
           }
         }

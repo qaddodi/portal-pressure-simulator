@@ -3,7 +3,7 @@
 // Baveno VIII 9.2 makes Doppler the first-line test for portal vein thrombosis (8.25 gives the diagnosis of Budd–Chiari syndrome).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.6 } };
+const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.611111 } };   // (1 − 3.5/9: a 9 mm stent narrowed to 3.5 mm: lumens on their 0.5 mm step, so the figure's label is the model's; was 0.6, 3.6 mm)
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 14,
