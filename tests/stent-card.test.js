@@ -12,7 +12,7 @@ import { EDGES } from '../src/engine/topology.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
-import { stentOutline, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE } from '../src/ui/tool-stent.js';
+import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE } from '../src/ui/tool-stent.js';
 import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
 
 function settled(setup) {
@@ -37,6 +37,34 @@ test('the outline has the same number of points for every geometry, so the pictu
       assert.ok(Math.abs(buf[2 * i] - buf[2 * q]) < 1e-12 && Math.abs((66 - buf[2 * i + 1]) - (buf[2 * q + 1] - 66)) < 1e-9, `mirrored at ${i}`);
     }
   }
+});
+
+test('everything lies inside the picture, for every stent size and length, and the room above the stent is no more than its dimension line needs', () => {
+  const buf = new Float64Array(4 * (N_PROFILE + 1));
+  for (const d of [6, 8, 10, 12]) for (const len of [4, 8, 10]) for (const s of [0, 0.5, 0.9]) {
+    const g = geomFix({ len, waist: 2, trans: 1 }, 'tips'), L = g.len * SIDE.pxCm, x0 = SIDE.x0 + (SIDE.span - L) / 2;
+    stentOutline(buf, x0, L, SIDE.cy, d * SIDE.pxMm, 0, s, g, 0.5);
+    for (let i = 0; i < 2 * (N_PROFILE + 1); i++) {
+      assert.ok(buf[2 * i] >= 0 && buf[2 * i] <= VW, `x ${buf[2 * i]}`);
+      assert.ok(buf[2 * i + 1] > SIDE.dimY + 6 && buf[2 * i + 1] < SIDE.gateTop, `y ${buf[2 * i + 1]} is between the dimension line and the gates' ticks (${d} mm)`);
+    }
+  }
+  assert.ok(SIDE.capY + 7 <= SIDE.h && SIDE.numY + 7 < SIDE.capY, 'the words fit under the stent');
+  assert.ok(SIDE.labY - 7 >= -1, 'the dimension words fit above it');
+  assert.ok(SIDE.h <= 110, 'the side view is no taller than its rows: no blank band');
+  assert.ok(BAR.keyY[1] + 7 <= BAR.h);
+});
+
+test('a part\'s number is on its segment once it fits it, at any size of words, and is never left half faded where it fits', () => {
+  for (const fs of [9, 11, 12.5, 14]) for (const chars of [3, 4]) {
+    const need = 0.62 * fs * chars + 3;
+    assert.equal(numberOn(need + 1, chars, fs), 1, `full once it fits (${fs} units, ${chars} characters)`);
+    assert.equal(numberOn(need - 3, chars, fs), 0);
+    let prev = 0;
+    for (let w = 0; w < 60; w += 0.5) { const o = numberOn(w, chars, fs); assert.ok(o >= prev - 1e-12 && o >= 0 && o <= 1); prev = o; }
+  }
+  // the segment the phone's screenshot showed ghosted: 1.3 mmHg on the 16 mmHg bar, drawn in words of 9.4 units
+  assert.equal(numberOn((1.3 * BAR.w) / 16, 3, 9.4), 1);
 });
 
 test('the narrowing is where the profile says: the waist is s narrower, the open stent the full diameter, and a longer waist draws more of it', () => {
@@ -155,9 +183,18 @@ test('the made card: every piece has a look, its outline keeps its point count t
   const pieces = [...card.el.querySelectorAll('[data-look]')];
   assert.ok(pieces.length > 40, `${pieces.length} pieces`);
   for (const p of pieces) assert.ok(LOOKS[p.getAttribute('data-look')], `${p.getAttribute('data-look')} is in the table`);
-  const outlines = pieces.filter((p) => ['stent.wall', 'stent.lumen'].includes(p.getAttribute('data-look')));
+  const outlines = pieces.filter((p) => ['stent.lumen', 'stent.graft'].includes(p.getAttribute('data-look')));
   assert.equal(outlines.length, 2);
+  assert.equal(pieces.filter((p) => /^stent\.wire\./.test(p.getAttribute('data-look'))).length, 7, 'the device the figure draws: its rings, glint, band and tab');
   const counts = () => outlines.map((p) => p._pts.n);
+  const grad = card.el.querySelector('linearGradient');
+  assert.equal(grad.getAttribute('gradientUnits'), 'userSpaceOnUse', 'a path drawn from points has no box for a gradient to take: it is in the picture\'s own units');
+  assert.equal(pieces.find((p) => p.getAttribute('data-look') === 'stent.lumen').getAttribute('fill'), `url(#${grad.id})`);
+  assert.ok(grad.querySelectorAll('stop').length >= 17);
+  assert.ok([...grad.querySelectorAll('stop')].every((st) => st._g && st._g['stop-color']), 'every stop has the colour of the lumen at its place');
+  const wires = pieces.filter((p) => /^stent\.wire\./.test(p.getAttribute('data-look')));
+  assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontCov')._polys.length > 0, 'the covered stretch\'s rings are drawn');
+  assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontBare')._polys.length > 0, 'and the bare stretch\'s');
   const first = counts();
   assert.deepEqual(first, [2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1)]);
   // the same card, a different stent: a wider one, a longer waist, tapered ends, the narrowing at the portal end, no narrowing at all

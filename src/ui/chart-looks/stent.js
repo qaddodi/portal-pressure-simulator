@@ -8,12 +8,21 @@ const seg = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
 const dot = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
 
 export const STENT = {
-  // the vein stubs either side: the portal vein's colour on the left, the systemic (hepatic) vein's on the right
-  'stent.vein.p': { base: { fill: mix('srgb', tok('tour-portal'), 30, tok('surface')), stroke: mix('srgb', tok('tour-portal'), 75, tok('text')), width: 1.2 } },
-  'stent.vein.h': { base: { fill: mix('srgb', tok('tour-sys'), 30, tok('surface')), stroke: mix('srgb', tok('tour-sys'), 75, tok('text')), width: 1.2 } },
-  // the stent's wall, in the stent metal; the lumen inside it is filled by the piece's own gradient (the figure's velocity colours)
-  'stent.wall': { base: { fill: tok('stent-metal'), stroke: mix('srgb', tok('stent-metal'), 60, tok('text')), width: 1, join: 'round' } },
-  'stent.lumen': { base: {} },
+  // the vein stubs either side, open ended: a faint fill in the vein's colour and its two walls running up to the stent
+  'stent.vein.p': { base: { fill: mix('srgb', tok('tour-portal'), 14, 'transparent') } },
+  'stent.vein.h': { base: { fill: mix('srgb', tok('tour-sys'), 14, 'transparent') } },
+  'stent.vein.wall': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1.2, cap: 'round' } },
+  // the lumen, filled by the piece's own gradient (the figure's velocity colours), edged in the stent metal; the cover tinted over the stretch it covers
+  'stent.lumen': { base: { stroke: tok('stent-metal'), width: 1, join: 'round' } },
+  'stent.graft': { base: { fill: tok('dev-graft'), fillOpacity: 0.28, stroke: 'none' } },
+  // the device as the figure draws it (app-02-controls.css .stent-wire, .stent-glint, .stent-gold): rings of the bare stretch and of the covered one, a glint, the gold band and tab
+  'stent.wire.backBare': { base: { fill: 'none', stroke: tok('dev-stent-wire'), width: 1.6, cap: 'round', join: 'round', strokeOpacity: 0.5 } },
+  'stent.wire.backCov': { base: { fill: 'none', stroke: tok('dev-stent-wire'), width: 1.3, cap: 'round', join: 'round', strokeOpacity: 0.12 } },
+  'stent.wire.frontBare': { base: { fill: 'none', stroke: tok('dev-stent-wire'), width: 1.8, cap: 'round', join: 'round' } },
+  'stent.wire.frontCov': { base: { fill: 'none', stroke: tok('dev-stent-wire'), width: 1.4, cap: 'round', join: 'round', strokeOpacity: 0.92 } },
+  'stent.wire.glint': { base: { fill: 'none', stroke: tok('dev-stent-glint'), width: 0.7, cap: 'round', join: 'round', strokeOpacity: 0.7 } },
+  'stent.wire.band': { base: { fill: 'none', stroke: tok('dev-stent-gold'), width: 3.8, cap: 'round', join: 'round' } },
+  'stent.wire.tab': { base: { fill: 'none', stroke: tok('dev-stent-gold'), width: 2.8, cap: 'round', join: 'round' } },
   // no stent: the outline it would have, dashed
   'stent.ghost': { base: { fill: 'none', stroke: tok('text-3'), width: 1.4, dash: [4.6, 3.2], join: 'round' } },
   // dimension lines (the narrowing's length and lumen), and the flow's arrow
