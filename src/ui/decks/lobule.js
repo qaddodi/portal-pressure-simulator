@@ -3,12 +3,7 @@
 export const LOBULE = {
   id: 'lobule', level: 'advanced', title: 'Inside the lobule: the site of each disease', minutes: 7,
   sections: [['The lobule', ['The lobule']], ['Where the resistance lies', ['Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
-  objectives: [
-    'Trace blood through the lobule from the portal tract to the central vein',
-    'Locate schistosomiasis, cirrhosis, sinusoidal obstruction syndrome and congestive hepatopathy in the lobule',
-    'Predict the HVPG and the ascites protein from the site of resistance',
-    'Explain what the wedged pressure reflects and what it misses',
-  ],
+  objectives: ['Trace blood through the lobule from the portal tract to the central vein', 'Locate each cause of resistance in the lobule and predict the HVPG and ascites protein', 'Explain what the wedged pressure reflects and what it misses'],
   checks: [
     ['Which zone of the lobule is injured first by hypoperfusion or congestion?', 'Zone 3, around the central vein, which receives the least oxygen.'],
     ['Where does schistosomiasis add resistance to the flow?', 'In the portal venules of the portal tract, upstream of the sinusoids, so the HVPG stays near normal.'],

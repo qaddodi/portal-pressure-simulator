@@ -38,12 +38,7 @@ const TILES = ['map', 'rpp'];
 
 export const KIDNEY = {
   id: 'kidney', level: 'advanced', title: 'The kidney in cirrhosis', minutes: 10,
-  objectives: [
-    'Define the abdominal perfusion pressure (APP) as the MAP minus the intra-abdominal pressure (IAP), and say what it does not measure',
-    'Explain how tense ascites lowers the APP and large-volume paracentesis (LVP) with albumin raises it',
-    'State when carvedilol is dose-reduced or stopped (systolic <90 mmHg, MAP <65 mmHg or HRS-AKI) and when it is restarted',
-    'Name the drugs for HRS-AKI, and the renal assessment before a TIPS',
-  ],
+  objectives: ['Define the abdominal perfusion pressure (MAP − IAP), and how tense ascites and LVP change it', 'State when carvedilol is reduced, stopped and restarted: SBP <90, MAP <65 mmHg or HRS-AKI', 'Name the drugs for HRS-AKI, and the renal assessment before a TIPS'],
   checks: [
     ['A patient\'s MAP is 70 mmHg and the IAP is 15 mmHg. Large-volume paracentesis lowers the IAP to 5 mmHg, and the MAP stays at 70 mmHg. What happens to the APP?', 'It rises from 55 to 65 mmHg, by the 10 mmHg fall in IAP. The MAP did not change, so the paracentesis alone raised the APP.'],
     ['When is carvedilol dose-reduced or stopped, and when is it restarted?', 'With persistently low blood pressure (systolic <90 mmHg or MAP <65 mmHg) or HRS-AKI. It is restarted once the HRS-AKI has resolved or the blood pressure has recovered (Baveno VIII 4.6, 4.7).'],

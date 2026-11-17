@@ -23,12 +23,7 @@ const FLUID = 1150;
 
 export const TWO_LESIONS = {
   id: 'two-lesions', level: 'advanced', title: 'Two lesions, one circulation', minutes: 10,
-  objectives: [
-    'Predict how an occlusive portal vein clot changes the HVPG and the PPG in cirrhosis',
-    'Predict how a raised right atrial pressure changes the FHVP, the WHVP and both gradients',
-    'Explain why the two lesions together can leave the PPG where it was and the HVPG well under the CSPH line',
-    'Name the two extra pressures and the image to get when the gradients do not fit the patient',
-  ],
+  objectives: ['Predict how an occlusive portal vein clot changes the HVPG and the PPG in cirrhosis', 'Predict how a raised right atrial pressure changes the FHVP, the WHVP and both gradients', 'Explain how the two lesions together leave the PPG unchanged and the HVPG well under the CSPH line'],
   checks: [
     ['In cirrhosis with CSPH, an occlusive portal vein clot appears and the HVPG falls from 11 to 8 mmHg. Has the portal hypertension improved?', 'No. The WHVP reflects the sinusoidal pressure, which falls because less portal blood reaches the sinusoids; the clot lies upstream of them, and the PPG rises.'],
     ['The right atrial pressure rises from 4 to 16 mmHg in a man with cirrhosis. What happens to the FHVP, and why does it matter?', 'It rises with the right atrium, and the WHVP follows. Every absolute pressure is higher, but the HVPG, a difference, does not show the congestion.'],

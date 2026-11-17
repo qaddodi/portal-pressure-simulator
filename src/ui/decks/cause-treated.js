@@ -15,12 +15,7 @@ const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD', ALC =
 
 export const CAUSE_TREATED = {
   id: 'cause-treated', level: 'core', title: 'Treating the cause', minutes: 10,
-  objectives: [
-    'Explain why curing hepatitis C, suppressing hepatitis B, alcohol abstinence or weight loss lowers portal pressure over months to years',
-    'Use liver stiffness measurement (LSM) to judge whether CSPH has resolved after cure',
-    'Recognize that CSPH can persist after cure when the HVPG starts high',
-    'Interpret LSM in MASLD with obesity, and describe the effect of weight loss on it',
-  ],
+  objectives: ['Explain why treating the cause lowers portal pressure over months to years', 'Use LSM to judge whether CSPH has resolved, and know that it can persist', 'Interpret LSM in MASLD with obesity, and the effect of weight loss on it'],
   checks: [
     ['After hepatitis C is cured, which LSM shows that CSPH has resolved?', 'LSM <10 kPa, or LSM <15 kPa with a spleen stiffness (SSM) <25 kPa (Baveno VIII).'],
     ['Does a cure always remove CSPH?', 'No: when the HVPG starts high, CSPH often persists, and the beta-blocker is continued.'],

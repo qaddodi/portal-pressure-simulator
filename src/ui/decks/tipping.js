@@ -25,12 +25,7 @@ const TILES = ['hvpg', 'asc'];
 export const TIPPING = {
   id: 'tipping', level: 'advanced', title: 'What precipitates decompensation in compensated cirrhosis', minutes: 8,
   sections: [['Starting point', ['Starting point']], ['Second hits', ['Second hit', 'Infection', 'Surgery']], ['Prevention', ['Oral health', 'After the first']]],
-  objectives: [
-    'Name the second hits that push a compensated patient with CSPH into decompensation',
-    'Say why infection matters in CSPH and where its effect is unclear',
-    'State the HVPG at which abdominal surgery carries a higher risk',
-    'Explain what dental care and long-term antibiotics can and cannot prevent',
-  ],
+  objectives: ['Name the second hits that push a compensated patient with CSPH into decompensation', 'Say why infection matters in CSPH, and the HVPG at which abdominal surgery carries a higher risk', 'Explain what dental care and long-term antibiotics can and cannot prevent'],
   summary: 'A man with CSPH can stay compensated for years, until a second hit precipitates decompensation: a liver injury, an infection or surgery. What each does, what dental care may prevent, and why no long-term antibiotic is started after the first decompensation only to prevent the next.',
   checks: [
     ['Which events can precipitate decompensation in a compensated patient with CSPH?', 'A second liver injury (alcohol-related hepatitis, acute viral hepatitis, an HBV flare, autoimmune hepatitis or drug-induced injury), a bacterial infection, and surgery, especially major surgery (Baveno VIII 3.7, 3.10, 3.13).'],

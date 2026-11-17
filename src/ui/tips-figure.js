@@ -22,7 +22,7 @@ import { reduceMotionMQ } from './motion.js';
 import { readMetric } from './layout-snap.js';
 import { pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown } from '../engine/stent-geom.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown, lumenShown } from '../engine/stent-geom.js';
 import { STENT_SITES, stentSite } from '../engine/topology.js';
 import { createFollowN, readStent, stentColour, localVelocity, openVelocity, scanK, stentOutline, ten, int, N_PROFILE } from './tool-stent.js';
 import { traceFor, gateIndex, TR } from './stent-trace-pic.js';
@@ -247,12 +247,12 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     wBuf[0] = wa; wBuf[1] = yb + 4; wBuf[2] = wa; wBuf[3] = yb; wBuf[4] = wb; wBuf[5] = yb; wBuf[6] = wb; wBuf[7] = yb + 4; setPts(wBr, wBuf, 4, false);
     const wOn = ex * clamp((red - 0.004) / 0.03, 0, 1);
     setGeo(wBr, 'opacity', wOn); setGeo(wT, 'opacity', wOn); setGeo(wT, 'x', (wa + wb) / 2); setGeo(wT, 'y', L.labY);
-    setWords(wT, waistWord(d * (1 - red), waistShown(sh.waist)));   // (its length on the slider's 0.5 cm step while the stent glides: never 3.2 cm)
+    setWords(wT, waistWord(lumenShown(d * (1 - red)), waistShown(sh.waist)));   // (its length on the slider's 0.5 cm step while the stent glides: never 3.2 cm)
     // the end stenosis: its lumen over it
     const esp = endSpan(sh, T.site, SPE), ea = x0 + esp.a1 * span, eb = x0 + esp.b1 * span, eOn = ex * clamp((T.s - 0.004) / 0.03, 0, 1);
     eBuf[0] = ea; eBuf[1] = yb + 4; eBuf[2] = ea; eBuf[3] = yb; eBuf[4] = eb; eBuf[5] = yb; eBuf[6] = eb; eBuf[7] = yb + 4; setPts(eBr, eBuf, 4, false);
     setGeo(eBr, 'opacity', eOn); setGeo(eT, 'opacity', eOn); setGeo(eT, 'x', clamp((ea + eb) / 2, 24, L.W - 24)); setGeo(eT, 'y', L.labY);
-    setWords(eT, mmWord(d * (1 - T.s)));
+    setWords(eT, mmWord(lumenShown(d * (1 - T.s))));   // (the end stenosis's lumen on its 0.5 mm step, a glide's too)
     // the Doppler's three gates: a tick down from the lumen, the number where it is taken (the lens: cm/s, or mmHg at the same three places)
     for (let q = 0; q < 3; q++) {
       const u = GATES[q], xg = x0 + u * span, yl = cy + (d * k * profileAt(sh, T.s, T.site, u)) / 2 + 2, tb = tBuf[q];

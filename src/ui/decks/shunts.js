@@ -17,12 +17,7 @@ const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step:
 
 export const SHUNTS = {
   id: 'shunts', level: 'advanced', title: 'TIPS and shunts', minutes: 12,
-  objectives: [
-    'Recognize a large spontaneous portosystemic shunt by the hepatic encephalopathy it causes',
-    'Name the indications for TIPS and the pre-TIPS evaluation',
-    'Explain the effects of TIPS on portal pressure, hepatic perfusion and the heart, why the stent is kept narrow, and how TIPS dysfunction presents',
-    'Explain how the selective distal splenorenal shunt (DSRS) decompresses the varices while preserving portal flow to the liver',
-  ],
+  objectives: ['Recognize a large spontaneous portosystemic shunt by the encephalopathy it causes', 'Name the indications for TIPS and the pre-TIPS evaluation', 'Explain what TIPS does to portal pressure, liver and heart, and why the stent is kept narrow'],
   checks: [
     ['An 8 mm TIPS is dilated to 10 mm. The PPG falls slightly further and hepatic portal perfusion falls. What did the extra 2 mm gain, and at what cost?', 'A small further fall in the gradient, at the cost of less hepatic portal perfusion, so hepatic encephalopathy and liver failure become more likely. That is why stents are usually 8 to 10 mm and not wider.'],
     ['A 72-year-old woman has refractory ascites and no heart failure. Is her age a reason to rule out a TIPS?', 'No. At age ≥70 a TIPS is judged case by case, weighing benefit and risk (Baveno VIII 6.8). Her renal function and history of hepatic encephalopathy are assessed first, and TIPS is discussed together with liver transplant.'],

@@ -5,11 +5,7 @@
 export const OUTFLOW = {
   id: 'outflow', level: 'advanced', title: 'After the sinusoids: central veins and the heart', minutes: 14,
   sections: [['Sinusoidal obstruction syndrome', ['Sinusoidal obstruction syndrome']], ['The heart', ['Normal heart', 'Heart failure', 'Constrictive pericarditis']], ['The IVC', ['The IVC']]],
-  objectives: [
-    'Name the causes of sinusoidal obstruction syndrome (SOS)',
-    'Explain why the HVPG can be measured in SOS',
-    'Distinguish heart failure, constrictive pericarditis and an IVC web by Doppler and right atrial pressure',
-  ],
+  objectives: ['Name the causes of sinusoidal obstruction syndrome (SOS)', 'Explain why the HVPG can be measured in SOS', 'Tell heart failure, constrictive pericarditis and an IVC web apart by Doppler and RA pressure'],
   checks: [
     ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are patent, and the resistance lies upstream of the FHVP, so the WHVP rises.'],
     ['Which measurement distinguishes an IVC web from heart failure?', 'Right atrial pressure: normal with a web, elevated in heart failure and constrictive pericarditis.'],

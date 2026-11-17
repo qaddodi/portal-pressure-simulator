@@ -3,7 +3,7 @@
 export const CIRCULATION = {
   id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 8,
   summary: 'The normal portal circulation, from the splanchnic bed to the right atrium. Ends with the definition of portal hypertension.',
-  objectives: ['Trace portal blood from the intestine and spleen through the lobule to the right atrium', 'Name the two capillary beds in series and explain why the sinusoidal wall is permeable to protein', 'State normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
+  objectives: ['Trace portal blood from the gut and spleen through the lobule to the right atrium', 'State the normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
   checks: [
     ['Which two veins join to form the portal vein?', 'The splenic vein and the superior mesenteric vein, behind the pancreas.'],
     ['Why does fluid leaving the sinusoids carry protein?', 'Sinusoids have fenestrae about 100 nm wide and no basement membrane, so plasma protein crosses into the space of Disse.'],

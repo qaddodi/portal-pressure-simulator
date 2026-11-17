@@ -21,7 +21,7 @@ import { h, fmt, swapText, toast, svgIcon } from './util.js';
 import { store, hiddenNow } from './store.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { STENT_RANGE as RANGE } from './table-marks.js';
-import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
+import { stentBand, gateKindsOf, reductionJet, lumenShown } from '../engine/stent-geom.js';
 import { createTipsFigure } from './tips-figure.js';
 import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
@@ -46,7 +46,7 @@ const mm = (x) => String(Math.round(x * 10) / 10);
 export const stentLine = (st) => {
   if (!st) return 'No stent';
   if (st.red == null && st.end == null) return st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`;
-  const w = st.red > 0.0005 ? `waist ${mm(st.d * (1 - st.red))} mm over ${mm(st.geom?.waist ?? 1)} cm` : '';
+  const w = st.red > 0.0005 ? `waist ${mm(lumenShown(st.d * (1 - st.red)))} mm over ${mm(st.geom?.waist ?? 1)} cm` : '';
   const e = st.end > 0.0005 ? `${st.site === 'proximal' ? 'proximal' : 'distal'} stenosis to ${mm(st.d * (1 - st.end))} mm` : '';
   return `${mm(st.d)} mm, ${w && e ? `${w}, ${e}` : w || e || 'open'}`;
 };

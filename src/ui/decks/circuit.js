@@ -23,12 +23,7 @@ export const CIRCUIT = withPoints({
   id: 'circuit', level: 'foundation', keepPinch: true, zoomTiles: true, title: 'Portal pressure as a circuit', minutes: 8,
   // (Every slide shares one kicker, so the outline's sections name the slides.)
   sections: [['Flow and resistance', ['ohm', 'where', 'meal']], ['Cirrhosis', ['resist', 'both']], ['Collaterals', ['parallel']], ['Treatment', ['tips']]],
-  objectives: [
-    'Interpret the portal pressure gradient as flow times resistance',
-    'Explain why a meal raises portal pressure more in cirrhosis',
-    'Explain why collaterals fail to decompress the portal system',
-    'Place a TIPS on the resistance side of ΔP = Q × R',
-  ],
+  objectives: ['Interpret the portal pressure gradient as flow times resistance', 'Explain why a meal raises portal pressure more in cirrhosis, and why collaterals fail', 'Place a TIPS on the resistance side of ΔP = Q × R'],
   checks: [
     ['How does pressure relate to flow and resistance?', 'The pressure drop equals flow times resistance: ΔP = Q × R.'],
     ['Why does a meal raise the gradient more in cirrhosis?', 'The extra flow crosses a higher resistance, so even a smaller rise in flow adds more pressure.'],

@@ -30,11 +30,7 @@ const SHUNT = { preset: 'cirr-hepatofugal', params: { cirrhosis: 1 }, relax: 365
 export const SAME_GRADIENT = {
   id: 'same-gradient', level: 'advanced', title: 'Same gradient, different patient', minutes: 11,
   summary: 'Four patients with the same HVPG and different PPGs, portal flow and collaterals: what the wedged pressure leaves out, and what to read beside it.',
-  objectives: [
-    'Explain why one HVPG can go with different PPGs and different portal flow',
-    'Recognize the three things the HVPG does not read: resistance upstream of the wedge, the flow, and a collateral',
-    'Name what to add to the HVPG when the case does not fit its number',
-  ],
+  objectives: ['Explain why one HVPG can go with different PPGs and different portal flow', 'Recognize what the HVPG does not read: upstream resistance, flow and collaterals', 'Name what to add to the HVPG when the case does not fit its number'],
   checks: [
     ['Two men have cirrhosis and an HVPG of 12 mmHg. The first has a PPG of 14 mmHg, the second 16 mmHg. Where does the second man\'s extra resistance lie?', 'Upstream of the wedge, in the portal tracts or the portal vein branches. The WHVP does not reflect it, so the HVPG leaves it out.'],
     ['The portal flow rises from 1.1 to 1.4 L/min and the HVPG stays at 12 mmHg. What changed in the liver?', 'The sinusoidal resistance fell by about a fifth. The same gradient at a higher flow means less resistance.'],
