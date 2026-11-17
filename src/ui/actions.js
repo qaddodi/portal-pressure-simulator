@@ -17,6 +17,7 @@ import { store, updateParams, hiddenNow } from './store.js';
 import { fmt, fmtFlow, clamp } from './util.js';
 import { PREGNANCY_INFO } from '../engine/scenario.js';
 import { lobuleState } from './lobule-model.js';
+import { shownOr } from './shown.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
@@ -331,9 +332,16 @@ const CARD_HOLD = newHold();   // (the vessel card's reading, kept as steady kee
 const PRESS_CELL = newPCell();   // (the pressure lens's texts, made again only when what they print changes)
 const SAT_TEXT = Array.from({ length: 101 }, (_, i) => String(i));
 const satPct = (s) => { const i = Math.round(s * 100); return SAT_TEXT[i] ?? String(i); };
+// The stations the bottom bar reads (portal, wedged, free hepatic, IVC, right atrium) print the bar's reading wherever they appear: a vessel card's "30.5 → 11.6" beside
+// the map's "PV 30.9" was two dead bands holding the same pressure 0.4 apart (play-test 17 Nov 2026, V19/F4). The card reads what the label reads (stage-label-items.js nodeItem).
+const BAR_KEY = { CONF: 'pv', SIN_R: 'whvp', RHV: 'fhvp', IVCS: 'ivc', RA: 'ra' };
+function stationP(f, id, PF) {
+  const mk = BAR_KEY[id], m = f.metrics, v = mk && (mk === 'ra' ? m?.vitals?.ra ?? m?.ra : m?.[mk]);
+  return Number.isFinite(v) ? shownOr(mk, v) : PF[NI[id]];
+}
 function edgeReading(e, f, lens, ref, range) {
   const k = EI[e.id], PF = f.Pf || f.P, st = STATION_OF[e.id];
-  const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? PF[NI[st]] : (P1 + P2) / 2;
+  const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? stationP(f, st, PF) : (P1 + P2) / 2;
   const q = (f.Qf ? f.Qf[k] : f.Q[k]) * 0.06;
   if (lens === 'flow') {
     const r = store.get().healthy?.Q?.[k];
@@ -357,7 +365,7 @@ function edgeReading(e, f, lens, ref, range) {
   // ends: the right hepatic vein clotted in Budd–Chiari read 4.0 → 4.0 from the piece beside the cava, while its sinusoidal end stood at 24.8, play-test 17 Nov 2026.)
   const host = partOf(e.id);
   if (range && (p?.thrombus?.[host] > 0 || p?.stenosis?.[host] > 0)) {
-    const ends = JUNCTION_HOST_ENDS[host], H1 = ends ? PF[NI[ends[0]]] : P1, H2 = ends ? PF[NI[ends[1]]] : P2;
+    const ends = JUNCTION_HOST_ENDS[host], H1 = ends ? stationP(f, ends[0], PF) : P1, H2 = ends ? stationP(f, ends[1], PF) : P2;
     return { v: `${fmt(H1, 1)} → ${fmt(H2, 1)}`, u: 'mmHg' };
   }
   // The change from the reference reads as the figure's callouts do: signed, one decimal, in the reading's colour.
