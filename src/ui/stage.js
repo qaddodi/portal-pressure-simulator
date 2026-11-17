@@ -822,6 +822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) { gLeaders.insertBefore(a[i], next); if (unlitKeys.size && unlitKeys.has(a[i].dataset.k)) a[i].classList.add('unlit'); } next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
     else if (op === 'add') { if (a !== b.parentNode) a.append(b); }   // (a node new to its parent)
     else if (op === 'append') a.append(...b);
+    else if (op === 'marks') live.mk.ver++;   // (the GPU's marks read again: after the nodes they are read from have landed, never before)
     else if (op === 'text') a.textContent = b;   // (words a node is made with)
     else if (op === 'defs') defs.append(...a);
     else if (op === 'cathadd') { a.append(b); cath.lblKey = ''; cathLabelsSoon(); }   // (a reading new to the catheter's layer: laid out again once it is in)

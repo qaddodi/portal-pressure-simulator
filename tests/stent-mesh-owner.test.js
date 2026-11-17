@@ -34,6 +34,10 @@ test('every stent mesh is a stent\'s own, on its route, in each view', async () 
     const box = [Math.min(...c.map((a) => a[0])) - pad, Math.min(...c.map((a) => a[1])) - pad, Math.max(...c.map((a) => a[0])) + pad, Math.max(...c.map((a) => a[1])) + pad];
     const b = m[0].box;
     assert.ok(b[0] >= box[0] && b[1] >= box[1] && b[2] <= box[2] && b[3] <= box[3], `${what}: the mesh [${b.map((v) => v | 0)}] lies on the TIPS's route [${box.map((v) => v | 0)}]`);
+    // And the GPU draws that mesh, not an earlier one: its marks were read after the mesh landed (the marks' own read ran before it did, and the GPU kept the old mesh under the new, 17 Nov).
+    const g = st.markBox('vst:TIPS');
+    assert.ok(g, `${what}: the GPU draws the stent mesh`);
+    for (let i = 0; i < 4; i++) assert.ok(Math.abs(g[i] - b[i]) < 8, `${what}: the GPU's mesh [${g.slice(0, 4).map((v) => v | 0)}] is the page's [${b.map((v) => v | 0)}]`);
   };
   st.setView?.('anatomy');
   await set(false);
@@ -49,6 +53,10 @@ test('every stent mesh is a stent\'s own, on its route, in each view', async () 
   await check('circuit turned back');
   st.setView?.('anatomy');
   await check('anatomy again');
+  // A waist changes the mesh's paths in place, and the GPU follows.
+  const P2 = JSON.parse(JSON.stringify(base)); P2.tips = { on: true, d: 8 }; P2.stentGeom = { TIPS: { len: 8, waist: 3, trans: 0, red: 0.6 } };
+  await core.handle({ type: 'setParams', params: P2, settle: true }); store.set({ params: P2 });
+  await check('anatomy with a waist');
   await set(false);
   await frames(400);
   assert.deepEqual(meshes(), [], 'the TIPS removed, no mesh left behind');
