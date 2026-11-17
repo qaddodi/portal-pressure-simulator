@@ -7,7 +7,7 @@ import { bootGL, pump } from './stage-gl-boot.js';
 import { alongCurve } from '../src/ui/pressure-along.js';
 
 test('the TIPS in the figure: waist length, ends and the pressure colour follow the geometry', async () => {
-  const { st } = await bootGL({ w: 1200, h: 800 });
+  const { st, page } = await bootGL({ w: 1200, h: 800 });
   const { store } = await import('../src/ui/store.js');
   const { createCore } = await import('../src/worker-core.js');
   const tasks = () => new Promise((r) => setImmediate(r));
@@ -45,6 +45,25 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   assert.ok(narrow(b.k) > narrow(a.k) + 0.25, `the narrowed stretch lengthened: ${narrow(a.k)} to ${narrow(b.k)}`);
   assert.ok(Math.abs(narrow(b.k) - 0.5) < 0.1, `a 4 cm waist of an 8 cm stent is about half of it, ${narrow(b.k)}`);
   assert.ok(b.k[0] > 0.97 && b.k.at(-1) > 0.97, 'open at both ends');
+
+  // 1b. The callout reads the lumen and the waist's length, and a bracket along the waist is as long as the waist is of the stent.
+  const text = () => page.document.querySelector('.clamp-label[data-id="TIPS"]')?._txt;
+  assert.equal(text(), 'Narrowed 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent narrowed 60 %, a 4 cm waist');
+  const bracketLen = () => {
+    const d = page.document.querySelector('[data-mk="brk:TIPS"] path')?.getAttribute('d');
+    if (!d) return 0;
+    const pts = d.split(' M')[0].match(/-?[\d.]+/g).map(Number);
+    let len = 0; for (let i = 2; i < pts.length; i += 2) len += Math.hypot(pts[i] - pts[i - 2], pts[i + 1] - pts[i - 1]);
+    return len;
+  };
+  const ratio = bracketLen() / b.len;
+  assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
+  await set({ stentGeom: { TIPS: { len: 8, waist: 1.5, trans: 0 } } }, true);
+  await frames(80);
+  assert.equal(text(), 'Narrowed 4.0 mm × 1.5 cm', 'the callout follows the waist length');
+  assert.ok(Math.abs(bracketLen() / b.len - 1.5 / 8) < 0.05, `and the bracket ${bracketLen() / b.len}`);
+  await set({ stentGeom: { TIPS: { len: 8, waist: 4, trans: 0 } } }, true);
+  await frames(80);
 
   // 2. Switching the ends eases: each frame moves the profile a part of the way, never the whole of it.
   await set({ stentGeom: { TIPS: { len: 8, waist: 3, trans: 0 } } }, true);

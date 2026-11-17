@@ -1,6 +1,6 @@
 // The tubes: update and updateInner, the widths and the tube render.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, PORTAL_TERRITORY, STENT_SITES, dMinOf, isOccluded, stentSite } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded } from '../engine/topology.js';
 import { ART_FADE, BACK_EDGES, CONTEXT_EDGES, FEEDERS, IVC_EDGES, LABEL_VESSEL, LIVER_EDGES, SIN_EDGES, TIP_CONNECT } from './anatomy.js';
 import { bandsStep } from './band-ease.js';
 import { oxygenFor } from './blood.js';
@@ -15,7 +15,7 @@ import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { lesionEase } from './lesion-ease.js';
 import { geomOf as stentGeomOf, kindOf as stentKindOf, stentParts } from '../engine/stent-geom.js';
-import { lossShares } from './stent-waist.js';
+import { lossShares, siteU } from './stent-waist.js';
 import { lumOf } from './luma.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
@@ -775,7 +775,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       parts = stentParts(kind, d, q, 1, v, g, lossP);
       for (const n of LOSS_KEYS) parts[n] *= Math.abs(q);
     }
-    lossShares(parts, g, STENT_SITES[stentSite(p, id)], dir, lossS);
+    lossShares(parts, g, siteU(p, id), dir, lossS);
     const jQ = Math.round(lossS.jet * 100), eQ = Math.round(lossS.ends * 100);
     x.lsJ = jQ / 100; x.lsE = eQ / 100; x.lsAt = lossS.at; x.lsDir = lossS.dir;
     return (jQ * 101 + eQ) * 2 + (jQ > 0 && lossS.dir > 0 ? 1 : 0);

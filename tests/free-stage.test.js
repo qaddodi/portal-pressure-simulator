@@ -117,7 +117,7 @@ test('the left shelf\'s object card is as tall as what it holds: no fixed height
   const c = read('styles/app-03-layouts.css'), card = read('src/ui/card.js');
   assert.match(c, /\.action-card \{\n {2}position: absolute;[^}]*width: 276px; height: auto; max-height: 500px;/);
   assert.doesNotMatch(c, /^\.action-card\[data-size=(l|x)\] \{ height:/m, 'the shelf has no fixed height for a size');
-  assert.match(c, /\.action-card\.docked\[data-size=l\] \{ height: 300px; \}/, 'the phone\'s docked card keeps its sizes');
+  assert.match(c, /\.action-card\.docked\[data-size=l\] \{ min-height: min\(300px, var\(--ac-max\)\); \}/, 'the phone\'s docked card keeps its sizes as the least it is, and grows with its words (17 Nov 2026)');
   assert.match(c, /\.action-card:not\(\.docked\) > \.ac-body \{ position: relative; inset: auto; \}/, 'its words are in its flow, which gives it its height');
   assert.match(c, /\.action-card\[data-size=x\]:not\(\.docked\) \{ height: 500px; \}/, 'a lobule part\'s card, whose words change as the model runs, keeps its height');
   // a card of another shape is the old one going out and the new one coming in, never a height that jumps under crossfading words (worked out from the model: no read of the page)

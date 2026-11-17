@@ -163,6 +163,7 @@
     bottom: calc(var(--nb-occ, calc(var(--vdock-h) + 14px)) + 50px);
     clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% + 50px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% + 50px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% + 50px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% + 50px), var(--r-sheet) calc(100% + 50px), calc(var(--r-sheet) * .5) calc(100% + 50px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% + 50px + var(--r-sheet) * .5), 0 calc(100% + 50px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
   }
+  .app.thumb:not(.dock-open) .action-card.docked { --ac-max: calc(100% - var(--nb-occ, calc(var(--vdock-h) + 14px)) - 50px - var(--top-safe, 56px) - 56px); }   /* (the room between the case pill and the view switch) */
   .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear var(--d-small); }
 }
 
