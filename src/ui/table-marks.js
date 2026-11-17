@@ -211,9 +211,9 @@ export const tileOf = (k) => TILE[k] ?? DERIVED_TILE[k];
 /** The name of a reading that is shown as ONE number (a graph's line, an axis, a bar, a list of sub-readings): the blood pressure tile is called
  *  "Blood pressure" because it prints systolic/diastolic (mean), but its single number is the mean, so there it is "Mean arterial pressure" ("MAP", short). */
 export const numName = (k, short = false) => { const T = tileOf(k); return T?.bp ? (short ? T.meanN : T.mean) : T?.t; };
-// After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
-// line that says the target is reached.
-export const tipsGoal = (v) => (v < PPG_CUTS.red ? ['ok', 'Target met'] : ['hi', 'Above target']);
+// After TIPS the PPG is read against the 12 mmHg reference line (a reference, not a target: the aim is set by the clinical goal, never by the model), so its tile
+// and the pill that prints it never say "High" under a line that says it is below the reference. `short` drops the word "reference" for a narrow tile.
+export const tipsGoal = (v, short = false) => (v < PPG_CUTS.red ? ['ok', `Below ${PPG_CUTS.red} mmHg${short ? '' : ' reference'}`] : ['hi', `Above ${PPG_CUTS.red} mmHg${short ? '' : ' reference'}`]);
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : NO_RATE);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.

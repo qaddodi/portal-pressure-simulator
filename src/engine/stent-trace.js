@@ -57,7 +57,8 @@ export function stentTrace(inp, o) {
   const sum = (inp.tract || 0) + inp.wall + (inp.entry || 0) + inp.jet + (inp.inlet || 0), k = sum > 1e-9 && inp.dp > 0 ? inp.dp / sum : 1;
   // a part with nowhere to happen (no widening for the jet, no narrowing for the inlet) is taken at the ends, so the total still adds up
   const tract = (inp.tract || 0) * k, wall = sf > 0 ? inp.wall * k : 0, jet = sj > 0 ? inp.jet * k : 0, inlet = si > 0 ? (inp.inlet || 0) * k : 0;
-  const entry = sum * k - tract - wall - jet - inlet;
+  // (a stent with no flow has no parts but holds its gradient: the whole drop is taken across the stent, at its ends)
+  const entry = (sum > 1e-9 ? sum * k : Math.max(0, inp.dp || 0)) - tract - wall - jet - inlet;
   const iA = firstAtLeast(o.x, 0), iB = firstAtLeast(o.x, len + 1e-9);
   let cf = 0, cj = 0, ci = 0;
   for (let i = 0; i <= N; i++) {

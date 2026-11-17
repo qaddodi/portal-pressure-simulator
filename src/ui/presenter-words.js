@@ -178,7 +178,7 @@ export const rateTone = (k, fp) => { const r = rateShown(k, fp)[0]; return (r !=
 // A filled pill (the patient) takes its tile's rating colour, as the tile's bar shows it: green, amber or red (Mohammad,
 // 19 Oct). A value its tile does not rate or rates only as information keeps its station's colour, or none.
 const PILL_TONE = TOKEN_OF_RATE;
-const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its target, as its tile reads it)
+const pillRate = (k, fp, tips = false) => (fp?.[k] == null ? null : tips && k === 'ppg' ? tipsGoal(tileShown(k, fp[k]))[0] : rateShown(k, fp)[0]);   // (after TIPS the PPG is read against its 12 mmHg reference line, as its tile reads it)
 const valTone = (k, fp, tips) => PILL_TONE[pillRate(k, fp, tips)] || (BY_RATE.has(k) ? null : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words). A word every slide uses the
 // same way needs no listing: the cavernoma is always a pill that lights its collaterals.
