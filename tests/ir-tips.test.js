@@ -365,18 +365,20 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
   assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
   const chip = (id) => ed.querySelector(`.se-chip[data-chip="${id}"]`);
-  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist', 'len', 'ends'], 'five chips: the stent, its end stenosis, its waist, the waist\'s length and its ends');
-  assert.equal(chip('len').querySelector('.se-chip-w').textContent, '1.0 cm', 'the length whole, its ends a chip of their own (F36)');
-  assert.equal(chip('ends').querySelector('.se-chip-w').textContent, 'Abrupt');
+  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist'], 'three chips: the stent, its end stenosis and its waist (its length and ends open with it: no chip that does nothing)');
+  assert.equal(ed.querySelectorAll('.se-chip.se-dim').length, 0, 'no greyed-out chip');
+  const ws = ed.querySelector('.se-strip[data-strip="waist"]');
+  assert.deepEqual([...ws.querySelectorAll('[data-ctl]')].map((c) => c.dataset.ctl), ['waistD', 'waist', 'ends'], 'the waist\'s row: its lumen, its length and its ends');
+  assert.equal(ws.querySelector('.se-cap')?.textContent, 'Length', 'the second slider is named');
   assert.equal(chip('dia').textContent, 'Diameter10.0 mm');
   assert.equal(chip('end').querySelector('.se-chip-v').textContent, 'None');
   const plate = read('styles/app-06-plate.css');
-  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*min-height: 44px;/, 'the chips and each strip share one cell: opening a chip moves nothing below');
+  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*min-height: 4[48]px;/, 'the chips and each strip share one cell: opening a chip moves nothing below');
   // Play-test F33 (iPad): every chip and every control in the row is a 44 px tap target at the app's label size, and nothing is cut short (the row wraps).
   const rules = plate.split('\n').filter((l) => l.includes('.stent-editor')).join('\n');
-  for (const sel of ['.se-chip', '.se-name', '.se-seg button', '.se-done']) assert.match(rules, new RegExp(`\\.stent-editor ${sel.replace('.', '\\.')} \\{[^}]*min-height: 44px`), `${sel}: 44 px`);
+  for (const sel of ['.se-chip', '.se-name', '.se-seg button', '.se-done']) assert.match(rules, new RegExp(`\\.stent-editor ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.match(rules, /\.stent-editor \.se-range \{[^}]*height: 44px/);
-  assert.match(rules, /\.stent-editor \.se-chip \{[^}]*font: 500 var\(--fs-14\)/, 'the chip at the label size');
+  assert.match(rules, /\.stent-editor \.se-chip-w \{[^}]*font: 500 var\(--fs-16\)/, 'the chip\'s value in the card\'s reading size');
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no chip or value is cut short');
   assert.match(rules, /\.stent-editor \.se-layer \{[^}]*flex-wrap: wrap;/, 'a row too narrow for the four wraps');
   // Play-test F38 (Mac, a 240 px card): an open row wider than its card scrolled the card sideways. Every layer wraps, the slider gives way (min-width 0), the
@@ -392,10 +394,10 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   }
   // And should anything ever scroll its card sideways, opening or closing a chip puts the card back at its left edge.
   assert.match(read('src/ui/stent-editor.js'), /const sc = el\.closest\('\.ac-body'\);\n\s*if \(sc\) sc\.scrollLeft = 0;/);
-  for (const id of ['dia', 'end', 'waist', 'len', 'ends']) assert.ok(ed.querySelector(`.se-strip[data-strip="${id}"]`).classList.contains('se-layer'), `${id}'s open row is a wrapping layer`);
+  for (const id of ['dia', 'end', 'waist']) assert.ok(ed.querySelector(`.se-strip[data-strip="${id}"]`).classList.contains('se-layer'), `${id}'s open row is a wrapping layer`);
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
-  assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');
+  assert.ok(ed.querySelector('[data-ctl="waist"]').classList.contains('se-dim'), 'no waist: its length dims in the open row');
   // A tap opens the waist's slider in the row; the chips go inert, the strip takes the hand.
   chip('waist').click();
   await wait(20);
@@ -409,7 +411,9 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(p.stentGeom.TIPS.red, 0.4, 'a waist, mid stent');
   assert.ok(!(p.stenosis?.TIPS > 0), 'no stenosis made');
   assert.equal(chip('waist').querySelector('.se-chip-v').textContent, '6.0 mm');
-  assert.ok(!chip('len').classList.contains('se-dim'), 'the waist\'s length wakes');
+  assert.equal(chip('waist').querySelector('.se-chip-c').textContent, ' · 1.0 cm', 'and its length beside it');
+  assert.equal(chip('waist').querySelector('.se-chip-num').textContent, '6.0', 'the number apart from its unit');
+  assert.ok(!ed.querySelector('[data-ctl="waist"]').classList.contains('se-dim'), 'the waist\'s length wakes');
   strip('waist').querySelector('.se-done').click();
   await wait(20);
   assert.equal(ed.getAttribute('data-open'), '', 'Done gives the chips back');
@@ -583,7 +587,20 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips'\);/);
   const plate = read('styles/app-06-plate.css');
   assert.match(plate, /\.stent-editor \.se-strip, \.stent-editor \.se-summary, \.stent-editor\[data-fold="true"\] \.se-chips, \.stent-editor:not\(\[data-open=""\]\) \.se-chips \{ position: absolute;/, 'a layer not shown takes no room (F40)');
-  assert.match(plate, /\.stent-editor\.se-compact \.se-chip \{ flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column;/, 'the Tests view: one row, name over value');
+  // F45 (iPad 1024, Mac 1440 vessel card): a chip is as wide as its words, its value never wraps or clips, and the row wraps whole chips. (A chip that may
+  // shrink below its words, min-width 0 or a zero basis, is what clipped "Diameter" and wrapped "8.0 mm".)
+  const chipRules = plate.split('\n').filter((l) => /\.se-chip \{/.test(l)).join('\n');
+  assert.match(chipRules, /\.stent-editor \.se-chip \{ flex: 1 1 0;[^}]*white-space: nowrap;/, 'equal tokens while they fit, each on one line');
+  assert.doesNotMatch(chipRules, /min-width: 0|white-space: normal/, 'no chip may shrink below its words (its least width is its words)');
+  // The open row grows from the tapped chip (17 Nov, Mohammad: "seamless"): a surface of three pieces moved by transforms only, its controls fading in after it.
+  const ed2 = read('src/ui/stent-editor.js');
+  assert.match(ed2, /class: 'se-pill'/); assert.match(ed2, /function grow\(c, opening\)/); assert.match(ed2, /readBox\(c\.btn\), b = readBox\(c\.strip\)/);
+  assert.doesNotMatch(ed2.slice(ed2.indexOf('function grow'), ed2.indexOf('function setOpen')), /width:|left:|height:/, 'transforms only, no layout animated');
+  assert.match(plate, /\.stent-editor \.se-pill \{ position: absolute; inset: 0;/);
+  // A sideways drag on the editor or a slider is the control's, never the dock's swipe to the next pane (17 Nov, iPhone: "scrolling sideways opens the next card").
+  assert.match(read('src/ui/swipe.js'), /const OWN_DRAG = '[^']*\.range-wrap, \.stent-editor'/);
+  // F46: a docked stent card whose editor is folded is as tall as what it holds.
+  assert.match(read('styles/app-03-layouts.css'), /\.action-card\.docked:has\(\.stent-editor\[data-fold="true"\]\) \{ min-height: 0; \}/);
   assert.match(plate, /\.ir-editor \{[^}]*min-width: 0; overflow-x: clip;/, 'never wider than the sheet (F40)');
   // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
   // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).

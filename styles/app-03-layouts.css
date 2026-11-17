@@ -262,6 +262,8 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 }
 .action-card.docked[data-size=l] { min-height: min(300px, var(--ac-max)); }
 .action-card.docked[data-size=x] { min-height: min(400px, var(--ac-max)); }
+/* (17 Nov 2026, F46: a stent card whose editor is folded, because the Tests view's own editor is on screen, is a slim strip, as tall as what it holds: its size's least height stood empty under the folded line.) */
+.action-card.docked:has(.stent-editor[data-fold="true"]) { min-height: 0; }
 /* (17 Nov 2026, the TIPS card was cut off behind the view switch on an iPhone: its two new rows, Waist length and Ends, made it taller than its size's 300 px, and a card showed
    only what fitted its fixed height. The size is now the least a card is: it grows with its words, as the shelf's card does, as far as the room under the case pill allows, and only
    past that does its body scroll, so a card of any height fits or scrolls on every screen.) */

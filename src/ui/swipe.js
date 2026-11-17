@@ -13,7 +13,7 @@ export function swipeDir(dx, dy, ms) {
   return dx < 0 ? 1 : -1;
 }
 
-const OWN_DRAG = 'input, select, textarea, [role="slider"], .pz-jump';   // controls that use sideways drags themselves
+const OWN_DRAG = 'input, select, textarea, [role="slider"], .pz-jump, .range-wrap, .stent-editor';   // controls that use sideways drags themselves
 
 /** True when a touch that starts on `el` belongs to something else: a slider, the slide list, the card while it docks
  *  sideways, or any sideways-scrolling box (a wide table, the control bar) that actually overflows. */
