@@ -39,11 +39,11 @@ const sv = svgModel;
 // ── what the card draws, in units of its pictures ──
 export const VW = 320;
 export const SIDE = { h: 106, cy: 48, pxCm: 26, pxMm: 3.1, x0: 30, span: 260, dimY: 18, labY: 8, gateTop: 78, numY: 88, bandY: 70, bandH: 26, capY: 99, stubH: 31 };
-export const BAR = { h: 130, x: 6, w: 308, y: 38, bh: 24, markB: 8, markA: 22, brY: 70, brTxt: 86, keyY: [104, 120], keyX: [[6, 108, 210], [6, 108]] };
+export const BAR = { h: 130, x: 6, w: 308, y: 38, bh: 24, markB: 8, markA: 22, brY: 70, brTxt: 86, keyY: [104, 120], keyX: [[6, 93, 200], [6, 108]] };
 export const N_PROFILE = 96;   // (the outline's samples along the stent: 97 each side)
 export const N_STOPS = 33;   // (the lumen's colours at 33 places across the picture's fixed span: a gradient in user space, since a path drawn from points has no box to take one from)
 export const PARTS = ['tract', 'wall', 'ends', 'jet'];
-const PART_NAMES = ['Tract', 'Friction', 'Ends', 'Jet'];
+const PART_NAMES = ['Tract', 'Friction', 'In and out', 'Jet'];   // ("In and out", not "Ends": the Ends control is the narrowing's Abrupt | Tapered)
 const DEFAULT_MAX = 16;
 const IDS = { TIPS: 'tips', DIPS: 'dips' };
 // The follower's channels (each divided by its scale so the 12 % jump test means the same for every one).
