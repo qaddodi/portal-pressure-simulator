@@ -481,13 +481,16 @@
 .tf { min-width: 0; }
 /* The TIPS and DIPS vessel card (tips-vessel.js): the stent to scale, one line of numbers, the three rows. The rows' panel grows over the rows and the actions
    under them (the card's Doppler, Dye and Remove), so the panel's card piece sits above the actions that follow it; never over the stent. */
-.tv { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tv > .tf { margin-top: 4px; }   /* (the mock: 10 px under the name, 8 px over the numbers, 10 px over the rows) */
 .tv-keys { padding: 0 2px; column-gap: 12px; }
 .tv-keys .ir-kv b { font-size: var(--fs-14); }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
-.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: nowrap; column-gap: 12px; min-height: 48px; margin-top: 0; border-top: 1px solid var(--hairline); }
+.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: nowrap; column-gap: 12px; min-height: 48px; border-top: 1px solid var(--hairline); }
+:is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; }   /* (right under the rows, whatever the card's height: the panel's 54 px reach depends on it) */
 .ac-panel:has(> .tv) + .ac-as .ac-btn.quiet .ac-bl { display: none; }   /* (the mock's one line of actions: IR is its icon, named for a screen reader; Remove at the end) */
-.tv .ir-keys { margin-bottom: 4px; }
+.tv .ir-keys { margin-bottom: 2px; }
+.tv-zone > .se-panel { min-height: calc(100% + 54px); }   /* (the mock: the panel fills the rows and the line of actions under them, 6 + 48 px, so no empty band is left where they faded) */
 .ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { opacity: 0; pointer-events: none; }   /* (the open panel covers the actions: they fade under it, none peeks out below) */
 .tf-stage { width: 100%; height: 60px; }   /* (its height is the figure's own, written when its width changes: tips-figure.js fit) */
 /* The stent editor (stent-editor.js; 17 Nov 2026, the approved mock tips-cards-elegant.html): three rows, each its name and the stent's value, a hairline
@@ -504,8 +507,8 @@
 .stent-editor .se-row-v.se-none { color: var(--text-3); }
 .stent-editor .se-row-c { justify-self: end; width: 16px; height: 16px; margin-right: 4px; color: var(--text-3); }
 @media (hover: hover) { .stent-editor .se-row:hover .se-row-c { color: var(--text-2); } }
-/* Three across on a wide card (Tests › IR on a Mac or an iPad in landscape): the same rows side by side, a hairline between them. */
-@container (min-width: 460px) {
+/* Three across on a wide card (Tests › IR on a wide Mac pane): the same rows side by side, a hairline between them; from 560 px, where "Waist 6.3 mm × 3.0 cm" fits a third (at 468 px it was cut). */
+@container (min-width: 560px) {
   .se-zone .stent-editor .se-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--hairline); }
   .se-zone .stent-editor .se-row { border-top: 0; padding: 0 2px 0 12px; }
   .se-zone .stent-editor .se-row + .se-row { border-left: 1px solid var(--hairline); }
@@ -513,7 +516,7 @@
 }
 /* The panel: hidden until a row opens; over the card's room, opaque, the rows' own surface grown. */
 .se-panel { position: absolute; inset: 0 0 auto 0; min-height: 100%; z-index: 3; visibility: hidden; pointer-events: none; container-type: inline-size;
-  --se-fill: var(--surface-2); --se-line: transparent; }   /* (the mock's panel: the raised surface, no outline) */
+  --se-fill: var(--surface-2); --se-line: var(--hairline); }   /* (the mock's panel: the raised surface, a hairline round it) */
 .se-panel:not([data-open=""]) { visibility: visible; pointer-events: auto; }
 .se-panel .se-surf { position: absolute; inset: 0; pointer-events: none; }
 .se-panel .se-s { position: absolute; transform-origin: 0 0; background: var(--se-fill); border: 0 solid var(--se-line); }
@@ -537,18 +540,20 @@
 .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .se-panel[data-row="waist"] .se-ctl-seg { grid-column: 1 / -1; }
 @container (min-width: 460px) { .se-panel .se-pb { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } }
-@container (min-width: 460px) { .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(3, minmax(0, 1fr)); } .se-panel[data-row="waist"] .se-ctl-seg { grid-column: auto; grid-template-columns: minmax(0, 1fr); align-content: center; } }
+@container (min-width: 560px) { .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(3, minmax(0, 1fr)); } .se-panel[data-row="waist"] .se-ctl-seg { grid-column: auto; grid-template-columns: minmax(0, 1fr); align-content: center; } }
 .se-panel .se-ctl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-width: 0; min-height: 48px; }
 .se-panel .se-ctl.se-dim { opacity: .45; }
 .se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding-top: 2px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
 .se-panel .se-cap b { font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 30px; margin: 0; }
+.se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 32px; margin: 0; }   /* (the app's 32 px thumb fits inside it, clear of the caption above) */
 .se-panel .se-ends { display: flex; justify-content: space-between; margin-top: -4px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
 .se-panel .se-ctl-seg { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 40px; }
-.se-panel .se-seg { display: flex; padding: 2px; gap: 2px; border-radius: 9px; background: var(--surface-3); }
-.se-panel .se-seg button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; }
-.se-panel .se-seg button { position: relative; } .se-panel .se-seg button::after { content: ''; position: absolute; inset: -6px 0; }   /* (32 px to see, as the mock; 44 px to tap, F33) */
-.se-panel .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+.se-panel .se-seg { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 2px; border-radius: 9px; background: var(--surface-3); isolation: isolate; }
+.se-panel .se-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); border-radius: 7px; background: var(--border-strong); box-shadow: var(--shadow-1); z-index: -1; transition: transform var(--d-small) var(--ease); }
+.se-panel .se-seg[data-at="1"] .se-thumb { transform: translateX(100%); }   /* (two choices, equal widths: the thumb slides by a transform, never a width) */
+.se-panel .se-seg button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); font: 500 var(--fs-14) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.se-panel .se-seg button { position: relative; } .se-panel .se-seg button::after { content: ''; position: absolute; inset: -8px 0; }   /* (28 px to see, as the mock; 44 px to tap, F33) */
+.se-panel .se-seg button[aria-pressed="true"] { color: var(--text); }
 /* The folded line (F39): the Tests view's editor is on screen, so a vessel card shows the stent's narrowings where its rows were, a button into that view. */
 .stent-editor .se-summary { display: none; width: 100%; align-items: center; gap: 4px; min-height: 44px; padding: 4px 2px; border: 0; border-top: 1px solid var(--hairline); background: none; text-align: left; cursor: pointer; font: 500 var(--fs-12)/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
 .stent-editor .se-sum-t { flex: 1 1 auto; min-width: 0; }

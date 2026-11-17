@@ -400,6 +400,12 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   assert.equal(p.stenosisSite.TIPS, 'proximal');
   assert.ok(Math.abs(p.stentGeom.TIPS.red - 0.4) < 1e-9, 'the waist stays mid stent');
   assert.equal(row('end').querySelector('.se-row-v').textContent, 'Proximal 5.0 mm');
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '0', 'the thumb sits under the pressed choice');
+  panel.querySelector('[data-ctl="site"] .se-seg button:last-of-type').click();
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '1', 'and slides to the other');
+  assert.match(read('styles/app-06-plate.css'), /\.se-panel \.se-seg\[data-at="1"\] \.se-thumb \{ transform: translateX\(100%\); \}/, 'by a transform');
   panel.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(20);
   assert.equal(panel.dataset.open, '', 'Escape gives the rows back');
@@ -411,7 +417,10 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   const plate = read('styles/app-06-plate.css');
   const rules = plate.split('\n').filter((l) => /\.stent-editor|\.se-panel|\.se-zone/.test(l)).join('\n');
   assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 46px;/, 'the mock\'s rows');
-  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -6px 0; \}/, 'a 32 px choice to see, 44 px to tap');
+  // (At 468 px, Tests on an iPad, "Waist 6.3 mm × 1.0 cm" was cut in a third of the row and Abrupt | Tapered in a third of the panel: both wait for 560 px.)
+  assert.match(plate, /@container \(min-width: 560px\) \{\n {2}\.se-zone \.stent-editor \.se-rows \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(plate, /@container \(min-width: 560px\) \{ \.se-panel\[data-row="waist"\] \.se-pb \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -8px 0; \}/, 'a 28 px choice to see, 44 px to tap');
   for (const sel of ['.se-done', '.se-ph-n']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no value is cut short');
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
@@ -657,6 +666,7 @@ test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one
   assert.match(act, /noValue: id === 'TIPS' \|\| id === 'DIPS',/);
   assert.match(card, /else if \(!m\.noValue\) \{ numEl = h\('span', P_NUM\);/, 'and no reading row');
   assert.match(read('styles/app-06-plate.css'), /\.ac-panel:has\(> \.tv\) \{ position: relative; z-index: 4; \}/, 'the panel covers the actions under the rows');
+  assert.match(read('styles/app-06-plate.css'), /\.tv-zone > \.se-panel \{ min-height: calc\(100% \+ 54px\); \}/, 'and fills down to their bottom: no empty band');
 });
 
 test('The figure\'s geometry: 8 cm of stent fill the same span at every length, the veins squeezed either side; rows by width; round axis tops', async () => {

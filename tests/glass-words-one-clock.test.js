@@ -110,7 +110,7 @@ const { createGlassGL } = await import('../src/ui/glass-gl.js');
 const { animRunning, heldOnGlass } = await import('../src/ui/glass-clock.js');
 
 // The glasses on the page now, and for a glass whose words are not inside it, the element they are in.
-const glasses = [], words = new Map();
+const glasses = [], words = new Map(), covers = new Map();
 const tops = [];
 const add = (t) => { tops.push(t); tops.sort((a, b) => a.order - b.order); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; };
 let seq = 1, pend = false;
@@ -118,7 +118,7 @@ const present = () => { for (const t of tops) t.prep?.(); for (const t of tops) 
 const figFrame = F.frameFor('figure');
 const figLoop = () => { seq++; present(); figFrame(figLoop); };
 F.onFrameFinal(() => { if (pend) { pend = false; present(); } });
-const G = createGlassGL(stage, source, [], { cards: { find: () => glasses, watch: [stage], before: { parentNode: stage }, with: (g) => (words.has(g) ? [words.get(g)] : null) }, version: () => seq });
+const G = createGlassGL(stage, source, [], { cards: { find: () => glasses, watch: [stage], before: { parentNode: stage }, with: (g) => (words.has(g) ? [words.get(g)] : null), cover: (g) => covers.get(g) ?? null }, version: () => seq });
 G.setHost({ gl: fig, canvas: source, add, now: () => { if (F.framePhase()) pend = true; else present(); }, active: () => true, order: { low: 1, high: 3 }, low: () => false, over: () => [], view: () => null });
 
 const settle = () => new Promise((r) => setImmediate(r));
@@ -155,10 +155,11 @@ for (let i = 0; i < 10; i++) await frame();
 
 // One card's way in and out: shown faded out, faded in by `fadeIn` (a long frame in the middle), held, then faded out by `fadeOut` (again
 // with a long frame) and taken off the page.
-async function replay(name, { glass, wordsEl, holder, fadeIn, fadeOut }) {
+async function replay(name, { glass, wordsEl, holder, fadeIn, fadeOut, cover = null }) {
   bad.length = 0;
   glasses.push(glass);
-  if (wordsEl) words.set(glass, wordsEl);
+  // (cover: the words lie beside the glass in the element that holds both (a sheet's plate and its body), not named by cards.with.)
+  if (cover) covers.set(glass, cover); else if (wordsEl) words.set(glass, wordsEl);
   let drawn = false;
   watching = [{ g: glass, w: wordsEl || glass, drawnYet: () => drawn }];
   const target = holder || glass;
@@ -180,7 +181,7 @@ async function replay(name, { glass, wordsEl, holder, fadeIn, fadeOut }) {
   await frame(120);
   for (let i = 0; i < 30; i++) await frame();
   assert.ok(!(glassA.get(glass) > 0.001), `${name}: its glass gone with its words`);
-  glasses.splice(glasses.indexOf(glass), 1); words.delete(glass); watching = [];
+  glasses.splice(glasses.indexOf(glass), 1); words.delete(glass); covers.delete(glass); watching = [];
   for (let i = 0; i < 4; i++) await frame();
   assert.deepEqual(bad, [], `${name}: words and glass apart:\n${bad.slice(0, 6).join('\n')}`);
 }
@@ -202,6 +203,17 @@ test('a sheet whose plate is the glass, faded by a CSS transition on the sheet: 
   const sheet = el('sheet', rect(0, 420, 400, 380), stage);
   const plate = el('sheet plate', rect(0, 420, 400, 380), sheet);
   await replay('sheet', { glass: plate, holder: sheet, fadeIn: cssFade('transition', 1, 320), fadeOut: cssFade('transition', 0, 260) });
+});
+
+test('a phone\'s vessel card: its plate (the glass) and its words each run the sheet\'s leave (.ac-leaving > *): one clock', async () => {
+  // (17 Nov 2026, Mohammad's iPhone, closing the Liver card: its words slid out under and past the glass. The plate's own leave was held on the
+  // glass's clock and its siblings', the words', ran on the browser's.)
+  const card = el('phone card', rect(0, 520, 393, 300), stage);
+  const plate = el('phone card plate', rect(0, 520, 393, 300), card);
+  const body = el('phone card words', rect(0, 520, 393, 300), card);
+  card.children.push(plate, body);
+  await replay('phone card', { glass: plate, wordsEl: body, cover: card, fadeIn: cssFade('animation', 1, 220), fadeOut: cssFade('animation', 0, 293) });
+  card.children.length = 0;
 });
 
 test('a card whose words lie beside its glass (the teaching card and its text): both fades on one clock', async () => {
