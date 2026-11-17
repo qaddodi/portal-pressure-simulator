@@ -15,8 +15,8 @@ const presenter = presenterSource();
 const css = appCss();
 const asked = DECKS.flatMap((d) => withOverview(d).slides.map((s, i, all) => ({ d, s, i, all }))).filter(({ s }) => s.question !== undefined);
 
-test('question cards: the sixteen slides that ask first are each adopted, under 100 characters and have no number in them', () => {
-  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['choose-treatment/relation', 'circuit/both', 'encephalopathy/narrow', 'endoscopy/flat', 'hyperdynamic/loss', 'next-bleed/slough', 'prehepatic/gradients', 'sites/ladders', 'tips-candidacy/rescue', 'tips-complete/jet', 'treatment/carv', 'two-inflows/tips', 'variceal-bleed/band', 'variceal-bleed/minutes', 'where-resistance/ladders', 'where-resistance/relation']);
+test('question cards: the seventeen slides that ask first are each adopted, under 100 characters and have no number in them', () => {
+  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['choose-treatment/relation', 'circuit/both', 'encephalopathy/narrow', 'endoscopy/flat', 'hyperdynamic/loss', 'next-bleed/slough', 'prehepatic/gradients', 'sites/ladders', 'tips-candidacy/rescue', 'tips-complete/jet', 'tips-complete/waist', 'treatment/carv', 'two-inflows/tips', 'variceal-bleed/band', 'variceal-bleed/minutes', 'where-resistance/ladders', 'where-resistance/relation']);
   for (const { d, s } of asked) {
     const at = `${d.id}/${s.id}`;
     assert.ok(adopted(d, s, 'question'), `${at}: a question card is opt-in (tests/deck-adopted.js)`);

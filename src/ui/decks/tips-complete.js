@@ -6,8 +6,7 @@
 // budd-chiari, gastric-varices); the older talks stay as they are. Plan and slide-by-slide outline:
 // /mnt/project-files/tips-geometry/tips-deck-outline.md.
 //
-// Not here yet (waiting on the stent card and the stent geometry): the section on the stent as a tube (flow, the drop across it, the narrowest
-// lumen, waist length, tapered ends, the bench tube against the patient), and the long-waist button on the reduction slide.
+// Not here yet: the bench tube against the patient (waits for the curve's bench option) and the long-waist button on the reduction slide.
 //
 // Sources, checked 16 Nov 2026 against guidelines/: Baveno VIII (J Hepatol 2026) 4.13, 4.15, 4.19, 5.31 to 5.37, 5.41, 6.3 to 6.9, 6.14 to 6.17,
 // 7.8, 8.34, 9.26, 9.27 and Table 3; AASLD 2024 portal hypertension, guidance statements 32, 35, 38, 39 and the text on TIPS against BRTO;
@@ -23,6 +22,7 @@ const STENT = { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' };
 const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' };
 // The TIPS Doppler talk's patient: a 10 mm stent, a hyperdynamic splanchnic bed (so the stent reads 90 to 190 cm/s at each point).
 const DOPPLER = { cirrhosis: 0.92, tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
+const TUBE = { kind: 'stent', vessel: 'TIPS', show: ['lumen', 'loss'], to: 'ppg' };
 const fibrotic = (cirrhosis) => ({ preset: 'cirr-decomp', params: { ...REFRACTORY, cirrhosis, ...TIPS8 }, days: 60 });
 
 export const TIPS_COMPLETE = {
@@ -40,7 +40,7 @@ export const TIPS_COMPLETE = {
     ['Ascites returns six months after a TIPS and the Doppler is unremarkable. What is the next step?', 'TIPS venography with the gradient across the stent. Doppler can miss a stenosis (AASLD 2021).'],
   ],
   summary: 'TIPS from the indication to the follow-up: preemptive, rescue, salvage and elective stents, who should be prepared or turned away, the placement and the PPG across the stent, the width, encephalopathy and its reduction, the follow-up Doppler, a stent that narrows, the DIPS and TIPS against BRTO. Ends on a table of what each state does to the PPG and the liver.',
-  sections: [['Choosing the patient', ['Choosing the patient']], ['Before the stent', ['Before the stent']], ['Placing the stent', ['Placing the stent']], ['After the stent', ['After the stent']], ['Other shunts', ['Other shunts']]],
+  sections: [['Choosing the patient', ['Choosing the patient']], ['Before the stent', ['Before the stent']], ['Placing the stent', ['Placing the stent', 'The stent as a tube']], ['After the stent', ['After the stent']], ['Other shunts', ['Other shunts']]],
   slides: [
     {
       id: 'path', lens: 'flow', preset: 'cirr-decomp', params: TIPS8, days: 30, cam: 'fit', sites: ['split'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'shunt'], key: ['ppg'],
@@ -174,6 +174,23 @@ export const TIPS_COMPLETE = {
       line: 'From {ppg}, a drug lowers the PPG slightly and preserves sinusoidal flow. Each shunt lowers the PPG further and diverts more of that flow.',
       notes: 'Each dot is this patient after one treatment, calculated by the model from the current state; the ring is his current position. The drugs move him a little, down and slightly to the left. A TIPS, a mesocaval shunt and a portocaval shunt lower the PPG well below the 12 mmHg line and sinusoidal flow to <55% of normal, with almost all portal flow bypassing the liver. A larger stent lies further down and to the left than a smaller one. Dot size reflects the share of portal flow that bypasses the liver. These are the model\'s numbers for one patient, not trial results. The surgical shunts are in the TIPS and shunts talk.',
       ask: ['Which treatment on the chart lowers the PPG the most, and what does it cost?', 'The portocaval shunt lowers the PPG to about 3 mmHg, and all portal flow bypasses the liver.'],
+    },
+    {
+      id: 'tube', lens: 'velocity', preset: 'cirr-decomp', params: DOPPLER, days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
+      kicker: 'The stent as a tube', site: 'sin', title: 'Flow through the stent follows the pressure across it',
+      line: 'Here {tipsFlow} crosses the stent with {tipsDp} across it. The card shows where that pressure goes and the peak velocity Doppler would read.',
+      notes: 'The stent is a tube, and a tube moves flow in proportion to the pressure across it: part of that pressure is lost along the stent and the tract (friction), part where the blood enters and leaves it and where it jets through a narrowing (local losses). The side view draws the stent to scale in centimeters, with the narrowest lumen in millimeters and the peak velocity at each of the three Doppler points, the same numbers the Doppler card prints. The bar below it shows the pressure across the stent split into its parts, and, with the PPG, the part that falls outside the stent. The drop across the stent is smaller than the PPG because the portal vein pressure is read against the IVC, not against the stent\'s own end. The heart, hepatic vein and IVC respond to the stent; the model holds no pressure fixed. These are the model\'s numbers for one patient, not measurements.',
+      ask: ['What does the flow through a stent depend on?', 'The pressure across it and its resistance: friction along its length and the local losses at its ends and at any narrowing.'],
+    },
+    {
+      id: 'waist', question: 'The narrowest point stays the same. Does the length of the narrowed segment matter?', lens: 'velocity', params: { stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: { waist: 1, trans: 0 } } }, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
+      compare: [{ label: 'Short, 1 cm', short: '1 cm', own: true, params: { stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: { waist: 1, trans: 0 } } } },
+        { label: 'Long, 4 cm', short: '4 cm', params: { stentGeom: { TIPS: { waist: 4 } } }, title: 'A long narrowed segment resists more than a short one', line: 'With a 4 cm waist {tipsFlow} crosses the stent with {tipsDp} across it: more friction along the waist than a short one has.' },
+        { label: 'Short, tapered', short: 'Taper', params: { stentGeom: { TIPS: { trans: 1 } } }, title: 'Tapered ends lose less where the jet leaves the waist', line: 'With tapered ends the same 1 cm waist drops {tipsDp} across the stent, and {tipsFlow} crosses it: the jet loses less where it leaves the waist.' }],
+      kicker: 'The stent as a tube', site: 'sin', title: 'In the model, a longer narrowed segment raises the pressure across the stent at the same narrowest lumen',
+      line: 'With a short waist {tipsFlow} crosses the stent with {tipsDp} across it. A longer waist adds friction to the jet\'s loss, and the drop across the stent rises.',
+      notes: 'A 10 mm stent narrowed to 6 mm. The minimum diameter sets the jet, and the length of the narrowed segment adds friction along it; where the stent narrows or widens, an abrupt step loses more than a taper. The minimum diameter matters, but the length of the narrowed segment also changes the resistance, and the resulting flow depends on the rest of the portal circulation: the portal pressure rises and pushes harder, so in the patient the flow falls by less than it would in the tube alone. This is the model\'s mechanism, not a prediction: its coefficients are provisional, and no clinical data gives a pressure change for a given length. The buttons move the same patient between a short waist, a long one and tapered ends; the drawn stent does not stretch.',
+      ask: ['At the same narrowest diameter, what does a longer narrowed segment do?', 'It adds friction along the narrowing, so the pressure across the stent rises, and the portal pressure with it.'],
     },
     {
       id: 'he', lens: 'flow', preset: 'cirr-decomp', params: { ...REFRACTORY, tips: { on: true, d: 10 } }, days: 60, cam: 'liver', mark: STENT, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'],
