@@ -1,6 +1,6 @@
 // The labels' GPU host in the figure's present, and their pin to the figure.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { LABEL_VESSEL } from './anatomy.js';
+import { LABEL_VESSEL, NODE_POS } from './anatomy.js';
 import { gpuProbe } from './gpu-probe.js';
 import { createLabelGL } from './label-gl.js';
 import { cams } from './scene-cam.js'; import { labelCourse } from './label-course.js';
@@ -36,6 +36,9 @@ export function createLabelHost(st, live) {
     const t = easeInOut(live.morph), a = labelAnchor(id, t);
     if (a.mid && (au == null || au === 0.5) && Math.hypot(a.ax - ax, a.ay - ay) < 1) return 1;
     if (au != null && au !== 0.5 && pinVesselAt(id, au) && Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1) return 1;
+    // (A label that names no station (n:TIPS, the stent's cm/s callout at the third the Doppler samples) has no node to be pinned to: it is not pinned.
+    // Asked for one, nodePos threw in the middle of the layout, and the slide's labels were left half laid out: 17 Nov 2026, a TIPS slide's Doppler on one third.)
+    if (!NODE_POS[id]) return 0;
     const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]);
     return Math.hypot(PIN_P[0] - ax, PIN_P[1] - ay) < 1 ? 2 : 0;
   }
@@ -49,7 +52,7 @@ export function createLabelHost(st, live) {
     const t = easeInOut(live.morph);
     let a;
     try { a = labelAnchor(id, t); } catch { return false; }
-    if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
+    if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { if (!NODE_POS[id]) return false; const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
     // (The dive's zoom and a card's zoom: the point is carried by the scene's cameras; the label's offset from it is not.)
     camOut(out, DIVEC, live.zoomM);
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);

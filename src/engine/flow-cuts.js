@@ -13,3 +13,8 @@ export const FLOW_CUTS = Object.freeze({
   stillQ: 0.05,     // mL/s: a vessel that normally carries more than stillRef has "almost stopped" under it
   stillRef: 0.3,
 });
+
+/** Whether a stent (or any vessel) has almost stopped: its flow q (mL/s) is under stillQ. One rule for the vessel card's "Stasis", the stent's tiles, the side view's three
+ *  gate numbers, the Doppler's gates and the Compare row: a tiny flow through a narrow waist makes a jet velocity of a few tens of cm/s on paper, but a stopped stent reads 0
+ *  cm/s everywhere, never a number on one screen and "Stasis" on the next. */
+export const stentStill = (q) => Math.abs(q) < FLOW_CUTS.stillQ;

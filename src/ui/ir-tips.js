@@ -24,7 +24,8 @@ import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
 import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { stentBand } from '../engine/stent-geom.js';
-import { createStent } from './tool-stent.js';
+import { createStent, SIDE, BAR, VW } from './tool-stent.js';
+import { traceH } from './stent-trace-pic.js';
 import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
@@ -54,8 +55,8 @@ const TILES = [
   { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
     v: (m, st) => st?.vPeak ?? null,
     // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
-    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
-    sev: (v, st) => { const r = peakBand(st); return r === STENT_RANGE && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
@@ -81,17 +82,19 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
   });
   const figs = h('div', { class: 'ir-figs' });
+  const editorSlot = h('div', { class: 'ir-editor' });   // (the stent editor mounts here, above the sub-switch: stent-editor.js; empty it takes no room)
   let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
-  const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the drop between the stent\'s two ends; the PPG runs on from the portal vein to the IVC. After a TIPS, a PPG under 12 mmHg is the target.');
   const cmp = createIrCompare(), crv = createIrCurves();
-  const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true' }, 'Inside the stent');
+  const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true', title: 'Inside the stent: the readings, the stent in side view and where its pressure goes' }, 'Inside');
+  const btnA = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'along', 'aria-pressed': 'false', title: 'Along the stent: pressure, energy lost and velocity from one end to the other (a schematic)' }, 'Along');
   const btnV = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'curves', 'aria-pressed': 'false' }, 'Tube vs patient');
   const btnC = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'compare', 'aria-pressed': 'false' }, 'Compare');
-  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnV, btnC);
-  btnI.addEventListener('click', () => setSub('inside')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
-  const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);
-  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, crv.el, cmp.el);
+  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnA, btnV, btnC);
+  btnI.addEventListener('click', () => setSub('inside')); btnA.addEventListener('click', () => setSub('along')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
+  const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside and Along share one element: the readings go, the figures change)
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
+  const stentsRow = h('div', { class: 'ir-stents' }, chips, line, edit);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -109,8 +112,9 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (v === sub) return;
     sub = v;
     el.dataset.sub = v;
-    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnV, 'aria-pressed', v === 'curves' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
+    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnA, 'aria-pressed', v === 'along' ? 'true' : 'false'); attrSoon(btnV, 'aria-pressed', v === 'curves' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
     if (v !== 'curves') crv.stop();
+    if (v === 'inside' || v === 'along') showStent();
     subEl(v).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
     onChange();
     if (frame) update(frame);
@@ -118,8 +122,21 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   // The stent cards: the lumen to scale and the bar of where the pressure goes (to the PPG, the part outside the stent hatched). Which stent follows the chip.
   let cfgId = '';
   function showStent() {
-    if (!stent) { stent = createStent(); figs.append(stent.el); cfgId = ''; }   // alloc-rare: once, when the view first opens
-    if (cfgId !== which) { cfgId = which; stent.configure({ kind: 'stent', vessel: which, show: ['lumen', 'loss'], to: 'ppg' }); }   // alloc-rare: when the chip changes
+    if (!stent) {
+      stent = createStent(); figs.append(stent.el); cfgId = '';
+      // (The card's Velocity | Pressure switch lives in the view's own header row, beside the stent's chip, not between the pictures: there it took height the figures' band did not
+      // count (the loss bar was cut at the bottom on an iPhone) and floated loose under the drawing. It is the same element, its handlers and its fade; this view gives it the switches' look.)
+      const csw = stent.el.querySelector(':scope > .sc-color');
+      if (csw) { csw.classList.add('pressure-switch', 'ir-color'); stentsRow.append(csw); }
+    }   // alloc-rare: once, when the view first opens
+    // (Inside: the side view and where the pressure goes. Along: the side view and the three traces, along the same x. --fig-r: the pictures' width over their height together,
+    // so the figures take the height the card has left.)
+    const along = sub === 'along', sig = which + (along ? '/along' : '/inside');
+    if (cfgId !== sig) {
+      cfgId = sig;
+      figs.style.setProperty('--fig-r', (VW / (SIDE.h + (along ? traceH(3) : BAR.h))).toFixed(4));
+      stent.configure({ kind: 'stent', vessel: which, show: along ? ['lumen', 'trace'] : ['lumen', 'loss'], to: 'ppg' });   // alloc-rare: when the chip or the view changes
+    }
   }
   host.dataset.view = 'measure';
 

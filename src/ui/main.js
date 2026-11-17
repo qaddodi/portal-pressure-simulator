@@ -1240,6 +1240,8 @@ let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned.
 let cmpWatched = false;
+let cmpOccN = -1, cmpOccS = '0px';
+const CMP_OCC = (n) => { if (n !== cmpOccN) { cmpOccN = n; cmpOccS = `calc(${n}px + (min(1px, max(0px, 100vw - 1023px)) * 30))`; } return cmpOccS; };   // alloc-rare: made when the header's height changes
 let cmpHNum = 0, cmpHStr = '0px';   // (the header's height as written, and as text: made again only when the height changes)
 function syncCmpH() {
   const c = $('#stageCenter');
@@ -1252,6 +1254,10 @@ function syncCmpH() {
     v = cmpHStr;
   }
   if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
+  // (The room the cards on the right leave above them while a moment is pinned: the switch, and on a wide screen the "Showing" pill's row under it
+  // (styles .cmp-badge, 24 px and its gap), kept whether or not the pill shows, so Then and Now never move a card.)
+  const occ = v === '0px' ? '0px' : CMP_OCC(cmpHNum);
+  if (app.style.getPropertyValue('--cmp-occ') !== occ) app.style.setProperty('--cmp-occ', occ);
 }
 // (Scrolled between frames, rest-pass.js: scrollIntoView lays the page out.)
 const SCROLL_CMP = { block: 'start', behavior: 'auto' };   // (options read by scrollInto at once: the behaviour is written before each use)
@@ -1771,10 +1777,14 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests frames the figure into the space left, as every other card does (U3, 13 Nov 2026: it used to keep the camera where it
-    // was, under the card too, which hid the spleen and the kidney on a Mac). Closing it fits again only a view that was fitted; one the
-    // learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
-    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
+    // Opening Tests leaves the camera alone, on every device (Mohammad, 17 Nov 2026: "opening the test card should not zoom to fit", on a Mac, then
+    // "even on phone": the figure keeps the same general view and the card lies over it). It reverses U3 (13 Nov), which fitted the figure into the
+    // space the card left. The framing no longer counts the Tests card (stage-fit.js fIns), so nothing the open starts (this, the card's
+    // announced place pps:occ, the resize that follows) moves the view; and no refit is asked here, which would also have fitted a view the learner
+    // zoomed or panned. Closing it fits again only a view that was fitted (it was fitted at the open too, now, so closing is a no-op glide);
+    // one the learner zoomed or panned stays where it is, and a refit still pending is dropped (Mohammad, 17 Oct). Fit, pressed on purpose,
+    // still frames the figure into the room the card leaves.
+    if (!instr) { if (stage?.closeView()) refitStage(); else clearTimeout(refitT); }
     const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
     setTimeout(fireResize, 320);
   }

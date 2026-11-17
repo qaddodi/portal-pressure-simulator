@@ -81,7 +81,7 @@ export function createView(st, live) {
   function atTargetStageDry(d, fn, tgt, kept) {
     const keepTgt = live.morphTarget, keepVT = live.vt, keepMorph = live.morph, keepLast = live.lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
     const curS = [], visS = [], wS = [];
-    live.glSuppress = true;
+    live.glSuppress = true; live.stageDry = true;   // (stageDry: the vessels stand at the end's widths and courses, not the live figure's: stage-labels.js stentReady)
     try {
       live.morph = tgt; live.lastMorph = tgt; live.morphTarget = tgt;
       const rr = rotEase(live.rotU), vbT = (i) => +lerp(VB_ANAT[i], lerp(VB_CIRC[i], VB_CIRC_R[i], rr), tgt).toFixed(1);
@@ -113,6 +113,7 @@ export function createView(st, live) {
       for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; EV[i].width = wS[i]; }
       live.morph = keepMorph; live.lastMorph = keepLast; live.morphTarget = keepTgt; live.vt = keepVT;
       vbBox.x = vb0; vbBox.y = vb1; vbBox.width = vb2; vbBox.height = vb3;
+      live.stageDry = false;
       live.CTM = null; refreshCTM();
       live.glSuppress = false;
     }
