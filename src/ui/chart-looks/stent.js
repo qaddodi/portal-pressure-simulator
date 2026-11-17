@@ -75,7 +75,6 @@ export const STENT = {
   'tf.line': { base: { fill: 'none', stroke: tok('text'), width: 1.8, cap: 'round', join: 'round' } },
   'tf.area': { base: { fill: mix('srgb', tok('text'), 5, 'transparent'), stroke: 'none' } },
   'tf.dot': { base: { fill: tok('text'), stroke: tok('surface'), width: 1.5 } },
-  'tf.energy': { base: { fill: 'none', stroke: tok('text-3'), width: 1.2, dash: [3, 4], cap: 'butt', join: 'round' } },
   'tf.brk.stent': { base: { fill: 'none', stroke: tok('accent'), width: 1.4, cap: 'butt', join: 'miter' } },
   'tf.brk.ppg': { base: { fill: 'none', stroke: tok('text'), width: 1.4, cap: 'butt', join: 'miter' } },
   'tf.lab.stent': { base: { fill: tok('accent-ink'), weight: 600, halo, baseline: 'central' } },

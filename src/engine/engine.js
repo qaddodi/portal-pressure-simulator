@@ -1,7 +1,7 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, JUNCTION_CHAINS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, stentReadsOf } from './topology.js';
+import { NODES, EDGES, JUNCTIONS, JUNCTION_CHAINS, JUNCTION_HOST_ENDS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, stentReadsOf } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
@@ -202,6 +202,17 @@ export class Engine {
     // The veins split where a shunt joins them part-way (topology.js JUNCTIONS): the pieces' edges and the junction nodes between them, filled after each step.
     this.jx = JUNCTION_CHAINS.map((c) => ({ ks: c.ids.map((id) => this.ei[id]), lead: c.lead, end: c.end, nodes: c.nodes.map((id) => this.ni[id]), at: c.at, taps: c.taps.map((l) => l.map(([id, sg]) => [this.ei[id], sg])) }));
     this.diodes = EDGES.map((e, k) => (e.kind === 'diode' ? k : -1)).filter((k) => k >= 0);
+    // A shunt the engine joins past the end of a vein it is drawn into (eto / efrom: the TIPS, drawn into the right hepatic vein, joined to the cava) still
+    // drains through that stretch of the vein: [the vein's solved edge, the stretch's share of its length], per shunt edge. A clot or a stenosis of the vein
+    // then narrows the shunt's outlet too (shuntOutlet), so a TIPS cannot drain a hepatic vein that is occluded (Budd–Chiari: 17 Nov 2026, the TIPS had
+    // drained to the cava past three occluded hepatic veins and lowered the portal pressure more than the DIPS did).
+    this.through = EDGES.map((e) => {
+      const j = (e.eto || e.efrom) && JUNCTIONS.find((x) => x[0] === e.junction);
+      if (!j) return null;
+      const [a, b] = JUNCTION_HOST_ENDS[j[1]], end = e.eto ?? e.efrom, chain = JUNCTION_CHAINS.find((c) => c.host === j[1]);
+      const share = end === b ? 1 - j[2] : end === a ? j[2] : 0;
+      return share > 0 && chain ? [this.ei[chain.ids[chain.lead]], share] : null;
+    });
 
     this.params = params ? structuredClone(params) : defaultParams();
     this.reset(seed ?? this.params.seed);
@@ -625,6 +636,7 @@ export class Engine {
           else if (e.shunt === 'rex' && p.rex) g = 1 / (0.128 * visc);
           else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = stentConductance('custom', p.customShunts[e.id], this.Q[k], visc, occ, p, e.id);
           if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
+          if (g > 0 && this.through[k]) g = this.shuntOutlet(g, this.through[k], visc);
           this.G[k] = g;
           continue;
         }
@@ -644,6 +656,15 @@ export class Engine {
       if (!p.dsrs && e.id === 'V_STO_SG') { this.G[k] = 0; continue; }
       this.G[k] = 1 / R;
     }
+  }
+
+  /** A shunt's conductance with the stretch of vein it drains through (this.through) in series: unchanged while the vein is open (the open stretch is
+   *  in the shunt's own tract term, stent-geom.js), the stretch's extra resistance from a clot or a stenosis added, none when the vein is occluded. */
+  shuntOutlet(g, [kv, share], visc) {
+    const o = this.occlusion(EDGES[kv].id);
+    if (o <= 0) return g;
+    const sf = stenosisFactor(o);
+    return sf === Infinity ? 0 : 1 / (1 / g + share * this.Rbase[kv] * visc * (sf - 1));
   }
 
   occlusion(id) {

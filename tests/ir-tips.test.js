@@ -452,7 +452,7 @@ test('The one lens switch (Velocity | Pressure) is in the title row; it colours 
   ir.setLens('velocity');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:not\(\[data-sub="inside"\]\) \.ir-lens \{ opacity: 0; pointer-events: none; \}/);
   const fig = read('src/ui/tips-figure.js');
-  assert.match(fig, /'Peak velocity, cm\/s'/); assert.match(fig, /'Pressure, mmHg · dashed: total energy'/);
+  assert.match(fig, /'Peak velocity, cm\/s'/); assert.match(fig, /setWords\(titleP, 'Pressure, mmHg'\);/); assert.doesNotMatch(fig, /total energy|tf\.energy|o\.head/, 'no dashed energy line (Mohammad, 17 Nov: "Remove dashed line")');
 });
 
 // ---- The curves' life (external review, 17 Nov 2026): idle, waiting, loading, drawn; leaving cancels and forgets; the ring follows the live stent ----
@@ -866,4 +866,45 @@ test('A closing row lands exactly on the row, word on word, and its raised surfa
     }
     ed.destroy();
   } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
+});
+
+test('The IR stent: its two ends carry their numbers (pressure and velocity), the PPG bracket stands at the chart\'s left edge, and there is no dashed energy line (17 Nov, Mohammad)', async () => {
+  const { createTipsFigure, GUTTER } = await import('../src/ui/tips-figure.js');
+  const { wordsOf, geoOf } = await import('../src/ui/svg-gl.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const RO = globalThis.ResizeObserver, OW = Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'offsetWidth');
+  const seen = [];
+  globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; } observe(el) { seen.push([el, this.cb]); } disconnect() {} };
+  Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 340; } });
+  try {
+    const fig = createTipsFigure({ id: 'TIPS', labels: true, chart: true });
+    document.body.append(fig.el);
+    for (const [e, cb] of seen) if (e.classList?.contains('tf-stage')) cb([]);   // (the stage's width is known: the figure lays out)
+    fig.update(frameOf());
+    const L = fig.layout(), at = (look) => [...fig.el.querySelectorAll(`[data-look="${look}"]`)];
+    assert.equal(L.W, 340, 'laid out at the card\'s width');
+    // five numbers under the stent in each lens: the inflow, the three gates, the outflow, left to right, the ends on the stent's ends
+    const nums = at('tf.num'), xs = nums.map((e) => +geoOf(e, 'x'));
+    assert.equal(nums.length, 10, 'five places, two lenses');
+    for (const x of [L.x0, L.x1]) assert.equal(xs.filter((v) => Math.abs(v - x) < 0.01).length, 2, `a number in each lens at the stent's end x=${x.toFixed(1)}`);
+    assert.ok(nums.every((e) => /^\d+(\.\d)?$/.test(wordsOf(e))), 'each a number');
+    assert.equal(at('stent.gate.tick').length, 5, 'a tick to each');
+    assert.equal(fig.el.querySelectorAll('text').length, [...fig.el.querySelectorAll('text')].filter((t) => !['mmHg', 'cm/s'].includes(wordsOf(t))).length, 'no unit word on the outflow\'s place (the chart\'s title names it)');
+    // the PPG bracket: at the left edge, opening right, its words beside it
+    const br = at('tf.brk.ppg')[0]._pts, x = br.buf[2];
+    assert.equal(x, GUTTER + 3, 'the bracket stands just inside the axis numbers');
+    assert.ok(br.buf[0] > x && br.buf[6] > x, 'its ends point into the chart');
+    const pT = at('tf.lab.ppg')[0];
+    assert.equal(geoOf(pT, 'text-anchor'), 'start'); assert.equal(+geoOf(pT, 'x'), GUTTER + 11);
+    assert.match(wordsOf(pT), /^PPG \d/);
+    assert.ok(+geoOf(pT, 'x') < L.x0 + 10, 'on the left, over the portal vein');
+    // no dashed line, and the title says only what the chart is
+    assert.equal(at('tf.energy').length, 0);
+    assert.ok([...fig.el.querySelectorAll('text')].some((t) => wordsOf(t) === 'Pressure, mmHg'));
+    fig.dispose(); fig.el.remove();
+  } finally {
+    globalThis.ResizeObserver = RO;
+    if (OW) Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', OW); else delete window.HTMLElement.prototype.offsetWidth;
+  }
 });

@@ -3,9 +3,10 @@
 //   the stent   the lumen to scale both ways (a fixed px per cm for the card's width, the radius the same scale), the veins either side, the device as the figure
 //               draws it (stent-mesh.js), the waist's bracket and the end stenosis's lumen above it, the three Doppler gates' numbers under it. The lens colours
 //               the lumen: the scanner's velocity (the figure's ramp against the stent's usual range) or the pressure (the figure's pressure ramp, absolute).
-//   the chart   Velocity: the scanner's velocity along the path, the usual range as a band over the stent, a dot at each gate. Pressure: the static pressure
-//               (solid) and the total energy (dashed) along it, and two brackets that are never the same thing: the PPG (portal vein to IVC, at the right
-//               edge) and the drop across the stent (at its hepatic end).
+//               The stent's two ends carry their numbers too, under them as the gates' (Mohammad, 17 Nov: "call out the numbers on the beginning and end").
+//   the chart   Velocity: the scanner's velocity along the path, the usual range as a band over the stent, a dot at each gate. Pressure: the pressure along
+//               it (no dashed energy line: Mohammad, 17 Nov, "Remove dashed line"), and two brackets that are never the same thing: the PPG (portal vein to
+//               IVC, at the chart's left edge, where it shows best: Mohammad, 17 Nov) and the drop across the stent (at its hepatic end).
 // The vessel card's own picture is the stent alone (no words), the same piece.
 // Units are the card's px (the picture's viewBox is its box), so the words are the label size at every width. Drawn on the GPU (svg-gl.js): each frame of a glide
 // a number written on a fixed piece, nothing made or taken away. The numbers are the engine's (the live frame's metrics, tool-stent.js readStent): the
@@ -114,26 +115,27 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   const tBuf = [0, 1, 2].map(() => new Float64Array(4)), ticks = tBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
   const numsV = [0, 1, 2].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
   const numsP = [0, 1, 2].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
-  const unitV = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'end', 'font-size': 11 }), unitP = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'end', 'font-size': 11 });
-  setWords(unitV, 'cm/s'); setWords(unitP, 'mmHg');
-  const heroWords = [wBr, wT, eBr, eT, pvT, hvT, ...ticks, ...numsV, ...numsP, unitV, unitP];
+  // the stent's inflow and outflow: a tick and a number at each end, in the lens's unit, where the unit word stood (the chart's title under it names the unit)
+  const xBuf = [0, 1].map(() => new Float64Array(4)), xTicks = xBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
+  const endV = [0, 1].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
+  const endP = [0, 1].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
+  const heroWords = [wBr, wT, eBr, eT, pvT, hvT, ...ticks, ...numsV, ...numsP, ...xTicks, ...endV, ...endP];
   // ── the chart ──
   const gridBuf = [0, 1, 2, 3].map(() => new Float64Array(4)), grid = gridBuf.map((_, i) => sv('path', { 'data-look': i ? 'stent.tr.axis' : 'stent.tr.zero' }));
   const tickV = [0, 1, 2].map(() => sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 }));
   const tickP = [0, 1, 2].map(() => sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 }));
   const titleV = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 }), titleP = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 });
-  setWords(titleV, 'Peak velocity, cm/s'); setWords(titleP, 'Pressure, mmHg · dashed: total energy');
+  setWords(titleV, 'Peak velocity, cm/s'); setWords(titleP, 'Pressure, mmHg');
   const band = sv('rect', { 'data-look': 'tf.band', x: 0, y: 0, width: 1, height: 1 }), bandT = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'end', 'font-size': 11 });
   const NT = TRACE_N + 1;
   const vLineBuf = new Float64Array(2 * NT), vAreaBuf = new Float64Array(2 * (NT + 2));
   const vArea = sv('path', { 'data-look': 'tf.area' }), vLine = sv('path', { 'data-look': 'tf.line' });
   const vDots = [0, 1, 2].map(() => sv('circle', { 'data-look': 'tf.dot', r: 3.2, cx: 0, cy: 0 }));
-  const pLineBuf = new Float64Array(2 * NT), eLineBuf = new Float64Array(2 * NT);
-  const eLine = sv('path', { 'data-look': 'tf.energy' }), pLine = sv('path', { 'data-look': 'tf.line' });
+  const pLineBuf = new Float64Array(2 * NT), pLine = sv('path', { 'data-look': 'tf.line' });
   const gdBuf = new Float64Array(10), guide = sv('path', { 'data-look': 'stent.drop.guide' });
   const sbBuf = new Float64Array(8), sBr = sv('path', { 'data-look': 'tf.brk.stent' }), sT = sv('text', { 'data-look': 'tf.lab.stent', 'text-anchor': 'end', 'font-size': 12 });
-  const pbBuf = new Float64Array(8), pBr = sv('path', { 'data-look': 'tf.brk.ppg' }), pT = sv('text', { 'data-look': 'tf.lab.ppg', 'text-anchor': 'end', 'font-size': 12 });
-  const velKids = [band, bandT, vArea, vLine, ...vDots, titleV, ...tickV], preKids = [eLine, pLine, guide, sBr, sT, pBr, pT, titleP, ...tickP];
+  const pbBuf = new Float64Array(8), pBr = sv('path', { 'data-look': 'tf.brk.ppg' }), pT = sv('text', { 'data-look': 'tf.lab.ppg', 'text-anchor': 'start', 'font-size': 12 });
+  const velKids = [band, bandT, vArea, vLine, ...vDots, titleV, ...tickV], preKids = [pLine, guide, sBr, sT, pBr, pT, titleP, ...tickP];
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 320 100', role: 'img' },
     sv('defs', {}, grad, gradP), pvR, hvR, pvQ, hvQ, lumV, lumP, grf, ...wires, ...(labels ? heroWords : []), ...(chart ? [...grid, ...velKids, ...preKids] : []));
   const stage = h('div', { class: 'gl-stage tf-stage' }, pic);
@@ -255,8 +257,15 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
       setGeo(numsP[q], 'x', xg); setGeo(numsP[q], 'y', L.gateY); setWords(numsP[q], ten(ivc + o.P[gateIndex(u, len)]));
       setGeo(ticks[q], 'opacity', ex); setGeo(numsV[q], 'opacity', ex * (1 - cm)); setGeo(numsP[q], 'opacity', ex * cm);
     }
-    setGeo(unitV, 'x', L.W); setGeo(unitV, 'y', L.gateY); setGeo(unitP, 'x', L.W); setGeo(unitP, 'y', L.gateY);
-    setGeo(unitV, 'opacity', ex * (1 - cm)); setGeo(unitP, 'opacity', ex * cm);
+    // the stent's two ends: the trace's own numbers where blood enters and leaves it (the pressure's two are the "Across stent" bracket's top and foot)
+    const kd = scanK(id);
+    for (let q = 0; q < 2; q++) {
+      const xe = q ? L.x1 : x0, j = gateIndex(q, len), yl = cy + (d * k * profileAt(sh, T.s, T.site, q)) / 2 + 2, xb = xBuf[q];
+      xb[0] = xe; xb[1] = yl; xb[2] = xe; xb[3] = L.gateY - 8; setPts(xTicks[q], xb, 2, false);
+      setGeo(endV[q], 'x', xe); setGeo(endV[q], 'y', L.gateY); setWords(endV[q], int(o.v[j] * kd));
+      setGeo(endP[q], 'x', xe); setGeo(endP[q], 'y', L.gateY); setWords(endP[q], ten(ivc + o.P[j]));
+      setGeo(xTicks[q], 'opacity', ex); setGeo(endV[q], 'opacity', ex * (1 - cm)); setGeo(endP[q], 'opacity', ex * cm);
+    }
   }
 
   function paintChart(v, o, sh, ex, cm, ivc) {
@@ -281,16 +290,19 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     for (let q = 0; q < 3; q++) { const j = gateIndex(GATES[q], len); setGeo(vDots[q], 'cx', X(o.x[j])); setGeo(vDots[q], 'cy', yV(o.v[j] * kd)); }
     const av = ex * (1 - cm), ap = ex * cm;
     for (const e of velKids) setGeo(e, 'opacity', av);
-    // pressure: static (solid) and total energy (dashed), absolute; the PPG and the stent's own drop, two brackets
-    for (let i = 0; i <= TRACE_N; i++) { const x = X(o.x[i]); pLineBuf[2 * i] = x; pLineBuf[2 * i + 1] = yP(ivc + o.P[i]); eLineBuf[2 * i] = x; eLineBuf[2 * i + 1] = yP(ivc + o.P[i] + o.head[i]); }
-    setPts(pLine, pLineBuf, NT, false); setPts(eLine, eLineBuf, NT, false);
-    const i0 = gateIndex(0, len), i1 = gateIndex(1, len), pIn = ivc + o.P[i0], pOut = ivc + o.P[i1], pv = ivc + T.ppg, xs = L.x1 - 2, xg = L.W - 2;
-    gdBuf[0] = L.x0; gdBuf[1] = yP(pIn); gdBuf[2] = xs; gdBuf[3] = yP(pIn); gdBuf[4] = NaN; gdBuf[5] = 0; gdBuf[6] = L.x0; gdBuf[7] = yP(pv); gdBuf[8] = xg; gdBuf[9] = yP(pv);
+    // pressure: absolute along the path; the PPG and the stent's own drop, two brackets
+    for (let i = 0; i <= TRACE_N; i++) { pLineBuf[2 * i] = X(o.x[i]); pLineBuf[2 * i + 1] = yP(ivc + o.P[i]); }
+    setPts(pLine, pLineBuf, NT, false);
+    // (the PPG at the left edge: its top is where the line starts, the portal vein; a dashed guide carries the IVC's level across to its foot)
+    const i0 = gateIndex(0, len), i1 = gateIndex(1, len), pIn = ivc + o.P[i0], pOut = ivc + o.P[i1], pv = ivc + T.ppg, xs = L.x1 - 2, xg = G + 3;
+    gdBuf[0] = L.x0; gdBuf[1] = yP(pIn); gdBuf[2] = xs; gdBuf[3] = yP(pIn); gdBuf[4] = NaN; gdBuf[5] = 0; gdBuf[6] = xg; gdBuf[7] = yP(ivc); gdBuf[8] = L.x1; gdBuf[9] = yP(ivc);
     setPts(guide, gdBuf, 5, false);
     sbBuf[0] = xs - 4; sbBuf[1] = yP(pIn); sbBuf[2] = xs; sbBuf[3] = yP(pIn); sbBuf[4] = xs; sbBuf[5] = yP(pOut); sbBuf[6] = xs - 4; sbBuf[7] = yP(pOut); setPts(sBr, sbBuf, 4, false);
     setGeo(sT, 'x', xs - 8); setGeo(sT, 'y', yP(pIn) + 12); setWords(sT, dpWord(T.dp));
-    pbBuf[0] = xg - 4; pbBuf[1] = yP(pv); pbBuf[2] = xg; pbBuf[3] = yP(pv); pbBuf[4] = xg; pbBuf[5] = yP(ivc); pbBuf[6] = xg - 4; pbBuf[7] = yP(ivc); setPts(pBr, pbBuf, 4, false);
-    setGeo(pT, 'x', xg); setGeo(pT, 'y', yP(pv) - 8); setWords(pT, ppgWord(T.ppg));
+    pbBuf[0] = xg + 4; pbBuf[1] = yP(pv); pbBuf[2] = xg; pbBuf[3] = yP(pv); pbBuf[4] = xg; pbBuf[5] = yP(ivc); pbBuf[6] = xg + 4; pbBuf[7] = yP(ivc); setPts(pBr, pbBuf, 4, false);
+    // its words beside it, halfway down (under the portal vein's flat line); a bracket too short for them puts them just under its foot
+    const bh = yP(ivc) - yP(pv);
+    setGeo(pT, 'x', xg + 8); setGeo(pT, 'y', bh >= 28 ? (yP(pv) + yP(ivc)) / 2 : yP(ivc) + 10); setWords(pT, ppgWord(T.ppg));
     for (const e of preKids) setGeo(e, 'opacity', ap);
   }
 
