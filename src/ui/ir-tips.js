@@ -172,6 +172,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   }
   /** Open the view on a stent (a vessel card's IR shortcut, a folded card's line): the title, the editor and the figure follow, then the TIPS view shows. */
   function openStent(id) {
+    syncStents(store.get().params);   // (the pane may not have been fed a frame yet, the first time a card's IR opens it: read the stents now)
     if (!id || !ids.includes(id)) return false;
     pick(id);
     if (sub !== 'inside') setSub('inside');

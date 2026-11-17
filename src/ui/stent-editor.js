@@ -67,6 +67,7 @@ const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.s
 
 /** The nine pieces of the growing surface, each placed for the panel's full size by the stylesheet; grow() moves them from a row's box. */
 const PIECES = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
+const PIECE_CLASS = ['se-s se-s-tl', 'se-s se-s-tc', 'se-s se-s-tr', 'se-s se-s-ml', 'se-s se-s-mc', 'se-s se-s-mr', 'se-s se-s-bl', 'se-s se-s-bc', 'se-s se-s-br'];   // (written out: the stylesheet's check finds each)
 
 /** createStentEditor({ id, lead, onOpen, zone }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
  *  `id` the stent ('TIPS', 'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `onOpen(id)` what the folded line does (opens
@@ -81,7 +82,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   summary.inert = !born; summary.tabIndex = born ? 0 : -1;
   summary.addEventListener('click', () => onOpen?.(sid));
   // the panel: its surface, its top line (the row's name and value, and Done) and its body (the open row's controls)
-  const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECES.map((k) => h('i', { class: `se-s se-s-${k}` })));
+  const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECE_CLASS.map((c) => h('i', { class: c })));
+  const surfEls = [...surf.children];   // alloc-rare: once per editor
   const pName = h('button', { type: 'button', class: 'se-ph-n', tabindex: '-1' }), pVal = h('span', { class: 'se-ph-v' });
   const done = h('button', { type: 'button', class: 'se-done' }, 'Done');
   const pTrail = h('span', { class: 'se-ph-tr' }, pVal, done);
@@ -159,7 +161,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     const from = { tl: T(sx, sy), tc: T(sx, sy, kx), tr: T(sx + sw - PW, sy), ml: T(sx, sy, 1, ky), mc: T(sx, sy, kx, ky), mr: T(sx + sw - PW, sy, 1, ky), bl: T(sx, sy + shh - PH), bc: T(sx, sy + shh - PH, kx), br: T(sx + sw - PW, sy + shh - PH) };
     const o = { duration: D_SURFACE, easing: EASE_ARRIVE, fill: opening ? 'none' : 'forwards' };
     const run = (e, f) => anims.push(e.animate(opening ? [{ transform: f }, { transform: 'none' }] : [{ transform: 'none' }, { transform: f }], o));
-    surf.children.forEach((e, i) => run(e, from[PIECES[i]]));
+    for (let i = 0; i < surfEls.length; i++) run(surfEls[i], from[PIECES[i]]);   // (an array: an HTMLCollection has no forEach, which threw here and left every panel open, 17 Nov)
     if (rn && hn) run(pName, T(rn.left - hn.left, rn.top - hn.top));
     if (rv && hv) run(pTrail, T(rv.right - hv.right, rv.top - hv.top));
     const fade = { duration: opening ? D_SMALL : D_SMALL * 0.6, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.5 : 0, fill: 'both' };

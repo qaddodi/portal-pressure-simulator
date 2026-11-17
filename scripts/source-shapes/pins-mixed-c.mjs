@@ -231,7 +231,7 @@ export default [
   // portal-split
   { file: 'styles/app-*.css', need: [/\.cath-label\.site\.split\[data-rate="mid"\] \{ --sp-c: var\(--caution\)/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
   { file: 'styles/app-*.css', need: [/\.cath-label\.site\.split\[data-rate="hi"\] \{ --sp-c: var\(--danger\)/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
-  { file: 'src/ui/stage*', need: [/<span class="sp-h"><em class="sp-n"><\/em>% bypasses the liver<\/span>/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
+  { file: 'src/ui/stage*', need: [/<span class="sp-h"><em class="sp-n"><\/em><em class="sp-pc">%<\/em><span class="sp-w">bypasses the liver<\/span><\/span>/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
   { file: 'src/ui/stage*', need: [/<span class="sp-bar"><i class="sp-l"><\/i><i class="sp-s"><\/i><\/span>/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
   { file: 'src/ui/stage*', forbid: [/M4 20 C26 20 32 7 60 7/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },
   { file: 'styles/app-*.css', forbid: [/\.cath-label\.site\.split svg/, 'The figure\'s "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split int'] },

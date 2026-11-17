@@ -340,22 +340,31 @@
 /* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
    named under its end. Fixed sizes (the headline reserves room for 100 %), so the callout never resizes; it stays stacked on phones. */
-.cath-label.site.split, .app.presenting .cath-label.site.split { --c: var(--tr-pv); --sp-c: var(--text-3); --sp-t: var(--text); flex-direction: column; align-items: stretch; gap: 2px; }
+.cath-label.site.split, .app.presenting .cath-label.site.split { --c: var(--tr-pv); --sp-c: var(--text-3); --sp-t: var(--text); --leader: var(--text-2); flex-direction: column; align-items: stretch; gap: 3px; padding: 0; border-radius: 0; }
 .cath-label.site.split[data-rate="mid"] { --sp-c: var(--caution); --sp-t: color-mix(in srgb, var(--caution) 80%, var(--text)); }
 .cath-label.site.split[data-rate="hi"] { --sp-c: var(--danger); --sp-t: var(--danger); }
-.cath-label.site.split small { text-align: left; }
-.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; font-size: 15px; line-height: 1.25; color: var(--text); }
-.cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; }
+/* No card (Mohammad, 17 Nov 2026, "Build D"): the number, a caption and a hairline bar stand on the figure in its own label look (the theme's
+   --label-halo under the words), with a 1 px leader to the vein. Its glass is only that leader (callout.js bare), never frosted (stage.js). */
+.cath-label.site.split::before { display: none; }
+.cath-label.site.split small { display: none; }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; line-height: 1.2; color: var(--text); }
+.cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; display: flex; align-items: baseline; }
 .cath-label.site.split em { font-style: normal; }
+.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 25px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
 .cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
-.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 8px; margin: 6px 0 4px; }
-.cath-label.site.split .sp-bar i { border-radius: 4px; flex-basis: 0; flex-shrink: 1; }
+.cath-label.site.split .sp-pc { color: var(--sp-t); -webkit-text-stroke: 4px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-w { margin-left: 6px; font-size: 13.5px; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; font-weight: 600; }
+.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2.5px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { display: none; }
+.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 96px; margin: 1px 0 0; }
+.cath-label.site.split .sp-bar i { border-radius: 1px; flex-basis: 0; flex-shrink: 1; }
 .cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
 .cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: none; }
-.cath-label.site.split .sp-cap { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 600; }
-.cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { color: var(--sp-t); transition: none; }
 .cath-label.site.split b + span { display: none; }
-@media (max-width: 600px) { .cath-label.site.split b, .app.presenting .cath-label.site.split b { font-size: 14px; } .cath-label.site.split .sp-cap { font-size: 12px; } .cath-label.site.split .sp-bar { height: 7px; margin: 5px 0 3px; } }
+@media (max-width: 600px) { .cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 22px; } .cath-label.site.split .sp-w { font-size: 12.5px; } }
+/* The bare callout's glass: its leader line only, no tint and no outline round a card (the callouts' base and the no-glass fallbacks fill every glass). */
+.cl-glass.cl-bare, :root:root .cl-glass.cl-bare:not([data-gl]) { background: none; box-shadow: none; }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
 .cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
   translate: -50% calc(-100% - 12px); }   /* (no CSS halo: the figure's words are outlined one way, by the GPU label path; review CSS-16, owner 15 Nov 2026) */
@@ -473,8 +482,13 @@
 /* The TIPS and DIPS vessel card (tips-vessel.js): the stent to scale, one line of numbers, the three rows. The rows' panel grows over the rows and the actions
    under them (the card's Doppler, Dye and Remove), so the panel's card piece sits above the actions that follow it; never over the stent. */
 .tv { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.tv-keys { padding: 0 2px; }
+.tv-keys { padding: 0 2px; column-gap: 12px; }
+.tv-keys .ir-kv b { font-size: var(--fs-14); }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
+.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: nowrap; column-gap: 12px; min-height: 48px; margin-top: 0; border-top: 1px solid var(--hairline); }
+.ac-panel:has(> .tv) + .ac-as .ac-btn.quiet .ac-bl { display: none; }   /* (the mock's one line of actions: IR is its icon, named for a screen reader; Remove at the end) */
+.tv .ir-keys { margin-bottom: 4px; }
+.ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { opacity: 0; pointer-events: none; }   /* (the open panel covers the actions: they fade under it, none peeks out below) */
 .tf-stage { width: 100%; height: 60px; }   /* (its height is the figure's own, written when its width changes: tips-figure.js fit) */
 /* The stent editor (stent-editor.js; 17 Nov 2026, the approved mock tips-cards-elegant.html): three rows, each its name and the stent's value, a hairline
    between them. A tap grows the row's own surface into its controls over the card's room (the panel: nine pieces that keep their corners, stent-editor.js
@@ -482,7 +496,7 @@
 .stent-editor { position: relative; min-width: 0; max-width: 100%; animation: crossfade var(--d-small) var(--ease); }
 .se-zone { position: relative; min-width: 0; container-type: inline-size; }   /* (the room a panel grows to fill: its offset parent) */
 .stent-editor .se-rows { display: grid; grid-template-columns: minmax(0, 1fr); }
-.stent-editor .se-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; align-items: center; min-height: 48px; padding: 0 0 0 2px; border: 0; border-top: 1px solid var(--hairline); background: none; color: var(--text); cursor: pointer; text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-flip) var(--ease); }
+.stent-editor .se-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; align-items: center; min-height: 46px; padding: 0 0 0 2px; border: 0; border-top: 1px solid var(--hairline); background: none; color: var(--text); cursor: pointer; text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; transition: opacity var(--d-flip) var(--ease); }
 .stent-editor .se-row:active { opacity: .6; transition-duration: 0s; }
 .stent-editor .se-row:focus-visible, .se-panel .se-done:focus-visible, .se-panel .se-ph-n:focus-visible, .stent-editor .se-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
 .stent-editor .se-row-n { font: 500 var(--fs-14)/20px var(--font-ui); color: var(--text-2); white-space: nowrap; }
@@ -499,7 +513,7 @@
 }
 /* The panel: hidden until a row opens; over the card's room, opaque, the rows' own surface grown. */
 .se-panel { position: absolute; inset: 0 0 auto 0; min-height: 100%; z-index: 3; visibility: hidden; pointer-events: none; container-type: inline-size;
-  --se-fill: color-mix(in srgb, var(--text) 6%, var(--surface)); --se-line: color-mix(in srgb, var(--text) 10%, transparent); }
+  --se-fill: var(--surface-2); --se-line: transparent; }   /* (the mock's panel: the raised surface, no outline) */
 .se-panel:not([data-open=""]) { visibility: visible; pointer-events: auto; }
 .se-panel .se-surf { position: absolute; inset: 0; pointer-events: none; }
 .se-panel .se-s { position: absolute; transform-origin: 0 0; background: var(--se-fill); border: 0 solid var(--se-line); }
@@ -512,23 +526,28 @@
 .se-panel .se-s-bl { left: 0; bottom: 0; width: 12px; height: 12px; border-bottom-width: 1px; border-left-width: 1px; border-bottom-left-radius: 12px; }
 .se-panel .se-s-bc { left: 12px; right: 12px; bottom: 0; height: 12px; border-bottom-width: 1px; }
 .se-panel .se-s-br { right: 0; bottom: 0; width: 12px; height: 12px; border-bottom-width: 1px; border-right-width: 1px; border-bottom-right-radius: 12px; }
-.se-panel .se-ph { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding-left: 12px; }
+.se-panel .se-ph { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding-left: 12px; }
 .se-panel .se-ph-n { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--text-2); cursor: pointer; font: 500 var(--fs-14)/20px var(--font-ui); }
 .se-panel .se-ph-tr { display: flex; align-items: center; }
 .se-panel .se-ph-v { font: 500 var(--fs-14)/20px var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
-.se-panel .se-done { min-height: 44px; min-width: 58px; padding: 0 14px; border: 0; background: none; color: var(--accent-ink); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
+.se-panel .se-done { min-height: 46px; min-width: 58px; padding: 0 14px; border: 0; background: none; color: var(--accent-ink); cursor: pointer; font: 600 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
 .se-panel .se-done:active { transform: scale(.96); }
-.se-panel .se-pb { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 20px; padding: 0 14px 6px 14px; }
+.se-panel .se-pb { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 16px; row-gap: 2px; padding: 0 14px 4px 14px; }
+/* The waist's lumen and length side by side on a narrow card, its ends under them: the panel always fits a phone's card (17 Nov, iPhone: Abrupt and Tapered were cut off). */
+.se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.se-panel[data-row="waist"] .se-ctl-seg { grid-column: 1 / -1; }
 @container (min-width: 460px) { .se-panel .se-pb { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } }
+@container (min-width: 460px) { .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(3, minmax(0, 1fr)); } .se-panel[data-row="waist"] .se-ctl-seg { grid-column: auto; grid-template-columns: minmax(0, 1fr); align-content: center; } }
 .se-panel .se-ctl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-width: 0; min-height: 48px; }
 .se-panel .se-ctl.se-dim { opacity: .45; }
-.se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
+.se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding-top: 2px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
 .se-panel .se-cap b { font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 32px; margin: 0; }
+.se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 30px; margin: 0; }
 .se-panel .se-ends { display: flex; justify-content: space-between; margin-top: -4px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
-.se-panel .se-ctl-seg { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 44px; }
-.se-panel .se-seg { display: flex; padding: 2px; gap: 2px; border-radius: 10px; background: color-mix(in srgb, var(--text) 7%, transparent); }
-.se-panel .se-seg button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; }
+.se-panel .se-ctl-seg { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 40px; }
+.se-panel .se-seg { display: flex; padding: 2px; gap: 2px; border-radius: 9px; background: var(--surface-3); }
+.se-panel .se-seg button { min-height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; }
+.se-panel .se-seg button { position: relative; } .se-panel .se-seg button::after { content: ''; position: absolute; inset: -6px 0; }   /* (32 px to see, as the mock; 44 px to tap, F33) */
 .se-panel .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
 /* The folded line (F39): the Tests view's editor is on screen, so a vessel card shows the stent's narrowings where its rows were, a button into that view. */
 .stent-editor .se-summary { display: none; width: 100%; align-items: center; gap: 4px; min-height: 44px; padding: 4px 2px; border: 0; border-top: 1px solid var(--hairline); background: none; text-align: left; cursor: pointer; font: 500 var(--fs-12)/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }

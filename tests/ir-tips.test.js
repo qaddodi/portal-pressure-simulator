@@ -410,8 +410,9 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   // The rules: 44 px or more to tap, the app's label sizes, nothing cut short, nothing wider than the card (F33, F38).
   const plate = read('styles/app-06-plate.css');
   const rules = plate.split('\n').filter((l) => /\.stent-editor|\.se-panel|\.se-zone/.test(l)).join('\n');
-  assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 48px;/);
-  for (const sel of ['.se-done', '.se-ph-n', '.se-seg button']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
+  assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 46px;/, 'the mock\'s rows');
+  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -6px 0; \}/, 'a 32 px choice to see, 44 px to tap');
+  for (const sel of ['.se-done', '.se-ph-n']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no value is cut short');
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(rules, /\.stent-editor \{[^}]*min-width: 0; max-width: 100%;/);
@@ -628,6 +629,12 @@ test('The vessel card\'s mode is decided before its first paint (no flash of the
   assert.equal(typeof ir.openStent, 'function');
   assert.equal(ir.openStent('TIPS'), false, 'no TIPS in this patient: nothing opens');
   assert.equal(ir.view(), 'measure');
+  // A pane never fed a frame (the dock not opened yet): a card's IR opens the TIPS view all the same (the preview, 17 Nov: it opened Measure).
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const fresh = createIrTips({ host: document.createElement('div') });
+  assert.equal(fresh.openStent('TIPS'), true);
+  assert.equal(fresh.view(), 'tips');
+  fresh.setActive(false);
 });
 
 test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one line of numbers and the three rows; no PV to IVC bar and no tiles', async () => {
@@ -666,6 +673,51 @@ test('The figure\'s geometry: 8 cm of stent fill the same span at every length, 
   assert.equal(Ls.chH, 0); assert.ok(Ls.h < L.heroH, 'the vessel card\'s stent alone is shorter than the test card\'s labelled stent');
   assert.equal(vTop(100), 150); assert.equal(vTop(271), 300); assert.equal(vTop(10000), 4500);
   assert.equal(pTop(15.6), 18); assert.equal(pTop(3), 12);
+});
+
+test('Every piece the figure fades holds its strength from the start, so the two lenses\' words never draw on top of each other (the preview, 17 Nov)', async () => {
+  const { createTipsFigure } = await import('../src/ui/tips-figure.js');
+  const fig = createTipsFigure({ id: 'TIPS', labels: true, chart: true });
+  const texts = [...fig.el.querySelectorAll('text')];
+  assert.ok(texts.length > 20);
+  assert.deepEqual(texts.filter((t) => t.getAttribute('opacity') == null), [], 'every word the figure prints fades with its lens or its stent');
+  const paths = [...fig.el.querySelectorAll('path, circle')];
+  assert.deepEqual(paths.filter((t) => t.getAttribute('opacity') == null).map((t) => t.getAttribute('data-look')), [], 'and every line, bracket and dot');
+  fig.dispose();
+});
+
+test('A row opens by growing its nine pieces, and Done, its name and Escape each close it again once the shrink ends (the preview, 17 Nov: an opened row could not be closed)', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const made = [];
+  const proto = window.Element.prototype, oldA = proto.animate, oldR = proto.getBoundingClientRect;
+  // (jsdom has no animations and lays nothing out: a stand-in for each, so the grow runs as it does on a device)
+  proto.animate = function () { let res, rej; const a = { finished: new Promise((r, j) => { res = r; rej = j; }), cancel() { rej(new Error('cancelled')); }, finish() { res(); } }; a.finished.catch(() => {}); made.push(a); return a; };
+  proto.getBoundingClientRect = function () { return { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200, x: 0, y: 0 }; };
+  try {
+    const zone = document.createElement('div');
+    document.body.append(zone);
+    const ed = createStentEditor({ id: 'TIPS', zone });
+    zone.prepend(ed.el);
+    const close = { done: () => ed.panel.querySelector('.se-done').click(), name: () => ed.panel.querySelector('.se-ph-n').click(), escape: () => ed.panel.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) };
+    for (const [how, run] of Object.entries(close)) {
+      made.length = 0;
+      ed.el.querySelector('.se-row[data-row="waist"]').click();
+      assert.equal(ed.panel.dataset.open, 'waist');
+      assert.ok(made.length >= 9, `the nine pieces grow (${made.length} animations)`);
+      for (const a of made) a.finish();
+      made.length = 0;
+      run();
+      assert.equal(ed.opened(), '', `${how}: closing`);
+      assert.ok(made.length >= 9, `${how}: the pieces shrink back to the row`);
+      for (const a of made) a.finish();
+      await wait(0);
+      assert.equal(ed.panel.dataset.open, '', `${how} closes it`);
+      assert.equal(ed.el.querySelector('.se-rows').inert, false, `${how}: the rows are back`);
+    }
+    ed.destroy();
+  } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
 });
 
 test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the waist\'s lumen and length, or None', async () => {

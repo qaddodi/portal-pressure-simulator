@@ -2234,7 +2234,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   {
     const body = [], layers = [cath.labels, sites.el];
     const NUMPX = (v) => parseFloat(v) || 0;
-    glassAdd.add(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) body.push(c[i]); } return body; }, {
+    // (a bare callout's glass is only its leader, so it is left out: no frost, no card)
+    glassAdd.add(() => { body.length = 0; for (const l of layers) { const c = l.getElementsByClassName('cl-glass'); for (let i = 0; i < c.length; i++) if (!c[i].classList.contains('cl-bare')) body.push(c[i]); } return body; }, {
       callouts: true, blur: CARD.blur, card: true, before: cath.labels, watch: layers, outer: true, shadow: true,   // (the one glass: CARD, as every card's)
       tint: (g, cs) => cs.getPropertyValue('--surface'),
       shape: (g) => { const d = g.firstChild?.firstChild?.getAttribute?.('d'), w = NUMPX(g.style.width), h = NUMPX(g.style.height); return d && w && h ? { d, w, h } : false; },
