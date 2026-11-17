@@ -8,7 +8,7 @@
 // it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
 import { edgeWhy } from '../engine/explain-ids.js';
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, isStent } from '../engine/topology.js';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent } from '../engine/topology.js';
 import { GEOM_RANGE, TAPER_CM, WAIST_MAX, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { stentStill } from '../engine/flow-cuts.js';
@@ -20,6 +20,7 @@ import { lobuleState } from './lobule-model.js';
 import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
+import { createStentEditor } from './stent-editor.js';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -204,6 +205,10 @@ export function stentControls(id) {
   return c;
 }
 
+/** A stent's card holds its controls as the Tests card's TIPS view does (17 Nov 2026, play-test finding 9: the phone's card covered the stent it edits):
+ *  one slim row of value chips, Diameter, Stenosis, Waist and Length, each opening its slider in the same row (stent-editor.js, from stentControls). */
+const STENT_PANEL = (id) => ({ type: 'panel', id: 'stent', label: 'Edit stent', make: () => createStentEditor({ id }) });   // alloc-rare: made once per card built (a pick)
+
 const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
 function buildEdgeCard(e) {
   const id = e.id, k = EI[id];
@@ -247,16 +252,11 @@ function buildEdgeCard(e) {
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
       span = SPAN_PPG;
-      verbs.push(stentControls(id)[0]);
+      verbs.push(STENT_PANEL(id));
       verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, short: 'Remove', icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     } else if (e.shunt === 'custom') {
-      verbs.push(stentControls(id)[0]);
+      verbs.push(STENT_PANEL(id));
       verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', short: 'Remove', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
-    }
-    // A stent's two narrowings, each its own controls (stentControls): the end stenosis, and the waist mid stent.
-    if (isStent(e)) {
-      const at = verbs.findIndex((v) => v.id === 'remove');
-      verbs.splice(at < 0 ? verbs.length : at, 0, ...stentControls(id).slice(1));
     }
     if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];
