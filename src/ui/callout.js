@@ -47,6 +47,14 @@ const outline = (w, h, r, top, px, dir, len = PTR, tx = px, ox = 0) => {
   return `${d}H${f(r + ox)}${arc(0, b - r)}V${f(top + r)}${arc(r, top)}Z`;
 };
 
+// The bare callout's line: from the words' edge (x = px) to the tip, `len` past it at x = tx; nothing where it has no pointer.
+const leader = (h, top, px, dir, len, tx, ox) => {
+  const f = (n) => +n.toFixed(2);
+  if (dir === 'top') return `M${f(px + ox)} ${f(top)}L${f(tx + ox)} ${f(top - len)}`;
+  if (dir === 'bottom') return `M${f(px + ox)} ${f(top + h)}L${f(tx + ox)} ${f(top + h + len)}`;
+  return 'M0 0';
+};
+
 // (Read in the observer's callback, after the browser's own layout: never on a frame.)
 function observedSize(el, es) {
   const b = es[es.length - 1].borderBoxSize?.[0];
@@ -56,8 +64,11 @@ function observedSize(el, es) {
 const NO_OPTS = {};
 /** Gives `el` its glass body and returns `update(ax)`: call it whenever the pointer's offset `ax` (px from the card's
  *  centre) may have changed. It also redraws itself when the card is resized (a reading's text changing). */
-export function glassCallout(el, { pointer = true } = NO_OPTS) {
+export function glassCallout(el, { pointer = true, bare = false } = NO_OPTS) {
   const glass = el.firstElementChild, svg = glass.firstElementChild, path = svg.firstElementChild;   // (its glass, cloned with it from a model: withGlass)
+  // bare: no card at all, only the pointer's line (a 1 px leader from the words to their point) on the glass's own layer, so it fades with the words
+  // and follows the figure as the glass does. Its glass is left out of the frosted list (stage.js), its fill and outline are none (app-06-plate.css .cl-bare).
+  if (bare) glass.classList.add('cl-bare');
   const S = { glass, svg, gl: null, ask: 0, gone: false };   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   S.ask = restPass(() => lineGL(S));   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
@@ -80,9 +91,9 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     const want = w / 2 + (lean ? ax : Math.max(-0.4 * w, Math.min(0.4 * w, ax)));
     const px = Math.max(KEEP, Math.min(w - KEEP, want)), tx = lean ? want : px, up = dir === 'top' ? len : 0;
     const ox = lean ? Math.max(0, -tx) : 0, gw = lean ? Math.max(w, tx) + ox : w;   // (the glass's own width: the card, and the tip where it stands outside it)
-    const d = outline(w, h, r, up, px, dir, len, tx, ox);
+    const d = bare ? leader(h, up, px, dir, len, tx, ox) : outline(w, h, r, up, px, dir, len, tx, ox);
     const gh = +(h + (dir === 'none' ? 0 : len)).toFixed(2);
-    glass.style.cssText = `left:${-BORDER - ox}px;top:${-BORDER - up}px;width:${+gw.toFixed(2)}px;height:${gh}px;clip-path:path('${d}')`;
+    glass.style.cssText = `left:${-BORDER - ox}px;top:${-BORDER - up}px;width:${+gw.toFixed(2)}px;height:${gh}px;${bare ? '' : `clip-path:path('${d}')`}`;
     setGeo(path, 'd', d);
     setGeo(svg, 'viewBox', `0 0 ${+gw.toFixed(2)} ${gh}`);
     S.gl?.paint();
@@ -109,8 +120,10 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
     const cs = getComputedStyle(path);
     lineCls = el.className;
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', cs.stroke);
-    path.setAttribute('stroke-width', cs.strokeWidth);
+    // (A bare callout's line: the callout's own --leader, 1 px; a card's outline is the stylesheet's stroke on the path.)
+    const lead = bare ? cs.getPropertyValue('--leader').trim() : '';   // (a custom property is inherited, the path has the callout's own)
+    path.setAttribute('stroke', lead || cs.stroke);
+    path.setAttribute('stroke-width', bare ? '1' : cs.strokeWidth);
     path.setAttribute('stroke-linejoin', cs.strokeLinejoin);
     S.gl?.relook();
   };
