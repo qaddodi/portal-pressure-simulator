@@ -296,7 +296,7 @@ export default [
   { file: 'src/ui/doppler.js', need: [/if \(tNow - buf\[0\]\[0\] < SETTLE\) return null;/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },   // (was a slice of the file)
   { file: 'src/ui/doppler.js', need: [/const SETTLE = 1\.5;/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },
   { file: 'src/ui/doppler.js', need: [/if \(f\.probe !== probe\) \{[^}]*scale = null;[^}]*steady\.probe = null;/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },
-  { file: 'src/ui/doppler.js', need: [/const normalOf = \(p\) => \(p\.id === 'PV_TRUNK' && frame\?\.D \? velNormal\(EI\.PV_TRUNK, frame\) : null\) \|\| p\.normal;/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },
+  { file: 'src/ui/doppler.js', need: [/const normalOf = \(p\) => \(\(p\.id === 'PV_TRUNK' \|\| p\.kind === 'tips'\) && frame\?\.D \? velNormal\(EI\[p\.id\], frame\) : null\) \|\| p\.normal;/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },
   { file: 'src/ui/stage-label-items.js', need: [/Math\.abs\(edgeVel\(f, EI\[x\.e\.id\]\)\) \* dopplerK\(x\.e\)/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A: (peak, as the Doppler reads it)'] },   // (was a slice of the file)
   { file: 'src/ui/stage-label-items.js', need: [/STATION_VESSEL\[id\]/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },   // (was a slice of the file)
   { file: 'src/ui/stage-label-items.js', need: [/best = shownVelOf\(EDGES\[bestK\]\.id, f, best\)/, 'Code review of 15 Oct, items 3 to 5 and Mohammad\'s answer A:'] },   // (was a slice of the file)

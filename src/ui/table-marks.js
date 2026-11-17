@@ -9,6 +9,7 @@ import { KIDNEY_CUTS } from '../engine/kidney-cuts.js';
 import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
 import { LSM_CUTS, lsmContext } from '../engine/lsm-cuts.js';
 import { TRANSFUSE } from '../engine/transfusion-cuts.js';
+import { stentBand } from '../engine/stent-geom.js';
 
 export const NO_ASC = 150;
 export const ASC_G2 = 1500;   // mL: grade 2, the moderate belly, starts here   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
@@ -91,9 +92,10 @@ export const RATE = {
   // (The blood pressure: low at a mean <65 or a systolic <90 mmHg, Baveno VIII 4.6's two limits for carvedilol.)
   map: (v, f) => (v < KIDNEY_CUTS.mapBeta || f?.sbp < KIDNEY_CUTS.sbpBeta ? T_hi_Low : T_ok_Normal),
   sbp: (v) => (v < KIDNEY_CUTS.sbpBeta ? T_hi_Low : T_ok_Normal),
-  // (The stent's peak velocity: the Doppler card's own range for a stent, 90 to 190 cm/s; its other readings are numbers only.)
-  tipsVel: (v) => (v < STENT_RANGE[0] ? T_mid_Low : v > STENT_RANGE[1] ? T_mid_High : T_ok_Normal),
-  dipsVel: (v) => (v < STENT_RANGE[0] ? T_mid_Low : v > STENT_RANGE[1] ? T_mid_High : T_ok_Normal),
+  // (The stent's peak velocity: the Doppler card's own range for a stent, 90 to 190 cm/s for an 8 to 10 mm one and scaled for another diameter, the fingerprint's tipsD / dipsD:
+  // stentCuts below; its other readings are numbers only.)
+  tipsVel: (v, f) => { const r = stentCuts('tips', f); return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal; },
+  dipsVel: (v, f) => { const r = stentCuts('dips', f); return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal; },
   // (rpp, the abdominal perfusion pressure MAP − IAP, has no rating: no guideline gives it a cut-off, kidney-cuts.js.)
   // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the indeterminate zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
@@ -172,10 +174,14 @@ export const TILE = {
 // the peak velocity is read against the Doppler card's own range for a stent (90 to 190 cm/s, doppler.js PROBES), the tile and the card the same flag. The
 // pressure across the stent is its portal end minus its hepatic vein end: it is not the PPG (portal vein minus IVC) and never an HVPG, and its name says "Across".
 export const STENT_RANGE = [90, 190];
+// The range for the stent's own diameter: the reference array itself for 8 to 10 mm (or a fingerprint with no diameter), else a kept list for each stent, written in place.
+// (Provisional beyond 8 to 10 mm: stent-geom.js stentBand. A bar's cut-off ticks and a curve's cut-offs are drawn at the reference range; the tile's word and band colours follow its diameter.)
+const STENT_CUTS = { tips: [0, 0], dips: [0, 0] };
+export const stentCuts = (k, f) => stentBand(f?.[`${k}D`], STENT_RANGE, STENT_CUTS[k]);
 const stentTiles = (k, name) => ({
   [`${k}Flow`]: { t: `${name} flow`, n: 'Stent flow', s: 'Blood the stent carries', u: 'L/min', long: `Blood carried by the ${name}: the stent's own flow, one number whatever the diameter along it. No guideline gives a cut-off.` },
   [`${k}Dp`]: { t: 'Pressure across the stent', n: 'Across stent', s: 'Portal end − hepatic vein end', u: 'mmHg', long: `Pressure at the ${name}'s portal end minus its hepatic vein end. Not the PPG, which is the portal vein minus the IVC and also counts the veins around the stent.` },
-  [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents.` },
+  [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents. For a narrower or wider stent the range is scaled with the stent's diameter (provisional: no guideline gives one).` },
   [`${k}Lumen`]: { t: 'Narrowest lumen', n: 'Lumen', s: 'At the tightest point', u: 'mm', long: `The ${name}'s lumen where it is tightest: its diameter minus the narrowing or clot.` },
   [`${k}LocalPct`]: { t: 'Local losses', n: 'Local', s: 'Share of the drop that is local', u: '%', d: 0, long: `The share of the pressure across the ${name} lost where blood enters and leaves it and where the jet leaves a narrowing, against friction along its length and tract.` },
 });

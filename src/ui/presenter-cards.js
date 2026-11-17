@@ -7,7 +7,7 @@ import { createSvgGL, svgModel, viewMap } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { fingerprintOf } from '../engine/fingerprint.js';
 import { bpText } from './vital-read.js';
-import { NO_ASC, SCALE, TILE, bandsOf, cutDp, rateOf, tileOf, tileShown, tipsGoal } from './table-marks.js';
+import { NO_ASC, SCALE, TILE, bandsOf, cutDp, rateOf, tileOf, tileShown, tipsGoal, stentCuts } from './table-marks.js';
 import { cancelFrame } from './frame.js';
 import { glyphsReady, loadGlyphs, textWidth } from './text-gl.js';
 import { cancelRest, restPass } from './rest-pass.js';
@@ -322,7 +322,7 @@ export function bigTiles() {
       // its own GPU words, in the rating's ink with the label look's outline (halo); the rating is the item's data-rate, written with the tile's.)
       const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain', 'data-measured': MEASURED.includes(k) ? '' : null }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
       const hw = hi ? glWords(hv, { halo: true, keep: true }) : null;   // (kept: the GPU number stays up, no hand-over to the page's text, as the Doppler numbers)
-      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw, sm: tileSmall(T, S), none: false, hasRef: false, sv: NaN, sr: NaN };
+      return { k, T, tile, v, vw, u, r, d, S, bands, zs, ts, ls, cuts: '', link, was, now, zr: '', pic, hi, hv, hu, hw, sm: tileSmall(T, S), none: false, hasRef: false, sv: NaN, sr: NaN };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     head.replaceChildren(...parts.filter((p) => p.hi).map((p) => p.hi));
@@ -428,9 +428,25 @@ export function bigTiles() {
     return true;
   }
   // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
+  // A stent's peak velocity bar keeps its cut-offs at the range for the stent's own diameter (90 to 190 cm/s for 8 to 10 mm, scaled and provisional for another: stentCuts):
+  // the bands, ticks and labels are moved when that range changes (a new slide's stent), never while a frame is drawn, so the bar and the word agree.
+  const STENT_VEL = { tipsVel: 'tips', dipsVel: 'dips' };
+  function retuneStent(p, f) {
+    const r = stentCuts(STENT_VEL[p.k], f), key = `${r[0]}|${r[1]}`;
+    if (key === p.cuts) return;
+    p.cuts = key;
+    const x = p.T.x ?? 1, edges = [p.S[0], r[0] * x, r[1] * x, p.S[1]];
+    p.bands.forEach((z, i) => {
+      z.a = edges[i]; z.b = edges[i + 1]; z.m = (z.a + z.b) / 2 / x;
+      const a = at(p.k, z.a / x), b = at(p.k, z.b / x);
+      p.zs[i].style.left = `${a}%`; p.zs[i].style.width = `${b - a}%`;
+    });
+    for (let i = 0; i < 2; i++) { const c = edges[i + 1]; p.ts[i].style.left = `${at(p.k, c / x)}%`; p.ls[i].style.left = `${at(p.k, c / x)}%`; p.ls[i].textContent = fmt(c, cutDp(c)); }
+  }
   function paintBands(f) {
     for (const p of parts) {
       if (!p.S) continue;
+      if (STENT_VEL[p.k]) retuneStent(p, f);
       const rs = p.bands.map((z) => rated(p.k, { ...f, respAt: null, asc: Math.max(f.asc ?? 0, NO_ASC), [p.k]: z.m })[0] || 'info'), sig = rs.join();   // (hvpgFall's bands read the fall alone)
       if (sig === p.zr) continue;
       p.zr = sig;

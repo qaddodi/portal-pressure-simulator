@@ -1,6 +1,6 @@
 // The stent cards (16 Nov 2026; plan /mnt/project-files/tips-geometry/tips-instrument-cards-plan.md §5): tool { kind: 'stent', vessel: 'TIPS' | 'DIPS', show: ['lumen'] | ['loss'] | both }.
 //   lumen  the stent in side view, to scale in cm: the portal vein at the left, the hepatic vein at the right, its wall in the stent metal and its lumen coloured
-//          with the figure's own velocity colours (colormap.js velocityColor against the stent's 90 to 190 cm/s), the narrowing as a dimension line with its lumen in
+//          with the figure's own velocity colours (colormap.js velocityColor against the stent's 90 to 190 cm/s, scaled for a diameter outside 8 to 10 mm), the narrowing as a dimension line with its lumen in
 //          mm, the Doppler's three points with their peak velocity (the same numbers as the Doppler card and the peak tile), the flow as an arrow.
 //   loss   where the pressure goes: ONE stacked bar on a fixed mmHg scale (tool.max, 16 by default), never a waterfall (rules-lint): the stent's tract, the friction along
 //          it, its two ends and the narrowing's jet; with tool.to = 'ppg' it runs on to the PPG with the part outside the stent (hatched), so a student sees why the stent's
@@ -22,7 +22,7 @@ import { reduceMotionMQ } from './motion.js';
 import { easeArrive } from './ease.js';
 import { FOLLOW_JUMP, FOLLOW_LONE, FOLLOW_STREAM_MS, FOLLOW_MIN_MS, FOLLOW_MAX_MS, FOLLOW_GAP0, FOLLOW_GLIDE_MS } from './tool-lumen.js';
 import { velocityColor } from './colormap.js';
-import { PROBE_NORMAL } from './velNormal.js';
+import { stentNormal } from './velNormal.js';
 import { geomFix, geomOf, profileAt, waistSpan } from '../engine/stent-geom.js';
 import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/topology.js';
 import { smooth01 } from './num.js';
@@ -90,10 +90,10 @@ export function openVelocity(flowLpm, dMm, id) {
   const A = Math.PI * (dMm / 10) * (dMm / 10) / 4;
   return A > 0 ? (Math.abs(flowLpm) / 0.06 / A) * dopplerK(edgeById(id)) : 0;
 }
-/** The colour the figure paints a stent at scanner velocity v (cm/s): the same ramp and the same 90 to 190 range. */
-export const stentColour = (v, id) => {
+/** The colour the figure paints a stent at scanner velocity v (cm/s): the same ramp and the same range (90 to 190 cm/s for an 8 to 10 mm stent, scaled for the stent's open diameter d mm: velNormal.js stentNormal). */
+export const stentColour = (v, id, d = 0) => {
   // (Until the page's tokens are read the ramp has no stops and velocityColor throws; the first frame of a card made at once at start keeps a neutral teal then.)
-  try { return velocityColor(v, PROBE_NORMAL[id]); } catch { return RAMP_FALLBACK; }
+  try { return velocityColor(v, stentNormal(id, d)); } catch { return RAMP_FALLBACK; }
 };
 const RAMP_FALLBACK = '#5DB4A4';   // colour-exempt: the velocity ramp's teal, only until the page's tokens are read
 
@@ -253,7 +253,7 @@ export function createStent() {
     for (const e of [ghostP, none]) setGeo(e, 'opacity', 1 - ex);
     // the lumen's colours along the stent: the figure's velocity ramp against the stent's range, at the local velocity
     const v0 = openVelocity(v[CH.flow] * SCALE[CH.flow], d, `${id}`);
-    for (let i = 0; i < N_STOPS; i++) setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, i / (N_STOPS - 1))), id));
+    for (let i = 0; i < N_STOPS; i++) setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, i / (N_STOPS - 1))), id, d));
     // the narrowing: a dimension line over its length and the lumen there in mm
     const w = waistSpan(sh, site), dimOp = ex * smooth01((s - 0.01) / 0.05), xa = x0 + w.a1 * L, xb = x0 + w.b1 * L;
     dimBuf[0] = xa; dimBuf[1] = S.dimY + 4; dimBuf[2] = xa; dimBuf[3] = S.dimY; dimBuf[4] = xb; dimBuf[5] = S.dimY; dimBuf[6] = xb; dimBuf[7] = S.dimY + 4;

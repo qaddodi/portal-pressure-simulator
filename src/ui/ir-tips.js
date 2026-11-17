@@ -20,12 +20,16 @@ import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { stentReadsOf, STENT_DOPPLER_K } from '../engine/topology.js';
 import { fillQ } from './shown.js';
 import { tipsGoal } from './table-marks.js';
+import { stentBand } from '../engine/stent-geom.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
 export const stentIds = (p, out = []) => { out.length = 0; if (p?.tips?.on) out.push('TIPS'); if (p?.dips?.on) out.push('DIPS'); return out; };
-/** The Doppler card's own range for a stent's peak velocity, cm/s (doppler.js, topology.js: 90 to 190). */
+/** The Doppler card's own range for an 8 to 10 mm stent's peak velocity, cm/s (doppler.js, topology.js: 90 to 190). */
 export const STENT_RANGE = Object.freeze([90, 190]);
+const PEAK_BAND = [0, 0];   // alloc-rare: made once (peakBand's range for a stent of another diameter, read at once)
+/** The range for this stent's own diameter (stent-geom.js stentBand: the reference range for 8 to 10 mm, scaled and provisional for another). */
+export const peakBand = (st) => stentBand(st?.d, STENT_RANGE, PEAK_BAND);
 const READ = [0, 0, 0];   // alloc-rare: made once (stentReadsOf writes into it; stentPeak reads it at once)
 /** The fastest of a stent's three Doppler gates as a scanner reads it, cm/s: the open stent's mean speed, a narrowing's jet at its gates, times K. */
 export function stentPeak(params, id, st) {
@@ -48,8 +52,9 @@ const TILES = [
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
-  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working stent reads 90 to 190 cm/s.',
-    v: (m, st, p, id) => stentPeak(p, id, st), word: (v) => (v >= STENT_RANGE[0] && v <= STENT_RANGE[1] ? 'In range' : 'Out of range'), sev: (v) => (v >= STENT_RANGE[0] && v <= STENT_RANGE[1] ? 'none' : 'caution') },
+  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
+    v: (m, st, p, id) => stentPeak(p, id, st), word: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
+    sev: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'none' : 'caution'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
@@ -72,7 +77,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   const edit = h('button', { type: 'button', class: 'btn sm ir-edit', title: 'Opens the stent\'s vessel card, where its diameter, narrowing and ends are set. This view only reads.', onclick: () => onEdit(which) }, 'Edit stent');
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
-    return { t, ...x, sev: null, fillL: null, fillW: null, aria: '' };
+    return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
   });
   const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the drop between the stent\'s two ends; the PPG runs on from the portal vein to the IVC. After a TIPS, a PPG under 12 mmHg is the target.');
   const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips' }, h('div', { class: 'ir-stents' }, chips, line, edit), h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), note);
@@ -109,6 +114,16 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   }
   function syncChips() { for (const c of chips.children) c.setAttribute('aria-pressed', String(c.dataset.id === which)); }
 
+  // The peak velocity tile's two cut-off ticks and its title follow the stent's own diameter (peakBand): written when the range changes, never per frame.
+  function peakCuts(x, st) {
+    const r = peakBand(st), k = `${r[0]}|${r[1]}`;
+    if (k === x.band) return;
+    x.band = k;
+    const t = x.t;
+    for (let i = 0; i < x.ticks.length; i++) x.ticks[i].style.left = pos(t, r[i]) * 100 + '%';
+    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. A working ${mm(st.d)} mm stent reads ${r[0]} to ${r[1]} cm/s (provisional: the 8 to 10 mm range, 90 to 190 cm/s, scaled for this diameter; no guideline gives one).`;
+  }
+
   function update(f) {
     frame = f;
     const st0 = store.get(), p = st0.params;
@@ -120,14 +135,16 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const lt = stentLine(st);
     if (lt !== lineT) { lineT = lt; swapText(line, lt); }
     for (const x of tiles) {
-      const t = x.t, raw = st || t.id === 'ppg' ? t.v(m, st, p, which) : null;
+      const t = x.t;
+      if (t.id === 'peak') peakCuts(x, st);
+      const raw = st || t.id === 'ppg' ? t.v(m, st, p, which) : null;
       const v = raw == null || hidden?.has(t.hide) ? null : raw;
       let sev = 'none', word = v == null ? 'Not measured' : '';
       if (v == null) { countTo(x.val, null); if (x.fillW !== 0) { x.fillW = 0; x.fill.style.setProperty('--fw', 0); } }
       else if (!Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }
       else {
         countTo(x.val, v, t.d, { eased: st0.running });
-        sev = t.sev(v); word = t.word(v);
+        sev = t.sev(v, st); word = t.word(v, st);
         const w = pos(t, v), fl = fillQ(0), fw = fillQ(w);
         if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
