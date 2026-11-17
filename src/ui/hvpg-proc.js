@@ -24,6 +24,7 @@ import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning
 import { procPlay } from './procedure-names.js';
 import { reduceMotionMQ } from './motion.js';
 import { createIrPpg } from './ir-ppg.js';
+import { createIrTips } from './ir-tips.js';
 import { createSwap } from './monitor-takeover.js';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -92,6 +93,8 @@ export function createHvpgProcedure() {
   const stepsEl = h('ol', { class: 'hvpg-steps' }, stepEls);
   const side = h('div', { class: 'chart-side' }, stepsEl, caption, procRow, note);
   const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, ir.panel, side);
+  // The stent's own test beside this one (Tests › IR › TIPS, ir-tips.js): a switch in the pane's head row, and a view that holds the pane's place while it shows.
+  const tips = createIrTips({ host: el, onChange: () => paintSide(), onEdit: (id) => store.set({ selection: { type: 'edge', id } }) });
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
   const phase = () => (t0 == null && !result ? 'idle' : blocked ? (t < TB.abort ? 'enter' : 'abort') : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -299,6 +302,7 @@ export function createHvpgProcedure() {
   function update(f) {
     frame = f;
     ir.update();
+    tips.update(f);
     if (raf) return;   // the animation loop paints
     paintSide();
     const r = cv.getBoundingClientRect();
@@ -309,7 +313,7 @@ export function createHvpgProcedure() {
   store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
-  return { id: 'hvpg', label: 'HVPG procedure', el, update, start };
+  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start };
 }
 
 // The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's
