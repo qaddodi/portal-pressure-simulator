@@ -45,8 +45,8 @@ test('everything lies inside the picture, for every stent size, length and text 
   for (const fs of [9, 11, 12.8, 14]) {
     const S = sideLayout(fs, {});
     for (const d of [6, 8, 10, 12]) for (const len of [4, 8, 10]) for (const s of [0, 0.5, 0.9]) {
-      const g = geomFix({ len, waist: 2, trans: 1 }, 'tips'), L = g.len * S.pxCm, x0 = S.x0 + (S.span - L) / 2;
-      stentOutline(buf, x0, L, S.cy, d * S.pxMm, 0, s, g, 0.5);
+      const g = geomFix({ len, waist: 2, trans: 1 }, 'tips'), L = S.span, x0 = S.x0, pxMm = Math.min(3.3, L / g.len / 10);   // (the stent fills the picture's span)
+      stentOutline(buf, x0, L, S.cy, d * pxMm, 0, s, g, 0.5);
       for (let i = 0; i < 2 * (N_PROFILE + 1); i++) {
         assert.ok(buf[2 * i] >= 0 && buf[2 * i] <= VW, `x ${buf[2 * i]}`);
         assert.ok(buf[2 * i + 1] > S.dimY + 4 && buf[2 * i + 1] < S.gateTop, `y ${buf[2 * i + 1]} is between the dimension line and the gates' ticks (${d} mm, words ${fs})`);
@@ -393,5 +393,52 @@ test('the flow: a fixed set of streaks carried along the lumen, faster where the
   card.pin({ ...fp, tipsFlow: 0, tipsG0: 0, tipsG1: 0, tipsG2: 0 });
   await new Promise((r) => setTimeout(r, 1500));
   assert.equal(flow._g.opacity, 0, 'a stent with no flow has no streaks');
+  card.dispose();
+});
+
+test('one zero: the pressure lens\'s gate labels and the chart under them read the same absolute mmHg at each station, and the velocity chart is scaled to its data', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const e = new Engine(); e.loadPreset('cirr-decomp');
+  e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0 }, stentGeom: { TIPS: { len: 8, waist: 2, trans: 1, red: 0.5 } }, pulsatile: false, respiration: false })));
+  e.settle(3);
+  const m = computeMetrics(e), fp = fingerprintOf(m, { params: e.params });
+  store.set({ params: { ...e.params } });
+  card.configure({ vessel: 'TIPS', show: ['card'], lens: 'pressure' });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const { gateIndex, createTracePic } = await import('../src/ui/stent-trace-pic.js');
+  void createTracePic;
+  const gates = [...card.el.querySelectorAll('[data-look="stent.num"]')].filter((p) => p._g && p._g.x != null).slice(3, 6).map((p) => parseFloat(p._t));
+  assert.equal(gates.length, 3);
+  const line = [...card.el.querySelectorAll('[data-look="stent.tr.line.pressure"]')][0]._pts.buf;
+  const lumTop = card.pressureAt;   // (the chart's own scale, read back)
+  assert.equal(typeof lumTop, 'function', 'the card gives back what a y on its pressure chart reads');
+  [1 / 6, 0.5, 5 / 6].forEach((u, q) => {
+    const k = gateIndex(u, m.tips.geom.len), onChart = card.pressureAt(line[2 * k + 1]);
+    assert.ok(Math.abs(onChart - gates[q]) <= 0.06, `gate ${q + 1}: chart ${onChart.toFixed(2)}, label ${gates[q]}`);
+  });
+  assert.ok(gates[0] > m.ivc - 0.01, 'the labels are above the IVC (absolute), not above zero at the IVC');
+  const titles = [...card.el.querySelectorAll('[data-look="stent.tr.title"]')].map((p) => p._t).join('|');
+  assert.match(titles, /absolute/);
+  // the velocity chart's top follows its data: a slow trace is not a flat line on a 0 to 100 axis
+  const btn = [...card.el.querySelectorAll('.sc-lens button')][0]; btn.click();
+  await new Promise((r) => setTimeout(r, 1500));
+  const top = [...card.el.querySelectorAll('[data-look="stent.cap"]')].map((p) => p._t);
+  assert.ok(top.some((t) => /^(20|40|60|80|100|150|200|300|400|600)$/.test(t)), `a round top for the velocity axis in ${top.join(' ')}`);
+  card.dispose();
+});
+
+test('the card draws the stent the numbers are of: a pinned fingerprint\'s geometry, not whatever the settings hold now', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const a = settled((x) => { x.params.stentGeom = { TIPS: { len: 10, waist: 0, trans: 0, red: 0 } }; x.params.stenosis.TIPS = 0; });
+  const b = settled((x) => { x.params.stentGeom = { TIPS: { len: 5, waist: 0, trans: 0, red: 0 } }; x.params.stenosis.TIPS = 0; });
+  store.set({ params: { ...b.e.params } });   // (the settings now are the short stent's)
+  card.pin(a.fp);                             // (the slide's numbers are the long one's)
+  card.configure({ vessel: 'TIPS', show: ['lumen'] });
+  await new Promise((r) => setTimeout(r, 1500));
+  const words = [...card.el.querySelectorAll('[data-look="stent.word"]')].map((p) => p._t);
+  assert.ok(words.includes('10.0 cm'), `the long stent's length, ${words.join(' | ')}`);
   card.dispose();
 });

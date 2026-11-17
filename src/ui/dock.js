@@ -980,6 +980,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function close() {
     cancelStage(); endPick(); app.classList.remove('instrument-focus');
     onClose();
+    // (Every pane is told it is out of sight: its feed and its sweep stop, and the Tests view's stent editor gives the vessel card its chips back, F39.
+    // Opening again lays the panes out, which tells the open ones they are shown.)
+    for (const p of panes) p.shown?.(false);
     onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
