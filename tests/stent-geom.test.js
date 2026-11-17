@@ -232,7 +232,7 @@ test('the Doppler gates read the lumen where they sit: a long waist jets at ever
   const five = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 5 } } }, 'TIPS', 100);
   assert.deepEqual(five, [100, 400, 100]);
   const four = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { waist: 4 } } }, 'TIPS', 100);
-  assert.ok(four[2] === 400 && four[1] === 400 && four[0] === 100, `a 4 cm distal waist slides in to 4 to 8 cm and jets mid and distal: ${four}`);
+  assert.deepEqual(four, [100, 400, 100], 'a 4 cm waist is mid stent (2 to 6 cm) even when Distal was picked');
   const taper = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 0.5, trans: 2 } } }, 'TIPS', 100);
   assert.ok(taper[1] === 400 && taper[0] > 90 && taper[0] < 400, `a gate on the cone reads in between: ${taper}`);
 });
@@ -241,4 +241,40 @@ test('the default waist is PINCH of the stent: 1 cm of a TIPS or DIPS, 1.25 cm o
   assert.deepEqual(geomDefault('tips'), { len: 8, waist: 8 * PINCH, trans: 0 });
   assert.deepEqual(geomDefault('dips'), { len: 8, waist: 1, trans: 0 });
   assert.deepEqual(geomDefault('custom'), { len: 10, waist: 1.25, trans: 0 });
+});
+
+test('a waist set along the stent is always mid stent; proximal and distal stay a short focal stenosis (17 Nov 2026)', async () => {
+  const { stentSite } = await import('../src/engine/topology.js');
+  // A focal stenosis keeps its own site; a long or tapered waist is mid, whatever stenosisSite says, for every kind of stent.
+  for (const [id, kind] of [['TIPS', 'tips'], ['DIPS', 'dips'], ['X_SMV_RHV', 'custom']]) {
+    for (const site of ['proximal', 'mid', 'distal']) {
+      assert.equal(stentSite({ stenosisSite: { [id]: site } }, id), site, `${id} focal at ${site}`);
+      assert.equal(stentSite({ stenosisSite: { [id]: site }, stentGeom: { [id]: geomDefault(kind) } }, id), site, `${id}: the default geometry is focal`);
+      for (const g of [{ waist: 4 }, { waist: 0 }, { trans: 1 }]) {
+        const p = { stenosisSite: { [id]: site }, stentGeom: { [id]: g } };
+        assert.equal(stentSite(p, id), 'mid', `${id} ${JSON.stringify(g)} at ${site}`);
+      }
+    }
+  }
+  assert.equal(stentSite({}, 'TIPS'), 'distal', 'unset: the hepatic vein end');
+  // The Doppler gates and the waist's place follow: a 4 cm waist set at Distal jets mid stent, not at the hepatic vein end.
+  const p = { stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { waist: 4 } } };
+  const v = stentReadsOf(p, 'TIPS', 100);
+  assert.ok(v[1] === 400 && v[0] === 100 && v[2] === 100, `a 4 cm waist mid stent (2 to 6 cm): ${v}`);
+  assert.equal(waistSpan(geomOf(p, 'TIPS', 'tips'), STENT_SITES[stentSite(p, 'TIPS')]).c, 0.5);
+});
+
+test('the stent card keeps Where, Waist length and Ends telling the same story', async () => {
+  const { withWaist, withSite } = await import('../src/engine/stent-geom.js');
+  const { stentSite } = await import('../src/engine/topology.js');
+  let p = withWaist({ stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'distal' } }, 'TIPS', 'tips', 'waist', 4);
+  assert.equal(p.stenosisSite.TIPS, 'mid', 'setting Waist length moves the narrowing to Mid');
+  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 4, trans: 0 });
+  p = withWaist(p, 'TIPS', 'tips', 'trans', TAPER_CM);
+  assert.equal(stentSite(p, 'TIPS'), 'mid');
+  p = withSite(p, 'TIPS', 'tips', 'distal');
+  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 1, trans: 0 }, 'Distal puts back the short focal waist');
+  assert.equal(stentSite(p, 'TIPS'), 'distal');
+  assert.equal(withSite({ stenosisSite: {} }, 'TIPS', 'tips', 'proximal').stentGeom, undefined, 'a stent with no geometry gets none');
+  assert.deepEqual(withSite(withWaist({}, 'TIPS', 'tips', 'waist', 3), 'TIPS', 'tips', 'mid').stentGeom.TIPS.waist, 3, 'Mid keeps the waist');
 });

@@ -1,4 +1,4 @@
-import { profileAt, geomOf, kindOf } from './stent-geom.js';
+import { profileAt, geomOf, geomFix, isFocal, kindOf } from './stent-geom.js';
 // Vascular network definition (blueprint §7.2).
 //
 // Units: pressure mmHg, flow mL/s, resistance PRU (mmHg·s/mL), compliance mL/mmHg.
@@ -375,7 +375,15 @@ export const dopplerK = (e) => (e?.kind !== 'shunt' ? 1 / 0.57 : isStent(e) ? ST
 // diameter. The drawn path of a stent runs from its portal end, so STENT_SITES places the pinch along it (0–1).
 export const STENT_SITES = { proximal: 1 / 6, mid: 0.5, distal: 5 / 6 };
 export const isStent = (e) => e?.kind === 'shunt' && (e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom');
-export const stentSite = (p, id) => (STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal');
+// A waist set along the stent (a length other than the short focal one, or tapered ends: stent-geom.js isFocal) is always mid stent, whatever
+// stenosisSite says: the one place every reader (the Doppler gates, the figure, the cards, the labels) takes the site from, so none can put a
+// long waist at an end. A focal stenosis keeps its own site, distal by default (where a TIPS usually narrows).
+export const stentSite = (p, id) => {
+  const g = p?.stentGeom?.[id];
+  if (g && !isFocal(geomFix(g, kindOf(edgeById(id)) || 'tips', SITE_GEOM))) return 'mid';
+  return STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal';
+};
+const SITE_GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (stentSite's geometry, read at once)
 // The thirds of a stent the Doppler gate samples and a slide can highlight (0–1 along its drawn path, from its portal end).
 export const STENT_SPANS = { proximal: [0, 1 / 3], mid: [1 / 3, 2 / 3], distal: [2 / 3, 1] };
 // The segment a Doppler gate names: 'site' follows the stent's narrowing (stentSite); anything else unknown is the mid stent.

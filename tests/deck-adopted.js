@@ -253,6 +253,8 @@ export const ADOPTED = {
   'tips-complete/gradient': ['procedure', 'kind:reading'],
   'tips-complete/diameter': ['kind:curve'],
   'tips-complete/cost': ['kind:menu'],
+  'tips-complete/tube': ['kind:stent'],
+  'tips-complete/waist': ['kind:stent', 'question'],
   'tips-complete/he': ['kind:criteria', 'caseQ'],
   'tips-complete/reduce': ['kind:flows'],
   'tips-complete/baseline': ['beats'],
