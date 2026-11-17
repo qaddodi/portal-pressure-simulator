@@ -59,14 +59,13 @@ test('every compartment\'s Why is its own pressure', () => {
   }
 });
 
-test('the vessel panel and the figure card take their Why from explain-ids.js, with no other metric picked per kind of vessel', () => {
-  const insp = read('src/ui/inspector.js'), act = read('src/ui/actions.js');
-  assert.match(insp, /whyBtn\(edgeWhy\(id\)\)/, 'the vessel panel asks the vessel');
-  assert.match(insp, /nodeWhy\(id\)/, 'the compartment panel asks the compartment');
+test('the vessel card and its details take their Why from explain-ids.js, with no other metric picked per kind of vessel', () => {
+  const det = read('src/ui/card-details.js'), act = read('src/ui/actions.js');
+  assert.match(det, /onWhy\(plan\.why, /, 'the details ask the card model\'s own Why');
+  assert.doesNotMatch(det, /onWhy\('/, 'the details name no metric of their own');
   const from = act.indexOf('function buildEdgeCard'), card = act.slice(from, act.indexOf('\nfunction ', from + 10));
   assert.match(card, /why: edgeWhy\(id\)/, 'the vessel card asks the vessel');
   assert.doesNotMatch(card.slice(0, card.indexOf('why: edgeWhy(id)')), /\bwhy = '/, 'no vessel kind picks a metric of its own');
-  assert.doesNotMatch(insp.slice(insp.indexOf('function edgePanel'), insp.indexOf('function nodePanel')), /whyBtn\('/, 'the vessel panel names no metric');
 });
 
 test('a healthy patient at rest holds still from the first frame and equals its reference', () => {

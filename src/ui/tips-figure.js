@@ -17,12 +17,12 @@ import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts, setPolys } from './svg-gl.js';
 import { flattenPath } from './shape-gl.js';
-import { stentLookD, bareOf } from './stent-mesh.js';
+import { stentCutD, bareOf } from './stent-mesh.js';
 import { reduceMotionMQ } from './motion.js';
 import { readMetric } from './layout-snap.js';
 import { pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan } from '../engine/stent-geom.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, waistShown } from '../engine/stent-geom.js';
 import { STENT_SITES, stentSite } from '../engine/topology.js';
 import { createFollowN, readStent, stentColour, localVelocity, openVelocity, scanK, stentOutline, ten, int, N_PROFILE } from './tool-stent.js';
 import { traceFor, gateIndex, TR } from './stent-trace-pic.js';
@@ -104,14 +104,15 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   const gradP = sv('linearGradient', { id: `${gid}p`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: 0, x2: 320, y2: 0 }, stopsP);
   const pvR = sv('rect', { 'data-look': 'stent.vein.p', x: 0, y: 0, width: 1, height: 1 }), hvR = sv('rect', { 'data-look': 'stent.vein.h', x: 0, y: 0, width: 1, height: 1 });
   const pvQ = sv('rect', { 'data-look': 'tf.vein.pre', fill: `url(#${gid}p)`, x: 0, y: 0, width: 1, height: 1 }), hvQ = sv('rect', { 'data-look': 'tf.vein.pre', fill: `url(#${gid}p)`, x: 0, y: 0, width: 1, height: 1 });
-  const OUTL = 2 * (N_PROFILE + 1), lumBuf = new Float64Array(2 * OUTL), grfBuf = new Float64Array(2 * OUTL);
+  const OUTL = 2 * (N_PROFILE + 1), lumBuf = new Float64Array(2 * OUTL);
   const lumV = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid})` }), lumP = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid}p)` });
-  const grf = sv('path', { 'data-look': 'stent.graft' });
+  const grf = sv('path', { 'data-look': 'tf.wall' });   // the cover's two bands, one over each wall of the cut stent (never across the lumen)
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   // the words on the stent: the waist's bracket and its lumen and length, the end stenosis's lumen, the veins' names, the gates and their unit
   const wBuf = new Float64Array(8), wBr = sv('path', { 'data-look': 'stent.dim' }), wT = sv('text', { 'data-look': 'tf.word', 'text-anchor': 'middle', 'font-size': 12 });
   const eBuf = new Float64Array(8), eBr = sv('path', { 'data-look': 'stent.dim' }), eT = sv('text', { 'data-look': 'tf.word', 'text-anchor': 'middle', 'font-size': 12 });
-  const pvT = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 }), hvT = sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'end', 'font-size': 11 });
+  // (the veins' names sit in the veins, at the stent's two ends, and show on every card's picture, the vessel card's too: RPV and RHV, the DIPS's far end the IVC)
+  const pvT = sv('text', { 'data-look': 'tf.vein.name', 'text-anchor': 'start', 'font-size': 11 }), hvT = sv('text', { 'data-look': 'tf.vein.name', 'text-anchor': 'end', 'font-size': 11 });
   const tBuf = [0, 1, 2].map(() => new Float64Array(4)), ticks = tBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
   const numsV = [0, 1, 2].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
   const numsP = [0, 1, 2].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
@@ -119,7 +120,8 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   const xBuf = [0, 1].map(() => new Float64Array(4)), xTicks = xBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
   const endV = [0, 1].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
   const endP = [0, 1].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
-  const heroWords = [wBr, wT, eBr, eT, pvT, hvT, ...ticks, ...numsV, ...numsP, ...xTicks, ...endV, ...endP];
+  const veinWords = [pvT, hvT];
+  const heroWords = [wBr, wT, eBr, eT, ...ticks, ...numsV, ...numsP, ...xTicks, ...endV, ...endP];
   // ── the chart ──
   const gridBuf = [0, 1, 2, 3].map(() => new Float64Array(4)), grid = gridBuf.map((_, i) => sv('path', { 'data-look': i ? 'stent.tr.axis' : 'stent.tr.zero' }));
   const tickV = [0, 1, 2].map(() => sv('text', { 'data-look': 'stent.cap', 'text-anchor': 'start', 'font-size': 11 }));
@@ -137,19 +139,19 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   const pbBuf = new Float64Array(8), pBr = sv('path', { 'data-look': 'tf.brk.ppg' }), pT = sv('text', { 'data-look': 'tf.lab.ppg', 'text-anchor': 'start', 'font-size': 12 });
   const velKids = [band, bandT, vArea, vLine, ...vDots, titleV, ...tickV], preKids = [pLine, guide, sBr, sT, pBr, pT, titleP, ...tickP];
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 320 100', role: 'img' },
-    sv('defs', {}, grad, gradP), pvR, hvR, pvQ, hvQ, lumV, lumP, grf, ...wires, ...(labels ? heroWords : []), ...(chart ? [...grid, ...velKids, ...preKids] : []));
+    sv('defs', {}, grad, gradP), pvR, hvR, pvQ, hvQ, lumV, lumP, grf, ...wires, ...veinWords, ...(labels ? heroWords : []), ...(chart ? [...grid, ...velKids, ...preKids] : []));
   const stage = h('div', { class: 'gl-stage tf-stage' }, pic);
   const el = h('div', { class: `tf${chart ? ' tf-chart' : ''}${labels ? '' : ' tf-bare'}` }, stage);
   // Every piece whose strength the figure writes holds one from the start: the look reads a piece's opacity live only when it was there as the look was made
   // (chart-looks/resolve.js '@opacity'), else the two lenses' words were drawn on top of each other (the preview, 17 Nov).
-  for (const e of FADED(pvQ, hvQ, lumV, lumP, grf, wires, heroWords, grid, velKids, preKids)) setGeo(e, 'opacity', 0);
+  for (const e of FADED(pvQ, hvQ, lumV, lumP, grf, wires, veinWords, heroWords, grid, velKids, preKids)) setGeo(e, 'opacity', 0);
   const gl = createSvgGL(stage);
 
   // ── what it follows ──
   const fol = createFollowN(NCH), goal = new Float64Array(NCH), GEO = { len: 8, waist: 1, trans: 0, red: 0 }, fix = { len: 8, waist: 1, trans: 0, red: 0 };
   const rec = makeTrace(), T = { sh: fix, s: 0, site: 0, d: 10, flowLpm: 0, tract: 0, wall: 0, ends: 0, jet: 0, ppg: 0, dp: 0 };
   const SPW = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }, SPE = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }, MESH = { cy: 0, x0: 0, dPx: 0, s: 0, sh: fix, site: 0, L: 1 };
-  const meshKey = new Float64Array(11);
+  const meshKey = new Float64Array(11), CUT = { t: 1.6, step: 6, ampB: 3, ampC: 2 };
   const animating = (on) => { if (anim !== on) { anim = on; frameAnimating('tips-figure', on); } };
   const kind = () => IDS[id];
 
@@ -212,24 +214,30 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
       setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, u)), id, d));
       if (cm > 0.001) setGeo(stopsP[i], 'stop-color', pressureAt(ivc + o.P[sampleAt(xi, len, L)]));
     }
-    // the cover over the stretch it covers, and the device as the figure draws it (made again only when its shape changed)
-    const ub = clamp(bareOf(1, len), 0, 0.9);
-    for (let i = 0; i <= N_PROFILE; i++) {
-      const u = ub + (1 - ub) * (i / N_PROFILE), hf = (dPx * profileAt(sh, s, site, u)) / 2, x = x0 + u * span, q = 2 * N_PROFILE + 1 - i;
-      grfBuf[2 * i] = x; grfBuf[2 * i + 1] = cy - hf; grfBuf[2 * q] = x; grfBuf[2 * q + 1] = cy + hf;
-    }
-    setPts(grf, grfBuf, OUTL, true); setGeo(grf, 'opacity', ex);
+    // The stent as a cut view (stent-mesh.js stentCutD): only its wall on each side, the cover's thin bands and the rings along them, so the lumen shows whole and a
+    // narrowing pinches the wall with it. Made again only when its shape changed.
     MESH.cy = cy; MESH.x0 = x0; MESH.dPx = dPx; MESH.s = s; MESH.sh = sh; MESH.site = site; MESH.L = span;
     const mk = meshKey;
     if (!(mk[7] === 1 && mk[0] === cy && mk[1] === x0 && mk[2] === dPx && mk[3] === s && mk[4] === site && mk[5] === span && mk[6] === len && mk[8] === sh.waist && mk[9] === sh.trans && mk[10] === sh.red)) {
       mk[0] = cy; mk[1] = x0; mk[2] = dPx; mk[3] = s; mk[4] = site; mk[5] = span; mk[6] = len; mk[7] = 1; mk[8] = sh.waist; mk[9] = sh.trans; mk[10] = sh.red;
-      const m = stentLookD(meshFrame, span, bareOf(span, len), 1);   // alloc-rare: the device's paths, made again only when the stent's shape changes (an edit), never at rest
+      CUT.t = clamp(0.55 * k, 1.6, 2.6); CUT.step = Math.max(3, 0.22 * L.pxCm); CUT.ampB = Math.min(4, 0.9 * k); CUT.ampC = Math.min(2.4, 0.5 * k);
+      const m = stentCutD(meshFrame, span, bareOf(span, len), CUT);   // alloc-rare: the device's paths, made again only when the stent's shape changes (an edit), never at rest
+      setPolys(grf, flattenPath(m.wall));
       for (let i = 0; i < WIRES.length; i++) setPolys(wires[i], flattenPath(m[WIRES[i]] || ''));
     }
+    setGeo(grf, 'opacity', ex);
     for (const w of wires) setGeo(w, 'opacity', ex);
+    paintVeinNames(ex);
     if (labels) paintWords(v, o, sh, ex, cm, ivc);
     if (chart) paintChart(v, o, sh, ex, cm, ivc);
     gl.paint();
+  }
+
+  // The veins' names, inside the veins at the stent's two ends (a stub is 1.3 cm of the picture: RPV, RHV, the DIPS's far end the IVC), fading with the stent.
+  function paintVeinNames(ex) {
+    setWords(pvT, 'RPV'); setWords(hvT, id === 'DIPS' ? 'IVC' : 'RHV');
+    setGeo(pvT, 'x', 4); setGeo(pvT, 'y', L.cy); setGeo(hvT, 'x', L.W - 4); setGeo(hvT, 'y', L.cy);
+    setGeo(pvT, 'opacity', ex); setGeo(hvT, 'opacity', ex);
   }
 
   function paintWords(v, o, sh, ex, cm, ivc) {
@@ -239,16 +247,12 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     wBuf[0] = wa; wBuf[1] = yb + 4; wBuf[2] = wa; wBuf[3] = yb; wBuf[4] = wb; wBuf[5] = yb; wBuf[6] = wb; wBuf[7] = yb + 4; setPts(wBr, wBuf, 4, false);
     const wOn = ex * clamp((red - 0.004) / 0.03, 0, 1);
     setGeo(wBr, 'opacity', wOn); setGeo(wT, 'opacity', wOn); setGeo(wT, 'x', (wa + wb) / 2); setGeo(wT, 'y', L.labY);
-    setWords(wT, waistWord(d * (1 - red), sh.waist));
+    setWords(wT, waistWord(d * (1 - red), waistShown(sh.waist)));   // (its length on the slider's 0.5 cm step while the stent glides: never 3.2 cm)
     // the end stenosis: its lumen over it
     const esp = endSpan(sh, T.site, SPE), ea = x0 + esp.a1 * span, eb = x0 + esp.b1 * span, eOn = ex * clamp((T.s - 0.004) / 0.03, 0, 1);
     eBuf[0] = ea; eBuf[1] = yb + 4; eBuf[2] = ea; eBuf[3] = yb; eBuf[4] = eb; eBuf[5] = yb; eBuf[6] = eb; eBuf[7] = yb + 4; setPts(eBr, eBuf, 4, false);
     setGeo(eBr, 'opacity', eOn); setGeo(eT, 'opacity', eOn); setGeo(eT, 'x', clamp((ea + eb) / 2, 24, L.W - 24)); setGeo(eT, 'y', L.labY);
     setWords(eT, mmWord(d * (1 - T.s)));
-    // the veins' names, short on a narrow card
-    const wide = L.W > WIDE;
-    setWords(pvT, wide ? 'Portal vein' : 'PV'); setWords(hvT, wide ? 'Hepatic vein' : 'HV');
-    setGeo(pvT, 'x', 0); setGeo(pvT, 'y', L.labY); setGeo(hvT, 'x', L.W); setGeo(hvT, 'y', L.labY);
     // the Doppler's three gates: a tick down from the lumen, the number where it is taken (the lens: cm/s, or mmHg at the same three places)
     for (let q = 0; q < 3; q++) {
       const u = GATES[q], xg = x0 + u * span, yl = cy + (d * k * profileAt(sh, T.s, T.site, u)) / 2 + 2, tb = tBuf[q];

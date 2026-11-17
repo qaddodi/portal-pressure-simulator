@@ -822,6 +822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) { gLeaders.insertBefore(a[i], next); if (unlitKeys.size && unlitKeys.has(a[i].dataset.k)) a[i].classList.add('unlit'); } next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
     else if (op === 'add') { if (a !== b.parentNode) a.append(b); }   // (a node new to its parent)
     else if (op === 'append') a.append(...b);
+    else if (op === 'marks') live.mk.ver++;   // (the GPU's marks read again: after the nodes they are read from have landed, never before)
     else if (op === 'text') a.textContent = b;   // (words a node is made with)
     else if (op === 'defs') defs.append(...a);
     else if (op === 'cathadd') { a.append(b); cath.lblKey = ''; cathLabelsSoon(); }   // (a reading new to the catheter's layer: laid out again once it is in)
@@ -3083,6 +3084,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     markAmounts: () => markA.amounts(),
     /** The vessel marks' draws on the GPU (for tests): each one's fade key, the alpha built into it and how much of it shows now. */
     markDraws: () => mk.draws.map((d) => ({ fade: d.fade, alpha: d.alpha, amount: stentAmounts(d.fade) })),
+    /** The GPU marks' vertices (the world's own coordinates, before the camera) of the draws with this fade key, as a box: for the node tests of a stent drawn where its vessel is. */
+    markBox: (fade) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0; for (const d of mk.draws) { if (d.fade !== fade) continue; for (let i = d.first; i < d.first + d.count; i++) { const x = mk.verts[i * 6], y = mk.verts[i * 6 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; n++; } } return n ? [x0, y0, x1, y1, n] : null; },
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
     /** The classes the GPU's state sets and what that state is (for tests): `gl-on` with the GPU holding its context, `gl-plate` with it holding the whole plate. */

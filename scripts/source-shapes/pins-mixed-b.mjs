@@ -297,8 +297,8 @@ export default [
   { file: 'src/ui/instruments.js', need: [/const share = wallShare\(v\)/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },   // (was a slice of the file)
   { file: 'src/ui/dock.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   { file: 'src/ui/compare.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/inspector.js', need: [/wallShare\(f\.metrics\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
-  { file: 'src/ui/inspector.js', need: [/metrics\.gastricVarix\.ratioShown \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
+  { file: 'src/ui/card-details.js', need: [/wallShare\(f\.metrics\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct) (the card\'s own details, since 17 Nov)'] },
+  { file: 'src/ui/card-details.js', need: [/wallShare\(f\.metrics\.gastricVarix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct) (the fundal varices read the one wall number too, 17 Nov)'] },
   { file: 'src/engine/explain.js', need: [/wallShare\(m\.varix\) \* 100/, 'The Wall mechanics tiles multiply out (review 19 Oct)'] },
   // warm-vis
   { file: 'src/ui/stage*', need: [/const seen = warmVis\(o\.id\);/, 'The after-meal gut glow lights only the loop edges that show (Mohammad, 20 Oct, Circulation 10/13'] },

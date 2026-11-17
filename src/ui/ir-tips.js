@@ -14,7 +14,7 @@
 // The view itself (17 Nov 2026, Mohammad approved the mock tips-cards-elegant.html: "Do it exactly like this please with all the animations"): its title (the
 // stent, its state, Velocity | Pressure, and a menu for Tube vs patient and Compare), one line of numbers (no tiles), the stent drawn to scale with its chart
 // under it on the same x (tips-figure.js, made the first time the view opens, so a person who never opens it pays nothing), and the three rows that edit it
-// (stent-editor.js), whose panel grows over the chart and the rows. Compare is ir-compare.js (Then, Now, Change against the app's own pin); Tube vs patient
+// (stent-editor.js), whose three tiles open a tray under them (option A), never over the chart. Compare is ir-compare.js (Then, Now, Change against the app's own pin); Tube vs patient
 // is ir-curves.js (the stent's flow against one setting, in the patient and as a tube on a bench, each point settled on a calculation worker of its own).
 
 import { h, fmt, swapText, toast, svgIcon } from './util.js';
@@ -68,7 +68,7 @@ export const SUBS = [['inside', 'Inside the stent'], ['curves', 'Tube vs patient
  * Returns { head, el, update(frame), view(), setView(v), sub(), setSub(v), which(), setActive(on), openStent(id), lens(), setLens(k), figure, editor, curves }.
  * The TIPS view (17 Nov 2026, the approved mock tips-cards-elegant.html): its title (the stent, its state, Velocity | Pressure and a menu for the other two
  * views), one line of numbers, the stent drawn to scale with its chart under it on the same x (tips-figure.js), and the three rows that edit it
- * (stent-editor.js), whose panel grows over the rows under the chart, so the stent and its chart stay in sight while it is edited.
+ * (stent-editor.js), whose tiles' tray unrolls under the tiles, under the chart, so the stent and its chart stay in sight while it is edited.
  */
 export function createIrTips({ host, onChange = () => {} } = {}) {
   let view = 'measure', which = 'TIPS', key = '', lastWord = 'TIPS', frame = null, statusT = '';
@@ -108,10 +108,8 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   const cmp = createIrCompare(), crv = createIrCurves();
   let sub = 'inside', lens = 'velocity';
   const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, top, inside, crv.el, cmp.el);
-  // The panel grows over the rows, never over the stent or its chart (written when the figure's width changes).
-  let seTop = '';
-  // (Its top is the rows', under the chart too (17 Nov, Mohammad: "I wanna see the graph while editing"): the stent and its chart stay in sight and follow each drag.)
-  const placePanel = () => { const L = figure().layout(), t = `${Math.round(L.h)}px`; if (t !== seTop) { seTop = t; zone.style.setProperty('--se-top', t); } };
+  // (The tiles' tray unrolls under the tiles, which sit under the chart (17 Nov, Mohammad: "I wanna see the graph while editing"; option A): the stent and its
+  // chart stay in sight and follow each drag.)
 
   function setMenu(on) {
     on = !!on;
@@ -197,7 +195,6 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (sub === 'compare') { cmp.update(f, which); return; }
     if (sub === 'curves') { crv.update(f, which); return; }
     figure().update(f);
-    placePanel();
     const st = which === 'DIPS' ? m.dips : m.tips, hidden = hiddenNow(st0);
     // the state beside the name: flowing, or (one rule, flow-cuts.js stentStill) almost still
     const still = !!st?.still, sT = still ? 'No flow' : 'Patent';

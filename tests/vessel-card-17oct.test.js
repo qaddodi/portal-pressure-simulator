@@ -37,10 +37,9 @@ test('V4: a clotted or narrowed vessel reads in → out on its card; open vessel
   assert.match(main, /edgeValue\(e, f, 'pressure', null\)\.v/, 'the hover tip keeps the one number');
 });
 
-test('V5: the status is a coloured word after the reading (card) and under the name (Details), never a pill', () => {
+test('V5: the status is a coloured word after the reading (card), never a pill', () => {
   assert.match(card, /const nr = h\('div', P_NR, name, pillEl\);/, 'the direction word at the right of the name');
   assert.ok(!/class: 'pill '/.test(card), 'card');
-  assert.match(inspector, /h\('span', \{ class: 'st-word ' \+ cls\[0\] \}, cls\[1\]\)/);
   for (const c of ['ok', 'warn', 'rev', 'bad']) assert.match(css, new RegExp(`\\n\\.st-word\\.${c} \\{ color:`), c);
 });
 
@@ -54,9 +53,9 @@ test('V8: a card slider\'s value stays in ink when changed; the accent is on the
   assert.ok(!/\.ac-slider\.changed \.ctl-val/.test(css));
 });
 
-test('V9: a vessel, compartment or organ is the Details title; no "Live values" heading', () => {
-  assert.ok(!/'Live values'/.test(inspector));
-  assert.match(main, /\$\('#panelTitle'\)\?\.classList\.toggle\('sr-only', named\)/);
-  assert.match(main, /const named = NAMED_DETAILS\.includes\(d\?\.type\);/);
-  assert.match(main, /const NAMED_DETAILS = \['edge', 'node', 'organ'\];/);
+test('V9: a vessel, compartment or organ is the title of its own details, inside its card; no "Live values" heading', () => {
+  const det = read('src/ui/card-details.js');
+  assert.ok(!/'Live values'/.test(inspector) && !/'Live values'/.test(det));
+  assert.match(det, /class: 'ad-back'[^\n]*h\('span', \{\}, title\)/, 'the back row is the name');
+  assert.doesNotMatch(main, /NAMED_DETAILS/, 'no panel is titled by the name any more');
 });

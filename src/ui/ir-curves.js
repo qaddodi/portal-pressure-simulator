@@ -14,7 +14,7 @@ import { createCurve } from './tool-curve.js';
 import { sharedCalc } from './calc-client.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
-import { GEOM_RANGE, BENCH_DP } from '../engine/stent-geom.js';
+import { GEOM_RANGE, BENCH_DP, WAIST_STEP } from '../engine/stent-geom.js';
 
 export const SWEEPS = ['diameter', 'end', 'waist', 'length'];
 const LABEL = { diameter: 'Diameter', end: 'End narrowing', waist: 'Waist length', length: 'Stent length (idealized)' };
@@ -26,7 +26,7 @@ const SETTLE_MS = 450;   // (a drag on the stent's card ends before the sweep st
 export function curveToolOf(which, sweep) {
   const id = which === 'DIPS' ? 'DIPS' : 'TIPS', k = id === 'DIPS' ? 'dips' : 'tips';
   const s = sweep === 'end' ? { param: `stenosis.${id}`, from: 0, to: 0.8, step: 0.1, unit: '%' }
-    : sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: 1, unit: 'cm' }
+    : sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: WAIST_STEP, unit: 'cm' }   // (on the slider's 0.5 cm step: no waist off its grid anywhere)
     : sweep === 'length' ? { param: `stentGeom.${id}.len`, from: GEOM_RANGE.len[0], to: GEOM_RANGE.len[1], step: 1, unit: 'cm' }
     : { param: `${k}.d`, from: 6, to: 12, step: 1, unit: 'mm' };
   return { kind: 'curve', ...s, label: LABEL[sweep] || LABEL.diameter, lines: [`${k}Flow`, `${k}Bench`], oneScale: true, cuts: false, names: { [`${k}Flow`]: 'In the patient', [`${k}Bench`]: `Tube alone, ${BENCH_DP} mmHg` } };

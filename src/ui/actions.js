@@ -9,7 +9,7 @@
 
 import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent } from '../engine/topology.js';
-import { GEOM_RANGE, TAPER_CM, WAIST_MAX, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
+import { GEOM_RANGE, TAPER_CM, WAIST_MAX, WAIST_STEP, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { stentStill } from '../engine/flow-cuts.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
@@ -193,7 +193,7 @@ export function stentControls(id) {
       format: (v) => (v > 0 ? `${mm(v)} mm · ${pct(v)}` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
       get: (p) => geo(p).red, set: (p, v) => withWaist(p, id, kind, 'red', v <= 0.004 ? 0 : +v.toFixed(2)), hist: `${e.label} waist`,
       info: 'A reduction made on purpose, always mid stent (a constrained or underdilated stent, a waist placed against encephalopathy): its diameter, shown in mm, with its own length and ends. Model values, not validated.' },
-    { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: 0.5, def: geomDefault(kind).waist, dimIf: noWaist,
+    { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: WAIST_STEP, def: geomDefault(kind).waist, dimIf: noWaist,
       format: (v) => `${v.toFixed(1)} cm`,   // alloc-rare: the slider's number label, made on the slider's own input event
       get: (p) => geo(p).waist, set: (p, v) => withWaist(p, id, kind, 'waist', v), hist: `${e.label} waist length`,
       info: 'How long the waist is, mid stent. A longer waist adds friction along its length; a waist of no length still loses energy where its jet leaves it. The same minimum diameter can then give different pressures.' },

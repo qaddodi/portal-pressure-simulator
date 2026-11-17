@@ -2,7 +2,7 @@
 // (card 5 on the side shelf, Mohammad's picks of 13 Nov 2026). It replaces the tool trays, the tool hint card and the sliders that
 // used to live in the side panel. Every verb takes effect at once and becomes one entry in the timeline; nothing stays "armed".
 //
-// One shape for every structure, top to bottom: the name (a tap opens Details) with the direction of flow at its right; the pressure
+// One shape for every structure, top to bottom: the name (a tap slides the card to its own details, card-details.js) with the direction of flow at its right; the pressure
 // where the blood comes in and where it leaves, on a bar in the pressure colours with the drop between them (Δ, or the PPG across a
 // stent and the HVPG across the liver, in their cut colours); the readings, named by their units; the controls, each with the app's
 // icon; the actions, an icon and one word. Every card has one fixed size for its kind (app.css [data-size]) and shows all it holds:
@@ -21,14 +21,16 @@ import { h, svgIcon, paintRange, isPhoneLayout, countTo, swapText, afterExit, ma
 import { sheetParts, dragSheet, glideSheet, stopSheet, setSheetOffset, sheetOffset } from './sheet-move.js';
 import { releaseSpeed, isFlick, carryCurve, SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
 import { cardFor, normalizeSel } from './actions.js';
+import { createCardDetails } from './card-details.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
-import { runSoon, propSoon, attrSoon } from './class-soon.js';
+import { runSoon, propSoon, attrSoon, classSoon, classNow, removeSoon } from './class-soon.js';
 import { readBox, readMetric } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 import { handOver } from './hand-over.js';
+import { glideCard, GLIDE_EVENT } from './card-glide.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -86,6 +88,10 @@ const P_TOGGLE = { class: 'ac-c ac-toggle', role: 'switch', 'aria-checked': 'fal
 const WORDS_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -6px' }], WORDS_OUT_OPT = { duration: D_FLIP, easing: EASE_IN, fill: 'forwards' };
 const WORDS_IN = [{ opacity: 0, translate: '0 6px' }, { opacity: 1, translate: '0 0' }], WORDS_IN_OPT = { duration: D_SMALL, delay: D_FLIP / 2, easing: EASE_ARRIVE, fill: 'backwards' };
 const FADE_OUT = [{ opacity: 1 }, { opacity: 0 }], FADE_IN = [{ opacity: 0 }, { opacity: 1 }];
+// The card's face and its details trade places in the same box (17 Nov 2026): the face leaves 20 px toward the left as the details come in from 20 px at the right,
+// and Back is the same two moves reversed. Opacity and translate only; the card's height never changes. With Reduce Motion they only fade.
+const SIDE_FACE_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '-20px 0' }], SIDE_FACE_IN = [{ opacity: 0, translate: '-20px 0' }, { opacity: 1, translate: '0 0' }];
+const SIDE_DET_IN = [{ opacity: 0, translate: '20px 0' }, { opacity: 1, translate: '0 0' }], SIDE_DET_OUT = [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '20px 0' }];
 // Options for countTo (it reads { eased } at once).
 const COUNT_EASED = { eased: true }, COUNT_STEADY = { eased: false };
 const DYE_HOLD = { hold: true }, DYE_ONCE = {};
@@ -163,7 +169,7 @@ export function cardShape(m, p) {
   return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
 }
 
-export function createCard({ view, stage, ctx, onDetails }) {
+export function createCard({ view, stage, ctx, onWhy }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
   // A card is a sheet like Details and Treat (Menu system plan W4): a plate (paper and glass) and its content move together under the
@@ -174,7 +180,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
+  let glideFrom = 0, glides = [];
+  el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
+  new ResizeObserver(() => {
+    const was = sizes.h;
+    sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
+    if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    reveal();
+  }).observe(el);
   new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
@@ -244,7 +258,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, sheetWired = false;
-  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
+  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); finishDet(); dropDetails(); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
@@ -266,10 +280,61 @@ export function createCard({ view, stage, ctx, onDetails }) {
   let aboutNext = 0;
 
   // The pieces of the card that are the same every time it is built, made once here because their handlers are this card's own.
-  const onNameClick = () => onDetails(selRef);
+  const onNameClick = () => openDetails();
   const KEEP = { keepFocus: true };
   const renderKeep = () => render(KEEP);
   const renderSoon = () => restPass(renderKeep);   // (the card rebuilds between frames, never as a timer task inside one)
+
+  // ---- The card's details, inside the card (17 Nov 2026) ----
+  // A tap on the name slides the card's face away and its details (card-details.js) in, in the same box; Back, Esc or the name row slides the face home. There is no
+  // panel or sheet any more. The face stays built under the details (hidden, taking no taps, still updating), so Back is only a slide. The card never changes height
+  // for it (a taller view scrolls inside the box, as the face does past its room), and nothing pops: both layers move by opacity and translate.
+  // `det`: the details view, from the tap until it has slid out; `detOpen`: whether they are the one in view; `detDone`: what the running slide does at its end.
+  let det = null, detOpen = false, detDone = null;
+  const finishDet = () => { if (detDone) { const d = detDone; detDone = null; d(); } };   // (a second tap in the middle of a slide: the first slide is taken to its end)
+  function dropDetails() {
+    detOpen = false;
+    if (!det) return;
+    const d = det; det = null;
+    releaseWords(d.el); removeSoon(d.el);
+    const i = live.indexOf(d.el);
+    if (i >= 0) live.splice(i, 1);
+  }
+  function openDetails() {
+    if (!model || el.hidden || detOpen || el.classList.contains('ac-leaving')) return;
+    if (isDocked() && el.closest('.app.dock-open:not(.instrument-focus)')) return;   // (over Tests the phone's card is a strip of its name and state: no room for a view)
+    finishDet(); dropDetails();
+    const d = createCardDetails(model, { onWhy, onBack: closeDetails });
+    if (!d) return;
+    det = d; detOpen = true;
+    d.el._acK = 8; d.el._acD = d; live.push(d.el);
+    const face = el.querySelector(':scope > .ac-body');
+    el.append(d.el);
+    d.update(store.get().frame);
+    const still = reduceMotionMQ.matches;
+    d.el.animate(still ? FADE_IN : SIDE_DET_IN, WORDS_IN_OPT);
+    if (face) {
+      const a = face.animate(still ? FADE_OUT : SIDE_FACE_OUT, WORDS_OUT_OPT);
+      // alloc-rare: one slide per tap; the face is hidden for good when it has gone (its words keep updating under the details)
+      const done = () => { detDone = null; if (face.isConnected && detOpen) { classSoon(face, 'ac-under', true); propSoon(face, 'inert', true); } runSoon(() => a.cancel()); };   // (the class lands first, in the same task: the face is never seen again between the two)
+      detDone = done;
+      a.finished.then(() => { if (detDone === done) done(); }, () => {});
+    }
+    d.focus();
+  }
+  function closeDetails() {
+    if (!detOpen || !det) return;
+    finishDet();
+    const d = det, face = el.querySelector(':scope > .ac-body'), still = reduceMotionMQ.matches;
+    detOpen = false;
+    propSoon(d.el, 'inert', true);
+    if (face) { classNow(face, 'ac-under', false); propSoon(face, 'inert', false); face.animate(still ? FADE_IN : SIDE_FACE_IN, WORDS_IN_OPT); face.querySelector('.ac-name')?.focus({ preventScroll: true }); }
+    const a = d.el.animate(still ? FADE_OUT : SIDE_DET_OUT, WORDS_OUT_OPT);
+    // alloc-rare: one slide per tap
+    const done = () => { detDone = null; if (det === d) dropDetails(); };
+    detDone = done;
+    a.finished.then(() => { if (detDone === done) done(); }, () => {});
+  }
 
   // The direction word crossfades to a new one (its colour easing with it); a card with no bar has its one reading beside it, whose
   // number rolls to a new one.
@@ -370,6 +435,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     else if (k === 3) liveAbout(e);
     else if (k === 6) liveSpan(e);
     else if (k === 7) liveMeter(e);
+    else if (k === 8) e._acD.update(store.get().frame);
     else liveDye(e);
   }
   // A slider shows its number and its fill; a switch its state.
@@ -406,7 +472,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // The content of the card, built for a model: its rows in their fixed order (app.css .ac-body).
   function build(m) {
     const p0 = store.get().params;
-    // The name (a tap opens Details: the chevron says so) and the direction of flow at its right.
+    // The name (a tap slides the card to its details: the chevron says so) and the direction of flow at its right.
     const pillEl = h('span', P_STATE);
     P_NAME['aria-label'] = `${m.title}: details`;
     const name = m.noDetails ? h('span', P_NAME_PLAIN, m.title) : h('button', P_NAME, h('span', P_NONE, m.title), svgIcon('chev-right', 'ac-chev'));
@@ -487,10 +553,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
     const tok = lastSelTok; lastSelTok = newSelTok; newSelTok = tok;
     const size = cardSize(m, st.params), wasOpen = !el.hidden && !!model && !leaving;
     el.dataset.card = ns.type || 'vessel';
+    // The details stay for a rebuild of the same card (a verb, the shunting flag); any other pick puts them away (below, once it is known whether the card is new).
+    const keepDet = detOpen && same && !leaving;
     model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0; dropPanels();
     const old = el.querySelector(':scope > .ac-body');
     el.querySelector(':scope > .ac-ghost')?.remove();
-    releaseWords(el);   // (the readings of the content being replaced)
+    releaseWords(keepDet ? old : el);   // (the readings of the content being replaced; the details' own stay)
     const body = build(m);
     // The shelf's card is as tall as its words (16 Nov 2026), so a pick of the same size can still be a different height. The shape of the rows says it (cardShape),
     // worked out from the model with no read of the page. A switch to a card of another size or shape is the old card going out and the new one coming in: its height
@@ -499,6 +567,19 @@ export function createCard({ view, stage, ctx, onDetails }) {
     const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
     el.dataset.size = size; el.dataset.shape = shape;
     const swap = wasOpen && !same && !resized && !!el.animate && !!old;
+    // Another pick with the details showing: they fade out as the new words come in (a card of another size is a new card: they are gone at once).
+    if (det && !keepDet) {
+      finishDet();
+      const d = det;
+      if (swap && detOpen) {
+        detOpen = false; propSoon(d.el, 'inert', true);
+        const still = reduceMotionMQ.matches, a = d.el.animate(still ? FADE_OUT : WORDS_OUT, WORDS_OUT_OPT);
+        // alloc-rare: one fade per pick that leaves details behind
+        const done = () => { detDone = null; if (det === d) dropDetails(); };
+        detDone = done;
+        a.finished.then(() => { if (detDone === done) done(); }, () => {});
+      } else dropDetails();
+    }
     if (swap) {
       // Another structure picked while the card is open: the old words fade out 6 px up from a layer that takes no taps, the new ones
       // come in from 6 px below a beat later (B: only the words move, the card stays still). With Reduce Motion they only fade.
@@ -514,6 +595,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (old) old.remove();
       el.append(body);
     }
+    if (keepDet) { classNow(body, 'ac-under', true); body.inert = true; if (det) live.push(det.el); }   // (the rebuilt face goes under the details that are showing)
     // alloc-rare: the card is built when a selection (or the shunting flag) changes, once per pick
     el.setAttribute('aria-label', `${m.title}: actions`);
     if (el.hidden || leaving || resized) opening();   // (opened afresh, or a new size: it comes in from its edge)
@@ -522,7 +604,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];
     position();
     update();
-    if (focusedIdx >= 0 && actionable[focusedIdx]) focusAction(actionable[focusedIdx]);
+    if (focusedIdx >= 0 && actionable[focusedIdx] && !keepDet) focusAction(actionable[focusedIdx]);
     relayoutSoon();
     reveal();
   }
@@ -575,7 +657,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function stopSheetGesture() { if (!sheetWired) return; if (y0 != null) sheetStop(); setSheetOffset(el, 0); }
   // (The pull starts anywhere on the card but on a control: a slider, a switch, a button.)
   function onSheetDown(e) {
-    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, button, .ac-c')) return;
+    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, button, .ac-c, .ad-scroll')) return;
     sheetWired = true;
     stopSheet(el);   // (caught mid-ease: the pull carries on from where the content is drawn)
     y0 = e.clientY - sheetOffset(el); t0 = performance.now(); dy = 0; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
@@ -805,7 +887,10 @@ export function createCard({ view, stage, ctx, onDetails }) {
   return {
     el, render, update, position,
     isOpen: () => !!model && !el.hidden,
-    trigger(n) { const a = actionable[n - 1]; if (a && !a.disabled) { runAction(a); return true; } return false; },
+    /** Whether the card's details are the view showing (Esc takes them back before it takes the card away). */
+    detailsOpen: () => detOpen,
+    closeDetails,
+    trigger(n) { if (detOpen) return false; const a = actionable[n - 1]; if (a && !a.disabled) { runAction(a); return true; } return false; },
     focusFirst() { if (actionable[0]) focusAction(actionable[0]); },
   };
 }
