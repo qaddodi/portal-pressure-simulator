@@ -98,12 +98,17 @@ test('a settled patient posts the heartbeat frame only, and ten a second while a
     await core.handle({ type: 'init' });
     await core.handle({ type: 'traces', on: false });
     await core.handle({ type: 'run', running: true });
-    for (const id of ['healthy', 'cirr-decomp']) {
+    // (Every preset, not two: the acute PVT's collateral shown diameters swung 8% with the beat, so its worker posted 6 states a second for ever, and
+    // every state is a redraw of the figure, the readouts and the labels' signature on the page. 17 Nov 2026, Mohammad's Safari ?perf at rest.)
+    const { PRESETS } = await import('../src/engine/scenario.js');
+    const loud = [];
+    for (const { id } of PRESETS) {
       await core.handle({ type: 'preset', id });
       run(40000);
       frames = 0; run(10000);
-      assert.ok(frames <= 12, `${id}: ${frames} frames in 10 s at rest (the heartbeat is 10)`);
+      if (frames > 12) loud.push(`${id}: ${frames} frames in 10 s at rest (the heartbeat is 10)`);
     }
+    assert.deepEqual(loud, []);
     await core.handle({ type: 'traces', on: true });
     frames = 0; run(10000);
     assert.ok(frames >= 80, `a trace drawing keeps its samples coming: ${frames} frames in 10 s`);

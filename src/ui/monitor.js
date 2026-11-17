@@ -181,7 +181,8 @@ function monOn({ ctx, w, h: hh }, S, st) {
     // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
     // so no gridline runs through it: sweep 2 review items 14 and 15.)
     ctx.font = FONT(500, FS);
-    monitorNote(ctx, note[0], L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
+    // (Its left edge is 8 px right of the widest axis number's ink, not of the axis: the numbers stand at L + 3 and a "10" is 16 px wide, so the words once started under it, F48.)
+    monitorNote(ctx, note[0], L + 3 + Math.ceil(ctx.measureText(tick(ymax)).width) + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
     return;
   }
   // A target the gradient is read against (after a TIPS: <12 mmHg), a dashed line under the trace.

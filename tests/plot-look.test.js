@@ -174,9 +174,11 @@ test('a flow-time chart with treatments keeps their names and bars inside the pa
   for (const n of [1, 2, 3]) assert.ok(1.4 + 0.32 * n - (2.8 - 1.7 + (n - 1) * 0.32 + 0.2) >= 0.4, `${n} bars: room under the last`);
 });
 
-test('the criteria cards\' lead line and rule stand centred, as the first-visit graph\'s do', () => {
-  assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;/);
-  assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: center;/);
+test('the criteria cards\' lead line and rule stand at the left with the title; only the zones card (the first-visit graph) keeps them centred', () => {
+  assert.match(css, /\.pzc-top \{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start;/);
+  assert.match(css, /\.pzc-lead \{ flex: 0 1 auto; min-width: 0; margin: 0; text-align: left;/);
+  assert.match(css, /\.pz-crit\.has-zones \.pzc-top \{[^}]*justify-content: center;/);
+  assert.match(css, /\.pz-crit\.has-zones \.pzc-lead \{[^}]*text-align: center;/);
 });
 
 test('the Explore dock\'s canvas charts lay the same rounded panel: plotFill is the panel\'s rect in the tile tone, laid first, and neither chart keeps an axis line', () => {

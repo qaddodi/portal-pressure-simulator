@@ -262,6 +262,8 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 }
 .action-card.docked[data-size=l] { min-height: min(300px, var(--ac-max)); }
 .action-card.docked[data-size=x] { min-height: min(400px, var(--ac-max)); }
+/* (17 Nov 2026, F46: a stent card whose editor is folded, because the Tests view's own editor is on screen, is a slim strip, as tall as what it holds: its size's least height stood empty under the folded line.) */
+.action-card.docked:has(.stent-editor[data-fold="true"]) { min-height: 0; }
 /* (17 Nov 2026, the TIPS card was cut off behind the view switch on an iPhone: its two new rows, Waist length and Ends, made it taller than its size's 300 px, and a card showed
    only what fitted its fixed height. The size is now the least a card is: it grows with its words, as the shelf's card does, as far as the room under the case pill allows, and only
    past that does its body scroll, so a card of any height fits or scrolls on every screen.) */
@@ -274,7 +276,14 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 /* With Measure / Instruments open on a phone the card rises above the sheet. */
 .app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); --ac-max: calc(100% - var(--bot-occ, 0px) - var(--top-safe, 56px) - 56px); }
 /* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
-.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
+/* (17 Nov 2026, F46, iPad portrait and phone: the card and Tests together covered the whole figure. With Tests open the card is a strip of its name and state, 56 px (stack-plan.js STRIP),
+   and Tests' Half height leaves the figure a 200 px band above it (dock-sheet.js stops). Tests' tallest size still leaves the strip its room.) */
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 56px - 14px); }
+.app.dock-open:not(.instrument-focus) .action-card.docked { min-height: 0; height: 56px; overflow: hidden; }
+.app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body { overflow: hidden; padding-top: 0; padding-bottom: 0; justify-content: center; height: 100%; }
+.app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body > :not(.ac-nr) { display: none; }
+/* (F51, iPhone: even the strip left about 25 px of the stent above the sheet. On a phone the card steps aside while Tests is open: the stent is panned into the band above the sheet, and the card is back when Tests closes.) */
+@media (max-width: 699px) { .app.dock-open:not(.instrument-focus) .action-card.docked { height: 0; visibility: hidden; border-width: 0; } }
 /* How it comes and goes (B): on the shelf it slides in 16 px from the left as it fades in and fades back 8 px toward the edge; on a phone
    it rises 24 px and sinks 16 px. The plate (the glass) and the words move together; the box holds still so the leave ends on it. */
 .action-card > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }

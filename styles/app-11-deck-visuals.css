@@ -253,13 +253,14 @@
    cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
 .pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
-.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
-.pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
+.pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: .35em .8em; margin: 0 0 .55em; }   /* (at the left, as the card's title and readings above it and the rules below: the lead and the rule's source one group, each on its own row where they do not fit together; the zones card, all on its centre line, sets its own below) */   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
+.pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: left; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }
 .pzc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
 .pzc-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: .55em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font: 400 1.07em/1.35 var(--font-display); color: var(--text-2); transition: none; }
 @supports not (grid-template-columns: subgrid) { .pzc-row { grid-template-columns: auto minmax(0, 1fr) auto; } }
-.pzc-row:first-child { border-top: 0; }   /* (the quick check's rows: a hairline between, no fills) */
+.pzc-row:first-child { border-top: 0; }
+.pzc-top:not([hidden]) + .pzc-list > .pzc-row:first-child:not(.pzc-hrow) { padding-top: .2em; }   /* (the block above already spaces the list from itself: with the first row's own padding on top of it the gap before the list was twice the gap between rows) */   /* (the quick check's rows: a hairline between, no fills) */
 .pzc-row:is([data-lit], [data-met="yes"]) { color: var(--text); font-weight: 600; }   /* (the row that fits the case: full ink, as a key tile's name) */
 .pzc-hrow { padding: 0 0 .3em; font: 500 max(12px, .86em)/1.2 var(--font-ui); color: var(--text-3); }
 .pzc-c { grid-column: 1; display: none; }
@@ -310,7 +311,7 @@
    the plot's words in the card's own text colour with a halo in the card's colour; the key's swatch the same hatch as the graph. */
 .pz.pz.pz .pz-data.pz-data[data-tool^="criteria:"]:has(.pz-crit.has-zones) > .pz-dh { justify-content: center; text-align: center; }
 .pz-crit.has-zones .pzc-top { flex-wrap: nowrap; align-items: center; justify-content: center; gap: .8em; margin-bottom: .75em; }
-.pz-crit.has-zones .pzc-lead { flex: none; white-space: nowrap; }
+.pz-crit.has-zones .pzc-lead { flex: none; white-space: nowrap; text-align: center; }
 .pzc-zones > :is(svg, .ic) { display: block; overflow: visible; }
 .pzc-key { display: flex; flex-direction: column; align-items: center; gap: .3em; margin-top: .7em; text-align: center; font: 500 max(12px, .86em)/1.3 var(--font-ui); color: var(--text-2); }
 .pzc-kl { margin: 0; display: inline-flex; align-items: center; gap: .5em; }
@@ -534,7 +535,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz-hi[data-measured] { transition: opacity var(--d-small) var(--ease); }
 .pz-data:has([data-reading="pending"]) .pz-hi[data-measured] { opacity: 0; }
 .pz-hr { display: none; }
-.pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; flex-wrap: wrap; min-width: 0; max-width: 100%; align-items: baseline; justify-content: flex-end; gap: 2px 12px; margin-left: auto; white-space: nowrap; letter-spacing: 0; text-transform: none; }   /* (a reading never leaves the card: when the row is too wide for the card, whole readings drop to a second row at the right, "BP 123/75 (89) mmHg · APP 83 mmHg · PORTAL FLOW 0.4 L/min" ran past the card's edge under the expand icon, 16 Nov 2026) */
+.pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; flex-wrap: wrap; min-width: 0; max-width: 100%; align-items: baseline; justify-content: flex-start; gap: 2px 12px; margin-left: 0; white-space: nowrap; letter-spacing: 0; text-transform: none; }   /* (a reading never leaves the card: when the row is too wide for the card, whole readings drop to a second row under the name, at the left, "BP 123/75 (89) mmHg · APP 83 mmHg · PORTAL FLOW 0.4 L/min" ran past the card's edge under the expand icon, 16 Nov 2026) */
+/* (One alignment, the left (17 Nov 2026, iPhone, Recompensation 11: the readings wrapped to a row of their own and sat at the right under a left title, the lead and the rule's pill centred beneath: four alignments in one header): the name grows to fill its row, which puts the readings at the right edge when both share a row, and a row of their own at the left when they do not. No auto margin: that put a wrapped row at the right.)
 /* (The name never shares a row it has no room on: it keeps its own line at its natural width, and the readings take the row beneath, at the right, when both do not fit one row. Before, the row never wrapped and the name was squeezed to nothing, its words spilling under the numbers, "LIVER STIFFNESS, FIBROSCAN" over three lines on the readings, 7 Nov 2026.) */
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: wrap; justify-content: space-between; align-items: baseline; text-align: left; gap: 2px 12px; }
 .pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; text-wrap: balance; }

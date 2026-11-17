@@ -9,6 +9,7 @@ import { slideCount, slideCountLabel, slideSaid, slideSay } from './slide-say.js
 import { store } from './store.js';
 import { dataSoon } from './class-soon.js';
 import { clamp, h, icon } from './util.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createScales(st, live) {
   const { HUSH_OUT, app, camera, creditLease, dock, dockHalt, dockPaint, dockRest, eased, figOf, fitDone, homeLease, hush, lastBeat, layout, markLong, next, openSettings, paintOverlays, paintZoom, phone, pillKind, placeLip, poke, prev, pview, reFit, reframe, run, shortSide, stage, stimer, stop, tabUp, toggleJump, unhush, until, waitCut, wrap, zoomOn } = st;
@@ -75,7 +76,7 @@ export function createScales(st, live) {
     let dx = 0, dy = 0, left = 0;
     for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const run = readAnims(n).filter((a) => a.playState === 'running' && Number.isFinite(readTiming(a.effect).endTime));
+      const run = readAnims(n).filter((a) => animRunning(a) && Number.isFinite(readTiming(a.effect).endTime));
       if (!run.length) continue;
       for (const a of run) left = Math.max(left, readTiming(a.effect).endTime - (a.currentTime || 0));
       const t = readStyle(n).transform;

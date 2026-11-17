@@ -32,11 +32,13 @@ export const OUTPUT_ROWS = [
     ['Mean velocity, open stent', 'cm/s', (O) => int(O.vOpen)],
     ['Doppler peak (scanner)', 'cm/s', (O) => int(O.vPeak)],
   ]],
-  ['Where the drop goes', [
-    ['Across the stent', 'mmHg', (O) => ten(O.dpTen / 10)],
-    ['Along the length', 'mmHg', (O) => ten(O.alongTen / 10)],
-    ['Local (ends, jet)', 'mmHg', (O) => ten(O.localTen / 10)],
+  ['Where the drop goes', [   // (the staircase's parts, as the stent card prints them: across the stent is the sum of the last four, whole tenths shared as printedParts does)
     ['Outside the stent', 'mmHg', (O) => ten(O.outTen / 10)],
+    ['Tract', 'mmHg', (O) => ten(O.tractTen / 10)],
+    ['In and out', 'mmHg', (O) => ten(O.endsTen / 10)],
+    ['Friction', 'mmHg', (O) => ten(O.wallTen / 10)],
+    ['Jet', 'mmHg', (O) => ten(O.jetTen / 10)],
+    ['Across the stent', 'mmHg', (O) => ten(O.dpTen / 10)],
   ]],
 ];
 
