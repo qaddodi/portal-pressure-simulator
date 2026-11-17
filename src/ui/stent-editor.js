@@ -1,9 +1,11 @@
 // The stent editor of Tests › IR › TIPS (17 Nov 2026, Mohammad: "editing the stent easier even from the test card should be able to edit. Stenosis the
-// distal or proximal end should be a different option than making a waist with some length"). The same controls as the stent's vessel card, from
-// the one list both read (actions.js stentControls), laid out in two labelled groups so the two clinically different narrowings never look like one:
-//   Diameter
-//   Stenosis · at an end       Stenosis (severity), End (Proximal | Distal)
-//   Waist · mid stent          Waist (its diameter), Waist length, Ends (Abrupt | Tapered)
+// distal or proximal end should be a different option than making a waist with some length"; then "we should be able to edit the TIPS right from this
+// view please, no need to open the card", "elegantly"). The same controls as the stent's vessel card, from the one list both read (actions.js
+// stentControls), in two slim rows so the view fits the card with no scrolling, one narrowing a row:
+//   Diameter 10.0 mm   Stenosis 6.0 mm · 40%   End      [Proximal | Distal]
+//   Waist 6.0 mm · 40%  Length 2.0 cm           Ends     [Abrupt | Tapered]
+// Each cell is its name and value over its slider (or its choice); the columns line up across the two rows. In a narrow card (a phone) the value keeps
+// its millimetres and drops the percentage. It fades in with the view, and its cells fade in when the chip changes stent; nothing pops.
 // A drag sends the newest value once per frame and the last at once when the hand lets go (as the vessel card does: card.js); a change made anywhere
 // else (the vessel card, a slide, undo) is followed between frames. A control that does nothing now (the waist's length and ends with no waist, the
 // stenosis's end with no stenosis) dims where it stands, never hidden, so nothing moves.
@@ -15,12 +17,18 @@ import { runSoon, propSoon, attrSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
 
 const nextFrame = frameFor('stent-editor');
-/** The groups, by the controls' ids in actions.js stentControls. */
-export const EDITOR_GROUPS = [
-  { id: 'dia', title: '', ids: ['diameter'] },
-  { id: 'end', title: 'Stenosis', sub: 'at an end', ids: ['narrow', 'site'] },
-  { id: 'waist', title: 'Waist', sub: 'mid stent', ids: ['waistD', 'waist', 'ends'] },
-];
+/** The cells, two rows of three, by the controls' ids in actions.js stentControls (row 1 the stent and its end stenosis, row 2 its mid waist). */
+export const EDITOR_CELLS = [['diameter', 'narrow', 'site'], ['waistD', 'waist', 'ends']];
+/** A cell's short name where the card's is longer (the row says whose length it is); the control's own label stays its accessible name. */
+const SHORT = { waist: 'Length' };
+
+/** A value as the editor shows it: the millimetres first, then the rest (a percentage), which a narrow card leaves out ("40% · 6.0 mm" → ["6.0 mm", "40%"]). */
+export function splitValue(t) {
+  const i = t.indexOf(' · ');
+  if (i < 0) return [t, ''];
+  const a = t.slice(0, i), b = t.slice(i + 3);
+  return b.endsWith('mm') && !a.endsWith('mm') ? [b, a] : [a, b];
+}
 
 /** createStentEditor({ id }): { el, update(frame), setStent(id), destroy() }. `id` is the stent ('TIPS', 'DIPS'). */
 export function createStentEditor({ id = 'TIPS' } = {}) {
@@ -29,10 +37,11 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
 
   function sliderRow(v) {
     const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': v.label, 'data-def': v.def ?? null });
-    const val = h('span', { class: 'ctl-val' });
-    const row = h('div', { class: 'ac-c ac-slider', 'data-ctl': v.id }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-name' }, v.short || v.label), val), h('div', { class: 'range-wrap' }, input));
-    const r = { v, row, input, val, kind: 1, shown: NaN, pend: false, x: 0, fresh: true, hist: false, raf: 0 };
-    const paint = (x) => { r.shown = x; const t = v.format(x); val.textContent = t; attrSoon(input, 'aria-valuetext', t); paintRange(input, (x - v.min) / (v.max - v.min)); };
+    const val = h('span', { class: 'se-val' }), sub = h('span', { class: 'se-sub' });
+    const row = h('div', { class: 'se-cell', 'data-ctl': v.id }, h('div', { class: 'se-top' }, h('span', { class: 'se-name' }, SHORT[v.id] || v.label), val, sub), h('div', { class: 'range-wrap se-range' }, input));
+    const cells = [row];
+    const r = { v, row, cells, input, val, kind: 1, shown: NaN, pend: false, x: 0, fresh: true, hist: false, raf: 0 };
+    const paint = (x) => { r.shown = x; const t = v.format(x), [main, rest] = splitValue(t); val.textContent = main; sub.textContent = rest; attrSoon(input, 'aria-valuetext', t); paintRange(input, (x - v.min) / (v.max - v.min)); };
     r.paint = paint;
     const send = () => {
       if (!r.pend) return;
@@ -60,25 +69,22 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
       b._val = o[0];
       return b;
     });
-    const row = h('div', { class: 'ac-c ac-segrow', 'data-ctl': v.id }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-name' }, v.label)), h('div', { class: 'seg full ac-seg small', role: 'group', 'aria-label': v.label }, btns));
-    return { v, row, btns, kind: 2, shown: null };
+    const row = h('div', { class: 'se-cell se-choice', 'data-ctl': v.id }, h('div', { class: 'se-top' }, h('span', { class: 'se-name' }, v.label)), h('div', { class: 'seg full ac-seg small se-seg', role: 'group', 'aria-label': v.label }, btns));
+    return { v, row, cells: [row], btns, kind: 2, shown: null };
   }
 
   function build(newId) {
     sid = newId;
-    const ctl = stentControls(sid), byId = new Map(ctl.map((v) => [v.id, v]));
+    const byId = new Map(stentControls(sid).map((v) => [v.id, v]));
     rows = [];
-    const groups = EDITOR_GROUPS.map((g) => {
-      const kids = [];
-      for (const cid of g.ids) {
-        const v = byId.get(cid);
-        if (!v) continue;
-        const r = v.type === 'seg' ? segRow(v) : sliderRow(v);
-        rows.push(r); kids.push(r.row);
-      }
-      return h('section', { class: `se-group se-${g.id}` }, g.title ? h('h4', { class: 'se-title' }, g.title, g.sub ? h('em', {}, ` · ${g.sub}`) : null) : null, h('div', { class: 'se-ctls' }, kids));
-    });
-    el.replaceChildren(...groups);
+    const kids = [];
+    for (const ids of EDITOR_CELLS) for (const cid of ids) {
+      const v = byId.get(cid);
+      if (!v) { kids.push(h('div', { class: 'se-cell' })); continue; }   // (an empty cell keeps the columns)
+      const r = v.type === 'seg' ? segRow(v) : sliderRow(v);
+      rows.push(r); kids.push(r.row);
+    }
+    el.replaceChildren(...kids);
     sync(store.get().params, true);
   }
   // Follow the params: each slider not in the hand takes the model's value, each choice its pressed button, each control its dimming.
@@ -87,7 +93,7 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
       if (r.kind === 1) { const x = r.v.get(p); if ((force || x !== r.shown) && document.activeElement !== r.input) { propSoon(r.input, 'value', String(x)); r.paint(x); } }
       else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); } }
       const dim = !!r.v.dimIf?.(p);
-      if (dim !== r.dim) { r.dim = dim; r.row.classList.toggle('ac-dim', dim); }
+      if (dim !== r.dim) { r.dim = dim; for (const c of r.cells) c.classList.toggle('se-dim', dim); }
     }
   }
   off = store.on('params', () => sync(store.get().params));

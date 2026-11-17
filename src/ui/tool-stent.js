@@ -1,7 +1,9 @@
 // The stent cards (16 Nov 2026; plan /mnt/project-files/tips-geometry/tips-instrument-cards-plan.md §5): tool { kind: 'stent', vessel: 'TIPS' | 'DIPS', show: ['lumen'] | ['loss'] | both }.
 //   lumen  the stent in side view, to scale in cm: the portal vein at the left, the hepatic vein at the right, its wall in the stent metal and its lumen coloured
-//          with the figure's own velocity colours (colormap.js velocityColor against the stent's 90 to 190 cm/s), the narrowing as a dimension line with its lumen in
+//          with the figure's own velocity colours (colormap.js velocityColor against the stent's 90 to 190 cm/s, scaled for a diameter outside 8 to 10 mm), the narrowing as a dimension line with its lumen in
 //          mm, the Doppler's three points with their peak velocity (the same numbers as the Doppler card and the peak tile), the flow as an arrow.
+//   trace  the reviewer's longitudinal view (stent-trace-pic.js): the lumen with five numbered pressure sites, and the static pressure, the energy lost so far and the mean
+//          velocity along it (tool.panels picks which); a schematic, the solver being lumped (src/engine/stent-trace.js).
 //   loss   where the pressure goes: ONE stacked bar on a fixed mmHg scale (tool.max, 16 by default), never a waterfall (rules-lint): the stent's tract, the friction along
 //          it, its two ends and the narrowing's jet; with tool.to = 'ppg' it runs on to the PPG with the part outside the stent (hatched), so a student sees why the stent's
 //          drop is smaller than the PPG. Under it, "Along the length" (tract, friction) against "Local" (ends, jet).
@@ -24,10 +26,11 @@ import { reduceMotionMQ } from './motion.js';
 import { easeArrive } from './ease.js';
 import { FOLLOW_JUMP, FOLLOW_LONE, FOLLOW_STREAM_MS, FOLLOW_MIN_MS, FOLLOW_MAX_MS, FOLLOW_GAP0, FOLLOW_GLIDE_MS } from './tool-lumen.js';
 import { velocityColor } from './colormap.js';
-import { PROBE_NORMAL } from './velNormal.js';
+import { stentNormal } from './velNormal.js';
 import { geomFix, geomOf, profileAt, waistSpan } from '../engine/stent-geom.js';
 import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/topology.js';
 import { smooth01 } from './num.js';
+import { createTracePic, traceH, PANELS } from './stent-trace-pic.js';
 import { readMetric } from './layout-snap.js';
 
 const nextFrame = frameFor('stent');
@@ -44,9 +47,9 @@ const PART_NAMES = ['Tract', 'Friction', 'Ends', 'Jet'];
 const DEFAULT_MAX = 16;
 const IDS = { TIPS: 'tips', DIPS: 'dips' };
 // The follower's channels (each divided by its scale so the 12 % jump test means the same for every one).
-const CH = { ex: 0, s: 1, len: 2, waist: 3, trans: 4, site: 5, d: 6, flow: 7, g0: 8, g1: 9, g2: 10, tract: 11, wall: 12, ends: 13, jet: 14, out: 15, outOn: 16, max: 17 };
-const NCH = 18;
-const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 1, 16];
+const CH = { ex: 0, s: 1, len: 2, waist: 3, trans: 4, site: 5, d: 6, flow: 7, g0: 8, g1: 9, g2: 10, tract: 11, wall: 12, ends: 13, jet: 14, out: 15, outOn: 16, max: 17, pLo: 18, pHi: 19, vHi: 20 };
+const NCH = 21;
+const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 1, 16, 8, 24, 200];
 
 // ── the numbers' words, each made once ──
 const TEN = Array.from({ length: 1000 }, (_, i) => (i / 10).toFixed(1));
@@ -96,10 +99,12 @@ export function openVelocity(flowLpm, dMm, id) {
   const A = Math.PI * (dMm / 10) * (dMm / 10) / 4;
   return A > 0 ? (Math.abs(flowLpm) / 0.06 / A) * dopplerK(edgeById(id)) : 0;
 }
-/** The colour the figure paints a stent at scanner velocity v (cm/s): the same ramp and the same 90 to 190 range. */
-export const stentColour = (v, id) => {
+/** The scanner's reading over the mean velocity for this stent (the Doppler's angle and profile factor, dopplerK). */
+export const scanK = (id) => dopplerK(edgeById(id));
+/** The colour the figure paints a stent at scanner velocity v (cm/s): the same ramp and the same range (90 to 190 cm/s for an 8 to 10 mm stent, scaled for the stent's open diameter d mm: velNormal.js stentNormal). */
+export const stentColour = (v, id, d = 0) => {
   // (Until the page's tokens are read the ramp has no stops and velocityColor throws; the first frame of a card made at once at start keeps a neutral teal then.)
-  try { return velocityColor(v, PROBE_NORMAL[id]); } catch { return RAMP_FALLBACK; }
+  try { return velocityColor(v, stentNormal(id, d)); } catch { return RAMP_FALLBACK; }
 };
 const RAMP_FALLBACK = '#5DB4A4';   // colour-exempt: the velocity ramp's teal, only until the page's tokens are read
 
@@ -154,7 +159,7 @@ export function readStent(src, id, out = {}) {
 
 export const stentTitle = (t) => {
   const v = t?.vessel === 'DIPS' ? 'DIPS' : 'TIPS', show = Array.isArray(t?.show) ? t.show : ['lumen'];
-  return show.includes('lumen') ? `${v}, side view` : `${v}, where the pressure goes`;
+  return show.includes('trace') && !show.includes('lumen') ? `${v}, along the stent` : show.includes('lumen') ? `${v}, side view` : `${v}, where the pressure goes`;
 };
 
 /** A vein's two walls running up to the stent, as one open path of 5 points (the pen lifted between): from x a to x b at the axis cy, its half-width hw. */
@@ -162,6 +167,8 @@ function veinLine(buf, a, b, cy, hw) {
   buf[0] = a; buf[1] = cy - hw; buf[2] = b; buf[3] = cy - hw; buf[4] = NaN; buf[5] = 0; buf[6] = a; buf[7] = cy + hw; buf[8] = b; buf[9] = cy + hw;
   return buf;
 }
+
+const fix2 = () => ({ len: 8, waist: 1, trans: 0 });
 
 export function createStent() {
   let id = 'TIPS', tool = null, show = ['lumen'], pinned = null, toPpg = 0, maxMm = DEFAULT_MAX, gateIdx = -1;
@@ -220,15 +227,32 @@ export function createStent() {
   const picB = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${B.h}`, role: 'img' },
     sv('defs', {}, hatch), ...segs, ...segTxt, markA, markB, markAT, markBT, ...brs, ...brTxt, ...keyDot, ...keyTxt);
 
+  // ── the traces (stent-trace-pic.js) ──
+  const TT = { sh: fix2(), s: 0, site: 0, d: 8, flowLpm: 0, tract: 0, wall: 0, ends: 0, jet: 0, ppg: 0, dp: 0, kd: 1, pLo: 0, pHi: 8, vHi: 100 };
+  const RNG = { pHi: 8, pLo: 0, vHi: 100 };
+  let panels = PANELS.slice();
+
   const stageL = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / ${S.h}` }, picL);
   const stageB = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / ${B.h}` }, picB);
   const el = h('div', { class: 'gl sc' }, stageL, stageB);
   const glL = createSvgGL(stageL), glB = createSvgGL(stageB);
   const wordsAll = [dimTxt, lenTxt, ...nums, cap, none, ...segTxt, markAT, markBT, ...brTxt, ...keyTxt];
+  // the traces' picture is made when a slide first asks for it (a card that shows only the side view has no third canvas)
+  let tp = null, picT = null, stageT = null, glT = null;
+  function traceMade() {
+    if (tp) return tp;
+    tp = createTracePic(sv, `${gid}t`, (v) => stentColour(v, id, TT.d)); picT = tp.svg;
+    stageT = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / ${traceH(3)}` }, picT);
+    el.insertBefore(stageT, stageB);
+    glT = createSvgGL(stageT);
+    wordsAll.push(...tp.words);
+    ro?.observe(stageT); fitAll();
+    return tp;
+  }
 
   // ── the state the pictures follow ──
   const fol = createFollowN(NCH), goal = new Float64Array(NCH), GEO = { len: 8, waist: 1, trans: 0 }, parts4 = [0, 0, 0, 0], tenths = [0, 0, 0, 0];
-  let fsU = 11, hasShown = false, raf = 0, anim = false, ariaAsk = 0, ariaText = ['', ''];
+  let fsU = 11, hasShown = false, raf = 0, anim = false, ariaAsk = 0, ariaText = ['', '', ''];
   const animating = (on) => { if (anim !== on) { anim = on; frameAnimating('stent', on); } };
   const kind = () => (id === 'DIPS' ? 'dips' : 'tips');
 
@@ -251,8 +275,14 @@ export function createStent() {
       G[CH.tract] = Math.max(0, R.tract * k) / SCALE[CH.tract]; G[CH.wall] = Math.max(0, R.wall * k) / SCALE[CH.wall];
       G[CH.ends] = Math.max(0, R.ends * k) / SCALE[CH.ends]; G[CH.jet] = Math.max(0, R.jet * k) / SCALE[CH.jet];
       G[CH.out] = Math.max(0, (R.ppg ?? 0) - Math.max(0, R.dp)) / SCALE[CH.out];
+      // the traces' ranges, from the stent the goal asks for (round ends, so a range steps and the follower glides it)
+      if (tp && show.includes('trace')) {
+        fillTrace(TT, G);
+        tp.fit(TT, RNG);
+        G[CH.pLo] = RNG.pLo / SCALE[CH.pLo]; G[CH.pHi] = RNG.pHi / SCALE[CH.pHi]; G[CH.vHi] = RNG.vHi / SCALE[CH.vHi];
+      }
     } else {
-      for (const c of [CH.flow, CH.g0, CH.g1, CH.g2, CH.tract, CH.wall, CH.ends, CH.jet, CH.out]) G[c] = fol.to[c];
+      for (const c of [CH.flow, CH.g0, CH.g1, CH.g2, CH.tract, CH.wall, CH.ends, CH.jet, CH.out, CH.pLo, CH.pHi, CH.vHi]) G[c] = fol.to[c];
     }
     G[CH.outOn] = toPpg; G[CH.max] = maxMm / SCALE[CH.max];
   }
@@ -278,7 +308,7 @@ export function createStent() {
     const v0 = openVelocity(v[CH.flow] * SCALE[CH.flow], d, `${id}`);
     for (let i = 0; i < N_STOPS; i++) {
       const u = clamp((S.x0 + (S.span * i) / (N_STOPS - 1) - x0) / L, 0, 1);
-      setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, u)), id));
+      setGeo(stops[i], 'stop-color', stentColour(localVelocity(v0, profileAt(sh, s, site, u)), id, d));
     }
     // the device over it, as the figure draws it (a covered stretch with its rings, the bare stretch at the portal end, the gold band and tab), following the lumen's wall
     MESH.cy = cy; MESH.x0 = x0; MESH.dPx = dPx; MESH.s = s; MESH.sh = sh; MESH.site = site; MESH.L = L;
@@ -314,6 +344,24 @@ export function createStent() {
     const span = gateIdx >= 0 ? STENT_SPANS[['proximal', 'mid', 'distal'][gateIdx]] : STENT_SPANS.mid;
     setGeo(band, 'x', x0 + span[0] * L); setGeo(band, 'width', (span[1] - span[0]) * L); setGeo(band, 'opacity', gateIdx >= 0 ? ex : 0);
     glL.paint();
+  }
+
+  /** The numbers the traces read, from a set of channel values v (the shown ones, or the goal). */
+  const tfix = fix2();
+  function fillTrace(T, v) {
+    T.sh = geomFix({ len: v[CH.len] * SCALE[CH.len], waist: v[CH.waist] * SCALE[CH.waist], trans: v[CH.trans] * SCALE[CH.trans] }, kind(), tfix);
+    T.s = clamp(v[CH.s], 0, 1); T.site = v[CH.site]; T.d = v[CH.d] * SCALE[CH.d]; T.flowLpm = v[CH.flow] * SCALE[CH.flow];
+    T.tract = v[CH.tract] * SCALE[CH.tract]; T.wall = v[CH.wall] * SCALE[CH.wall]; T.ends = v[CH.ends] * SCALE[CH.ends]; T.jet = v[CH.jet] * SCALE[CH.jet];
+    T.dp = T.tract + T.wall + T.ends + T.jet; T.ppg = T.dp + v[CH.out] * SCALE[CH.out];
+    T.kd = scanK(id);
+    return T;
+  }
+  function paintTrace(v) {
+    if (!tp) return;
+    fillTrace(TT, v);
+    TT.pLo = v[CH.pLo] * SCALE[CH.pLo]; TT.pHi = v[CH.pHi] * SCALE[CH.pHi]; TT.vHi = v[CH.vHi] * SCALE[CH.vHi];
+    tp.paint(TT, clamp(v[CH.ex], 0, 1));
+    glT.paint();
   }
 
   function paintLoss(v) {
@@ -358,11 +406,12 @@ export function createStent() {
     glB.paint();
   }
 
-  const paintAll = () => { if (show.includes('lumen')) paintLumen(fol.v); if (show.includes('loss')) paintLoss(fol.v); };
+  const paintAll = () => { if (show.includes('lumen')) paintLumen(fol.v); if (show.includes('trace')) paintTrace(fol.v); if (show.includes('loss')) paintLoss(fol.v); };
   function writeAriaSoon() {
     const l = have ? `${id} side view: flow ${ten(R.flow)} L/min, peak velocity ${int(R.vel)} cm/s, lumen at the narrowest ${ten(R.lumen)} mm` : `${id}: no stent`;
+    const t = have ? `${id}, pressure, energy lost and velocity along the stent (schematic): ${ten(R.ppg)} mmHg portal to IVC, ${ten(R.dp)} mmHg across the stent` : `${id}: no stent`;
     const b = have ? `${id}, where the pressure goes: ${ten(R.dp)} mmHg across the stent${toPpg ? `, ${ten(R.ppg)} mmHg PPG` : ''}` : `${id}: no stent`;
-    if (l !== ariaText[0] || b !== ariaText[1]) { ariaText[0] = l; ariaText[1] = b; if (!ariaAsk) ariaAsk = restPass(() => { ariaAsk = 0; picL.setAttribute('aria-label', ariaText[0]); picB.setAttribute('aria-label', ariaText[1]); }); }
+    if (l !== ariaText[0] || b !== ariaText[1] || t !== ariaText[2]) { ariaText[0] = l; ariaText[1] = b; ariaText[2] = t; if (!ariaAsk) ariaAsk = restPass(() => { ariaAsk = 0; picL.setAttribute('aria-label', ariaText[0]); picB.setAttribute('aria-label', ariaText[1]); picT?.setAttribute('aria-label', ariaText[2]); }); }
   }
 
   const reduce = typeof matchMedia === 'function' ? reduceMotionMQ : null;
@@ -389,26 +438,29 @@ export function createStent() {
     const fresh = v !== id || !hasShown;
     if (fresh) { id = v; hasShown = false; }
     tool = t || null;
-    show = (Array.isArray(t?.show) ? t.show : ['lumen']).filter((k) => k === 'lumen' || k === 'loss');
+    show = (Array.isArray(t?.show) ? t.show : ['lumen']).filter((k) => k === 'lumen' || k === 'loss' || k === 'trace');
     if (!show.length) show = ['lumen'];
+    panels = Array.isArray(t?.panels) ? PANELS.filter((k) => t.panels.includes(k)) : PANELS.slice();
+    if (!panels.length) panels = PANELS.slice();
+    if (show.includes('trace')) { const np = traceMade().layout(panels); stageT.style.aspectRatio = `${VW} / ${traceH(np)}`; }
     toPpg = t?.to === 'ppg' ? 1 : 0;
     maxMm = clamp(+t?.max || DEFAULT_MAX, 6, 40);
     refresh();
-    if (!raf) paintAll();   // (a picture newly shown is drawn even if the numbers did not move)
-    fadeShown(stageL, show.includes('lumen')); fadeShown(stageB, show.includes('loss'));   // (a picture the slide does not show fades out, never pops)
+    paintAll();   // (a picture newly shown, or its panels changed, is drawn even if the numbers did not move)
+    fadeShown(stageL, show.includes('lumen')); if (stageT) fadeShown(stageT, show.includes('trace')); fadeShown(stageB, show.includes('loss'));   // (a picture the slide does not show fades out, never pops)
   }
   const fitAll = () => {
-    const w = readMetric(stageL, 'offsetWidth') || readMetric(stageB, 'offsetWidth');
+    const w = readMetric(stageL, 'offsetWidth') || (stageT && readMetric(stageT, 'offsetWidth')) || readMetric(stageB, 'offsetWidth');
     if (w > 0) {
       const fs = clamp(12 / (w / VW), 9, 14);
       fsU = fs;
       for (const e of wordsAll) e.setAttribute('font-size', fs);
-      glL.relook(); glB.relook();
+      glL.relook(); glT?.relook(); glB.relook();
     }
   };
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fitAll) : null;
   ro?.observe(stageL); ro?.observe(stageB);
-  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glB.dispose?.(); };
+  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
   return {
     el, configure, dispose,
     /** The slide's numbers (its fingerprint): the card shows these, not the beat-to-beat live ones. */

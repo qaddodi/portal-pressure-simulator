@@ -238,7 +238,7 @@ export function createClamps(st, live) {
       if (!c) clampA.set(id, { a: 0, on: true });
       else if (!c.on) { c.on = true; for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); }
     }
-    ov.clamps.innerHTML = ''; clampW.replaceChildren(); ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
+    ov.clamps.innerHTML = ''; clampW.replaceChildren(); ov.stents.innerHTML = ''; ov.plugs.innerHTML = ''; live.dimBoxes.clear();   // (the stents' dimension boxes: made again with their marks, stentBracket)
     if (!markA.moving()) live.markLast = performance.now();
     markA.begin(); live.ovT = t;
     // Clots keep their own key: growing varices (the disease clock) rebuild the rest, not them.

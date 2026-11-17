@@ -48,7 +48,7 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
 
   // 1b. The callout reads the lumen and the waist's length, and a bracket along the waist is as long as the waist is of the stent.
   const text = () => page.document.querySelector('.clamp-label[data-id="TIPS~waist"]')?._txt;
-  assert.equal(text(), 'Waist 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent\'s waist at 60 %, 4 cm long');
+  assert.equal(text(), 'Waist 10.0 to 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent\'s waist at 60 %, 4 cm long');
   const bracketLen = () => {
     const d = page.document.querySelector('[data-mk="brk:TIPS"] path')?.getAttribute('d');
     if (!d) return 0;
@@ -58,16 +58,14 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   };
   const ratio = bracketLen() / b.len;
   assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
-  // The dimension words: the waist's length at the bracket and a diameter at each flat section (open, waist, open): four words, each a halo and its glyphs.
-  const words = () => page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-text').length;
-  assert.equal(words(), 4, 'the waist\'s length, and a diameter for the open stent before the waist, the waist and the open stent after it');
-  assert.equal(page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-halo').length, 4);
+  // The bracket carries no words of its own (they would repeat the callout, which the label solver places): no outlines in its mark.
+  assert.equal(page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-text, [data-mk="brk:TIPS"] .dim-halo').length, 0);
   await set({ stentGeom: { TIPS: { len: 8, waist: 0, trans: 0, red: 0.6 } } }, true);
   await frames(80);
-  assert.ok(page.document.querySelector('[data-mk="brk:TIPS"]') && words() <= 2, `a waist of no length has no bracket and no length word: ${words()} words`);
+  assert.equal(bracketLen(), 0, 'a waist of no length has no bracket');
   await set({ stentGeom: { TIPS: { len: 8, waist: 1.5, trans: 0, red: 0.6 } } }, true);
   await frames(80);
-  assert.equal(text(), 'Waist 4.0 mm × 1.5 cm', 'the callout follows the waist length');
+  assert.equal(text(), 'Waist 10.0 to 4.0 mm × 1.5 cm', 'the callout follows the waist length');
   assert.ok(Math.abs(bracketLen() / b.len - 1.5 / 8) < 0.05, `and the bracket ${bracketLen() / b.len}`);
   await set({ stentGeom: { TIPS: { len: 8, waist: 4, trans: 0, red: 0.6 } } }, true);
   await frames(80);
@@ -112,6 +110,6 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   assert.ok(both.loss.jet > 0.01 && both.loss.jet2 > 0.01, `two jets: ${both.loss.jet}, ${both.loss.jet2}`);
   assert.ok(Math.abs(both.loss.at2 - (both.loss.dir > 0 ? 0.625 : 0.375)) < 0.01, `the waist's jet leaves it mid stent, ${both.loss.at2}`);
   assert.ok(both.loss.dir > 0 ? both.loss.at > 0.85 : both.loss.at > 0.7, `the stenosis's at the hepatic vein end, ${both.loss.at}`);
-  assert.equal(text(), 'Waist 6.0 mm × 2.0 cm');
-  assert.equal(page.document.querySelector('.clamp-label[data-id="TIPS"]')?._txt, 'Distal stenosis 5.0 mm');
+  assert.equal(text(), 'Waist 10.0 to 6.0 mm × 2.0 cm');
+  assert.equal(page.document.querySelector('.clamp-label[data-id="TIPS"]')?._txt, 'Distal stenosis 10.0 to 5.0 mm');
 });

@@ -7,6 +7,7 @@ import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { HEART_KEY, addHeart } from './heart-label.js';
 import { onLabelRoll } from './count-roll.js';
 import { store } from './store.js';
+const STENTS = ['TIPS', 'DIPS'];   // (the stents whose cm/s callouts wait for them to settle: stentReady)
 
 export function createLabelDriver(st, live) {
   const { stationRev, E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
@@ -87,6 +88,10 @@ export function createLabelDriver(st, live) {
     const x = E[sid];
     if (!x?.vis) { live.stentCalm.delete(sid); return false; }
     const now = performance.now(), c = live.stentCalm.get(sid);
+    // (Asked with the stage put to the other view's end (stage-view.js atTargetStage: the solve ahead, its key), the vessels stand at that view's widths,
+    // never the eased width the live stent is settling to: the live figure's answer, unchanged. Asked there, it had restarted the live stent's calm every
+    // time the solve ahead ran, and the stent's cm/s callouts went for 1.2 s, came back, and went again a few seconds later: 17 Nov 2026, TIPS slides.)
+    if (live.stageDry) return c != null && now - c >= live.STENT_CALM_MS;
     if (!c || x.reveal || f.morphing || x.width !== x.wT) { live.stentCalm.set(sid, now); return false; }
     return now - c >= live.STENT_CALM_MS;
   }
@@ -135,7 +140,12 @@ export function createLabelDriver(st, live) {
   // middle of the first framing is followed by another with no history.)
   function labelSceneOf(st, b) { return [live.morphTarget, st.presetId, Math.round(b.width), Math.round(b.height), labelBase(), live.rotU > 0.5, st.presenting ? (st.presentLabels?.join(',') || '*') : '', st.layers.labels, st.labelLevel].join('|'); }
   const camAtRest = () => (live.morph === 0 || live.morph === 1) && !live.gestureOn() && !live.vtGliding && !live.drifting && !live.zoomBase && !live.viewXf && !store.get().presetLoading;
-  function sceneLanded(sf) { if (sf.scene != null && camAtRest()) { live.labelSceneDone = sf.scene; live.labelFresh = false; live.camTouched = false; } }
+  // (A scene lands only once what its labels are laid out around has come in: the camera at rest, the cards' boxes read, no stent still settling, and the
+  // Doppler probe standing (or not asked for). Until then each solve keeps no history, so a reload's labels do not depend on the order these arrived in;
+  // after it, every solve keeps the slots it had.)
+  const probeSettling = () => !!dop.id && (!!dpr.swap || !!dpr.leaving || (dpr.mon && !dpr.on));
+  const stentsSettling = () => { for (const sid of STENTS) { const x = E[sid]; if (x?.vis && (x.reveal || x.width !== x.wT)) return true; } return false; };
+  function sceneLanded(sf) { if (sf.scene != null && camAtRest() && live.blockerBoxes && !probeSettling() && !stentsSettling()) { live.labelSceneDone = sf.scene; live.labelFresh = false; } }
   function solCacheKey(sig, sc, th, b, csig, ins) {
     if (live.morph !== 1 || live.morphTarget !== 1 || live.xfSolving || live.viewXf || !(sc > 0)) return null;
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(live.CTM.e / (b.width / 4)), Math.round(live.CTM.f / (b.height / 4)), b.width, b.height, live.rotU > 0.5, live.labelFonts, csig, ins].join('|');
@@ -179,7 +189,6 @@ export function createLabelDriver(st, live) {
     // labels show is compared by rideKeyHeld, not the signature: on a playing model that changes every few frames (widths, geometry).)
     const restView = live.morph === 0 || live.morph === 1;
     const moving = live.gestureOn() || live.vtGliding || live.drifting || !!live.zoomBase;
-    if (moving) live.camTouched = true;   // (the next solve keeps the slots it had: a pan's or a pinch's release does not move the labels across their stations; any other solve has no history)
     if (moving && live.solvedFor && restView && !live.lobuleOn && !live.lz?.isOpen() && !(live.diveT > 0)) {
       if (!live.handRide) { rideKeyInto(rideKeyA, st); live.handRide = true; labelJobDrop(); handRideWatch(); }
       if (rideKeyHeld(st)) { handCarry(); stats.skips++; stats.ms += performance.now() - t0; return; }

@@ -20,7 +20,7 @@ document.body.innerHTML = '<div id="toastsFoot"></div>';
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true }); } catch { /* already there */ }
 
-const { createIrTips, stentIds, stentLine, STENT_RANGE, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
+const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
 const { curveToolOf, sweepMatters, SWEEPS } = await import('../src/ui/ir-curves.js');
 const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
@@ -200,6 +200,30 @@ test('Compare: the sub-switch changes the sub-view, and the DIPS names its own f
   assert.doesNotMatch(read('src/ui/ir-compare.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
 
+test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10 mm as before, scaled and marked provisional for another', async () => {
+  assert.equal(peakBand({ d: 8 }), STENT_RANGE); assert.equal(peakBand({ d: 10 }), STENT_RANGE); assert.equal(peakBand(null), STENT_RANGE);
+  assert.deepEqual([...peakBand({ d: 6 })], [90, 338]); assert.deepEqual([...peakBand({ d: 12 })], [63, 132]);
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 6 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
+  const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
+  // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
+  at(6, 216); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'In range');
+  assert.equal(peak().dataset.sev, 'none');
+  assert.match(peak().title, /6 mm stent reads 90 to 338 cm\/s \(provisional/);
+  const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
+  assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
+  // the same reading in a 10 mm stent is out of range, and the ticks go back to 90 and 190
+  at(10, 216); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range');
+  assert.equal(peak().dataset.sev, 'caution');
+  assert.doesNotMatch(peak().title, /provisional/);
+  const back = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
+  assert.ok(Math.abs(back[1] - 190 / 4) < 0.01, `${back}`);
+});
+
 test('Curves: the tool a stent and a setting give is the deck\'s own curve, two lines, the bench dashed, in the flow\'s colour', () => {
   const t = curveToolOf('TIPS', 'waist');
   assert.equal(t.kind, 'curve'); assert.equal(t.param, 'stentGeom.TIPS.waist');
@@ -263,4 +287,80 @@ test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed
   assert.ok(tubeLoss > patientLoss, `the tube loses ${(100 * tubeLoss).toFixed(0)} % against the patient's ${(100 * patientLoss).toFixed(0)} %`);
   const wide = at({ tips: { on: true, d: 12 } });
   assert.ok(wide.tipsBench > open.tipsBench, 'a wider tube carries more');
+});
+
+test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one rule (flow-cuts.js stentStill): tile, gates, Compare and the card\'s own word', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const { stentStill, FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
+  const at = (s) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 8 }, stenosis: { TIPS: s } }))); e.settle(3); return { e, m: computeMetrics(e) }; };
+  assert.equal(stentStill(FLOW_CUTS.stillQ * 0.99), true); assert.equal(stentStill(-FLOW_CUTS.stillQ * 0.5), true); assert.equal(stentStill(FLOW_CUTS.stillQ * 1.01), false);
+  const dead = at(0.99), live = at(0.5);
+  const t = dead.m.tips, f = fingerprintOf(dead.m);
+  assert.equal(t.still, true);
+  assert.deepEqual([...t.peaks], [0, 0, 0], 'every gate reads 0, not a jet from a flow of nothing');
+  assert.equal(t.vPeak, 0); assert.equal(f.tipsVel, 0); assert.equal(f.tipsG0 + f.tipsG1 + f.tipsG2, 0);
+  assert.equal(live.m.tips.still, false); assert.ok(live.m.tips.vPeak > 90, 'a stent with flow reads its jet');
+  // The Compare row and the tile read the same number
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }), compareSnap: { metrics: live.m, when: '10:30', names: null } });
+  const c = createIrCompare(); c.update({ metrics: dead.m }, 'TIPS');
+  const peakRow = [...c.el.querySelectorAll('tbody tr')].at(-1);
+  assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
+  store.set({ compareSnap: null });
+  // the card's status word and the doppler read the same rule, not their own
+  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
+  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+});
+
+test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+  const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
+  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; \}/);
+  assert.match(plate, /\.ir-figs \.gl-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
+  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ BAR\.h\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
+  const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
+  assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
+  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+});
+
+test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open the card"): two slim rows, the end stenosis and the waist apart, and a change reaches the params', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  const ed = ir.el.querySelector(':scope > .ir-editor > .stent-editor');
+  assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
+  assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
+  const ctl = [...ed.querySelectorAll('.se-cell')].map((c) => c.dataset.ctl);
+  assert.deepEqual(ctl, ['diameter', 'narrow', 'site', 'waistD', 'waist', 'ends'], 'row 1 the stent and its end stenosis, row 2 its mid waist');
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.05fr\);/, 'three columns: two rows of three cells');
+  assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
+  // With no stenosis and no waist, the end, the waist's length and its ends dim where they stand.
+  const dim = (id) => ed.querySelector(`[data-ctl="${id}"]`).classList.contains('se-dim');
+  assert.ok(dim('site') && dim('waist') && dim('ends') && !dim('narrow') && !dim('waistD'));
+  // A waist set from the view is a waist, mid stent: it leaves the end stenosis alone.
+  const slide = (id, v) => { const i = ed.querySelector(`[data-ctl="${id}"] input`); i.value = String(v); i.dispatchEvent(new window.Event('input')); i.dispatchEvent(new window.Event('change')); };
+  slide('waistD', 0.4);
+  await wait(30);
+  let p = store.get().params;
+  assert.equal(p.stentGeom.TIPS.red, 0.4);
+  assert.ok(!(p.stenosis?.TIPS > 0), 'no stenosis made');
+  assert.ok(!dim('waist') && !dim('ends'), 'the waist\'s length and ends wake');
+  // A stenosis set and moved to the portal vein end: the waist stays.
+  slide('narrow', 0.5);
+  await wait(30);
+  ed.querySelector('[data-ctl="site"] button').click();
+  await wait(30);
+  p = store.get().params;
+  assert.equal(p.stenosis.TIPS, 0.5);
+  assert.equal(p.stenosisSite.TIPS, 'proximal');
+  assert.equal(p.stentGeom.TIPS.red, 0.4, 'the waist stays mid stent');
+  assert.equal(ed.querySelector('[data-ctl="site"] button').getAttribute('aria-pressed'), 'true');
+  assert.equal(ed.querySelector('[data-ctl="narrow"] .se-val').textContent, '5.0 mm', 'the millimetres first');
+  assert.equal(ed.querySelector('[data-ctl="narrow"] .se-sub').textContent, '50%', 'then the percentage, which a phone leaves out');
 });

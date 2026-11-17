@@ -5,6 +5,7 @@
 // and the other shunts have no normal and stay neutral.
 import { EDGES, JUNCTION_PIECES, dopplerK } from '../engine/topology.js';
 import { FLOW_CUTS } from '../engine/flow-cuts.js';
+import { stentBand } from '../engine/stent-geom.js';
 
 export { FLOW_CUTS };
 
@@ -27,6 +28,11 @@ export const DOPPLER_NORMAL = Object.freeze(Object.fromEntries(FIGURE_FIXED.flat
 // "Portal v." is the portal vein the Doppler samples, not a faster collateral or tributary joining it there.
 export const STATION_VESSEL = { CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'SV_CONF', LPV: 'PVH_L', RPV: 'PVH_R', RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA' };
 export const STENT_PV_NORMAL = [30, Infinity];
+// A stent's usual range at its open diameter d (mm): PROBE_NORMAL's own 90 to 190 cm/s for an 8 to 10 mm stent (the same array), scaled for any other (stent-geom.js
+// stentBand: provisional, no guideline gives one). One kept list for each of the two stents, written in place: valid until the next ask for that stent, which is when its
+// caller asks again; with no diameter (no stent in, or a frame without one) it is the 8 to 10 mm range.
+const STENT_BANDS = { TIPS: [0, 0], DIPS: [0, 0] };
+export const stentNormal = (id, d) => stentBand(d, PROBE_NORMAL[id], STENT_BANDS[id]);
 // The lumen the probe sees (cm²): a lumped bundle (the jejunal and ileal veins) is drawn at one vein's width d but its
 // flow reaches the probe through a wider trunk vd, as the engine's own velocity reads it (engine.js velocity).
 const area = (k, d) => { const e = EDGES[k], D = Math.max(0.5, d * (e?.vd ? e.vd / e.d : 1)) / 10; return (Math.PI * D * D) / 4; };
@@ -50,6 +56,7 @@ export function velNormal(k, f, healthy) {
   const e = EDGES[k];
   if (!e) return null;
   if (e.id === 'PV_TRUNK' && f?.D && (f.D[EI.TIPS] > 0 || f.D[EI.DIPS] > 0)) return STENT_PV_NORMAL;
+  if ((e.id === 'TIPS' || e.id === 'DIPS') && f?.D) return stentNormal(e.id, f.D[k]);
   if (DOPPLER_NORMAL[e.id]) return DOPPLER_NORMAL[e.id];
   if (e.kind !== 'vein' && e.kind !== 'diode') return null;
   const h = healthyVel(healthy, k);

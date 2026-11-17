@@ -69,19 +69,20 @@ export const stentDiameter = (p, id, kind) => (kind === 'tips' ? p?.tips?.d : ki
 const GS = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by waistText)
 /** The key suffix of a stent's waist on the figure (its clamp and callout, `<stent>~waist`), beside its end stenosis's own `<stent>`. */
 export const WAIST_KEY = '~waist';
-/** A stent's figure callouts, as its card names its two narrowings: the end stenosis "Distal stenosis 4.0 mm" (its end and the lumen left there)
- *  and the waist "Waist 6.0 mm × 4.0 cm" (its lumen and its length, mid stent). Null for a vessel that is not a stent, or with no such narrowing. */
+/** A stent's figure callouts, as its card names its two narrowings, each the open stent's diameter and the lumen left (Mohammad, 17 Nov: "Narrowed 8.0 to
+ *  6.0 mm × 1.5 cm"): the end stenosis "Distal stenosis 10.0 to 5.0 mm" (its end) and the waist "Waist 10.0 to 6.0 mm × 4.0 cm" (with its length, mid
+ *  stent). Null for a vessel that is not a stent, or with no such narrowing. */
 export function stenosisText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
-  const s = endOf(p, e.id);
-  return s > 0.004 ? `${endSiteOf(p, e.id) === 'proximal' ? 'Proximal' : 'Distal'} stenosis ${(stentDiameter(p, e.id, kind) * (1 - s)).toFixed(1)} mm` : null;
+  const s = endOf(p, e.id), d = stentDiameter(p, e.id, kind);
+  return s > 0.004 ? `${endSiteOf(p, e.id) === 'proximal' ? 'Proximal' : 'Distal'} stenosis ${d.toFixed(1)} to ${(d * (1 - s)).toFixed(1)} mm` : null;
 }
 export function waistText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
-  const g = geomOf(p, e.id, kind, GS);
-  return g.red > 0.004 ? `Waist ${(stentDiameter(p, e.id, kind) * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
+  const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
+  return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${(d * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
 }
 
 /** Where along the stent's drawn path its end stenosis sits now (0 to 1): the end as it is eased to (lesion-ease.js, params.stentSiteU), else the end params name

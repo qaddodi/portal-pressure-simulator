@@ -10,6 +10,7 @@ import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastri
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
 import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf } from './stent-geom.js';
+import { stentStill } from './flow-cuts.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 import { hvBlocked } from './pressure-cuts.js';
@@ -1542,6 +1543,9 @@ export class Engine {
     // narrowing's jet where the waist lies) and the highest of them, the stent's peak velocity: the tile and the Doppler cannot differ.
     const peaks = o.peaks || (o.peaks = [0, 0, 0]);   // alloc-rare: made with the record
     stentReadsOf(p, id, Math.abs(q) / (Math.PI * (this.diameter(id) / 10) * (this.diameter(id) / 10) / 4) * dopplerK(e), peaks);
+    // (A stent that has almost stopped reads 0 at every gate, flow-cuts.js stentStill: the card says Stasis, so no tile, picture or Compare row prints a jet from a flow of nothing.)
+    o.still = stentStill(q);
+    if (o.still) { peaks[0] = 0; peaks[1] = 0; peaks[2] = 0; }
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
     // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
     o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP) * 0.06;

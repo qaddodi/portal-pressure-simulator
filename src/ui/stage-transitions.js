@@ -1,10 +1,8 @@
 // The model-driven transitions and what rides on them: reveal and exit of vessels, reversal hold, circuit nodes, the ascites fluid, the stent mesh and the surgical ties.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, isCoveredStent } from '../engine/topology.js';
-import { siteU, stentDiameter } from './stent-waist.js';
-import { geomOf as stentGeomOf, kindOf as stentKindOf, profileAt, waistSpan } from '../engine/stent-geom.js';
-import { glyphsReady, loadGlyphs, textPolys } from './text-gl.js';
-import { easeMove } from './ease.js';
+import { siteU } from './stent-waist.js';
+import { geomOf as stentGeomOf, kindOf as stentKindOf, waistSpan } from '../engine/stent-geom.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
 import { throughFlow } from './part-names.js';
@@ -319,58 +317,31 @@ export function createTransitions(st, live) {
     if (id === 'TIPS') return;   // (the covered stent comes in whole on its own clock, with the veins' stents: stage-venous.js)
     putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
   }
-  // A stent's dimensions on the figure, as the mock tips-geometry-on-figure.html shows them: a hairline bracket along the waist's flat run, on the stent's left on
-  // screen, with its length ("1.5 cm") beside its middle, and on the other side the lumen's diameter in mm at each flat section of the profile (the open stent
-  // before and after the waist, the waist, and the end stenosis: stent-geom.js profileAt). One mark (`brk:<stent>`): it fades in with
-  // the narrowing and out with it, and its ends and labels slide with the waist as its length eases. Its callout is the clamp's "Narrowed 6.0 mm × 1.5 cm"
-  // (stage-clamps.js). The words are outlines drawn with the vessels (as the clamps' are), in world units at a fixed share of the stent's own width, so they
-  // keep their place against the stent as the figure zooms; they are level on screen whatever the turn.
+  // A stent's waist length as a dimension bracket along it: the waist's flat run, on the stent's left on screen, a hairline with a tick at each end (the mock
+  // tips-geometry-on-figure.html). One mark (`brk:<stent>`): it fades in with the narrowing and out with it, and its ends slide with the waist as its length
+  // eases. The words are the clamp's callout, which the label solver places like every figure label: "Waist 8.0 to 6.0 mm × 1.5 cm", the open stent, the
+  // waist and its length (stage-clamps.js, stent-waist.js waistText). Only the mid waist has a bracket; an end stenosis is its own callout (17 Nov 2026). The bracket carries no words of its own: they would only repeat the callout (Mohammad, 17 Nov).
   const brkG = { len: 0, waist: 0, trans: 0, red: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
-  const dimLook = { weight: 600, size: 12, tnum: true }, DIM_SHARE = 0.27, DIM_RUN_MIN = 0.07, DIM_N = 60;
-  let dimGlyphAsk = false;
-  function dimText(txt, ax, ay, anchor, size, deg, out) {   // (the outlines of `txt` at the anchor (ax, ay), its end or its start there, turned level)
-    dimLook.size = size;
-    const w = textPolys(txt, 0, 0, dimLook).w, tp = textPolys(txt, anchor === 'end' ? ax - w : ax, ay + size * 0.36, dimLook).polys;
-    if (deg) { const c = Math.cos((-deg * Math.PI) / 180), sn = Math.sin((-deg * Math.PI) / 180); for (const q of tp) for (let k = 0; k < q.pts.length; k += 2) { const dx = q.pts[k] - ax, dy = q.pts[k + 1] - ay; q.pts[k] = ax + dx * c - dy * sn; q.pts[k + 1] = ay + dx * sn + dy * c; } }
-    const d = polysD(tp);
-    out.push(s('path', { class: 'dim-halo', d, 'stroke-width': (size * 0.42).toFixed(2) }), s('path', { class: 'dim-text', d }));
-  }
   function stentBracket(id, p) {
     const x = E[id], kind = stentKindOf(x?.e), L = geo[id]?.len;
     if (!kind || !(L > 0)) return;
-    const g = stentGeomOf(p, id, kind, brkG), v = p.stenosis?.[id] || 0, site = siteU(p, id);
+    const g = stentGeomOf(p, id, kind, brkG);
+    if (!(g.red > 0.004) || g.waist < 0.25) { live.dimBoxes.delete(id); return; }   // (no waist, no bracket)
     const w = waistSpan(g, brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
-    const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), wall = x.width / 2 + (x.wallPx || 1);
-    const f1 = (n) => n.toFixed(1), els = [];
-    const waisted = g.red > 0.004 && g.waist >= 0.25;   // (the bracket is the mid waist's: none while the stent has no waist)
-    if (waisted) {
-      const off = sg * (wall + 11);
-      let d = '';
-      for (let k = 0; k <= 12; k++) { const q = frameAt(id, d0 + ((d1 - d0) * k) / 12); d += `${k ? ' L' : 'M'}${f1(q.x + q.nx * off)} ${f1(q.y + q.ny * off)}`; }
-      for (const dd of [d0, d1]) { const q = frameAt(id, dd); d += ` M${f1(q.x + q.nx * (off - sg * 3.5))} ${f1(q.y + q.ny * (off - sg * 3.5))} L${f1(q.x + q.nx * (off + sg * 3.5))} ${f1(q.y + q.ny * (off + sg * 3.5))}`; }
-      els.push(s('path', { class: 'dim-line', d }));
+    const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), off = sg * (x.width / 2 + (x.wallPx || 1) + 11);
+    const f1 = (n) => n.toFixed(1);
+    let d = '';
+    for (let k = 0; k <= 12; k++) { const q = frameAt(id, d0 + ((d1 - d0) * k) / 12); d += `${k ? ' L' : 'M'}${f1(q.x + q.nx * off)} ${f1(q.y + q.ny * off)}`; }
+    for (const dd of [d0, d1]) { const q = frameAt(id, dd); d += ` M${f1(q.x + q.nx * (off - sg * 3.5))} ${f1(q.y + q.ny * (off - sg * 3.5))} L${f1(q.x + q.nx * (off + sg * 3.5))} ${f1(q.y + q.ny * (off + sg * 3.5))}`; }
+    putMark(ov.stents, `brk:${id}`, id, [s('path', { class: 'dim-line', d })]);
+    // (Its hairline's boxes, world units, a box for each of its runs and its ticks' reach: the figure's labels, the slide's callouts and the Doppler probe keep
+    // off it, stage-label-col.js dimObstacles.)
+    const boxes = [];
+    for (let k = 0; k < 12; k++) {
+      const a = frameAt(id, d0 + ((d1 - d0) * k) / 12), b = frameAt(id, d0 + ((d1 - d0) * (k + 1)) / 12), ax = a.x + a.nx * off, ay = a.y + a.ny * off, bx = b.x + b.nx * off, by = b.y + b.ny * off;
+      boxes.push([Math.min(ax, bx) - 3.5, Math.min(ay, by) - 3.5, Math.max(ax, bx) + 3.5, Math.max(ay, by) + 3.5, 0]);
     }
-    if (!glyphsReady()) { if (!dimGlyphAsk) { dimGlyphAsk = true; loadGlyphs().then(() => { live.overlayKey = null; }); } }
-    else {
-      const size = Math.max(2.5, x.width * DIM_SHARE), deg = live.lastMorph >= 1 ? -90 * easeMove(live.rotU) : 0, dia = stentDiameter(p, id, kind);
-      // (A side's anchor: the words start past the stent on its right on screen, end before it on its left; a turned figure's sides are the stent's own.)
-      const put = (txt, u, side, past = 6) => {
-        const q = frameAt(id, u * L), r = wall + past + size * 0.2, px = q.x + q.nx * side * r, py = q.y + q.ny * side * r;
-        const right = deg ? side * q.ny > 0 : side * q.nx > 0;
-        dimText(txt, px, py, right ? 'start' : 'end', size, deg, els);
-      };
-      if (waisted) put(`${g.waist.toFixed(1)} cm`, (w.a1 + w.b1) / 2, sg, 14);   // (past the bracket's own line, 11 out)
-      // the diameter at each flat run of the profile: the sections the stent is made of
-      let start = 0, prev = profileAt(g, v, site, 0);
-      for (let i = 1; i <= DIM_N + 1; i++) {
-        const val = i <= DIM_N ? profileAt(g, v, site, i / DIM_N) : NaN;
-        if (i <= DIM_N && Math.abs(val - prev) < 1e-4) continue;
-        const u0 = start / DIM_N, u1 = (i - 1) / DIM_N;
-        if (u1 - u0 >= DIM_RUN_MIN && dia > 0) put(`${(dia * prev).toFixed(1)} mm`, (u0 + u1) / 2, -sg);
-        start = i; prev = val;
-      }
-    }
-    if (els.length) putMark(ov.stents, `brk:${id}`, id, els);
+    live.dimBoxes.set(id, boxes);
   }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });

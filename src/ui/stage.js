@@ -149,7 +149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    labelFresh: false, labelSceneDone: null, camTouched: false,   // (the labels' history-free solve: stage-labels.js labelSceneOf)
+    labelFresh: false, labelSceneDone: null, stageDry: false, dimBoxes: new Map(), dimRects: [],   // (the labels' history-free solve: stage-labels.js labelSceneOf; stageDry: the stage put to the other view's end; dimBoxes: each stent's dimension words and bracket, world boxes (stage-transitions.js stentBracket), and dimRects the same in stage px at the last live solve)
     caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
     scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
@@ -3293,6 +3293,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** For the node tests of a stent's drawn waist and pressure colour (tests/stent-waist-figure.test.js): the stent's radius factor along its path (n + 1 samples),
      *  its local losses as the along curve reads them, and the shade version (it moves when what is drawn changes). Reads what the last frame set; draws nothing. */
     stentDrawn: (id, n = 64) => { const x = E[id]; return x?.stenF ? { k: Array.from({ length: n + 1 }, (_, i) => x.stenF(i / n)), loss: { jet: x.lsJ, ends: x.lsE, at: x.lsAt, dir: x.lsDir, jet2: x.lsJ2 || 0, at2: x.lsAt2 || 0 }, ver: x.shadeVer | 0, len: geo[id]?.len || 0 } : null; },   // alloc-rare: a test's read, never a frame's
+    labelDims: () => live.dimRects.map((r) => [r.x0, r.y0, r.x1, r.y1, !!r.lab]),   // alloc-rare: a test accessor: the stents' dimension words and bracket as the last live solve kept labels off them, stage px
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     /** For ?lap's restore drill: whether the GPU figure is up and how many times its screen was copied onto the canvas (the frame end's one write; it counts on across a restore). */
     figureShows: () => ({ gl: wrap.classList.contains('gl-on'), lost: !!veins?.lost, shows: veins?.screenShows ?? 0 }),

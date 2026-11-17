@@ -11,6 +11,7 @@ import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, isStent } from '../engine/topology.js';
 import { GEOM_RANGE, TAPER_CM, WAIST_MAX, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
+import { stentStill } from '../engine/flow-cuts.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
 import { fmt, fmtFlow, clamp } from './util.js';
@@ -296,7 +297,7 @@ function buildEdgeCard(e) {
       if (isArt) return null;
       const q = f.Qf ? f.Qf[k] : f.Q[k];
       const refQ = store.get().healthy?.Q?.[k] ?? 1;
-      if (Math.abs(q) < 0.05) return ST_STASIS;
+      if (stentStill(q)) return ST_STASIS;   // (flow-cuts.js: the one rule, the stents' tiles and Doppler gates read it too)
       if (isShunt) return ST_PATENT;
       const back = flowReversed(q, refQ, throughFlow(e.id, f.Qf || f.Q, EI));
       // A collateral carries portal blood away from the liver; a link between two portal veins has no physiological direction (the pressure picks it).
