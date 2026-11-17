@@ -1771,10 +1771,14 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests frames the figure into the space left, as every other card does (U3, 13 Nov 2026: it used to keep the camera where it
-    // was, under the card too, which hid the spleen and the kidney on a Mac). Closing it fits again only a view that was fitted; one the
-    // learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
-    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
+    // Opening Tests leaves the camera alone, on every device (Mohammad, 17 Nov 2026: "opening the test card should not zoom to fit", on a Mac, then
+    // "even on phone": the figure keeps the same general view and the card lies over it). It reverses U3 (13 Nov), which fitted the figure into the
+    // space the card left. The framing no longer counts the Tests card (stage-fit.js fIns), so nothing the open starts (this, the card's
+    // announced place pps:occ, the resize that follows) moves the view; and no refit is asked here, which would also have fitted a view the learner
+    // zoomed or panned. Closing it fits again only a view that was fitted (it was fitted at the open too, now, so closing is a no-op glide);
+    // one the learner zoomed or panned stays where it is, and a refit still pending is dropped (Mohammad, 17 Oct). Fit, pressed on purpose,
+    // still frames the figure into the room the card leaves.
+    if (!instr) { if (stage?.closeView()) refitStage(); else clearTimeout(refitT); }
     const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
     setTimeout(fireResize, 320);
   }
