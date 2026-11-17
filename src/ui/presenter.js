@@ -616,7 +616,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (ev ? now - t0 >= LIVE_MAX : liveSettled(now - t0, now - still)) break;
     }
     if (ev && mine()) ev.end();
-    if (mine()) abSlow();
+    if (!mine()) return false;
+    abSlow();
+    return true;   // (settled, and not replaced by a later press: abPick then sets the words and pills to the settled state)
   }
   // The same graph as the data card's instrument (tool { kind: 'evgraph' }, Mohammad 8 Nov 2026: the preemptive TIPS slide's chart moves up into the
   // instrument card where the indications table was): the card's instrument is the chart, driven here exactly as the one on the words.
