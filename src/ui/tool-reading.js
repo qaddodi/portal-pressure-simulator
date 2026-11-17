@@ -3,7 +3,7 @@
 //   procedure 'hvpgcath'                      the free pressure (FHVP), the balloon up and the pressure riding it to the wedge (WHVP), then the HVPG
 //   procedure 'eus'                           the needle in the left portal vein, then in the left hepatic vein, then the EUS-PPG
 //   procedure { kind: 'irivc', then: 'irpv' } the IVC from the neck, then the portal vein through the skin, then the PPG
-//   procedure 'tipsgrad'                      the portal vein through the stent, the catheter drawn back to the IVC, then the PPG against its target of <12 mmHg
+//   procedure 'tipsgrad'                      the portal vein through the stent, the catheter drawn back to the IVC, then the PPG against the 12 mmHg reference line
 // The card follows the procedure's own clock (presenter.js procPlay hands every frame's time: tools.proc): before the tip is in, the monitor waits;
 // each reading is a live trace with its beat and breath, its number the mean as the figure's callout prints it, and a marker drops where it is taken;
 // a change of level that happens in the vein (the balloon filling, the catheter drawn back through the stent) is drawn as it happens and the number
@@ -134,7 +134,7 @@ function scripts() {
   const gLv = (t, v) => (t < 0 ? NaN : v.a + (v.b - v.a) * gK(t)), gDamp = (t) => 0.5 * (1 - gK(t));
   const gA = gs(G.pvRead1), gB = gs(G.ivRead1), gG = gs(markAt('tipsgrad', 0));
   const tips = {
-    id: 'tips', kinds: ['tipsgrad'], clock: gc, start: 0, win: [0, gc.total], target: PPG_CUTS.red, targetWord: `target <${PPG_CUTS.red}`,
+    id: 'tips', kinds: ['tipsgrad'], clock: gc, start: 0, win: [0, gc.total], target: PPG_CUTS.red, targetWord: `reference <${PPG_CUTS.red}`,
     heads: ['CATHETER PRESSURE · THROUGH THE STENT · mmHg', 'CATHETER PRESSURE · mmHg', 'CATHETER · mmHg'],
     notes: { idle: ['The tracing starts once the tip is through the stent.', 'Starts in the portal vein.'], wait: ['Waiting for the portal vein.'], probe: [''] },
     lv: gLv, keys: ['PV', 'IVC', 'PPG'], sev: ppgSev,

@@ -169,12 +169,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => { el.classList.remove('ac-in'); if (isDocked()) reveal(); };   // (entered: its rest size known, bring the vessel above it)
+  const endIn = () => { el.classList.remove('ac-in'); reveal(); };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); if (isDocked()) reveal(); }).observe(el);
-  new ResizeObserver(() => { if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   // live: the elements whose reading follows the model (each says which in _acK: 1 the direction word and, on a card with no bar, its
@@ -218,13 +218,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
     return Math.max(0, readBox(view).bottom - readBox(el).top);
   }
   function revealNow() {
-    const open = model && !el.hidden && isDocked();
+    const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
     const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
-    if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
+    // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
+    const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
+    if (shown) { stage.cardsMoved?.(); stage.reveal?.(normalizeSel(selRef) || selRef, covered); }
   }
   function reveal() {
     // (A rest pass: the boxes are read between two frames, never inside one.)
@@ -232,7 +234,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, sheetWired = false;
-  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); };
+  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
@@ -776,11 +778,14 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (el.parentNode !== view) view.append(el);
       if (isDocked()) el.classList.remove('docked');
     }
+    // The camera counts this card like Tests and Details: over the foot of a phone, on the left shelf elsewhere (it pans for it, stage-fit.js; 17 Nov 2026, F9, F27).
+    const edge = isDocked() ? 'bottom' : 'left';
+    if (el.dataset.safe !== edge) el.dataset.safe = edge;
   }
 
   // The floating pieces moved (the layout changed between a phone and a wider screen, the dock grew): stand the card in its place again.
-  addEventListener('pps:occ', () => { position(); if (isDocked()) reveal(); });
-  addEventListener('pps:reframed', () => { if (isDocked() && model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
+  addEventListener('pps:occ', () => { position(); reveal(); });
+  addEventListener('pps:reframed', () => { if (model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('colorMode', () => update());

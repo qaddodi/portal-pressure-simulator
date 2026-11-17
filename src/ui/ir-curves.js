@@ -46,7 +46,7 @@ export function createIrCurves({ request = (type) => host.request(type), calc = 
   const curve = chart();
   const btns = SWEEPS.map((k) => h('button', { type: 'button', class: 'ps-btn', 'data-sweep': k, 'aria-pressed': String(k === sweep), onclick: () => setSweep(k) }, LABEL[k]));
   const sw = h('div', { class: 'pressure-switch ir-sweep', role: 'group', 'aria-label': 'Setting to vary' }, btns);
-  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same stent as a tube on a bench with ${BENCH_DP} mmHg across it. The lines are worked out for the patient as they stand when this view opens, and again when the patient, the stent or the day changes; the ring follows the stent as it stands now.`);
+  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same shunt on a bench (the stent with its tract into the veins), with a fixed ${BENCH_DP} mmHg from its portal end to its hepatic end and no circulation to answer. The lines are worked out for the patient as they stand when this view opens, and again when the patient, the stent or the day changes; the ring follows the stent as it stands now.`);
   const warn = h('p', { class: 'ctl-sub ir-note ir-warn' }, NO_WAIST);   // (always laid out, faded in and out by its owner's data-flat: nothing pops, nothing shifts)
   const el = h('div', { class: 'ir-curves', 'data-flat': '' }, sw, h('div', { class: 'ir-chart' }, curve.el), warn, note);
 

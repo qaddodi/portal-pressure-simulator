@@ -212,14 +212,14 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
   // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
   at(6, 216); await wait(60);
-  assert.equal(peak().querySelector('.status').textContent, 'Within model band');
+  assert.equal(peak().querySelector('.status').textContent, 'In band');
   assert.equal(peak().dataset.sev, 'none');
   assert.match(peak().title, /model band for a 6 mm stent is 90 to 338 cm\/s\. Provisional[^]*not a surveillance threshold/);
   const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
   // a faster 6 mm reading is above its model band, still in the neutral tone: no alarm for a number the app scaled itself
   at(6, 400); await wait(60);
-  assert.equal(peak().querySelector('.status').textContent, 'Above model band');
+  assert.equal(peak().querySelector('.status').textContent, 'Over band');
   assert.equal(peak().dataset.sev, 'none');
   // the same reading in a 10 mm stent is out of range, as reported, and the ticks go back to 90 and 190
   at(10, 216); await wait(60);
