@@ -12,7 +12,8 @@
 //   - The readings are on this view alone: not on the bottom bar or in Readouts, where they would appear and vanish with the stent.
 // Push A was the switch, the stent chip and four readings. Push B puts the stent cards under them (tool-stent.js createStent, built by the instrument-cards
 // thread): the side view and the bar of where the pressure goes, one picture each, fed the dock's live frame (update(f), never pin). They are made the first
-// time the view opens, so a person who never opens it pays nothing. The curves, the trace and Compare come on top of this (plan §8).
+// time the view opens, so a person who never opens it pays nothing. Push C adds the sub-switch Inside the stent | Compare (ir-compare.js: Then, Now, Change against
+// the app's own pin). The curves and the trace come on top of this (plan §8).
 
 import { h, fmt, clamp, countTo, swapText, toast } from './util.js';
 import { store, hiddenNow } from './store.js';
@@ -22,6 +23,7 @@ import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
 import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { createStent } from './tool-stent.js';
+import { createIrCompare } from './ir-compare.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
@@ -70,9 +72,15 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '' };
   });
   const figs = h('div', { class: 'ir-figs' });
-  let stent = null;   // (made the first time the view opens)
+  let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
   const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the drop between the stent\'s two ends; the PPG runs on from the portal vein to the IVC. After a TIPS, a PPG under 12 mmHg is the target.');
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips' }, h('div', { class: 'ir-stents' }, chips, line, edit), h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
+  const cmp = createIrCompare();
+  const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true' }, 'Inside the stent');
+  const btnC = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'compare', 'aria-pressed': 'false' }, 'Compare');
+  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnC);
+  btnI.addEventListener('click', () => setSub('inside')); btnC.addEventListener('click', () => setSub('compare'));
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -83,6 +91,15 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     if (v === 'tips') showStent();
+    onChange();
+    if (frame) update(frame);
+  }
+  function setSub(v) {
+    if (v === sub) return;
+    sub = v;
+    el.dataset.sub = v;
+    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
+    (v === 'compare' ? cmp.el : inside).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
     onChange();
     if (frame) update(frame);
   }
@@ -120,6 +137,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (view !== 'tips') return;
     const m = f?.metrics;
     if (!m) return;
+    if (sub === 'compare') { cmp.update(f, which); return; }
     showStent();
     stent.update(f);
     const st = which === 'DIPS' ? m.dips : m.tips, hidden = hiddenNow(st0);
@@ -147,5 +165,5 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (tiles[1].lbl !== nk) { tiles[1].lbl = nk; const k = tiles[1].el.querySelector('.k'); if (k) swapText(k, nk); }
   }
   host.append(el);
-  return { head, el, update, view: () => view, setView, which: () => which };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which };
 }
