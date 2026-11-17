@@ -9,7 +9,7 @@
 import { h, fmt } from './util.js';
 import { store } from './store.js';
 
-export const NOTHING_PINNED = 'Pin a moment with Compare from here on the timeline to see what the stent changed.';
+export const NOTHING_PINNED = 'Nothing pinned yet. Tap Compare from here on the timeline (or press P) to pin this moment, then change the stent: the table shows what changed.';
 const DASH = '—';
 // name, unit, decimals, the value from a metrics record (the stent's state, or null with no stent).
 const ROWS = [
@@ -42,7 +42,7 @@ export function createIrCompare() {
     h('tbody', {}, cells.map((c) => h('tr', {}, h('td', {}, c.name, h('span', { class: 'unit' }, c.r.u)), c.a, c.b, c.d))));
   for (const c of cells) c.d.replaceChildren(c.txt);
   const note = h('p', { class: 'ctl-sub ir-note' }, NOTHING_PINNED);
-  const el = h('div', { class: 'ir-compare' }, table, note);
+  const el = h('div', { class: 'ir-compare' }, note, table);   // (the sentence first: with nothing pinned it is the whole message, the dashes under it)
   let lastWhich = '', namesKey = '', noteText = NOTHING_PINNED;
   function update(f, which = 'TIPS') {
     const st0 = store.get(), snap = st0.compareSnap, m = f?.metrics;

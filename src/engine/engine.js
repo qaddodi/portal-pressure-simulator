@@ -1318,12 +1318,15 @@ export class Engine {
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
-  collateralD(e) {
+  // (P: the pressures the route's excess is read at. The physics step reads the instant's (this.P); a shown diameter (diameter(id, Pf)) reads the shown means,
+  // so a collateral that opens with the gradient (the acute clot's, which opens on a span of a few mmHg) holds still at rest instead of swinging with the beat:
+  // the acute PVT's C1a/C1b shown diameters swung 8% every 7 s, so the worker posted 6 states a second for ever, 17 Nov 2026.)
+  collateralD(e, P = this.P) {
     let d = this.slow.d[e.id];
     if (e.spontaneous) d = e.dMax;
     else if (this.refP) {
       const dMin = dMinOf(e);
-      const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
+      const frac = clamp((this.routeExcess(e.route, P) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const acute = e.acute ?? (this.params.thrombus.PV_TRUNK > 0.5 ? COLLATERAL.acuteClot : COLLATERAL.acute);
       d = Math.max(d, dMin + (e.dMax - dMin) * acute * Math.sqrt(frac));
     }
@@ -1333,7 +1336,7 @@ export class Engine {
       const g = EDGES[this.ei.C5], gMin = dMinOf(g), gd = Math.max(this.slow.d.C5, (this.slow.dEff || {}).C5 ?? 0);
       d = Math.max(d, dMinOf(e) + (e.dMax - dMinOf(e)) * clamp((gd - gMin) / (g.dMax - gMin), 0, 1));
     }
-    (this.slow.dEff ||= {})[e.id] = d;
+    if (P === this.P) (this.slow.dEff ||= {})[e.id] = d;   // (what the C2 feeder reads: the step's own, not a shown reading's)
     return d;
   }
 
@@ -1502,7 +1505,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(P[f] - ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(P[t] - ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
-      return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
+      return present && !isOccluded(this.params, e.id) ? this.collateralD(e, P) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;
