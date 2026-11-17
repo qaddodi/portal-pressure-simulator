@@ -40,7 +40,7 @@ test('the body is in the card\'s flow and scrolls past the room, on the phone an
 
 test('a card too tall for its room takes the vertical touch for scrolling, one that fits keeps the pull that puts it away', () => {
   assert.match(css, /\.action-card\.docked\.ac-scroll > \.ac-body \{ touch-action: pan-y; \}/);
-  assert.match(css, /\.action-card\.docked :is\(\.ac-body, \.ac-ghost\) \{[^}]*touch-action: none;/, 'a card that fits keeps touch-action: none');
+  assert.match(css, /\.action-card\.docked :is\(\.ac-body, \.ac-ghost(?:, \.ac-details)?\) \{[^}]*touch-action: none;/, 'a card that fits keeps touch-action: none');
   // card.js: the flag follows the body's own scroll height, read through layout-snap between frames (revealNow), and changes only when it flips
   assert.match(card, /readMetric\(body, 'scrollHeight'\) > readMetric\(body, 'clientHeight'\) \+ 1/);
   assert.match(card, /if \(tall !== cardTall\) \{ cardTall = tall; el\.classList\.toggle\('ac-scroll', tall\); \}/);
