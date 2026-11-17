@@ -39,12 +39,10 @@ test('the fit has two sizes: Regular, else Compact for the whole card; the title
   assert.match(js, /const title = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\);/, 'the words at Regular or Compact, nothing in between');
   assert.match(js, /below = put\(WIDE\.title, WIDE\.words\); \}/);
   assert.doesNotMatch(js, /--pz-ptk|\bTK\b/);
-  // (A phone's cap gives the words their room at Compact, from the figure's share when they need it; over an open data card they take
-  // no more than the room it leaves them, never under 12 px: floorCap.)
-  assert.match(js, /compact = textAt\(Math\.max\(COMPACT, floor\)\);/);
-  // (Regular borrows from the figure's share, down to FIG_REG, before the words drop a whole step to Compact.)
-  assert.match(js, /const FIG_REG = \(H\) => Math\.round\(Math\.max\(170, 0\.25 \* H\)\);/);
-  assert.match(js, /const reg = lend > 0 && lend <= phoneFig - FIG_REG\(H\) && regular <= mine && regular <= room - dtop - data;/);
+  // (A phone's words keep Regular, 17 Nov 2026: the figure's share gives way (figFloorOf), then the data card closes, tests/phone-words-plan.test.js.)
+  assert.match(js, /const regular = textAt\(1\);/);
+  assert.match(js, /phonePlan\(\{ room, dtop, data, dmax, lip: sheetLip, regular, mine, grip: GRIP \* k, figMin: FIG_MIN\(H\), figFloor: figFloorOf\(H\)/);
+  assert.doesNotMatch(js, /FIG_REG/);
   assert.match(js, /Math\.max\(0, phoneFig \/ k - lip - 2\)/);
 });
 
