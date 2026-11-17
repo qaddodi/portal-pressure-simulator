@@ -51,9 +51,11 @@ const TILES = [
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
-  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
-    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
-    sev: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'none' : 'caution'; } },
+  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
+    v: (m, st) => st?.vPeak ?? null,
+    // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    sev: (v, st) => { const r = peakBand(st); return r === STENT_RANGE && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
@@ -147,7 +149,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     x.band = k;
     const t = x.t;
     for (let i = 0; i < x.ticks.length; i++) x.ticks[i].style.left = pos(t, r[i]) * 100 + '%';
-    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. A working ${mm(st.d)} mm stent reads ${r[0]} to ${r[1]} cm/s (provisional: the 8 to 10 mm range, 90 to 190 cm/s, scaled for this diameter; no guideline gives one).`;
+    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. The model band for a ${mm(st.d)} mm stent is ${r[0]} to ${r[1]} cm/s. Provisional: the app scaled the reported 8 to 10 mm range (90 to 190 cm/s) for this diameter, and no study validates it. It is not a surveillance threshold.`;
   }
 
   function update(f) {
