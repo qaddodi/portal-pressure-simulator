@@ -1,6 +1,6 @@
 // The label solver's helpers for a stent called out at its three points and for the stent's own drawn dimensions (moved out of stage-label-solve.js,
 // 17 Nov 2026, as it passed its 1500 lines): where a point is on the screen, the column's two sides scored, the slide's mark on the stent and its lane, a
-// caliper's boxes, and the dimension words' and bracket's boxes as obstacles. Kept records only; nothing here reads the page.
+// caliper's boxes, the dimension words' and bracket's boxes as obstacles, and a narrowing's words' spot search (clBoxAt, clFree). Kept records only; nothing here reads the page.
 import { STENT_SITES, stentGate } from '../engine/topology.js';
 import { hits, within } from './label-place.js';
 
@@ -76,5 +76,23 @@ export function createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, steno
       }
     }
   }
-  return { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles };
+  // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
+  // One label at a time, so the context is kept and the box is a kept record.)
+  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, blk: [], prev: [], view: null };
+  const CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, CL_P = [0, 0];
+  const PROBE_STEPS = [];
+  for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) PROBE_STEPS.push([px, tp]);
+  PROBE_STEPS.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
+  function clBoxAt(d, t) {
+    const c = CLB.c, base = CLB.base;
+    worldToLocalInto(CL_P, c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
+    if (!base) return base;
+    const bx = CL_P[0], by = CL_P[1], r = CLB_R;
+    r.x0 = base.x0 + bx - CLB.ox; r.y0 = base.y0 + by - CLB.oy; r.x1 = base.x1 + bx - CLB.ox; r.y1 = base.y1 + by - CLB.oy;
+    return r;
+  }
+  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; const bl = CLB.blk; for (let i = 0; i < bl.length; i++) if (hits(b, bl[i])) return true; const pv = CLB.prev; for (let i = 0; i < pv.length; i++) if (hits(b, pv[i])) return true; return false; }   // (the probe, and the cards (blockers): a narrowing's words never stand half under a card, cut there: 17 Nov 2026)
+  const CLB_G = { x0: 0, y0: 0, x1: 0, y1: 0 }, grow = (b, m) => (b ? ((CLB_G.x0 = b.x0 - m), (CLB_G.y0 = b.y0 - m), (CLB_G.x1 = b.x1 + m), (CLB_G.y1 = b.y1 + m), CLB_G) : b);
+  function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
+  return { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles, CLB, PROBE_STEPS, clBoxAt, clFree, grow };
 }

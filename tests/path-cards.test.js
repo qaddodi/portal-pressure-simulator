@@ -411,3 +411,30 @@ test('the small stages card: the lit stage in full, every other stage one line (
   const s1 = layout(ladder, 340, true, { s: 1, rc: false }, H, true).H, s3 = layout(ladder, 340, true, { s: 3, rc: true }, H, true).H;
   assert.ok(s1 < s3 && s1 <= 200, `a compensated patient's card is short (${s1} px) and has no room for the way back`);
 });
+
+test('a checklist row\'s answers stand at the right of the row on one line at every small width, and a long name wraps beside them (recompensation row 1, 17 Nov 2026)', () => {
+  for (const a of [recomp, psvdscore]) for (const W of [375, 340, 300, 280]) {
+    for (const p of patientsOf(a)) {
+      const { ops } = drawCard(a, W, true, p, H), pills = ops.filter((o) => o.k === 'r' && o.look === 'path.opt');
+      const rows = new Map();
+      for (const o of pills) rows.set(o.y, [...(rows.get(o.y) || []), o]);
+      if (a === recomp) {
+        assert.equal(rows.size, a.rows.length, `${a.id} ${W}: one line of answers for each row`);
+        for (const [y, ps] of rows) {
+          assert.equal(ps.length, 2, `${a.id} ${W}: Met and Not met on one line`);
+          assert.ok(Math.abs(Math.max(...ps.map((o) => o.x + o.w)) - W) < 0.5, `${a.id} ${W}: the answers end at the right edge (y ${y})`);
+        }
+        const name = ops.filter((o) => o.k === 't' && o.face === 'rn');
+        const first = name.filter((t) => t.y < [...rows.keys()][1]);
+        assert.ok(first.length >= 2, `${a.id} ${W}: the first name wraps to two lines`);
+        const left = Math.min(...[...rows.values()].map((ps) => Math.min(...ps.map((o) => o.x))));
+        for (const t of name) {
+          const w = H.textWidth(t.text, { weight: ROLE.rn.weight, size: ROLE.rn.size }), row = [...rows.keys()].filter((y) => y <= t.y).pop();
+          const px = Math.min(...rows.get(row).map((o) => o.x));
+          assert.ok(t.x + w <= px - 5, `${a.id} ${W}: "${t.text}" stops before its answers`);
+        }
+        assert.ok(left > 0);
+      }
+    }
+  }
+});

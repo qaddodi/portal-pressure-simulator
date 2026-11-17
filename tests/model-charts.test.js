@@ -20,7 +20,7 @@ test('package C registers the curve and no waterfall card, and asks for no Why? 
   assert.equal(EXT.owner.tools.curve, 'C');
   assert.equal(EXT.owner.tools.causes, undefined);
   const { tools } = PACKAGES.C;
-  assert.equal(tools.curve.title({ param: 'tips.d', lines: ['ppg', 'liver'] }), 'PPG and liver flow vs healthy by TIPS diameter');
+  assert.equal(tools.curve.title({ param: 'tips.d', lines: ['ppg', 'liver'] }), 'PPG and liver flow by TIPS diameter');
   assert.equal(tools.causes, undefined);
   assert.equal(stepExtra({ tool: { kind: 'causes', metric: 'hvpg' } }), null);
   assert.equal(stepExtra({ tool: { kind: 'curve', param: 'tips.d' } }), null);

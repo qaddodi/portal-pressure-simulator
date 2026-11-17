@@ -29,6 +29,7 @@ import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
 import { textWidth } from './text-gl.js';
 import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
+import { createWallGeometry, BRACKET_A } from './wall-geometry.js';
 import { reduceMotionMQ } from './motion.js';
 import { TOKEN_OF_SEV } from '../engine/pressure-cuts.js';
 import { SAAG_PORTAL } from '../engine/ascites-cuts.js';
@@ -390,41 +391,14 @@ const RIM_INK = { ...TOKEN_OF_SEV, critical: '--critical' };
 // A name's ink as drawn (centred, baseline middle): the box round its glyphs' own ink, from the GPU atlas (glyph-measure.js inkBox: no
 // canvas is drawn and read back). Names are placed by the ink itself, not their line box.
 const inkRows = (font, t) => inkBox(t, font);
-// How far a name's ink at (x, y) keeps from things round it, in px: inside a circle (its edge), outside one, from a box.
-// (Each row is [top, bottom, left, right]; the rows are looked over by index, so a search that tries a name at hundreds of places makes nothing.)
-const inkIn = (rows, x, y, ox, oy, r) => {
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, r - Math.hypot(Math.max(Math.abs(x + q[2] - ox), Math.abs(x + q[3] - ox)), Math.max(Math.abs(y + q[0] - oy), Math.abs(y + q[1] - oy)))); }
-  return m;
-};
-const inkOut = (rows, x, y, ox, oy, r) => {
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) { const q = rows[i]; m = Math.min(m, Math.hypot(Math.max(0, x + q[2] - ox, ox - x - q[3]), Math.max(0, y + q[0] - oy, oy - y - q[1])) - r); }
-  return m;
-};
-/** box: [left, top, right, bottom]. */
-const inkFrom = (rows, x, y, box) => {
-  const bl = box[0], bt = box[1], br = box[2], bb = box[3];
-  let m = Infinity;
-  for (let i = 0; i < rows.length; i++) {
-    const q = rows[i], dx = Math.max(bl - (x + q[3]), x + q[2] - br), dy = Math.max(bt - (y + q[1]), y + q[0] - bb);
-    m = Math.min(m, dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy));
-  }
-  return m;
-};
-/** The least / the most of column k (0 top, 1 bottom, 2 left, 3 right) over a name's rows. */
-const colMin = (rows, k) => { let m = Infinity; for (let i = 0; i < rows.length; i++) m = Math.min(m, rows[i][k]); return m; };
-const colMax = (rows, k) => { let m = -Infinity; for (let i = 0; i < rows.length; i++) m = Math.max(m, rows[i][k]); return m; };
-/** The ink box of rows set at (x, y), into out as [left, top, right, bottom]. */
-const inkBoxInto = (out, rows, x, y) => { out[0] = x + colMin(rows, 2); out[1] = y + colMin(rows, 0); out[2] = x + colMax(rows, 3); out[3] = y + colMax(rows, 1); };
 // The picture's names, in the order they are drawn, as the checks read them from data-labels: one text for each set of them drawn (bit i: name i).
 const WALL_NAMES = ['r', 'σ', 'w', 'lumen', 'muscle'];
 const WALL_LABELS = Array.from({ length: 32 }, (_, m) => WALL_NAMES.filter((_n, i) => m & (1 << i)).join(','));
 const DASH_RADIUS = [3, 3], NO_DASH = [];
 export function createVarixWall() {
-  const geo = { w: NaN, hh: NaN, fs: NaN, wc: NaN, R: 0, cy: 0, off: new Set() };   // (the picture's fitted size, for the size, type size and wall it was fitted to, and the names left out at it, drawWall below)
+  const geom = createWallGeometry();   // (where everything in the picture goes, from its size and the beat's varix: wall-geometry.js)
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
-  const box = h('div', { class: 'chart-box square' });
+  const box = h('div', { class: 'chart-box square wall-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
   // (the cross-section drawn by the GPU's chart drawer over this canvas: trace-gl.js, ?tracegl=0 on the canvas)
@@ -484,33 +458,8 @@ export function createVarixWall() {
     const pen = fitPen(cv, wallGL), ctx = pen.ctx;
     try { drawWall(ctx, pen.w, pen.h, v, f); } finally { ctx.end?.(); }
   }
-  // drawWall's parts are made once and read this draw's values from W; its answers are written into kept objects (a draw makes none).
-  const W = { v: null, fs: 12, cx: 0, hh: 0, fsInk: NaN, f6: '', f5: '', inkT: null, inkR: null, inkW: null, inkL: null, inkM: null };
-  const PP = { Rl: 0, rr: 0, vy: 0, lw: 0, ro: 0, len: 0, tx: 0, ty: 0, top: 0 };
-  const boxDash = [0, 0, 0, 0], boxW = [0, 0, 0, 0], boxBrk = [0, 0, 0, 0];
-  const gR = { fill: 0, dash: 0 }, gSig = { ring: 0, top: 0 }, gW = {}, gLumen = { edge: 0, w: 0, arrows: 0 }, gMuscle = { outer: 0, band: 0 }, gPic = { R: 0, cy: 0, h: 0 };
-  const gaps = { r: undefined, 'σ': undefined, w: undefined, lumen: undefined, muscle: undefined, picture: gPic };   // (what the checks read as cv.wallGaps: a name not drawn is undefined)
-  // The varix and its marks for a picture of radius R round (cx, cy), at this beat's radius, wall and ΔP, into PP.
-  // (most: the largest varix and ΔP the picture can show, which set its size, so the ring holds still through every beat)
-  const parts = (R, cy, most) => {
-    const { v, fs, cx, inkT } = W;
-    const Rl = R * 0.52, rr = most ? R * 0.3 : clamp(v.r * R * 0.05, 4, R * 0.3), vy = cy - Rl - rr * 0.25, lw = clamp((most ? Math.ceil(v.w * 10) / 10 : v.w) * R / 20, 1, 10);
-    const ro = rr + lw / 2 + Math.max(5, R / 30), len = (most ? 30 : clamp(v.ptm, 0, 30)) / 30 * rr * 0.9 + 4;
-    // σ beside the ΔP arrow's shaft, just right of its head; where it would sit on the wall's outline it rises until its
-    // ink is 2 px or more clear of the line's soft edge (it follows the varix through the beat, so it never touches it).
-    const tx = cx + (4 + R / 60) * 0.45 + 2 - colMin(inkT, 2);
-    let ty = vy - ro - fs * 0.75;
-    if (inkIn(inkT, tx, ty, cx, cy, R - 1) < 2) for (let k = 0; k < 400 && inkOut(inkT, tx, ty, cx, cy, R + 1) < 2; k++) ty -= 0.25;
-    const tTop = ty + colMin(inkT, 0);
-    PP.Rl = Rl; PP.rr = rr; PP.vy = vy; PP.lw = lw; PP.ro = ro; PP.len = len; PP.tx = tx; PP.ty = ty;
-    PP.top = Math.min(vy - Math.max(rr + lw / 2, ro + 2.5, rr + 3 + len + 1), tTop);
-    return PP;
-  };
-  const atR = (R) => { const c0 = W.hh - 6 - R; return Math.min(W.hh - 1 - R, c0 + Math.max(0, 1 - parts(R, c0, true).top)); };
-  const okR = (R) => parts(R, atR(R), true).top >= 1;
-  // (A name that once misses at this size stays out until the size changes: r and the w label move with the beat, and a name
-  // blinking in and out with it would read as a glitch.)
-  const keepName = (t, ok) => { if (!ok) geo.off.add(t); return !geo.off.has(t); };
+  // drawWall reads the picture's layout (wall-geometry.js: where the ring, the varix and every name go; no canvas there) and paints it.
+  const W = { fsInk: NaN, f6: '', f5: '', ink: { T: null, R: null, W: null, L: null, M: null } };
   function drawWall(ctx, w, hh, v, f) {
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
@@ -524,24 +473,14 @@ export function createVarixWall() {
       W.fsInk = fs;
       // alloc-rare: only when the type size changes (a resize, or the card's size read)
       W.f6 = FONT(600, fs); W.f5 = FONT(500, fs);
-      W.inkT = inkRows(W.f6, 'σ'); W.inkR = inkRows(W.f6, 'r'); W.inkW = inkRows(W.f6, 'w'); W.inkL = inkRows(W.f5, 'lumen'); W.inkM = inkRows(W.f5, 'muscle');
+      const k = W.ink;
+      k.T = inkRows(W.f6, 'σ'); k.R = inkRows(W.f6, 'r'); k.W = inkRows(W.f6, 'w'); k.L = inkRows(W.f5, 'lumen'); k.M = inkRows(W.f5, 'muscle');
     }
-    const { f6, f5, inkT, inkR, inkW, inkL, inkM } = W;
-    const cx = w / 2;
-    W.v = v; W.fs = fs; W.cx = cx; W.hh = hh;
-    // The wall stress's σ and the ΔP arrow rise above the varix at the top of the wall: the picture, its foot 6 px above the box's
-    // foot (or lower, into those 6 px, where that is all it needs), is the largest whose σ and arrow ink at the largest varix
-    // and ΔP stays 1 px or more inside the canvas (a 12 px T, the symbol before σ, had its crossbar cut). The ring is set once for the box, and only
-    // the varix and its marks move with the beat.
-    const wc = Math.ceil(v.w * 10);
-    if (geo.w !== w || geo.hh !== hh || geo.fs !== fs || geo.wc !== wc) {
-      let lo = 20, hi = Math.min(w, hh) / 2 - 6;
-      if (okR(hi)) lo = hi; else for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (okR(m)) lo = m; else hi = m; }
-      if (geo.w !== w || geo.hh !== hh || geo.fs !== fs) geo.off.clear();
-      geo.w = w; geo.hh = hh; geo.fs = fs; geo.wc = wc; geo.R = lo; geo.cy = atR(lo);
-    }
-    const { R, cy } = geo;
-    const { Rl, rr, vy, lw, ro, len, tx, ty } = parts(R, cy, false);
+    const { f6, f5 } = W;
+    // The ring is the largest whose arrows and stress arcs stay inside the canvas (by its height, or its width where that is less) and
+    // whose σ has a clear place outside the wall; it is set once for the box, and only the varix and its marks move with the beat.
+    const L = geom.place(w, hh, fs, W.ink, v);
+    const { cx, cy, R, Rl, rr, vy, lw, ro, len } = L;
     // The wall: muscle outside, mucosa inside, the lumen in the middle.
     ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
     ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
@@ -564,25 +503,14 @@ export function createVarixWall() {
     ctx.strokeStyle = cssAlpha('--white', 0.85); ctx.lineWidth = 1.25; ctx.setLineDash(DASH_RADIUS);
     ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash(NO_DASH);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    gaps.r = gaps['σ'] = gaps.w = gaps.lumen = gaps.muscle = undefined;
-    let drawn = 0;   // (bit i: WALL_NAMES[i] is drawn)
-    // "r" just under the dashed radius, its ink 2 px or more clear of the dashes and 1 px or more inside the varix's fill;
-    // on a small varix it moves in toward the centre, still under the dashes.
-    const rTop = colMin(inkR, 0), rL = colMin(inkR, 2);
-    const ry = vy + 3.4 - rTop;
-    boxDash[0] = cx; boxDash[1] = vy - 1.1; boxDash[2] = cx + rr; boxDash[3] = vy + 1.1;   // (the dashes' soft edge included)
-    let rx = cx + rr / 2, rFill = inkIn(inkR, rx, ry, cx, vy, rr - lw / 2 - 0.5), rDash = inkFrom(inkR, rx, ry, boxDash);
-    if (rFill < 2) {
-      const qx = cx + 1.5 - rL, qFill = inkIn(inkR, qx, ry, cx, vy, rr - lw / 2 - 0.5);
-      if (qFill > rFill) { rx = qx; rFill = qFill; rDash = inkFrom(inkR, qx, ry, boxDash); }
-    }
     // (The one label style: the theme's text ink over its --label-halo, 3 px, laid under the fill, so the "r" reads on every pressure fill.)
-    if (keepName('r', rFill >= 1 && rDash >= 2)) {
-      ctx.font = f6; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = cssVar('--label-halo'); ctx.strokeText('r', rx, ry);
-      ctx.fillStyle = cssVar('--text'); ctx.fillText('r', rx, ry); drawn |= 1; gR.fill = rFill; gR.dash = rDash; gaps.r = gR;
+    if (L.r.show) {
+      ctx.font = f6; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = cssVar('--label-halo'); ctx.strokeText('r', L.r.x, L.r.y);
+      ctx.fillStyle = cssVar('--text'); ctx.fillText('r', L.r.x, L.r.y);
     }
     // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
-    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
+    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink). Each name stands in
+    // free space beside the varix, a short leader running to it (wall-geometry.js).
     const ink = cssVar('--text-3');
     ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
     for (let si = 0; si < 2; si++) {
@@ -593,38 +521,28 @@ export function createVarixWall() {
       ctx.beginPath(); ctx.moveTo(ex + ux * hd * 0.2, ey + uy * hd * 0.2);
       ctx.lineTo(ex - ux * hd + uy * hd * 0.55, ey - uy * hd - ux * hd * 0.55); ctx.lineTo(ex - ux * hd - uy * hd * 0.55, ey - uy * hd + ux * hd * 0.55); ctx.fill();
     }
-    ctx.font = f6; ctx.fillText('σ', tx, ty); drawn |= 2;
-    gSig.ring = Math.max(inkIn(inkT, tx, ty, cx, cy, R - 0.5), inkOut(inkT, tx, ty, cx, cy, R + 0.5)); gSig.top = ty + colMin(inkT, 0); gaps['σ'] = gSig;
-    const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
-    const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
+    if (L.sigma.show) {
+      const s = L.sigma;
+      if (s.lead) { ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s.sx, s.sy); ctx.lineTo(s.ex, s.ey); ctx.stroke(); }
+      ctx.fillStyle = rim; ctx.font = f6; ctx.fillText('σ', s.x, s.y);
+    }
+    const wl = L.w;
     ctx.strokeStyle = ink; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
-    for (let di = 0; di < 2; di++) { const d = di === 0 ? i0 : rr + lw / 2; ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
-    const wx = cx + bx * (o0 + 6 + fs * 0.6), wy = vy + by * (o0 + 6 + fs * 0.6);
-    ctx.fillStyle = ink; ctx.font = f6; ctx.fillText('w', wx, wy); drawn |= 4; gaps.w = gW;
-    // "lumen" as high in the lumen as its ink keeps 1 px inside the lumen's edge and 2 px clear of the w label, its bracket
-    // and the ΔP arrows; "muscle" where its ink keeps the most room inside the muscle ring, 1 px or more on each side.
-    // A name is drawn only where its ink fits, never across a ring's edge.
-    ctx.fillStyle = cssVar('--text-3');
-    inkBoxInto(boxW, inkW, wx, wy);
-    boxBrk[0] = cx + bx * (o0 + 6) - 3.5; boxBrk[1] = vy + by * i0 - 3.5; boxBrk[2] = cx + bx * i0 + 3.5; boxBrk[3] = vy + by * (o0 + 6) + 3.5;
-    let lumenY = 0, lumenFound = false;
-    for (let y = cy + Rl * 0.35; y < cy + Rl; y += 0.25) {
-      const edge = inkIn(inkL, cx, y, cx, cy, Rl - 0.35), gw = Math.min(inkFrom(inkL, cx, y, boxW), inkFrom(inkL, cx, y, boxBrk)), arrows = inkOut(inkL, cx, y, cx, vy, rr + 3 + len + 1);
-      if (edge < 1) break;
-      if (gw >= 2.5 && arrows >= 2) { lumenFound = true; lumenY = y; gLumen.edge = edge; gLumen.w = gw; gLumen.arrows = arrows; break; }   // (2.5: both names' soft edges)
+    ctx.beginPath(); ctx.moveTo(wl.bx0, wl.by0); ctx.lineTo(wl.bx1, wl.by1); ctx.stroke();
+    // (the two ticks across the rim's thickness)
+    const bx = Math.cos(BRACKET_A), by = Math.sin(BRACKET_A);
+    for (let di = 0; di < 2; di++) { const d = di === 0 ? rr - lw / 2 : rr + lw / 2; ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
+    if (wl.show) {
+      if (wl.lead) { ctx.beginPath(); ctx.moveTo(wl.sx, wl.sy); ctx.lineTo(wl.ex, wl.ey); ctx.stroke(); }
+      ctx.fillStyle = ink; ctx.font = f6; ctx.fillText('w', wl.x, wl.y);
     }
-    if (keepName('lumen', lumenFound)) { ctx.font = f5; ctx.fillText('lumen', cx, lumenY); drawn |= 8; gaps.lumen = gLumen; }
-    let muscleY = 0, muscleOuter = 0, muscleBand = 0, muscleFound = false;
-    for (let y = cy + R * 0.74; y < cy + R; y += 0.25) {
-      const outer = inkIn(inkM, cx, y, cx, cy, R - 0.5), band = inkOut(inkM, cx, y, cx, cy, R * 0.74);
-      if (!muscleFound || Math.min(outer, band) > Math.min(muscleOuter, muscleBand)) { muscleFound = true; muscleY = y; muscleOuter = outer; muscleBand = band; }
-    }
-    if (keepName('muscle', muscleFound && Math.min(muscleOuter, muscleBand) >= 1)) { ctx.font = f5; ctx.fillText('muscle', cx, muscleY); drawn |= 16; gMuscle.outer = muscleOuter; gMuscle.band = muscleBand; gaps.muscle = gMuscle; }
+    // "lumen" and "muscle" inside the rings they name.
+    ctx.fillStyle = ink;
+    if (L.lumen.show) { ctx.font = f5; ctx.fillText('lumen', cx, L.lumen.y); }
+    if (L.muscle.show) { ctx.font = f5; ctx.fillText('muscle', cx, L.muscle.y); }
     // (What the picture shows, for the checks: the names drawn and how far each keeps from its neighbours.)
-    dataSoon(cv, 'labels', WALL_LABELS[drawn]);
-    gPic.R = R; gPic.cy = cy; gPic.h = hh;
-    cv.wallGaps = gaps;
+    dataSoon(cv, 'labels', WALL_LABELS[L.drawn]);
+    cv.wallGaps = L.gaps;
   }
   return { id: 'varixwall', label: 'Varix wall', el, update, pin };
 }

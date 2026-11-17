@@ -102,9 +102,10 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnV, btnC);
   btnI.addEventListener('click', () => setSub('inside')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside: the readings and the stent card, one drawing and one lens switch)
-  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
-  const stentsRow = h('div', { class: 'ir-stents' }, chips, line);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, subSwitch, inside, crv.el, cmp.el);
+  const lensRow = h('div', { class: 'ir-lensrow' });   // (the card's one lens switch: Velocity | Pressure | Where it goes, moved here when the card is made)
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), lensRow, figs);
+  const stentsRow = h('div', { class: 'ir-stents' }, chips, line, subSwitch);   // (two rows of controls in all: this one, the stent's chip and the three views, and the editor)
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -135,10 +136,10 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   function showStent() {
     if (!stent) {
       stent = createStent(); figs.append(stent.el); cfgId = '';
-      // (The card's one switch, Velocity | Pressure | Where it goes, lives in the view's own header row, beside the stent's chip, not between the pictures: there it took height the figures' band
+      // (The card's one switch, Velocity | Pressure | Where it goes, lives in a thin row of its own over the pictures, not between them: there it took height the figures' band
       // did not count and floated loose under the drawing. It is the same element and its handlers; this view gives it the switches' look.)
       const lsw = stent.el.querySelector(':scope > .sc-lens');
-      if (lsw) { lsw.classList.add('pressure-switch', 'ir-color'); stentsRow.append(lsw); }
+      if (lsw) { lsw.classList.add('pressure-switch', 'ir-color'); lensRow.append(lsw); }
     }   // alloc-rare: once, when the view first opens
     // (One card: the side view with its chart under it, which follows the lens. --fig-r, the pictures' width over their height together, comes from the card itself (stent.ratio()), read again
     // when the lens or the size changes (update, below), so the figures take the width of the card first.)
