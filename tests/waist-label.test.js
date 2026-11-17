@@ -47,12 +47,11 @@ test('zoomed out the label still stands by its waist, or on a leader that reache
 
 // The label is always there (Mohammad, 17 Nov: "Tips has no label now"): where the whole of it has no room it gives up its lines from the last, down to "TIPS 8 mm",
 // never to a line cut to its numbers ("6 2.0") and never to nothing.
-const WHOLE = ['TIPS 8 mm', 'waist 6 mm × 2.0 cm'];
+const FORMS = [['TIPS 8 mm', 'waist 6 mm × 2.0 cm'], ['TIPS 8 mm', '6 mm × 2.0 cm'], ['TIPS 8 mm']];   // (the whole; the waist's word dropped; the stent's line alone)
 const holds = (text, o) => {
   assert.ok(text && /^TIPS 8 mm/.test(text), `${JSON.stringify(o)}: the TIPS has its label, "${text}"`);
-  const lines = text.split(' / ');
-  assert.deepEqual(lines, WHOLE.slice(0, lines.length), `${JSON.stringify(o)}: whole lines only, "${text}"`);
+  assert.ok(FORMS.some((f) => f.join(' / ') === text), `${JSON.stringify(o)}: one of its forms, whole lines only, "${text}"`);
 };
-for (const o of [{ red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, zoom: 0.5 }]) {
+for (const o of [{ red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, zoom: 0.5 }, { red: 0.25, waist: 2, size: 'iphone', sel: true, zoom: 1.5 }]) {
   test(`the TIPS label is always present, whole lines only: ${JSON.stringify(o)}`, { timeout: 320000 }, () => { holds(run(o).text, o); });
 }
