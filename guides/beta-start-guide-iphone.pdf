@@ -250,7 +250,7 @@ endobj
 endobj
 13 0 obj
 <<
-/Length 1302
+/Length 1300
 >>
 stream
 1 0 0 1 0 0 cm  BT /F1 12 Tf 14.4 TL ET
@@ -285,7 +285,7 @@ Q
 q
 1 0 0 1 20 138.6667 cm
 q
-BT 1 0 0 1 0 70.8 Tm 16.56 TL /F2 12 Tf .113725 .113725 .121569 rg (Tests) Tj /F1 12 Tf (: opens the Tests card with tabs for Pressure, HVPG,) Tj T* (Doppler, Scope, Ascites, Fibro and Readouts, the measurements) Tj T* (you can take on this patient, and Trials, the landmark trials) Tj T* (and whether this patient fits them. On iPhone it is in the bar) Tj T* (along the bottom \(Treat, Tests, Search, Layers, Settings\), and) Tj T* (the tabs show as icons.) Tj T* ET
+BT 1 0 0 1 0 70.8 Tm 16.56 TL /F2 12 Tf .113725 .113725 .121569 rg (Tests) Tj /F1 12 Tf (: opens the Tests card with tabs for Pressure, IR,) Tj T* (Doppler, Scope, Ascites, Fibro and Readouts, the measurements) Tj T* (you can take on this patient, and Trials, the landmark trials) Tj T* (and whether this patient fits them. On iPhone it is in the bar) Tj T* (along the bottom \(Treat, Tests, Search, Layers, Settings\), and) Tj T* (the tabs show as icons.) Tj T* ET
 Q
 Q
 BT /F1 8.16 Tf 9.792 TL ET
@@ -675,23 +675,23 @@ xref
 0000053321 00000 n 
 0000076129 00000 n 
 0000076433 00000 n 
-0000077788 00000 n 
-0000230018 00000 n 
-0000292450 00000 n 
-0000292705 00000 n 
-0000293157 00000 n 
-0000557554 00000 n 
-0000557809 00000 n 
-0000558796 00000 n 
-0001212553 00000 n 
-0001212857 00000 n 
-0001213426 00000 n 
-0002125822 00000 n 
-0002630746 00000 n 
-0002631050 00000 n 
-0002632186 00000 n 
-0002668443 00000 n 
-0002708504 00000 n 
+0000077786 00000 n 
+0000230016 00000 n 
+0000292448 00000 n 
+0000292703 00000 n 
+0000293155 00000 n 
+0000557552 00000 n 
+0000557807 00000 n 
+0000558794 00000 n 
+0001212551 00000 n 
+0001212855 00000 n 
+0001213424 00000 n 
+0002125820 00000 n 
+0002630744 00000 n 
+0002631048 00000 n 
+0002632184 00000 n 
+0002668441 00000 n 
+0002708502 00000 n 
 trailer
 <<
 /Size 31
@@ -700,5 +700,5 @@ trailer
 /ID [ <be73c1cf7c4a85cf0ce72964f389eabf> <be73c1cf7c4a85cf0ce72964f389eabf> ]
 >>
 startxref
-2708892
+2708890
 %%EOF

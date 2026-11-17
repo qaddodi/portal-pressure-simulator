@@ -430,6 +430,22 @@
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
 .instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }
+/* Tests › IR (ir-tips.js): one view at a time. The Measure view's parts and the TIPS view are children of the one pane; the switch in its head row sets data-view. */
+.instrument-view[data-pane="hvpg"][data-view="tips"] > :not(.ir-tips) { display: none; }
+.instrument-view[data-pane="hvpg"]:not([data-view="tips"]) > .ir-tips { display: none; }
+.ir-switch { margin: 0 0 8px; }
+.ir-switch .ps-btn { transition: opacity var(--d-small) var(--ease); }
+.ir-switch .ps-btn.off { opacity: .42; }   /* (no stent: dimmed, never hidden, so nothing pops in when one is placed; a tap says why) */
+.ir-tips { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ir-stents { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.ir-chips { display: flex; gap: 6px; }
+.ir-chip { height: 26px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); cursor: pointer; font: 650 var(--fs-12) var(--font-ui); animation: crossfade var(--d-small) var(--ease); }
+.ir-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
+.ir-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ir-line { flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
+.ir-edit { margin-left: auto; flex: none; }
+.ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four readings, two by two: the card is 500 px on a Mac and an iPad, narrower on a phone) */
+.ir-note { margin: 0; }
 .hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
 .hvpg-bar .btn { flex: none; }
 .hvpg-kv { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(56px, auto)); justify-content: start; gap: 18px; margin: 0; }
