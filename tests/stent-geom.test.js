@@ -302,3 +302,17 @@ test('a saved state from before 17 Nov 2026 with a stenosis mid stent opens as t
   assert.ok(Math.abs(old.total - now.total) < 1e-15 || old.total < now.total, 'a waist of 4 cm costs at least the focal stenosis');
   assert.equal(sanitizeParams({ stenosisSite: { PV_TRUNK: 'mid' } }).stenosisSite.PV_TRUNK, 'mid', 'a vein that is not a stent keeps its site');
 });
+
+test('stentState names the lesion kinds: an end stenosis is dysfunction, the waist an intentional reduction, and each Doppler gate says whose jet it reads', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const st = (patch) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, ...patch }))); e.settle(2); return e.stentState('TIPS'); };
+  let o = st({});
+  assert.equal(o.lesion, 'none'); assert.deepEqual([...o.gateKind], [null, null, null]);
+  o = st({ stentGeom: { TIPS: { red: 0.4 } } });
+  assert.equal(o.lesion, 'reduction'); assert.deepEqual([...o.gateKind], [null, 'reduction', null]);
+  o = st({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'proximal' } });
+  assert.equal(o.lesion, 'stenosis'); assert.deepEqual([...o.gateKind], ['stenosis', null, null]);
+  o = st({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { red: 0.3 } } });
+  assert.equal(o.lesion, 'both'); assert.deepEqual([...o.gateKind], [null, 'reduction', 'stenosis']);
+});
