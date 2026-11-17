@@ -21,6 +21,7 @@ import { createScope } from './slide-txn.js';
 import { store, replaceParams, setViewKey } from './store.js';
 import { oneLadder } from './teach-extras.js';
 import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createStart(st, live) {
   const { patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
@@ -92,7 +93,7 @@ export function createStart(st, live) {
     const foldStill = () => {
       clearTimeout(foldT);
       if (!('folding' in data.dataset)) return;
-      if (data.classList.contains('pz-sliding') || readAnims(partOf()).some((a) => a.playState === 'running')) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
+      if (data.classList.contains('pz-sliding') || readAnims(partOf()).some(animRunning)) { foldT = setTimeout(foldStill, 100); return; }   // (still easing: a slow frame)
       stage.followEnd?.();   // (at rest: the view stands at the framing for where it rests, and the refit below finds it there)
       delete data.dataset.folding; fitDone.delete(data); onResize();
     };

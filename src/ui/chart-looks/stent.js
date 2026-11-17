@@ -59,10 +59,8 @@ export const STENT = {
   'stent.mark.text': { base: { weight: 600, fill: tok('text'), halo, baseline: 'central' } },
   // ── the traces along the stent (stent-trace-pic.js) ──
   // the lumen with its veins, the five sites' dashed lines, a numbered badge on each, a panel's baseline, its area, its line and a dot where each site reads
-  'stent.tr.lumen': { base: { stroke: mix('srgb', tok('text-3'), 80, 'transparent'), width: 1, join: 'round' } },
-  'stent.tr.site': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
-  'stent.tr.badge': { base: { fill: tok('text'), stroke: tok('surface'), width: 1.2 } },
-  'stent.tr.badgeNum': { base: { fill: tok('surface'), weight: 700, baseline: 'central' } },
+  'stent.tr.site': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 55, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
+  'stent.tr.siteNum': { base: { fill: tok('text-2'), weight: 700, halo, baseline: 'central' } },
   'stent.tr.axis': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 28, 'transparent'), width: 1 } },
   'stent.tr.zero': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1.2 } },
   'stent.tr.title': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },

@@ -22,6 +22,7 @@ import { caught } from './caught.js';
 import { contextText } from './gl-contexts.js';
 import { readAnims } from './layout-snap.js';
 import { setFences, setFenceBurst, fenceText, fenceSampling, fenceSummary, fenceBurstSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY, BURST_EVERY } from './gpu-fence.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 const RING = 1024;          // (frames kept: about 8 s at 120 Hz, 17 s at 60)
 const STATS_MS = 2000, WORST_MS = 5000, WORST_N = 8;
@@ -320,7 +321,7 @@ export function cssAnimText(doc = globalThis.document) {
   let run = 0;
   const slow = [];   // alloc-rare: once a second, for the readout
   for (const a of list) {
-    if (a.playState !== 'running') continue;
+    if (!animRunning(a)) continue;
     run++;
     const props = new Set();   // alloc-rare: once a second, for the readout
     try { for (const k of a.effect?.getKeyframes?.() || []) for (const p in k) if (!KF_META.has(p)) props.add(p); } catch { /* not readable */ }

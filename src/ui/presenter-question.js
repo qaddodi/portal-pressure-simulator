@@ -28,6 +28,7 @@ import { chartScale, createProfileStrip, createProfileTool, pillReadings } from 
 import { traceWhen } from './trace-labels.js';
 import { fadeShown, fmt, h, swapFade, swapText, themeChanged } from './util.js';
 import { bpText } from './vital-read.js';
+import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createQuestion(st, live) {
   const { abPick, app, beside, besideHook, cardIn, cath, changes, dataTo, evAdopt, evDrop, getCalc, go, lapseRow, lastBeat, layout, layoutAtLanding, markLong, nextFrame, paintKey, paintScales, procEl, respFp, sinTiles, stage, stateReady, strainEl, throwCards, tileKeys, under, waitCut, whatIfEl, xKey } = st;
@@ -48,7 +49,7 @@ export function createQuestion(st, live) {
     live.shadeAnim = null;
   }
   // What is left, ms, of the longest fade still running on these cards (0 when none).
-  const fadeLeft = (els) => els.reduce((m, el) => readAnims(el).reduce((n, a) => { const t = a.playState === 'running' && readTiming(a.effect); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
+  const fadeLeft = (els) => els.reduce((m, el) => readAnims(el).reduce((n, a) => { const t = animRunning(a) && readTiming(a.effect); return t && Number.isFinite(t.endTime) ? Math.max(n, t.endTime - (t.localTime || 0)) : n; }, m), 0);
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
   // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
   const deltaOf = (s, i) => s.delta ?? (i > 0 && !s.preset && changes(s) ? true : null);
