@@ -8,10 +8,10 @@ import { lobuleSource } from './split-src.js';
 const js = lobuleSource();
 
 test('refit of a zoomed-in lobule glides to the clamped framing', () => {
-  const refit = js.match(/function refit\(\) \{[\s\S]*?else reclamp\(\); \}\n/)?.[0];
+  const refit = js.match(/function refit\(\) \{[\s\S]*?else reclamp\(dx, dy\); \}\n/)?.[0];
   assert.ok(refit, 'the zoomed-in case goes through reclamp');
   assert.doesNotMatch(refit, /else \{ clampV\(\); viewChanged\(\); \}/, 'no snap to the clamp');
-  const re = js.match(/function reclamp\(\) \{[\s\S]*?\n {2}\}/)[0];
+  const re = js.match(/function reclamp\(dx = 0, dy = 0\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(re, /V\.k = sk; V\.x = sx; V\.y = sy; atFit = wasFit;/, 'the clamp is measured, then the view put back as it was');
   assert.match(re, /glideTo\(to, \d+, false, null, 'inOut', true\)/, 'and glided to');
 });
