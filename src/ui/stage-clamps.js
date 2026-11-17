@@ -271,10 +271,9 @@ export function createClamps(st, live) {
       // (a stent's reads its end and its lumen there, stent-waist.js; any other vessel's its percentage: a number alone says nothing, every figure label carries a word or a unit)
       clampAt(id, id, stenosisAt(id, p), v, (E[id].e?.kind === 'shunt' && stenosisText(E[id].e, p)) || `${Math.round(v * 100)}% narrowed`);
     }
-    for (const [id, red] of waists) {
-      clampAt(`${id}${WAIST_KEY}`, id, 0.5, red, waistText(E[id].e, p) || `${Math.round(red * 100)}% waist`);
-      stentBracket(id, p);
-    }
+    for (const [id, red] of waists) clampAt(`${id}${WAIST_KEY}`, id, 0.5, red, waistText(E[id].e, p) || `${Math.round(red * 100)}% waist`);
+    // (Each narrowed stent's bracket and the diameter at each of its sections, once, whichever of its narrowings it has.)
+    for (const key of want) { const id = key.endsWith(WAIST_KEY) ? key.slice(0, -WAIST_KEY.length) : key; if (E[id].e?.kind === 'shunt' && (key === id || !want.has(id))) stentBracket(id, p); }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
     // deep red (see clotLayers) so it is darkest where thickest and fades into the vessel at its edges.

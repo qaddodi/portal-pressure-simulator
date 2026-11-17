@@ -66,7 +66,7 @@ export function lossShares(parts, g, site, dir, out) {
 /** The stent's open diameter (mm) in params: the TIPS's and the DIPS's own, a drawn stent's from the stent tool; 0 when there is none. */
 export const stentDiameter = (p, id, kind) => (kind === 'tips' ? p?.tips?.d : kind === 'dips' ? p?.dips?.d : p?.customShunts?.[id]) || 0;
 
-const GS = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by narrowedText)
+const GS = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by waistText)
 /** The key suffix of a stent's waist on the figure (its clamp and callout, `<stent>~waist`), beside its end stenosis's own `<stent>`. */
 export const WAIST_KEY = '~waist';
 /** A stent's figure callouts, as its card names its two narrowings: the end stenosis "Distal stenosis 4.0 mm" (its end and the lumen left there)

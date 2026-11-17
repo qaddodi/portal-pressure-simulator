@@ -58,6 +58,13 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   };
   const ratio = bracketLen() / b.len;
   assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
+  // The dimension words: the waist's length at the bracket and a diameter at each flat section (open, waist, open): four words, each a halo and its glyphs.
+  const words = () => page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-text').length;
+  assert.equal(words(), 4, 'the waist\'s length, and a diameter for the open stent before the waist, the waist and the open stent after it');
+  assert.equal(page.document.querySelectorAll('[data-mk="brk:TIPS"] .dim-halo').length, 4);
+  await set({ stentGeom: { TIPS: { len: 8, waist: 0, trans: 0 } } }, true);
+  await frames(80);
+  assert.ok(page.document.querySelector('[data-mk="brk:TIPS"]') && words() <= 2, `a waist of no length has no bracket and no length word: ${words()} words`);
   await set({ stentGeom: { TIPS: { len: 8, waist: 1.5, trans: 0 } } }, true);
   await frames(80);
   assert.equal(text(), 'Narrowed 4.0 mm × 1.5 cm', 'the callout follows the waist length');
