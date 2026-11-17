@@ -316,9 +316,9 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
   store.set({ compareSnap: null });
   // the card's status word and the doppler read the same rule, not their own
-  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
-  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
-  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+  assert.match(read('src/ui/actions.js'), /if \(st \? st\.still : stentStill\(q\)\) return ST_STASIS;/);   // (a TIPS or DIPS: the engine's state)
+  assert.match(read('src/ui/doppler.js'), /if \(!unit && stentStopped\(\)\)/); assert.match(read('src/ui/doppler.js'), /const none = ms !== undefined \? stentStopped\(\) : jsS\.none;/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
 test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
