@@ -5,7 +5,7 @@
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES, stentSite } from '../engine/topology.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';
@@ -79,7 +79,7 @@ withPieces(LABEL);
 export const STENT_SITES = ['proximal', 'mid', 'distal'];
 /** Where along a stent the section is cut: the slide's tool.site, else the segment its narrowing sits in
  *  (params.stenosisSite, distal if unset, as scenario.js and the Doppler take it). */
-export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : STENT_SITES.includes(params?.stenosisSite?.[id]) ? params.stenosisSite[id] : 'distal';
+export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : stentSite(params, id);   // (topology.js stentSite: a waist set along the stent is mid stent)
 export const lumenLabel = (id, name, site = 'distal') => (typeof name === 'string' && name.trim())
   || (STENTS.has(id) ? `${site[0].toUpperCase()}${site.slice(1)} ${id}` : LABEL[id]) || (([c, ...r]) => c.toUpperCase() + r.join(''))(lumenName(id));
 
