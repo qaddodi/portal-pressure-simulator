@@ -43,3 +43,13 @@ test('a stent\'s end stenosis and waist callouts stand apart, on a real gap, and
     assert.ok(!(a[0] - g < b[2] && a[2] + g > b[0] && a[1] - g < b[3] && a[3] + g > b[1]), `${w[i].t} crowds ${w[j].t}`);
   }
 });
+
+// Every figure label, not only a narrowing's words, stands wholly inside the free room (the screen's edges and every card) or fades out whole
+// (F50, 17 Nov 2026, iPad portrait with the stent card and Tests open: "Right sinusoids 15…" cut by the screen's left edge, "Rig…" half behind
+// the card). Judged on what the GPU drew: a label carried between layouts counts too.
+for (const o of [{ size: 'ipad', view: 'anatomy', card: 'right', pan: true }, { size: 'mac', view: 'anatomy', card: true }]) {
+  test(`no figure label is drawn past the screen's edge or under a card: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
+    const r = run(o);
+    assert.deepEqual(r.drawnOut, [], 'labels drawn cut by the edge or a card');
+  });
+}

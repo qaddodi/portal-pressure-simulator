@@ -66,7 +66,7 @@ export function ownable(an, kf, o = NO_OPTS) {
  * `c`, when given with take(), is the glass's own record of that animation's clock (glass-motion.js clockOf): it is kept to the time set here
  * (`c.s` null, `c.c0` the time), so the glass reads the very time the page shows, and `c.own` says it is held.
  */
-export function createRevealClock({ now }) {
+export function createRevealClock({ now, foreign = NEVER }) {
   const own = new Map();   // (animation → { t0: the frame it started at, or null; c0: its time when taken; rate; end; ct: its time now; at: last frame driven; c })
   const keep = (r, ct) => { r.ct = ct; if (r.c) { r.c.s = null; r.c.c0 = ct; } };
   function free(an, r) {
@@ -100,7 +100,12 @@ export function createRevealClock({ now }) {
         // (Played, finished or cancelled by someone else (a cancel the page made, a card's own finish()): no longer this clock's.)
         let st;
         try { st = an.playState; } catch { st = 'idle'; }
-        if (st !== 'paused') { free(an, r); continue; }
+        if (st !== 'paused' || foreign(an)) { free(an, r); continue; }
+        // (Its time set by someone else since this clock's last write (a script that scrubs it: a finger's pull, a drag's level): theirs, let go
+        // untouched. This clock never moves an animation another hand holds.)
+        let cur;
+        try { cur = Number(an.currentTime); } catch { cur = NaN; }
+        if (Number.isFinite(cur) && Math.abs(cur - r.ct) > 0.5) { free(an, r); continue; }
         if (r.t0 == null) r.t0 = t;
         r.at = t;
         let ct = r.c0 + (t - r.t0) * r.rate;

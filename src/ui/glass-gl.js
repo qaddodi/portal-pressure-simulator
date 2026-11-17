@@ -618,7 +618,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // is held off the browser's clock and set from the frame's time, once a frame, just before the glass is drawn from the same time. Mohammad,
   // 17 Nov 2026: the words of alerts, cards and the Tests card came in and went out ahead of their frost. ownEls: the elements whose animations
   // it takes (each drawn glass's chain up to its layer, and the elements its words lie in beside it), set with each read of the page.)
-  const reveal = createRevealClock({ now: easeNow });
+  const reveal = createRevealClock({ now: easeNow, foreign: isDrivenAnimation });
   const ownEls = new Set();
   let revealFc = -1, revealT = 0;
   const revealSweep = () => { revealT = 0; if (reveal.sweep(STALE_MS)) revealT = setTimeout(revealSweep, STALE_MS); };
@@ -1629,10 +1629,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const ended = new Map();
   const zoomTr = new WeakMap();   // (a zoomed glass's translate as the zoom took it: measureGeo)
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
-  function addAnim(e, an) {
+  // (later: an animate() call just made, taken once its caller's task has had its say. A caller that scrubs the animation itself (a finger's pull,
+  // num-move.js: animate(), then pause() and its time set by the finger) has paused it by then, and it is left to the caller; taken at once, the
+  // glass's clock ran it on its own time and the sheet's words flew off their glass (Mohammad, 17 Nov 2026, the Layers sheet on the iPhone).)
+  function addAnim(e, an, later = false) {
     let m = anims.get(e);
     if (!m) anims.set(e, (m = new Map()));
-    if (!m.has(an)) { const rec = timeAnim(an); m.set(an, rec); own(e, an, rec); }
+    if (!m.has(an)) { const rec = timeAnim(an); m.set(an, rec); if (later) queueMicrotask(() => own(e, an, rec)); else own(e, an, rec); }
   }
   // (Taken onto the one clock: an animation of an element of a glass drawn in the figure's canvas, as soon as it is seen, so not one frame of it runs
   // on the browser's clock. One given back to the browser (the glass off) is followed from its start time again.)
@@ -1711,7 +1714,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!e || hooked.has(e) || typeof e.animate !== 'function') return;
     hooked.add(e);
     const own = e.animate;
-    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
+    e.animate = function (...args) { const an = own.apply(this, args); if (an) { addAnim(this, an, true); wake(); } return an; };   // alloc-rare: an element's animate() is hooked once, the first time it is seen
   }
   // One element's moving part now: { t: [x, y] (its translation), o (its opacity, or null when not moving) }; bad: something it cannot
   // follow (the page is read again just after this frame); ended: an animation of it has ended (likewise, for its end state).
