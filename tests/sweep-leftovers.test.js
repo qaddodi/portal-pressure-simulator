@@ -39,7 +39,7 @@ test('a wide Treat card lays the procedures out three or four to a row', () => {
 
 test('every framing of the whole circuit keeps clear of the zoom pill', () => {
   assert.doesNotMatch(stage, /insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\)(?!, circVB\(\)\))/, 'the whole map is always circWhole()');
-  assert.match(stage, /const circWhole = \(\) => clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\);/);
+  assert.match(stage, /const circWhole = \(\) => cardPanVT\(clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\), circVB\(\), artBox\(\)\);/);
 });
 
 test("Treat's card is as tall as the tab shown: no spare room under Changes (U3, 13 Nov 2026)", () => {
