@@ -8,7 +8,7 @@ import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, STENT_SITES } from '../engine/topology.js';
 import { geomOf as stentGeomOf, kindOf as stentKindOf } from '../engine/stent-geom.js';
 import { siteU, stentWaist } from './stent-waist.js';
-import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, caudateFocus, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
+import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, caudateFocus, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES, REX_UNDER } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
@@ -1004,6 +1004,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX']) if (E[id]) E[id].over = true;
   // (The stent tool's portal vein to hepatic vein stents are the TIPS's twins and leave the same vessels: in the portal tree's tier too, or the portal vein's outline crossed their mouths as a dark line, 13 Nov 2026.)
   for (const e of EDGES) if (isLiverStent(e) && E[e.id]) E[e.id].over = true;
+  // The vessels the Meso-Rex bypass crosses lie in front of it (it passes under them, with no join): one tier above it while it is shown (levelTier).
+  for (const id of REX_UNDER) if (E[id]) E[id].underRex = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.
@@ -1745,12 +1747,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Tiers, back to front: the retroperitoneal stacks and opaque layer (behind the organs), the
   // arteries, the translucent stacks, the opaque network, the portal tree in front, the focus.
   const PORTAL_CASING = 1.3;   // the portal tree's casing width against the systemic side's (see the tube sync)
-  const TIER_BACK0 = 0, TIER_BACK = 7, TIER_ART = 8, TIER_MID0 = 9, TIER_NET = 16, TIER_FRONT = 17, TIER_LIFT = 18, TIER_LIFT_FRONT = 19;
+  const TIER_BACK0 = 0, TIER_BACK = 7, TIER_ART = 8, TIER_MID0 = 9, TIER_NET = 16, TIER_FRONT = 17, TIER_OVER = 18, TIER_LIFT = 19, TIER_LIFT_FRONT = 20;
   const TIER_GROUP = Array.from({ length: MAX_TIERS }, (_, i) => (i <= TIER_BACK ? 0 : i < TIER_LIFT ? 1 : 2));
   const TIER_ALPHA = Array.from({ length: MAX_TIERS }, (_, i) => (i < TIER_BACK ? LEVELS[i] : i >= TIER_MID0 && i < TIER_NET ? LEVELS[i - TIER_MID0] : 1));
   const levelTier = (x) => {
     const l = x.level ?? 1;
-    if (l >= 1) return x.back ? TIER_BACK : x.front || x.over ? TIER_FRONT : TIER_NET;
+    // (A vessel the Meso-Rex bypass passes UNDER, drawn one tier above the bypass while the bypass is shown: in one tier a crossing merges, the taller lumen wins and no
+    // outline separates the two, so the bypass read as joined to the splenic vein. 17 Nov 2026, Mohammad. REX_UNDER, anatomy.js.)
+    if (l >= 1) return x.back ? TIER_BACK : x.underRex && E.REX?.vis ? TIER_OVER : x.front || x.over ? TIER_FRONT : TIER_NET;
     return (x.back ? TIER_BACK0 : TIER_MID0) + Math.max(0, LEVELS.indexOf(l));
   };
   // Rows of the per-vessel textures: the model's vessels, then every strand, tributary and liver branch.

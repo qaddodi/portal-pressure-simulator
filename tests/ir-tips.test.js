@@ -602,8 +602,8 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone, reveal \}\)/);
   assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips' && sub === 'inside'\);/);
   const plate = read('styles/app-06-plate.css');
-  assert.match(plate, /\.stent-editor\[data-fold="true"\] \.se-rows \{ display: none; \}/);
-  assert.match(plate, /\.stent-editor\[data-fold="true"\] \.se-summary \{ display: flex; animation: crossfade var\(--d-small\) var\(--ease\); \}/, 'the line fades in');
+  assert.match(plate, /\.stent-editor\[data-fold="true"\] > \.se-rows \{ display: none; \}/);   // (a child rule: the rows going out fade in leave-fade.js's ghost, which stays)
+  assert.match(plate, /\.stent-editor\[data-fold="true"\] > \.se-summary \{ display: flex; animation: crossfade var\(--d-small\) var\(--ease\); \}/, 'the line fades in');
   // The tray unrolls from under the tiles (option A, 17 Nov): its paper and words slide by transforms, the patch under the tile glides, the words fade.
   const ed2 = read('src/ui/stent-editor.js'), g = ed2.slice(ed2.indexOf('function placeJoin'), ed2.indexOf('function show'));
   assert.match(g, /tin\.animate\(\[\{ transform: `translateY\(\$\{\(-H\)\.toFixed\(1\)\}px\)` \}, \{ transform: 'none' \}\], ease\)/);

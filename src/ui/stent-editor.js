@@ -21,6 +21,7 @@ import { readBox, readMetric } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';
 import { GLIDE_EVENT } from './card-glide.js';
+import { leaveFade } from './leave-fade.js';
 
 const nextFrame = frameFor('stent-editor');
 /** The rows, by the controls' ids in actions.js stentControls: each opens its controls, in this order. */
@@ -235,6 +236,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     done.setAttribute('aria-label', r ? `Done with ${r.name}` : 'Done');
     panel.dataset.row = rowId || '';
   }
+  // (The card that holds the editor glides to its new height, card-glide.js: asked just before each change of height the tray or the fold makes.)
+  const ask = () => { const E = el.ownerDocument?.defaultView?.CustomEvent || globalThis.CustomEvent; if (E && el.dispatchEvent) el.dispatchEvent(new E(GLIDE_EVENT, { bubbles: true })); };   // (the page's own event kind)
   function setOpen(rowId) {
     rowId = rowId || '';
     if (rowId === openId || (rowId && folded)) return;
@@ -244,8 +247,6 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     clearTimeout(closing); closing = 0;
     openId = rowId;
     for (const r of rows) r.btn.setAttribute('aria-expanded', r.id === openId ? 'true' : 'false');
-    // (The card that holds it glides to its new height, card-glide.js: asked just before the tray changes it.)
-    const ask = () => { const E = el.ownerDocument?.defaultView?.CustomEvent || globalThis.CustomEvent; if (E && el.dispatchEvent) el.dispatchEvent(new E(GLIDE_EVENT, { bubbles: true })); };   // (the page's own event kind)
     if (to) {
       const pos = rows.indexOf(to);
       ask();
@@ -338,9 +339,15 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       if (on === folded) return;
       folded = on;
       if (on) setOpen('');
-      attrSoon(el, 'data-fold', on ? 'true' : 'false');   // (the stylesheet swaps the rows for the line, which fades in)
+      // (The card glides to its new height, and the part that goes out fades where it stood, leave-fade.js, as the other comes in: the rows were gone at once and the
+      // line popped in, 17 Nov 2026, Mohammad's play-test, when the Tests view's editor showed.)
+      ask();
+      const out = on ? leaveFade([rowsEl], summary) : leaveFade([summary], rowsEl);
+      el.dataset.fold = on ? 'true' : 'false';   // (the stylesheet swaps the rows for the line, which fades in; written now, in the tap, so no frame is drawn between the lift and the swap)
       rowsEl.inert = on;
       summary.inert = !on; summary.tabIndex = on ? 0 : -1;
+      if (!on && !reduced() && rowsEl.animate) rowsEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+      out.start();
     },
   };
   if (lead) LEADS.add(me); else CARDS.add(me);
