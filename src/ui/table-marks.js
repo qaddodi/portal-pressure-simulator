@@ -95,7 +95,7 @@ export const RATE = {
   // (The stent's peak velocity: the Doppler card's own range for a stent, 90 to 190 cm/s for an 8 to 10 mm one and scaled for another diameter, the fingerprint's tipsD / dipsD:
   // stentCuts below; its other readings are numbers only.)
   // (An 8 to 10 mm stent has the reported range, so "Normal" / "Low" / "High". Any other diameter has a band the app scaled itself, which no study validates: it reads
-  // "Within / Below / Above model band" in the neutral tone, never a clinical verdict, stentVelRate below.)
+  // "In / Under / Over band" in the neutral tone (the tile's long text names it the provisional model band), never a clinical verdict, stentVelRate below.)
   tipsVel: (v, f) => stentVelRate(v, 'tips', f),
   dipsVel: (v, f) => stentVelRate(v, 'dips', f),
   // (rpp, the abdominal perfusion pressure MAP − IAP, has no rating: no guideline gives it a cut-off, kidney-cuts.js.)
@@ -180,7 +180,7 @@ export const STENT_RANGE = [90, 190];
 // (Provisional beyond 8 to 10 mm: stent-geom.js stentBand. A bar's cut-off ticks and a curve's cut-offs are drawn at the reference range; the tile's word and band colours follow its diameter.)
 const STENT_CUTS = { tips: [0, 0], dips: [0, 0] };
 export const stentCuts = (k, f) => stentBand(f?.[`${k}D`], STENT_RANGE, STENT_CUTS[k]);
-const T_info_Within = tup('info', 'Within model band'), T_info_Below = tup('info', 'Below model band'), T_info_Above = tup('info', 'Above model band');
+const T_info_Within = tup('info', 'In band'), T_info_Below = tup('info', 'Under band'), T_info_Above = tup('info', 'Over band');
 /** The stent peak velocity's rating: the reference range's own words for 8 to 10 mm; for a scaled (provisional) band, where it sits against the model band, in the neutral tone. */
 const T_info_Reduction = tup('info', 'Reduction jet'), KINDS = [null, null, null], GATES = [0, 0, 0];   // alloc-rare: made once (read at once)
 /** Whether the fastest reading is the deliberate reduction's jet (stent-geom.js reductionJet: every gate over the range sits on the reduction), from the fingerprint's gates. */
