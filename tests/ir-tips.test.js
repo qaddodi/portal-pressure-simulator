@@ -517,3 +517,16 @@ test('the stent peak tile reads a deliberate reduction\'s jet as intended, and a
   at({ vPeak: 400, peaks: [100, 400, 100], red: 0, end: 0, site: 'distal' }); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
 });
+
+test('The readings never break inside a word, and in a narrow card (375 px phone) each is its name over its number (F37)', async () => {
+  const plate = read('styles/app-06-plate.css'), tests = read('styles/app-09-tests.css');
+  const narrow = plate.match(/@container \(max-width: 399\.9px\) \{ \.ir-tips \.ir-tiles \.metric \{[^}]*\}[^@]*?\}\n/)?.[0] || '';
+  assert.match(narrow, /grid-template-areas: "k" "v" "s"/, 'name above number above word, one column');
+  assert.match(narrow, /overflow-wrap: normal; word-break: normal; hyphens: none/);
+  assert.doesNotMatch(narrow, /grid-template-columns: minmax\(0, 1fr\) auto/, 'no name squeezed beside its number');
+  assert.match(tests, /\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/);
+  for (const [name, css] of [['app-01', read('styles/app-01-chrome.css')], ['app-06', plate], ['app-08', read('styles/app-08-cards.css')], ['app-09', tests]]) {
+    const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
+    assert.deepEqual(bad, [], `${name}: a reading's name must not break inside a word`);
+  }
+});

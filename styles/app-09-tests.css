@@ -932,7 +932,7 @@
 @media (hover: hover) { .rp-tiles .metric { --hv-bg: var(--surface-3); } .rp-tiles .metric:hover::before { opacity: 1 } }
 .rp-tiles .metric .k .k-l { display: inline; }
 /* A tile's name is never cut with an ellipsis (the bar's one line stays one line; the Readouts tile has the room): "Abdominal perfusion pressure" wraps to a second line, balanced. */
-.rp-tiles .metric .k { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; text-wrap: balance; }
+.rp-tiles .metric .k { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: normal; word-break: normal; hyphens: none; text-wrap: balance; }   /* (a name wraps between words, never inside one: 'Acr oss ste nt', 17 Nov 2026, F37) */
 .rp-tiles .metric .k .k-s { display: none; }
 .rp-tiles .metric .tr { display: inline; }
 /* The blood pressure's mean and its brackets are one piece, so a narrow tile breaks before "(93)", never inside it. */
