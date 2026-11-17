@@ -775,6 +775,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // (A label carried by the camera between layouts (pinned to its point, or riding a glide) that comes to stand past the stage's edge or under a
   // card (host.room(): the cards' boxes, stage px) fades out whole in ROOM_MS, and back once 4 px clear: it never shows cut, "ight sinusoids" at
   // the iPad's edge or "Rig…" half under the stent card (F50, 17 Nov 2026), until the next layout places it again.)
+  // (Its next step is asked for with ask(), the next frame, never host.ask: called here, inside the label pass of the figure's present, host.ask
+  // laid a whole present inside it, which left the GL state its own, and the labels drawn after it went down with blending off: black boxes
+  // behind the labels on every card close and slide change, 17 Nov 2026.)
   const ROOM_MS = 160;
   function roomFade(st, x, y, now) {
     const was = st.roomA ?? 1, m = was >= 0.5 ? 0 : 4 * dpr, x1 = x + st.w, y1 = y + st.h;
@@ -784,7 +787,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     const t = ok ? 1 : 0, dt = st.roomT != null ? now - st.roomT : 0;
     st.roomT = now;
     if (st.roomA == null) { st.roomA = t; return t; }   // (first drawn: as it stands, its own fade in does the rest)
-    if (was !== t) { st.roomA = t > was ? Math.min(1, was + dt / ROOM_MS) : Math.max(0, was - dt / ROOM_MS); host?.ask?.(); }
+    if (was !== t) { st.roomA = t > was ? Math.min(1, was + dt / ROOM_MS) : Math.max(0, was - dt / ROOM_MS); ask(); }   // (the next frame: never host.ask from inside the draw, tests/label-no-present-in-draw.test.js)
     return st.roomA;
   }
   // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
