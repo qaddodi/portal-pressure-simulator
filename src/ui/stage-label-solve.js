@@ -35,26 +35,9 @@ export function createLabelSolve(st, live) {
   CLAMP_STEPS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
   // lineW of a line with every figure run read as "000" (the widest a reading's figures can be).
   function lineW000(line) { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.cls === 'lb-val' ? '000' : r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * live.labelK : 0); } return w; }
-  const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
-  // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
-  // One label at a time, so the context is kept and the box is a kept record.)
-  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, blk: [], prev: [], view: null };
-  const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles, CLB, PROBE_STEPS, clBoxAt, clFree, grow } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
+  const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const PROBE_BUF = [], CLAMP_SEEN = new Set();
-  const PROBE_STEPS = [];
-  for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) PROBE_STEPS.push([px, tp]);
-  PROBE_STEPS.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
-  function clBoxAt(d, t) {
-    const c = CLB.c, base = CLB.base;
-    worldToLocalInto(SB_A, c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
-    if (!base) return base;
-    const bx = SB_A[0], by = SB_A[1], r = CLB_R;
-    r.x0 = base.x0 + bx - CLB.ox; r.y0 = base.y0 + by - CLB.oy; r.x1 = base.x1 + bx - CLB.ox; r.y1 = base.y1 + by - CLB.oy;
-    return r;
-  }
-  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; const bl = CLB.blk; for (let i = 0; i < bl.length; i++) if (hits(b, bl[i])) return true; const pv = CLB.prev; for (let i = 0; i < pv.length; i++) if (hits(b, pv[i])) return true; return false; }   // (the probe, and the cards (blockers): a narrowing's words never stand half under a card, cut there: 17 Nov 2026)
-  const CLB_G = { x0: 0, y0: 0, x1: 0, y1: 0 }, grow = (b, m) => (b ? ((CLB_G.x0 = b.x0 - m), (CLB_G.y0 = b.y0 - m), (CLB_G.x1 = b.x1 + m), (CLB_G.y1 = b.y1 + m), CLB_G) : b);
-  function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
   // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
   function boxOfElInto(out, el, m = 2) {
     const b = el._txt != null ? clampTextBox(el) : elBoxInto(el, EBOX, clampTextBox);
@@ -287,7 +270,7 @@ export function createLabelSolve(st, live) {
         const base = boxOfElInto(CLB_BASE, el, 5);
         worldToLocalInto(SB_B, c.x, c.y);
         el._d = el._t = undefined;
-        CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = id; CLB.credit = creditBox; CLB.probe = probe; CLB.blk = blockers; CLB.view = view;
+        CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = c.vessel || id; CLB.credit = creditBox; CLB.probe = probe; CLB.blk = blockers; CLB.view = view;
         // (Its usual spot is left for the nearest free one when the probe, a vessel other than its own, the stage's edge or the credit is there:
         // 17 Nov 2026, play-test at 1024, "Narrowed 3.2 mm × 1.0 cm" over the hepatic vessel by HA. One that stood off comes back only with 4 px
         // to spare, so a vessel easing at its edge cannot send it out and back.)
@@ -316,7 +299,7 @@ export function createLabelSolve(st, live) {
     if (solve && !isImaging()) for (let wi = 0, cwl = clampW.children; wi < cwl.length; wi++) {
       const el = cwl[wi];
       if (!el.classList.contains('clamp-label')) continue;
-      const b = boxOfElInto(BOX_TMP, el, 6);
+      const b = boxOfElInto(BOX_TMP, el, 9);   // (9 px of air round the words, so a reading never stands against them: play-test 17 Nov, "IVC 4.1" touching "Waist 8.0 ...")
       if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); clampLabs.push(bx); if (!dry) el._box = bx; }
       // (Words a card still covers where they had to stay fade out whole; they come back 10 px clear of it, so a card easing at their edge
       // cannot flick them.)
@@ -1431,9 +1414,16 @@ export function createLabelSolve(st, live) {
       if (!c || m?.busy || !(m?.cur || own)) continue;
       const b = boxOfEl(el, (6 * live.clampBase) / 12);   // (the leader stops short of the text by the same 6 px at 12 px text, in step with its size)
       if (!b) continue;
-      const tips = [[c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)], [c.x - c.nx * (c.off + 8), c.y - c.ny * (c.off + 8)]].map((q) => worldToLocal(...q));
+      const tips = [[c.x + c.nx * (c.off + 8), c.y + c.ny * (c.off + 8)], [c.x - c.nx * (c.off + 8), c.y - c.ny * (c.off + 8)]];
+      // (A stent's waist has its bracket too: the leader may leave from the bracket's middle, where that is nearer than either arrow, so it reads as the waist's length being named.)
+      const bk = c.vessel !== c.id ? live.dimBoxes.get(c.vessel) : null;
+      if (bk?.length) { const m = bk[bk.length >> 1]; tips.push([(m[0] + m[2]) / 2, (m[1] + m[3]) / 2]); }
+      for (let i = 0; i < tips.length; i++) tips[i] = worldToLocal(...tips[i]);
       const gap = (q) => Math.hypot(Math.max(b.x0 - q[0], 0, q[0] - b.x1), Math.max(b.y0 - q[1], 0, q[1] - b.y1));
-      const [ax, ay] = gap(tips[1]) < gap(tips[0]) ? tips[1] : tips[0], le = leaderEnd(b, ax, ay, 1);
+      let [ax, ay] = tips[0], near = gap(tips[0]);
+      for (let i = 1; i < tips.length; i++) { const g = gap(tips[i]); if (g < near) { near = g; [ax, ay] = tips[i]; } }
+      // (To the nearest point of the words' box, the short way: toward the box's middle a wide line's leader ran across the whole figure to land under its centre, 107 px for a label 59 px off.)
+      const le = { x: Math.min(Math.max(ax, b.x0), b.x1), y: Math.min(Math.max(ay, b.y0), b.y1) };
       if (Math.hypot(le.x - ax, le.y - ay) > (m?.cur ? 4 : 28)) leaders.push({ k: 'cl:' + c.id, tag: 'path', at: { class: 'leader', d: `M${ax.toFixed(1)} ${ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}` } });
     }
     leaders.push(...dots); oneName(out, nextSol);   // (one name rule: stage-label-items.js)

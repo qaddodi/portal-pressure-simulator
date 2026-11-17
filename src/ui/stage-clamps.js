@@ -266,7 +266,7 @@ export function createClamps(st, live) {
       // (A waist whose stent is also narrowed at an end stands on the other side of the stent from the end's words, so the two never crowd one
       // side: F20, 17 Nov 2026.)
       const opp = id !== vessel && want.has(vessel);
-      lab._c = { id, vessel, x, y, nx, ny, off, opp }; clampLabelAt(lab); clampFontAt(lab);
+      lab._c = { id, vessel, x, y, nx, ny, off, opp }; clampLabelAt(lab); clampFontAt(lab);   // (id: the clamp's key; vessel: the vessel it narrows, which differs for a stent's waist, `<stent>~waist`: its own stent is the one vessel its words may stand over)
       clampW.append(lab);
       clampShade(id);
     };
