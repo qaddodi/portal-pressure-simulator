@@ -89,3 +89,12 @@ export function roomiest(ins, W, H, bandT, bandB, blocks) {
   if (fr && fr.score >= 200 && fr.score > roomScore(W - ins.l - ins.r, H - ins.t - ins.b) * 1.15 + 8) { ins.l = fr.l; ins.r = fr.r; ins.t = fr.t; ins.b = fr.b; }
   return ins;
 }
+
+// Where a span [lo, hi] goes to stay in a window [wlo, whi] with the least move (17 Nov 2026: opening or closing a card keeps the zoom and pans the
+// view so as much of what was in view as possible stays in the room the card leaves). Inside already: 0. Narrower than the window: just far enough
+// to be inside. Wider than the window: centred in it, so the loss is the same at both ends. Returns the shift to add to the span.
+export function panInto(lo, hi, wlo, whi) {
+  if (!(hi > lo) || !(whi > wlo)) return 0;
+  if (hi - lo > whi - wlo) return (wlo + whi) / 2 - (lo + hi) / 2;
+  return lo < wlo ? wlo - lo : hi > whi ? whi - hi : 0;
+}

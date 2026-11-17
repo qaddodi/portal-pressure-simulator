@@ -217,8 +217,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // thickens, instead of either arriving whole in one frame. The same stand-aside for the width step while they move.
   const lesions = lesionEase();
   let lossF = null;   // (the frame being drawn: a stent's losses read its parts and flow, stentLoss)
-  const lossG = { len: 0, waist: 0, trans: 0 }, lossP = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, total: 0 }, lossS = { jet: 0, ends: 0, at: 0, dir: 1 };   // (kept: read at once)
-  const LOSS_KEYS = ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'total'];
+  const lossG = { len: 0, waist: 0, trans: 0, red: 0 }, lossP = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, jetEnd: 0, jetWaist: 0, wallEnd: 0, wallWaist: 0, total: 0 }, lossS = { jet: 0, ends: 0, at: 0, dir: 1, jet2: 0, at2: 0 };   // (kept: read at once)
+  const LOSS_KEYS = ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total'];
   const lesionsMoving = () => !!live.F && lesions.differs(live.F.viewParams || store.get().params);
   const bandsMoving = () => bandsShown !== null && !!live.F && bandsShown !== (live.F.bands || 0);
   const stepBands = (f, dt) => { bandsShown = bandsStep(bandsShown, f.bands || 0, dt, reduceMotion.matches); return bandsShown !== (f.bands || 0); };
@@ -772,18 +772,21 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (!parts) {
       const d = p.customShunts?.[id];
       if (!(d > 0)) return 0;
-      parts = stentParts(kind, d, q, 1, v, g, lossP);
+      parts = stentParts(kind, d, q, 1, v, g, lossP, siteU(p, id));
       for (const n of LOSS_KEYS) parts[n] *= Math.abs(q);
     }
     lossShares(parts, g, siteU(p, id), dir, lossS);
     const jQ = Math.round(lossS.jet * 100), eQ = Math.round(lossS.ends * 100);
-    x.lsJ = jQ / 100; x.lsE = eQ / 100; x.lsAt = lossS.at; x.lsDir = lossS.dir;
-    return (jQ * 101 + eQ) * 2 + (jQ > 0 && lossS.dir > 0 ? 1 : 0);
+    const wQ = Math.round(lossS.jet2 * 100);
+    x.lsJ = jQ / 100; x.lsE = eQ / 100; x.lsAt = lossS.at; x.lsDir = lossS.dir; x.lsJ2 = wQ / 100; x.lsAt2 = lossS.at2;
+    return ((jQ * 101 + eQ) * 101 + wQ) * 2 + ((jQ > 0 || wQ > 0) && lossS.dir > 0 ? 1 : 0);
   }
   function renderTube(x, p, t, J) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0;
-    const sten = v > 0.01;
+    // (A stent's waist narrows it mid stent with no stenosis at all: stentGeom.red, stent-geom.js. Either makes it a narrowed tube.)
+    const red = live.isImaging() || x.e.kind !== 'shunt' ? 0 : p.stentGeom?.[id]?.red || 0;
+    const sten = v > 0.01 || red > 0.01;
     const stroked = x.ghost || (!!x.reveal && !x.reveal.fade && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
     x.sten = sten; x.stroked = stroked;
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
@@ -808,11 +811,11 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const bdQ = x.bead && !stroked ? x.bead : 0;   // (the beaded shunt, C5: none once drawn as a stroke)
     const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
     // (A stent's waist, its ends and its length shape the drawn waist, and its losses place the pressure colour's steps: both in the key.)
-    x.lsJ = 0; x.lsE = 0; x.lsAt = 0; x.lsDir = 1;
+    x.lsJ = 0; x.lsE = 0; x.lsAt = 0; x.lsDir = 1; x.lsJ2 = 0; x.lsAt2 = 0;
     let gQ = 0, lsQ = 0;
     if (sten && x.e.kind === 'shunt' && stentKindOf(x.e)) {
       const sg = stentGeomOf(p, id, stentKindOf(x.e), lossG);
-      gQ = (Math.round(sg.waist * 100) * 201 + Math.round(sg.trans * 100)) * 1001 + Math.round(sg.len * 100);
+      gQ = ((Math.round(sg.waist * 100) * 201 + Math.round(sg.trans * 100)) * 1001 + Math.round(sg.len * 100)) * 1001 + Math.round(sg.red * 1000);
       lsQ = lossF ? stentLoss(x, id, p, v, lossF) : 0;
     }
     const same = x.skGeom === gQ && x.skLs === lsQ && x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ && x.skPc === pcQ;

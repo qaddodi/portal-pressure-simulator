@@ -283,7 +283,9 @@ const unitNow = () => !!store.get().presenting;
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
     // (Between Doppler reports, the callout reads the third the Doppler samples itself, so it never falls back to the open stent's number.)
     const gated = dopGateOf(sid), p = f.viewParams || store.get().params, pt = point || gated, fresh = dop && performance.now() - dop.t < 1000;
-    const factor = pt ? stentReadsOf(p, sid, 1, STENT_FACTORS)[pt === 'proximal' ? 0 : pt === 'mid' ? 1 : 2] : 1;
+    const pi = pt === 'proximal' ? 0 : pt === 'mid' ? 1 : 2;
+    // (the Doppler's own factors while it reads this stent, so a point reads its tile; the narrowing's now otherwise: doppler.js shownReads)
+    const factor = pt ? (fresh && dop.fOk ? dop.f[pi] : stentReadsOf(p, sid, 1, STENT_FACTORS)[pi]) : 1;
     // (The sampled point reads the monitor's own number; the other two, the open stent's velocity the monitor's tiles read them from.)
     const vel = fresh && pt === gated ? dop.v : (fresh && Number.isFinite(dop.open) ? dop.open : live) * factor;
     // (Read by the Doppler at one third of the stent, the callout names it: "TIPS distal".)

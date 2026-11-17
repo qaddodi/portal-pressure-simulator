@@ -22,7 +22,7 @@ try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigat
 
 const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
-const { curveToolOf, sweepMatters, SWEEPS } = await import('../src/ui/ir-curves.js');
+const { curveToolOf, sweepMatters, SWEEPS, createIrCurves } = await import('../src/ui/ir-curves.js');
 const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
 const { BENCH_DP } = await import('../src/engine/stent-geom.js');
 const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
@@ -78,6 +78,11 @@ test('the line under the chip names the width and the narrowing', () => {
   assert.equal(stentLine(null), 'No stent');
   assert.equal(stentLine({ d: 10, s: 0, dWaist: 10 }), '10 mm, open');
   assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6 }), '10 mm, narrowed to 6 mm');
+  // The two narrowings named apart (17 Nov 2026): the waist mid stent, the stenosis at its end.
+  assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6, red: 0.4, end: 0, site: 'distal', geom: { waist: 4 } }), '10 mm, waist 6 mm over 4 cm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0, end: 0.5, site: 'proximal', geom: { waist: 1 } }), '10 mm, proximal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0.3, end: 0.5, site: 'distal', geom: { waist: 2 } }), '10 mm, waist 7 mm over 2 cm, distal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 8, s: 0, dWaist: 8, red: 0, end: 0, site: 'distal', geom: { waist: 1 } }), '8 mm, open');
 });
 
 test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hidden; a stent lights it without moving anything', () => {
@@ -105,7 +110,7 @@ test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hi
 });
 
 test('the TIPS view fills its four readings from the stent; a stent taken away sends the view back to Measure', async () => {
-  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'mid' } }));
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4 } } }));
   ir.update(frameOf());
   await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
@@ -116,12 +121,12 @@ test('the TIPS view fills its four readings from the stent; a stent taken away s
   const tiles = [...ir.el.querySelectorAll('.metric')];
   assert.deepEqual(tiles.map((t) => t.querySelector('.k').textContent), ['PPG', 'TIPS flow', 'Across stent', 'Stent peak velocity']);
   const words = tiles.map((t) => t.querySelector('.status').textContent);
-  assert.equal(words[0], 'Target met');
-  assert.equal(tiles[0].dataset.sev, 'ok');
+  assert.equal(words[0], 'Below 12 mmHg');
+  assert.equal(tiles[0].dataset.sev, 'none', 'a reference line, not a verdict');
   ir.update(frameOf({ ppg: 14.2 }));
   await wait(60);
-  assert.equal(tiles[0].querySelector('.status').textContent, 'Above target');
-  assert.equal(tiles[0].dataset.sev, 'danger');
+  assert.equal(tiles[0].querySelector('.status').textContent, 'Above 12 mmHg');
+  assert.equal(tiles[0].dataset.sev, 'none');
   assert.ok(ir.el.querySelector('.ir-chip'), 'one chip names the stent');
   assert.ok(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length >= 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
   store.set({ params: paramsOf() });
@@ -163,10 +168,12 @@ test('Compare: nothing pinned says how, with the table already laid out in dashe
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
   const f = frameOf({ ppg: 9.2 });
   c.update(f, 'TIPS');
-  assert.equal(c.el.querySelectorAll('tbody tr').length, 5, 'five readings, always laid out');
+  assert.equal(c.el.querySelectorAll('tbody tr').length, 8, 'eight readings, always laid out');
   assert.equal(c.el.querySelector('.ir-note').textContent, NOTHING_PINNED);
-  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—']);
+  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—', '—', '—', '—']);
   assert.equal(c.el.querySelector('td.b').textContent, '9.2');
+  const names = [...c.el.querySelectorAll('tbody tr')].map((r) => r.querySelector('.cmp-n').textContent);
+  assert.deepEqual(names, ['PPG', 'Stent flow', 'Across stent', 'Open diameter', 'Narrowest lumen', 'Waist length', 'Taper, each end', 'Stent peak velocity']);
   const then = { ppg: 14.2, tips: { ...f.metrics.tips, flow: 1.2, dp: 5.1, dWaist: 8, vPeak: 150 }, dips: null };
   store.set({ compareSnap: { metrics: then, when: '10:30', names: null } });
   c.update(f, 'TIPS');
@@ -188,7 +195,7 @@ test('Compare: the sub-switch changes the sub-view, and the DIPS names its own f
   assert.equal(ir.sub(), 'compare');
   assert.equal(ir.el.dataset.sub, 'compare');
   ir.update(frameOf()); await wait(60);
-  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 5);
+  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 8);
   ir.el.querySelector('[data-sub="inside"]').click();
   assert.equal(ir.el.dataset.sub, 'inside');
   assert.equal(host.dataset.view, 'tips');
@@ -205,16 +212,20 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
   // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
   at(6, 216); await wait(60);
-  assert.equal(peak().querySelector('.status').textContent, 'In range');
+  assert.equal(peak().querySelector('.status').textContent, 'Within model band');
   assert.equal(peak().dataset.sev, 'none');
-  assert.match(peak().title, /6 mm stent reads 90 to 338 cm\/s \(provisional/);
+  assert.match(peak().title, /model band for a 6 mm stent is 90 to 338 cm\/s\. Provisional[^]*not a surveillance threshold/);
   const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
-  // the same reading in a 10 mm stent is out of range, and the ticks go back to 90 and 190
+  // a faster 6 mm reading is above its model band, still in the neutral tone: no alarm for a number the app scaled itself
+  at(6, 400); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Above model band');
+  assert.equal(peak().dataset.sev, 'none');
+  // the same reading in a 10 mm stent is out of range, as reported, and the ticks go back to 90 and 190
   at(10, 216); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'Out of range');
   assert.equal(peak().dataset.sev, 'caution');
-  assert.doesNotMatch(peak().title, /provisional/);
+  assert.doesNotMatch(peak().title, /model band for a/);
   const back = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(back[1] - 190 / 4) < 0.01, `${back}`);
 });
@@ -250,7 +261,7 @@ test('Curves: the series carries the patient\'s line and the tube\'s from the wo
 });
 
 test('Curves: no engine key the view needs is missing: the engine\'s stent state carries .bench and the fingerprint passes it on', () => {
-  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP\) \* 0\.06;/);
+  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP, su\) \* 0\.06;/);
   assert.match(read('src/engine/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
   assert.doesNotMatch(read('src/ui/ir-curves.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
@@ -305,9 +316,9 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
   store.set({ compareSnap: null });
   // the card's status word and the doppler read the same rule, not their own
-  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
-  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
-  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+  assert.match(read('src/ui/actions.js'), /if \(st \? st\.still : stentStill\(q\)\) return ST_STASIS;/);   // (a TIPS or DIPS: the engine's state)
+  assert.match(read('src/ui/doppler.js'), /if \(!unit && stentStopped\(\)\)/); assert.match(read('src/ui/doppler.js'), /const none = ms !== undefined \? stentStopped\(\) : jsS\.none;/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
 test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
@@ -346,6 +357,52 @@ test('Along: the sub-switch has four views, and Along shows the side view with t
   assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
 });
 
+test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open the card"): one row of value chips, a chip opens its slider in the same row, and a change reaches the params', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  const ed = ir.el.querySelector(':scope > .ir-editor > .stent-editor');
+  assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
+  assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
+  const chip = (id) => ed.querySelector(`.se-chip[data-chip="${id}"]`);
+  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist', 'len'], 'four chips: the stent, its end stenosis, its waist and the waist\'s length');
+  assert.equal(chip('dia').textContent, 'Diameter10.0 mm');
+  assert.equal(chip('end').querySelector('.se-chip-v').textContent, 'None');
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*height: 30px;/, 'the chips and each strip share one cell, one slim height: nothing below moves');
+  assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
+  assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');
+  // A tap opens the waist's slider in the row; the chips go inert, the strip takes the hand.
+  chip('waist').click();
+  await wait(20);
+  assert.equal(ed.getAttribute('data-open'), 'waist');
+  const strip = (id) => ed.querySelector(`.se-strip[data-strip="${id}"]`);
+  assert.equal(strip('waist').inert, false); assert.equal(ed.querySelector('.se-chips').inert, true); assert.equal(strip('end').inert, true);
+  const slide = (id, v) => { const i = ed.querySelector(`[data-ctl="${id}"] input`); i.value = String(v); i.dispatchEvent(new window.Event('input')); i.dispatchEvent(new window.Event('change')); };
+  slide('waistD', 0.4);
+  await wait(30);
+  let p = store.get().params;
+  assert.equal(p.stentGeom.TIPS.red, 0.4, 'a waist, mid stent');
+  assert.ok(!(p.stenosis?.TIPS > 0), 'no stenosis made');
+  assert.equal(chip('waist').querySelector('.se-chip-v').textContent, '6.0 mm');
+  assert.ok(!chip('len').classList.contains('se-dim'), 'the waist\'s length wakes');
+  strip('waist').querySelector('.se-done').click();
+  await wait(20);
+  assert.equal(ed.getAttribute('data-open'), '', 'Done gives the chips back');
+  // The stenosis and its end: the waist stays.
+  chip('end').click();
+  slide('narrow', 0.5);
+  await wait(30);
+  strip('end').querySelector('[data-ctl="site"] button').click();
+  await wait(30);
+  p = store.get().params;
+  assert.equal(p.stenosis.TIPS, 0.5);
+  assert.equal(p.stenosisSite.TIPS, 'proximal');
+  assert.equal(p.stentGeom.TIPS.red, 0.4, 'the waist stays mid stent');
+  assert.equal(chip('end').querySelector('.se-chip-v').textContent, '5.0 mm · Proximal');
+  ed.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(20);
+  assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
+});
+
 test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
@@ -356,4 +413,95 @@ test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in 
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
   assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
+});
+
+// ---- The curves' life (external review, 17 Nov 2026): idle, waiting, loading, drawn; leaving cancels and forgets; the ring follows the live stent ----
+const lifeKit = (over = {}) => {
+  const log = { requests: 0, configured: [], pins: [], pending: [] };
+  const request = (type) => { log.requests++; return new Promise((res) => { const go = () => res(type === 'snapshot' ? { snap: { s: 1 } } : { result: { tipsFlow: 1, tipsBench: 2 } }); if (over.hold) log.pending.push(go); else go(); }); };
+  const chart = () => ({ el: document.createElement('div'), configure: (t, ctx) => log.configured.push({ t, ctx }), pin: (fp) => log.pins.push({ ...fp }) });
+  const calc = () => ({ sequence: async () => ({}) });
+  return { log, c: createIrCurves({ request, calc, chart, delay: 5, ...over.opts }) };
+};
+const frameWith = (flow, day) => ({ clock: day == null ? undefined : 'disease', day, metrics: { ppg: 9, tips: { s: 0.4, flow, bench: 3 }, dips: null } });
+
+test('Curves life: a change that settles asks once; further frames of the same stent ask nothing and only move the ring', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); assert.equal(c.phase(), 'waiting'); c.update(frameWith(1.51)); assert.equal(log.requests, 0, 'nothing is asked inside the quiet time');
+  await wait(60);
+  assert.equal(c.phase(), 'drawn'); assert.equal(log.configured.length, 1); assert.equal(log.requests, 2);
+  c.update(frameWith(1.2)); c.update(frameWith(1.2)); c.update(frameWith(0.9));
+  assert.equal(log.configured.length, 1, 'the lines are not worked out again'); assert.equal(log.pins.length, 2, 'the ring moved with the stent, once per different reading');
+  assert.equal(log.pins.at(-1).tipsFlow, 0.9);
+});
+
+test('Curves life: leaving before the quiet time ends cancels the sweep, and coming back asks again', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); c.stop(); assert.equal(c.phase(), 'idle');
+  await wait(40); assert.equal(log.requests, 0, 'cancelled before it started');
+  c.update(frameWith(1.5)); await wait(40);
+  assert.equal(c.phase(), 'drawn'); assert.equal(log.configured.length, 1, 're-entering with the same stent still recomputes: it was never drawn');
+});
+
+test('Curves life: leaving while the snapshot is being asked for draws nothing from the answer that comes late', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit({ hold: true });
+  c.update(frameWith(1.5)); await wait(30);
+  assert.equal(c.phase(), 'loading'); c.stop(); assert.equal(c.phase(), 'idle');
+  for (const go of log.pending.splice(0)) go();
+  await wait(20);
+  assert.equal(log.configured.length, 0, 'the late answer is dropped');
+  c.update(frameWith(1.5)); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  assert.equal(log.configured.length, 1, 'and the next visit draws');
+});
+
+test('Curves life: a sweep that is drawn is kept on leaving and returning unchanged; a changed patient, setting, stent or day draws a new one', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 1);
+  c.stop(); c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 1, 'unchanged: kept');
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }) }); c.update(frameWith(1.5)); await wait(40); assert.equal(log.configured.length, 2, 'the patient changed');
+  c.setSweep('length'); await wait(40); assert.equal(log.configured.length, 3, 'the setting changed');
+  c.update(frameWith(1.5, 3)); await wait(40); assert.equal(log.configured.length, 4, 'the day changed');
+  c.update(frameWith(1.5, 3.4)); await wait(40); assert.equal(log.configured.length, 4, 'the same day');
+  c.update(frameWith(1.5, 3), 'DIPS'); c.update({ metrics: { ppg: 9, tips: null, dips: { s: 0.4, flow: 1, bench: 2 } } }, 'DIPS'); await wait(40);
+  assert.equal(log.configured.length, 5, 'the other stent'); assert.equal(log.configured.at(-1).t.lines[0], 'dipsFlow');
+});
+
+test('Curves life: an edit while the answer is loading is the sweep that is drawn, not the one before it', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit({ hold: true });
+  c.update(frameWith(1.5)); await wait(30); assert.equal(c.phase(), 'loading');
+  store.set({ params: paramsOf({ tips: { on: true, d: 9 } }) }); c.update(frameWith(1.4)); assert.equal(c.phase(), 'waiting');
+  for (const go of log.pending.splice(0)) go(); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  assert.equal(log.configured.length, 1); assert.equal(log.configured[0].ctx.params.tips.d, 9);
+});
+
+test('Curves life: a hidden card cancels the work, is fed nothing, and picks up again when shown', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const { log, c } = lifeKit();
+  c.update(frameWith(1.5)); c.setActive(false); await wait(40);
+  assert.equal(log.requests, 0); c.update(frameWith(1.4)); await wait(40); assert.equal(log.requests, 0, 'hidden: nothing is prepared');
+  c.setActive(true); await wait(40); assert.equal(log.configured.length, 1, 'shown again with the last frame it was given');
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  assert.equal(typeof ir.setActive, 'function');
+  assert.match(read('src/ui/hvpg-proc.js'), /shown: \(on\) => tips\.setActive\(on\)/);
+});
+
+test('the stent peak tile reads a deliberate reduction\'s jet as intended, and an end stenosis\' jet as out of range', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
+  const at = (over) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d: 10, ...over } }));
+  at({ vPeak: 400, peaks: [100, 400, 100], red: 0.4, end: 0, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Reduction jet');
+  assert.equal(peak().dataset.sev, 'none');
+  at({ vPeak: 400, peaks: [100, 150, 400], red: 0.4, end: 0.5, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range');
+  assert.equal(peak().dataset.sev, 'caution');
+  at({ vPeak: 400, peaks: [100, 400, 100], red: 0, end: 0, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
 });

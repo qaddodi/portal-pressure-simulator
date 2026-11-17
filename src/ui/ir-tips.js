@@ -1,6 +1,7 @@
 // The TIPS view of Tests › IR (16 Nov 2026; plan /mnt/project-files/tips-geometry/tips-test-card-plan.md): the stent's own test, beside the
 // Measure view the HVPG tab always was. A two-way switch (Measure | TIPS, the same control as Pressure's and Scope's) sits in the pane's head row,
-// and this file builds it and the TIPS view. The view is a read-only test: the stent is changed on its vessel card (Details) or in Treat, never here.
+// and this file builds it and the TIPS view. The stent is edited here too (17 Nov 2026, Mohammad: "even from the test card should be able to edit"; this
+// replaces the read-only decision T1): the stent editor (stent-editor.js) sits under the chips, the same controls as the vessel card's, from one list.
 //
 // Rules this keeps (Mohammad, 16 Nov 2026 and earlier):
 //   - Nothing pops in or out. The TIPS segment is always there; with no stent it dims (opacity) and a tap says why, as a procedure button that cannot
@@ -22,12 +23,13 @@ import { tileEl } from './tile-el.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
-import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
-import { stentBand } from '../engine/stent-geom.js';
+import { STENT_RANGE as RANGE } from './table-marks.js';
+import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
 import { createStent, SIDE, BAR, VW } from './tool-stent.js';
 import { traceH } from './stent-trace-pic.js';
 import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
+import { createStentEditor } from './stent-editor.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
@@ -37,33 +39,45 @@ export const STENT_RANGE = RANGE;
 const PEAK_BAND = [0, 0];   // alloc-rare: made once (peakBand's range for a stent of another diameter, read at once)
 /** The range for this stent's own diameter (stent-geom.js stentBand: the reference range for 8 to 10 mm, scaled and provisional for another). */
 export const peakBand = (st) => stentBand(st?.d, STENT_RANGE, PEAK_BAND);
+/** Whether the gates over `hi` read only the deliberate reduction's jet (stent-geom.js reductionJet): then the tile says so, in the neutral tone, not Out of range. */
+export const reductionJetIn = (st, hi) => !!st?.peaks && st.red > 0.004 && reductionJet(st.peaks, gateKindsOf(st.end, st.red, st.site, JET_KINDS), hi);
+const JET_KINDS = [null, null, null];   // alloc-rare: made once (read at once)
 const mm = (x) => String(Math.round(x * 10) / 10);
-/** The line under the chip: the stent's width, and its narrowing when it has one. */
-export const stentLine = (st) => (!st ? 'No stent' : st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`);
+/** The line under the chip: the stent's width, then each of its two narrowings as the editor names them (the waist mid stent, the stenosis at its
+ *  end: stent-geom.js), or "open". A record with no split (before 17 Nov 2026) names its narrowest lumen. */
+export const stentLine = (st) => {
+  if (!st) return 'No stent';
+  if (st.red == null && st.end == null) return st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`;
+  const w = st.red > 0.0005 ? `waist ${mm(st.d * (1 - st.red))} mm over ${mm(st.geom?.waist ?? 1)} cm` : '';
+  const e = st.end > 0.0005 ? `${st.site === 'proximal' ? 'proximal' : 'distal'} stenosis to ${mm(st.d * (1 - st.end))} mm` : '';
+  return `${mm(st.d)} mm, ${w && e ? `${w}, ${e}` : w || e || 'open'}`;
+};
 
 export const NO_STENT_WHY = 'There is no TIPS or DIPS in this patient. Place one from Treat, and this view fills in.';
-const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read; the target is under 12 mmHg.';
+const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read. 12 mmHg is the reference line, not a target for this patient; the aim is set by the clinical goal.';
 // The four readings: name, unit, decimals, the bar's scale and ticks, the value from the model's metrics, the word under it and its band.
 // (The ids and words are the instrument-cards plan's: "Across stent", "Stent peak velocity". `hide` is the readout set that hides it in Explore.)
 const TILES = [
   { id: 'ppg', k: 'PPG', u: 'mmHg', d: 1, scale: [0, 25], ticks: [PPG_CUTS.red], hide: 'pv', title: PPG_TITLE,
-    v: (m) => m.ppg, word: (v) => tipsGoal(v)[1], sev: (v) => (tipsGoal(v)[0] === 'ok' ? 'ok' : 'danger') },
+    v: (m) => m.ppg, word: (v) => (v < PPG_CUTS.red ? `Below ${PPG_CUTS.red} mmHg` : `Above ${PPG_CUTS.red} mmHg`), sev: () => 'none' },   // (a reference line, not a verdict: it is not a target met or missed)
   { id: 'flow', k: 'TIPS flow', u: 'L/min', d: 1, scale: [0, 3], ticks: [], hide: 'model', title: 'The flow through the stent, from the portal side to the hepatic vein.',
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
-  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
-    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return st?.still ? 'No flow' : v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
-    sev: (v, st) => { const r = peakBand(st); return st?.still || !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
+  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
+    v: (m, st) => st?.vPeak ?? null,
+    // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : v > r[1] && reductionJetIn(st, r[1]) ? 'Reduction jet' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v > r[1] && reductionJetIn(st, r[1])) && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
 /**
  * host: the pane's element, which holds the Measure view's own parts and, last, the TIPS view this makes (it sets host.dataset.view; the stylesheet shows one).
- * onChange(): the pane repaints. onEdit(id): open the stent's vessel card.
+ * onChange(): the pane repaints. (onEdit is no longer used: the stent is edited in the view itself.)
  * Returns { head, el, update(frame), view() }.
  */
-export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = {}) {
+export function createIrTips({ host, onChange = () => {} } = {}) {
   let view = 'measure', which = 'TIPS', key = '', lastWord = 'TIPS', frame = null, lineT = '';
   const btnM = h('button', { type: 'button', class: 'ps-btn', 'data-view': 'measure', 'aria-pressed': 'true' }, 'Measure');
   const btnT = h('button', { type: 'button', class: 'ps-btn', 'data-view': 'tips', 'aria-pressed': 'false', 'aria-disabled': 'true' }, h('span', {}, 'TIPS'));
@@ -74,13 +88,13 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
 
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent' });
   const line = h('span', { class: 'ir-line' });
-  const edit = h('button', { type: 'button', class: 'btn sm ir-edit', title: 'Opens the stent\'s vessel card, where its diameter, narrowing and ends are set. This view only reads.', onclick: () => onEdit(which) }, 'Edit stent');
+  const editor = createStentEditor({ id: which });
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
   });
   const figs = h('div', { class: 'ir-figs' });
-  const editorSlot = h('div', { class: 'ir-editor' });   // (the stent editor mounts here, above the sub-switch: stent-editor.js; empty it takes no room)
+  const editorSlot = h('div', { class: 'ir-editor' }, editor.el);   // (the stent editor, above the sub-switch: stent-editor.js)
   let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
   const cmp = createIrCompare(), crv = createIrCurves();
   const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true', title: 'Inside the stent: the readings, the stent in side view and where its pressure goes' }, 'Inside');
@@ -91,7 +105,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   btnI.addEventListener('click', () => setSub('inside')); btnA.addEventListener('click', () => setSub('along')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside and Along share one element: the readings go, the figures change)
   const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
-  const stentsRow = h('div', { class: 'ir-stents' }, chips, line, edit);
+  const stentsRow = h('div', { class: 'ir-stents' }, chips, line);
   const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
@@ -145,12 +159,12 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const k = ids.join();
     if (k !== key) {
       key = k;
-      if (!ids.includes(which) && ids.length) which = ids[0];
+      if (!ids.includes(which) && ids.length) { which = ids[0]; editor.setStent(which); }
       const word = ids.length ? (ids.includes('TIPS') ? 'TIPS' : ids[0]) : 'TIPS';
       if (word !== lastWord) { lastWord = word; swapText(btnT.firstChild, word); }
       const on = ids.length > 0;
       classSoon(btnT, 'off', !on); attrSoon(btnT, 'aria-disabled', on ? 'false' : 'true');
-      chips.replaceChildren(...ids.map((id) => h('button', { type: 'button', class: 'ir-chip', 'data-id': id, 'aria-pressed': String(id === which), onclick: () => { which = id; syncChips(); if (frame) update(frame); } }, id)));   // alloc-rare: when the set of stents changes, never in a frame
+      chips.replaceChildren(...ids.map((id) => h('button', { type: 'button', class: 'ir-chip', 'data-id': id, 'aria-pressed': String(id === which), onclick: () => { which = id; editor.setStent(id); syncChips(); if (frame) update(frame); } }, id)));   // alloc-rare: when the set of stents changes, never in a frame
       // (A stent taken away with the view open: back to Measure, which fades up. Nothing is held, nothing is left blank.)
       if (!on && view === 'tips') setView('measure');
     }
@@ -164,14 +178,14 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     x.band = k;
     const t = x.t;
     for (let i = 0; i < x.ticks.length; i++) x.ticks[i].style.left = pos(t, r[i]) * 100 + '%';
-    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. A working ${mm(st.d)} mm stent reads ${r[0]} to ${r[1]} cm/s (provisional: the 8 to 10 mm range, 90 to 190 cm/s, scaled for this diameter; no guideline gives one).`;
+    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. The model band for a ${mm(st.d)} mm stent is ${r[0]} to ${r[1]} cm/s. Provisional: the app scaled the reported 8 to 10 mm range (90 to 190 cm/s) for this diameter, and no study validates it. It is not a surveillance threshold.`;
   }
 
   function update(f) {
     frame = f;
     const st0 = store.get(), p = st0.params;
     syncStents(p);
-    if (view !== 'tips') return;
+    if (view !== 'tips' || !active) return;
     const m = f?.metrics;
     if (!m) return;
     if (sub === 'compare') { cmp.update(f, which); return; }
@@ -204,6 +218,15 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const nk = which === 'DIPS' ? 'DIPS flow' : 'TIPS flow';
     if (tiles[1].lbl !== nk) { tiles[1].lbl = nk; const k = tiles[1].el.querySelector('.k'); if (k) swapText(k, nk); }
   }
+  /** The card is shown or hidden (dock.js pane.shown). Hidden, the sweep is cancelled and the stent pictures are not fed; shown, the live frame is handed over again. */
+  let active = true;
+  function setActive(on) {
+    on = !!on;
+    if (on === active) return;
+    active = on;
+    crv.setActive(on);
+    if (on && frame) update(frame);
+  }
   host.append(el);
-  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, curves: crv };
 }

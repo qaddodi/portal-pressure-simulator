@@ -69,15 +69,15 @@ test('a part\'s number is on its segment once it fits it, at any size of words, 
 });
 
 test('the narrowing is where the profile says: the waist is s narrower, the open stent the full diameter, and a longer waist draws more of it', () => {
-  const buf = new Float64Array(4 * (N_PROFILE + 1)), dPx = 10 * SIDE.pxMm, g = geomFix({ len: 8, waist: 2, trans: 0 }, 'tips');
-  stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0.5, g, 0.5);
+  const buf = new Float64Array(4 * (N_PROFILE + 1)), dPx = 10 * SIDE.pxMm, g = geomFix({ len: 8, waist: 2, trans: 0, red: 0.5 }, 'tips');
+  stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0, g, 0.5);   // (a 50 % waist mid stent, no end stenosis: 17 Nov 2026, the two narrowings)
   const half = (i) => -buf[2 * i + 1], mid = N_PROFILE / 2;
   assert.ok(Math.abs(half(0) - dPx / 2) < 1e-9, 'open at the portal end');
   assert.ok(Math.abs(half(mid) - (dPx / 2) * 0.5) < 1e-9, 'half the diameter at the waist');
-  const narrow = (waist) => { const gg = geomFix({ len: 8, waist, trans: 0 }, 'tips'); let n = 0; stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0.5, gg, 0.5); for (let i = 0; i <= N_PROFILE; i++) if (half(i) < dPx / 2 - 1e-6) n++; return n; };
+  const narrow = (waist) => { const gg = geomFix({ len: 8, waist, trans: 0, red: 0.5 }, 'tips'); let n = 0; stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0, gg, 0.5); for (let i = 0; i <= N_PROFILE; i++) if (half(i) < dPx / 2 - 1e-6) n++; return n; };
   assert.ok(narrow(3) > narrow(1) && narrow(1) > narrow(0), 'a waist that is longer is narrow over more of the stent');
   const w = waistSpan(g, 0.5);
-  assert.ok(Math.abs(profileAt(g, 0.5, 0.5, w.c) - 0.5) < 1e-12);
+  assert.ok(Math.abs(profileAt(g, 0, 0.5, w.c) - 0.5) < 1e-12);
 });
 
 test('the printed parts add up to the printed drop, whatever the split', () => {
@@ -238,7 +238,9 @@ test('the trace card: fixed curves that start at the PPG and end at zero, five s
   assert.equal(kind(/^stent\.tr\.line\./).length, 3);
   assert.equal(kind(/^stent\.tr\.badge$/).length, 5);
   assert.equal(kind(/^stent\.tr\.site$/).length, 5);
-  const lines = kind(/^stent\.tr\.line\./), nPts = lines.map((p) => p._pts.n);
+  const lines = kind(/^stent\.tr\.line\./);
+  for (const b of [...card.el.querySelectorAll('.sc-tracesw button')].reverse()) { b.click(); await new Promise((r) => setTimeout(r, 1200)); }   // (each chart in turn, ending on the pressure)
+  const nPts = lines.map((p) => p._pts.n);
   assert.deepEqual(nPts, [161, 161, 161]);
   for (const l of lines) for (let i = 0; i < 2 * l._pts.n; i++) assert.ok(Number.isFinite(l._pts.buf[i]), `every point is a number ${l.getAttribute('data-look')} ${i} ${l._pts.buf[i]}`);
   // the pressure curve falls from the PPG's height at the portal end to the baseline at the IVC end; the energy curve rises over the same x
@@ -251,13 +253,18 @@ test('the trace card: fixed curves that start at the PPG and end at zero, five s
   const words = pieces.filter((p) => p._t != null).map((p) => p._t).join(' | ');
   assert.match(words, /Static pressure/); assert.match(words, /Energy lost/); assert.match(words, /Mean velocity/); assert.match(words, /Schematic/);
   assert.doesNotMatch(words, /HVPG|wedge/i);
-  // another stent, one panel: the same curves, only moved; the panels the slide did not ask for are out
+  // another stent, the velocity chart: the same curves, only moved; the chart the slide asked for is the one in view, the switch fades the others
   e.params.tips.d = 12; e.params.stentGeom = { TIPS: { len: 10, waist: 4, trans: 1 } };
   store.set({ params: { ...e.params } });
-  card.configure({ vessel: 'TIPS', show: ['trace'], panels: ['velocity'] });
+  card.configure({ vessel: 'TIPS', show: ['trace'], pick: 'velocity' });
+  await new Promise((r) => setTimeout(r, 1500));
   assert.deepEqual(lines.map((p) => p._pts.n), nPts);
-  assert.equal(card.el.querySelectorAll('[data-look^="stent.tr.line."]').length, 3);
   assert.equal(lines[2]._g.opacity, 1); assert.equal(lines[0]._g.opacity, 0);
+  const sw = [...card.el.querySelectorAll('.sc-tracesw button')];
+  assert.deepEqual(sw.map((b) => b.textContent), ['Pressure', 'Energy lost', 'Velocity']);
+  sw[0].click();
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(lines[0]._g.opacity, 1); assert.equal(lines[2]._g.opacity, 0);
   card.dispose();
 });
 

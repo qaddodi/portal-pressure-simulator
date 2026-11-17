@@ -4,10 +4,13 @@
 // unless the caller brings no record to write into.
 //
 // A stent (the TIPS, the DIPS, a stent drawn with the stent tool) is a conduit of diameter d (mm) and hydraulic length len (cm). It may
-// hold one waist: a narrowing s of the diameter (params.stenosis × params.thrombus, engine.js occlusion), so the waist's diameter is
-// Dw = d·(1 − s), over a length `waist` (cm), reached through a transition of length `trans` (cm) at each end (0: an abrupt step).
-// Where the waist sits is params.stenosisSite (proximal, mid, distal: 1/6, 1/2 and 5/6 of the stent), its centre slid inward so a long
-// waist and its transitions stay inside the stent.
+// hold two narrowings, clinically different and set apart on its card (Mohammad, 17 Nov 2026: "Stenosis the distal or proximal end should be a
+// different option than making a waist with some length"):
+//   the end stenosis   dysfunction: params.stenosis × params.thrombus (engine.js occlusion), s, at the portal (proximal) or hepatic vein (distal)
+//                      end (params.stenosisSite, distal if unset), always short and focal: PINCH of the stent's length, abrupt.
+//   the waist          a reduction made on purpose, always mid stent: params.stentGeom[id].red, the share of the diameter it takes (the waist's
+//                      diameter is d·(1 − red)), over a length `waist` (cm), reached through a transition of `trans` (cm) at each end (0: an abrupt step).
+// Either, both or neither may be there. Each is counted on its own (its friction along it and the jet leaving it), and they add in series.
 //
 // The pressure across it, ΔP = R_lin·Q + B·Q|Q| (the engine solves it as a conductance with B lagged on |Q|), is made of five parts, each
 // counted once and each with its reference velocity named:
@@ -43,7 +46,9 @@ export const PINCH = 0.125;
 /** Tapered ends, cm each side (the card's "Tapered"). */
 export const TAPER_CM = 1;
 /** Ranges (cm). The waist and both transitions always fit inside the stent (geomOf). */
-export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2] };
+export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0, 0.95] };
+/** The waist the stent card offers: up to 80 % of the diameter (the model takes up to GEOM_RANGE.red, as a stenosis's 95 %). */
+export const WAIST_MAX = 0.8;
 // The fixed series term (PRU) and whether the device has its own entrance and exit loss, by kind of stent.
 const KIND = {
   tips: { tract: 0.12, entry: true, len: 8 },
@@ -56,10 +61,10 @@ export const tractOf = (kind) => KIND[kind]?.tract ?? 0;
 
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** A stent's geometry when none is set: its length, a waist of PINCH of it, abrupt ends. */
+/** A stent's geometry when none is set: its length, no waist (red 0; were one set, PINCH of the length long with abrupt ends). */
 export const geomDefault = (kind, out = null) => {
   const len = KIND[kind]?.len ?? 8, o = out || {};   // alloc-rare: only a caller that brings no record (a test, a card's setter)
-  o.len = len; o.waist = PINCH * len; o.trans = 0;
+  o.len = len; o.waist = PINCH * len; o.trans = 0; o.red = 0;
   return o;
 };
 
@@ -69,18 +74,17 @@ export function geomFix(g, kind, out = null) {
   const len = clamp(num(g?.len, d), GEOM_RANGE.len[0], GEOM_RANGE.len[1]);
   const trans = clamp(num(g?.trans, 0), 0, Math.min(GEOM_RANGE.trans[1], len / 2));
   const waist = clamp(num(g?.waist, PINCH * len), 0, Math.min(GEOM_RANGE.waist[1], len - 2 * trans));
-  o.len = len; o.waist = waist; o.trans = trans;
+  o.len = len; o.waist = waist; o.trans = trans; o.red = clamp(num(g?.red, 0), GEOM_RANGE.red[0], GEOM_RANGE.red[1]);
   return o;
 }
 
-/** Whether a geometry is the short focal narrowing every stent has by default: a waist of PINCH of its length with abrupt ends. Any other
- *  waist (a longer or shorter one, tapered ends) is a waist the stent is narrowed along on purpose, and that always sits mid stent
- *  (topology.js stentSite; Mohammad, 17 Nov 2026: "when we narrow the waist it really should only be mid TIPS"). A stenosis at the portal or
- *  hepatic vein end stays the short focal one. */
-export const isFocal = (g) => !g || (!(g.trans > 0) && Math.abs(g.waist - PINCH * g.len) < 1e-9);
-
-/** The geometry of stent `id` (an edge of kind `kind`) in params: params.stentGeom[id] over its defaults, made consistent. */
+/** The geometry of stent `id` (an edge of kind `kind`) in params: params.stentGeom[id] over its defaults, made consistent (its waist: red, waist, trans). */
 export const geomOf = (params, id, kind, out = null) => geomFix(params?.stentGeom?.[id], kind, out);
+
+/** The end stenosis of stent `id` in params: its stenosis with its clot, 1 − (1 − stenosis)(1 − thrombus), as engine.js occlusion reads it. */
+export const endOf = (params, id) => 1 - (1 - (params?.stenosis?.[id] || 0)) * (1 - (params?.thrombus?.[id] || 0));
+/** The end the stenosis sits at: 'proximal' (the portal end) or 'distal' (the hepatic vein end, where a TIPS usually narrows; the default). */
+export const endSiteOf = (params, id) => (params?.stenosisSite?.[id] === 'proximal' ? 'proximal' : 'distal');
 
 /** Mean of (d/D)⁴ over a linear cone from d to d·(1 − s): ((1 − s)⁻³ − 1)/(3s), 1 as s → 0. */
 export const coneFactor = (s) => (s < 1e-6 ? 1 + 2.5 * s : (1 / Math.pow(1 - s, 3) - 1) / (3 * s));
@@ -95,53 +99,130 @@ export const kExp = (theta) => {
   return 0.12 + 0.88 * u * u * (3 - 2 * u);
 };
 
+// One narrowing's share of the resistance: its friction along it (over Lw at 1 − s and its cones of Lt each side) and its exit jet and inlet,
+// written into LES (read at once by stentParts).
+const LES = { wall: 0, jet: 0, inlet: 0 };   // alloc-rare: made once
+function lesion(wall, len, kq, d, s, Lw, Lt, b = 1, bIn = 1) {
+  const a = (1 - s) * (1 - s);
+  if (b < 1 || bIn < 1) {
+    // (A stenosis inside the waist: its jet expands into the waist's lumen, area share b, so its loss is (1/a − 1/b)² and its inlet's (1 − a/b), b the waist's
+    // lumen at its exit and its entry, and one no tighter than the waist there adds nothing. Its friction is counted once with the waist's: stentParts' overlap.)
+    const w0 = wall * (Lw / len) * (1 / Math.pow(1 - s, 4) - 1);
+    LES.wall = w0;
+    const k = kExp(coneAngle(d, s, Lt));
+    LES.jet = a < b ? k * (kq / K_ENTRY) * (1 / a - 1 / b) * (1 / a - 1 / b) : 0;
+    LES.inlet = K_C > 0 && a < bIn ? k * K_C * (1 - a / bIn) * (kq / K_ENTRY) / (a * a) : 0;
+    return LES;
+  }
+  let ww = wall * (Lw / len) * (1 / Math.pow(1 - s, 4) - 1);
+  if (Lt > 0) ww += wall * ((2 * Lt) / len) * (coneFactor(s) - 1);
+  const k = kExp(coneAngle(d, s, Lt));
+  LES.wall = ww;
+  LES.jet = k * (kq / K_ENTRY) * (1 / a - 1) * (1 / a - 1);
+  // (A gentle cone loses less at the inlet as at the exit: the same angle factor, so Ends eases the loss with no step.)
+  LES.inlet = K_C > 0 ? k * K_C * (1 - a) * (kq / K_ENTRY) / (a * a) : 0;
+  return LES;
+}
+
 /**
- * The stent's resistance and its parts (PRU, so × Q gives mmHg) at flow q (mL/s, the step's lagged flow), viscosity visc, narrowing s:
- * { tract, wall, entry, jet, inlet, total, waistWall } written into `out` (waistWall: the share of `wall` added by the waist and its cones).
- * With the defaults (waist PINCH·len, no transitions) it is the model's stent as it always was, to the last bit (tests/stent-geom.test.js).
+ * The stent's resistance and its parts (PRU, so × Q gives mmHg) at flow q (mL/s, the step's lagged flow), viscosity visc, end stenosis s,
+ * geometry g (its waist: g.red over g.waist with g.trans ends): { tract, wall, entry, jet, inlet, total, waistWall, jetEnd, jetWaist, wallEnd,
+ * wallWaist } written into `out`. waistWall is the share of `wall` the two narrowings add, wallEnd and wallWaist each one's part of it; jetEnd
+ * and jetWaist each one's jet and inlet (jet + inlet = jetEnd + jetWaist), where the pressure colour steps and a trace puts each loss.
+ * With no waist (red 0) and an end stenosis it is the model's stent as it always was, to the last bit (tests/stent-geom.test.js).
  */
-export function stentParts(kind, d, q, visc, s, g, out = null) {
+export function stentParts(kind, d, q, visc, s, g, out = null, site = END_U.distal) {
   const K = KIND[kind] || KIND.custom, o = out || {};   // alloc-rare: only a caller that brings no record (a test, a card); the engine brings one
   const A = Math.PI * d * d / 4, kq = KIN * Math.abs(q) / (A * A);
   const len = g ? g.len : K.len;
   // (Written as the model always wrote it: 0.04 or 0.05 over the stent's own default length, × (10/d)⁴ × visc; the same 0.005 per cm.)
   const wall = C_WALL * K.len * (len / K.len) * Math.pow(10 / d, 4) * visc;
   const entry = K.entry ? kq : 0;
-  let waistWall = 0, jet = 0, inlet = 0;
+  let waistWall = 0, jet = 0, inlet = 0, jetEnd = 0, jetWaist = 0, wallEnd = 0, wallWaist = 0;
+  const red = g ? g.red || 0 : 0;
+  // Where the two narrowings overlap (a long waist reaching the end stenosis), the lumen is the narrower of the two and is counted once: the friction
+  // is the one combined profile's (profileAt) integrated once, and the stenosis's jet expands into the waist's lumen, not the open stent's.
+  let lap = 0, b = 1, bIn = 1;
+  if (s > 0 && red > 0) {
+    const e = endSpan(g, site, SPAN_E), w = waistSpan(g, SPAN_W);
+    if (e.a0 < w.b0 && w.a0 < e.b0) {
+      lap = overlapFriction(e, s, w, red, Math.max(e.a0, w.a0), Math.min(e.b0, w.b0));
+      // (The waist's lumen at the stenosis's ends, area shares: its jet expands into the lumen at its exit, its inlet contracts from the one at its
+      // entry. The flow taken portal to hepatic, as a working stent's runs.)
+      const ro = spanAt(w, red, e.b0), ri = spanAt(w, red, e.a0);
+      b = ro * ro; bIn = ri * ri;
+    }
+  }
   if (s > 0) {
-    const a = (1 - s) * (1 - s), Lw = g ? g.waist : PINCH * len, Lt = g ? g.trans : 0;
-    waistWall = wall * (Lw / len) * (1 / Math.pow(1 - s, 4) - 1);
-    if (Lt > 0) waistWall += wall * ((2 * Lt) / len) * (coneFactor(s) - 1);
-    const k = kExp(coneAngle(d, s, Lt));
-    jet = k * (kq / K_ENTRY) * (1 / a - 1) * (1 / a - 1);
-    // (A gentle cone loses less at the inlet as at the exit: the same angle factor, so Ends eases the loss with no step.)
-    if (K_C > 0) inlet = k * K_C * (1 - a) * (kq / K_ENTRY) / (a * a);
+    // (The end stenosis: focal, PINCH of the length, abrupt.)
+    const r = lesion(wall, len, kq, d, s, PINCH * len, 0, b, bIn);
+    waistWall = r.wall; jet = r.jet; inlet = r.inlet; jetEnd = r.jet + r.inlet; wallEnd = r.wall;
+  }
+  if (red > 0) {
+    const r = lesion(wall, len, kq, d, red, g.waist, g.trans);
+    waistWall += r.wall; jet += r.jet; inlet += r.inlet; jetWaist = r.jet + r.inlet; wallWaist = r.wall;
+  }
+  if (lap > 0) {
+    // (The overlap's friction was in both lesions; the smaller of the two is taken off, from the stenosis's share first, as it lies inside the waist.)
+    const cut = wall * lap, fromEnd = Math.min(cut, wallEnd);
+    wallEnd -= fromEnd; wallWaist -= cut - fromEnd; waistWall -= cut;
   }
   o.tract = K.tract * visc; o.wall = wall + waistWall; o.waistWall = waistWall; o.entry = entry; o.jet = jet; o.inlet = inlet;
+  o.jetEnd = jetEnd; o.jetWaist = jetWaist; o.wallEnd = wallEnd; o.wallWaist = wallWaist;
   o.total = K.tract * visc + wall + entry + (waistWall + jet + inlet);
   return o;
 }
 
-/** The waist along the stent, as fractions of its length from the portal end: the contraction starts at a0, the waist runs a1 to b1,
- *  the expansion ends at b0. `site` is the site's fraction (topology.js STENT_SITES), the centre slid inward so all of it fits. */
-export function waistSpan(g, site, out = null) {
-  const o = out || {};   // alloc-rare: only a caller that brings no record
-  // (In fractions of the stent, so a waist left where its site puts it is centred on the site's own number: a Doppler gate there reads it.)
+/** The waist along the stent, as fractions of its length from the portal end: the contraction starts at a0, the waist runs a1 to b1, the
+ *  expansion ends at b0. The waist is always mid stent (its centre c at 1/2; a waist and its cones never longer than the stent: geomFix). */
+export function waistSpan(g, out = null) {
+  const o = out && typeof out === 'object' ? out : {};   // alloc-rare: only a caller that brings no record (or one still passing the site the waist once took)
   const w = g.waist / 2 / g.len, half = w + g.trans / g.len;
-  const c = clamp(site, half, 1 - half);
+  const c = clamp(0.5, half, 1 - half);
   o.c = c; o.a0 = c - half; o.a1 = c - w; o.b1 = c + w; o.b0 = c + half;
+  return o;
+}
+/** The end stenosis along the stent, the same record as waistSpan: PINCH of the length, abrupt (a0 = a1, b1 = b0), centred on `site` (the
+ *  site's fraction, topology.js STENT_SITES, or an eased one between them), slid inward so it stays inside the stent. */
+export function endSpan(g, site, out = null) {
+  const o = out || {};   // alloc-rare: only a caller that brings no record
+  const w = PINCH / 2, c = clamp(site, w, 1 - w);
+  o.c = c; o.a0 = c - w; o.a1 = c - w; o.b1 = c + w; o.b0 = c + w;
   return o;
 }
 
 const SPAN = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // alloc-rare: made once (profileAt's span, read at once)
-/** The lumen's diameter at fraction u of the stent, as a share of d (1 in the open stent, 1 − s in the waist, linear in the cones). */
-export function profileAt(g, s, site, u) {
-  if (!(s > 0)) return 1;
-  const w = waistSpan(g, site, SPAN);
+const spanAt = (w, s, u) => {
   if (u >= w.a1 && u <= w.b1) return 1 - s;
   if (u > w.a0 && u < w.a1) return 1 - s * (u - w.a0) / (w.a1 - w.a0);
   if (u > w.b1 && u < w.b0) return 1 - s * (w.b0 - u) / (w.b0 - w.b1);
   return 1;
+};
+const SPAN_E = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 }, SPAN_W = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // alloc-rare: made once (stentParts' spans, read at once)
+const f4 = (r) => 1 / (r * r * r * r) - 1;
+/** The friction both lesions counted over [u0, u1], where they overlap, as a share of the open stent's wall friction per unit length: ∫ min(f(r1), f(r2)) du
+ *  with f(r) = 1/r⁴ − 1 (Simpson, 48 steps; the profile is linear between its corners). Taking it off leaves ∫ f(min(r1, r2)), the combined profile. */
+function overlapFriction(e, s, w, red, u0, u1) {
+  if (!(u1 > u0)) return 0;
+  const n = 48, hh = (u1 - u0) / n;
+  let acc = 0;
+  for (let i = 0; i <= n; i++) {
+    const u = u0 + i * hh, m = Math.min(f4(spanAt(e, s, u)), f4(spanAt(w, red, u)));
+    acc += m * (i === 0 || i === n ? 1 : i % 2 ? 4 : 2);
+  }
+  return (acc * hh) / 3;
+}
+/** The end stenosis's fractions along the stent, as topology.js STENT_SITES places them (stentParts' default: distal). */
+export const END_U = Object.freeze({ proximal: 1 / 6, distal: 5 / 6 });
+
+/** The lumen's diameter at fraction u of the stent, as a share of d: 1 in the open stent, 1 − s in the end stenosis (at `site`, its fraction),
+ *  1 − g.red in the waist (mid stent), linear in the waist's cones; where both reach, the narrower. */
+export function profileAt(g, s, site, u) {
+  let r = 1;
+  if (s > 0) r = spanAt(endSpan(g, site, SPAN), s, u);
+  const red = g ? g.red || 0 : 0;
+  if (red > 0) { const x = spanAt(waistSpan(g, SPAN), red, u); if (x < r) r = x; }
+  return r;
 }
 
 /** The fixed pressure difference (mmHg) the tube-alone line holds across the stent: a bench, not a patient (stentState .bench, the fingerprint's tipsBench, the curve's dashed line). */
@@ -149,10 +230,10 @@ export const BENCH_DP = 7;
 const BENCH = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, total: 0 };   // alloc-rare: made once (benchFlow's parts)
 /** Flow (mL/s) through the stent alone at a fixed pressure difference dP (mmHg) across it: the tube on a bench, not in the patient.
  *  ΔP = R·Q + B·Q|Q| solved in its stable form, Q = 2ΔP / (R + √(R² + 4B|ΔP|)); its sign follows ΔP, and no gradient gives no flow. */
-export function benchFlow(kind, d, visc, s, g, dP) {
+export function benchFlow(kind, d, visc, s, g, dP, site = END_U.distal) {
   if (!(Math.abs(dP) > 0)) return 0;
-  const R = stentParts(kind, d, 0, visc, s, g, BENCH).total;
-  const B = stentParts(kind, d, 1, visc, s, g, BENCH).total - R;
+  const R = stentParts(kind, d, 0, visc, s, g, BENCH, site).total;
+  const B = stentParts(kind, d, 1, visc, s, g, BENCH, site).total - R;
   const m = Math.abs(dP);
   return Math.sign(dP) * (2 * m) / (R + Math.sqrt(R * R + 4 * B * m));
 }
@@ -187,16 +268,37 @@ export function stentBand(d, ref, out = null) {
 }
 /** Whether the band at diameter d is the reference band (no scaling): true for 8 to 10 mm and for a stent not in. */
 export const stentBandIsRef = (d) => !(d > 0) || (d >= STENT_BAND_D[0] && d <= STENT_BAND_D[1]);
-/** The card's two setters, kept here so Where, Waist length and Ends always tell one story (17 Nov 2026): params with stent `id`'s waist field
- *  `f` ('waist' or 'trans') set to v, which moves the narrowing to Mid (a waist set along the stent is mid stent); and params with the
- *  narrowing moved to `site`, which at Proximal or Distal puts back the short focal waist. Both write into and return `p` (a copy the caller made). */
+/** The card's setters (17 Nov 2026): the end stenosis and the waist are two controls, and neither moves the other. withWaist sets stent `id`'s
+ *  waist field `f` ('red', 'waist' or 'trans') to v; withEnd moves the stenosis to `site` ('proximal' or 'distal'). Both write into and return
+ *  `p` (a copy the caller made); the stent's other numbers are left as they are. */
 export function withWaist(p, id, kind, f, v) {
   p.stentGeom = { ...(p.stentGeom || {}), [id]: { ...geomOf(p, id, kind), [f]: v } };   // alloc-rare: a card's setter, run on its own input event, never in a frame
-  p.stenosisSite = { ...(p.stenosisSite || {}), [id]: 'mid' };   // alloc-rare: the same setter
   return p;
 }
-export function withSite(p, id, kind, site) {
-  p.stenosisSite = { ...(p.stenosisSite || {}), [id]: site };   // alloc-rare: a card's setter, run on its own tap, never in a frame
-  if (site !== 'mid' && p.stentGeom?.[id]) { const g = geomOf(p, id, kind); p.stentGeom = { ...p.stentGeom, [id]: { len: g.len, waist: PINCH * g.len, trans: 0 } }; }   // alloc-rare: the same setter
+export function withEnd(p, id, site) {
+  p.stenosisSite = { ...(p.stenosisSite || {}), [id]: site === 'proximal' ? 'proximal' : 'distal' };   // alloc-rare: a card's setter, run on its own tap, never in a frame
   return p;
+}
+
+// ── Whose jet a Doppler gate reads (17 Nov 2026, external review: "a deliberate reduction's jet should read as intended, not as stenosis") ──
+// The waist (params.stentGeom[id].red) is a reduction made on purpose, always mid stent; the end stenosis (stenosis × thrombus, at stenosisSite proximal or distal) is
+// dysfunction. A gate over the stent's range that sits on the reduction reads the reduction's jet; a stent can have both. engine.stentState names the same kinds
+// (gateKind: tests/stent-band.test.js keeps the two equal); the readers that hold only numbers (the fingerprint's tipsStn, tipsRed, tipsStnSite) use these.
+/** The kind of lesion at each Doppler gate [proximal, mid, distal]: 'stenosis', 'reduction' or null, from the end stenosis `end` (0 to 1) at `site` and the waist `red`. */
+export function gateKindsOf(end, red, site, out = null) {
+  const o = out || [null, null, null];   // alloc-rare: only a caller that brings no list (a test); the drawn paths pass one
+  o[0] = end > 0.004 && site === 'proximal' ? 'stenosis' : null;
+  o[1] = red > 0.004 ? 'reduction' : null;
+  o[2] = end > 0.004 && site !== 'proximal' ? 'stenosis' : null;
+  return o;
+}
+/** The kinds for stent `id` of `kind` in params (the same as gateKindsOf from its end stenosis, waist and site). */
+export const gateKindsFromParams = (params, id, kind, out = null) => gateKindsOf(endOf(params, id), kind ? geomOf(params, id, kind, KIND_GEOM).red : 0, endSiteOf(params, id), out);
+const KIND_GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (gateKindsFromParams reads its red at once)
+/** Whether the gates over `hi` (cm/s) read only the deliberate reduction's jet: at least one gate is over, and every gate that is over sits on the reduction.
+ *  A gate over its range anywhere else (an end stenosis, or fast flow with no lesion) is read as it always was. `peaks`: the three gate velocities. */
+export function reductionJet(peaks, kinds, hi) {
+  let over = false;
+  for (let i = 0; i < 3; i++) if (peaks[i] > hi) { if (kinds[i] !== 'reduction') return false; over = true; }
+  return over;
 }

@@ -9,8 +9,8 @@ import {
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
-import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP } from './stent-geom.js';
-import { stentStill } from './flow-cuts.js';
+import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf, END_U } from './stent-geom.js';
+import { stentStillHeld } from './flow-cuts.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
 import { hvBlocked } from './pressure-cuts.js';
@@ -46,9 +46,9 @@ const SCARRED_FROM = 0.3;
 const congestedRise = (rise) => { const x = Math.min(1, Math.max(0, (rise - CONGESTED_FROM) / CONGESTED_FROM)); return rise * x * x * (3 - 2 * x); };
 // A stent's conductance from its geometry (stent-geom.js stentParts: the tract, the wall, the device's entrance and exit, the waist's jet and
 // inlet; the one calculation the Doppler, the figure and the cards read too). With no geometry set it is the stent the model always had.
-const PARTS = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, total: 0 };   // alloc-rare: made once (computeG's parts, read at once)
-const GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (computeG's geometry, read at once)
-const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS).total;
+const PARTS = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, jetEnd: 0, jetWaist: 0, wallEnd: 0, wallWaist: 0, total: 0 };   // alloc-rare: made once (computeG's parts, read at once)
+const GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (computeG's geometry, read at once)
+const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS, END_U[endSiteOf(p, id)]).total;
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
@@ -61,7 +61,7 @@ export const PARAM_EASE_S = 0.15;
 const NO_EASE = new Set(['seed', 'splenicRx', 'customShunts', 'catheter']);
 const STENT_SWITCH = ['tips', 'dips'];   // (the stents whose switch opens and closes through their width: easeParams)
 // The value a number missing from params stands for while it eases: 0, or a stent geometry's default length (stent-geom.js geomDefault).
-const GEOM_D = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (missingAs's default, read at once)
+const GEOM_D = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (missingAs's default, read at once)
 const missingAs = (path, k) => {
   if (path.length !== 2 || path[0] !== 'stentGeom') return 0;
   const e = EDGES.find((x) => x.id === path[1]), kind = kindOf(e);
@@ -1530,22 +1530,37 @@ export class Engine {
     if (!(d > 0)) return null;
     const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
     const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
-    const g = geomOf(p, id, kind, o.geom), r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts);
-    for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'total']) r[f] *= q;
+    const g = geomOf(p, id, kind, o.geom), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts, su);
+    for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q;
     const A = Math.PI * (d / 10) * (d / 10) / 4;
-    o.kind = kind; o.d = d; o.s = s; o.dWaist = d * (1 - s); o.q = q; o.flow = q * 0.06;
+    // (Its two narrowings, stent-geom.js: the end stenosis `end` at its end `site`, the waist `red` mid stent. s, dWaist and vWaist are the
+    // narrowest lumen of the two, as the Narrowest lumen tile and the jet read it.)
+    const n = Math.max(s, g.red || 0);
+    o.kind = kind; o.d = d; o.end = s; o.red = g.red || 0; o.site = endSiteOf(p, id); o.s = n; o.dWaist = d * (1 - n); o.q = q; o.flow = q * 0.06;
+    // The lesion kinds (17 Nov 2026, the external review's "intentional reduction"): the waist is a reduction made on purpose (against encephalopathy, a
+    // constrained stent), the end stenosis is dysfunction. o.lesion names what the stent has ('none', 'stenosis', 'reduction' or 'both'); o.gateKind
+    // what each Doppler gate (proximal, mid, distal) reads a jet from ('stenosis', 'reduction' or null), so a deliberate reduction's jet reads as intended.
+    const hasS = s > 0.004, hasR = o.red > 0.004, gk = o.gateKind || (o.gateKind = [null, null, null]);   // alloc-rare: made with the record
+    o.lesion = hasS && hasR ? 'both' : hasR ? 'reduction' : hasS ? 'stenosis' : 'none';
+    gk[0] = hasS && o.site === 'proximal' ? 'stenosis' : null; gk[1] = hasR ? 'reduction' : null; gk[2] = hasS && o.site === 'distal' ? 'stenosis' : null;
     o.dp = P[this.edgeF[k]] - P[this.edgeT[k]];
-    o.vOpen = q / A; o.vWaist = s > 0 ? q / (A * (1 - s) * (1 - s)) : q / A;
+    o.vOpen = q / A; o.vWaist = n > 0 ? q / (A * (1 - n) * (1 - n)) : q / A;
     // The three Doppler points as the scanner reads them (the card's own numbers, stentReadsOf: the open stent's mean × dopplerK at each gate, the
     // narrowing's jet where the waist lies) and the highest of them, the stent's peak velocity: the tile and the Doppler cannot differ.
     const peaks = o.peaks || (o.peaks = [0, 0, 0]);   // alloc-rare: made with the record
     stentReadsOf(p, id, Math.abs(q) / (Math.PI * (this.diameter(id) / 10) * (this.diameter(id) / 10) / 4) * dopplerK(e), peaks);
-    // (A stent that has almost stopped reads 0 at every gate, flow-cuts.js stentStill: the card says Stasis, so no tile, picture or Compare row prints a jet from a flow of nothing.)
-    o.still = stentStill(q);
-    if (o.still) { peaks[0] = 0; peaks[1] = 0; peaks[2] = 0; }
+    // A stent that has almost stopped (flow-cuts.js stentStillHeld, with its memory in the record so a flow hovering at the cut-off does not flip it) is
+    // stopped everywhere: no flow, no velocity at any gate or at the waist, no friction or jet (the pressure across it, dp, is held by the blockage, not
+    // lost to flow). This record is the one rule: the vessel card's Stasis, the Doppler, the tiles, the side view, the trace and the loss bar read it
+    // (play-test 17 Nov 2026: 0 cm/s on the card, 29 at the waist on the Along view and "Stasis" turning "Patent" at an 88 % stenosis).
+    o.still = stentStillHeld(q, o.still === true);
+    if (o.still) {
+      peaks[0] = 0; peaks[1] = 0; peaks[2] = 0; o.vOpen = 0; o.vWaist = 0; o.q = 0; o.flow = 0;
+      for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] = 0;
+    }
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
     // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
-    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP) * 0.06;
+    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP, su) * 0.06;
     return o;
   }
 

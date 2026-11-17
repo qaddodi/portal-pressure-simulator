@@ -16,7 +16,10 @@ const ROWS = [
   { k: 'ppg', n: 'PPG', u: 'mmHg', d: 1, v: (m) => m?.ppg },
   { k: 'flow', n: 'Stent flow', u: 'L/min', d: 1, v: (m, st) => st?.flow },
   { k: 'dp', n: 'Across stent', u: 'mmHg', d: 1, v: (m, st) => st?.dp },
+  { k: 'open', n: 'Open diameter', u: 'mm', d: 1, v: (m, st) => st?.d },
   { k: 'lumen', n: 'Narrowest lumen', u: 'mm', d: 1, v: (m, st) => st?.dWaist },
+  { k: 'waist', n: 'Waist length', u: 'cm', d: 1, v: (m, st) => (st?.s > 0.0005 ? st.geom?.waist : null) },   // (a stent that is not narrowed has no waist: a dash, not a length)
+  { k: 'taper', n: 'Taper, each end', u: 'cm', d: 1, v: (m, st) => (st?.s > 0.0005 ? st.geom?.trans : null) },
   { k: 'peak', n: 'Stent peak velocity', u: 'cm/s', d: 0, v: (m, st) => st?.vPeak },
 ];
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : null);

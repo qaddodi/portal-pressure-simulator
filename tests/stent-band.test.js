@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D } from '../src/engine/stent-geom.js';
+import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D, gateKindsOf, gateKindsFromParams, reductionJet } from '../src/engine/stent-geom.js';
 import { EDGES } from '../src/engine/topology.js';
 import { PROBE_NORMAL, stentNormal, velNormal, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { rateOf, stentCuts, STENT_RANGE } from '../src/ui/table-marks.js';
@@ -112,16 +112,44 @@ test('a narrowing is never a diameter: the range follows the open stent, so a 10
   assert.deepEqual([...stentNormal('TIPS', 6)], [90, 338]);
 });
 
-test('the summary tiles, the presenter bar and the IR tile rate the stent peak against the stent\'s own diameter, the fingerprint carrying it', () => {
+test('a deliberate reduction\'s jet reads as intended, a stenosis\' jet still flags, and the lesion kinds are one rule for the engine and the readers', () => {
+  const fp = (patch) => fingerprintOf(computeMetrics(settled({ tips: { on: true, d: 10 }, ...patch })));
+  const red = fp({ stentGeom: { TIPS: { red: 0.4, waist: 2 } } });
+  assert.ok(red.tipsVel > REF[1], `the 6 mm waist jets at ${Math.round(red.tipsVel)}`);
+  assert.deepEqual([...rateOf('tipsVel', red)], ['info', 'Reduction jet'], 'the reduction\'s jet reads as intended, neutral');
+  const stn = fp({ stenosis: { TIPS: 0.4 } });
+  assert.deepEqual([...rateOf('tipsVel', stn)], ['mid', 'High'], 'an end stenosis\' jet is still flagged');
+  const both = fp({ stentGeom: { TIPS: { red: 0.4, waist: 2 } }, stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' } });
+  assert.ok(both.tipsG2 > REF[1]);
+  assert.deepEqual([...rateOf('tipsVel', both)], ['mid', 'High'], 'with an end stenosis over the range as well, the stenosis is what is flagged');
+  assert.deepEqual([...rateOf('tipsVel', { ...red, tipsD: 6 })].slice(0, 1), ['info']);
+  // the readers' rule is the engine's: the same kinds from the numbers, from the params and from stentState, for every mix
+  for (const patch of [{}, { stenosis: { TIPS: 0.4 } }, { stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'proximal' } }, { stentGeom: { TIPS: { red: 0.4 } } }, { stentGeom: { TIPS: { red: 0.4 } }, stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'proximal' } }]) {
+    const e = settled({ tips: { on: true, d: 10 }, ...patch }), st = e.stentState('TIPS');
+    assert.deepEqual(gateKindsFromParams(e.params, 'TIPS', 'tips', [null, null, null]), st.gateKind, JSON.stringify(patch));
+    assert.deepEqual(gateKindsOf(st.end, st.red, st.site, [null, null, null]), st.gateKind);
+  }
+  // reductionJet: every gate over the range is on the reduction; a gate over anywhere else is read as it always was
+  assert.equal(reductionJet([100, 400, 100], [null, 'reduction', null], 190), true);
+  assert.equal(reductionJet([100, 400, 300], [null, 'reduction', 'stenosis'], 190), false);
+  assert.equal(reductionJet([210, 400, 100], [null, 'reduction', null], 190), false, 'fast flow with no lesion is not a reduction\'s jet');
+  assert.equal(reductionJet([100, 150, 100], [null, 'reduction', null], 190), false, 'no gate over the range: nothing to explain');
+});
+
+test('the summary tiles and the presenter bar read the stent peak against the stent\'s own diameter, the fingerprint carrying it; a scaled band is a model band, never a verdict', () => {
   const fp = (d, id = 'tips') => fingerprintOf(computeMetrics(settled({ [id]: { on: true, d } })));
   for (const [id, key] of [['tips', 'tipsVel'], ['dips', 'dipsVel']]) {
     assert.equal(fp(6, id)[`${id}D`], 6); assert.equal(fp(10, id)[`${id}D`], 10);
-    assert.equal(rateOf(key, { [key]: 215, [`${id}D`]: 6 })[1], 'Normal', `${key}: 215 cm/s in a 6 mm stent`);
-    assert.equal(rateOf(key, { [key]: 215, [`${id}D`]: 10 })[1], 'High', `${key}: 215 cm/s in a 10 mm stent`);
-    assert.equal(rateOf(key, { [key]: 215 })[1], 'High', `${key}: no diameter, the reference range as before`);
-    assert.equal(rateOf(key, { [key]: 350, [`${id}D`]: 6 })[1], 'High');
-    assert.equal(rateOf(key, { [key]: 70, [`${id}D`]: 12 })[1], 'Normal', `${key}: 70 cm/s in a 12 mm stent`);
-    assert.equal(rateOf(key, { [key]: 70, [`${id}D`]: 10 })[1], 'Low');
+    // 8 to 10 mm (and no diameter): the reported range, with its clinical words and tones as before
+    assert.deepEqual(rateOf(key, { [key]: 215, [`${id}D`]: 10 }), ['mid', 'High'], `${key}: 215 cm/s in a 10 mm stent`);
+    assert.deepEqual(rateOf(key, { [key]: 215 }), ['mid', 'High'], `${key}: no diameter, the reference range as before`);
+    assert.deepEqual(rateOf(key, { [key]: 70, [`${id}D`]: 10 }), ['mid', 'Low']);
+    assert.deepEqual(rateOf(key, { [key]: 130, [`${id}D`]: 9 }), ['ok', 'Normal']);
+    // another diameter: the app's own scaled band, in the neutral tone and words that are not a verdict, never Normal, Low or High
+    for (const [v, d, word] of [[215, 6, 'Within model band'], [350, 6, 'Above model band'], [70, 12, 'Within model band'], [50, 12, 'Below model band'], [70, 6, 'Below model band']]) {
+      const r = rateOf(key, { [key]: v, [`${id}D`]: d });
+      assert.deepEqual([...r], ['info', word], `${key}: ${v} cm/s in a ${d} mm stent`);
+    }
   }
   assert.equal(fingerprintOf(computeMetrics(settled({}))).tipsD, null, 'no stent, no diameter');
   assert.deepEqual([...STENT_RANGE], [90, 190]);
@@ -145,6 +173,13 @@ test('no file but the three that hold the reference writes the stent range out, 
   assert.ok(!/p\.normal\[/.test(dop) && !/\.rangeNote\b/.test(dop), 'the Doppler card judges a stent by its probe\'s fixed range');
   assert.match(dop, /p\.kind === 'tips'\) && frame\?\.D \? velNormal\(EI\[p\.id\], frame\)/);
   assert.match(dop, /rangeNoteOf\(p, normal, frame\?\.D\?\.\[EI\[p\.id\]\]\)/);
+  // a scaled band is never worded or toned as a clinical verdict on the card: no "Patent", "High velocity", "suggest stenosis" or amber out-of-range for it
+  assert.match(dop, /'Within model band'/); assert.match(dop, /'Above model band'/); assert.match(dop, /'Below model band'/);
+  const note = dop.slice(dop.indexOf('function rangeNoteOf'), dop.indexOf('const PROBES_BY_ID'));
+  assert.match(note, /scaled \? `Model band for a[^`]*Provisional[^`]*not a surveillance threshold\.`/);
+  assert.ok(!/suggest stenosis/.test(note.split(': `Stent velocities')[0]), 'the scaled band\'s note does not call a velocity outside it a sign of stenosis');
+  assert.match(dop, /sn === p\.normal && \(v < sn\[0\]/);
+  assert.match(dop, /!\(p\.kind === 'tips' && normal !== p\.normal\) && \(mean < n0/);
   // the stent card's lumen colours, the figure's, the tiles' and the IR tile's
   assert.ok(!/PROBE_NORMAL/.test(read('src/ui/tool-stent.js')) && /stentNormal\(id, d\)/.test(read('src/ui/tool-stent.js')));
   assert.ok(!/v < STENT_RANGE|v > STENT_RANGE/.test(read('src/ui/table-marks.js')), 'the tiles\' rating reads stentCuts');

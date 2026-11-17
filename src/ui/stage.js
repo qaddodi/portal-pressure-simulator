@@ -1350,7 +1350,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // free space, which stays where it is on screen.
   let rotHold = null;
     let rotWhole = null, rotGlide = null;
-  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
+  const { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
   function safeInsets(...a) { return safeInsets$(...a); }   // <stage-split stub>
 
 
@@ -3125,7 +3125,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, CAM_MS_MAX, { scale: true }); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
-    fit, refit, closeView,
+    fit, refit, closeView, cardsMoved,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
@@ -3293,7 +3293,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)), zones: (live.zoneRects || []).map((r) => [r.x0, r.y0, r.x1, r.y1]) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
     /** For the node tests of a stent's drawn waist and pressure colour (tests/stent-waist-figure.test.js): the stent's radius factor along its path (n + 1 samples),
      *  its local losses as the along curve reads them, and the shade version (it moves when what is drawn changes). Reads what the last frame set; draws nothing. */
-    stentDrawn: (id, n = 64) => { const x = E[id]; return x?.stenF ? { k: Array.from({ length: n + 1 }, (_, i) => x.stenF(i / n)), loss: { jet: x.lsJ, ends: x.lsE, at: x.lsAt, dir: x.lsDir }, ver: x.shadeVer | 0, len: geo[id]?.len || 0 } : null; },   // alloc-rare: a test's read, never a frame's
+    stentDrawn: (id, n = 64) => { const x = E[id]; return x?.stenF ? { k: Array.from({ length: n + 1 }, (_, i) => x.stenF(i / n)), loss: { jet: x.lsJ, ends: x.lsE, at: x.lsAt, dir: x.lsDir, jet2: x.lsJ2 || 0, at2: x.lsAt2 || 0 }, ver: x.shadeVer | 0, len: geo[id]?.len || 0 } : null; },   // alloc-rare: a test's read, never a frame's
     labelDims: () => live.dimRects.map((r) => [r.x0, r.y0, r.x1, r.y1, !!r.lab]),   // alloc-rare: a test accessor: the stents' dimension words and bracket as the last live solve kept labels off them, stage px
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     /** For ?lap's restore drill: whether the GPU figure is up and how many times its screen was copied onto the canvas (the frame end's one write; it counts on across a restore). */

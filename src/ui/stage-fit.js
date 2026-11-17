@@ -3,7 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
-import { figureShift, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
+import { figureShift, panInto, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -127,15 +127,45 @@ export function createFit(st, live) {
   function safeInsets(exact = false, skip = null) {
     return { ...insKept(skip ? insSkipKey(exact, skip) : INS_KEY[exact ? 1 : 0], safeInsetsFrom, cardsSnap, exact, skip) };
   }
-  // The room the automatic framing (the fit, the home look, a refit, the circuit's whole map) keeps the figure in. The Tests card does not count in it
-  // (Mohammad, 17 Nov 2026: "opening the Tests card should not zoom to fit", Mac and phone: the figure keeps the same general view and the card lies
-  // over it). Only Fit, pressed on purpose, frames the figure into what the card leaves, and keeps doing so until the card closes (closeView). The
-  // catheter's room and a vessel's reveal still read the real cards (safeInsets), so a measurement keeps its tip clear of the card.
-  let dockCounts = false, dockEl = null;
+  // The room the camera's SIZE is worked out in: the bars and the pills, never the cards (Mohammad, 17 Nov 2026, Mac and phone: opening a card keeps the
+  // zoom). What an open card changes is where the view sits: cardPanVT pans it, so as much as possible of what was in view stays in the room the card
+  // leaves. Only Fit, pressed on purpose, sizes the figure to the room the cards leave (cardsCount), until no card is open (cardsMoved). The catheter's
+  // room and a vessel's reveal read the real cards (safeInsets), so a measurement keeps its tip clear of them.
+  const CARD_IDS = ['dock', 'panel', 'treatCard', 'historyCard'];   // (Tests, Details, Treat, History: index.html)
+  let cardsCount = false, cardEls = null;
   function fIns() {
-    if (dockCounts) return safeInsets();
-    dockEl ||= document.getElementById('dock');
-    return dockEl ? safeInsets(false, [dockEl]) : safeInsets();
+    if (cardsCount) return safeInsets();
+    cardEls ||= CARD_IDS.map((id) => document.getElementById(id)).filter(Boolean);
+    return cardEls.length ? safeInsets(false, cardEls) : safeInsets();
+  }
+  // The view `v` (of view box vbArr, drawn box art in world units) panned, never scaled, so what it shows of the art inside the room the bars leave
+  // (fIns) stays as much as it can inside the room the cards leave (safeInsets), 12 px clear on the sides. `v` is returned as it is when no card
+  // takes room or none of the art is in view.
+  function cardPanVT(v, vbArr, art) {
+    const i0 = fIns(), iR = safeInsets(), { W, H } = iR;
+    if (!W || !H || (i0.l === iR.l && i0.r === iR.r && i0.t === iR.t && i0.b === iR.b)) return v;
+    const [vx, vy, vw, vh] = vbArr, s0 = Math.min(W / vw, H / vh);
+    const ox = (W - vw * s0) / 2 - vx * s0, oy = (H - vh * s0) / 2 - vy * s0;
+    const ax0 = ox + s0 * (v.x + v.k * art[0]), ax1 = ox + s0 * (v.x + v.k * art[2]), ay0 = oy + s0 * (v.y + v.k * art[1]), ay1 = oy + s0 * (v.y + v.k * art[3]);
+    const x0 = Math.max(ax0, i0.l), x1 = Math.min(ax1, W - i0.r), y0 = Math.max(ay0, i0.t), y1 = Math.min(ay1, H - i0.b);
+    if (!(x1 > x0) || !(y1 > y0)) return v;
+    const dx = panInto(x0 - 12, x1 + 12, iR.l, W - iR.r), dy = panInto(y0, y1, iR.t, H - iR.b);
+    return dx || dy ? { k: v.k, x: v.x + dx / s0, y: v.y + dy / s0 } : v;
+  }
+  // The pan a card's opening or closing asks of a view the learner placed (a fitted one is framed again by refit, which pans the same way): from the
+  // place the view had before the last pan of ours (cardBase), so closing the card brings it back, unless the learner has moved it since.
+  let cardBase = null;
+  function cardsMoved() {
+    if (live.lobuleOn) return;
+    snapFresh();
+    if (cardsCount && !cardsSnap.some((c) => cardEls?.includes(c.el))) cardsCount = false;   // (no card is open: Fit's sizing for them is over)
+    if (live.fitted) { cardBase = null; refit(); return; }
+    if (live.cath.saved) return;
+    const cur = live.vtGliding ? live.vtTarget : live.vt, circuit = live.morphTarget === 1;
+    const base = cardBase && sameView(cur, cardBase.at) ? { k: cur.k, x: cur.x - cardBase.dx, y: cur.y - cardBase.dy } : cur;
+    const to = circuit ? cardPanVT(base, circVB(), artBox()) : cardPanVT(base, VB_ANAT, anatBox());
+    cardBase = { at: to, dx: to.x - base.x, dy: to.y - base.y };
+    if (!sameView(to, cur)) animateVT(to, 420, { steady: true });
   }
   function safeInsetsFrom(list, exact = false, skip = null) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
@@ -255,7 +285,7 @@ export function createFit(st, live) {
     return hi > 0 && dy > 0 ? { k: v.k, x: v.x, y: v.y + dy / s0 } : v;
   }
   // The whole map, in the space the cards leave and clear of the zoom pill.
-  const circWhole = () => clearPill(live.rotTarget ? uprightFit() : insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB());
+  const circWhole = () => cardPanVT(clearPill(live.rotTarget ? uprightFit() : insetVT({ k: 1, x: 0, y: 0 }, circVB()), circVB()), circVB(), artBox());
   // The boxes the home framing fits: whole groups as drawn, and each gut organ (in its own transform) with every clipped
   // part cut to its clip path's box.
   // (The boxes are folded into acc [x0, y0, x1, y1] as they are worked out, none kept: the one caller wants only their union. A group's parts
@@ -287,6 +317,25 @@ export function createFit(st, live) {
     }
   }
   const fitAcc = [0, 0, 0, 0];
+  // The anatomy's drawn box in world units (what Fit frames), measured from what is drawn: written into one shared list, read at once.
+  function anatBox() {
+    let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
+    // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
+    // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
+    // and then glide to another a second later.
+    // (A box ignores clip paths, so the gut's art, drawn past Mohammad's outlines and clipped to them, is measured
+    // clipped: fitBoxes. Measured whole, its loose ends pushed the framing off centre.)
+    fitWhole.length = 0; fitWhole.push(gBackdrop);
+    for (let c = gOrgans.firstElementChild; c; c = c.nextElementSibling) if (c !== live.gGut) fitWhole.push(c);
+    fitWhole.push(gAscites);
+    const acc = fitAcc;
+    acc[0] = x0; acc[1] = y0; acc[2] = x1; acc[3] = y1;
+    fitBoxes(fitWhole, gutKids(), acc);
+    x0 = acc[0]; y0 = acc[1]; x1 = acc[2]; y1 = acc[3];
+    y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
+    acc[0] = x0; acc[1] = y0; acc[2] = x1; acc[3] = y1;
+    return acc;
+  }
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -295,20 +344,8 @@ export function createFit(st, live) {
       // (The layout size: the svg's drawn rectangle is scaled while the lobule zoom plays, and a fit read from it lands somewhere else.)
       const sb = stageBox(), rw = sb.sw, rh = sb.sh;   // (the svg's box as kept, measured without the dive's zoom)
       if (!rw || !rh) return { k: 1, x: 0, y: 0 };
-      let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
-      // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
-      // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
-      // and then glide to another a second later.
-      // (A box ignores clip paths, so the gut's art, drawn past Mohammad's outlines and clipped to them, is measured
-      // clipped: fitBoxes. Measured whole, its loose ends pushed the framing off centre.)
-      fitWhole.length = 0; fitWhole.push(gBackdrop);
-      for (let c = gOrgans.firstElementChild; c; c = c.nextElementSibling) if (c !== live.gGut) fitWhole.push(c);
-      fitWhole.push(gAscites);
-      const acc = fitAcc;
-      acc[0] = x0; acc[1] = y0; acc[2] = x1; acc[3] = y1;
-      fitBoxes(fitWhole, gutKids(), acc);
-      x0 = acc[0]; y0 = acc[1]; x1 = acc[2]; y1 = acc[3];
-      y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
+      const ab = anatBox();
+      const x0 = ab[0], y0 = ab[1], x1 = ab[2], y1 = ab[3];
       // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
       // visible too: fit the box into that whole visible area, less what the floating pieces cover.
       const ins = fIns(), tg = ins.W < 768 ? 10 : 0;   // (tg: on a phone the figure's top keeps 10 px clear of the pills, A10)
@@ -319,19 +356,19 @@ export function createFit(st, live) {
       const sw = k * s0 * (x1 - x0) + 24, ox = figureShift(ins, sw, store.get().presenting);
       const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + ox / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t + tg - ins.b) / 2 / s0;
       live.fitKept = k;   // (kept for an arc's widest pull back, arcRoom)
-      return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
+      return cardPanVT({ k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) }, VB_ANAT, ab);
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
-    if (live.rotTarget) return circWhole();
+    if (live.rotTarget) return circWhole();   // (panned for the open cards, in circWhole)
     const ins = fIns();
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
-    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return centreDrawn(clearPill(insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC), VB_CIRC));
+    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return cardPanVT(centreDrawn(clearPill(insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC), VB_CIRC)), VB_CIRC, artBox());
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
-    return insetVT({ k, x: cx - k * fx, y: cy - k * fy }, VB_CIRC);
+    return cardPanVT(insetVT({ k, x: cx - k * fx, y: cy - k * fy }, VB_CIRC), VB_CIRC, artBox());
   }
   // Which framing the circuit was last given ('whole' map or 'focus' close-up: setView, Fit, a refit). The circuit has no home
   // look of its own, so a turn of the device or a new window size takes the same kind of framing again, for the new shape (lookHome).
@@ -343,7 +380,7 @@ export function createFit(st, live) {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (live.lobuleOn) { if (store.get().sinusoid) { setViewKey('lobule'); return; } live.lz.fitView(); return; }
     live.handsOff(); live.handed = false;
-    dockCounts = true;   // (Fit is asked for: the figure goes into the room the open Tests card leaves, see fIns)
+    cardsCount = true;   // (Fit is asked for: the figure is sized to the room the open cards leave, see fIns)
     const circuit = live.morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? circWhole() : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.
@@ -375,7 +412,6 @@ export function createFit(st, live) {
   // looks that follow the card leaving (resize, pps:occ) leave it alone too. Every way of closing it (the Tests button, its
   // close button, Esc, a swipe) comes here, so they all end the same. Gives back true when it fits.
   function closeView() {
-    dockCounts = false;
     if (live.lobuleOn) return false;
     if (live.fitted) return true;
     live.homeAt = null;
@@ -474,5 +510,5 @@ export function createFit(st, live) {
     if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, CAM_MS_MAX, { scale: true });
     revealFrom = revealTo = null;
   }
-  return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
+  return { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
 }

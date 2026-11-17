@@ -1,4 +1,4 @@
-import { profileAt, geomOf, geomFix, isFocal, kindOf } from './stent-geom.js';
+import { profileAt, geomOf, geomFix, kindOf, endOf, endSiteOf } from './stent-geom.js';
 // Vascular network definition (blueprint §7.2).
 //
 // Units: pressure mmHg, flow mL/s, resistance PRU (mmHg·s/mL), compliance mL/mmHg.
@@ -370,24 +370,29 @@ export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
 export const STENT_DOPPLER_K = 3.4;
 export const dopplerK = (e) => (e?.kind !== 'shunt' ? 1 / 0.57 : isStent(e) ? STENT_DOPPLER_K : 2);
 // Stents: the TIPS, the DIPS and the shunts drawn with the stent tool. Each is sampled by Doppler at its portal end
-// (proximal), its middle and its systemic end (distal). A narrowing is a short pinch in one of those three
-// segments (params.stenosisSite, distal by default, where a TIPS usually narrows); the rest of the stent keeps its
-// diameter. The drawn path of a stent runs from its portal end, so STENT_SITES places the pinch along it (0–1).
+// (proximal), its middle and its systemic end (distal). A stent may hold two narrowings (stent-geom.js): an end stenosis, a short
+// pinch at the portal (proximal) or hepatic vein (distal) end (params.stenosisSite, distal by default, where a TIPS usually narrows),
+// and a waist, mid stent (params.stentGeom[id].red over its length). The drawn path of a stent runs from its portal end, so
+// STENT_SITES places them along it (0–1).
 export const STENT_SITES = { proximal: 1 / 6, mid: 0.5, distal: 5 / 6 };
 export const isStent = (e) => e?.kind === 'shunt' && (e.shunt === 'tips' || e.shunt === 'dips' || e.shunt === 'custom');
-// A waist set along the stent (a length other than the short focal one, or tapered ends: stent-geom.js isFocal) is always mid stent, whatever
-// stenosisSite says: the one place every reader (the Doppler gates, the figure, the cards, the labels) takes the site from, so none can put a
-// long waist at an end. A focal stenosis keeps its own site, distal by default (where a TIPS usually narrows).
-export const stentSite = (p, id) => {
+// The end a stent's stenosis sits at: 'proximal' or 'distal' (stent-geom.js endSiteOf; distal if unset). The waist is always mid stent.
+export const stentSite = (p, id) => endSiteOf(p, id);
+// Where a stent's tightest narrowing is: the waist's 'mid' when the waist is the narrower of the two, else the end stenosis's end. The Doppler's
+// 'site' gate (stentGate) reads it, so a slide that samples "the narrowing" samples the tightest one.
+export const tightSite = (p, id) => {
   const g = p?.stentGeom?.[id];
-  if (g && !isFocal(geomFix(g, kindOf(edgeById(id)) || 'tips', SITE_GEOM))) return 'mid';
-  return STENT_SITES[p?.stenosisSite?.[id]] != null ? p.stenosisSite[id] : 'distal';
+  if (g && g.red > 0) {
+    const red = geomFix(g, kindOf(edgeById(id)) || 'tips', SITE_GEOM).red;
+    if (red > endOf(p, id)) return 'mid';
+  }
+  return endSiteOf(p, id);
 };
-const SITE_GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (stentSite's geometry, read at once)
+const SITE_GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (stentSite's geometry, read at once)
 // The thirds of a stent the Doppler gate samples and a slide can highlight (0–1 along its drawn path, from its portal end).
 export const STENT_SPANS = { proximal: [0, 1 / 3], mid: [1 / 3, 2 / 3], distal: [2 / 3, 1] };
-// The segment a Doppler gate names: 'site' follows the stent's narrowing (stentSite); anything else unknown is the mid stent.
-export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : STENT_SPANS[gate] ? gate : 'mid');
+// The segment a Doppler gate names: 'site' follows the stent's tightest narrowing (tightSite); anything else unknown is the mid stent.
+export const stentGate = (gate, p, id) => (gate === 'site' ? tightSite(p, id) : STENT_SPANS[gate] ? gate : 'mid');
 // A stent's velocity at its proximal, mid and distal segments (cm/s), as TIPS Doppler reports it. The same flow
 // passes every point, so velocity goes with 1 / diameter²: v is the velocity in the open stent, and the segment
 // holding a narrowing s (0..1 of the diameter) runs at v / (1 − s)².
@@ -398,29 +403,28 @@ export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : 
 export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
 const STENT_KEYS = ['proximal', 'mid', 'distal'];   // alloc-rare: made once
 // `out` (optional): a list of 3 the numbers are written into and returned, so a drawn frame makes no list; without one a fresh list is made.
-// `g` (optional): the stent's geometry (stent-geom.js geomOf). Each gate then reads the lumen where it sits, v / (D/d)²: a long waist jets at
-// every gate inside it, a gate on a tapered end reads in between, and the open stent reads v. Without one, the narrowing is the short pinch
-// at its site's gate alone (the same numbers as the default geometry gives).
+// `g` (optional): the stent's geometry (stent-geom.js geomOf), its waist (g.red) with it. Each gate then reads the lumen where it sits,
+// v / (D/d)²: the end stenosis jets at its own end's gate, a long waist at every gate inside it, a gate on a tapered end reads in between, and
+// the open stent reads v. Without one, the narrowing is the short pinch at its site's gate alone (the same numbers as the default geometry gives).
 export const stentSegments = (v, s = 0, site = 'distal', out = null, g = null) => {
-  const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
+  const red = g ? g.red || 0 : 0, w = Math.max(0, 1 - Math.max(0, s, red) / 0.3);
   if (!out) out = [0, 0, 0];   // alloc-rare: only a caller that gives no list of its own (a test); the drawn paths pass one
   const narrowed = s > 0 && s < 0.995;
   for (let i = 0; i < 3; i++) {
     const k = STENT_KEYS[i];
     let x = v;
-    if (narrowed && g) { const r = profileAt(g, s, STENT_SITES[site] ?? STENT_SITES.distal, STENT_SITES[k]); if (r < 1) x = v / (r * r); }
+    if (g && (narrowed || red > 0)) { const r = profileAt(g, narrowed ? s : 0, STENT_SITES[site] ?? STENT_SITES.distal, STENT_SITES[k]); if (r < 1) x = v / (r * r); }
     else if (narrowed && k === site) x = v / ((1 - s) * (1 - s));
     out[i] = x * (1 + (STENT_GRADIENT[k] - 1) * w);
   }
   return out;
 };
-/** A stent's three gate velocities from params: its narrowing (stenosis × thrombus), site and geometry, for the stent `id`. */
+/** A stent's three gate velocities from params: its end stenosis (stenosis × thrombus) at its end, its waist and its geometry, for the stent `id`. */
 export const stentReadsOf = (params, id, v, out = null) => {
   const kind = kindOf(edgeById(id));
-  const s = 1 - (1 - (params?.stenosis?.[id] || 0)) * (1 - (params?.thrombus?.[id] || 0));
-  return stentSegments(v, s, stentSite(params, id), out, kind ? geomOf(params, id, kind, READS_GEOM) : null);
+  return stentSegments(v, endOf(params, id), endSiteOf(params, id), out, kind ? geomOf(params, id, kind, READS_GEOM) : null);
 };
-const READS_GEOM = { len: 0, waist: 0, trans: 0 };   // alloc-rare: made once (stentReadsOf's geometry, read at once)
+const READS_GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (stentReadsOf's geometry, read at once)
 let BY_ID = null;
 /** An edge by its id (a map made on the first ask, once every edge, the drawn stents' included, is in EDGES). */
 export const edgeById = (id) => (BY_ID || (BY_ID = new Map(EDGES.map((e) => [e.id, e])))).get(id);   // alloc-rare: made once
