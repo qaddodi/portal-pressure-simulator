@@ -134,3 +134,10 @@ test('the details face\'s head pulls the sheet down, Back button included (play-
   const card = readFileSync(new URL('../src/ui/card.js', import.meta.url), 'utf8');
   assert.match(card, /e\.target\.closest\('input, \.ac-c, \.ad-scroll'\) \|\| \(e\.target\.closest\('button'\) && !e\.target\.closest\('\.ad-head'\)\)/);
 });
+
+test('the chart\'s PPG words keep off the pressure trace (play-test F10)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/tips-figure.js', import.meta.url), 'utf8');
+  assert.match(src, /const hitsTrace = \(y\) =>/);
+  assert.match(src, /setGeo\(pT, 'y', ppgY\)/);
+});

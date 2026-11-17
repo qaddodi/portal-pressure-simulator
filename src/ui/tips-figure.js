@@ -136,6 +136,7 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   const pLineBuf = new Float64Array(2 * NT), pLine = sv('path', { 'data-look': 'tf.line' });
   const gdBuf = new Float64Array(10), guide = sv('path', { 'data-look': 'stent.drop.guide' });
   const sbBuf = new Float64Array(8), sBr = sv('path', { 'data-look': 'tf.brk.stent' }), sT = sv('text', { 'data-look': 'tf.lab.stent', 'text-anchor': 'end', 'font-size': 12 });
+  let ppgPick = 0, usualPick = 0;   // (which spot each chart word keeps: tips-figure's paint)
   const pbBuf = new Float64Array(8), pBr = sv('path', { 'data-look': 'tf.brk.ppg' }), pT = sv('text', { 'data-look': 'tf.lab.ppg', 'text-anchor': 'start', 'font-size': 12 });
   const velKids = [band, bandT, vArea, vLine, ...vDots, titleV, ...tickV], preKids = [pLine, guide, sBr, sT, pBr, pT, titleP, ...tickP];
   const pic = sv('svg', { class: 'gl-pic', viewBox: '0 0 320 100', role: 'img' },
@@ -287,11 +288,17 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     // velocity: the scanner's along the path, the usual range over the stent, a dot at each gate
     const kd = scanK(id), norm = stentNormal(id, T.d), lo = norm ? norm[0] : 90, hi = norm && Number.isFinite(norm[1]) ? norm[1] : 190;
     setGeo(band, 'x', L.x0); setGeo(band, 'width', L.x1 - L.x0); setGeo(band, 'y', yV(hi)); setGeo(band, 'height', Math.max(0, yV(lo) - yV(hi)));
-    setGeo(bandT, 'x', L.x1 - 4); setGeo(bandT, 'y', yV(hi) + 9); setWords(bandT, usualWord(lo, hi));
     for (let i = 0; i <= TRACE_N; i++) { const x = X(o.x[i]), y = yV(o.v[i] * kd); vLineBuf[2 * i] = x; vLineBuf[2 * i + 1] = y; vAreaBuf[2 * i] = x; vAreaBuf[2 * i + 1] = y; }
     vAreaBuf[2 * NT] = X(o.x[TRACE_N]); vAreaBuf[2 * NT + 1] = bot; vAreaBuf[2 * NT + 2] = X(o.x[0]); vAreaBuf[2 * NT + 3] = bot;
     setPts(vLine, vLineBuf, NT, false); setPts(vArea, vAreaBuf, NT + 2, true);
     for (let q = 0; q < 3; q++) { const j = gateIndex(GATES[q], len); setGeo(vDots[q], 'cx', X(o.x[j])); setGeo(vDots[q], 'cy', yV(o.v[j] * kd)); }
+    // (The usual range's words stand at the band's top, right end, else its left end, else just under its top edge, whichever the trace does not run through: play-test F10.)
+    { const uw = usualWord(lo, hi), bw = uw.length * 6.4 + 6, y0 = yV(hi) + 9;
+      const hit = (xa, xb, y) => { for (let i = 0; i <= TRACE_N; i++) { const x = vLineBuf[2 * i]; if (x >= xa && x <= xb && Math.abs(vLineBuf[2 * i + 1] - y) < 8) return true; } return false; };
+      const okR = !hit(L.x1 - 4 - bw, L.x1 - 4, y0), okL = !hit(L.x0 + 4, L.x0 + 4 + bw, y0);
+      if (usualPick === 0 && !okR) usualPick = okL ? 1 : 2; else if (usualPick === 1 && !okL) usualPick = okR ? 0 : 2; else if (usualPick === 2 && (okR || okL)) usualPick = okR ? 0 : 1;   // (it keeps the spot it has while that is clear)
+      const right = usualPick === 0, left = usualPick === 1;
+      setGeo(bandT, 'text-anchor', left ? 'start' : 'end'); setGeo(bandT, 'x', left ? L.x0 + 4 : L.x1 - 4); setGeo(bandT, 'y', right || left ? y0 : y0 + 12); setWords(bandT, uw); }
     const av = ex * (1 - cm), ap = ex * cm;
     for (const e of velKids) setGeo(e, 'opacity', av);
     // pressure: absolute along the path; the PPG and the stent's own drop, two brackets
@@ -306,7 +313,14 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     pbBuf[0] = xg + 4; pbBuf[1] = yP(pv); pbBuf[2] = xg; pbBuf[3] = yP(pv); pbBuf[4] = xg; pbBuf[5] = yP(ivc); pbBuf[6] = xg + 4; pbBuf[7] = yP(ivc); setPts(pBr, pbBuf, 4, false);
     // its words beside it, halfway down (under the portal vein's flat line); a bracket too short for them puts them just under its foot
     const bh = yP(ivc) - yP(pv);
-    setGeo(pT, 'x', xg + 8); setGeo(pT, 'y', bh >= 28 ? (yP(pv) + yP(ivc)) / 2 : yP(ivc) + 10); setWords(pT, ppgWord(T.ppg));
+    // (Its words stand where the trace is not: halfway down, else just above the IVC's guide, else under it. The trace's own drop ran through them on a phone, play-test F10.)
+    const pw = ppgWord(T.ppg), tx0 = xg + 8, tx1 = tx0 + pw.length * 7.2 + 4;
+    const hitsTrace = (y) => { for (let i = 0; i <= TRACE_N; i++) { const x = pLineBuf[2 * i]; if (x < tx0 - 2 || x > tx1) continue; const ty = pLineBuf[2 * i + 1]; if (Math.abs(ty - y) < 9) return true; } return false; };
+    const yIvc = yP(ivc), cand = [(yP(pv) + yIvc) / 2, yIvc - 9, yIvc + 10];
+    const keep = ppgPick < cand.length && !hitsTrace(cand[ppgPick]) ? ppgPick : cand.findIndex((y) => !hitsTrace(y));   // (the spot it has stays while it is clear, so it never hops about as a slider moves)
+    ppgPick = keep < 0 ? 0 : keep;
+    const ppgY = bh < 28 ? yIvc + 10 : cand[ppgPick];
+    setGeo(pT, 'x', tx0); setGeo(pT, 'y', ppgY); setWords(pT, pw);
     for (const e of preKids) setGeo(e, 'opacity', ap);
   }
 
