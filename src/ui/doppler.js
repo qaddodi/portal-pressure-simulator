@@ -605,7 +605,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       // (A stent of 8 to 10 mm is read against the reported range. Another diameter has a band the app scaled, which no study validates: its words say where the reading sits
       // against that model band, and its tone stays neutral, never "Patent" or "High velocity", never amber.)
       const model = normal !== p.normal, redJet = !none && !jsS.slow && jet > hiV && reductionOnly(sr, hiV);
-      pattern = none ? 'Occluded' : redJet ? 'Jet at the reduction' : model ? (jsS.slow ? (jet > hiV ? 'Below model band, jet' : 'Below model band') : jet > hiV ? 'Above model band' : 'Within model band')
+      pattern = none ? 'Occluded' : redJet ? 'Reduction jet' : model ? (jsS.slow ? (jet > hiV ? 'Under band, jet' : 'Under band') : jet > hiV ? 'Over band' : 'In band')
         : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
       if ((model || redJet) && sev === 'caution') sev = 'ok';
       else if (sev === 'ok' && jet > hiV) sev = 'caution';
@@ -933,7 +933,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     hepatic: [['Toward the heart', 'Reversed'], ['Large reversal', 'Triphasic', 'Biphasic', 'Monophasic'], 2],
     ivc: [['Toward the heart', 'Reversed'], ['Phasic, with reversal', 'Phasic', 'Continuous'], 2],
     artery: [['Antegrade', 'Reversed'], ['Resistive index 0.00'], 3],
-    tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent'], 3],
+    tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent', 'Reduction jet', 'Under band, jet', 'Under band', 'Over band', 'In band'], 3],
     collateral: [['Portal → systemic', 'Systemic → portal'], ['No signal', 'Open collateral'], 2],
   };
   function stripWords() {

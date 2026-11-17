@@ -66,7 +66,7 @@ const TILES = [
   { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
     v: (m, st) => st?.vPeak ?? null,
     // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
-    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : v > r[1] && reductionJetIn(st, r[1]) ? 'Reduction jet' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : v > r[1] && reductionJetIn(st, r[1]) ? 'Reduction jet' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'In band' : v < r[0] ? 'Under band' : 'Over band'; },
     sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v > r[1] && reductionJetIn(st, r[1])) && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
@@ -87,7 +87,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
 
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent' });
   const line = h('span', { class: 'ir-line' });
-  const editor = createStentEditor({ id: which });
+  const editor = createStentEditor({ id: which, lead: true, compact: true });   // (the lead: a vessel card's editor folds to a line while this one is shown)
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
@@ -115,6 +115,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     if (v === 'tips') showStent(); else crv.stop();
+    editor.setShown(active && v === 'tips');
     onChange();
     if (frame) update(frame);
   }
@@ -230,6 +231,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (on === active) return;
     active = on;
     crv.setActive(on);
+    editor.setShown(on && view === 'tips');
     if (on && frame) update(frame);
   }
   host.append(el);

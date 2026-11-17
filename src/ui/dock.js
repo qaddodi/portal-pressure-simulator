@@ -35,6 +35,7 @@ import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_A
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { caught } from './caught.js';
+import { handOver } from './hand-over.js';
 import { reduceMotionMQ, afterMs } from './motion.js';
 import { fibroReading } from './clock.js';
 const nextFrame = frameFor('dock');
@@ -979,6 +980,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function close() {
     cancelStage(); endPick(); app.classList.remove('instrument-focus');
     onClose();
+    // (Every pane is told it is out of sight: its feed and its sweep stop, and the Tests view's stent editor gives the vessel card its chips back, F39.
+    // Opening again lays the panes out, which tells the open ones they are shown.)
+    for (const p of panes) p.shown?.(false);
     onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
@@ -1114,7 +1118,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // (One look at the size per frame, between frames: a window edge dragged on a Mac fires dozens of resize events a second, and each
   // was a forced style and layout pass of the page, some a write then a read.)
   let sizeAsk = 0;
-  const sizePass = () => { sizeAsk = 0; updateSize(); layout(); };
+  // (A turn of the device hands the card from its side layout to its sheet or back: it is laid out again at the new size, scrolled back to its top, F35.)
+  const placed = {};
+  const sizePass = () => {
+    sizeAsk = 0; updateSize(); layout();
+    handOver(placed, isSide() ? 'side' : 'sheet', [workspace.querySelector('.dock-body'), ...panes.map((p) => p.el), ...panes.map((p) => p.el.querySelector(':scope > .instrument-view'))]);
+  };
   addEventListener('resize', () => { if (!sizeAsk) sizeAsk = restPass(sizePass); });
   setState('open'); updateSize(); layout();
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
