@@ -34,6 +34,7 @@ export function liverRes(P, Q) {
 // (The stent readings that are a card's own, beside the geometry thread's tipsFlow, tipsDp, tipsVw, tipsFric and tipsLocal (mmHg): null for a stent that is not in.)
 const stentTiles = (k, t) => ({
   [`${k}Bench`]: t ? t.bench : null, [`${k}Vel`]: t ? t.vPeak : null, [`${k}Lumen`]: t ? t.dWaist : null,
+  [`${k}Stn`]: t ? t.end : null, [`${k}Red`]: t ? t.red : null, [`${k}StnSite`]: t ? t.site : null,   // (its end stenosis and where, and its deliberate waist: whose jet each Doppler gate reads, stent-geom.js gateKindsOf)
   [`${k}D`]: t ? t.d : null,   // (its open diameter in mm: the range its peak velocity is read against follows it, stent-geom.js stentBand)
   // (The stent cards' own: the three Doppler points as the scanner reads them, and the drop's four parts: tract, wall friction, the two ends, the narrowing's jet.)
   [`${k}G0`]: t ? t.peaks[0] : null, [`${k}G1`]: t ? t.peaks[1] : null, [`${k}G2`]: t ? t.peaks[2] : null,
