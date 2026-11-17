@@ -31,6 +31,15 @@ export function liverRes(P, Q) {
   return 1 / g;
 }
 
+// (The stent readings that are a card's own, beside the geometry thread's tipsFlow, tipsDp, tipsVw, tipsFric and tipsLocal (mmHg): null for a stent that is not in.)
+const stentTiles = (k, t) => ({
+  [`${k}Vel`]: t ? t.vPeak : null, [`${k}Lumen`]: t ? t.dWaist : null,
+  // (The stent cards' own: the three Doppler points as the scanner reads them, and the drop's four parts: tract, wall friction, the two ends, the narrowing's jet.)
+  [`${k}G0`]: t ? t.peaks[0] : null, [`${k}G1`]: t ? t.peaks[1] : null, [`${k}G2`]: t ? t.peaks[2] : null,
+  [`${k}Tract`]: t ? t.parts.tract : null, [`${k}Wall`]: t ? t.parts.wall : null, [`${k}Ends`]: t ? t.parts.entry : null, [`${k}Jet`]: t ? t.parts.jet + t.parts.inlet : null,
+  [`${k}LocalPct`]: t && t.dp > 0.05 ? (100 * (t.parts.entry + t.parts.jet + t.parts.inlet)) / t.dp : t ? 0 : null,
+  ...(k === 'dips' ? { dipsFlow: t ? t.flow : null, dipsDp: t ? t.dp : null } : null),
+});
 /** The fingerprint of model metrics `m` (computeMetrics). `P`, `Q`, `D`: the network as it stood (pressures and flows smoothed,
  *  diameters, in the topology's order), kept as the fingerprint's `at`, so a slide's callouts and figure labels read its numbers as the
  *  tiles do: the same on every screen (`copy`: as copies, for arrays the engine goes on writing). `params`: the patient's settings
@@ -56,6 +65,9 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
     // mean velocity (cm/s), and the drop its friction (tract and wall) and its local losses (entrance, exit, the waist's jet and inlet) take. null without one.
     tipsFlow: m.tips ? m.tips.flow : null, tipsDp: m.tips ? m.tips.dp : null, tipsVw: m.tips ? m.tips.vWaist : null,
     tipsFric: m.tips ? m.tips.parts.tract + m.tips.parts.wall : null, tipsLocal: m.tips ? m.tips.parts.entry + m.tips.parts.jet + m.tips.parts.inlet : null,
+    // The stents as a card or tile reads them (the stent cards, src/ui/tool-stent.js): the highest of the three Doppler points (cm/s, the Doppler card's
+    // own reads), the narrowest lumen (mm) and the local losses' share of the pressure across it (%), for the TIPS and for the DIPS.
+    ...stentTiles('tips', m.tips), ...stentTiles('dips', m.dips),
     lymphCap: a.lymphCap, lymphOver: fluid?.excess, lymphBack: fluid ? fluid.bulk + fluid.water : undefined, lymphNet: fluid?.net,
     clot: +params?.thrombus?.PV_TRUNK || 0,
     at };

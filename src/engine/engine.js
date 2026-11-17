@@ -1,7 +1,7 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, JUNCTION_CHAINS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
+import { NODES, EDGES, JUNCTION_CHAINS, dopplerK, dMinOf, edgePresent, isOccluded, partOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, stentReadsOf } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
@@ -1535,6 +1535,11 @@ export class Engine {
     o.kind = kind; o.d = d; o.s = s; o.dWaist = d * (1 - s); o.q = q; o.flow = q * 0.06;
     o.dp = P[this.edgeF[k]] - P[this.edgeT[k]];
     o.vOpen = q / A; o.vWaist = s > 0 ? q / (A * (1 - s) * (1 - s)) : q / A;
+    // The three Doppler points as the scanner reads them (the card's own numbers, stentReadsOf: the open stent's mean × dopplerK at each gate, the
+    // narrowing's jet where the waist lies) and the highest of them, the stent's peak velocity: the tile and the Doppler cannot differ.
+    const peaks = o.peaks || (o.peaks = [0, 0, 0]);   // alloc-rare: made with the record
+    stentReadsOf(p, id, Math.abs(q) / (Math.PI * (this.diameter(id) / 10) * (this.diameter(id) / 10) / 4) * dopplerK(e), peaks);
+    o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
     return o;
   }
 

@@ -19,6 +19,7 @@ import { FOREST } from './forest.js';
 import { STIFF } from './stiff.js';
 import { SAAG } from './saag.js';
 import { SHIFT } from './shift.js';
+import { STENT } from './stent.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -41,6 +42,7 @@ export const LOOKS = {
   ...STIFF,
   ...SAAG,
   ...SHIFT,
+  ...STENT,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */

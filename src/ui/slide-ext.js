@@ -26,8 +26,9 @@ import panels from './ext-panels.js';
 import callouts from './ext-callouts.js';
 import instruments from './ext-instruments.js';
 import teaching from './ext-teaching.js';
+import stent from './ext-stent.js';
 
-export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
+export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching, S: stent };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];
 const LISTS = ['organs', 'steps', 'figure', 'labels'];
 // The extra work a step may ask of the worker (worker-core.js 'sequence'); anything else a step function returns is dropped,
