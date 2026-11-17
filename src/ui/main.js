@@ -1240,6 +1240,8 @@ let tipShape = '', tipVals = [], tipPlace = '';
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned.
 let cmpWatched = false;
+let cmpOccN = -1, cmpOccS = '0px';
+const CMP_OCC = (n) => { if (n !== cmpOccN) { cmpOccN = n; cmpOccS = `calc(${n}px + (min(1px, max(0px, 100vw - 1023px)) * 30))`; } return cmpOccS; };   // alloc-rare: made when the header's height changes
 let cmpHNum = 0, cmpHStr = '0px';   // (the header's height as written, and as text: made again only when the height changes)
 function syncCmpH() {
   const c = $('#stageCenter');
@@ -1252,6 +1254,10 @@ function syncCmpH() {
     v = cmpHStr;
   }
   if (app.style.getPropertyValue('--cmp-h') !== v) app.style.setProperty('--cmp-h', v);
+  // (The room the cards on the right leave above them while a moment is pinned: the switch, and on a wide screen the "Showing" pill's row under it
+  // (styles .cmp-badge, 24 px and its gap), kept whether or not the pill shows, so Then and Now never move a card.)
+  const occ = v === '0px' ? '0px' : CMP_OCC(cmpHNum);
+  if (app.style.getPropertyValue('--cmp-occ') !== occ) app.style.setProperty('--cmp-occ', occ);
 }
 // (Scrolled between frames, rest-pass.js: scrollIntoView lays the page out.)
 const SCROLL_CMP = { block: 'start', behavior: 'auto' };   // (options read by scrollInto at once: the behaviour is written before each use)
