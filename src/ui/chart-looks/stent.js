@@ -67,4 +67,17 @@ export const STENT = {
   'stent.tr.area.pressure': area('accent'), 'stent.tr.area.energy': area('flow-reversed'), 'stent.tr.area.velocity': area('ramp-violet'),
   'stent.tr.line.pressure': line('accent'), 'stent.tr.line.energy': line('flow-reversed'), 'stent.tr.line.velocity': line('ramp-violet'),
   'stent.tr.dot.pressure': dotOn('accent'), 'stent.tr.dot.energy': dotOn('flow-reversed'), 'stent.tr.dot.velocity': dotOn('ramp-violet'),
+  // ── the TIPS figure (tips-figure.js, 17 Nov 2026 mock): one accent for what is the stent's own drop, the rest in the text's greys ──
+  'tf.vein.pre': { base: { stroke: 'none' } },   // (the veins in the pressure lens: their fill is the piece's own gradient)
+  'tf.word': { base: { fill: tok('text-2'), weight: 500, halo, baseline: 'central' } },
+  'tf.num': { base: { fill: tok('text'), weight: 600, halo, baseline: 'central' } },
+  'tf.band': { base: { fill: mix('srgb', tok('ok'), 13, 'transparent'), stroke: 'none' } },
+  'tf.line': { base: { fill: 'none', stroke: tok('text'), width: 1.8, cap: 'round', join: 'round' } },
+  'tf.area': { base: { fill: mix('srgb', tok('text'), 5, 'transparent'), stroke: 'none' } },
+  'tf.dot': { base: { fill: tok('text'), stroke: tok('surface'), width: 1.5 } },
+  'tf.energy': { base: { fill: 'none', stroke: tok('text-3'), width: 1.2, dash: [3, 4], cap: 'butt', join: 'round' } },
+  'tf.brk.stent': { base: { fill: 'none', stroke: tok('accent'), width: 1.4, cap: 'butt', join: 'miter' } },
+  'tf.brk.ppg': { base: { fill: 'none', stroke: tok('text'), width: 1.4, cap: 'butt', join: 'miter' } },
+  'tf.lab.stent': { base: { fill: tok('accent-ink'), weight: 600, halo, baseline: 'central' } },
+  'tf.lab.ppg': { base: { fill: tok('text'), weight: 600, halo, baseline: 'central' } },
 };
