@@ -457,7 +457,7 @@
 .stent-editor:not([data-open=""]) .se-chips, .stent-editor .se-strip { opacity: 0; pointer-events: none; }
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"],
 .stent-editor[data-open="waist"] .se-strip[data-strip="waist"], .stent-editor[data-open="len"] .se-strip[data-strip="len"] { opacity: 1; pointer-events: auto; }
-.stent-editor .se-chip { flex: 1 1 0; min-width: 0; height: 30px; display: flex; align-items: baseline; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; font: 500 12px/28px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
+.stent-editor .se-chip { flex: 1 1 auto; min-width: 0; height: 30px; display: flex; align-items: baseline; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; overflow: hidden; font: 500 12px/28px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
 .stent-editor .se-chip:hover { border-color: var(--accent-line); }
 .stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .stent-editor .se-chip-n { flex: none; color: var(--text-3); font-weight: 600; }
