@@ -347,24 +347,24 @@
    --label-halo under the words), with a 1 px leader to the vein. Its glass is only that leader (callout.js bare), never frosted (stage.js). */
 .cath-label.site.split::before { display: none; }
 .cath-label.site.split small { display: none; }
-.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; line-height: 1.2; color: var(--text); }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 2px; font-size: calc(11.5px * min(var(--label-scale, 1), 1.7)); line-height: 1.2; color: var(--text); }
 .cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; display: flex; align-items: baseline; }
 .cath-label.site.split em { font-style: normal; }
-.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 25px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 1.5em; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
 .cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
 .cath-label.site.split .sp-pc { color: var(--sp-t); -webkit-text-stroke: 4px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-w { margin-left: 6px; font-size: 13.5px; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; font-weight: 600; }
-.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2.5px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-w { margin-left: 4px; font-size: 1em; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 6px; font-size: .88em; font-weight: 600; }
+.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
 .cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { display: none; }
-.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 96px; margin: 1px 0 0; }
+.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 6.4em; margin: 1px 0 0; }
 .cath-label.site.split .sp-bar i { border-radius: 1px; flex-basis: 0; flex-shrink: 1; }
 .cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
 .cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: none; }
 .cath-label.site.split b + span { display: none; }
-@media (max-width: 600px) { .cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 22px; } .cath-label.site.split .sp-w { font-size: 12.5px; } }
-/* The bare callout's glass: its leader line only, no tint and no outline round a card (the callouts' base and the no-glass fallbacks fill every glass). */
-.cl-glass.cl-bare, :root:root .cl-glass.cl-bare:not([data-gl]) { background: none; box-shadow: none; }
+/* The bare callout's leader (callout.js bare): a child that only carries the line's picture, over nothing: never a .cl-glass, so no tint, fill or
+   frost rule of the glass reaches it, and it has no background of its own. It fades with the words (--lo, every callout child's opacity). */
+.cl-leader { position: absolute; z-index: -1; pointer-events: none; background: none; }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
 .cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
   translate: -50% calc(-100% - 12px); }   /* (no CSS halo: the figure's words are outlined one way, by the GPU label path; review CSS-16, owner 15 Nov 2026) */
