@@ -298,7 +298,11 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const put = (tk, bk) => { live.ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); live.ui.text.style.setProperty('--pz-bk', bk); live.ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(live.ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
+      // (Regular only, 17 Nov 2026, Mohammad: "Fix this issue everywhere": the words never step down for the data card's height. The data card's blocks step
+      // smaller, its instrument folds behind Show, its own fit does the rest. Only a phone held sideways, where no room is left, still steps the words down.)
+      const sw = H <= SIDEWAYS_MAX_H * k;
+      const step = () => (sw ? put(WIDE.title, WIDE.words) : put(1, 1));
+      const title = () => put(1, 1) || (sw && put(WIDE.title, WIDE.words));
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const foldH = (s) => colHeight(cw / k, s);
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -308,8 +312,8 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const ladder = () => {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
-        for (const s of DK) { if (below) break; stepDk(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
+        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = step(); } return; }
+        for (const s of DK) { if (below) break; stepDk(s); below = step(); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
       // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
@@ -320,7 +324,7 @@ export function createLadders(st, live) {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         for (const n of [1, 2]) {
           trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); stepDk(1);
-          below = put(WIDE.title, WIDE.words);
+          below = step();
           if (!below && n === 2) ladder();
           if (below) return;
         }
@@ -339,9 +343,9 @@ export function createLadders(st, live) {
         dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
         below = title();
         if (!below) ladder();
-        if (!below) squeeze();
+        if (!below && sw) squeeze();   // (the title one step down and the CAUSES line gone: only a phone on its side)
         if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); live.ui.text.classList.remove('pz-nocauses'); stepDk(1); below = title(); if (!below) ladder(); }
-        if (!below && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
+        if (!below && sw && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
         // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
         // makes the rest fit its room.)
@@ -362,7 +366,7 @@ export function createLadders(st, live) {
           fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
           below = true;
         }
-        if (!below) { put(WIDE.title, WIDE.words); below = true; }
+        if (!below) { step(); below = true; }
       }
       // (A phone on its side where the pair is still a few px too tall at the words' last step: the pair rises into its top margin (never closer than 4 px
       // to the top) rather than the data card's chart being cut off by its cap, 16 Nov 2026, play-test. A cut-off chart is a bug; a thinner margin is not.)
