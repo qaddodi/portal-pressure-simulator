@@ -36,5 +36,5 @@ export default [
   { file: 'src/ui/dock-sheet.js', need: [/testsHalfPx\(R, TESTS_HALF_PX, vesselCard\(\)\)/, `${W} a vessel's card above leaves the figure its band (F46)`] },
   { file: 'src/ui/card.js', need: [/document\.documentElement\.classList\.toggle\('vessel-card', on\);/, `${W} the page knows the vessel's card is up (F46)`] },
   { file: 'styles/app-03-layouts.css', need: [/\.app\.dock-open:not\(\.instrument-focus\) \.action-card\.docked \{ min-height: 0; height: 56px; overflow: hidden; \}/, `${W} with Tests open the vessel's card is a 56 px strip (F46)`] },
-  { file: 'styles/app-03-layouts.css', need: [/@media \(max-width: 767px\) \{ \.app\.dock-open:not\(\.instrument-focus\) \.action-card\.docked \{ height: 0; visibility: hidden;/, `${W} on a phone the vessel's card steps aside while Tests is open (F51)`] },
+  { file: 'styles/app-03-layouts.css', need: [/@media \(max-width: 699px\) \{ \.app\.dock-open:not\(\.instrument-focus\) \.action-card\.docked \{ height: 0; visibility: hidden;/, `${W} on a phone the vessel's card steps aside while Tests is open (F51)`] },
 ];

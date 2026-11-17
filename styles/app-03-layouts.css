@@ -283,7 +283,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body { overflow: hidden; padding-top: 0; padding-bottom: 0; justify-content: center; height: 100%; }
 .app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body > :not(.ac-nr) { display: none; }
 /* (F51, iPhone: even the strip left about 25 px of the stent above the sheet. On a phone the card steps aside while Tests is open: the stent is panned into the band above the sheet, and the card is back when Tests closes.) */
-@media (max-width: 767px) { .app.dock-open:not(.instrument-focus) .action-card.docked { height: 0; visibility: hidden; border-width: 0; } }
+@media (max-width: 699px) { .app.dock-open:not(.instrument-focus) .action-card.docked { height: 0; visibility: hidden; border-width: 0; } }
 /* How it comes and goes (B): on the shelf it slides in 16 px from the left as it fades in and fades back 8 px toward the edge; on a phone
    it rises 24 px and sinks 16 px. The plate (the glass) and the words move together; the box holds still so the leave ends on it. */
 .action-card > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }
