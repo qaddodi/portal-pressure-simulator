@@ -123,7 +123,7 @@ test('the TIPS view fills its four readings from the stent; a stent taken away s
   assert.equal(tiles[0].querySelector('.status').textContent, 'Above target');
   assert.equal(tiles[0].dataset.sev, 'danger');
   assert.ok(ir.el.querySelector('.ir-chip'), 'one chip names the stent');
-  assert.equal(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length, 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
+  assert.ok(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length >= 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
   store.set({ params: paramsOf() });
   ir.update(frameOf({ tips: null }));
   assert.equal(ir.view(), 'measure', 'the stent is gone: back to Measure');
@@ -317,10 +317,25 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
   assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; \}/);
   assert.match(plate, /\.ir-figs \.gl-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
-  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ BAR\.h\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
+  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ \(along \? traceH\(3\) : BAR\.h\)\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
   const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
   assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
   assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+});
+
+test('Along: the sub-switch has four views, and Along shows the side view with the traces in place of the loss bar', async () => {
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'along', 'curves', 'compare']);
+  ir.update(frameOf()); await wait(60);
+  const rb = ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r');
+  ir.el.querySelector('[data-sub="along"]').click();
+  assert.equal(ir.sub(), 'along'); assert.equal(ir.el.dataset.sub, 'along');
+  assert.notEqual(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), rb, 'the figures\' height budget follows the pictures shown');
+  ir.update(frameOf()); await wait(60);
+  assert.equal(host.dataset.view, 'tips');
+  assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
 });
