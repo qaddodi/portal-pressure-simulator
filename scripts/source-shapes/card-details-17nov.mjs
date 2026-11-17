@@ -25,6 +25,8 @@ export default [
   { file: 'src/ui/card.js', need: [/trigger\(n\) \{ if \(detOpen\) return false;/, `${W} the number keys do not press the hidden face`] },
   { file: 'src/ui/card.js', need: [/e\.target\.closest\('input, button, \.ac-c, \.ad-scroll'\)/, `${W} a phone's pull-down starts on the head, never on the scrolling view`] },
   { file: 'styles/app-03-layouts.css', need: [/\.ac-body, \.ac-ghost, \.ac-details \{ position: absolute; inset: 0;/, `${W} the details are laid over the face's own box: the card's height never changes`] },
+  { file: 'styles/app-03-layouts.css', need: [/\.action-card\.docked\.ac-scroll > \.ac-details \{ touch-action: pan-y; \}/, `${W} on a phone the details face takes the vertical touch when it is taller than its room (the face's own rule), or its scroller never gets the swipe`] },
+  { file: 'src/ui/card.js', need: [/detOpen \? ':scope > \.ac-details > \.ad-scroll' : ':scope > \.ac-body'/, `${W} ac-scroll measures the face that shows: the details' scroller while they are open`] },
   { file: 'styles/app-03-layouts.css', need: [/\.ad-scroll \{[^}]*overflow-x: hidden; overflow-y: auto;/, `${W} a taller view scrolls up and down inside the box, never sideways`] },
   { file: 'styles/app-03-layouts.css', need: [/\.ac-body\.ac-under \{ visibility: hidden; pointer-events: none; \}/, `${W} the face under the details takes no taps`] },
 ];

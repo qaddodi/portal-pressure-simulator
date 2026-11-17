@@ -237,7 +237,8 @@ export function createCard({ view, stage, ctx, onWhy }) {
     liftButtons(open ? `${covered + 6}px` : '0px');
     stripState(open && !el.classList.contains('ac-leaving'));
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
-    const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
+    // (While the details are open the face under them is not what is touched: the details' own scroller is the one measured, so tall details take the vertical touch too.)
+    const body = open ? el.querySelector(detOpen ? ':scope > .ac-details > .ad-scroll' : ':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
     // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
     const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
@@ -312,6 +313,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
       a.finished.then(() => { if (detDone === done) done(); }, () => {});
     }
     d.focus();
+    reveal();   // (the details' room is measured once they stand: tall ones scroll, and take the vertical touch)
   }
   function closeDetails() {
     if (!detOpen || !det) return;
@@ -325,6 +327,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const done = () => { detDone = null; if (det === d) dropDetails(); };
     detDone = done;
     a.finished.then(() => { if (detDone === done) done(); }, () => {});
+    reveal();   // (the face is back: its own height decides again whether the card scrolls)
   }
 
   // The direction word crossfades to a new one (its colour easing with it); a card with no bar has its one reading beside it, whose

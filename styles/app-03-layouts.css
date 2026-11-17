@@ -293,6 +293,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card.docked.ac-scroll > .ac-body { touch-action: pan-y; }   /* (set by card.js only while the words are taller than the room: a pull down still puts a card that fits away) */
 .action-card.docked :is(.ac-body, .ac-ghost, .ac-details) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
 .action-card.docked .ac-name { font-size: 16px; }
+.action-card.docked.ac-scroll > .ac-details { touch-action: pan-y; }   /* (the same rule for the details face: card.js sets ac-scroll while whichever face shows is taller than its room, so tall details scroll up and down by touch, never sideways) */
 /* With Measure / Instruments open on a phone the card rises above the sheet. */
 .app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); --ac-max: calc(100% - var(--bot-occ, 0px) - var(--top-safe, 56px) - 56px); }
 /* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
