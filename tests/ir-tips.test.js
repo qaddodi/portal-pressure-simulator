@@ -233,6 +233,8 @@ test('Curves: the tool a stent and a setting give is the deck\'s own curve, two 
   assert.equal(ls[0].c, ls[1].c, 'one reading, one colour: the dashes say which state');
   assert.equal(ls[0].name, 'In the patient'); assert.match(ls[1].name, new RegExp(`Tube alone, ${BENCH_DP} mmHg`));
   for (const s of SWEEPS) { const xs = curveXs(curveToolOf('TIPS', s)); assert.ok(xs.length >= 5 && xs.length <= 41, `${s}: ${xs.length} points`); assert.equal(curveSteps(curveToolOf('TIPS', s)).length, xs.length); }
+  // (The Tube vs patient sweep over the waist length walks the slider's own 0.5 cm step, none to 6 cm: no waist off its grid anywhere; coordinator, 17 Nov.)
+  for (const id of ['TIPS', 'DIPS']) assert.deepEqual(curveXs(curveToolOf(id, 'waist')), Array.from({ length: 13 }, (_, k) => k * 0.5), `${id}: the waist sweep's points`);
 });
 
 test('Curves: a waist length changes nothing for a stent with no narrowing, and the view says so; the other two settings always matter', () => {

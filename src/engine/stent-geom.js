@@ -50,6 +50,9 @@ export const TAPER_CM = 1;
 export const WAIST_STEP = 0.5;
 /** A waist length as it is printed: on the slider's step. */
 export const waistShown = (cm) => Math.round(cm / WAIST_STEP) * WAIST_STEP;
+/** The waist a stent of length `len` has when nothing sets one: PINCH of its length on the waist's step (1 cm of an 8 cm TIPS or DIPS, 1.5 cm of a
+ *  drawn 10 cm stent, never the 1.25 cm that was off the slider's grid; coordinator, 17 Nov), at least one step. */
+export const waistDefault = (len) => Math.max(WAIST_STEP, waistShown(PINCH * len));
 /** Ranges (cm). The waist and both transitions always fit inside the stent (geomOf). */
 export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0, 0.95] };
 /** The waist the stent card offers: up to 80 % of the diameter (the model takes up to GEOM_RANGE.red, as a stenosis's 95 %). */
@@ -66,10 +69,10 @@ export const tractOf = (kind) => KIND[kind]?.tract ?? 0;
 
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
-/** A stent's geometry when none is set: its length, no waist (red 0; were one set, PINCH of the length long with abrupt ends). */
+/** A stent's geometry when none is set: its length, no waist (red 0; were one set, waistDefault of the length long with abrupt ends). */
 export const geomDefault = (kind, out = null) => {
   const len = KIND[kind]?.len ?? 8, o = out || {};   // alloc-rare: only a caller that brings no record (a test, a card's setter)
-  o.len = len; o.waist = PINCH * len; o.trans = 0; o.red = 0;
+  o.len = len; o.waist = waistDefault(len); o.trans = 0; o.red = 0;
   return o;
 };
 
@@ -78,7 +81,7 @@ export function geomFix(g, kind, out = null) {
   const d = KIND[kind]?.len ?? 8, o = out || {};   // alloc-rare: only a caller that brings no record
   const len = clamp(num(g?.len, d), GEOM_RANGE.len[0], GEOM_RANGE.len[1]);
   const trans = clamp(num(g?.trans, 0), 0, Math.min(GEOM_RANGE.trans[1], len / 2));
-  const waist = clamp(num(g?.waist, PINCH * len), 0, Math.min(GEOM_RANGE.waist[1], len - 2 * trans));
+  const waist = clamp(num(g?.waist, waistDefault(len)), 0, Math.min(GEOM_RANGE.waist[1], len - 2 * trans));
   o.len = len; o.waist = waist; o.trans = trans; o.red = clamp(num(g?.red, 0), GEOM_RANGE.red[0], GEOM_RANGE.red[1]);
   return o;
 }
