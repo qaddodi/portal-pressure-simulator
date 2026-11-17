@@ -63,7 +63,7 @@ const P_BODY = { class: 'ac-body' }, P_NR = { class: 'ac-nr' }, P_NAME = { class
 const P_SP = { class: 'ac-sp' }, P_EL = { class: 'ac-el' }, P_EL_R = { class: 'ac-el r' }, P_DV = { class: 'ac-dv' }, P_PA = { class: 'ac-pa' }, P_PB = { class: 'ac-pb' };
 const P_TRACK = { class: 'ac-track', 'aria-hidden': 'true' }, P_RAMP = { class: 'ac-ramp' };
 const P_RS = { class: 'ac-rs' }, P_R = { class: 'ac-r' }, P_EM = { class: 'ac-em' }, P_RV = { class: 'ac-rv' }, P_U = { class: 'ac-u' };
-const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' };
+const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' }, P_PANEL = { class: 'ac-panel' };
 const P_UNMEASURED = { class: 'ac-unmeasured' }, P_UNIT = { class: 'unit' }, P_DELTA_UP = { class: 'ac-delta up' }, P_DELTA_DOWN = { class: 'ac-delta down' }, P_DELTA_NONE = { class: 'ac-delta' };   // (the delta's slot is always there, empty when there is no change: see .ac-delta, app.css)
 const P_ABOUT = { class: 'ac-about' };
 const P_CTLTOP = { class: 'ctl-top' }, P_CTLNAME = { class: 'ctl-name' }, P_CTLVAL = { class: 'ctl-val' };
@@ -97,7 +97,7 @@ const RAMP_TOP = 30;
 // The cut colour of a gradient (HVPG, PPG) as a class: ok, caution, danger.
 const CUT_CLS = { ok: 'ac-cut ok', caution: 'ac-cut caution', danger: 'ac-cut danger' };
 // What each kind of control takes of the card (a segmented choice is two cells); a card with more than SMALL_CELLS is the tall size.
-const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2 };
+const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 3 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
 const SMALL_CELLS = 2;
 const CTL = new Set(['slider', 'toggle', 'meter', 'seg']), ACT = new Set(['button', 'dye', 'link']), READ = new Set(['read', 'stat']);
 
@@ -157,6 +157,7 @@ export function cardShape(m, p) {
     else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
     else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
     else if (v.type === 'about') about = 1;
+    else if (v.type === 'panel') { c += 3; seg++; }   // (a panel's one row: its height as a choice's)
   }
   return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
 }
@@ -181,7 +182,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // params (_acK 1 a slider, 2 a switch); actionable: what the number keys reach, in order. Kept lists, emptied (length 0) and filled
   // again when the card is rebuilt.
   let lastSelTok = [], newSelTok = [], model = null, selRef = null;
-  const live = [], syncs = [], actionable = [];
+  const live = [], syncs = [], actionable = [], panels = [];   // (panels: the components a card holds, each destroyed when the card is rebuilt or closed)
+  const dropPanels = () => { for (const x of panels) x.destroy?.(); panels.length = 0; };
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -242,7 +244,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (isDocked()) markGone(D_SMALL, el);   // (a phone's card sinks like a sheet: whatever opens next crosses over with it, as it does with a sheet)
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
-    model = null; live.length = 0; syncs.length = 0; actionable.length = 0;
+    model = null; live.length = 0; syncs.length = 0; actionable.length = 0; dropPanels();
     liftButtons('0px');
     stage.unreveal?.();
     relayoutSoon();
@@ -408,7 +410,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     nr._acK = 1; nr._acNum = numEl; nr._acPill = pillEl; nr._acM = m; nr._acMode = 0; nr._acHas = false;
     live.push(nr);
     // (The controls take one column where a name is long or there is only one of them: the liver's Cirrhosis runs the card's width.)
-    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0;
+    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0, panel = null;
     for (const v of m.verbs) if (CTL.has(v.type) && !(v.showIf && !v.showIf(p0))) { nCtl++; if ((v.short || v.label).length > 14) one = true; }
     if (nCtl === 1) one = true;
     for (const v of m.verbs) {
@@ -419,10 +421,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
       else if (CTL.has(v.type)) (cs ||= h('div', one ? P_CS_ONE : P_CS)).append(node);
       else if (ACT.has(v.type)) { if (v.danger) danger = node; else (as ||= h('div', P_AS)).append(node); }
       else if (v.type === 'about') about = node;
+      else if (v.type === 'panel') panel = node;
     }
     if (rs) body.append(rs);
     if (about) body.append(about);
     if (cs) body.append(cs);
+    if (panel) body.append(panel);
     if (danger) (as ||= h('div', P_AS)).append(danger);   // (taking a device out stands apart, at the right)
     if (as) body.append(as);
     return body;
@@ -473,7 +477,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     const tok = lastSelTok; lastSelTok = newSelTok; newSelTok = tok;
     const size = cardSize(m, st.params), wasOpen = !el.hidden && !!model && !leaving;
     el.dataset.card = ns.type || 'vessel';
-    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0;
+    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0; dropPanels();
     const old = el.querySelector(':scope > .ac-body');
     el.querySelector(':scope > .ac-ghost')?.remove();
     releaseWords(el);   // (the readings of the content being replaced)
@@ -723,6 +727,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
       b._acSk = 2; syncs.push(b);
       b._acRun = 1; actionable.push(b);
       return b;
+    }
+    if (v.type === 'panel') {
+      // A component with its own controls and its own following of the params (a stent's editor: one row of value chips, stent-editor.js).
+      const x = v.make();
+      panels.push(x);
+      return h('div', P_PANEL, x.el);
     }
     if (v.type === 'button') {
       const b = actBtn(v.danger ? P_BTN_DANGER : P_BTN, v);

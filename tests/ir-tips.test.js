@@ -168,12 +168,12 @@ test('Compare: nothing pinned says how, with the table already laid out in dashe
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
   const f = frameOf({ ppg: 9.2 });
   c.update(f, 'TIPS');
-  assert.equal(c.el.querySelectorAll('tbody tr').length, 8, 'eight readings, always laid out');
+  assert.equal(c.el.querySelectorAll('tbody tr').length, 10, 'ten readings, always laid out');
   assert.equal(c.el.querySelector('.ir-note').textContent, NOTHING_PINNED);
-  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—', '—', '—', '—']);
+  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—', '—', '—', '—', '—', '—']);
   assert.equal(c.el.querySelector('td.b').textContent, '9.2');
   const names = [...c.el.querySelectorAll('tbody tr')].map((r) => r.querySelector('.cmp-n').textContent);
-  assert.deepEqual(names, ['PPG', 'Stent flow', 'Across stent', 'Open diameter', 'Narrowest lumen', 'Waist length', 'Taper, each end', 'Stent peak velocity']);
+  assert.deepEqual(names, ['PPG', 'Stent flow', 'Across stent', 'Open diameter', 'End narrowing', 'Waist narrowing', 'Narrowest lumen', 'Waist length', 'Taper, each end', 'Stent peak velocity']);
   const then = { ppg: 14.2, tips: { ...f.metrics.tips, flow: 1.2, dp: 5.1, dWaist: 8, vPeak: 150 }, dips: null };
   store.set({ compareSnap: { metrics: then, when: '10:30', names: null } });
   c.update(f, 'TIPS');
@@ -195,7 +195,7 @@ test('Compare: the sub-switch changes the sub-view, and the DIPS names its own f
   assert.equal(ir.sub(), 'compare');
   assert.equal(ir.el.dataset.sub, 'compare');
   ir.update(frameOf()); await wait(60);
-  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 8);
+  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 10);
   ir.el.querySelector('[data-sub="inside"]').click();
   assert.equal(ir.el.dataset.sub, 'inside');
   assert.equal(host.dataset.view, 'tips');
@@ -212,14 +212,14 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
   // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
   at(6, 216); await wait(60);
-  assert.equal(peak().querySelector('.status').textContent, 'Within model band');
+  assert.equal(peak().querySelector('.status').textContent, 'In band');
   assert.equal(peak().dataset.sev, 'none');
   assert.match(peak().title, /model band for a 6 mm stent is 90 to 338 cm\/s\. Provisional[^]*not a surveillance threshold/);
   const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
   // a faster 6 mm reading is above its model band, still in the neutral tone: no alarm for a number the app scaled itself
   at(6, 400); await wait(60);
-  assert.equal(peak().querySelector('.status').textContent, 'Above model band');
+  assert.equal(peak().querySelector('.status').textContent, 'Over band');
   assert.equal(peak().dataset.sev, 'none');
   // the same reading in a 10 mm stent is out of range, as reported, and the ticks go back to 90 and 190
   at(10, 216); await wait(60);
@@ -236,7 +236,8 @@ test('Curves: the tool a stent and a setting give is the deck\'s own curve, two 
   assert.deepEqual(t.lines, ['tipsFlow', 'tipsBench']);
   assert.equal(curveToolOf('DIPS', 'diameter').param, 'dips.d');
   assert.equal(curveToolOf('TIPS', 'length').param, 'stentGeom.TIPS.len');
-  assert.deepEqual(SWEEPS, ['diameter', 'waist', 'length']);
+  assert.deepEqual(SWEEPS, ['diameter', 'end', 'waist', 'length']);
+  assert.equal(curveToolOf('TIPS', 'end').param, 'stenosis.TIPS'); assert.equal(curveToolOf('DIPS', 'end').param, 'stenosis.DIPS');
   const ls = drawnLines(t);
   assert.equal(ls.length, 2);
   assert.ok(!ls[0].dash && ls[1].dash === true, 'the bench is the dashed one');
@@ -246,8 +247,10 @@ test('Curves: the tool a stent and a setting give is the deck\'s own curve, two 
 });
 
 test('Curves: a waist length changes nothing for a stent with no narrowing, and the view says so; the other two settings always matter', () => {
-  assert.equal(sweepMatters('waist', { s: 0 }), false);
-  assert.equal(sweepMatters('waist', { s: 0.4 }), true);
+  assert.equal(sweepMatters('waist', { s: 0, red: 0 }), false);
+  assert.equal(sweepMatters('waist', { s: 0.4, end: 0.4, red: 0 }), false, 'an end narrowing has no waist length');
+  assert.equal(sweepMatters('waist', { s: 0.4, red: 0.4 }), true);
+  assert.equal(sweepMatters('end', { s: 0, red: 0 }), true);
   assert.equal(sweepMatters('diameter', { s: 0 }), true);
   assert.equal(sweepMatters('length', null), true);
 });
@@ -274,7 +277,7 @@ test('Curves: the sub-switch opens the third view, and leaving the TIPS view sto
   assert.equal(ir.sub(), 'curves'); assert.equal(ir.el.dataset.sub, 'curves');
   ir.update(frameOf()); await wait(60);
   assert.ok(ir.el.querySelector('.ir-curves .pz-curve'), 'the chart is there');
-  assert.equal(ir.el.querySelectorAll('.ir-sweep .ps-btn').length, 3);
+  assert.equal(ir.el.querySelectorAll('.ir-sweep .ps-btn').length, 4);
   ir.head.querySelector('[data-view="measure"]').click();
   assert.equal(host.dataset.view, 'measure');
 });
@@ -326,35 +329,34 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
   assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
-  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/);
-  assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
-  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
+  // Width first (17 Nov 2026, play-test findings 22 and 25): the pictures fill the card's width up to 520 px; the height left may only shrink them to a readable 340 px, and the view scrolls before the text gets smaller.
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: calc\(min\(100cqw, var\(--fig-min, 340px\)\) \/ var\(--fig-r, 1\.35\) \+ 6px\); container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
+  assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/);
+  assert.match(plate, /\.ir-inside \{ flex: 1 0 auto;/, 'the readings and the smallest readable picture are never squeezed');
+  assert.match(plate, /\.ir-tips \{[^}]*overflow-y: auto;/, 'the last resort is a scroll, not small text');
+  assert.match(plate, /\.ir-tiles \.rb \{ display: none; \}/, 'the readings are numbers and words; the bar went to the picture\'s room');
   // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
   assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
   assert.doesNotMatch(read('src/ui/ir-tips.js').replace(/\/\/.*$/gm, ''), /ir-note/, 'no explanatory sentence in the figures\' band: the tiles\' titles say it');
-  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ \(along \? traceH\(3\) : BAR\.h\)\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
-  const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
-  assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
+  assert.match(src, /const r = stent\.ratio\(\);/, 'the ratio is the card\'s own (stent.ratio()), never a copy of its sizes');
+  assert.match(src, /show: \['card'\]/, 'one stent drawing, one lens switch');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
   assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
   assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
-test('Along: the sub-switch has four views, and Along shows the side view with the traces in place of the loss bar', async () => {
+test('The sub-switch has three views: Inside (the stent card), Tube vs patient and Compare; the old Along is the card\'s own chart now', async () => {
   const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
-  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'along', 'curves', 'compare']);
+  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'curves', 'compare']);
   ir.update(frameOf()); await wait(60);
-  const rb = ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r');
-  ir.el.querySelector('[data-sub="along"]').click();
-  assert.equal(ir.sub(), 'along'); assert.equal(ir.el.dataset.sub, 'along');
-  assert.notEqual(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), rb, 'the figures\' height budget follows the pictures shown');
+  assert.ok(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), 'the width-first ratio is set from the card');
+  ir.el.querySelector('[data-sub="compare"]').click(); assert.equal(ir.sub(), 'compare');
   ir.update(frameOf()); await wait(60);
   assert.equal(host.dataset.view, 'tips');
-  assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
 });
 
 test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open the card"): one row of value chips, a chip opens its slider in the same row, and a change reaches the params', async () => {
@@ -403,15 +405,15 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
 });
 
-test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   ir.update(frameOf()); await wait(60);
-  const sw = ir.el.querySelector('.ir-stents > .sc-color');
+  const sw = ir.el.querySelector('.ir-stents > .sc-lens');
   assert.ok(sw, 'moved into the header row');
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
-  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
+  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-lens'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
 });
 
