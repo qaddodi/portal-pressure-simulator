@@ -28,6 +28,7 @@ import { createCard } from './card.js';
 import { createChart } from './chart.js';
 import { createMenu } from './menu.js';
 import { readYours, saveYours, removeYours } from './yours-store.js';
+import { viewTapAgain } from './view-tap.js';
 import { YOURS_NOTE } from '../engine/yours.js';
 import { caption } from './a11y.js';
 import { sharpMoving, setSharpMoving } from './adapt-tier.js';
@@ -940,7 +941,8 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
+  // (The view's own button pressed again fits the figure to the screen, always the Fit button's framing: view-tap.js, stage-fit.js fitAgain.)
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
   $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });

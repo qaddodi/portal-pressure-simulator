@@ -408,6 +408,22 @@ export function createFit(st, live) {
     // It glides there, as the zoom buttons do, in the time its reach needs (camMs; reduced motion: a short glide).
     animateVT(to, CAM_MS_MAX, { scale: true });
   };
+  // The view's own button pressed again while its view is showing (17 Nov 2026, Mohammad: "when I hit anatomy while in anatomy view or lobule
+  // while in lobule view the view should fit zoom"): the camera goes back to that view's fit, the framing Fit gives and a refit keeps (the
+  // anatomy's home look, the circuit's whole map, the lobule's whole lobule), sized to the room the open cards leave, as the Fit button does,
+  // but always there (Fit's second press toggles the circuit between its map and its close-up; a view button must not). It is the slide
+  // camera's move (slide-cam.js: one plan, one straight path, one clock, one writer), so nothing else writes the view while it runs. While a
+  // deck is presenting the slide owns the framing, so there it is the plain scaled glide Fit uses. True when it moved or was already there.
+  const fitAgain = () => {
+    if (live.lobuleOn) { if (store.get().sinusoid) return false; live.lz.fitView(); return true; }
+    live.camLock?.release('view tap'); live.handsOff(); live.handed = false;
+    cardsCount = true;
+    const circuit = live.morphTarget === 1, to = circuit ? circWhole() : defaultVT(false);
+    if (!circuit) live.homeAt = to; else markCirc('whole', to);
+    live.fitted = true;
+    if (!sameView(to, live.vtGliding ? live.vtTarget : live.vt)) animateVT(to, CAM_MS_MAX, store.get().presenting ? { scale: true } : { scale: true, slide: true });
+    return true;
+  };
   // (Measured first in the next frame, while the layout is still the last frame's (readFrame), and glided after: a refit asked for in a
   // frame (main.js, a card's fold) no longer lays the page out among that frame's writes.)
   let refitAsk = 0;
@@ -549,5 +565,5 @@ export function createFit(st, live) {
     if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, CAM_MS_MAX, { scale: true });
     revealFrom = revealTo = null; revealWant = null;
   }
-  return { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
+  return { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, fitAgain, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
 }
