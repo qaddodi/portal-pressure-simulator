@@ -4,7 +4,7 @@
 // The profile is src/engine/stent-geom.js profileAt, the one the engine, the Doppler gates and the cards read; here it is smoothed a little
 // (about 0.3 of the drawn width) so the GPU tube has no kinks, and kept as a table made when a number changes, not in a frame.
 import { clamp } from '../engine/physiology.js';
-import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan } from '../engine/stent-geom.js';
+import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan, waistShown, lumenShown } from '../engine/stent-geom.js';
 import { STENT_SITES } from '../engine/topology.js';
 
 /** The smoothing, as a share of the stent's drawn width (the Gaussian's sigma). */
@@ -76,13 +76,13 @@ export function stenosisText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
   const s = endOf(p, e.id), d = stentDiameter(p, e.id, kind);
-  return s > 0.004 ? `${endSiteOf(p, e.id) === 'proximal' ? 'Proximal' : 'Distal'} stenosis ${d.toFixed(1)} to ${(d * (1 - s)).toFixed(1)} mm` : null;
+  return s > 0.004 ? `${endSiteOf(p, e.id) === 'proximal' ? 'Proximal' : 'Distal'} stenosis ${d.toFixed(1)} to ${lumenShown(d * (1 - s)).toFixed(1)} mm` : null;
 }
 export function waistText(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
   const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
-  return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${(d * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
+  return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${lumenShown(d * (1 - g.red)).toFixed(1)} mm × ${waistShown(g.waist).toFixed(1)} cm` : null;
 }
 
 /** What a stent's figure label says of its geometry (Mohammad, 17 Nov: "show the diameter and the waist and length", not the velocity): its open diameter, the
@@ -93,8 +93,8 @@ export function stentFacts(e, p) {
   const kind = kindOf(e);
   if (!kind) return null;
   const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind), s = endOf(p, e.id);
-  FACTS.d = d; FACTS.waist = g.red > 0.004 ? d * (1 - g.red) : null; FACTS.wLen = g.waist;
-  FACTS.sten = s > 0.004 ? d * (1 - s) : null; FACTS.end = endSiteOf(p, e.id) === 'proximal' ? 'proximal' : 'distal';
+  FACTS.d = d; FACTS.waist = g.red > 0.004 ? lumenShown(d * (1 - g.red)) : null; FACTS.wLen = waistShown(g.waist);   // (on the slider's 0.5 cm step, an easing glide's too)
+  FACTS.sten = s > 0.004 ? lumenShown(d * (1 - s)) : null;   // (the lumens on their 0.5 mm step, a glide's too) FACTS.end = endSiteOf(p, e.id) === 'proximal' ? 'proximal' : 'distal';
   return FACTS;
 }
 

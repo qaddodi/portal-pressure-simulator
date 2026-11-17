@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stentParts, geomOf, geomFix, geomDefault, benchFlow, profileAt, waistSpan, endSpan, coneFactor, kExp, coneAngle,
-  C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM, tractOf,
+  C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM, tractOf, GEOM_RANGE, WAIST_STEP,
 } from '../src/engine/stent-geom.js';
 import { stenosisFactor } from '../src/engine/physiology.js';
 import { Engine } from '../src/engine/engine.js';
@@ -247,10 +247,15 @@ test('the Doppler gates read the lumen where they sit: the end stenosis at its e
   assert.ok(near(prox, [625, 400, 100]), `${prox}`);
 });
 
-test('the default waist is PINCH of the stent: 1 cm of a TIPS or DIPS, 1.25 cm of a drawn stent', () => {
+test('the default waist is PINCH of the stent on the 0.5 cm step: 1 cm of a TIPS or DIPS, 1.5 cm of a drawn stent', () => {
   assert.deepEqual(geomDefault('tips'), { len: 8, waist: 8 * PINCH, trans: 0, red: 0 });
   assert.deepEqual(geomDefault('dips'), { len: 8, waist: 1, trans: 0, red: 0 });
-  assert.deepEqual(geomDefault('custom'), { len: 10, waist: 1.25, trans: 0, red: 0 });
+  assert.deepEqual(geomDefault('custom'), { len: 10, waist: 1.5, trans: 0, red: 0 });
+  // (No waist off the slider's grid anywhere, coordinator 17 Nov: a stent with no waist length of its own, at any length, gets one on the step.)
+  for (let len = GEOM_RANGE.len[0]; len <= GEOM_RANGE.len[1]; len += 0.5) for (const kind of ['tips', 'dips', 'custom']) {
+    const w = geomFix({ len }, kind).waist;
+    assert.ok(Math.abs(w / WAIST_STEP - Math.round(w / WAIST_STEP)) < 1e-9 && w >= WAIST_STEP, `${kind} ${len} cm: default waist ${w} on the step`);
+  }
 });
 
 test('a stenosis sits at an end and the waist mid stent: two narrowings, and neither moves the other (17 Nov 2026)', async () => {

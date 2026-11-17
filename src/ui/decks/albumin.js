@@ -20,12 +20,7 @@ const VITALS = { kind: 'vitals', show: ['hr', 'map', 'co'] };
 
 export const ALBUMIN_DECK = {
   id: 'albumin', level: 'advanced', title: 'Albumin: when to give it', minutes: 9,
-  objectives: [
-    'Name the four indications for short-term albumin',
-    'Explain why albumin is given with large-volume paracentesis (LVP)',
-    'Identify who may be considered for long-term albumin',
-    'Pair albumin with terlipressin in HRS-AKI, and give the AASLD 2021 doses',
-  ],
+  objectives: ['Name the indications for short-term albumin, and who may be considered for long-term albumin', 'Explain why albumin is given with large-volume paracentesis', 'Pair albumin with terlipressin in HRS-AKI, and give the AASLD 2021 doses'],
   checks: [
     ['Which four situations call for short-term albumin in cirrhosis?', 'SBP, AKI beyond stage 1A, a large-volume paracentesis, and HRS-AKI together with terlipressin (Baveno VIII Table 3).'],
     ['Who may be considered for long-term albumin?', 'A patient with recurrent or refractory ascites who is not a TIPS candidate. The recommendation is weak (Baveno VIII 6.10).'],

@@ -48,12 +48,7 @@ export const LANDMARK_TRIALS = {
     ['Recurrent ascites', ['Recurrent ascites']],
     ['After the stent', ['After the stent']],
   ],
-  objectives: [
-    'For each trial, name the decision it settled and the patient it applies to',
-    'Test a patient against a trial\'s entry rules from the readings (HVPG, varices, ascites), and say which rules the model cannot check',
-    'Explain why a fall in HVPG or PPG is a mechanism and not a trial\'s result, and when Baveno VIII accepts it as a surrogate',
-    'Name the Baveno VIII statement each trial supports',
-  ],
+  objectives: ['For each trial, name the decision it settled and the patient it applies to', 'Test a patient against a trial\'s entry rules, and say which rules the model cannot check', 'Say when Baveno VIII accepts a fall in HVPG as a surrogate, and which statement each trial supports'],
   summary: 'The trials behind beta-blockers in CSPH, restrictive transfusion, early TIPS, TIPS for recurrent ascites and rifaximin before a TIPS, in the order a patient meets them. For each, who was enrolled, the treatment on the model, and what the trial found.',
   checks: [
     ['Which trial supports a beta-blocker in compensated cirrhosis with CSPH, and what did it prevent?', 'PREDESCI (Lancet 2019): fewer patients on a beta-blocker decompensated or died than on placebo, mostly because fewer developed ascites. Baveno VIII 3.15.'],

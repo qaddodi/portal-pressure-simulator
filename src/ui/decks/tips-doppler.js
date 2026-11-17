@@ -19,12 +19,7 @@ const STENT = { tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.
 
 export const TIPS_DOPPLER = {
   id: 'tips-doppler', level: 'advanced', title: 'Doppler ultrasound of TIPS', minutes: 8,
-  objectives: [
-    'Describe Doppler of a patent TIPS: proximal, mid and distal stent velocities and flow direction in each portal branch',
-    'Explain why the intrahepatic portal branches flow toward the stent',
-    'Recognize Doppler signs of TIPS dysfunction wherever stenosis forms along the stent, including a hepatopetal left portal vein',
-    'Distinguish aliasing from reversed flow, and correct it by shifting the baseline or raising the velocity scale',
-  ],
+  objectives: ['Describe Doppler of a patent TIPS: stent velocities and flow in each portal branch', 'Recognize the Doppler signs of TIPS dysfunction wherever the stent narrows', 'Tell aliasing from reversed flow, and correct it with the baseline or velocity scale'],
   summary: 'TIPS Doppler: the pre-TIPS baseline, a patent stent, aliasing, and a stenosed stent with its velocity jet, with the vessels colored by velocity and direction.',
   checks: [
     ['Which velocities suggest TIPS stenosis?', 'A velocity <90 or >190 cm/s at the proximal, mid or distal stent, a change of >50 cm/s from the baseline study, or a main portal vein velocity <30 cm/s.'],

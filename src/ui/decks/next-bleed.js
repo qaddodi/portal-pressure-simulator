@@ -18,12 +18,7 @@ const BANDED = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }
 
 export const NEXT_BLEED = {
   id: 'next-bleed', level: 'core', title: 'Preventing the next variceal bleed', minutes: 8,
-  objectives: [
-    'Explain why varices recur after endoscopic variceal ligation (EVL) alone',
-    'Combine carvedilol with EVL after a first variceal bleed',
-    'Judge the response to a nonselective beta-blocker (NSBB) from the fall in HVPG',
-    'Name when a TIPS follows failed secondary prophylaxis',
-  ],
+  objectives: ['Explain why varices recur after EVL alone, and combine carvedilol with EVL after a first bleed', 'Judge the response to a nonselective beta-blocker from the fall in HVPG', 'Name when a TIPS follows failed secondary prophylaxis'],
   checks: [
     ['Four EVL sessions eradicated the varices, yet a year later they have recurred. Why?', 'EVL obliterates the varix but leaves the portal pressure behind it unchanged, so new varices form as the bands slough. Endoscopy 6 months after eradication, then every 12 months, finds them and bands them again.'],
     ['What is first-line secondary prophylaxis after a first esophageal variceal bleed?', 'An NSBB with EVL, carvedilol preferred over propranolol (Baveno VIII 4.8).'],

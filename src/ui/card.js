@@ -30,6 +30,7 @@ import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 import { handOver } from './hand-over.js';
+import { glideCard, GLIDE_EVENT } from './card-glide.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -179,7 +180,15 @@ export function createCard({ view, stage, ctx, onWhy }) {
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
+  let glideFrom = 0, glides = [];
+  el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
+  new ResizeObserver(() => {
+    const was = sizes.h;
+    sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
+    if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    reveal();
+  }).observe(el);
   new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);

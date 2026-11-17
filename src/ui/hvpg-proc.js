@@ -15,7 +15,7 @@ import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams, setViewKey } from './store.js';
 import { shownOr } from './shown.js';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
-import { T, ease, cruise, k01, balloonAt, timeOfBalloon, pressureAt, newWave, syncWave } from './hvpg-clock.js';
+import { T, ease, cruise, k01, balloonAt, timeOfBalloon, levelAt, dampAt, pressureAt, newWave, syncWave } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL } from './trace-gl.js';
 import { drawMonitor, C, SEV_C, cell, fm1, HVPG_TEXT } from './monitor.js';
@@ -414,11 +414,12 @@ export const HVPG_SCRIPT = {
   heads: HVPG_TEXT.heads, win: [T.free - 300, T.back], enterWord: 'Catheter advancing',   // (its words: the one table, monitor.js HVPG_TEXT)
   abort: ['Unable to cannulate hepatic vein', 'Unable to cannulate hepatic vein: procedure aborted', 'HVPG not measurable'],
   notes: HVPG_TEXT.notes,
-  at: (tt, v, w) => pressureAt(tt, v, w),
+  lv: levelAt, damp: dampAt,   // (the trace's mean level and how damped its pulse is: hvpg-clock.js; the monitor records it with the patient's beat and breath, trace-tape.js)
+  at: (tt, v) => pressureAt(tt, v),   // (the same trace on the procedure's own clock, no model: tests)
   segs: [[T.free - 300, T.inflate, 'free'], [T.inflate, T.back, 'wedge']],   // (blue while free, orchid once the balloon is up; the wedged trace solid: owner, 10 Nov 2026)
   status(t, v, st, o) {
     if (t < T.inflate) { o.label = 'FHVP'; o.num = fmt(v.fhvp, 1); o.col = 'free'; }
-    else if (t < T.result) { o.label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; o.num = fmt(t < T.callout ? pressureAt(t, v, st.wave) : v.whvp, 1); o.col = 'wedge'; }
+    else if (t < T.result) { o.label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; o.num = fmt(t < T.callout ? levelAt(t, v) : v.whvp, 1); o.col = 'wedge'; }
     else if (st.running && t < T.sum) { o.label = 'WHVP'; o.num = fmt(v.whvp, 1); o.col = 'wedge'; }
     else { o.label = 'HVPG'; o.num = fmt(v.hvpg, 1); o.col = SEV_C[sevOf(v.hvpg)]; }
   },

@@ -4,12 +4,7 @@
 
 export const RECOMPENSATION = {
   id: 'recompensation', level: 'advanced', title: 'Decompensation and recompensation', minutes: 11,
-  objectives: [
-    'Define decompensation and name its three defining events',
-    'Treat the first episode of ascites with sodium restriction and diuretics',
-    'Explain what removing the cause does to the portal pressure',
-    'State the Baveno VIII criteria for recompensation',
-  ],
+  objectives: ['Define decompensation and name its three defining events', 'Explain what removing the cause does to the portal pressure', 'State the Baveno VIII criteria for recompensation'],
   checks: [
     ['Name the three events that mark decompensation.', 'Ascites, variceal bleeding and overt hepatic encephalopathy.'],
     ['What lowered the portal pressure most in this case?', 'Removing the cause: alcohol abstinence.'],

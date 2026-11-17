@@ -13,12 +13,7 @@ const FROM = {
 
 export const CHOOSE_TREATMENT = {
   id: 'choose-treatment', level: 'advanced', title: 'Choose the treatment', minutes: 12,
-  objectives: [
-    'Decide whether a patient meets the criteria for a preemptive TIPS after a variceal bleed',
-    'Choose the treatment for recurrent or refractory ascites',
-    'Decide when recent portal vein thrombosis (PVT) in cirrhosis needs treatment',
-    'Treat recent PVT without cirrhosis, and plan the steps in Budd–Chiari syndrome',
-  ],
+  objectives: ['Decide whether a patient meets the criteria for a preemptive TIPS after a variceal bleed', 'Choose the treatment for recurrent or refractory ascites', 'Decide which portal vein thrombosis needs treatment, and plan the steps in Budd–Chiari syndrome'],
   checks: [
     ['Child–Pugh B 8, variceal bleeding controlled by banding, no active bleeding at endoscopy. Preemptive TIPS?', 'No. Child–Pugh B qualifies only with active bleeding at endoscopy (or an HVPG ≥20 mmHg). She receives carvedilol and repeat banding.'],
     ['A surveillance ultrasound in Child–Pugh A cirrhosis finds new thrombus occluding >50% of the main portal vein. Anticoagulate?', 'Yes, once tumor invasion is excluded (Baveno VIII 9.19). Variceal prophylaxis proceeds alongside and must not delay it.'],

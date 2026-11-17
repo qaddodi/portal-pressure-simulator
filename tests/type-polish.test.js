@@ -7,9 +7,9 @@ import { appCss } from './split-src.js';
 const css = appCss();
 
 test('R9 card and dialog titles balance their lines; long prose keeps a lone word off its last line', () => {
-  assert.match(css, /:is\(\.p-title h2, \.modal h2\) \{ text-wrap: balance; \}/);
+  assert.match(css, /.modal h2 \{ text-wrap: balance; \}/);
   assert.match(css, /:is\(\.pz-check, \.pz-outline :is\(ol, ul\), \.pzc-row, \.ac-about\) \{ text-wrap: pretty; \}/);
-  assert.match(css, /:is\(\.pz-h, \.pz-panel \.pz-dtitle, \.modal h2, \.p-title h2\) \{ hanging-punctuation: first; \}/);
+  assert.match(css, /:is\(\.pz-h, \.pz-panel \.pz-dtitle, \.modal h2\) \{ hanging-punctuation: first; \}/);
 });
 
 test('R9 slide titles stay pretty: balanced, a three-line title kept to the left 60 % of a wide card (Mohammad, 19 Oct)', () => {

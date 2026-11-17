@@ -3,7 +3,8 @@
 // clock, and the catheter's fade-out driven by one value.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cruise, legMs, TRAVEL_SPEED, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS, T as HT, balloonAt, timeOfBalloon, pressureAt, venousAt, WAVE_GAIN, newWave, syncWave, cathFadeAlpha, A_WAVE_PHASE, BREATH_S } from '../src/ui/hvpg-clock.js';
+import { cruise, legMs, TRAVEL_SPEED, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS, T as HT, balloonAt, timeOfBalloon, pressureAt, levelAt, dampAt, newWave, syncWave, cathFadeAlpha, A_WAVE_PHASE } from '../src/ui/hvpg-clock.js';
+import { createTape, tapeAdvance, tapeIndex } from '../src/ui/trace-tape.js';
 import { PROCS, MEASURES, ENDO, procFrame, playProcedure } from '../src/ui/proc-anim.js';
 import { procSpecs, rawRoute } from '../src/ui/proc-routes.js';
 import { EUS_ROUTE, EUS_GLUE_ROUTE } from '../src/ui/eus-scope.js';
@@ -186,67 +187,71 @@ test('Back while a step is still moving turns the procedure’s clock round over
 // ── 9: the HVPG trace on the model’s clock ──
 const v = { fhvp: 5, whvp: 17, hvpg: 12 };
 const frame = (t, phase, extra = {}) => ({ t, phase, running: true, speed: 1, clock: 'hemo', resp: true, metrics: { hr: 60 }, ...extra });
+const S9 = { win: [0, 20000], lv: levelAt, damp: dampAt };
+// (The tape's beat phase at procedure time tt: whole numbers are the a wave.)
+const phaseOn = (tp, tt) => tp.ph[tapeIndex(tp, tt)];
 
 test('the trace’s beat is the model’s: the a wave lands where the right atrium contracts, one beat a heart-rate period', () => {
   assert.equal(A_WAVE_PHASE, 0.88);
   // (the model’s own atrial wave peaks at phase 0.88)
   let best = 0, at = 0; for (let i = 0; i < 1000; i++) if (raWave(i / 1000) > best) { best = raWave(i / 1000); at = i / 1000; }
   assert.ok(Math.abs(at - A_WAVE_PHASE) < 0.01);
-  const w = newWave();
-  syncWave(w, frame(10, 0.88), 3000, 5000);
-  // At the head the venous phase is 0: the a wave, whatever the procedure’s time is.
-  const free = { fhvp: 5, whvp: 17 };
-  const head = pressureAt(3000, free, w) - 5, a0 = (venousAt(0) + Math.sin((10 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN;
-  assert.ok(Math.abs(head - a0) < 1e-9, 'the head is on the model’s beat and breath');
-  // One beat earlier (1 s at 60/min) the trace shows the same point of the beat, and a quarter beat earlier a different one.
-  const prevBeat = pressureAt(2000, free, w) - 5;
-  assert.ok(Math.abs(prevBeat - (venousAt(0) + Math.sin(((10 - 1) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
-  assert.ok(Math.abs(pressureAt(2750, free, w) - pressureAt(3000, free, w)) > 0.05 * WAVE_GAIN);
-  // A faster heart packs more beats into the same stretch: the spacing follows the model’s rate.
+  // The model is at its a wave (phase 0.88) when the head is at 3000 ms: the recorded trace starts in step with it.
+  const w = newWave(); syncWave(w, frame(10, 0.88), 3000, 5000);
+  const tp = tapeAdvance(createTape(), S9, 3000, v, w);
+  const d = phaseOn(tp, 3000) - Math.round(phaseOn(tp, 3000));
+  assert.ok(Math.abs(d) < 0.01, `the head is on the model’s a wave: ${d.toFixed(3)}`);
+  // One beat a second at 60/min, two at 120.
+  assert.ok(Math.abs(phaseOn(tp, 3000) - phaseOn(tp, 2000) - 1) < 0.01);
   const w2 = newWave(); syncWave(w2, frame(10, 0.88, { metrics: { hr: 120 } }), 3000, 5000);
-  assert.ok(Math.abs(pressureAt(2500, free, w2) - 5 - (venousAt(0) + Math.sin(((10 - 0.5) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9, 'a beat each half second at 120');
+  const tp2 = tapeAdvance(createTape(), S9, 3000, v, w2);
+  assert.ok(Math.abs(phaseOn(tp2, 3000) - phaseOn(tp2, 2000) - 2) < 0.01, 'a beat each half second at 120');
 });
 
-test('the breath is the model’s 4 s sine, and is off while the model does not breathe', () => {
-  const w = newWave();
-  syncWave(w, frame(1, 0.88), 1000, 0);
+test('the breath is the model’s 4 s cycle, and is off while the model does not breathe', () => {
   const free = { fhvp: 5, whvp: 5 };
-  // 1 s of a 4 s sine is its peak: head = venous a wave + the full swing.
-  assert.ok(Math.abs(pressureAt(1000, free, w) - 5 - (venousAt(0) + 0.45) * WAVE_GAIN) < 1e-9);
-  const dry = newWave(); syncWave(dry, frame(1, 0.88, { resp: false }), 1000, 0);
-  assert.ok(Math.abs(pressureAt(1000, free, dry) - 5 - venousAt(0) * WAVE_GAIN) < 1e-9);
+  const w = newWave(); syncWave(w, frame(1, 0.88), 8000, 0);
+  const tp = tapeAdvance(createTape(), S9, 8000, free, w);
+  assert.ok(Math.abs(tp.br[tapeIndex(tp, 8000)] - tp.br[tapeIndex(tp, 4000)] - 1) < 0.01, 'one breath every 4 s');
+  // Without a breath the trace's slow swing is gone: its 1 s means hold still.
+  const dry = newWave(); syncWave(dry, frame(1, 0.88, { resp: false }), 8000, 0);
+  const tq = tapeAdvance(createTape(), S9, 8000, free, dry);
+  const mean = (t, a, b) => { let s = 0, n = 0; for (let k = tapeIndex(t, a); k < tapeIndex(t, b); k++) { s += t.p[k]; n++; } return s / n; };
+  const sw = (t) => { let lo = Infinity, hi = -Infinity; for (let x = 0; x < 4000; x += 250) { const m = mean(t, 3000 + x, 4000 + x); lo = Math.min(lo, m); hi = Math.max(hi, m); } return hi - lo; };
+  assert.ok(sw(tp) > 0.25, `breathing: the 1 s mean swings ${sw(tp).toFixed(2)} mmHg`);
+  assert.ok(sw(tq) < 0.1, `not breathing: ${sw(tq).toFixed(2)} mmHg`);
 });
 
-test('the waves are on model time: a rewind of the procedure’s clock never plays them backwards, and a held model lets them go on', () => {
-  const free = { fhvp: 5, whvp: 5 }, w = newWave();
-  // The model beats on (phase advancing at 60/min) while the procedure’s head jumps back by two seconds (Back, or a restart of the sweep).
-  syncWave(w, frame(20, 0.5), 5000, 1000);
-  const before = pressureAt(5000, free, w) - 5;
-  syncWave(w, frame(20.1, 0.6), 3000, 1100);
-  const after = pressureAt(3000, free, w) - 5;
-  assert.ok(Math.abs(after - (venousAt(0.6 - A_WAVE_PHASE) + Math.sin((20.1 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9, 'the head is where the model is');
-  assert.ok(Math.abs(before - (venousAt(0.5 - A_WAVE_PHASE) + Math.sin((20 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
+test('the waves are on model time and written once: a model that runs ahead is caught up gently, never by rewriting what is drawn', () => {
+  const free = { fhvp: 5, whvp: 5 }, w = newWave(), tp = createTape();
+  syncWave(w, frame(20, 0.5), 2000, 1000);
+  tapeAdvance(tp, S9, 2000, free, w);
+  const kept = Float32Array.from(tp.p.subarray(0, tp.n));
+  // The model jumps a quarter beat ahead of the procedure’s clock: the samples already written stay, the new ones pull into step.
+  syncWave(w, frame(20.1, 0.85), 2100, 1100);
+  tapeAdvance(tp, S9, 5000, free, w);
+  assert.deepEqual(Array.from(tp.p.subarray(0, kept.length)), Array.from(kept), 'nothing already drawn moved');
+  const target = (tt) => w.cyc - A_WAVE_PHASE - ((w.t - tt) / 1000) * (w.hr / 60);
+  const off = (tt) => { const d = phaseOn(tp, tt) - target(tt); return Math.abs(d - Math.round(d)); };
+  assert.ok(off(5000) < 0.02, `in step with the model by 3 s later: ${off(5000).toFixed(3)}`);
+  // (and no beat squeezed or stretched: the phase runs within 30% of the heart's rate between any two samples)
+  for (let k = 1; k < tp.n; k++) { const r = (tp.ph[k] - tp.ph[k - 1]) / (10 / 1000); assert.ok(r > 0.69 && r < 1.31, `sample ${k}: ${r.toFixed(2)}`); }
   // Between two model frames the beat is carried on at the model’s rate, so a draw does not wait for the next frame.
   const f = frame(30, 0.2), w3 = newWave();
-  syncWave(w3, f, 1000, 5000);
-  const at0 = pressureAt(1000, free, w3);
-  syncWave(w3, f, 1100, 5100);   // (the same frame, 100 ms later: the model is 0.1 s on, a tenth of a beat at 60/min)
+  syncWave(w3, f, 1000, 5000); syncWave(w3, f, 1100, 5100);
   assert.ok(Math.abs(w3.cyc - 0.3) < 1e-9 && Math.abs(w3.m - 30.1) < 1e-9);
-  assert.ok(Math.abs(pressureAt(1100, free, w3) - 5 - (venousAt(0.3 - A_WAVE_PHASE) + Math.sin((30.1 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
-  void at0;
-  // Held model (paused): the last alignment stays and the waves go on by the procedure’s clock, as they did.
+  // Held model (paused): the last alignment stays.
   const w4 = newWave(); syncWave(w4, frame(5, 0.4), 1000, 0);
-  const pausedFrame = frame(5, 0.4, { running: false });
-  syncWave(w4, pausedFrame, 1500, 500);
+  syncWave(w4, frame(5, 0.4, { running: false }), 1500, 500);
   assert.equal(w4.t, 1000, 'not re-aligned while paused');
-  assert.ok(Math.abs(pressureAt(1500, free, w4) - 5 - (venousAt(0.4 - A_WAVE_PHASE + 0.5) + Math.sin(((5 + 0.5) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
   // Long frames are not carried far: at most 250 ms of the model’s clock between two of its frames.
   const f5 = frame(5, 0), w5 = newWave(); syncWave(w5, f5, 0, 0); syncWave(w5, f5, 100, 9000);
   assert.ok(Math.abs(w5.m - 5.25) < 1e-9);
-  // No model yet (or a test with none): the trace keeps its own beat and breath.
-  assert.equal(pressureAt(1234, v), pressureAt(1234, v, newWave()));
-  // The balloon still sets the level; the waves are damped by it as before.
-  assert.ok(Math.abs(pressureAt(HT.wedge + 1000, v, w) - v.whvp) < 0.2 * 1.25 + 0.01);
+  // No model: the trace on the procedure’s own clock is the pure one (pressureAt), sample for sample.
+  const tn = tapeAdvance(createTape(), S9, 12000, v, null);
+  for (let k = 0; k < tn.n; k += 37) assert.ok(Math.abs(tn.p[k] - pressureAt(k * 10, v)) < 1e-4, `t=${k * 10}`);
+  // The balloon still sets the level.
+  assert.ok(Math.abs(levelAt(HT.wedge + 1000, v) - v.whvp) < 1e-9);
 });
 
 // ── 23: one value for the catheter’s fade-out ──

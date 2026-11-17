@@ -34,12 +34,7 @@ export const GRADIENTS = {
   id: 'gradients', level: 'advanced', title: 'HVPG, PPG and EUS-PPG compared', minutes: 15,
   summary: 'How the HVPG, the EUS-PPG and the PPG are measured, and what each detects in cirrhosis, MASLD, porto-sinusoidal vascular disorder, Budd–Chiari syndrome, right heart failure and after a TIPS.',
   sections: [['How each is read', ['Three readings', 'How HVPG is read', 'How EUS-PPG is read', 'How PPG is read']], ['Where they agree and miss', ['They agree', 'HVPG misses']], ['When a reading fails', ['Reading fails']], ['After a TIPS', ['After a TIPS']], ['Summary', ['Summary']]],
-  objectives: [
-    'Describe how each gradient is measured and which two pressures it subtracts',
-    'Predict which gradient misses the resistance in each patient',
-    'Recognize when no gradient helps: Budd–Chiari syndrome and right heart failure',
-    'Interpret the post-TIPS PPG against the 12 mmHg reference for variceal bleeding',
-  ],
+  objectives: ['Describe how each gradient is measured and which two pressures it subtracts', 'Predict which gradient misses the resistance in each patient, and when none of them helps', 'Interpret the post-TIPS PPG against the 12 mmHg reference for variceal bleeding'],
   checks: [
     ['Which two pressures does each of the three gradients subtract, and how is each measured?', 'HVPG: WHVP minus FHVP, by a transjugular balloon catheter. EUS-PPG: left portal vein minus left hepatic vein pressure, by one EUS-guided transgastric needle. PPG: portal vein minus IVC pressure, the portal vein by percutaneous transhepatic puncture and the IVC by a transjugular catheter.'],
     ['A patient with varices has an HVPG of 3 mmHg and a PPG of 16 mmHg. Where does the resistance lie, and what would EUS-PPG read?', 'Presinusoidal, as in porto-sinusoidal vascular disorder or schistosomiasis. The EUS-PPG would be close to the PPG, because the needle is in the portal vein.'],

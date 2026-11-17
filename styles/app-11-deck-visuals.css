@@ -342,11 +342,11 @@
    wide card (Mohammad, 19 Oct). Source Serif 4 is the variable file with its optical-size axis (8 to 60), and Inter has one too (14 to 32),
    so optical sizing is left on explicitly: a display size gets the display cut. Kerning is set on rather than left to `auto`. */
 body { font-optical-sizing: auto; font-kerning: normal; }
-:is(.p-title h2, .modal h2) { text-wrap: balance; }
+.modal h2 { text-wrap: balance; }
 /* (Review ST section, owner 15 Nov 2026: one balance for every title and one pretty for a card's paragraphs, so none ends on one orphaned word on an iPhone; a rule that wraps on purpose, such as the phone's slide title, is more specific and wins.) */
 :is(h1, h2, h3, .card-title, .tr-t, .toast-msg) { text-wrap: balance; }   /* (not .pz-h: a slide's title fills its line, owner 19 Oct 2026) */
 :is(.pz-panel, .instrument-workspace, .menu, .modal) p { text-wrap: pretty; }
-:is(.pz-h, .pz-panel .pz-dtitle, .modal h2, .p-title h2) { hanging-punctuation: first; }
+:is(.pz-h, .pz-panel .pz-dtitle, .modal h2) { hanging-punctuation: first; }
 :is(.pz-check, .pz-outline :is(ol, ul), .pzc-row, .ac-about) { text-wrap: pretty; }
 
 /* Windows high contrast (forced colours) removes backgrounds and shadows, so a control that shows "on" or "selected" by a fill alone, or a focus ring that is a

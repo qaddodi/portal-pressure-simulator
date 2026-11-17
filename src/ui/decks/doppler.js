@@ -3,17 +3,12 @@
 // Baveno VIII 9.2 makes Doppler the first-line test for portal vein thrombosis (8.25 gives the diagnosis of Budd–Chiari syndrome).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.6 } };
+const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.611111 } };   // (1 − 3.5/9: a 9 mm stent narrowed to 3.5 mm: lumens on their 0.5 mm step, so the figure's label is the model's; was 0.6, 3.6 mm)
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 14,
   sections: [['Doppler basics', ['Doppler']], ['Reading a waveform', ['Cirrhosis', 'The method']], ['Portal inflow', ['Portal inflow']], ['Outflow', ['Outflow']], ['After TIPS', ['After TIPS']]],
-  objectives: [
-    'Interpret normal portal and hepatic vein Doppler: direction, velocity and waveform',
-    'Read every waveform in the same order: direction, then velocity, then shape',
-    'Distinguish hepatofugal portal flow, portal vein thrombosis, Budd–Chiari syndrome and right heart failure',
-    'Recognize TIPS stenosis from the direction of left portal vein flow',
-  ],
+  objectives: ['Interpret normal portal and hepatic vein Doppler: direction, velocity and waveform', 'Tell hepatofugal flow, portal vein thrombosis, Budd–Chiari syndrome and right heart failure apart', 'Recognize TIPS stenosis from the direction of left portal vein flow'],
   checks: [
     ['In what order do you read a Doppler waveform, and what does a main portal vein waveform below the baseline mean?', 'Direction (above or below the baseline), then velocity, then shape (continuous, pulsatile or flat). Below the baseline is hepatofugal flow: portal blood flows away from the liver, out through portosystemic collaterals, in advanced cirrhosis.'],
     ['Portal flow is pulsatile with each cardiac cycle and the HVPG is normal. Where is the problem?', 'In the heart: elevated right atrial pressure is transmitted through the sinusoids to the portal vein.'],

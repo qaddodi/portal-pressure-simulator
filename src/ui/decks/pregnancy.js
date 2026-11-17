@@ -9,12 +9,7 @@ const ON = { drugs: { propranolol: true } };
 
 export const PREGNANCY_DECK = {
   id: 'pregnancy', level: 'advanced', title: 'Cirrhosis in pregnancy', minutes: 10,
-  objectives: [
-    'Explain why pregnancy raises portal pressure in cirrhosis',
-    'Name when the risk of variceal bleeding is highest',
-    'Plan screening EGD and treatment, band ligation or a beta-blocker, in pregnancy',
-    'Describe how delivery is managed in a patient with varices',
-  ],
+  objectives: ['Explain why pregnancy raises portal pressure in cirrhosis, and when bleeding risk peaks', 'Plan screening EGD and treatment in pregnancy: band ligation or a beta-blocker', 'Describe how delivery is managed in a patient with varices'],
   summary: 'One woman with compensated cirrhosis through pregnancy: increased blood volume and portal inflow, enlarging varices, second-trimester EGD, band ligation and propranolol, and delivery.',
   checks: [
     ['When is variceal bleeding most likely in pregnancy?', 'In the second trimester, as blood volume rises toward its peak, and during labor, when repeated Valsalva in the second stage raises portal pressure.'],

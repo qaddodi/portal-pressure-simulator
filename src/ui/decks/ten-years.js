@@ -17,12 +17,7 @@ const ramp = (a, b) => ({ cirrhosis: [a, b] });
 
 export const TEN_YEARS = {
   id: 'ten-years', level: 'advanced', title: 'One patient, ten years', minutes: 15,
-  objectives: [
-    'Follow one man from compensated cirrhosis to a transplant evaluation, and read his HVPG along the way',
-    'Choose the treatment at each step: carvedilol, diuretics, banding, TIPS',
-    'Name what the model can and cannot show of hepatic encephalopathy after TIPS',
-    'State when to refer for liver transplant evaluation, and when further decompensation makes it urgent',
-  ],
+  objectives: ['Follow one man from compensated cirrhosis to transplant evaluation, reading his HVPG', 'Choose the treatment at each step: carvedilol, diuretics, banding, TIPS', 'State when to refer for liver transplant evaluation, and when it becomes urgent'],
   checks: [
     ['When does Baveno VIII recommend starting carvedilol in compensated cirrhosis?', 'At CSPH, an HVPG ≥10 mmHg, to prevent decompensation. Without CSPH it should not be used for that purpose.'],
     ['He had a variceal bleed while taking carvedilol. Is carvedilol stopped?', 'No. Baveno VIII 4.8 combines carvedilol with banding after a first bleed, whether or not he was taking carvedilol before.'],

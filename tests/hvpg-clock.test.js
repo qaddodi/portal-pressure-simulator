@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { T, balloonAt, timeOfBalloon, pressureAt } from '../src/ui/hvpg-clock.js';
+import { T, balloonAt, timeOfBalloon, pressureAt, BREATH_PP, CARDIAC_PP } from '../src/ui/hvpg-clock.js';
 
 const v = { fhvp: 5, whvp: 17, hvpg: 12 };
 // The waves are small and zero-mean-ish; compare against the model with them stripped by averaging a breath.
@@ -17,8 +17,8 @@ test('the pressure rises with the balloon and plateaus once it is up', () => {
   let prev = -1;
   for (let t = T.inflate; t <= T.wedge; t += 25) { const b = balloonAt(t); assert.ok(b >= prev); prev = b; }
   assert.equal(balloonAt(T.wedge), 1);
-  // Plateau: after the wedge the level stays at WHVP (waves damped to 15%), however long it runs.
-  for (let t = T.wedge; t < T.back; t += 200) assert.ok(Math.abs(pressureAt(t, v) - v.whvp) < 0.2 * 1.25 + 0.01, `t=${t}`);
+  // Plateau: after the wedge the level stays at WHVP, however long it runs: the breath's slow swing and a faint beat on it, no more.
+  for (let t = T.wedge; t < T.back; t += 200) assert.ok(Math.abs(pressureAt(t, v) - v.whvp) < BREATH_PP + 0.1 * CARDIAC_PP, `t=${t}`);
   // Mid-inflation the level is between the two, in step with the balloon.
   const tm = T.inflate + (T.wedge - T.inflate) / 2;
   assert.ok(Math.abs(balloonAt(tm) - 0.5) < 1e-9);

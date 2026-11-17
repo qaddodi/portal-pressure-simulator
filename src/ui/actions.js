@@ -9,7 +9,7 @@
 
 import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent } from '../engine/topology.js';
-import { GEOM_RANGE, TAPER_CM, WAIST_MAX, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
+import { GEOM_RANGE, TAPER_CM, WAIST_MAX, WAIST_STEP, endSiteOf, geomDefault, geomOf, kindOf, lumenShown, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { stentStill } from '../engine/flow-cuts.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
@@ -174,7 +174,7 @@ export function stentControls(id) {
   const k = id === 'TIPS' || id === 'DIPS' ? id.toLowerCase() : null;
   const geo = (p) => geomOf(p, id, kind);   // alloc-rare: read on a control's own event or a params change, never in a frame
   const dOf = (p) => (kind === 'tips' ? p.tips.d : kind === 'dips' ? p.dips.d : p.customShunts?.[id] || 10);
-  const mm = (v) => (dOf(store.get().params) * (1 - v)).toFixed(1);
+  const mm = (v) => lumenShown(dOf(store.get().params) * (1 - v)).toFixed(1);   // (the lumen left on its 0.5 mm step)
   const noWaist = (p) => !(geo(p).red > 0.004), noSten = (p) => !((p.stenosis?.[id] || 0) > 0.004);
   const diameter = k
     ? { type: 'slider', id: 'diameter', key: k, label: 'Diameter', icon: 'stent', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
@@ -184,16 +184,16 @@ export function stentControls(id) {
   c = [diameter,
     { type: 'slider', id: 'narrow', key: 'stenosis', label: 'Stenosis', icon: 'pinch', min: 0, max: 0.95, step: 0.01, def: 0,
       format: (v) => (v > 0 ? `${pct(v)} · ${mm(v)} mm` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
-      get: (p) => p.stenosis[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.stenosis[id]; else p.stenosis[id] = +v.toFixed(2); }, hist: `${e.label}: stenosis`,
+      get: (p) => p.stenosis[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.stenosis[id]; else p.stenosis[id] = +v.toFixed(6); }, hist: `${e.label}: stenosis`,
       info: 'Stent dysfunction: a short, focal narrowing at one end (End: Proximal, the portal vein end; Distal, the hepatic vein end). Its resistance rises with (1 − s)⁻⁴ and its jet loses energy where the stent widens again.' },
     { type: 'seg', id: 'site', label: 'End', small: true, options: [['proximal', 'Proximal'], ['distal', 'Distal']], dimIf: noSten,
       get: () => endSiteOf(store.get().params, id),
       set: (val) => updateParams((p) => withEnd(p, id, val), { label: `${e.label} stenosis: ${val}` }) },   // alloc-rare: a tap's handler, never in a frame
     { type: 'slider', id: 'waistD', key: 'stentGeom', label: 'Waist', icon: 'pinch', min: 0, max: WAIST_MAX, step: 0.01, def: 0,
       format: (v) => (v > 0 ? `${mm(v)} mm · ${pct(v)}` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
-      get: (p) => geo(p).red, set: (p, v) => withWaist(p, id, kind, 'red', v <= 0.004 ? 0 : +v.toFixed(2)), hist: `${e.label} waist`,
+      get: (p) => geo(p).red, set: (p, v) => withWaist(p, id, kind, 'red', v <= 0.004 ? 0 : +v.toFixed(6)), hist: `${e.label} waist`,
       info: 'A reduction made on purpose, always mid stent (a constrained or underdilated stent, a waist placed against encephalopathy): its diameter, shown in mm, with its own length and ends. Model values, not validated.' },
-    { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: 0.5, def: geomDefault(kind).waist, dimIf: noWaist,
+    { type: 'slider', id: 'waist', key: 'stentGeom', label: 'Waist length', icon: 'pinch', min: 0, max: GEOM_RANGE.waist[1], step: WAIST_STEP, def: geomDefault(kind).waist, dimIf: noWaist,
       format: (v) => `${v.toFixed(1)} cm`,   // alloc-rare: the slider's number label, made on the slider's own input event
       get: (p) => geo(p).waist, set: (p, v) => withWaist(p, id, kind, 'waist', v), hist: `${e.label} waist length`,
       info: 'How long the waist is, mid stent. A longer waist adds friction along its length; a waist of no length still loses energy where its jet leaves it. The same minimum diameter can then give different pressures.' },
