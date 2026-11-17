@@ -19,6 +19,7 @@ import { stentControls } from './actions.js';
 import { readBox } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';
+import { GLIDE_EVENT } from './card-glide.js';
 
 const nextFrame = frameFor('stent-editor');
 /** The rows, by the controls' ids in actions.js stentControls: each opens its controls, in this order. */
@@ -214,8 +215,11 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     clearTimeout(closing); closing = 0;
     openId = rowId;
     for (const r of rows) r.btn.setAttribute('aria-expanded', r.id === openId ? 'true' : 'false');
+    // (The card that holds it glides to its new height, card-glide.js: asked just before the tray changes it.)
+    const ask = () => { const E = el.ownerDocument?.defaultView?.CustomEvent || globalThis.CustomEvent; if (E && el.dispatchEvent) el.dispatchEvent(new E(GLIDE_EVENT, { bubbles: true })); };   // (the page's own event kind)
     if (to) {
       const pos = rows.indexOf(to);
+      ask();
       show(rowId);
       panel.dataset.open = rowId; el.dataset.open = rowId;
       panel.dataset.pos = pos === 0 ? 'first' : pos === rows.length - 1 ? 'last' : 'mid';
@@ -230,7 +234,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       panel.inert = true; panel.setAttribute('aria-hidden', 'true');
       el.dataset.open = '';
       const a = was ? roll('close') : null;
-      const end = () => { closing = 0; if (!openId) { for (const x of anims) x.cancel(); anims = []; panel.dataset.open = ''; joinAt = null; show(''); } };
+      const end = () => { closing = 0; if (!openId) { ask(); for (const x of anims) x.cancel(); anims = []; panel.dataset.open = ''; joinAt = null; show(''); } };
       if (a) a.finished.then(end, end); else end();
       if (was && panel.contains(document.activeElement)) was.btn.focus({ preventScroll: true });
     }

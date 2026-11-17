@@ -931,3 +931,12 @@ test('The IR stent: its two ends carry their numbers (pressure and velocity), th
     if (OW) Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', OW); else delete window.HTMLElement.prototype.offsetWidth;
   }
 });
+
+test('The card that holds a stent editor glides to its new height as a tray opens, moves or goes: the card listens for the ask and scales its plate (card-glide.js), never while it enters', () => {
+  const card = read('src/ui/card.js');
+  assert.match(card, /el\.addEventListener\(GLIDE_EVENT, \(\) => \{ if \(!el\.classList\.contains\('ac-in'\) && !reduceMotionMQ\?\.matches\) glideFrom = sizes\.h; \}\);/);
+  assert.match(card, /if \(glideFrom > 0\) \{ const h0 = glideFrom; glideFrom = 0; if \(was === h0\) glides = glideCard\(el, h0, sizes\.h, \{ foot: el\.classList\.contains\('docked'\), prior: glides \}\); \}/, 'in the size observer: laid out once, glided by transforms');
+  const ed = read('src/ui/stent-editor.js');
+  assert.match(ed, /const ask = \(\) => \{/);
+  assert.match(ed, /if \(!openId\) \{ ask\(\);/, 'the close asks as the rolled-up tray leaves the flow');
+});
