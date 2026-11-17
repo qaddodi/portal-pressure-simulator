@@ -128,3 +128,9 @@ test('the Hepatic artery label opens the hepatic artery\'s own card, not the liv
   const { normalizeSel } = await import('../src/ui/actions.js');
   assert.deepEqual(normalizeSel({ type: 'node', id: 'HA' }), { type: 'edge', id: 'A_HEP' });
 });
+
+test('the details face\'s head pulls the sheet down, Back button included (play-test V13)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const card = readFileSync(new URL('../src/ui/card.js', import.meta.url), 'utf8');
+  assert.match(card, /e\.target\.closest\('input, \.ac-c, \.ad-scroll'\) \|\| \(e\.target\.closest\('button'\) && !e\.target\.closest\('\.ad-head'\)\)/);
+});

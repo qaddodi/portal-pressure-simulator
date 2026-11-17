@@ -660,7 +660,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
   function stopSheetGesture() { if (!sheetWired) return; if (y0 != null) sheetStop(); setSheetOffset(el, 0); }
   // (The pull starts anywhere on the card but on a control: a slider, a switch, a button.)
   function onSheetDown(e) {
-    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, button, .ac-c, .ad-scroll')) return;
+    if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('input, .ac-c, .ad-scroll') || (e.target.closest('button') && !e.target.closest('.ad-head'))) return;   // (the details face's own head, its Back button too, pulls the sheet down: the scrolling words below it do not, V13)
     sheetWired = true;
     stopSheet(el);   // (caught mid-ease: the pull carries on from where the content is drawn)
     y0 = e.clientY - sheetOffset(el); t0 = performance.now(); dy = 0; pid = e.pointerId; px = e.clientX; py = e.clientY; held = false;
