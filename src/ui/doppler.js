@@ -5,6 +5,7 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES, dopplerK, stentReadsOf, stentGate, stentCourse } from '../engine/topology.js';
+import { gateKindsFromParams, reductionJet, kindOf } from '../engine/stent-geom.js';
 import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
@@ -89,6 +90,8 @@ for (const p of PROBES) if (p.kind === 'tips') { p.byGate = {}; for (const g in 
 // (A stent's note on its range, made once for each range it has had: "Stent velocities <90 or >190 cm/s, …". An 8 to 10 mm stent keeps the reference words; any other
 // diameter names its own range and says it is scaled, not reported (stent-geom.js stentBand).)
 const RANGE_NOTES = new Map();
+const REDUCTION_NOTE = 'The fast jet is at the deliberate reduction, mid stent: intended, not a stenosis. A velocity over the range at either end of the stent would still suggest stenosis.';
+const GATE_KINDS = [null, null, null];   // alloc-rare: made once (whose jet each gate reads, read at once)
 const NOTE_TAIL = 'or a change of >50 cm/s from the baseline scan, suggest stenosis.';
 function rangeNoteOf(p, normal, d) {
   const scaled = normal !== p.normal, key = scaled ? `${normal[0]}|${normal[1]}|${d}` : '';
@@ -504,6 +507,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const isStentProbe = () => meta().kind === 'tips';
   const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
   let gf = 1;
+  // Whose jet a gate reads: the stent's deliberate reduction (always mid stent) or its end stenosis (stent-geom.js gateKindsFromParams). Gates over the range that sit only on the reduction read as intended.
+  const gateKinds = () => gateKindsFromParams(store.get().params, probe, kindOf(EDGES[EI[probe]]), GATE_KINDS);
+  const reductionOnly = (peaks, hi) => reductionJet(peaks, gateKinds(), hi);
   const gateIndex = () => { const g = gateOf(); for (let i = 0; i < SEGS.length; i++) if (SEGS[i][0] === g) return i; return -1; };
   // (the window's own factor once there is a reading, gate-factors.js: the samples behind the open stent's mean were each read under their own narrowing)
   const gateFactor = () => (isStentProbe() ? (effOk && gi >= 0 ? EFF[gi] : stentReads(1, true)[gateIndex()]) || 1 : 1);
@@ -524,6 +530,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function interpret(r0, g = 1, seen = null) {
     const p = meta(), normal = normalOf(p), open = Math.abs(r0.mean);
     let r = r0;
+    let jetOk = false;   // (a stent's jet at its deliberate reduction: expected, never drawn out of range)
     if (g !== 1) { r = GATED; r.mean = r0.mean * g; r.vmax = r0.vmax * g; r.vmin = r0.vmin * g; r.vmaxMean = r0.vmaxMean * g; r.vminMean = r0.vminMean * g; r.beatPi = r0.beatPi; r.beatHi = r0.beatHi * g; r.beatLo = r0.beatLo * g; }
     const a = Math.abs(r.mean);
     const swing = r.vmaxMean - r.vminMean;
@@ -597,12 +604,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const hiV = normal[1];   // (the stent's ceiling: its probe's normal, from the one table of them, velNormal.js PROBE_NORMAL)
       // (A stent of 8 to 10 mm is read against the reported range. Another diameter has a band the app scaled, which no study validates: its words say where the reading sits
       // against that model band, and its tone stays neutral, never "Patent" or "High velocity", never amber.)
-      const model = normal !== p.normal;
-      pattern = none ? 'Occluded' : model ? (jsS.slow ? (jet > hiV ? 'Below model band, jet' : 'Below model band') : jet > hiV ? 'Above model band' : 'Within model band')
+      const model = normal !== p.normal, redJet = !none && !jsS.slow && jet > hiV && reductionOnly(sr, hiV);
+      pattern = none ? 'Occluded' : redJet ? 'Jet at the reduction' : model ? (jsS.slow ? (jet > hiV ? 'Below model band, jet' : 'Below model band') : jet > hiV ? 'Above model band' : 'Within model band')
         : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
-      if (model && sev === 'caution') sev = 'ok';
+      if ((model || redJet) && sev === 'caution') sev = 'ok';
       else if (sev === 'ok' && jet > hiV) sev = 'caution';
-      note = none ? 'No flow in the stent: occluded.' : rangeNoteOf(p, normal, frame?.D?.[EI[p.id]]);
+      jetOk = redJet;
+      note = none ? 'No flow in the stent: occluded.' : redJet ? REDUCTION_NOTE : rangeNoteOf(p, normal, frame?.D?.[EI[p.id]]);
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -613,7 +621,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = j.none ? 'No signal' : 'Open collateral';
       note = j.none ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
     }
-    return say(dir, sev, pattern, note, pi, false);
+    return say(dir, sev, pattern, note, pi, jetOk);
   }
   const say = (dir, sev, pattern, note, pi, expected) => { const o = IT; o.dir = dir; o.sev = sev; o.pattern = pattern; o.note = note; o.pi = pi; o.expected = expected; return o; };
 
@@ -784,11 +792,11 @@ export function createDoppler({ onProbe, pickGate = true }) {
     showTiles(p);
     if (isStent) {
       // Each segment against the stent's usual range (90–190 cm/s for an 8 to 10 mm stent, scaled for another: normalOf), the gated one marked.
-      const at = gateOf(), reads = shownReads(open), sn = normalOf(p);
+      const at = gateOf(), reads = shownReads(open), sn = normalOf(p), kinds = gateKinds();
       for (let i = 0; i < SEGS.length; i++) {
         const seg = SEGS[i][0], name = SEGS[i][1], v = reads[i], w = statEls[name].wrap, here = seg === at;
         setStat(statEls[name].dd, num(v), 'cm/s');
-        dataSoon(w, 'out', sn === p.normal && (v < sn[0] || v > sn[1]));   // (a model band is the app's own scaling, never drawn as an alarm: the card's words say where the reading sits)
+        dataSoon(w, 'out', sn === p.normal && (v < sn[0] || (v > sn[1] && kinds[i] !== 'reduction')));   // (a gate on the deliberate reduction is never drawn out of range for its jet)   // (a model band is the app's own scaling, never drawn as an alarm: the card's words say where the reading sits)
         classSoon(w, 'on', here);
         const b = statEls[name].btn;
         if (b) {

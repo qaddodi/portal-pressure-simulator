@@ -234,7 +234,7 @@ export function createMarks(st) {
         const M = markMatrix(el, gOver, cs);
         if (!(ok && shapeRings(el))) continue;
         const nR = mkRingN;
-        mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
+        mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') || el.classList.contains('clamp-span') || el.classList.contains('clamp-span-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;
         if (M) for (let ri = 0; ri < nR; ri++) { const xy = mkRings[ri].xy; for (let i = 0; i < xy.length; i += 2) { const x = xy[i], y = xy[i + 1]; xy[i] = M[0] * x + M[2] * y + M[4]; xy[i + 1] = M[1] * x + M[3] * y + M[5]; } }
         for (let ri = 0; ri < nR; ri++) {
           // (A point within a thousandth of the one before it, as it was before this walk, is dropped; the list is closed up in place.)

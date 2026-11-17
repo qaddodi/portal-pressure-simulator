@@ -249,7 +249,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
 /* (A finger's 40 px on Fit, turn and zoom: the buttons stay 36 px as drawn, an invisible ring takes the tap 2 px further out on each side; the pill looks the same.) */
 @media (pointer: coarse) {
-  .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: relative; }
   .zoom-pill .ib::after, .zoom-pill .stage-fit::after, .zoom-pill .stage-rotate::after { content: ''; position: absolute; inset: -2px; }
 }
 /* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
