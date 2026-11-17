@@ -95,7 +95,7 @@ export const RATE = {
   // (The stent's peak velocity: the Doppler card's own range for a stent, 90 to 190 cm/s for an 8 to 10 mm one and scaled for another diameter, the fingerprint's tipsD / dipsD:
   // stentCuts below; its other readings are numbers only.)
   // (An 8 to 10 mm stent has the reported range, so "Normal" / "Low" / "High". Any other diameter has a band the app scaled itself, which no study validates: it reads
-  // "Within / Below / Above model band" in the neutral tone, never a clinical verdict, stentVelRate below.)
+  // "In / Under / Over band" in the neutral tone (the tile's long text names it the provisional model band), never a clinical verdict, stentVelRate below.)
   tipsVel: (v, f) => stentVelRate(v, 'tips', f),
   dipsVel: (v, f) => stentVelRate(v, 'dips', f),
   // (rpp, the abdominal perfusion pressure MAP − IAP, has no rating: no guideline gives it a cut-off, kidney-cuts.js.)
@@ -180,7 +180,7 @@ export const STENT_RANGE = [90, 190];
 // (Provisional beyond 8 to 10 mm: stent-geom.js stentBand. A bar's cut-off ticks and a curve's cut-offs are drawn at the reference range; the tile's word and band colours follow its diameter.)
 const STENT_CUTS = { tips: [0, 0], dips: [0, 0] };
 export const stentCuts = (k, f) => stentBand(f?.[`${k}D`], STENT_RANGE, STENT_CUTS[k]);
-const T_info_Within = tup('info', 'Within model band'), T_info_Below = tup('info', 'Below model band'), T_info_Above = tup('info', 'Above model band');
+const T_info_Within = tup('info', 'In band'), T_info_Below = tup('info', 'Under band'), T_info_Above = tup('info', 'Over band');
 /** The stent peak velocity's rating: the reference range's own words for 8 to 10 mm; for a scaled (provisional) band, where it sits against the model band, in the neutral tone. */
 const T_info_Reduction = tup('info', 'Reduction jet'), KINDS = [null, null, null], GATES = [0, 0, 0];   // alloc-rare: made once (read at once)
 /** Whether the fastest reading is the deliberate reduction's jet (stent-geom.js reductionJet: every gate over the range sits on the reduction), from the fingerprint's gates. */
@@ -198,7 +198,7 @@ export function stentVelRate(v, k, f) {
 const stentTiles = (k, name) => ({
   [`${k}Flow`]: { t: `${name} flow`, n: 'Stent flow', s: 'Blood the stent carries', u: 'L/min', long: `Blood carried by the ${name}: the stent's own flow, one number whatever the diameter along it. No guideline gives a cut-off.` },
   [`${k}Dp`]: { t: 'Pressure across the stent', n: 'Across stent', s: 'Portal end − hepatic vein end', u: 'mmHg', long: `Pressure at the ${name}'s portal end minus its hepatic vein end. Not the PPG, which is the portal vein minus the IVC and also counts the veins around the stent.` },
-  [`${k}Bench`]: { t: 'Tube alone', n: 'Tube alone', s: 'Same stent, fixed 7 mmHg across it', u: 'L/min', long: `The flow the ${name} would carry as a tube on a bench, with a fixed 7 mmHg across it and no patient behind it: the dashed line of the stent's curves, against the flow it carries in the patient.` },
+  [`${k}Bench`]: { t: 'Tube alone', n: 'Tube alone', s: 'Same shunt, fixed 7 mmHg end to end', u: 'L/min', long: `The flow the ${name} would carry on a bench: the whole shunt (the stent's lumen, its ends and its tract into the veins), with a fixed 7 mmHg from its portal end to its hepatic end and no circulation behind it. The dashed line of the stent's curves, against the flow it carries in the patient.` },
   [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents. For a narrower or wider stent the app scales that range with the stent's diameter and calls it a model band (provisional: no study or guideline gives one), not a normal range.` },
   [`${k}Lumen`]: { t: 'Narrowest lumen', n: 'Lumen', s: 'At the tightest point', u: 'mm', long: `The ${name}'s lumen where it is tightest: its diameter minus the narrowing or clot.` },
   [`${k}LocalPct`]: { t: 'Local losses', n: 'Local', s: 'Share of the drop that is local', u: '%', d: 0, long: `The share of the pressure across the ${name} lost where blood enters and leaves it and where the jet leaves a narrowing, against friction along its length and tract.` },
@@ -211,9 +211,9 @@ export const tileOf = (k) => TILE[k] ?? DERIVED_TILE[k];
 /** The name of a reading that is shown as ONE number (a graph's line, an axis, a bar, a list of sub-readings): the blood pressure tile is called
  *  "Blood pressure" because it prints systolic/diastolic (mean), but its single number is the mean, so there it is "Mean arterial pressure" ("MAP", short). */
 export const numName = (k, short = false) => { const T = tileOf(k); return T?.bp ? (short ? T.meanN : T.mean) : T?.t; };
-// After TIPS the PPG is read against its target (below 12 mmHg): its tile, and the pill that prints it, never say "High" under a
-// line that says the target is reached.
-export const tipsGoal = (v) => (v < PPG_CUTS.red ? ['ok', 'Target met'] : ['hi', 'Above target']);
+// After TIPS the PPG is read against the 12 mmHg reference line (a reference, not a target: the aim is set by the clinical goal, never by the model), so its tile
+// and the pill that prints it never say "High" under a line that says it is below the reference. `short` drops the word "reference" for a narrow tile.
+export const tipsGoal = (v, short = false) => (v < PPG_CUTS.red ? ['ok', `Below ${PPG_CUTS.red} mmHg${short ? '' : ' reference'}`] : ['hi', `Above ${PPG_CUTS.red} mmHg${short ? '' : ' reference'}`]);
 export const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : NO_RATE);
 // A value as its tile prints it (the tile's scale and decimals), back in the model's units: a tile's word judges the number it
 // shows, so "5.0 L" is Grade 3 and "2.5 mm" Small, never the unrounded 4.98 L or 2.49 mm behind them.

@@ -53,7 +53,17 @@ export function createOutlines(st, live) {
   // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
   const CLAMP_FADE = D_SMALL;   // ms
   const clampA = new Map();   // id → { a, on }
-  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
+  // (c.w: the words' own amount, 0 while a card covers them (live.clampCover, from the labels' solve): a narrowing's words under a card fade out
+  // whole, never stand there cut by the card's edge (glass-cut.js); its arrows stay. 17 Nov 2026.)
+  const wordsT = (c) => (c.on && !c.cov ? 1 : 0);
+  const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0) || (c.w != null && c.w !== wordsT(c))) return true; return false; };
+  live.clampCover = (id, cov) => {
+    const c = clampA.get(id);
+    if (!c || !!c.cov === cov) return;
+    if (!clampFading()) live.clampLast = performance.now();
+    c.cov = cov; if (c.w == null) c.w = 1;
+    live.askAnimate?.();
+  };
   const clampEase = (id) => smooth01(clampA.get(id)?.a ?? 1);
   // The marks a treatment leaves (a stent's mesh, a shunt's sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
   // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
@@ -73,8 +83,8 @@ export function createOutlines(st, live) {
     if (a < 1) el.setAttribute('opacity', a.toFixed(3)); else if (el.hasAttribute('opacity')) el.removeAttribute('opacity');
   };
   function clampShade(id) {
-    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '';
-    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el._c || !glLines) el.style.opacity = op;
+    const e = clampEase(id), op = e < 1 ? e.toFixed(3) : '', ew = e * smooth01(clampA.get(id)?.w ?? 1), opw = ew < 1 ? ew.toFixed(3) : '';
+    for (const g of [ov.clamps, ov.clampsOut, clampW, clampWOut]) for (const el of g.querySelectorAll(`[data-id="${id}"]`)) if (el._c) el.style.opacity = opw; else if (!glLines) el.style.opacity = op;
   }
   // The heart a slide points at (the right atrium, the heart itself) is lit whole by a soft glow, not a line: one band
   // easing out from its edge (the GPU shades the falloff smoothly, behind the organs): reach in world units, peak opacity.
@@ -586,7 +596,10 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     let clampMoved = false;
     for (const [id, c] of clampA) {
       const t = c.on ? 1 : 0;
-      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); clampMoved = true; clampShade(id); }
+      let sh = false;
+      if (c.a !== t) { c.a = t > c.a ? Math.min(1, c.a + cdu) : Math.max(0, c.a - cdu); sh = true; }
+      if (c.w != null) { const tw = wordsT(c); if (c.w !== tw) { c.w = tw > c.w ? Math.min(1, c.w + cdu) : Math.max(0, c.w - cdu); sh = true; } }
+      if (sh) { clampMoved = true; clampShade(id); }
       if (!c.on && c.a === 0) { for (const el of [...ov.clampsOut.querySelectorAll(`[data-id="${id}"]`), ...clampWOut.querySelectorAll(`[data-id="${id}"]`)]) el.remove(); clampA.delete(id); live.mk.ver++; }
     }
     // The treatment marks, stepped on the frame's own time (a long frame moves them no further than a short one's worth).

@@ -98,3 +98,16 @@ export function panInto(lo, hi, wlo, whi) {
   if (hi - lo > whi - wlo) return (wlo + whi) / 2 - (lo + hi) / 2;
   return lo < wlo ? wlo - lo : hi > whi ? whi - hi : 0;
 }
+
+// The pan that brings a selected vessel into the room a bottom sheet (the phone's action card) leaves, no further than it needs (the one rule for every
+// card and every screen, 17 Nov 2026, F9: the stent stayed behind the sheet's top edge on an iPhone). `box` is the vessel's drawn extent on screen
+// ({ x0, y0, x1, y1 } with its width in), `mid` its middle ({ x, y }); `room` the free room ({ top, bottom, left, right }, px). A vessel kept whole when it
+// fits that room along an axis; one too long keeps its middle in. Returns { dx, dy } to add to its screen place (0, 0: already inside).
+export function revealDelta(box, mid, room) {
+  let { x0, y0, x1, y1 } = box;
+  if (x1 - x0 > room.right - room.left) { x0 = x1 = mid.x; }
+  if (y1 - y0 > room.bottom - room.top) { y0 = y1 = mid.y; }
+  const dx = x0 < room.left ? room.left - x0 : x1 > room.right ? room.right - x1 : 0;
+  const dy = y0 < room.top ? room.top - y0 : y1 > room.bottom ? room.bottom - y1 : 0;
+  return { dx, dy };
+}

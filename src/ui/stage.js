@@ -149,7 +149,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    labelFresh: false, labelSceneDone: null, stageDry: false, dimBoxes: new Map(), dimRects: [], zoomAff: null, glassCut: null,   // (the labels' history-free solve: stage-labels.js labelSceneOf; stageDry: the stage put to the other view's end; dimBoxes: each stent's dimension words and bracket, world boxes (stage-transitions.js stentBracket), and dimRects the same in stage px at the last live solve)
+    labelFresh: false, labelSceneDone: null, stageDry: false, dimBoxes: new Map(), dimRects: [], zoomAff: null, glassCut: null, labelsUp: false,   // (the labels' history-free solve: stage-labels.js labelSceneOf; stageDry: the stage put to the other view's end; dimBoxes: each stent's dimension words and bracket, world boxes (stage-transitions.js stentBracket), and dimRects the same in stage px at the last live solve)
     caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
     scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)

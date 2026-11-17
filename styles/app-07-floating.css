@@ -582,11 +582,12 @@ html:root .topbar .sb-right > .chip-btn[aria-expanded="true"], html:root .topbar
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
 }
-/* The card on the right (a Mac, an iPad held sideways) is one height for every test and never changes (Mohammad, 12 and 13 Nov 2026): 560 px, or the
-   room there is in a shorter window. 400 px held the pictures to 130 to 190 px; at 560 each test's main picture is the card's width and 260 px or more, its
+/* The card on the right (a Mac, an iPad held sideways) is one height for every test and never changes (Mohammad, 12 and 13 Nov 2026): the room there is, up to 760 px
+   (17 Nov 2026, play-test F31: it stopped at 560 px with 280 px of empty screen under it, and the TIPS card's loss bar was cut at the fold: "no scrolling: the card should grow to
+   the room it has before it ever scrolls"; a 900 px window gives about 720 px). 400 px held the pictures to 130 to 190 px; at 560 each test's main picture is the card's width and 260 px or more, its
    readings sit under it as figures, and a switch inside a test (Pressure: Along the circuit / Over time; Scope: Scope view / Wall mechanics; Fibro: Liver / Spleen)
    swaps what the one frame shows. */
-.instrument-workspace.side:not([data-state="peek"]) { --ws-h: min(560px, calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - 4px - var(--vdock-h) - var(--gap) - 8px)); bottom: auto; height: var(--ws-h); }
+.instrument-workspace.side:not([data-state="peek"]) { --ws-h: min(var(--ws-max, 760px), calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - 4px - var(--vdock-h) - var(--gap) - 8px)); bottom: auto; height: var(--ws-h); }
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side:not([data-state="peek"]) { --ws-h: auto; bottom: calc(var(--vdock-h) + 14px); height: auto; }   /* (a phone held sideways keeps the card from the top bar to the dock) */
 }

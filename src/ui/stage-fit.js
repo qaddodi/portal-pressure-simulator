@@ -3,7 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
-import { figureShift, panInto, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
+import { figureShift, panInto, revealDelta, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -64,7 +64,7 @@ export function createFit(st, live) {
     const out = [];
     for (const el of document.querySelectorAll('[data-safe]')) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
-      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('leaving') || el.classList.contains('vd-out')) continue;
+      if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('leaving') || el.classList.contains('ac-leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
       const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
       for (const pc of parts || [el]) {
@@ -86,7 +86,12 @@ export function createFit(st, live) {
     cardsSnap = cardsRead();
     pillsSnap = { zoom: pillRead(document.getElementById('zoomPill'), true), nav: pillRead(document.querySelector('.pz-bar.pzb-pill'), false) };
     insMemo.clear();
+    // A card that settles into a new size or place after the pan was worked out (the instrument card growing, a sheet easing in, a card's words arriving):
+    // the pan is worked out again from the room it really leaves, the same zoom, glided to (F32). The room the last pan was judged against is cardsSig.
+    if (cardsSig !== null && !store.get().presenting && roomSig() !== cardsSig) { cardsSig = null; stageScope.clear(cardsAgainT); cardsAgainT = stageScope.timer(cardsMoved, 0); }
   }
+  let cardsSig = null, cardsAgainT = 0;
+  const roomSig = () => cardsSnap.map((c) => `${c.el.id || c.el.className}:${Math.round(c.rest.left)},${Math.round(c.rest.top)},${Math.round(c.rest.right)},${Math.round(c.rest.bottom)}`).join('|');
   function snapFresh() { if (snapDirty) snapRead(); }
   function snapAgain() {
     snapDirty = true; snapAsk ||= readFrame(snapRead);
@@ -124,25 +129,33 @@ export function createFit(st, live) {
   // (exact: the cards' real edges, with no softening: a slide that must keep its vessels clear of them, even where they leave a thin band.)
   const INS_KEY = ['ins|0|', 'ins|1|'];   // (the memo's keys for no skipped pieces: kept, not built)
   function insSkipKey(exact, skip) { let k = INS_KEY[exact ? 1 : 0]; for (let i = 0; i < skip.length; i++) k += (i ? ',' : '') + (skip[i]?.id || '?'); return k; }
-  function safeInsets(exact = false, skip = null) {
-    return { ...insKept(skip ? insSkipKey(exact, skip) : INS_KEY[exact ? 1 : 0], safeInsetsFrom, cardsSnap, exact, skip) };
+  // room: the cards' real edges for a pan (cardPanVT, reveal): the sliver rule below is a sizing rule, and a view that is only moved needs the true gap between two cards.
+  function safeInsets(exact = false, skip = null, room = false) {
+    const key = skip ? insSkipKey(exact, skip) : INS_KEY[exact ? 1 : 0];
+    return { ...insKept(room ? `room|${key}` : key, safeInsetsFrom, cardsSnap, exact, skip, room) };
   }
   // The room the camera's SIZE is worked out in: the bars and the pills, never the cards (Mohammad, 17 Nov 2026, Mac and phone: opening a card keeps the
   // zoom). What an open card changes is where the view sits: cardPanVT pans it, so as much as possible of what was in view stays in the room the card
   // leaves. Only Fit, pressed on purpose, sizes the figure to the room the cards leave (cardsCount), until no card is open (cardsMoved). The catheter's
   // room and a vessel's reveal read the real cards (safeInsets), so a measurement keeps its tip clear of them.
   const CARD_IDS = ['dock', 'panel', 'treatCard', 'historyCard'];   // (Tests, Details, Treat, History: index.html)
-  let cardsCount = false, cardEls = null;
+  let cardsCount = false, cardEls = null, vesselCard = null;
+  // (The vessel's card, on the left shelf of a Mac or an iPad and over the foot of a phone, is a card too: card.js gives it data-safe.)
+  const cardList = () => {
+    cardEls ||= CARD_IDS.map((id) => document.getElementById(id)).filter(Boolean);
+    vesselCard ||= document.querySelector('.action-card');
+    return vesselCard && !cardEls.includes(vesselCard) ? (cardEls = [...cardEls, vesselCard]) : cardEls;
+  };
   function fIns() {
     if (cardsCount) return safeInsets();
-    cardEls ||= CARD_IDS.map((id) => document.getElementById(id)).filter(Boolean);
-    return cardEls.length ? safeInsets(false, cardEls) : safeInsets();
+    const cards = cardList();
+    return cards.length ? safeInsets(false, cards) : safeInsets();
   }
   // The view `v` (of view box vbArr, drawn box art in world units) panned, never scaled, so what it shows of the art inside the room the bars leave
   // (fIns) stays as much as it can inside the room the cards leave (safeInsets), 12 px clear on the sides. `v` is returned as it is when no card
   // takes room or none of the art is in view.
   function cardPanVT(v, vbArr, art) {
-    const i0 = fIns(), iR = safeInsets(), { W, H } = iR;
+    const i0 = fIns(), iR = safeInsets(false, null, true), { W, H } = iR;
     if (!W || !H || (i0.l === iR.l && i0.r === iR.r && i0.t === iR.t && i0.b === iR.b)) return v;
     const [vx, vy, vw, vh] = vbArr, s0 = Math.min(W / vw, H / vh);
     const ox = (W - vw * s0) / 2 - vx * s0, oy = (H - vh * s0) / 2 - vy * s0;
@@ -155,19 +168,22 @@ export function createFit(st, live) {
   // The pan a card's opening or closing asks of a view the learner placed (a fitted one is framed again by refit, which pans the same way): from the
   // place the view had before the last pan of ours (cardBase), so closing the card brings it back, unless the learner has moved it since.
   let cardBase = null;
+  // The camera moved by itself (a card's pan, a refit): a vessel card on a phone brings its vessel above itself again, from where the view is now going (card.js).
+  const REFRAMED = new Event('pps:reframed');
+  const reframed = () => dispatchEvent(REFRAMED);
   function cardsMoved() {
     if (live.lobuleOn) return;
-    snapFresh();
-    if (cardsCount && !cardsSnap.some((c) => cardEls?.includes(c.el))) cardsCount = false;   // (no card is open: Fit's sizing for them is over)
+    snapFresh(); cardsSig = roomSig();
+    if (cardsCount && !cardsSnap.some((c) => cardList().includes(c.el))) cardsCount = false;   // (no card is open: Fit's sizing for them is over)
     if (live.fitted) { cardBase = null; refit(); return; }
     if (live.cath.saved) return;
     const cur = live.vtGliding ? live.vtTarget : live.vt, circuit = live.morphTarget === 1;
     const base = cardBase && sameView(cur, cardBase.at) ? { k: cur.k, x: cur.x - cardBase.dx, y: cur.y - cardBase.dy } : cur;
-    const to = circuit ? cardPanVT(base, circVB(), artBox()) : cardPanVT(base, VB_ANAT, anatBox());
+    const to = withReveal(circuit ? cardPanVT(base, circVB(), artBox()) : cardPanVT(base, VB_ANAT, anatBox()));
     cardBase = { at: to, dx: to.x - base.x, dy: to.y - base.y };
-    if (!sameView(to, cur)) animateVT(to, 420, { steady: true });
+    if (!sameView(to, cur)) { animateVT(to, 420, { steady: true }); reframed(); }
   }
-  function safeInsetsFrom(list, exact = false, skip = null) {
+  function safeInsetsFrom(list, exact = false, skip = null, room = false) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
@@ -208,7 +224,7 @@ export function createFit(st, live) {
     }
     // (While presenting, the slide's words and data card both stay clear even on a tablet: the figure frames into the
     // column between them rather than going under them; only a strip too thin to frame anything gives way.)
-    if (W - ins.l - ins.r < (store.get().presenting ? 200 : W < 768 ? 260 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
+    if (!room && W - ins.l - ins.r < (store.get().presenting ? 200 : W < 768 ? 260 : Math.min(W * 0.5, 360))) ins.l = ins.r = 0;
     // (A sheet that leaves the figure under 35% of the height gives up part of its cover, never the top bars': the figure's top stays below the pills.
     // It scaled both before, and with Tests or Treat open on an iPhone the figure's top slid under the pills: A10.)
     if (!exact) { ins.b = squeezeBottom(ins); if (!store.get().presenting) roomiest(ins, W, H, bandT, bandB, blocks); }   // (the room the cards leave: card-clear.js roomiest)
@@ -400,12 +416,12 @@ export function createFit(st, live) {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     refitAsk = 0;
     if (live.lobuleOn) return;
-    const to = live.circAgain && live.morphTarget === 1 && live.circFit === 'whole' ? circWhole() : defaultVT(live.morphTarget === 1);
-    if (live.morphTarget !== 1) live.homeAt = to; else markCirc(live.circAgain ? live.circFit : 'focus', to);
+    const framed = live.circAgain && live.morphTarget === 1 && live.circFit === 'whole' ? circWhole() : defaultVT(live.morphTarget === 1), to = withReveal(framed);
+    if (live.morphTarget !== 1) live.homeAt = framed; else markCirc(live.circAgain ? live.circFit : 'focus', framed);   // (the framing itself is home; the vessel's pan on top of it is not)
     live.fitted = true;
     // (Mid-measurement the catheter's camera keeps the view: its trip back ends on the new fit instead of the old one.)
     if (live.cath.saved) { live.cath.saved = to; return; }
-    if (!sameView(to, live.vtGliding ? live.vtTarget : live.vt)) animateVT(to, 420, { steady: true });
+    if (!sameView(to, live.vtGliding ? live.vtTarget : live.vt)) { animateVT(to, 420, { steady: true }); reframed(); }
   }
   // The Tests card closed. A fitted view (see fitted) is fitted again to the space the card leaves, whatever the tools did
   // with the camera meanwhile; a view the learner zoomed or panned stays where it is, and the home framing is let go so the
@@ -484,31 +500,54 @@ export function createFit(st, live) {
   // when the sheet closes, unless the learner has moved the figure since.
   let revealFrom = null, revealTo = null;
   const sameView = (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+  // What was last asked and what came of it (pps.revealLast: a play-test reads it when a vessel is not brought into the room the cards leave).
+  const note = (o) => { (globalThis.pps ||= {}).revealLast = o; };
+  // The vessel the open card is about, kept while it is open: every framing the camera makes by itself (a refit, a card's pan) keeps it in the room (withReveal),
+  // so the two never pull against each other (a refit went to the default view and the reveal back, at every card change).
+  let revealWant = null;
+  // The pan that brings the wanted vessel into the room the open cards leave, judged for the view `at` (anchorFor reads where it stands now).
+  function revealPlan(at) {
+    const { sel, insetBottom } = revealWant;
+    const a = anchorFor(sel);
+    if (!a) return { why: 'no anchor', dx: 0, dy: 0 };
+    const s = live.vbScale();
+    const ox = (at.x - live.vt.x) * s, oy = (at.y - live.vt.y) * s;
+    const ins = safeInsets(false, null, true);   // (every open card, the vessel's own too: the room is the gap they leave, narrow as it may be)
+    const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
+    const left = Math.max(side, ins.l ? ins.l + 12 : 0), right = W - Math.max(side, ins.r ? ins.r + 12 : 0);
+    if (bottom - top < 80) return { why: 'no room', dx: 0, dy: 0, top, bottom, H, insetBottom, insB: ins.b };
+    let x0 = a.x + ox, x1 = x0, y0 = a.y + oy, y1 = y0;
+    if (a.r != null) for (const [px, py] of a.path) { x0 = Math.min(x0, px + ox - a.r); x1 = Math.max(x1, px + ox + a.r); y0 = Math.min(y0, py + oy - a.r); y1 = Math.max(y1, py + oy + a.r); }
+    const { dx, dy } = revealDelta({ x0, y0, x1, y1 }, { x: a.x + ox, y: a.y + oy }, { top, bottom, left, right });
+    return { why: dx || dy ? 'pan' : 'inside', dx, dy, top, bottom, left, right, H, W, insetBottom, insB: ins.b, y0, y1, x0, x1 };
+  }
   function reveal(sel, insetBottom) {
     if (!sel || live.lobuleOn || live.lz?.isOpen()) return;
-    const a = anchorFor(sel);
-    if (!a) return;
-    const ins = safeInsets();
-    const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
-    if (bottom - top < 80) return;
-    // A vessel is kept wholly in view when it fits; one too long for that keeps at least its middle in view.
-    let x0 = a.x, x1 = a.x, y0 = a.y, y1 = a.y;
-    if (a.r != null) for (const [px, py] of a.path) { x0 = Math.min(x0, px - a.r); x1 = Math.max(x1, px + a.r); y0 = Math.min(y0, py - a.r); y1 = Math.max(y1, py + a.r); }
-    if (x1 - x0 > W - 2 * side) { x0 = x1 = a.x; }
-    if (y1 - y0 > bottom - top) { y0 = y1 = a.y; }
-    const inside = y0 >= top && y1 <= bottom && x0 >= side && x1 <= W - side;
-    if (inside) return;
-    const s = live.vbScale();
-    const dx = x0 < side ? side - x0 : x1 > W - side ? W - side - x1 : 0;
-    const dy = y0 < top ? top - y0 : y1 > bottom ? bottom - y1 : 0;
-    if (revealTo && !sameView(live.vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
-    if (!revealFrom) revealFrom = { ...live.vt };
-    revealTo = { k: live.vt.k, x: live.vt.x + dx / s, y: live.vt.y + dy / s };
+    snapFresh();   // (the room as the cards leave it now, not as it was before the last one moved)
+    revealWant = { sel, insetBottom };
+    // The vessel is judged where the view is GOING, not where it is: a glide of the camera's own (a refit, the home look, a card's pan) may be
+    // running as the card opens, and a pan worked out from the view that glide is leaving was thrown away by it (F9, iPhone).
+    const goal = live.vtGliding && live.vtTarget ? live.vtTarget : live.vt;
+    const at = Math.abs(goal.k - live.vt.k) < 0.001 ? goal : live.vt;   // (a glide that also zooms is judged from where the view stands)
+    const p = revealPlan(at), s = live.vbScale();
+    note({ ...p, gliding: !!live.vtGliding });
+    if (!p.dx && !p.dy) return;
+    if (revealTo && !sameView(at, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
+    if (!revealFrom) revealFrom = { ...at };
+    revealTo = { k: at.k, x: at.x + p.dx / s, y: at.y + p.dy / s };
     animateVT(revealTo, CAM_MS_MAX, { scale: true });
+  }
+  // A framing the camera chose (a refit's, a card's pan) with the wanted vessel brought into the room, so it lands where the vessel is shown.
+  function withReveal(to) {
+    if (!revealWant || live.lobuleOn || live.lz?.isOpen() || Math.abs(to.k - live.vt.k) > 0.001) return to;
+    const p = revealPlan(to), s = live.vbScale();
+    if (!p.dx && !p.dy) return to;
+    revealTo = { k: to.k, x: to.x + p.dx / s, y: to.y + p.dy / s };
+    return revealTo;
   }
   function unreveal() {
     if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, CAM_MS_MAX, { scale: true });
-    revealFrom = revealTo = null;
+    revealFrom = revealTo = null; revealWant = null;
   }
   return { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard };
 }

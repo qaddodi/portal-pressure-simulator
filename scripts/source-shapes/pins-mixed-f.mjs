@@ -286,7 +286,7 @@ export default [
   { file: 'src/ui/stage*', need: [/if \(dpr\.on && dpr\.box\) \{ probe\.push\(dpr\.box\); const pm = dpr\.marks; for \(let i = 0; i < pm\.length; i\+\+\) probe\.push\(pm\[i\]\); \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/const homeOk = clFree\(home\) && \(!moved \|\| clFree\(grow\(home, 4\)\)\);/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/function clFree\(b\) \{ return b && !clProbeHit\(b\) && within\(b, CLB\.view\) && lineHits\(b, 6, CLB\.id\) < 1 && !\(CLB\.credit && hits\(b, CLB\.credit\)\); \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
-  { file: 'src/ui/stage*', need: [/function clProbeHit\(b\) \{ const pr = CLB\.probe; for \(let i = 0; i < pr\.length; i\+\+\) if \(hits\(b, pr\[i\]\)\) return true; return false; \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
+  { file: 'src/ui/stage*', need: [/function clProbeHit\(b\) \{ const pr = CLB\.probe; for \(let i = 0; i < pr\.length; i\+\+\) if \(hits\(b, pr\[i\]\)\) return true;/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/if \(cur && clFree\(clBoxAt\(cur\.d, cur\.t\)\)\) want = cur;/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/function clampStep\(id, want\)/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/el\.animate\?\.\(\[\{ opacity: 0 \}\], \{ duration: dur, fill: 'forwards' \}\)/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
@@ -384,7 +384,7 @@ export default [
   { file: 'src/ui/stage*', need: [/view\.x0 = M; view\.y0 = M; view\.x1 = W - M; view\.y1 = H - M;/, 'The figure\'s callouts after the 17 Oct design review:'] },
   { file: 'src/ui/stage*', need: [/if \(st\.presenting && (?:live\.)?pillEdge\) view\.y1 = Math\.max\(H \* 0\.5, Math\.min\(view\.y1, (?:live\.)?pillEdge\.top - 8\)\);/, 'The figure\'s callouts after the 17 Oct design review:'] },
   { file: 'src/ui/stage*', need: [/const x0 = Math\.max\(M, (?:live\.)?pzInset\('--pz-l'\) \+ 8\), x1 = W - Math\.max\(M, (?:live\.)?pzInset\('--pz-r'\) \+ 8\)/, 'The figure\'s callouts after the 17 Oct design review:'] },
-  { file: 'src/ui/stage*', need: [/return centreDrawn\(clearPill\(insetVT\(\{ k: 1, x: 0, y: 0 \}, VB_CIRC\), VB_CIRC\)\);/, 'The figure\'s callouts after the 17 Oct design review:'] },
+  { file: 'src/ui/stage*', need: [/const circWhole = \(\) => cardPanVT\(clearPill\(live\.rotTarget \? uprightFit\(\) : insetVT\(\{ k: 1, x: 0, y: 0 \}, circVB\(\)\), circVB\(\)\)/, 'The figure\'s callouts after the 17 Oct design review:'] },
   { file: 'src/ui/stage-fit.js', need: [/if \(!store\.get\(\)\.presenting\) return v;/, 'The figure\'s callouts after the 17 Oct design review: (Explore keeps its framing)'] },   // (was a slice of the file)
   { file: 'src/ui/stage-fit.js', need: [/return hi > 0 && dy > 0 \?/, 'The figure\'s callouts after the 17 Oct design review: (it only ever moves down, and never past the pill)'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/placed\.push\(st\.presenting \? \{ x0: a, y0: -1e4, x1: b, y1: y1 \+ 2, zone: true \}/, 'The figure\'s callouts after the 17 Oct design review:'] },

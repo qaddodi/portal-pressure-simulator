@@ -36,6 +36,8 @@ const stentTiles = (k, t) => ({
   [`${k}Bench`]: t ? t.bench : null, [`${k}Vel`]: t ? t.vPeak : null, [`${k}Lumen`]: t ? t.dWaist : null,
   [`${k}Stn`]: t ? t.end : null, [`${k}Red`]: t ? t.red : null, [`${k}StnSite`]: t ? t.site : null,   // (its end stenosis and where, and its deliberate waist: whose jet each Doppler gate reads, stent-geom.js gateKindsOf)
   [`${k}D`]: t ? t.d : null,   // (its open diameter in mm: the range its peak velocity is read against follows it, stent-geom.js stentBand)
+  // (and the rest of its geometry at that moment, cm: a card pinned to the slide draws the stent the numbers came from, never the live params' next one)
+  [`${k}Len`]: t ? t.geom.len : null, [`${k}WaistLen`]: t ? t.geom.waist : null, [`${k}Trans`]: t ? t.geom.trans : null, [`${k}Resid`]: t ? t.resid : null,
   // (The stent cards' own: the three Doppler points as the scanner reads them, and the drop's four parts: tract, wall friction, the two ends, the narrowing's jet.)
   [`${k}G0`]: t ? t.peaks[0] : null, [`${k}G1`]: t ? t.peaks[1] : null, [`${k}G2`]: t ? t.peaks[2] : null,
   [`${k}Tract`]: t ? t.parts.tract : null, [`${k}Wall`]: t ? t.parts.wall : null, [`${k}Ends`]: t ? t.parts.entry : null, [`${k}Jet`]: t ? t.parts.jet + t.parts.inlet : null,

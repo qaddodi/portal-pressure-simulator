@@ -14,7 +14,30 @@ const run = (o) => {
 for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy' }, { size: 'iphone', view: 'anatomy' }, { size: 'mac', view: 'anatomy', s: 0.5, waist: 2 }]) {
   test(`no label shows over a narrowing's words: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
     const r = run(o);
-    assert.ok(r.cl.some((c) => /^(Narrowed|Waist|Distal|Proximal|Mid) /.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
+    assert.ok(r.cl.some((c) => /^(Narrowed|Distal|Proximal|Waist)/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
     assert.deepEqual(r.lap, []);
   });
 }
+
+// A card opening over the words (all of them, or half): they move off it or fade out whole; they never stand cut by the card's edge (finding 23,
+// 17 Nov 2026: "D…", "W…" beside the stent, under the Tests card).
+for (const card of [true, 'half', 'top']) {   // ('top': a bar across the top of the stage down past the words, as the top bar is after the Tests sheet's pan: F29)
+  test(`a narrowing's words under a card move off it or fade out whole: ${card}`, { timeout: 320000 }, () => {
+    const r = run({ size: 'mac', view: 'anatomy', card });
+    const [x0, y0, x1, y1] = r.card, b = r.cl[0].box;
+    const under = b[0] < x1 && b[2] > x0 && b[1] < y1 && b[3] > y0;
+    assert.ok(!under || r.op[0] < 0.05, `words at ${b} under the card ${r.card} with opacity ${r.op[0]}`);
+  });
+}
+
+// A stent with an end stenosis and a waist both narrowed has two callouts ("Distal stenosis …", "Waist …"): they never stand on each other, and
+// each holds its place while the figure stands (the stent thread's heads-up, 17 Nov 2026).
+test('a stent\'s end stenosis and waist callouts stand apart', { timeout: 320000 }, () => {
+  const r = run({ size: 'mac', view: 'anatomy', s: 0.5, waist: 2, red: 0.4 });
+  const w = r.cl.filter((c) => c.box[2] > c.box[0]);
+  assert.ok(w.length >= 2, `two callouts: ${JSON.stringify(r.cl)}`);
+  for (let i = 0; i < w.length; i++) for (let j = i + 1; j < w.length; j++) {
+    const a = w[i].box, b = w[j].box;
+    assert.ok(!(a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]), `${w[i].t} over ${w[j].t}`);
+  }
+});

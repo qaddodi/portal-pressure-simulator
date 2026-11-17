@@ -32,10 +32,10 @@ test('the room is what is left between the case pill and the card\'s own foot, i
 
 test('the body is in the card\'s flow and scrolls past the room, on the phone and on the shelf', () => {
   assert.match(css, /\.action-card\.docked:not\(\[hidden\]\) \{ display: flex; flex-direction: column; \}/);
-  assert.match(css, /\.action-card\.docked > \.ac-body \{ position: relative; inset: auto; flex: 0 1 auto; min-height: 0; overflow-y: auto;/);
+  assert.match(css, /\.action-card\.docked > \.ac-body \{ position: relative; inset: auto; flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto;/, 'down, never sideways (F38)');
   assert.match(css, /\.action-card:not\(\.docked\) \{ max-height: min\(500px, calc\(100% - var\(--top-safe, 56px\) - 24px\)\); \}/);
   assert.match(css, /\.action-card:not\(\.docked\):not\(\[hidden\]\) \{ display: flex; flex-direction: column; \}/);
-  assert.match(css, /\.action-card:not\(\.docked\) > \.ac-body \{ flex: 0 1 auto; min-height: 0; overflow-y: auto;/);
+  assert.match(css, /\.action-card:not\(\.docked\) > \.ac-body \{ flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto;/, 'down, never sideways (F38)');
 });
 
 test('a card too tall for its room takes the vertical touch for scrolling, one that fits keeps the pull that puts it away', () => {
@@ -51,4 +51,13 @@ test('a card too tall for its room takes the vertical touch for scrolling, one t
 test('the stent\'s card holds more rows than its size\'s old height: Waist length and Ends (why it was cut off)', () => {
   const actions = read('src/ui/actions.js');
   for (const id of ["id: 'waist'", "id: 'ends'"]) assert.ok(actions.includes(id), `the stent's card has ${id}`);
+});
+
+test('a stent\'s vessel card holds one row of value chips, the TIPS view\'s editor, so the phone\'s card leaves the stent in sight (play-test finding 9, 17 Nov 2026)', () => {
+  const actions = read('src/ui/actions.js'), card = read('src/ui/card.js');
+  assert.match(actions, /const STENT_PANEL = \(id\) => \(\{ type: 'panel', id: 'stent', label: 'Edit stent', make: \(\) => createStentEditor\(\{ id \}\) \}\);/);
+  assert.equal((actions.match(/verbs\.push\(STENT_PANEL\(id\)\);/g) || []).length, 2, 'the TIPS and DIPS, and a drawn stent');
+  assert.doesNotMatch(actions, /stentControls\(id\)\.slice\(1\)/, 'no stack of slider rows on the card');
+  assert.match(card, /const x = v\.make\(\);\n\s*panels\.push\(x\);/, 'a panel is kept to be destroyed');
+  assert.equal((card.match(/dropPanels\(\);/g) || []).length, 2, 'on a rebuild and on close: no editor keeps following the params after its card');
 });

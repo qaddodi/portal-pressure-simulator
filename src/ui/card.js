@@ -28,6 +28,7 @@ import { readBox, readMetric } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
+import { handOver } from './hand-over.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -63,7 +64,7 @@ const P_BODY = { class: 'ac-body' }, P_NR = { class: 'ac-nr' }, P_NAME = { class
 const P_SP = { class: 'ac-sp' }, P_EL = { class: 'ac-el' }, P_EL_R = { class: 'ac-el r' }, P_DV = { class: 'ac-dv' }, P_PA = { class: 'ac-pa' }, P_PB = { class: 'ac-pb' };
 const P_TRACK = { class: 'ac-track', 'aria-hidden': 'true' }, P_RAMP = { class: 'ac-ramp' };
 const P_RS = { class: 'ac-rs' }, P_R = { class: 'ac-r' }, P_EM = { class: 'ac-em' }, P_RV = { class: 'ac-rv' }, P_U = { class: 'ac-u' };
-const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' };
+const P_CS = { class: 'ac-cs' }, P_CS_ONE = { class: 'ac-cs one' }, P_AS = { class: 'ac-as' }, P_PANEL = { class: 'ac-panel' };
 const P_UNMEASURED = { class: 'ac-unmeasured' }, P_UNIT = { class: 'unit' }, P_DELTA_UP = { class: 'ac-delta up' }, P_DELTA_DOWN = { class: 'ac-delta down' }, P_DELTA_NONE = { class: 'ac-delta' };   // (the delta's slot is always there, empty when there is no change: see .ac-delta, app.css)
 const P_ABOUT = { class: 'ac-about' };
 const P_CTLTOP = { class: 'ctl-top' }, P_CTLNAME = { class: 'ctl-name' }, P_CTLVAL = { class: 'ctl-val' };
@@ -97,7 +98,7 @@ const RAMP_TOP = 30;
 // The cut colour of a gradient (HVPG, PPG) as a class: ok, caution, danger.
 const CUT_CLS = { ok: 'ac-cut ok', caution: 'ac-cut caution', danger: 'ac-cut danger' };
 // What each kind of control takes of the card (a segmented choice is two cells); a card with more than SMALL_CELLS is the tall size.
-const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2 };
+const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 2 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
 const SMALL_CELLS = 2;
 const CTL = new Set(['slider', 'toggle', 'meter', 'seg']), ACT = new Set(['button', 'dye', 'link']), READ = new Set(['read', 'stat']);
 
@@ -157,6 +158,7 @@ export function cardShape(m, p) {
     else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
     else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
     else if (v.type === 'about') about = 1;
+    else if (v.type === 'panel') { c++; seg++; }   // (a panel's one row: its height as a choice's)
   }
   return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
 }
@@ -168,12 +170,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => el.classList.remove('ac-in');
+  const endIn = () => { el.classList.remove('ac-in'); reveal(); };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); if (isDocked()) reveal(); }).observe(el);
-  new ResizeObserver(() => { if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   // live: the elements whose reading follows the model (each says which in _acK: 1 the direction word and, on a card with no bar, its
@@ -181,7 +183,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // params (_acK 1 a slider, 2 a switch); actionable: what the number keys reach, in order. Kept lists, emptied (length 0) and filled
   // again when the card is rebuilt.
   let lastSelTok = [], newSelTok = [], model = null, selRef = null;
-  const live = [], syncs = [], actionable = [];
+  const live = [], syncs = [], actionable = [], panels = [];   // (panels: the components a card holds, each destroyed when the card is rebuilt or closed)
+  const dropPanels = () => { for (const x of panels) x.destroy?.(); panels.length = 0; };
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -216,13 +219,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
     return Math.max(0, readBox(view).bottom - readBox(el).top);
   }
   function revealNow() {
-    const open = model && !el.hidden && isDocked();
+    const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
     const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
-    if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
+    // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
+    const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
+    if (shown) { stage.cardsMoved?.(); stage.reveal?.(normalizeSel(selRef) || selRef, covered); }
   }
   function reveal() {
     // (A rest pass: the boxes are read between two frames, never inside one.)
@@ -230,7 +235,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, sheetWired = false;
-  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); };
+  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
@@ -240,7 +245,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (isDocked()) markGone(D_SMALL, el);   // (a phone's card sinks like a sheet: whatever opens next crosses over with it, as it does with a sheet)
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
-    model = null; live.length = 0; syncs.length = 0; actionable.length = 0;
+    model = null; live.length = 0; syncs.length = 0; actionable.length = 0; dropPanels();
     liftButtons('0px');
     stage.unreveal?.();
     relayoutSoon();
@@ -406,7 +411,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     nr._acK = 1; nr._acNum = numEl; nr._acPill = pillEl; nr._acM = m; nr._acMode = 0; nr._acHas = false;
     live.push(nr);
     // (The controls take one column where a name is long or there is only one of them: the liver's Cirrhosis runs the card's width.)
-    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0;
+    let rs = null, cs = null, as = null, about = null, danger = null, one = false, nCtl = 0, panel = null;
     for (const v of m.verbs) if (CTL.has(v.type) && !(v.showIf && !v.showIf(p0))) { nCtl++; if ((v.short || v.label).length > 14) one = true; }
     if (nCtl === 1) one = true;
     for (const v of m.verbs) {
@@ -417,10 +422,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
       else if (CTL.has(v.type)) (cs ||= h('div', one ? P_CS_ONE : P_CS)).append(node);
       else if (ACT.has(v.type)) { if (v.danger) danger = node; else (as ||= h('div', P_AS)).append(node); }
       else if (v.type === 'about') about = node;
+      else if (v.type === 'panel') panel = node;
     }
     if (rs) body.append(rs);
     if (about) body.append(about);
     if (cs) body.append(cs);
+    if (panel) body.append(panel);
     if (danger) (as ||= h('div', P_AS)).append(danger);   // (taking a device out stands apart, at the right)
     if (as) body.append(as);
     return body;
@@ -471,7 +478,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     const tok = lastSelTok; lastSelTok = newSelTok; newSelTok = tok;
     const size = cardSize(m, st.params), wasOpen = !el.hidden && !!model && !leaving;
     el.dataset.card = ns.type || 'vessel';
-    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0;
+    model = m; selRef = sel; live.length = 0; syncs.length = 0; actionable.length = 0; aboutNext = 0; dropPanels();
     const old = el.querySelector(':scope > .ac-body');
     el.querySelector(':scope > .ac-ghost')?.remove();
     releaseWords(el);   // (the readings of the content being replaced)
@@ -722,6 +729,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
       b._acRun = 1; actionable.push(b);
       return b;
     }
+    if (v.type === 'panel') {
+      // A component with its own controls and its own following of the params (a stent's editor: one row of value chips, stent-editor.js).
+      const x = v.make();
+      panels.push(x);
+      return h('div', P_PANEL, x.el);
+    }
     if (v.type === 'button') {
       const b = actBtn(v.danger ? P_BTN_DANGER : P_BTN, v);
       b._acV = v;
@@ -757,6 +770,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // Where the card stands: a phone's in the figure column, above the view switch (app.css .action-card.docked); a Mac's or an iPad's
   // in the figure, on the shelf at its left edge under the case pill (app.css). Neither depends on what was picked, so nothing is
   // measured to place it.
+  const placed = {};
   function position() {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
@@ -766,10 +780,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (el.parentNode !== view) view.append(el);
       if (isDocked()) el.classList.remove('docked');
     }
+    handOver(placed, isDocked() ? 'sheet' : 'shelf', [el.querySelector(':scope > .ac-body')]);   // (turned between the shelf and the sheet: its words start at the top again, F35)
+    // The camera counts this card like Tests and Details: over the foot of a phone, on the left shelf elsewhere (it pans for it, stage-fit.js; 17 Nov 2026, F9, F27).
+    const edge = isDocked() ? 'bottom' : 'left';
+    if (el.dataset.safe !== edge) el.dataset.safe = edge;
   }
 
   // The floating pieces moved (the layout changed between a phone and a wider screen, the dock grew): stand the card in its place again.
-  addEventListener('pps:occ', () => { position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { position(); reveal(); });
+  addEventListener('pps:reframed', () => { if (model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('colorMode', () => update());
