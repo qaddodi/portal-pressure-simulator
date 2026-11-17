@@ -172,7 +172,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .suture-knot-halo { fill: none; stroke: var(--suture-edge); stroke-width: 3.3; stroke-opacity: .4; stroke-linecap: round; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
-.dim-line { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }   /* (a stent's waist length, the hairline bracket along it: stage-transitions.js stentBracket) */
+.clamp-span, .clamp-span-out { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }   /* (a stent's waist length, a hairline bracket along it that is one of the narrowing's own marks: stage-transitions.js stentBracket) */
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
 .clamp-label, .clamp-label-out { font-size: var(--clamp-fs, var(--fs-12)); stroke-width: var(--clamp-sw, 4px); }
 /* (A "60 %" is a group of two outline paths, the painter's own shapes (stage.js clampGlyphs): the halo is the stroke alone, the glyphs the fill alone, as paint-order drew them.) */

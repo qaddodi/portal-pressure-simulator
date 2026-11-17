@@ -107,8 +107,10 @@ test('the Doppler gate reads one third of a stent, and slides name gates and seg
   }
   // Moving the narrowing along the stent (the 'narrow' slide's buttons): the jet moves with it, and only that third runs over 190 cm/s.
   const e = run('narrow'), v = vel(e, 'TIPS'), s0 = slide('narrow').params.stenosis.TIPS;
+  // (Mid is a waist, 17 Nov 2026: a narrowing mid stent is the stent's waist, its stenosis at an end; stentSegments reads both.)
   for (const o of slide('narrow').compare) {
-    const site = o.params.stenosisSite.TIPS, reads = stentSegments(v, s0, site);
+    const mid = !o.params.stenosisSite, site = mid ? 'mid' : o.params.stenosisSite.TIPS;
+    const reads = mid ? stentSegments(v, o.params.stenosis.TIPS, 'distal', undefined, { len: 8, waist: 1, trans: 0, red: o.params.stentGeom.TIPS.red }) : stentSegments(v, s0, site);
     reads.forEach((r, i) => assert.ok(['proximal', 'mid', 'distal'][i] === site ? r > 190 : r < 90, `${site}: ${reads}`));
   }
 });

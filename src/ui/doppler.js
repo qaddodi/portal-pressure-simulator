@@ -93,7 +93,8 @@ function rangeNoteOf(p, normal, d) {
   const scaled = normal !== p.normal, key = scaled ? `${normal[0]}|${normal[1]}|${d}` : '';
   let t = RANGE_NOTES.get(key);
   if (t === undefined) {
-    t = scaled ? `Stent velocities <${normal[0]} or >${normal[1]} cm/s for a ${Math.round(d * 10) / 10} mm stent (provisional: the 8 to 10 mm range, scaled; no guideline gives one), ${NOTE_TAIL}`
+    // (A scaled band is the app's own extrapolation, no study validates it: its note says so, and does not call a velocity outside it a sign of stenosis.)
+    t = scaled ? `Model band for a ${Math.round(d * 10) / 10} mm stent: ${normal[0]} to ${normal[1]} cm/s. Provisional: the reported 8 to 10 mm range (90 to 190 cm/s), scaled for this diameter by the app; no study validates it, and it is not a surveillance threshold.`
       : `Stent velocities <${normal[0]} or >${normal[1]} cm/s, ${NOTE_TAIL}`;
     RANGE_NOTES.set(key, t);
   }
@@ -562,8 +563,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const sr = stentReads(shown ? seen.open : open);
       const jet = shown ? Math.max(Math.round(Math.abs(m)), Math.round(sr[0]), Math.round(sr[1]), Math.round(sr[2])) : Math.max(a, sr[0], sr[1], sr[2]);   // the fastest segment: a narrowing's jet
       const hiV = normal[1];   // (the stent's ceiling: its probe's normal, from the one table of them, velNormal.js PROBE_NORMAL)
-      pattern = jsS.none ? 'Occluded' : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
-      if (sev === 'ok' && jet > hiV) sev = 'caution';
+      // (A stent of 8 to 10 mm is read against the reported range. Another diameter has a band the app scaled, which no study validates: its words say where the reading sits
+      // against that model band, and its tone stays neutral, never "Patent" or "High velocity", never amber.)
+      const model = normal !== p.normal;
+      pattern = jsS.none ? 'Occluded' : model ? (jsS.slow ? (jet > hiV ? 'Below model band, jet' : 'Below model band') : jet > hiV ? 'Above model band' : 'Within model band')
+        : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
+      if (model && sev === 'caution') sev = 'ok';
+      else if (sev === 'ok' && jet > hiV) sev = 'caution';
       note = jsS.none ? 'No flow in the stent: occluded.' : rangeNoteOf(p, normal, frame?.D?.[EI[p.id]]);
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
@@ -601,16 +607,17 @@ export function createDoppler({ onProbe, pickGate = true }) {
     gaugeHi = Math.max(Math.round((open ? 2 * n0 : n1) * 1.7), Math.ceil(mean * 1.1));
     gaugeLo = Math.min(0, Math.floor(mean * 1.1));
     propSoon(rangeEl, 'hidden', false);
-    const outNow = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
+    const outNow = !expected && !(p.kind === 'tips' && normal !== p.normal) && (mean < n0 || mean > n1) ? 'true' : 'false';   // (a stent's model band, scaled by the app for its diameter, is never drawn as out of range)
     dataSoon(rangeEl, 'out', outNow); dataSoon(velEl, 'out', outNow); dataSoon(statEls.Speed.wrap, 'out', outNow);
     // (The gauge's numbers are kept, and its transforms, words and title written from them in a task of their own straight after the
     // frame, once however many readings came: no style or string made inside a frame.)
+    gaugeModel = p.kind === 'tips' && normal !== p.normal;
     gaugeN0 = n0; gaugeN1 = n1; gaugeOpen = open; gaugeP0 = pos(n0); gaugeP1 = pos(n1); gaugePm = pos(mean); gaugePz = pos(0);
     propSoon(gHi, 'hidden', open);
     dataSoon(gLo, 'u', open ? 'cm/s' : '');
     if (!gaugeDue) { gaugeDue = true; runSoon(gaugeWrite); }
   }
-  let gaugeN0 = 0, gaugeN1 = 0, gaugeOpen = false, gaugeP0 = 0, gaugeP1 = 0, gaugePm = 0, gaugePz = 0, gaugeDue = false;
+  let gaugeModel = false, gaugeN0 = 0, gaugeN1 = 0, gaugeOpen = false, gaugeP0 = 0, gaugeP1 = 0, gaugePm = 0, gaugePz = 0, gaugeDue = false;
   function gaugeWrite() {
     gaugeDue = false;
     // (by transform: the track and ticks are containers, so 1cqw is a hundredth of their width; the browser eases them on the compositor)
@@ -624,7 +631,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (Each tick's number is centred on its point and the unit hangs after it: "40 cm/s" pulled left to fit put its 40 about
     // 5 cm/s short of the band's end.)
     set2(gLo, String(gaugeN0)); set2(gHi, gaugeOpen ? '' : String(gaugeN1));
-    rangeEl.title = gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
+    rangeEl.title = gaugeModel ? `Model band ${gaugeN0}–${gaugeN1} cm/s (provisional: scaled from the reported 8 to 10 mm range)` : gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
     statEls.Speed.wrap.title = rangeEl.title;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
@@ -745,7 +752,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       for (let i = 0; i < SEGS.length; i++) {
         const seg = SEGS[i][0], name = SEGS[i][1], v = reads[i], w = statEls[name].wrap, here = seg === at;
         setStat(statEls[name].dd, num(v), 'cm/s');
-        dataSoon(w, 'out', v < sn[0] || v > sn[1]);
+        dataSoon(w, 'out', sn === p.normal && (v < sn[0] || v > sn[1]));   // (a model band is the app's own scaling, never drawn as an alarm: the card's words say where the reading sits)
         classSoon(w, 'on', here);
         const b = statEls[name].btn;
         if (b) {
