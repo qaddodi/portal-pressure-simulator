@@ -1,6 +1,6 @@
 // The tubes: update and updateInner, the widths and the tube render.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, isOccluded, isStent } from '../engine/topology.js';
 import { ART_FADE, BACK_EDGES, CONTEXT_EDGES, FEEDERS, IVC_EDGES, LABEL_VESSEL, LIVER_EDGES, SIN_EDGES, TIP_CONNECT } from './anatomy.js';
 import { bandsStep } from './band-ease.js';
 import { oxygenFor } from './blood.js';
@@ -229,7 +229,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const e = x.e;
     // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
     // (The thin hepatic artery has a narrow hit zone, and ranks below the portal vein it runs beside: the vein wins a shared tap.)
-    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id) || !!ART_FADE[e.id], hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((live.CTM && live.CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; live.pickVer++; } }
+    { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id) || !!ART_FADE[e.id]; /* (a stent is a few px wide on a phone: its strip is a thumb wide, F15) */ const hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, (isStent(e) ? 36 : 10) / ((live.CTM && live.CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; live.pickVer++; } }
     if (x.isArt) return;
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) for (let i = 0; i < x.strands.length; i++) {

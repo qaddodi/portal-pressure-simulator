@@ -26,7 +26,7 @@ let lastF = null;
 const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) lastF = f; if (lastF) st.update(lastF); await tasks(); await tasks(); };
 page.document.querySelector('.app')?.style.setProperty('--pz-b', coarse ? '260px' : '0px');
 const marks = [o.mark];
-if (o.free) store.set({ presenting: false, params: P, selection: { type: 'edge', id: 'TIPS' } });   // (the free Anatomy view with the TIPS's card open, Mohammad's iPhone shot, 17 Nov)
+if (o.free) store.set({ presenting: false, params: P, selection: o.nocard ? null : { type: 'edge', id: 'TIPS' } });   // (the free Anatomy view with the TIPS's card open, Mohammad's iPhone shot, 17 Nov)
 else store.set({ presenting: true, presentLabels: [], presentTerms: null, params: P, dopGate: 'site', focus: { ...marks[0], marks }, ...(o.sel ? { selection: { type: 'edge', id: 'TIPS' } } : {}) });
 st.setView?.('anatomy');
 st.frameBox(REGIONS.liver, 800, 3.2, false, {});

@@ -92,3 +92,15 @@ test('the History badge keeps its room in the top bar, so the first edit does no
   const { appCss } = await import('./split-src.js');
   assert.match(appCss(), /\.topbar:not\(\[data-fit="2"\], \[data-fit="3"\]\) \.tb-act \.tb-hc:empty \{[^}]*visibility: hidden/);
 });
+
+test('a stent is picked over the sinusoids it crosses, and its hit strip is a thumb wide (play-test F15)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const hov = readFileSync(new URL('../src/ui/stage-hover.js', import.meta.url), 'utf8');
+  const tub = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
+  assert.match(hov, /rank = pickTier\(x\) \* GL_ROWS \+ x\.row \+ \(isStent\(x\.e\) \? STENT_WINS : 0\)/);
+  assert.match(tub, /\(isStent\(e\) \? 36 : 10\) \/ /);
+  const { createVesselPick } = await import('../src/ui/vessel-pick.js');
+  const sin = [[0, 0], [100, 0]], stent = [[50, -50], [50, 50]];
+  const pk = createVesselPick((visit) => { visit('SIN', 5, 6, sin); visit('TIPS', 1 + 1e6, 10, stent); });
+  assert.equal(pk.pick(50, 0, 1, 0), 'TIPS');
+});

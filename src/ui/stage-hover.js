@@ -1,6 +1,6 @@
 // Hover and pick: the interaction section (pointer reads, hover link, label explain) and the shunts card.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, SHUNT_PORTAL, SHUNT_PORTAL_VEINS, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js';
+import { EDGES, isStent, SHUNT_PORTAL, SHUNT_PORTAL_VEINS, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js';
 import { ABDOMEN_CLIP, BACK_EDGES, CONTEXT_EDGES, IVC_EDGES, LIVER_SPLIT_X, ORGANS } from './anatomy.js';
 import { classSoon } from './class-soon.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
@@ -30,12 +30,13 @@ export function createHover(st, live) {
   // vessel not shown (x.vis) or the liver's own small vessels in the anatomy (x.noHit); a strand only while it is live, strands and
   // trunks only in the anatomy. On a stroke, the one the GPU draws on top wins (its tier, then its row); near one, the nearest within
   // slop CSS px past its edge (nearbyEdge).
+  const STENT_WINS = 1e6;
   const pickTier = (x) => (x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x));
   const vesselPick = createVesselPick((visit) => {
     const anat = live.morph < 0.5;
     for (const x of EV) {
       if (!x.vis || x.noHit) continue;
-      const id = x.e.id, rank = pickTier(x) * GL_ROWS + x.row;
+      const id = x.e.id, rank = pickTier(x) * GL_ROWS + x.row + (isStent(x.e) ? STENT_WINS : 0);   // (a stent is drawn over the sinusoids it crosses and is picked over them, F15)
       const narrow = CONTEXT_EDGES.has(id) || BACK_EDGES.has(id);
       visit(id, rank, (x.hitW || (narrow ? 8 : 20)) / 2, geo[id]?.cur);
       if (!anat) continue;
