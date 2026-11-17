@@ -290,6 +290,24 @@ export const EDGE_PATH = {
   REX: 'M690 660 C 724 646 756 604 758 550 C 760 496 742 436 688 378',
 };
 
+// The cavernoma's channels besides its main channel (the C8 course, 10.5 to the patient's right of the clot), on both sides of the clotted trunk (17 Nov 2026, Mohammad, the "T3" mock: "both sides and
+// curved", "connect in different locations proximally and distally", recruitment = how many vessels and how wide). In the frame of the trunk's drawn course (cavernoma-strand.js): `v` the
+// offset from its centreline (+ the patient's right, - the hepatic artery's side), `amp`/`cyc`/`ph` the wave about it (amplitude, cycles along the channel, phase; neighbours take opposite
+// phases so a pair draws together and parts, a braid, and none crosses another), `a` and `z` where it leaves the trunk, units above the confluence, and where it rejoins it, units
+// below the hilum (each its own, so the joins are spread along both stumps: on each side the farther channel leaves and rejoins the trunk nearer its node than the one inside it, so they nest and never cross; the strands' ends are kept out of the node's own join, vein-joins.js, and lie on the trunk's course), `ramp` the units over which it rises to its offset and falls back (a farther one over more, so its elbows are as gentle), `k` its caliber as a share of the main channel's, `r0` the recruitment it begins to appear at (it grows in, whole and joined
+// at both ends, over CAV_GROW of the recruitment: first the main channel, then the lane beside the artery, then the rest).
+// The channels on the artery's side beyond the artery (v < -12) cross it where they leave and rejoin the trunk; the fine one nearest the trunk stays in the lane between the clot and the artery.
+export const CAV_GROW = 0.28;
+export const CAV_CHANNELS = {
+  C8: [
+    { v: -6.5, amp: 0, cyc: 0, ph: 0, a: 20.2, z: 24.5, k: 0.5, r0: 0.04, ramp: 17 },
+    { v: 21, amp: 3.2, cyc: 1.9, ph: 0, a: 18.5, z: 20, k: 0.78, r0: 0.1, ramp: 26 },
+    { v: -22, amp: 3, cyc: 1.7, ph: Math.PI, a: 16.7, z: 18.5, k: 0.68, r0: 0.22, ramp: 27 },
+    { v: 31, amp: 3.2, cyc: 1.9, ph: Math.PI, a: 15, z: 16.5, k: 0.66, r0: 0.35, ramp: 33 },
+    { v: -31.5, amp: 3, cyc: 1.7, ph: 0, a: 13.2, z: 14.5, k: 0.57, r0: 0.52, ramp: 33 },
+    { v: 41, amp: 3, cyc: 1.9, ph: 0, a: 11.5, z: 13, k: 0.57, r0: 0.6, ramp: 40 },
+  ],
+};
 // Collateral plexuses: a collateral is rarely one clean vein. The periportal collateral of a
 // cavernous transformation is a braid of small, tortuous channels around the occluded trunk,
 // and the varices are fed and drained the same way: the coronary vein reaches the esophageal
@@ -299,12 +317,9 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  // (The cavernoma's strands keep the main channel's plateau (STRAND_PLATEAU): [offset from the main channel, 1 to ride its serpentine or 0 to keep
-  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk's centreline; the one strand lies on the other side, 6.5 off it:
-  // the hepatic artery hugs the trunk there, 12 off it, and leaves room only for one fine channel between the vein's wall and the artery's (a second outside the artery
-  // would cross it where it leaves the stump and where it reaches the hilum). So the plexus is the two channels, one on each side of the clot, never more on one side
-  // than the other. The coronary vein crosses over the strand and ends on the trunk, joined to neither (JOIN_REFUSED).)
-  C8: [[17.1, 0, 0.5]],
+  // (The cavernoma's channels are CAV_CHANNELS, drawn in the frame of the clotted trunk by cavernoma-strand.js; this row of each is [offset from the trunk's centreline, 0, caliber] so the stage
+  // makes one strand for each, with its caliber.)
+  C8: CAV_CHANNELS.C8.map((c) => [c.v, 0, c.k]),
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -325,14 +340,14 @@ export const STRAND_SOFT = new Set(['C8']);
 // The strands that keep their main channel's own plateau instead (the cavernoma): each lies at its offset times the plateau, which rises and falls over
 // this share of the course at each end, as the main channel's course does, and rides the main channel's serpentine, so no two channels ever cross
 // (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
-export const STRAND_PLATEAU = { C8: 0.169 };
+export const STRAND_PLATEAU = {};   // (none now: the cavernoma's channels are drawn in the trunk's frame, CAV_CHANNELS)
 // The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
 export const WIG_CAP = { C8: 2.4 };
 // The cavernoma's strands may wind about their course (none does now: the one strand lies in the narrow lane between the clot and the artery): [amplitude, cycles along the
 // course, phase, and the share of the course over which it rises to its offset (the same for all, so a farther channel is never overtaken by a nearer one while they swing out)], one row per strand of STRANDS, added to the strand's offset inside its plateau (so each still leaves and rejoins the open stumps on the
 // main channel's ends). Neighbours take opposite phases, so a pair draws together and parts as the next pair does: a braid, and no two centre lines meet
 // (tests/cavernoma-plexus.test.js keeps their gap). 13 Nov 2026, Mohammad: more collaterals, smooth and winding, not straight tubes.
-export const STRAND_WAVE = { C8: [[0, 0, 0]] };
+export const STRAND_WAVE = {};   // (none now: the cavernoma's channels wind by CAV_CHANNELS)
 // The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
 // lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
 // there, a torn gap beside the stump: 13 Nov 2026).

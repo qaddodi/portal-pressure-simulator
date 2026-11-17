@@ -196,7 +196,7 @@ export function veinJoins(items, N, st, margin = 0) {
   nGroups = 0;
   for (let k = 0; k < n; k++) {
     const it = items[k];
-    if (it.kind === 'f') continue;
+    if (it.kind === 'f' || (it.kind === 's' && END_HOSTS[it.x.e.id])) continue;   // (a strand of a vessel whose ends lie on another's course joins that course, not the node it is named for: END_HOSTS; the cavernoma's, 17 Nov 2026)
     const art = it.x.isArt ? 1 : 0;
     for (let i = 0; i < 2; i++) {
       if (i === 0 && it.cut > 0) continue;   // (a divided vein's cut-away start meets nothing: see cutAway)
