@@ -180,6 +180,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
+  let tallest = 0;   // (the tallest a lobule part's card has stood since it was picked: its least height)
   // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
   let glideFrom = 0, glides = [];
   el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
@@ -187,6 +188,13 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const was = sizes.h;
     sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
     if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    // A lobule part's card is as tall as its tallest words so far (Mohammad, 17 Nov 2026: no blank panel under short words, and no jumping as the live words change): it grows
+    // to a taller wording with the card glide, and never shrinks while it is the same card (a new pick starts again).
+    else if (el.dataset.size === 'x' && !el.hidden) {
+      if (was > 0 && sizes.h > was + 1 && !el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glides = glideCard(el, was, sizes.h, { foot: el.classList.contains('docked'), prior: glides });
+      if (sizes.h > tallest) tallest = sizes.h;
+      else if (sizes.h < tallest - 0.5) el.style.minHeight = `${tallest}px`;
+    }
     reveal();
   }).observe(el);
   new ResizeObserver(() => { reveal(); }).observe(view);
@@ -569,6 +577,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
     const shape = cardShape(m, st.params);
     const resized = wasOpen && (el.dataset.size !== size || el.dataset.shape !== shape);
     el.dataset.size = size; el.dataset.shape = shape;
+    if (!same) { tallest = 0; el.style.minHeight = ''; }   // (a new pick starts its own height)
     const swap = wasOpen && !same && !resized && !!el.animate && !!old;
     // Another pick with the details showing: they fade out as the new words come in (a card of another size is a new card: they are gone at once).
     if (det && !keepDet) {

@@ -157,7 +157,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
    and one switch (the varices, the Grade line and BRTO) stood 130 px taller than its words and the room showed between them. The size class stays, with the card's shape (card.js
    cardShape): a card of another size or shape is the old one going out and the new one coming in. The lobule part's card, whose words change as the model runs, keeps its 500 px,
    and the phone's docked card its fixed sizes below.) */
-.action-card[data-size=x]:not(.docked) { height: 500px; }
+/* (17 Nov 2026, Mohammad: the lobule part's card is no longer a fixed 500 px with blank panel under short words: it is as tall as its tallest words so far, card.js, and grows with the card glide.) */
 /* The card is glass, as every card (the plate is drawn by the figure's GPU glass: main.js sheetGlass), on the shelf and on a phone alike. */
 .action-card.has-plate { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
 .action-card.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
@@ -283,7 +283,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
   --ac-max: calc(100% - env(safe-area-inset-bottom) - 6px - var(--top-safe, 56px) - 56px);
 }
 .action-card.docked[data-size=l] { min-height: min(300px, var(--ac-max)); }
-.action-card.docked[data-size=x] { min-height: min(400px, var(--ac-max)); }
+/* (the lobule part's card on a phone is as tall as its tallest words, like the shelf's: card.js) */
 /* (17 Nov 2026, F46: a stent card whose editor is folded, because the Tests view's own editor is on screen, is a slim strip, as tall as what it holds: its size's least height stood empty under the folded line.) */
 .action-card.docked:has(.stent-editor[data-fold="true"]) { min-height: 0; }
 /* (17 Nov 2026, the TIPS card was cut off behind the view switch on an iPhone: its two new rows, Waist length and Ends, made it taller than its size's 300 px, and a card showed

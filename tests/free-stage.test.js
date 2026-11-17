@@ -119,7 +119,9 @@ test('the left shelf\'s object card is as tall as what it holds: no fixed height
   assert.doesNotMatch(c, /^\.action-card\[data-size=(l|x)\] \{ height:/m, 'the shelf has no fixed height for a size');
   assert.match(c, /\.action-card\.docked\[data-size=l\] \{ min-height: min\(300px, var\(--ac-max\)\); \}/, 'the phone\'s docked card keeps its sizes as the least it is, and grows with its words (17 Nov 2026)');
   assert.match(c, /\.action-card:not\(\.docked\) > \.ac-body \{ position: relative; inset: auto; \}/, 'its words are in its flow, which gives it its height');
-  assert.match(c, /\.action-card\[data-size=x\]:not\(\.docked\) \{ height: 500px; \}/, 'a lobule part\'s card, whose words change as the model runs, keeps its height');
+  assert.doesNotMatch(c, /\.action-card\[data-size=x\]:not\(\.docked\) \{ height: 500px; \}/, 'a lobule part\'s card is no longer a fixed 500 px (Mohammad, 17 Nov 2026)');
+  const cardJs = read('src/ui/card.js');
+  assert.match(cardJs, /if \(sizes\.h > tallest\) tallest = sizes\.h;\n\s+else if \(sizes\.h < tallest - 0\.5\) el\.style\.minHeight = `\$\{tallest\}px`;/, 'it is as tall as its tallest words so far, and never shrinks while it is the same card');
   // a card of another shape is the old one going out and the new one coming in, never a height that jumps under crossfading words (worked out from the model: no read of the page)
   assert.match(card, /el\.dataset\.size !== size \|\| el\.dataset\.shape !== shape/);
   assert.doesNotMatch(card, /probe/);
