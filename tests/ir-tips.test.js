@@ -283,3 +283,29 @@ test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed
   const wide = at({ tips: { on: true, d: 12 } });
   assert.ok(wide.tipsBench > open.tipsBench, 'a wider tube carries more');
 });
+
+test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one rule (flow-cuts.js stentStill): tile, gates, Compare and the card\'s own word', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const { stentStill, FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
+  const at = (s) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 8 }, stenosis: { TIPS: s } }))); e.settle(3); return { e, m: computeMetrics(e) }; };
+  assert.equal(stentStill(FLOW_CUTS.stillQ * 0.99), true); assert.equal(stentStill(-FLOW_CUTS.stillQ * 0.5), true); assert.equal(stentStill(FLOW_CUTS.stillQ * 1.01), false);
+  const dead = at(0.99), live = at(0.5);
+  const t = dead.m.tips, f = fingerprintOf(dead.m);
+  assert.equal(t.still, true);
+  assert.deepEqual([...t.peaks], [0, 0, 0], 'every gate reads 0, not a jet from a flow of nothing');
+  assert.equal(t.vPeak, 0); assert.equal(f.tipsVel, 0); assert.equal(f.tipsG0 + f.tipsG1 + f.tipsG2, 0);
+  assert.equal(live.m.tips.still, false); assert.ok(live.m.tips.vPeak > 90, 'a stent with flow reads its jet');
+  // The Compare row and the tile read the same number
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }), compareSnap: { metrics: live.m, when: '10:30', names: null } });
+  const c = createIrCompare(); c.update({ metrics: dead.m }, 'TIPS');
+  const peakRow = [...c.el.querySelectorAll('tbody tr')].at(-1);
+  assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
+  store.set({ compareSnap: null });
+  // the card's status word and the doppler read the same rule, not their own
+  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
+  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+});

@@ -52,8 +52,8 @@ const TILES = [
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
   { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
-    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
-    sev: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'none' : 'caution'; } },
+    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return st?.still ? 'No flow' : v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
+    sev: (v, st) => { const r = peakBand(st); return st?.still || !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
