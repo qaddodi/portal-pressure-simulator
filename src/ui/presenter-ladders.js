@@ -1,7 +1,7 @@
 // One of the six ladders zoomed; layout and fit
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { throwLanded, throwing } from './card-throw.js';
-import { COMPACT, SIDEWAYS_MAX_H, WIDE, pairRise, sidewaysWords } from './card-type.js';
+import { SIDEWAYS_MAX_H, WIDE, figFloorOf, pairRise, phonePlan, sidewaysWords } from './card-type.js';
 import { createInsetHold } from './inset-hold.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ as reduce } from './motion.js';
@@ -12,7 +12,7 @@ import { glyphsReady, loadGlyphs, textWidth } from './text-gl.js';
 import { isModalOpen, restBox } from './util.js';
 
 export function createLadders(st, live) {
-  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsFloor, wordsGlide, wordsHeightAt, wrap } = st;
+  const { GRIP, LIP, LOW_M, SHORT_H, TEXT_CARD, app, autoDock, capOf, cath, creditLease, dataStands, dock, dockPaint, dockRest, dockVec, figOf, fitCards, fitDone, fitSig, frameTo, insetL, liftTo, lipOn, lowKey, minText, overflowOf, phone, placeBar, placeLip, slip, splitSheet, stage, stimer, stopUnder, tabBeside, tabUp, throwCards, underU, until, wideSheet, words, wordsGlide, wrap } = st;
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
   // A slide whose data card changes only its readings while it shows: a what-if slider or compare button driving the live model
   // (liveOff), or a time-lapse slide (its days running, or run). Its cards keep the plan made as the slide came in.
@@ -298,7 +298,11 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const put = (tk, bk) => { live.ui.text.style.setProperty('--pz-tk', trim ? Math.min(tk, WIDE.tight) : tk); live.ui.text.style.setProperty('--pz-bk', bk); live.ui.text.classList.toggle('pz-nocauses', trim > 1); t = r(live.ui.text); return top0 + t.height + 2 * pad + gap + ch <= foot; };   // (no slack once shrunk: the data card is never squeezed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const title = () => put(1, 1) || put(WIDE.title, WIDE.words);   // (Regular, else Compact)
+      // (Regular only, 17 Nov 2026, Mohammad: "Fix this issue everywhere": the words never step down for the data card's height. The data card's blocks step
+      // smaller, its instrument folds behind Show, its own fit does the rest. Only a phone held sideways, where no room is left, still steps the words down.)
+      const sw = H <= SIDEWAYS_MAX_H * k;
+      const step = () => (sw ? put(WIDE.title, WIDE.words) : put(1, 1));
+      const title = () => put(1, 1) || (sw && put(WIDE.title, WIDE.words));
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const foldH = (s) => colHeight(cw / k, s);
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -308,8 +312,8 @@ export function createLadders(st, live) {
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const ladder = () => {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = put(WIDE.title, WIDE.words); } return; }
-        for (const s of DK) { if (below) break; stepDk(s); below = put(WIDE.title, WIDE.words); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
+        if (short) { for (const c of ['pz-lt', 'pz-lt2']) { if (below) break; dd.classList.add(c); ch = colHeight(cw / k) * k; below = step(); } return; }
+        for (const s of DK) { if (below) break; stepDk(s); below = step(); }   // (the data card's blocks a step or two smaller: no further, or the words would squeeze)
       };
       // When even the smallest blocks leave the pair too tall, the words' card gives way once more before anything is cut off: its title one
       // step down, then the CAUSES line gone, the blocks stepping again from full size under each (Mohammad, 23 Oct, Sites 4 on a Mac at a
@@ -320,7 +324,7 @@ export function createLadders(st, live) {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         for (const n of [1, 2]) {
           trim = n; dd.classList.remove('pz-lt', 'pz-lt2'); stepDk(1);
-          below = put(WIDE.title, WIDE.words);
+          below = step();
           if (!below && n === 2) ladder();
           if (below) return;
         }
@@ -339,9 +343,9 @@ export function createLadders(st, live) {
         dd.classList.remove('pz-lt', 'pz-lt2'); ch = foldH(dk) * k;
         below = title();
         if (!below) ladder();
-        if (!below) squeeze();
+        if (!below && sw) squeeze();   // (the title one step down and the CAUSES line gone: only a phone on its side)
         if (!below && canFold && !held) { setFolds(true); trim = 0; ts.removeProperty('--pz-tk'); ts.removeProperty('--pz-bk'); live.ui.text.classList.remove('pz-nocauses'); stepDk(1); below = title(); if (!below) ladder(); }
-        if (!below && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
+        if (!below && sw && !held && dd.classList.contains('pz-folds')) squeeze();   // (folded just now: the same last steps again)
         // (Still too tall at the smallest step: the pair stays stacked at the one card width, the words at their smallest (the title one step
         // down and no CAUSES line) and the blocks at their smallest step; the data card is never moved to the top right, its own fit (fitCards)
         // makes the rest fit its room.)
@@ -362,7 +366,7 @@ export function createLadders(st, live) {
           fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
           below = true;
         }
-        if (!below) { put(WIDE.title, WIDE.words); below = true; }
+        if (!below) { step(); below = true; }
       }
       // (A phone on its side where the pair is still a few px too tall at the words' last step: the pair rises into its top margin (never closer than 4 px
       // to the top) rather than the data card's chart being cut off by its cap, 16 Nov 2026, play-test. A cut-off chart is a bug; a thinner margin is not.)
@@ -455,30 +459,9 @@ export function createLadders(st, live) {
     const beside = low && tabBeside();
     fitCards(live.ui.data, live.ui.panel);
     if (beside && !tabBeside()) { fitDone.delete(live.ui.panel); fitCards(live.ui.panel); }
-    // The words give way once more for a data card its own fit cannot make whole. At a large text size on a Mac or an iPad on its side, a
-    // card holding the Gut to heart chart (drawn at its own size, never zoomed by the fit, with a smallest height) or readings that would
-    // have to pass half size still ended below its card, cut off by it, the stacked pair being taller than the screen (HVPG 7 at 200 %: the
-    // chart's axis names gone). The words' card, which zooms as a whole, takes what the data card lacks, down to the size where its smallest
-    // lettering is still 12 px on the screen (only at a text size above 100 %: the usual size is laid out exactly as it was), and the data card is fitted again in the room
-    // that gains it. A card that fits is never touched. (A readings' sheet is measured with its readings tucked, as it rests: its
-    // instrument or chart is what the card must hold, and the readings still rise from under it, slip.lift.)
-    if (below && t && !off(dd) && !phone() && stage.labelScale() > 1.001) {
-      for (let n = 0; n < 3; n++) {
-        const cut = overflowOf(dd).v;
-        if (!(cut > 1)) break;
-        const have = t.height / k, z = wordsFloor();
-        if (z >= 1) break;
-        const room = Math.max(wordsHeightAt(z), have - cut);
-        if (!(room < have - 0.5)) break;
-        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        wordsCap = room; ts.maxHeight = `${room.toFixed(1)}px`;
-        fitDone.delete(live.ui.text); fitCards(live.ui.text); t = r(live.ui.text);
-        y = top0 + t.height + 2 * pad + gap + lipK;
-        // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        dd.style.top = `${(y / k).toFixed(1)}px`; dd.style.maxHeight = capOf(dd, (foot - y) / k);
-        fitDone.delete(live.ui.data); fitCards(live.ui.data);
-      }
-    }
+    // (No step takes the words down for a data card its own fit cannot make whole, 17 Nov 2026: at a text size above 100 % a Mac or an iPad on its side used to
+    // zoom the words' card down, to 12 px at most, and the Gut to heart chart's axis names stayed. The words keep their size at every text size; the data card's
+    // own fit and its fold do what they can. tests/words-never-shrink.test.js.)
     // The stacked pair shorter than the screen is centred top to bottom as one (equal room above and below, never closer than one margin
     // to the top or the controls); a pair that fills the screen stays where it is. Set here, before the cards come in, so nothing moves after.
     let shift = 0;
@@ -604,10 +587,6 @@ export function createLadders(st, live) {
   // Where the figure's share, the data card and the words at 12 px or more cannot all fit, the data card folds to its header
   // behind Show (the button that already folds a phone's instrument): the card takes its folded size at once, never easing in view.
   const FIG_MIN = (H) => Math.round(Math.max(170, 0.3 * H));
-  // (Words that would fit at Regular with a little of the figure's share take it, down to FIG_REG, rather than drop a whole step to
-  // Compact and leave that room empty: PVT in cirrhosis 5 on an iPhone came in at Compact over 100 px of bare figure, Mohammad, 20 Oct:
-  // "This teaching card could be larger with larger text".)
-  const FIG_REG = (H) => Math.round(Math.max(170, 0.25 * H));
   let phoneLock = null, phoneShut = false, phoneFig = 0;   // (phoneFig: the figure's share the slide's plan keeps, screen px)   // (phoneShut: the slide's data card comes in closed (autoDock), too tall beside the words and the figure)
   function phoneTextCap(key, H, k) {
     const dd = live.ui.data, ds = dd.style, gone = dd.hidden || 'gone' in dd.dataset;
@@ -642,9 +621,6 @@ export function createLadders(st, live) {
     ts.maxHeight = '';
     const css = readStyle(live.ui.text), own = parseFloat(css.maxHeight) * (css.maxHeight.endsWith('%') ? H / 100 : 1), foot = (parseFloat(css.bottom) || 0) * k;
     ts.maxHeight = was;
-    // (The words zoom down to fit (--pz-fit): to Compact (card-type.js), and only where nothing else gives, to 12 px: their body
-    // size sets how far.)
-    const line = live.ui.text.querySelector('.pz-line, p'), body = line ? parseFloat(readStyle(line).fontSize) : 0;
     // (Measured at that size, not scaled from the full size: zoomed down, the lines take more words each and the card comes
     // out shorter than its full height times the zoom. Scaled, HVPG 5 on a 667 px iPhone asked 263 px for words that take 230.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -657,9 +633,9 @@ export function createLadders(st, live) {
       ts.maxHeight = sv[0]; if (sv[1]) ts.setProperty('--pz-fit', sv[1]); else ts.removeProperty('--pz-fit'); if (sv[2]) ts.setProperty('--pz-z', sv[2]);
       return v;
     })() : natural(live.ui.text, ts)) + 4;
-    // (words: at 12 px, whether the data card can stay open beside them, as before; compact: at Compact, the room the words take,
-    // from the figure's share when they need it: the figure gives way before the words drop under Compact.)
-    const floor = body > 12 ? Math.ceil(12 / body * 1000) / 1000 : 1, words = textAt(floor), compact = textAt(Math.max(COMPACT, floor));
+    // (The words stay at Regular on every slide, 17 Nov 2026: the plan below (card-type.js phonePlan) finds their room from the figure's share
+    // and, past that, by closing the data card, never by taking their size down to 12 px or Compact as it did.)
+    const regular = textAt(1);
     // (The words' glass starts 16 px above them or higher, glassLift, the data card ends 8 px above that and stands its own top (8 px) from the
     // screen's top: the same room the layout gives it below.) The data card shows at full size or comes in closed: never shrunk to fit.
     // It comes in closed (autoDock, its edge and handle at the top) where it and the words at 12 px cannot both fit beside the figure's
@@ -672,7 +648,7 @@ export function createLadders(st, live) {
     const dmax = (() => { const sv = ds.maxHeight; ds.maxHeight = ''; const m = readStyle(dd).maxHeight; ds.maxHeight = sv; if (m === 'none') return Infinity; let v = 0; m.replace(/(-?[\d.]+)(%|px)/g, (_, n, u) => { v += u === '%' ? n * H / 100 : n * k; }); return v; })()
       - (splitSheet(dd) && dd.classList.contains('tool-open') && dd.classList.contains('has-tool') ? (parseFloat(ds.getPropertyValue('--pz-d')) || 0) * k : 0);
     const reach = glassLift(k) * k;
-    let both = H - foot - reach - 8 - dtop - FIG_MIN(H);
+    const room = H - foot - reach - 8;
     // (Measured as the slide arrives, partly open with its sheet's edge below it, whatever the reader opened: the part's ease held
     // back so the measure sees where it rests.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -689,31 +665,13 @@ export function createLadders(st, live) {
     // given way to 80 % to fit, which drew the Gut to heart ladder small on one slide and large on the next, Mohammad, 21 Oct: "Just
     // make it one version everywhere". A card too tall beside the words borrows from the figure instead, below.)
     const data = full;
-    // (A card a little too tall beside the words borrows from the figure, down to FIG_REG, and arrives partly open: only past that
-    // does it come in closed. Shut on any shortfall, slides came in closed, Circulation 10 on an iPhone after 8aa5142's taller glass,
-    // and others still after fc4a6ab lent only that 14 px, Mohammad, 20 Oct: "the stacked cards started hidden".)
-    const short = words - (both - data);
-    // (Lent for the words at Compact, the size they then take, not at 12 px: lent only the 12 px room, the words took Compact
-    // anyway, stood higher than planned and the card came in at a smaller fit, then grew to full size on a later pass, Circulation 4
-    // on an iPhone, Mohammad, 20 Oct: "appears in small version then ... pops further to become larger".)
-    const lim = FIG_MIN(H) - FIG_REG(H), lent = Math.min(lim, Math.max(short, compact - (both - data)));
-    if (!gone && short > 0 && short <= lim) { both += lent; phoneFig = FIG_MIN(H) - lent; }
-    const shut = !gone && (both - data < words || data - sheetLip > dmax + 0.5) && !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)');
-    phoneShut = shut;
-    // (Words at Compact win over the figure's share and the 62 % cap when nothing else gives; they never reach the data card. Closed,
-    // the card leaves them all but its edge (GRIP) at the top, and brought back it stands over the figure down to the words.)
-    const room = H - foot - reach - 8, mine = Number.isFinite(own) ? own : 0.62 * H;
-    // (Regular, where it needs more than its share but no more than the figure can lend: the figure keeps what is left, at least FIG_REG.)
-    const regular = shut ? Infinity : textAt(1), lend = regular - (both - data);
-    const reg = lend > 0 && lend <= phoneFig - FIG_REG(H) && regular <= mine && regular <= room - dtop - data;
-    if (reg) phoneFig -= lend;
-    // (Where the data card stays open and the words fit at 12 px but not at Compact in the room it leaves them, they take that room, between
-    // 12 px and Compact, never Compact: Compact stood over the data card's foot, which the layout then cut off (a chart does not give way
-    // to fit), the Gut to heart ladder's unit and its sinusoidal brace, Sites 4 on an iPhone at a larger text size, Mohammad, 22 Oct.)
-    const floorCap = !gone && !shut ? Math.max(words, Math.min(compact, both - data)) : compact;
-    const cap = Math.max(120, shut
-      ? Math.min(room - GRIP * k, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + sheetLip)), compact))
-      : reg ? regular : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), floorCap))) / k;
+    // (The figure's share gives way first, down to figFloorOf, then the data card comes in closed (autoDock, its edge and handle at the top, the reader
+    // pulls it open): the words never drop a size for either. phonePlan, pure, is tested over every height: tests/phone-words-plan.test.js.)
+    const mine = Number.isFinite(own) ? own : 0.62 * H;
+    const plan = phonePlan({ room, dtop, data, dmax, lip: sheetLip, regular, mine, grip: GRIP * k, figMin: FIG_MIN(H), figFloor: figFloorOf(H), gone, hasData: !!dd.querySelector(':scope > :not(.pz-dh):not(.pz-grip):not(.pz-lip)') });
+    phoneFig = plan.fig;
+    phoneShut = plan.shut;
+    const cap = plan.cap / k, shut = plan.shut;
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (key) phoneLock = { key, cap, shut, data: full, fig: phoneFig };   // (data: at full size, as the check above measures it)
     return cap;

@@ -25,7 +25,7 @@ test('the teaching and data cards keep one width on every slide: the column neve
 
 test('a tight slide shrinks in fixed steps and the data card never moves to the top right', () => {
   assert.match(js, /const DK = \[0\.9, 0\.8, 0\.7, 0\.6\];/);
-  assert.match(js, /if \(!below\) \{ put\(WIDE\.title, WIDE\.words\); below = true; \}/);
+  assert.match(js, /if \(!below\) \{ step\(\); below = true; \}/);
   assert.doesNotMatch(js, /let lo = 0\.4/, 'no continuous search down to 0.4');
 });
 

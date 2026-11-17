@@ -36,15 +36,15 @@ test('the stylesheet sets the card sizes the sums below use', () => {
 
 test('the fit has two sizes: Regular, else Compact for the whole card; the title never steps down alone', () => {
   assert.match(js, /if \(small && fits\(\)\) \{ k = over = Math\.max\(COMPACT, floor\); el\.style\.setProperty\('--pz-fit', String\(k\)\); \}/);
-  assert.match(js, /const title = \(\) => put\(1, 1\) \|\| put\(WIDE\.title, WIDE\.words\);/, 'the words at Regular or Compact, nothing in between');
-  assert.match(js, /below = put\(WIDE\.title, WIDE\.words\); \}/);
+  // (Regular only off a phone on its side, 17 Nov 2026: the data card's blocks, its fold and its own fit give way, never the words: tests/wide-words-regular.test.js.)
+  assert.match(js, /const step = \(\) => \(sw \? put\(WIDE\.title, WIDE\.words\) : put\(1, 1\)\);/);
+  assert.match(js, /const title = \(\) => put\(1, 1\) \|\| \(sw && put\(WIDE\.title, WIDE\.words\)\);/);
+  assert.match(js, /below = step\(\); \}/);
   assert.doesNotMatch(js, /--pz-ptk|\bTK\b/);
-  // (A phone's cap gives the words their room at Compact, from the figure's share when they need it; over an open data card they take
-  // no more than the room it leaves them, never under 12 px: floorCap.)
-  assert.match(js, /compact = textAt\(Math\.max\(COMPACT, floor\)\);/);
-  // (Regular borrows from the figure's share, down to FIG_REG, before the words drop a whole step to Compact.)
-  assert.match(js, /const FIG_REG = \(H\) => Math\.round\(Math\.max\(170, 0\.25 \* H\)\);/);
-  assert.match(js, /const reg = lend > 0 && lend <= phoneFig - FIG_REG\(H\) && regular <= mine && regular <= room - dtop - data;/);
+  // (A phone's words keep Regular, 17 Nov 2026: the figure's share gives way (figFloorOf), then the data card closes, tests/phone-words-plan.test.js.)
+  assert.match(js, /const regular = textAt\(1\);/);
+  assert.match(js, /phonePlan\(\{ room, dtop, data, dmax, lip: sheetLip, regular, mine, grip: GRIP \* k, figMin: FIG_MIN\(H\), figFloor: figFloorOf\(H\)/);
+  assert.doesNotMatch(js, /FIG_REG/);
   assert.match(js, /Math\.max\(0, phoneFig \/ k - lip - 2\)/);
 });
 
@@ -93,12 +93,12 @@ test('the words give way once more before the data card is cut off: a tighter ti
   assert.ok(WIDE.tight < WIDE.title && WIDE.tight >= 0.5, 'the title has one further step, still well above the words');
   assert.match(js, /let trim = 0;/);
   assert.match(js, /const put = \(tk, bk\) => \{ (?:live\.)?ui\.text\.style\.setProperty\('--pz-tk', trim \? Math\.min\(tk, WIDE\.tight\) : tk\); (?:live\.)?ui\.text\.style\.setProperty\('--pz-bk', bk\); (?:live\.)?ui\.text\.classList\.toggle\('pz-nocauses', trim > 1\);/);
-  assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); stepDk\(1\);\s*below = put\(WIDE\.title, WIDE\.words\);\s*if \(!below && n === 2\) ladder\(\);/);
+  assert.match(js, /for \(const n of \[1, 2\]\) \{\s*trim = n; dd\.classList\.remove\('pz-lt', 'pz-lt2'\); stepDk\(1\);\s*below = step\(\);\s*if \(!below && n === 2\) ladder\(\);/);
   // (Only after the steps before it failed: a slide that fitted at Compact, or with its blocks stepped, is never trimmed.)
-  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below\) squeeze\(\);/);
+  assert.match(js, /below = title\(\);\s*if \(!below\) ladder\(\);\s*if \(!below && sw\) squeeze\(\);/);
   // (A fold starts the steps again from the loosest, the trim with them; the slide's lock keeps the CAUSES line's state with its sizes.)
   assert.match(js, /setFolds\(true\); trim = 0; ts\.removeProperty\('--pz-tk'\); ts\.removeProperty\('--pz-bk'\); (?:live\.)?ui\.text\.classList\.remove\('pz-nocauses'\);/);
-  assert.match(js, /if \(!below && !held && dd\.classList\.contains\('pz-folds'\)\) squeeze\(\);/);
+  assert.match(js, /if \(!below && sw && !held && dd\.classList\.contains\('pz-folds'\)\) squeeze\(\);/);
   assert.match(js, /nc: (?:live\.)?ui\.text\.classList\.contains\('pz-nocauses'\)/);
   assert.match(js, /(?:live\.)?ui\.text\.classList\.toggle\('pz-nocauses', !!lock\.nc\);/);
   assert.match(js, /(?:live\.)?ui\.text\.style\.removeProperty\('--pz-tk'\); (?:live\.)?ui\.text\.style\.removeProperty\('--pz-bk'\); (?:live\.)?ui\.text\.classList\.remove\('pz-nocauses'\);/);

@@ -17,8 +17,8 @@ import { appCss } from './split-src.js';
 
 const touch = (a, o) => a[0] < o[2] && a[2] > o[0] && a[1] < o[3] && a[3] > o[1];
 // [W, H, caption px, where]: the summary panel's plot, from an iPhone upright to a wide Mac.
-const SIZES = [[345, 300, 16, 'iPhone upright', 1], [390, 340, 16, 'iPhone wide upright', 1], [620, 260, 14, 'iPhone sideways', 1], [700, 480, 15, 'iPad upright'],
-  [800, 450, 16, 'iPad'], [1000, 500, 16, 'iPad sideways'], [1180, 460, 16, 'small Mac'], [1290, 570, 18, 'Mac'], [1500, 620, 18, 'large Mac']];
+const SIZES = [[345, 288, 16, 'iPhone upright', 1], [390, 325, 16, 'iPhone wide upright', 1], [620, 260, 14, 'iPhone sideways', 1], [700, 370, 15, 'iPad upright'],
+  [800, 348, 16, 'iPad'], [1000, 386, 16, 'iPad sideways'], [1180, 355, 16, 'small Mac'], [1290, 440, 18, 'Mac'], [1500, 478, 18, 'large Mac']];   // (the summary's compact plot, 17 Nov 2026, styles .pze-short: 34 of the 44 it was, an iPhone 1.2 wide to 1 high)
 
 test('HVPG against PPG: no key, every zone named, names beside their points and clear of every line', async () => {
   const d = DECKS.find((x) => x.id === 'sites'), st = await deckStates(d);
@@ -27,7 +27,7 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
   const rows = [[healthy, 'Healthy'], [fp('pvt'), 'Portal vein thrombosis', 'PVT'], [fp('presin'), 'Schistosomiasis'], [fp('sin'), 'Cirrhosis'],
     [fp('postsin'), 'Sinusoidal obstruction', 'SOS'], [fp('post'), 'Budd–Chiari'], [fp('cardiac'), 'Heart failure']];
   const pl = planeOf('hvpg-ppg');
-  assert.equal(pl.key, false, 'the zones name themselves: no key beside the plot');
+  assert.equal(pl.noWords, true, 'the legend names the zones: no words written on the plot (17 Nov 2026)');
   assert.equal(planeOf('csph').key, 'never', 'the stiffness plane names its zones on the drawing everywhere, no key');
   for (const [W, H, fs, where, phone] of SIZES) {
     const fr = frame(W, H), { X, Y } = scaler(pl, fr);
@@ -102,10 +102,8 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
         assert.ok(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y) <= 4 * fs, `${where}: ${p.name}'s line ${Math.round(Math.hypot(n.lead[0] - p.x, n.lead[1] - p.y))} px, short`);
       }
     }
-    // Every zone keeps its words (where no key stands under the plot), clear of the names, the points and the lines.
-    // (On an iPad upright the 0 to 5 by 0 to 6 corner is about 120 by 80 px around two points: no room for its words there.)
-    const named = zw.map((w) => w.z.t);
-    if (!phone) for (const z of pl.zones) if (W >= 1000 || z.tone !== 'ok') assert.ok(named.includes(z.t), `${where}: ${z.t} named`);
+    // No zone name is written on the plot, at any size: the legend names them (Mohammad, 17 Nov 2026: "no need to mention both raised, PPG only etc. on the chart itself").
+    assert.equal(zw.length, 0, `${where}: no zone words on the plot`);
     for (const w of zw) {
       assert.ok(fs >= 12);
       for (const o of [...names.map((n) => n.box), ...rules, ...dots]) assert.ok(!touch(w.box, o), `${where}: ${w.z.t} clear`);
