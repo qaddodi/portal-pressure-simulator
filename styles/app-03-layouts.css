@@ -224,6 +224,9 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .ac-cs.one, .action-card:not(.docked) .ac-cs { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .ac-c { display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
 .ac-segrow { grid-column: 1 / -1; }
+/* A control that does nothing now (a stent's waist length and ends with no waist): dimmed where it stands, never hidden, so nothing on the card moves. */
+.ac-c { transition: opacity var(--d-small) var(--ease); }
+.ac-c.ac-dim { opacity: .42; }
 .ac-c .ctl-top { display: flex; align-items: center; gap: 6px; height: 16px; min-width: 0; font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
 .ac-c .ctl-val { margin-left: auto; color: var(--text); font-variant-numeric: tabular-nums; }
 .ac-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); flex: none; }

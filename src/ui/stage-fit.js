@@ -127,6 +127,16 @@ export function createFit(st, live) {
   function safeInsets(exact = false, skip = null) {
     return { ...insKept(skip ? insSkipKey(exact, skip) : INS_KEY[exact ? 1 : 0], safeInsetsFrom, cardsSnap, exact, skip) };
   }
+  // The room the automatic framing (the fit, the home look, a refit, the circuit's whole map) keeps the figure in. The Tests card does not count in it
+  // (Mohammad, 17 Nov 2026: "opening the Tests card should not zoom to fit", Mac and phone: the figure keeps the same general view and the card lies
+  // over it). Only Fit, pressed on purpose, frames the figure into what the card leaves, and keeps doing so until the card closes (closeView). The
+  // catheter's room and a vessel's reveal still read the real cards (safeInsets), so a measurement keeps its tip clear of the card.
+  let dockCounts = false, dockEl = null;
+  function fIns() {
+    if (dockCounts) return safeInsets();
+    dockEl ||= document.getElementById('dock');
+    return dockEl ? safeInsets(false, [dockEl]) : safeInsets();
+  }
   function safeInsetsFrom(list, exact = false, skip = null) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height;
@@ -176,7 +186,7 @@ export function createFit(st, live) {
   }
   // A framing computed for the whole stage, moved and scaled into the free space.
   function insetVT(v, vbArr) {
-    const ins = safeInsets(), { W, H } = ins;
+    const ins = fIns(), { W, H } = ins;
     if (!W || !H) return v;
     const [vx, vy, vw, vh] = vbArr, s0 = Math.min(W / vw, H / vh);
     const f = Math.min((W - ins.l - ins.r) / W, (H - ins.t - ins.b) / H);
@@ -201,7 +211,7 @@ export function createFit(st, live) {
   // top bar and 100 px short of the view pill on an iPhone: A4) is fitted into the free height with 12 px clear above and below, and centred there.
   function uprightFit() {
     const wr = stageBox();
-    return uprightFitOf(safeInsets(), wr.width, wr.height, VB_CIRC_R, artBox()) || insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC_R);
+    return uprightFitOf(fIns(), wr.width, wr.height, VB_CIRC_R, artBox()) || insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC_R);
   }
   function clearPill(v, vbArr) {
     const zp = pillsSnap.zoom, pill = zp?.el;
@@ -214,7 +224,7 @@ export function createFit(st, live) {
     const ax0 = ox + s0 * (v.x + v.k * x0), ax1 = ox + s0 * (v.x + v.k * x1), ay0 = oy + s0 * (v.y + v.k * y0), ay1 = oy + s0 * (v.y + v.k * y1);
     const g = 8, pl = p.left - wr.left - g, pt = p.top - wr.top - g, pr = p.right - wr.left + g, pb = p.bottom - wr.top + g;
     if (ax1 <= pl || ax0 >= pr || ay1 <= pt || ay0 >= pb) return v;
-    const up = ay1 - pt + 1, room = ay0 - safeInsets().t - g;   // (+1: the art's box rounds on screen; a whole pixel to spare)
+    const up = ay1 - pt + 1, room = ay0 - fIns().t - g;   // (+1: the art's box rounds on screen; a whole pixel to spare)
     if (up <= room) return { k: v.k, x: v.x, y: v.y - up / s0 };
     if (pl - ax0 < (ax1 - ax0) * 0.5) return v;
     const f = (pl - ax0) / (ax1 - ax0), wx = (ax0 - ox) / s0, wy = ((ay0 + ay1) / 2 - oy) / s0;
@@ -235,7 +245,7 @@ export function createFit(st, live) {
     }
     if (!Number.isFinite(bot)) return v;
     const [, vy, vw, vh] = VB_CIRC, s0 = Math.min(W / vw, H / vh), oy = (H - vh * s0) / 2 - vy * s0;
-    const ins = safeInsets(), top = oy + s0 * (v.y + v.k * vy), end = Math.min(oy + s0 * (v.y + v.k * (vy + vh)), oy + s0 * (v.y + v.k * bot) + 30);
+    const ins = fIns(), top = oy + s0 * (v.y + v.k * vy), end = Math.min(oy + s0 * (v.y + v.k * (vy + vh)), oy + s0 * (v.y + v.k * bot) + 30);
     let floor = H - ins.b;
     for (let pi = 0; pi < 2; pi++) {
       const pl = pi ? pillsSnap.zoom : pillsSnap.nav, r = pl?.box;
@@ -301,7 +311,7 @@ export function createFit(st, live) {
       y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
       // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
       // visible too: fit the box into that whole visible area, less what the floating pieces cover.
-      const ins = safeInsets(), tg = ins.W < 768 ? 10 : 0;   // (tg: on a phone the figure's top keeps 10 px clear of the pills, A10)
+      const ins = fIns(), tg = ins.W < 768 ? 10 : 0;   // (tg: on a phone the figure's top keeps 10 px clear of the pills, A10)
       const s0 = Math.min(rw / VB_ANAT[2], rh / VB_ANAT[3]);
       const fw = Math.max(40, rw - ins.l - ins.r), fh = Math.max(40, rh - ins.t - tg - ins.b);
       const k = Math.min(1.15, fw / s0 / (x1 - x0), fh / s0 / (y1 - y0));
@@ -313,7 +323,7 @@ export function createFit(st, live) {
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
     if (live.rotTarget) return circWhole();
-    const ins = safeInsets();
+    const ins = fIns();
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
@@ -333,6 +343,7 @@ export function createFit(st, live) {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view). Inside the sinusoid it steps back out to the lobule.
     if (live.lobuleOn) { if (store.get().sinusoid) { setViewKey('lobule'); return; } live.lz.fitView(); return; }
     live.handsOff(); live.handed = false;
+    dockCounts = true;   // (Fit is asked for: the figure goes into the room the open Tests card leaves, see fIns)
     const circuit = live.morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? circWhole() : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     // Judged from where a glide in progress is going, so a second tap toggles as expected.
@@ -364,6 +375,7 @@ export function createFit(st, live) {
   // looks that follow the card leaving (resize, pps:occ) leave it alone too. Every way of closing it (the Tests button, its
   // close button, Esc, a swipe) comes here, so they all end the same. Gives back true when it fits.
   function closeView() {
+    dockCounts = false;
     if (live.lobuleOn) return false;
     if (live.fitted) return true;
     live.homeAt = null;

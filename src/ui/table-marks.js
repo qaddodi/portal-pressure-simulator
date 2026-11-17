@@ -94,8 +94,10 @@ export const RATE = {
   sbp: (v) => (v < KIDNEY_CUTS.sbpBeta ? T_hi_Low : T_ok_Normal),
   // (The stent's peak velocity: the Doppler card's own range for a stent, 90 to 190 cm/s for an 8 to 10 mm one and scaled for another diameter, the fingerprint's tipsD / dipsD:
   // stentCuts below; its other readings are numbers only.)
-  tipsVel: (v, f) => { const r = stentCuts('tips', f); return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal; },
-  dipsVel: (v, f) => { const r = stentCuts('dips', f); return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal; },
+  // (An 8 to 10 mm stent has the reported range, so "Normal" / "Low" / "High". Any other diameter has a band the app scaled itself, which no study validates: it reads
+  // "Within / Below / Above model band" in the neutral tone, never a clinical verdict, stentVelRate below.)
+  tipsVel: (v, f) => stentVelRate(v, 'tips', f),
+  dipsVel: (v, f) => stentVelRate(v, 'dips', f),
   // (rpp, the abdominal perfusion pressure MAP − IAP, has no rating: no guideline gives it a cut-off, kidney-cuts.js.)
   // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the indeterminate zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
@@ -150,8 +152,8 @@ export const TILE = {
   plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min', long: 'Portal blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). With the main portal vein clotted it is the flow the cavernoma carries around the clot. Normal ≥0.9 L/min at ≥15 cm/s (Doppler).' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
-  liver: { t: 'Liver blood flow, % of healthy', n: 'Liver flow vs healthy', s: 'Portal + arterial, % of healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
-  shunt: { t: 'Portal blood shunted', n: 'Portal blood shunted', s: '% of portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
+  liver: { t: 'Liver blood flow, % of healthy', n: 'Liver flow', s: 'Portal + arterial, % of healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
+  shunt: { t: 'Portal blood shunted', n: 'Shunted', s: '% of portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
   map: { t: 'Blood pressure', n: 'BP', s: 'Systolic/diastolic (mean)', u: 'mmHg', d: 0, bp: true, mean: 'Mean arterial pressure', meanN: 'MAP' },
   // (The systolic alone, for a criteria row or a table column that reads it against Baveno VIII 4.6's 90 mmHg; a slide shows the pressure as map.)
   sbp: { t: 'Systolic pressure', n: 'Systolic', s: 'Arm cuff', u: 'mmHg', d: 0, better: 1 },
@@ -178,11 +180,18 @@ export const STENT_RANGE = [90, 190];
 // (Provisional beyond 8 to 10 mm: stent-geom.js stentBand. A bar's cut-off ticks and a curve's cut-offs are drawn at the reference range; the tile's word and band colours follow its diameter.)
 const STENT_CUTS = { tips: [0, 0], dips: [0, 0] };
 export const stentCuts = (k, f) => stentBand(f?.[`${k}D`], STENT_RANGE, STENT_CUTS[k]);
+const T_info_Within = tup('info', 'Within model band'), T_info_Below = tup('info', 'Below model band'), T_info_Above = tup('info', 'Above model band');
+/** The stent peak velocity's rating: the reference range's own words for 8 to 10 mm; for a scaled (provisional) band, where it sits against the model band, in the neutral tone. */
+export function stentVelRate(v, k, f) {
+  const r = stentCuts(k, f);
+  if (r === STENT_RANGE) return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal;
+  return v < r[0] ? T_info_Below : v > r[1] ? T_info_Above : T_info_Within;
+}
 const stentTiles = (k, name) => ({
   [`${k}Flow`]: { t: `${name} flow`, n: 'Stent flow', s: 'Blood the stent carries', u: 'L/min', long: `Blood carried by the ${name}: the stent's own flow, one number whatever the diameter along it. No guideline gives a cut-off.` },
   [`${k}Dp`]: { t: 'Pressure across the stent', n: 'Across stent', s: 'Portal end − hepatic vein end', u: 'mmHg', long: `Pressure at the ${name}'s portal end minus its hepatic vein end. Not the PPG, which is the portal vein minus the IVC and also counts the veins around the stent.` },
   [`${k}Bench`]: { t: 'Tube alone', n: 'Tube alone', s: 'Same stent, fixed 7 mmHg across it', u: 'L/min', long: `The flow the ${name} would carry as a tube on a bench, with a fixed 7 mmHg across it and no patient behind it: the dashed line of the stent's curves, against the flow it carries in the patient.` },
-  [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents. For a narrower or wider stent the range is scaled with the stent's diameter (provisional: no guideline gives one).` },
+  [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents. For a narrower or wider stent the app scales that range with the stent's diameter and calls it a model band (provisional: no study or guideline gives one), not a normal range.` },
   [`${k}Lumen`]: { t: 'Narrowest lumen', n: 'Lumen', s: 'At the tightest point', u: 'mm', long: `The ${name}'s lumen where it is tightest: its diameter minus the narrowing or clot.` },
   [`${k}LocalPct`]: { t: 'Local losses', n: 'Local', s: 'Share of the drop that is local', u: '%', d: 0, long: `The share of the pressure across the ${name} lost where blood enters and leaves it and where the jet leaves a narrowing, against friction along its length and tract.` },
 });
