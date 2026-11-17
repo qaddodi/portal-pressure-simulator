@@ -773,7 +773,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (!parts) {
       const d = p.customShunts?.[id];
       if (!(d > 0)) return 0;
-      parts = stentParts(kind, d, q, 1, v, g, lossP);
+      parts = stentParts(kind, d, q, 1, v, g, lossP, siteU(p, id));
       for (const n of LOSS_KEYS) parts[n] *= Math.abs(q);
     }
     lossShares(parts, g, siteU(p, id), dir, lossS);

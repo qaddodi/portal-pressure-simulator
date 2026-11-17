@@ -70,3 +70,10 @@ test('trace: the parts add up to the loss at every sample, each only rises, and 
   assert.ok(Math.abs(o.cOut[N] - (base.ppg - base.dp)) < 1e-9, 'and the outside is the rest of the PPG');
   assert.ok(o.cEnds[0] === 0 && o.cEnds[N] > 0 && o.cWall[0] === 0);
 });
+
+test('trace: a stent with no flow (all parts 0) still holds its gradient, and nothing divides by the flow', () => {
+  const o = stentTrace({ ...base, q: 0, tract: 0, wall: 0, entry: 0, jet: 0, dp: 6, ppg: 14 });
+  for (let i = 0; i <= TRACE_N; i++) { assert.ok(Number.isFinite(o.P[i]) && Number.isFinite(o.v[i])); assert.equal(o.v[i], 0); }
+  assert.ok(Math.abs(o.P[0] - 14) < 1e-9 && Math.abs(o.P[TRACE_N]) < 1e-9, 'the PPG at the portal end, 0 at the IVC');
+  assert.ok(Math.abs(o.cEnds[TRACE_N] - 6) < 1e-9, 'the stent holds its 6 mmHg');
+});

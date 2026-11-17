@@ -23,7 +23,7 @@ import { tileEl } from './tile-el.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
-import { STENT_RANGE as RANGE } from './table-marks.js';
+import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
 import { createStent, SIDE, BAR, VW } from './tool-stent.js';
 import { traceH } from './stent-trace-pic.js';
@@ -59,7 +59,7 @@ const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the
 // (The ids and words are the instrument-cards plan's: "Across stent", "Stent peak velocity". `hide` is the readout set that hides it in Explore.)
 const TILES = [
   { id: 'ppg', k: 'PPG', u: 'mmHg', d: 1, scale: [0, 25], ticks: [PPG_CUTS.red], hide: 'pv', title: PPG_TITLE,
-    v: (m) => m.ppg, word: (v) => (v < PPG_CUTS.red ? `Below ${PPG_CUTS.red} mmHg` : `Above ${PPG_CUTS.red} mmHg`), sev: () => 'none' },   // (a reference line, not a verdict: it is not a target met or missed)
+    v: (m) => m.ppg, word: (v) => tipsGoal(v, true)[1], sev: () => 'none' },   // (a reference line, not a verdict: neither a target met nor missed; the words are table-marks.js tipsGoal's, the one copy)
   { id: 'flow', k: 'TIPS flow', u: 'L/min', d: 1, scale: [0, 3], ticks: [], hide: 'model', title: 'The flow through the stent, from the portal side to the hepatic vein.',
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',

@@ -261,7 +261,7 @@ test('Curves: the series carries the patient\'s line and the tube\'s from the wo
 });
 
 test('Curves: no engine key the view needs is missing: the engine\'s stent state carries .bench and the fingerprint passes it on', () => {
-  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP\) \* 0\.06;/);
+  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP, su\) \* 0\.06;/);
   assert.match(read('src/engine/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
   assert.doesNotMatch(read('src/ui/ir-curves.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
@@ -316,9 +316,9 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
   store.set({ compareSnap: null });
   // the card's status word and the doppler read the same rule, not their own
-  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
-  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
-  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+  assert.match(read('src/ui/actions.js'), /if \(st \? st\.still : stentStill\(q\)\) return ST_STASIS;/);   // (a TIPS or DIPS: the engine's state)
+  assert.match(read('src/ui/doppler.js'), /if \(!unit && stentStopped\(\)\)/); assert.match(read('src/ui/doppler.js'), /const none = ms !== undefined \? stentStopped\(\) : jsS\.none;/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
 test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
@@ -488,6 +488,16 @@ test('Curves life: a hidden card cancels the work, is fed nothing, and picks up 
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.equal(typeof ir.setActive, 'function');
   assert.match(read('src/ui/hvpg-proc.js'), /shown: \(on\) => tips\.setActive\(on\)/);
+});
+
+test('After a TIPS the PPG is a reference line, never a target: no "Target met" anywhere, and tipsGoal says Below/Above 12 mmHg', async () => {
+  const { tipsGoal } = await import('../src/ui/table-marks.js');
+  assert.deepEqual(tipsGoal(9), ['ok', 'Below 12 mmHg reference']); assert.deepEqual(tipsGoal(14), ['hi', 'Above 12 mmHg reference']);
+  assert.equal(tipsGoal(9, true)[1], 'Below 12 mmHg');
+  const { execSync } = await import('node:child_process');
+  const hits = execSync("grep -rIl \"Target met\" src styles scripts docs guides 2>/dev/null || true", { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname }).trim();
+  assert.equal(hits, '', `"Target met" still appears in: ${hits}`);
+  assert.doesNotMatch(read('src/ui/table-marks.js').replace(/\/\/.*$/gm, ''), /PPG[^\n]*\btarget\b/i);
 });
 
 test('the stent peak tile reads a deliberate reduction\'s jet as intended, and an end stenosis\' jet as out of range', async () => {
