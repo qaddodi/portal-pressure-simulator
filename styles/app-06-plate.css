@@ -445,6 +445,15 @@
 .ir-line { flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
 .ir-edit { margin-left: auto; flex: none; }
 .ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four readings, two by two: the card is 500 px on a Mac and an iPad, narrower on a phone) */
+/* The stent cards under the tiles (ir-tips.js, tool-stent.js): the side view and the bar of where the pressure goes, each a wide picture drawn on the GPU over a box
+   of its own shape (the aspect ratio is on the box), one above the other, as wide as the card allows (the same as the deck's, app-11-deck-visuals.css). */
+.ir-figs .gl { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ir-figs .gl-stage { flex: none; width: min(100%, 520px); }
+.ir-figs .gl-stage[hidden] { display: none; }
+.ir-sub { align-self: flex-start; }
+.ir-tips[data-sub="compare"] > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
+.ir-tips:not([data-sub="compare"]) > .ir-compare { display: none; }
+.ir-compare { display: flex; flex-direction: column; gap: 8px; }
 .ir-note { margin: 0; }
 .hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
 .hvpg-bar .btn { flex: none; }

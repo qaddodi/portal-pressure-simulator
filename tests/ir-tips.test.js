@@ -20,13 +20,13 @@ document.body.innerHTML = '<div id="toastsFoot"></div>';
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true }); } catch { /* already there */ }
 
-const { createIrTips, stentIds, stentPeak, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
+const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
-const { STENT_DOPPLER_K } = await import('../src/engine/topology.js');
+const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const frameOf = (over = {}) => ({ metrics: { ppg: 9.2, tips: { kind: 'tips', d: 10, s: 0.4, dWaist: 6, flow: 1.58, dp: 7.1, vOpen: 38, vWaist: 105, parts: {} }, dips: null, ...over } });
+const frameOf = (over = {}) => ({ metrics: { ppg: 9.2, tips: { kind: 'tips', d: 10, s: 0.4, dWaist: 6, flow: 1.58, dp: 7.1, vOpen: 38, vWaist: 105, vPeak: 129, peaks: [60, 129, 70], parts: { tract: 2, wall: 1, entry: 1.5, jet: 2, inlet: 0.6 } }, dips: null, ...over } });
 const paramsOf = (o = {}) => ({ tips: { on: false, d: 10 }, dips: { on: false, d: 10 }, stenosis: {}, thrombus: {}, stenosisSite: {}, stentGeom: {}, ...o });
 const mount = (params = paramsOf()) => {
   store.set({ params, mode: 'explore', presenting: false });
@@ -66,14 +66,9 @@ test('the stents the view reads: the TIPS, then the DIPS, from the params', () =
   assert.deepEqual(stentIds(paramsOf({ tips: { on: true }, dips: { on: true } })), ['TIPS', 'DIPS']);
 });
 
-test('the peak velocity is the Doppler card\'s own: K times the fastest gate; a narrowing\'s jet shows at its gate', () => {
-  const open = stentPeak(paramsOf({ tips: { on: true, d: 10 } }), 'TIPS', { vOpen: 38 });
-  assert.ok(open > 38 * STENT_DOPPLER_K * 0.9 && open <= 38 * STENT_DOPPLER_K + 1e-9, `${open}`);
-  const p = paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'mid' } });
-  const jet = stentPeak(p, 'TIPS', { vOpen: 38 });
-  assert.ok(jet > open * 2, `a 40 % narrowing at mid stent reads a jet: ${jet} against ${open}`);
-  assert.equal(stentPeak(p, 'TIPS', null), null);
+test('the peak velocity range is the Doppler card\'s own: one copy, 90 to 190 cm/s', () => {
   assert.deepEqual([...STENT_RANGE], [90, 190]);
+  assert.doesNotMatch(read('src/ui/ir-tips.js'), /stentReadsOf|STENT_DOPPLER_K/, 'the velocity is the engine\'s vPeak, never worked out a second time here');
 });
 
 test('the line under the chip names the width and the narrowing', () => {
@@ -125,6 +120,7 @@ test('the TIPS view fills its four readings from the stent; a stent taken away s
   assert.equal(tiles[0].querySelector('.status').textContent, 'Above target');
   assert.equal(tiles[0].dataset.sev, 'danger');
   assert.ok(ir.el.querySelector('.ir-chip'), 'one chip names the stent');
+  assert.equal(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length, 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
   store.set({ params: paramsOf() });
   ir.update(frameOf({ tips: null }));
   assert.equal(ir.view(), 'measure', 'the stent is gone: back to Measure');
@@ -148,7 +144,52 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > :not\(\.ir-tips\) \{ display: none; \}/);
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\) \{ display: none; \}/);
+  assert.match(plate, /\.ir-figs \.gl \{ display: flex; flex-direction: column;/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\) \{ display: none; \}/);
+});
+
+test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
+  assert.deepEqual(changeOf(9.2, 14.2, 1), { cls: 'd up', tri: '▲', txt: '+5.0' });
+  assert.deepEqual(changeOf(14.2, 9.2, 1), { cls: 'd down', tri: '▼', txt: '−5.0' });
+  assert.deepEqual(changeOf(9.2, 9.21, 1), { cls: 'd same', tri: '', txt: '—' });
+  assert.deepEqual(changeOf(null, 9.2, 1), { cls: 'd same', tri: '', txt: '—' });
+});
+
+test('Compare: nothing pinned says how, with the table already laid out in dashes; a pin fills it in', () => {
+  const c = createIrCompare();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
+  const f = frameOf({ ppg: 9.2 });
+  c.update(f, 'TIPS');
+  assert.equal(c.el.querySelectorAll('tbody tr').length, 5, 'five readings, always laid out');
+  assert.equal(c.el.querySelector('.ir-note').textContent, NOTHING_PINNED);
+  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—']);
+  assert.equal(c.el.querySelector('td.b').textContent, '9.2');
+  const then = { ppg: 14.2, tips: { ...f.metrics.tips, flow: 1.2, dp: 5.1, dWaist: 8, vPeak: 150 }, dips: null };
+  store.set({ compareSnap: { metrics: then, when: '10:30', names: null } });
+  c.update(f, 'TIPS');
+  const rows = [...c.el.querySelectorAll('tbody tr')].map((r) => [...r.children].map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
+  assert.equal(rows[0][1], '14.2'); assert.match(rows[0][3], /−5\.0/); assert.equal(c.el.querySelector('td.d').className, 'd down');
+  assert.match(c.el.querySelector('.ir-note').textContent, /Compared with 10:30/);
+  store.set({ compareSnap: { metrics: { ppg: 14.2, tips: null, dips: null }, when: '10:30', names: null } });
+  c.update(f, 'TIPS');
+  assert.equal([...c.el.querySelectorAll('tbody tr')][1].children[1].textContent, '—', 'no stent then: a dash, never a zero');
+  store.set({ compareSnap: null });
+});
+
+test('Compare: the sub-switch changes the sub-view, and the DIPS names its own flow', async () => {
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  assert.equal(ir.sub(), 'inside');
+  ir.el.querySelector('[data-sub="compare"]').click();
+  assert.equal(ir.sub(), 'compare');
+  assert.equal(ir.el.dataset.sub, 'compare');
+  ir.update(frameOf()); await wait(60);
+  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 5);
+  ir.el.querySelector('[data-sub="inside"]').click();
+  assert.equal(ir.el.dataset.sub, 'inside');
+  assert.equal(host.dataset.view, 'tips');
+  assert.doesNotMatch(read('src/ui/ir-compare.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
 
 test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10 mm as before, scaled and marked provisional for another', async () => {
@@ -158,16 +199,16 @@ test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
-  const at = (d, vOpen) => ir.update({ metrics: { ppg: 9, tips: { kind: 'tips', d, s: 0, dWaist: d, flow: 1.1, dp: 6, vOpen, vWaist: vOpen, parts: {} }, dips: null } });
+  const at = (d, vPeak) => ir.update({ metrics: { ppg: 9, tips: { kind: 'tips', d, s: 0, dWaist: d, flow: 1.1, dp: 6, vOpen: 40, vWaist: 40, vPeak, peaks: [vPeak, vPeak, vPeak], parts: {}, geom: {} }, dips: null } });
   // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
-  at(6, 216 / (STENT_DOPPLER_K * 0.98)); await wait(60);
+  at(6, 216); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'In range');
   assert.equal(peak().dataset.sev, 'none');
   assert.match(peak().title, /6 mm stent reads 90 to 338 cm\/s \(provisional/);
   const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
   assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
   // the same reading in a 10 mm stent is out of range, and the ticks go back to 90 and 190
-  at(10, 216 / (STENT_DOPPLER_K * 0.98)); await wait(60);
+  at(10, 216); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'Out of range');
   assert.equal(peak().dataset.sev, 'caution');
   assert.doesNotMatch(peak().title, /provisional/);

@@ -73,6 +73,12 @@ export function geomFix(g, kind, out = null) {
   return o;
 }
 
+/** Whether a geometry is the short focal narrowing every stent has by default: a waist of PINCH of its length with abrupt ends. Any other
+ *  waist (a longer or shorter one, tapered ends) is a waist the stent is narrowed along on purpose, and that always sits mid stent
+ *  (topology.js stentSite; Mohammad, 17 Nov 2026: "when we narrow the waist it really should only be mid TIPS"). A stenosis at the portal or
+ *  hepatic vein end stays the short focal one. */
+export const isFocal = (g) => !g || (!(g.trans > 0) && Math.abs(g.waist - PINCH * g.len) < 1e-9);
+
 /** The geometry of stent `id` (an edge of kind `kind`) in params: params.stentGeom[id] over its defaults, made consistent. */
 export const geomOf = (params, id, kind, out = null) => geomFix(params?.stentGeom?.[id], kind, out);
 
@@ -179,3 +185,16 @@ export function stentBand(d, ref, out = null) {
 }
 /** Whether the band at diameter d is the reference band (no scaling): true for 8 to 10 mm and for a stent not in. */
 export const stentBandIsRef = (d) => !(d > 0) || (d >= STENT_BAND_D[0] && d <= STENT_BAND_D[1]);
+/** The card's two setters, kept here so Where, Waist length and Ends always tell one story (17 Nov 2026): params with stent `id`'s waist field
+ *  `f` ('waist' or 'trans') set to v, which moves the narrowing to Mid (a waist set along the stent is mid stent); and params with the
+ *  narrowing moved to `site`, which at Proximal or Distal puts back the short focal waist. Both write into and return `p` (a copy the caller made). */
+export function withWaist(p, id, kind, f, v) {
+  p.stentGeom = { ...(p.stentGeom || {}), [id]: { ...geomOf(p, id, kind), [f]: v } };   // alloc-rare: a card's setter, run on its own input event, never in a frame
+  p.stenosisSite = { ...(p.stenosisSite || {}), [id]: 'mid' };   // alloc-rare: the same setter
+  return p;
+}
+export function withSite(p, id, kind, site) {
+  p.stenosisSite = { ...(p.stenosisSite || {}), [id]: site };   // alloc-rare: a card's setter, run on its own tap, never in a frame
+  if (site !== 'mid' && p.stentGeom?.[id]) { const g = geomOf(p, id, kind); p.stentGeom = { ...p.stentGeom, [id]: { len: g.len, waist: PINCH * g.len, trans: 0 } }; }   // alloc-rare: the same setter
+  return p;
+}

@@ -8,35 +8,32 @@
 //     sends it back to Measure, whose panel fades up (as Scope's second view does, dock.js setEndoSub).
 //   - After a TIPS nothing here says HVPG: the two gradients are the PPG (portal vein − IVC) and the stent's own drop, "Across stent".
 //   - The numbers are the stent's own, from the engine's one calculation (metrics.tips, metrics.dips: engine.stentState, stent-geom.js), the same as the
-//     fingerprint's tipsFlow and tipsDp and the Doppler's gates. The peak velocity is the Doppler card's own: STENT_DOPPLER_K times the fastest gate.
+//     fingerprint's tipsFlow and tipsDp and the Doppler's gates. The peak velocity is the engine's own (stentState vPeak, the fastest of the three Doppler gates, the same as the card and the fingerprint's tipsVel).
 //   - The readings are on this view alone: not on the bottom bar or in Readouts, where they would appear and vanish with the stent.
-// Push A is the switch, the stent chip and four readings. The side view, the pressure bar, the curves and Compare come on top of this (plan §8).
+// Push A was the switch, the stent chip and four readings. Push B puts the stent cards under them (tool-stent.js createStent, built by the instrument-cards
+// thread): the side view and the bar of where the pressure goes, one picture each, fed the dock's live frame (update(f), never pin). They are made the first
+// time the view opens, so a person who never opens it pays nothing. Push C adds the sub-switch Inside the stent | Compare (ir-compare.js: Then, Now, Change against
+// the app's own pin). The curves and the trace come on top of this (plan §8).
 
 import { h, fmt, clamp, countTo, swapText, toast } from './util.js';
 import { store, hiddenNow } from './store.js';
 import { tileEl } from './tile-el.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
-import { stentReadsOf, STENT_DOPPLER_K } from '../engine/topology.js';
 import { fillQ } from './shown.js';
-import { tipsGoal } from './table-marks.js';
+import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { stentBand } from '../engine/stent-geom.js';
+import { createStent } from './tool-stent.js';
+import { createIrCompare } from './ir-compare.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
 export const stentIds = (p, out = []) => { out.length = 0; if (p?.tips?.on) out.push('TIPS'); if (p?.dips?.on) out.push('DIPS'); return out; };
-/** The Doppler card's own range for an 8 to 10 mm stent's peak velocity, cm/s (doppler.js, topology.js: 90 to 190). */
-export const STENT_RANGE = Object.freeze([90, 190]);
+/** The Doppler card's own range for an 8 to 10 mm stent's peak velocity, cm/s (doppler.js, topology.js: 90 to 190; one copy, table-marks.js). */
+export const STENT_RANGE = RANGE;
 const PEAK_BAND = [0, 0];   // alloc-rare: made once (peakBand's range for a stent of another diameter, read at once)
 /** The range for this stent's own diameter (stent-geom.js stentBand: the reference range for 8 to 10 mm, scaled and provisional for another). */
 export const peakBand = (st) => stentBand(st?.d, STENT_RANGE, PEAK_BAND);
-const READ = [0, 0, 0];   // alloc-rare: made once (stentReadsOf writes into it; stentPeak reads it at once)
-/** The fastest of a stent's three Doppler gates as a scanner reads it, cm/s: the open stent's mean speed, a narrowing's jet at its gates, times K. */
-export function stentPeak(params, id, st) {
-  if (!st || !(st.vOpen >= 0)) return null;
-  const r = stentReadsOf(params, id, st.vOpen, READ);
-  return STENT_DOPPLER_K * Math.max(r[0], r[1], r[2]);
-}
 const mm = (x) => String(Math.round(x * 10) / 10);
 /** The line under the chip: the stent's width, and its narrowing when it has one. */
 export const stentLine = (st) => (!st ? 'No stent' : st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`);
@@ -53,7 +50,7 @@ const TILES = [
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
   { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
-    v: (m, st, p, id) => stentPeak(p, id, st), word: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
+    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
     sev: (v, st) => { const r = peakBand(st); return v >= r[0] && v <= r[1] ? 'none' : 'caution'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
@@ -79,8 +76,16 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
   });
+  const figs = h('div', { class: 'ir-figs' });
+  let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
   const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the drop between the stent\'s two ends; the PPG runs on from the portal vein to the IVC. After a TIPS, a PPG under 12 mmHg is the target.');
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips' }, h('div', { class: 'ir-stents' }, chips, line, edit), h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), note);
+  const cmp = createIrCompare();
+  const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true' }, 'Inside the stent');
+  const btnC = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'compare', 'aria-pressed': 'false' }, 'Compare');
+  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnC);
+  btnI.addEventListener('click', () => setSub('inside')); btnC.addEventListener('click', () => setSub('compare'));
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -90,8 +95,24 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     // The view that comes in fades up where the other was (display flips at once; its parts rise from nothing, as Scope's second view does).
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    if (v === 'tips') showStent();
     onChange();
     if (frame) update(frame);
+  }
+  function setSub(v) {
+    if (v === sub) return;
+    sub = v;
+    el.dataset.sub = v;
+    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
+    (v === 'compare' ? cmp.el : inside).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
+    onChange();
+    if (frame) update(frame);
+  }
+  // The stent cards: the lumen to scale and the bar of where the pressure goes (to the PPG, the part outside the stent hatched). Which stent follows the chip.
+  let cfgId = '';
+  function showStent() {
+    if (!stent) { stent = createStent(); figs.append(stent.el); cfgId = ''; }   // alloc-rare: once, when the view first opens
+    if (cfgId !== which) { cfgId = which; stent.configure({ kind: 'stent', vessel: which, show: ['lumen', 'loss'], to: 'ppg' }); }   // alloc-rare: when the chip changes
   }
   host.dataset.view = 'measure';
 
@@ -131,6 +152,9 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (view !== 'tips') return;
     const m = f?.metrics;
     if (!m) return;
+    if (sub === 'compare') { cmp.update(f, which); return; }
+    showStent();
+    stent.update(f);
     const st = which === 'DIPS' ? m.dips : m.tips, hidden = hiddenNow(st0);
     const lt = stentLine(st);
     if (lt !== lineT) { lineT = lt; swapText(line, lt); }
@@ -158,5 +182,5 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (tiles[1].lbl !== nk) { tiles[1].lbl = nk; const k = tiles[1].el.querySelector('.k'); if (k) swapText(k, nk); }
   }
   host.append(el);
-  return { head, el, update, view: () => view, setView, which: () => which };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which };
 }
