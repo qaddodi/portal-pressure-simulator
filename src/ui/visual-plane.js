@@ -98,13 +98,13 @@ export const PLANES = {
     // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'PPG ≥12'
     // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
     // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
-    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
+    x: { key: 'hvpg', min: 0, max: 20, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (WHVP − FHVP), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
     y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
       { when: [['hvpg', '<=', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG ≤${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
       { when: [['hvpg', '<=', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'WHVP misses presinusoidal resistance' },
-      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG >${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG >${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
+      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', note: `HVPG >${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', note: `HVPG >${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
     cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
     // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
@@ -116,7 +116,12 @@ export const PLANES = {
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
     lineNames: { x: { [HVPG_CUTS.red]: `${HVPG_WORDS.danger[0]} ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `PPG ≥${PPG_CUTS.red}` } },
     source: '',
-    key: false,
+    // (17 Nov 2026, Mohammad: "no need to mention both raised, PPG only etc. on the chart itself, you have a legend already ... the chart doesn't need to be that tall ...
+    // why extend it so far out? HVPG 20 maybe ... it needs to be elegant. Everywhere." noWords: the four zones are only their tints; the legend (the key under the
+    // plot, or beside it on a wide screen) names them. The HVPG axis stops at 20 (the highest on any slide is 16.5); the PPG axis keeps 28, the acute clot's 27.3
+    // being a reading the plot must not clamp. compact: the plot is wide and low, visual-plane CSS .pze-short.)
+    noWords: true,
+    compact: true,
   },
 };
 PLANES['flow-ppg'] = {
@@ -651,6 +656,7 @@ export const zoneRect = (pl, z) => {
  *  names them; with no key (pl.key === false, the summary) they search the whole zone, so every zone keeps its words. */
 export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only = null, choose = null) {
   const out = [], taken = [...used], lh = fs * 1.2, noKey = (pl.key === false || pl.key === 'never') && !card;
+  if (pl.noWords) return out;   // (a plane whose legend names its zones writes no words on the plot)
   const words = (z, cls) => {
     const [x0, x1, y0, y1] = zoneRect(pl, z), wpx = Math.min(X(x1), fr.R) - Math.max(X(x0), fr.L) - 12;
     // (A zone listed earlier lies over this one's rectangle, so its words keep out of it.)
@@ -788,6 +794,7 @@ export function dotBoxes(at, from, R) {
 export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
   // (o: a box [x0, y0, x1, y1], or a circle [x, y, r] the box must keep out of.)
   const rules = lineBoxes(pl, X, Y, fr, fs), out = [];
+  if (pl.noWords) return out;   // (the legend names the zones, not the plot)
   const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
   const sizes = [fs, ...[fs - 1, fs - 2, 12].filter((v, i, a) => v >= 12 && v < fs && a.indexOf(v) === i)];
   for (const z of pl.zones) {
@@ -879,7 +886,7 @@ const unitOf = (k) => TILE[k]?.u || '';
 export function planePlot(pl, { card = false } = {}) {
   // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
   const axes = !card && hasAxes(pl);
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : ''), role: 'img' });
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : '') + (pl.compact ? ' pze-short' : ''), role: 'img' });
   const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true', 'data-axes': axes ? 'on' : null });   // (the scatter's plot gives its halos and fills the panel's own tone: chart-looks/plane.js)
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
   const halo = sv('circle', { class: 'pze-halo', 'data-look': 'plane.halo' }), dot = sv('circle', { class: 'pze-dot', 'data-look': 'plane.dot' });
@@ -1168,8 +1175,9 @@ export function planeVisual(s, ctx, rowsFp) {
   if (!pl) return null;
   const plot = planePlot(pl);
   // (key: false hides it but on an iPhone, app.css; key: 'never' leaves only the source line under the plot.)
-  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' ? ' pze-nokey' : '') }, plot.el,
-    pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
+  // (noWords: the legend under the plot, as the card's, takes the zones' names the plot no longer writes.)
+  const wrap = h('div', { class: 'pz-visual pze-planewrap' + (pl.key === false || pl.key === 'never' || pl.noWords ? ' pze-nokey' : '') }, plot.el,
+    pl.noWords ? planeCardKey(pl) : pl.key === 'never' ? (pl.source ? h('p', { class: 'pze-src' }, pl.source) : null) : planeKey(pl));
   rowsFp(s, ctx, (rows) => plot.set(rows.map((r) => ({ f: r.f, from: r.from, name: r.name, short: r.short, site: r.site }))));
   return wrap;
 }
