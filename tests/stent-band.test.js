@@ -10,7 +10,7 @@ import { Engine } from '../src/engine/engine.js';
 import { deepMerge } from '../src/engine/scenario.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { fingerprintOf } from '../src/engine/fingerprint.js';
-import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D } from '../src/engine/stent-geom.js';
+import { stentBand, stentBandIsRef, STENT_BAND_D, STENT_BAND_MIN_D, gateKindsOf, gateKindsFromParams, reductionJet } from '../src/engine/stent-geom.js';
 import { EDGES } from '../src/engine/topology.js';
 import { PROBE_NORMAL, stentNormal, velNormal, STENT_PV_NORMAL } from '../src/ui/velNormal.js';
 import { rateOf, stentCuts, STENT_RANGE } from '../src/ui/table-marks.js';
@@ -110,6 +110,30 @@ test('a narrowing is never a diameter: the range follows the open stent, so a 10
   }
   // a stent reduced to 6 mm by a coaxial stent is a 6 mm stent: its own range
   assert.deepEqual([...stentNormal('TIPS', 6)], [90, 338]);
+});
+
+test('a deliberate reduction\'s jet reads as intended, a stenosis\' jet still flags, and the lesion kinds are one rule for the engine and the readers', () => {
+  const fp = (patch) => fingerprintOf(computeMetrics(settled({ tips: { on: true, d: 10 }, ...patch })));
+  const red = fp({ stentGeom: { TIPS: { red: 0.4, waist: 2 } } });
+  assert.ok(red.tipsVel > REF[1], `the 6 mm waist jets at ${Math.round(red.tipsVel)}`);
+  assert.deepEqual([...rateOf('tipsVel', red)], ['info', 'Reduction jet'], 'the reduction\'s jet reads as intended, neutral');
+  const stn = fp({ stenosis: { TIPS: 0.4 } });
+  assert.deepEqual([...rateOf('tipsVel', stn)], ['mid', 'High'], 'an end stenosis\' jet is still flagged');
+  const both = fp({ stentGeom: { TIPS: { red: 0.4, waist: 2 } }, stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' } });
+  assert.ok(both.tipsG2 > REF[1]);
+  assert.deepEqual([...rateOf('tipsVel', both)], ['mid', 'High'], 'with an end stenosis over the range as well, the stenosis is what is flagged');
+  assert.deepEqual([...rateOf('tipsVel', { ...red, tipsD: 6 })].slice(0, 1), ['info']);
+  // the readers' rule is the engine's: the same kinds from the numbers, from the params and from stentState, for every mix
+  for (const patch of [{}, { stenosis: { TIPS: 0.4 } }, { stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'proximal' } }, { stentGeom: { TIPS: { red: 0.4 } } }, { stentGeom: { TIPS: { red: 0.4 } }, stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'proximal' } }]) {
+    const e = settled({ tips: { on: true, d: 10 }, ...patch }), st = e.stentState('TIPS');
+    assert.deepEqual(gateKindsFromParams(e.params, 'TIPS', 'tips', [null, null, null]), st.gateKind, JSON.stringify(patch));
+    assert.deepEqual(gateKindsOf(st.end, st.red, st.site, [null, null, null]), st.gateKind);
+  }
+  // reductionJet: every gate over the range is on the reduction; a gate over anywhere else is read as it always was
+  assert.equal(reductionJet([100, 400, 100], [null, 'reduction', null], 190), true);
+  assert.equal(reductionJet([100, 400, 300], [null, 'reduction', 'stenosis'], 190), false);
+  assert.equal(reductionJet([210, 400, 100], [null, 'reduction', null], 190), false, 'fast flow with no lesion is not a reduction\'s jet');
+  assert.equal(reductionJet([100, 150, 100], [null, 'reduction', null], 190), false, 'no gate over the range: nothing to explain');
 });
 
 test('the summary tiles and the presenter bar read the stent peak against the stent\'s own diameter, the fingerprint carrying it; a scaled band is a model band, never a verdict', () => {

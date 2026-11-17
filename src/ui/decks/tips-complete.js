@@ -6,19 +6,25 @@
 // budd-chiari, gastric-varices); the older talks stay as they are. Plan and slide-by-slide outline:
 // /mnt/project-files/tips-geometry/tips-deck-outline.md.
 //
-// Not here yet: the bench tube against the patient (waits for the curve's bench option) and the long-waist button on the reduction slide.
+// Not here yet: the bench tube against the patient (waits for the curve's bench option).
 //
 // Sources, checked 16 Nov 2026 against guidelines/: Baveno VIII (J Hepatol 2026) 4.13, 4.15, 4.19, 5.31 to 5.37, 5.41, 6.3 to 6.9, 6.14 to 6.17,
 // 7.8, 8.34, 9.26, 9.27 and Table 3; AASLD 2024 portal hypertension, guidance statements 32, 35, 38, 39 and the text on TIPS against BRTO;
 // AASLD 2021 ascites (patient selection, 8 to 10 mm and under-10 mm covered stents, the venogram and Doppler guidance); AASLD 2020 vascular
-// liver disorders (TIPS or DIPS in Budd–Chiari). After a TIPS no slide shows an HVPG: the reading is the PPG across the stent (portal vein minus
-// IVC), target below 12 mmHg. The numbers the model produces stand as live values; the typed ones are the guidelines' own.
+// liver disorders (TIPS or DIPS in Budd–Chiari). After a TIPS no slide shows an HVPG: the reading is the PPG, the portal vein pressure minus the IVC
+// pressure (never "across the stent": the pressure drop across the device is a smaller, separate reading). 12 mmHg is a reference, not a universal
+// target: AASLD 2024 (NSBB not needed after a TIPS once the gradient is under 12 mmHg, in the secondary prophylaxis of gastric variceal bleeding);
+// Baveno VIII sets no gradient target for ascites (6.5, 6.6). The numbers the model produces stand as live values; the typed ones are the guidelines' own.
 
 const BAND = { kind: 'band' };
 const CARV = { drugs: { carvedilol: true } };
 const TIPS8 = { tips: { on: true, d: 8 } };
 const REFRACTORY = { diuretics: false, albumin: 2.5 };
 const STENT = { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' };
+// A waist experiment's whole geometry: an 8 cm, 10 mm stent with a waist in the middle (red: the share of its diameter the waist takes away, 0.4 = 6 mm
+// left), `waist` cm long, with `trans` cm of taper at each end, and no stenosis at either end. Every button gives all of it, so what it shows never depends on
+// the button pressed before it. `red` 0 is the open stent.
+const waistCfg = (waist, trans, red = 0.4) => ({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0 }, stentGeom: { TIPS: { len: 8, red, waist, trans } } });
 const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' };
 // The TIPS Doppler talk's patient: a 10 mm stent, a hyperdynamic splanchnic bed (so the stent reads 90 to 190 cm/s at each point).
 const DOPPLER = { cirrhosis: 0.92, tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
@@ -30,16 +36,16 @@ export const TIPS_COMPLETE = {
   objectives: [
     'Name who is offered a preemptive, a rescue, a salvage and an elective TIPS, and the other indications',
     'Explain why a failing liver, a congested heart and a past episode of encephalopathy change the decision',
-    'Read the gradient after a TIPS as the PPG across the stent, and say what the stent costs the liver',
+    'Read the PPG after a TIPS, tell the device\'s own resistance from the circulation\'s response to it, and say what the stent costs the liver',
     'Interpret the follow-up Doppler and a narrowing stent, and say what confirms it',
   ],
   checks: [
     ['A man bleeds from varices and banding controls it. He is Child–Pugh C 11 with a bilirubin of 6 mg/dL. Does the bilirubin rule out a preemptive TIPS?', 'No. Once he meets the criteria, a high bilirubin and the MELD score are not absolute contraindications (Baveno VIII 5.33). Place the stent within 72 hours, ideally within 24.'],
-    ['A TIPS is placed for recurrent ascites. Which gradient confirms the result, and what is the target?', 'The PPG across the stent, the portal vein pressure minus the IVC pressure, <12 mmHg (Baveno VIII Table 3). It is not the HVPG.'],
+    ['A TIPS is placed for recurrent ascites. How is the result judged?', 'By the ascites response, with the PPG (portal vein minus IVC pressure, not the HVPG) and the risk of overshunting. Baveno VIII asks for the smallest stent diameter that gives an adequate response and for stepwise dilation if ascites persists (6.5, 6.6); it sets no gradient target.'],
     ['Two months after a TIPS a patient has overt encephalopathy. What comes before reducing the stent?', 'Look for and treat the precipitant, give lactulose, and add rifaximin after a recurrence. Reduce or occlude the stent only if it persists (Baveno VIII 6.17).'],
-    ['Ascites returns six months after a TIPS and the Doppler is unremarkable. What is the next step?', 'TIPS venography with the gradient across the stent. Doppler can miss a stenosis (AASLD 2021).'],
+    ['Ascites returns six months after a TIPS and the Doppler is unremarkable. What is the next step?', 'TIPS venography with the portosystemic gradient. Doppler can miss a stenosis (AASLD 2021).'],
   ],
-  summary: 'TIPS from the indication to the follow-up: preemptive, rescue, salvage and elective stents, who should be prepared or turned away, the placement and the PPG across the stent, the width, encephalopathy and its reduction, the follow-up Doppler, a stent that narrows, the DIPS and TIPS against BRTO. Ends on a table of what each state does to the PPG and the liver.',
+  summary: 'TIPS from the indication to the follow-up: preemptive, rescue, salvage and elective stents, who should be prepared or turned away, the placement and the PPG after it, the width, encephalopathy and its reduction, the follow-up Doppler, a stent that narrows, the DIPS and TIPS against BRTO. Ends on a table of what each state does to the PPG and the liver.',
   sections: [['Choosing the patient', ['Choosing the patient']], ['Before the stent', ['Before the stent']], ['Placing the stent', ['Placing the stent', 'The stent as a tube']], ['After the stent', ['After the stent']], ['Other shunts', ['Other shunts']]],
   slides: [
     {
@@ -155,10 +161,10 @@ export const TIPS_COMPLETE = {
     },
     {
       id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 1, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
-      kicker: 'Placing the stent', site: 'sin', title: 'After a TIPS, the PPG across the stent is the number, and the target is <12 mmHg',
-      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. The target after a TIPS is {<12 mmHg}.',
-      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. After a TIPS this is the gradient that is read; the HVPG is not. The target after a TIPS is a PPG below 12 mmHg (AASLD 2024: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
-      ask: ['After a TIPS placed for variceal bleeding, which gradient is read, and what is the target?', 'The PPG, the portal vein pressure minus the IVC pressure across the stent: <12 mmHg.'],
+      kicker: 'Placing the stent', site: 'sin', title: 'After a TIPS, the PPG, portal vein minus IVC, is the number that is read',
+      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. For a variceal bleed the reference is {<12 mmHg}.',
+      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. After a TIPS this is the gradient that is read; the HVPG is not. For a variceal indication, 12 mmHg is the reference: AASLD 2024 does not require a nonselective beta-blocker after a TIPS once the portosystemic gradient is below 12 mmHg (stated for gastric varices). For ascites no gradient target is set: Baveno VIII judges the response, with the smallest diameter that works (6.5, 6.6). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
+      ask: ['After a TIPS placed for variceal bleeding, which gradient is read, and what is the reference?', 'The PPG, the portal vein pressure minus the IVC pressure: <12 mmHg. It is not the HVPG, and not the pressure drop across the stent.'],
     },
     {
       id: 'diameter', lens: 'flow', params: { tips: { d: 12 } }, days: 30, whatIf: WIDTH, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' },
@@ -177,20 +183,21 @@ export const TIPS_COMPLETE = {
     },
     {
       id: 'tube', lens: 'velocity', preset: 'cirr-decomp', params: DOPPLER, days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
-      kicker: 'The stent as a tube', site: 'sin', title: 'Flow through the stent follows the pressure across it',
-      line: 'Here {tipsFlow} crosses the stent with {tipsDp} across it. The card shows where that pressure goes and the peak velocity Doppler would read.',
-      notes: 'The stent is a tube, and a tube moves flow in proportion to the pressure across it: part of that pressure is lost along the stent and the tract (friction), part where the blood enters and leaves it and where it jets through a narrowing (local losses). The side view draws the stent to scale in centimeters, with the narrowest lumen in millimeters and the peak velocity at each of the three Doppler points, the same numbers the Doppler card prints. The bar below it shows the pressure across the stent split into its parts, and, with the PPG, the part that falls outside the stent. The drop across the stent is smaller than the PPG because the portal vein pressure is read against the IVC, not against the stent\'s own end. The heart, hepatic vein and IVC respond to the stent; the model holds no pressure fixed. These are the model\'s numbers for one patient, not measurements.',
-      ask: ['What does the flow through a stent depend on?', 'The pressure across it and its resistance: friction along its length and the local losses at its ends and at any narrowing.'],
+      kicker: 'The stent as a tube', site: 'sin', title: 'The stent resists flow with friction along it and losses at its ends',
+      line: 'Here {tipsFlow} crosses the device with {tipsDp} across it. That drop is not the PPG. The card shows where it is lost and the peak velocity Doppler would read.',
+      notes: 'The stent is a tube: part of the pressure across it is lost to friction along the stent and the tract, part to local losses where the blood enters and leaves it and where it jets through a narrowing. A smaller lumen raises the friction strongly; the flow that results also depends on those local losses and on how the circulation responds. The side view draws the stent to scale in centimeters, with the narrowest lumen in millimeters and the peak velocity at each of the three Doppler points, the same numbers the Doppler card prints. The bar below it splits the pressure drop across the device into its parts, and, beside the PPG, shows the part that falls outside the stent. Two readings, two sets of endpoints: the PPG is the portal vein pressure minus the IVC pressure, and the drop across the device is the modeled pressure difference between its two ends. The drop across the device is smaller than the PPG, and the two are never the same number. The heart, hepatic vein and IVC respond to the stent; the model holds no pressure fixed. These are the model\'s numbers for one patient, not measurements.',
+      ask: ['What does the flow through a stent depend on?', 'Friction along its length, the local losses at its ends and at any narrowing, and the way the portal and systemic pressures respond.'],
     },
     {
-      id: 'waist', question: 'The narrowest point stays the same. Does the length of the narrowed segment matter?', lens: 'velocity', params: { stentGeom: { TIPS: { red: 0.4, waist: 1, trans: 0 } } }, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
-      compare: [{ label: 'Short, 1 cm', short: '1 cm', own: true, params: { stentGeom: { TIPS: { red: 0.4, waist: 1, trans: 0 } } } },
-        { label: 'Long, 4 cm', short: '4 cm', params: { stentGeom: { TIPS: { waist: 4 } } }, title: 'A long narrowed segment resists more than a short one', line: 'With a 4 cm waist {tipsFlow} crosses the stent with {tipsDp} across it: more friction along the waist than a short one has.' },
-        { label: 'Short, tapered', short: 'Taper', params: { stentGeom: { TIPS: { trans: 1 } } }, title: 'Tapered ends lose less where the jet leaves the waist', line: 'With tapered ends the same 1 cm waist drops {tipsDp} across the stent, and {tipsFlow} crosses it: the jet loses less where it leaves the waist.' }],
-      kicker: 'The stent as a tube', site: 'sin', title: 'In the model, a longer narrowed segment raises the pressure across the stent at the same narrowest lumen',
-      line: 'With a short waist {tipsFlow} crosses the stent with {tipsDp} across it. A longer waist adds friction to the jet\'s loss, and the drop across the stent rises.',
-      notes: 'A 10 mm stent narrowed to 6 mm. The minimum diameter sets the jet, and the length of the narrowed segment adds friction along it; where the stent narrows or widens, an abrupt step loses more than a taper. The minimum diameter matters, but the length of the narrowed segment also changes the resistance, and the resulting flow depends on the rest of the portal circulation: the portal pressure rises and pushes harder, so in the patient the flow falls by less than it would in the tube alone. This is the model\'s mechanism, not a prediction: its coefficients are provisional, and no clinical data gives a pressure change for a given length. The buttons move the same patient between a short waist, a long one and tapered ends; the drawn stent does not stretch.',
-      ask: ['At the same narrowest diameter, what does a longer narrowed segment do?', 'It adds friction along the narrowing, so the pressure across the stent rises, and the portal pressure with it.'],
+      id: 'waist', question: 'The narrowest point stays the same. Does the length of the narrowed segment matter?', lens: 'velocity', params: waistCfg(1, 0), cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
+      // (Each button is the whole geometry, never a change to the one before it: tests/tips-complete-waist.test.js presses every ordered pair.)
+      compare: [{ label: 'Short, 1 cm', short: '1 cm', own: true, params: waistCfg(1, 0) },
+        { label: 'Long, 4 cm', short: '4 cm', params: waistCfg(4, 0), line: '10 mm stent, 6 mm waist 4 cm long, abrupt ends. The same lumen over a longer segment adds friction: {tipsFlow} crosses with {tipsDp} across the device.' },
+        { label: 'Short, tapered', short: 'Taper', params: waistCfg(1, 1), title: 'Same minimum diameter, tapered ends', line: '10 mm stent, 6 mm waist 1 cm long, tapered ends. Gradual ends cut the modeled expansion loss and add friction along the cones: {tipsFlow}, {tipsDp} across the device.' }],
+      kicker: 'The stent as a tube', site: 'sin', title: 'Same minimum diameter, different waist length',
+      line: '10 mm stent, 6 mm waist 1 cm long, abrupt ends. A short waist is a focal restriction: {tipsFlow} crosses the device with {tipsDp} across it.',
+      notes: 'A 10 mm stent narrowed to 6 mm in the middle. The minimum diameter sets the jet, and the length of the narrowed segment adds friction along it; where the stent narrows or widens, an abrupt step loses more at the step and a taper trades that for friction along the cones, so which wins depends on the whole geometry. The minimum diameter matters, but the length of the narrowed segment also changes the resistance, and the resulting flow depends on the rest of the portal circulation: the portal pressure rises and pushes harder, so in the patient the flow falls by less than it would in the tube alone. A longer narrow segment adds friction; the circulation determines how pressure and flow respond. This is the model\'s mechanism, not a prediction: its coefficients are provisional, and no clinical data gives a pressure change for a given length. Each button is a whole geometry (an 8 cm stent, narrowed in the middle), so the order in which they are pressed makes no difference; the drawn stent does not stretch.',
+      ask: ['At the same narrowest diameter, what does a longer narrowed segment do?', 'It adds friction along the narrowing, so the drop across the device rises and the portal pressure with it; the circulation decides how much flow is lost.'],
     },
     {
       id: 'he', lens: 'flow', preset: 'cirr-decomp', params: { ...REFRACTORY, tips: { on: true, d: 10 } }, days: 60, cam: 'liver', mark: STENT, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'],
@@ -204,18 +211,20 @@ export const TIPS_COMPLETE = {
       ask: ['When is the TIPS reduced for hepatic encephalopathy?', 'Only when it persists or recurs despite removing the precipitant and giving lactulose and rifaximin.'],
     },
     {
-      id: 'reduce', lens: 'flow', params: { tips: { d: 6 } }, days: 30, cam: 'liver', mark: STENT, tool: { kind: 'flows' }, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
-      compare: [{ label: '10 mm', params: { tips: { d: 10 } } }, { label: 'Reduced to 6 mm', short: '6 mm', own: true }],
-      kicker: 'After the stent', site: 'sin', title: 'When encephalopathy persists, reducing the stent returns portal blood to the liver at the price of a higher PPG',
-      line: 'Reducing the stent to 6 mm lifts sinusoidal flow to {liver} of normal, and the PPG rises to {ppg}. Baveno VIII makes reduction a weak recommendation.',
-      notes: 'Encephalopathy that persists after a TIPS despite lactulose and rifaximin can be treated by reducing the stent diameter, with a smaller stent placed coaxially inside it, or by occluding the stent (Baveno VIII 6.17, weak recommendation). Either way, part of the portal hypertension that the TIPS was placed to treat returns, so the ascites or the variceal bleeding can recur. The buttons compare the same patient with the stent at 10 mm and reduced to 6 mm.',
-      ask: ['What does reducing the stent diameter cost?', 'The portal pressure rises, so the ascites or variceal bleeding the TIPS treated can recur.'],
+      id: 'reduce', lens: 'flow', params: waistCfg(1, 0), days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
+      // (An intentional reduction is a focal waist in the middle of the original 10 mm conduit, as the waist slide draws one: not a uniform 6 mm stent. Whole geometry in each button.)
+      compare: [{ label: '10 mm, open', short: 'Open', params: waistCfg(1, 0, 0), title: 'Before the reduction the stent is open at 10 mm', line: 'The open 10 mm stent lets {shunt} of the portal blood bypass the liver, and sinusoidal flow is {liver} of normal, with a PPG of {ppg}.' },
+        { label: 'Reduced to 6 mm', short: '6 mm', own: true, params: waistCfg(1, 0) }],
+      kicker: 'After the stent', site: 'sin', title: 'When encephalopathy persists, a reduction narrows the stent in the middle and gives some portal blood back to the liver',
+      line: 'A 6 mm waist inside the 10 mm stent lifts sinusoidal flow to {liver} of normal, and the PPG rises to {ppg}. Baveno VIII makes reduction a weak recommendation.',
+      notes: 'Encephalopathy that persists after a TIPS despite lactulose and rifaximin can be treated by reducing the stent, with a smaller stent placed coaxially inside it, or by occluding the stent (Baveno VIII 6.17, weak recommendation). Here the reduction is drawn as a focal 6 mm waist in the middle of the original 10 mm conduit, the experiment of the previous section, not as a uniform 6 mm stent: the two are different shapes with different resistance, and a coaxial device is a longer narrowing than this short one. Either way, part of the portal hypertension that the TIPS was placed to treat returns, so the ascites or the variceal bleeding can recur. The buttons compare the same patient with the stent open and with the waist. The model sets no end point for the reduction: no guideline gives a gradient or a flow that a reduction should reach.',
+      ask: ['What does reducing the stent cost?', 'The portal pressure rises, so the ascites or variceal bleeding the TIPS treated can recur.'],
     },
     {
       id: 'baseline', lens: 'velocity', preset: 'cirr-decomp', params: DOPPLER, days: 30, cam: { on: ['PVH_R'] }, beats: [{ cam: { on: ['RHV_IVC', 'TIPS'] } }, { cam: 'liver' }], tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true }, data: 'tiles', tiles: ['ppg', 'asc'],
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       vignette: 'The same woman six weeks after her TIPS has her first Doppler study. It is the baseline for every study that follows.',
-      kicker: 'After the stent', title: 'Doppler samples the stent at three points, and a baseline study anchors the follow-up',
+      kicker: 'After the stent', title: 'Doppler samples the stent at three points, and a baseline study anchors the follow-up', cite: 'Conventional Doppler criteria, not in Baveno VIII or AASLD 2024',
       line: 'Sample the portal end, the middle and the hepatic vein end. A velocity {<90 cm/s} or {>190 cm/s}, or a change of 50 cm/s from baseline, suggests stenosis.',
       notes: 'A baseline Doppler study is done in the first weeks after placement, and every follow-up study is compared with it. Doppler samples the stent at its portal end (proximal), mid stent (mid) and its hepatic vein end (distal); each normally measures 90 to 190 cm/s. In shunts confirmed patent at venography, mean peak velocities were about 140 cm/s at the portal end, 150 to 185 cm/s mid stent and 140 to 170 cm/s at the hepatic vein end (Mitchell et al., 2025). A velocity outside 90 to 190 cm/s, or a change of more than 50 cm/s from the baseline study, suggests stenosis. These cut-offs were derived from bare stents; covered stents develop stenosis far less often, so the change from the baseline study carries more weight. Neither Baveno VIII nor AASLD 2024 gives Doppler cut-offs. AASLD 2021: the follow-up Doppler of an asymptomatic patient with a covered stent probably has little therapeutic impact, and surveillance is suggested after a revision or in a prothrombotic state. Tap Proximal, Mid or Distal to move the Doppler gate. The aliasing, the main portal vein and the branch directions are in the Doppler after TIPS talk.',
       ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
@@ -236,7 +245,7 @@ export const TIPS_COMPLETE = {
       tool: { kind: 'curve', param: 'stenosis.TIPS', from: 0, to: 0.8, step: 0.05, lines: ['ppg', 'pvVel'], cuts: [12] },
       kicker: 'After the stent', title: 'As the stent narrows, the PPG climbs back and the original indication returns',
       line: 'As the stent narrows the PPG passes {>=12 mmHg} and the ascites or bleeding returns. At 65% stenosis the PPG is {ppg}. Doppler screens; venography confirms.',
-      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The ring is the 65% stenosis of the slide before. Dysfunction presents as the return of the indication: ascites or variceal bleeding, with a PPG above the target, and on Doppler a change from the baseline study. Covered stents have lessened the incidence of TIPS dysfunction significantly (AASLD 2021); it is confirmed and treated at TIPS venography, with angioplasty or a new stent. After a TIPS, a PPG <12 mmHg means a beta-blocker is no longer needed (AASLD 2024). The velocities are the model\'s means. (AASLD 2024; AASLD 2021; McNaughton and Abu-Yousef 2011.)',
+      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The ring is the 65% stenosis of the slide before. Dysfunction presents as the return of the indication: ascites or variceal bleeding, with a PPG at or above the 12 mmHg reference, and on Doppler a change from the baseline study. Covered stents have lessened the incidence of TIPS dysfunction significantly (AASLD 2021); it is confirmed and treated at TIPS venography, with angioplasty or a new stent. After a TIPS, a PPG <12 mmHg means a beta-blocker is no longer needed (AASLD 2024). The velocities are the model\'s means. (AASLD 2024; AASLD 2021; McNaughton and Abu-Yousef 2011.)',
       ask: ['In a patient with a TIPS, ascites recurs. What returns to the stent, and what confirms the cause?', 'The PPG climbs as the stent narrows; TIPS venography with the gradient confirms it, and Doppler only screens.'],
     },
     {
@@ -261,7 +270,7 @@ export const TIPS_COMPLETE = {
     {
       id: 'summary', visual: 'table', cols: ['ppg', 'liver', 'shunt', 'he'], asc: false, vs: 'first', rowHead: 'State',
       of: [{ preset: 'cirr-decomp', kicker: 'Reference', title: 'Decompensated cirrhosis, no stent', ref: true }, { id: 'path', title: 'TIPS, 8 mm' }, { id: 'diameter', title: 'TIPS, 12 mm' },
-        { id: 'reduce', title: 'TIPS reduced to 6 mm' }, { id: 'jet', title: 'TIPS, 65% stenosis' }],
+        { id: 'reduce', title: 'TIPS, 6 mm waist' }, { id: 'jet', title: 'TIPS, 65% stenosis' }],
       kicker: 'Summary', title: 'A stent trades PPG for sinusoidal flow, and every later decision moves one against the other',
       line: 'Every shunt lowers the gradient by diverting portal flow from the liver. A wider stent diverts more; a reduced or narrowed one gives flow back and the PPG returns.',
       notes: 'Five states of one decompensated patient. An 8 mm stent lowers the PPG below 12 mmHg and diverts much of the sinusoidal flow; a 12 mm stent lowers the PPG a little more and diverts more; reducing the stent to 6 mm gives some flow back and lifts the PPG; a narrowed stent lets the PPG climb toward where it started. The last column is the model\'s index of encephalopathy risk, not a clinical score. The DIPS patient has Budd–Chiari syndrome and a table of her own in that talk.',

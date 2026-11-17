@@ -145,7 +145,15 @@ export function createLapse(st, live) {
     // (So does a procedure, which glides home: the button's patient is shown as the slide frames it.)
     procStop(true);
     if (c.kind === 'state') { livePatient(s, i, s.compare[k]); return; }
-    liveSet(s, i, c.patch);
+    // (A button that changes parameters brings its words too, like one that switches the patient: its title and line, its pills read from the
+    // state its readings settle at. One presenter for the configuration, the pressed state, the words and the pills: variantWords.)
+    // (Only a row where some button speaks: a row of plain parameter buttons keeps the slide's words and the pills it came in with.)
+    const wordy = s.compare.some((o) => o.title || o.line);
+    liveSet(s, i, c.patch).then((settled) => {
+      const fr = store.get().frame;
+      if (!wordy || !settled || live.shown?.i !== i || live.slides[i] !== s || !fr?.metrics) return;
+      live.variantWords?.(s, i, s.compare[k], { fp: liveFp(fr), params: store.get().params });
+    });
   }
   const slideAt = (id) => live.slides.findIndex((x) => x.id === id);   // (a time-point button's slide, { label, slide })
   async function livePatient(s, i, o) {
