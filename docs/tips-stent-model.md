@@ -10,7 +10,7 @@ The drop is `ΔP = R_lin·Q + B·Q|Q|`. The engine solves it inside the coupled 
 
 | Part | Form | Status |
 |---|---|---|
-| tract | fixed, 0.12 PRU (TIPS), 0.07 PRU (DIPS), × viscosity | effective, calibrated (below) |
+| tract | fixed, 0.18 PRU (TIPS), 0.07 PRU (DIPS), × viscosity | effective, calibrated (below) |
 | wall | `C_WALL · visc · ∫ (10 / D(x))⁴ dx`, `C_WALL` = 0.005 PRU per cm at 10 mm | effective, about 4.67 × ideal Poiseuille at 3.5 cP |
 | entry | ½ρ · 1.5 · (Q/A)², the device's two ends | textbook entrance plus exit coefficient |
 | jet | Borda–Carnot at each narrowing's exit, × k_exp(cone angle) | k_exp provisional (diffuser data, not fitted) |
@@ -18,32 +18,45 @@ The drop is `ΔP = R_lin·Q + B·Q|Q|`. The engine solves it inside the coupled 
 
 ### The tract term
 
-- **What it stands for:** the short stretches the stent does not line. These are the parenchymal tract and the native portal and hepatic vein ends, between the stent and the network's two nodes (the right portal vein and the right hepatic vein).
-- **Why it does not follow the stent:** these stretches do not change with the stent's diameter or length.
-- **No double counting:** none of these stretches is another edge of the network. The portal trunk and the hepatic veins keep their own resistances, which are in series outside it.
-- **Where it came from:** it was introduced on 7 Oct 2026 (commit 7303d7d4). It was set so that the model's post-TIPS gradients and flows grade with diameter as the teaching decks show them: a 10 mm stent gives about 8 mmHg PPG in decompensated cirrhosis, and an 8 mm one about 9.
-- **What it was not fitted to:** no measured per-patient data.
+**What it stands for.** The stretches between the stent and the network's nodes that the stent does not line: the parenchymal tract, the native portal vein end, and the short stretch of the right hepatic vein from the stent's outlet to the cava.
 
-This term is influential. At 10 mm it is about 63 % of the stent's own drop. Many apparent effects of diameter and length are therefore damped by it, which is why wide stents plateau.
+**Why it does not follow the stent.** These stretches do not change with the stent's diameter or length.
 
-| Open diameter | PPG | flow L/min | drop across stent | tract share | wall share | ends share |
+**What changed on 17 Nov 2026.** The TIPS used to join the right hepatic vein's node, so its 1.8 L/min ran through the whole hepatic vein's resistance. That resistance belongs to the right lobe's own outflow, so it raised the RHV above the right lobe's central veins. The right lobe's outflow then turned back through the middle hepatic vein, which is a model artefact, not a TIPS picture.
+
+**How it is joined now.** The engine joins the TIPS to the cava itself (topology.js TIPS `eto: 'IVCS'`), and the short outlet stretch is part of this term. The figure still draws the TIPS joining the vein near the cava (RHV_T). The term went from 0.12 to 0.18 PRU, chosen so that the post-TIPS gradients the decks were tuned to stay where they were:
+
+| | PPG before (0.12, via the RHV) | PPG now (0.18, to the cava) |
+|---|---:|---:|
+| 10 mm, decompensated | 7.9 | 7.9 |
+| 8 mm, decompensated | 9.4 | 9.2 |
+| 10 mm, compensated | 5.4 | 5.3 |
+| 10 mm, schistosomiasis | 6.0 | 6.0 |
+
+**No double counting.** None of these stretches is another edge of the shunt's path. The hepatic vein's own resistance now carries only the liver's outflow.
+
+**Where it came from.** It was introduced on 7 Oct 2026 (commit 7303d7d4) as a tract and hepatic vein outlet resistance. It was set so the model's post-TIPS gradients and flows grade with diameter as the teaching decks show them. It was not fitted to measured per-patient data.
+
+**How much it weighs.** It is influential: at 10 mm it is about 72 % of the shunt's own drop. The shunt's own drop now runs from the right portal vein to the cava, so it includes the outlet stretch. Many apparent effects of diameter and length are damped by this term, which is why wide stents plateau.
+
+| Open diameter | PPG | flow L/min | drop across the shunt | tract share | wall share | ends share |
 |---|---:|---:|---:|---:|---:|---:|
-| 6 mm | 12.0 | 1.11 | 10.4 | 21 % | 54 % | 25 % |
-| 8 mm | 9.4 | 1.58 | 7.2 | 43 % | 35 % | 23 % |
-| 10 mm | 7.9 | 1.81 | 5.6 | 63 % | 21 % | 16 % |
-| 12 mm | 7.3 | 1.91 | 4.8 | 78 % | 13 % | 10 % |
+| 6 mm | 11.9 | 1.11 | 11.5 | 29 % | 49 % | 22 % |
+| 8 mm | 9.2 | 1.56 | 8.7 | 53 % | 29 % | 18 % |
+| 10 mm | 7.9 | 1.78 | 7.2 | 72 % | 16 % | 12 % |
+| 12 mm | 7.3 | 1.88 | 6.6 | 84 % | 9 % | 7 % |
 
-### Sensitivity (PPG, mmHg)
+### Sensitivity (PPG, mmHg, decompensated)
 
 | Change | 6 mm | 8 mm | 10 mm | 12 mm |
 |---|---:|---:|---:|---:|
-| as calibrated | 12.0 | 9.4 | 7.9 | 7.3 |
-| tract × 0.5 | 11.6 | 8.5 | 6.8 | 5.9 |
-| tract × 1.5 | 12.3 | 10.0 | 8.9 | 8.4 |
-| wall × 0.5 | 11.0 | 8.7 | 7.5 | 7.0 |
-| wall × 1.5 | 12.7 | 9.8 | 8.3 | 7.4 |
+| as calibrated | 11.9 | 9.2 | 7.9 | 7.3 |
+| tract × 0.5 | 11.4 | 8.1 | 6.3 | 5.4 |
+| tract × 1.5 | 12.3 | 10.2 | 9.2 | 8.7 |
+| wall × 0.5 | 10.9 | 8.6 | 7.6 | 7.1 |
+| wall × 1.5 | 12.6 | 9.8 | 8.2 | 7.5 |
 
-The 8-to-10 mm difference holds at 1.1 to 1.7 mmHg across all four changes. The absolute PPG at 10 to 12 mm moves most with the tract term.
+The 8-to-10 mm difference holds at 1.0 to 1.8 mmHg across these changes. The absolute PPG at 10 to 12 mm moves most with the tract term.
 
 ## The bench line ("Tube alone")
 

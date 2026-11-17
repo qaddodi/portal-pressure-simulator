@@ -251,6 +251,10 @@ export function createClamps(st, live) {
     // they are: the marks each build wants are the ones that stay. Mohammad, 16 Nov 2026: nothing pops.)
     if (!clots) for (const id of clotIds) markA.want(`clot:${id}`, { host: ov.thrombi, vessel: id, anatOnly: false, t: live.ovT });
     const clampAt = (id, vessel, u, v, txt) => {   // (id: the clamp's key, the vessel's own id or `<stent>~waist`)
+      // (The TIPS's and the DIPS's words are its own figure label (stage-label-items.js geomItem: diameter, waist, length, stenosis), none a clamp's; a waist is marked by
+      // its bracket alone, no arrowheads; its end stenosis keeps its arrowheads. Mohammad, 17 Nov. A drawn stent keeps its clamp's words.)
+      const own = vessel === 'TIPS' || vessel === 'DIPS';
+      if (own && id !== vessel) return;
       const [x, y, dx, dy] = pointAt(geo[vessel].cur, u);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[vessel].width / 2) * (1 - v) + 3;
@@ -260,6 +264,7 @@ export function createClamps(st, live) {
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
+      if (own) { clampShade(id); return; }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
       lab._txt = txt;

@@ -85,6 +85,19 @@ export function waistText(e, p) {
   return g.red > 0.004 ? `Waist ${d.toFixed(1)} to ${(d * (1 - g.red)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm` : null;
 }
 
+/** What a stent's figure label says of its geometry (Mohammad, 17 Nov: "show the diameter and the waist and length", not the velocity): its open diameter, the
+ *  waist (the lumen left in mm and its length in cm, mid stent) and the end stenosis (its end and the lumen left), each null where there is none. One record,
+ *  rewritten (read at once by velItem). Null for a vessel that is not a stent. */
+const FACTS = { d: 0, waist: null, wLen: 0, sten: null, end: 'distal' };
+export function stentFacts(e, p) {
+  const kind = kindOf(e);
+  if (!kind) return null;
+  const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind), s = endOf(p, e.id);
+  FACTS.d = d; FACTS.waist = g.red > 0.004 ? d * (1 - g.red) : null; FACTS.wLen = g.waist;
+  FACTS.sten = s > 0.004 ? d * (1 - s) : null; FACTS.end = endSiteOf(p, e.id) === 'proximal' ? 'proximal' : 'distal';
+  return FACTS;
+}
+
 /** Where along the stent's drawn path its end stenosis sits now (0 to 1): the end as it is eased to (lesion-ease.js, params.stentSiteU), else the end params name
  *  (stent-geom.js endSiteOf). Every reader of the drawn site takes it from here, so the stenosis, the clamp's arrows and the pressure colour's step move together.
  *  The waist is always mid stent (stent-geom.js waistSpan). */

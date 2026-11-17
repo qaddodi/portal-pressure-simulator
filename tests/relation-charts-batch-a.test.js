@@ -83,7 +83,8 @@ test('Ten years: carvedilol and the TIPS move him along the varix line, bands ta
   assert.ok(carv.f.varix > carv.on[0], 'so it sits above the line, to fall onto it over the next weeks');
   assert.ok(bands.f.varix < bands.on[0] - 2, `bands: ${bands.f.varix.toFixed(2)} mm under the line's ${bands.on[0].toFixed(2)}`);
   assert.ok(bands.x >= asc.x - 0.1, 'and the HVPG is not lowered');
-  assert.ok(tips.x < 7 && rebleed.hvpg > tips.x + 7, `the TIPS takes the HVPG from ${rebleed.hvpg.toFixed(1)} to ${tips.x.toFixed(1)}`);
+  // (under 7.5: 7.0 since 17 Nov 2026, when the TIPS stopped raising the hepatic vein it drains into, so the free hepatic pressure no longer rises with its flow)
+  assert.ok(tips.x < 7.5 && rebleed.hvpg > tips.x + 7, `the TIPS takes the HVPG from ${rebleed.hvpg.toFixed(1)} to ${tips.x.toFixed(1)}`);
   assert.ok(tips.f.varix > 3 && tips.f.varix <= rebleed.varix + 0.01, `the varix has not yet remodelled the moment the stent opens: ${tips.f.varix.toFixed(2)} mm`);   // (it falls over weeks, VARIX.tauFall; the Confusion slide, 60 days on, is lower)
   near(c.ring.x, c.fp.hvpg, 1e-9, 'the ring is the slide before\'s state');
 });

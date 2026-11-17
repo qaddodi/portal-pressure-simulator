@@ -21,6 +21,7 @@ import { lymphDay, lymphText, LYMPH_UNIT } from './lymph-day.js';
 import { oxygenFor } from './blood.js';
 import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
 import { createStentEditor } from './stent-editor.js';
+import { createTipsVessel } from './tips-vessel.js';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -111,8 +112,6 @@ function spanOfEdge(e) {
     return SPAN;
   } };
 }
-// Across a portosystemic stent the clinical pair: portal vein to IVC, the PPG (the dock's own number, so the two agree).
-const SPAN_PPG = { el: ['PV', 'IVC'], dn: 'PPG', cut: 'ppg', at: (f) => { const m = f.metrics; SPAN.a = m.pv; SPAN.b = m.ivc; SPAN.d = m.ppg; SPAN.ok = true; return SPAN; } };
 // Across the liver: wedged to free hepatic venous pressure, the HVPG (not shown where the case has not measured it).
 const SPAN_HVPG = { el: ['WHVP', 'FHVP'], dn: 'HVPG', cut: 'hvpg', at: (f) => { const m = f.metrics; SPAN.a = m.whvp; SPAN.b = m.fhvp; SPAN.d = m.hvpg; SPAN.ok = !hiddenNow()?.has('trueHVPG'); return SPAN; } };
 /** The three readings of a vessel: its flow, its peak velocity (as Doppler reads it) and its diameter. */
@@ -208,6 +207,8 @@ export function stentControls(id) {
 /** A stent's card holds its controls as the Tests card's TIPS view does (17 Nov 2026, play-test finding 9: the phone's card covered the stent it edits):
  *  one slim row of value chips, Diameter, Stenosis, Waist and Length, each opening its slider in the same row (stent-editor.js, from stentControls). */
 const STENT_PANEL = (id) => ({ type: 'panel', id: 'stent', label: 'Edit stent', make: () => createStentEditor({ id, onOpen: id === 'TIPS' || id === 'DIPS' ? () => CTX.openIr(id) : null }) });   // alloc-rare: made once per card built (a pick)
+/** The TIPS and DIPS card's body (17 Nov 2026, the approved mock): the stent to scale, one line of numbers and the three rows (tips-vessel.js). */
+const TIPS_PANEL = (id) => ({ type: 'panel', id: 'stent', label: 'Edit stent', make: () => createTipsVessel({ id, onOpen: () => CTX.openIr(id) }) });   // alloc-rare: made once per card built (a pick)
 
 const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
 function buildEdgeCard(e) {
@@ -225,7 +226,8 @@ function buildEdgeCard(e) {
   const shunt = { type: 'button', id: 'shunt', label: 'Add shunt', short: 'Shunt', icon: 'stent', showIf: () => CTX.canShunt(id), run: () => CTX.startShunt(id) };
   let kicker, span = spanOfEdge(e);
   const portalSide = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to);
-  if (!SIN_EDGES.has(id)) verbs.push(...vesselReads(k));
+  // (The TIPS and the DIPS read their own line under the stent's picture, tips-vessel.js: no flow, velocity and diameter tiles above it.)
+  if (!SIN_EDGES.has(id) && id !== 'TIPS' && id !== 'DIPS') verbs.push(...vesselReads(k));
   if (isArt) {
     kicker = 'Artery';
     // The hepatic artery and its two branches are full vessels, as the veins are: narrow it, clot it, stent it open, read its Doppler.
@@ -251,8 +253,8 @@ function buildEdgeCard(e) {
     kicker = 'Shunt';
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
-      span = SPAN_PPG;
-      verbs.push(STENT_PANEL(id));
+      span = null;   // (no PV to IVC bar: the PPG is the first number of the card's own line)
+      verbs.push(TIPS_PANEL(id));
       verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, short: 'Remove', icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     } else if (e.shunt === 'custom') {
       verbs.push(STENT_PANEL(id));
@@ -293,7 +295,7 @@ function buildEdgeCard(e) {
   }
   // (What a vessel is, in words, is in Details: the card shows numbers and verbs only.)
   return {
-    key: 'e:' + id, sel: NORM_EDGE.get(id) || { type: 'edge', id }, kicker, title: e.label, why: edgeWhy(id), edge: id, verbs, span,
+    key: 'e:' + id, sel: NORM_EDGE.get(id) || { type: 'edge', id }, kicker, title: e.label, why: edgeWhy(id), edge: id, verbs, span, noValue: id === 'TIPS' || id === 'DIPS',
     value: (f, lens, ref) => edgeValue(e, f, lens, ref, true),
     status: (f) => {
       if (isArt) return null;

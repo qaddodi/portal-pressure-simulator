@@ -174,7 +174,7 @@ export const TILE = {
 };
 // The stents' own readings (the stent cards, src/ui/tool-stent.js; the fingerprint's tips… and dips… keys, engine stentState). Numbers, with one exception:
 // the peak velocity is read against the Doppler card's own range for a stent (90 to 190 cm/s, doppler.js PROBES), the tile and the card the same flag. The
-// pressure across the stent is its portal end minus its hepatic vein end: it is not the PPG (portal vein minus IVC) and never an HVPG, and its name says "Across".
+// pressure across the stent runs from its portal end to the cava: it is not the PPG (portal vein minus IVC) and never an HVPG, and its name says "Across".
 export const STENT_RANGE = [90, 190];
 // The range for the stent's own diameter: the reference array itself for 8 to 10 mm (or a fingerprint with no diameter), else a kept list for each stent, written in place.
 // (Provisional beyond 8 to 10 mm: stent-geom.js stentBand. A bar's cut-off ticks and a curve's cut-offs are drawn at the reference range; the tile's word and band colours follow its diameter.)
@@ -197,7 +197,7 @@ export function stentVelRate(v, k, f) {
 }
 const stentTiles = (k, name) => ({
   [`${k}Flow`]: { t: `${name} flow`, n: 'Stent flow', s: 'Blood the stent carries', u: 'L/min', long: `Blood carried by the ${name}: the stent's own flow, one number whatever the diameter along it. No guideline gives a cut-off.` },
-  [`${k}Dp`]: { t: 'Pressure across the stent', n: 'Across stent', s: 'Portal end − hepatic vein end', u: 'mmHg', long: `Pressure at the ${name}'s portal end minus its hepatic vein end. Not the PPG, which is the portal vein minus the IVC and also counts the veins around the stent.` },
+  [`${k}Dp`]: { t: 'Pressure across the stent', n: 'Across stent', s: 'Portal end − cava', u: 'mmHg', long: `Pressure at the ${name}'s portal end minus the cava, through the stent and the hepatic vein it empties into. Not the PPG, which is the portal vein minus the IVC and also counts the veins around the stent.` },
   [`${k}Bench`]: { t: 'Tube alone', n: 'Tube alone', s: 'Same shunt, fixed 7 mmHg end to end', u: 'L/min', long: `The flow the ${name} would carry on a bench: the whole shunt (the stent's lumen, its ends and its tract into the veins), with a fixed 7 mmHg from its portal end to its hepatic end and no circulation behind it. The dashed line of the stent's curves, against the flow it carries in the patient.` },
   [`${k}Vel`]: { t: 'Stent peak velocity', n: 'Stent peak', s: 'Highest of the three Doppler points', u: 'cm/s', d: 0, long: `The highest peak velocity the Doppler reads at the ${name}'s three points (portal end, mid stent, hepatic vein end), as the Doppler card prints them. The card flags a point under ${STENT_RANGE[0]} or over ${STENT_RANGE[1]} cm/s, the range reported for patent 8 to 10 mm stents. For a narrower or wider stent the app scales that range with the stent's diameter and calls it a model band (provisional: no study or guideline gives one), not a normal range.` },
   [`${k}Lumen`]: { t: 'Narrowest lumen', n: 'Lumen', s: 'At the tightest point', u: 'mm', long: `The ${name}'s lumen where it is tightest: its diameter minus the narrowing or clot.` },
