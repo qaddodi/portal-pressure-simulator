@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   stentParts, geomOf, geomFix, geomDefault, benchFlow, profileAt, waistSpan, endSpan, coneFactor, kExp, coneAngle,
-  C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM,
+  C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM, tractOf,
 } from '../src/engine/stent-geom.js';
 import { stenosisFactor } from '../src/engine/physiology.js';
 import { Engine } from '../src/engine/engine.js';
@@ -20,7 +20,7 @@ const OLD = (() => {
   const kin = 5.96, PIN = 0.125;
   const pinch = (wall, kq, s) => { if (!(s > 0)) return 0; const a = (1 - s) * (1 - s); return wall * PIN * (stenosisFactor(s) - 1) + (kq / 1.5) * (1 / a - 1) * (1 / a - 1); };
   return {
-    tips: (d, q, visc, s) => { const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = kin * Math.abs(q) / (A * A); return 1 / (0.12 * visc + wall + kq + pinch(wall, kq, s)); },
+    tips: (d, q, visc, s) => { const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = kin * Math.abs(q) / (A * A); return 1 / (tractOf('tips') * visc + wall + kq + pinch(wall, kq, s)); },   // (the tract as calibrated now: 0.12 before 17 Nov 2026)
     dips: (d, q, visc, s) => { const A = Math.PI * d * d / 4, wall = 0.04 * Math.pow(10 / d, 4) * visc, kq = kin * Math.abs(q) / (A * A); return 1 / (0.07 * visc + wall + kq + pinch(wall, kq, s)); },
     custom: (d, q, visc, s) => { const A = Math.PI * d * d / 4, wall = 0.05 * Math.pow(10 / d, 4) * visc; return 1 / (wall + pinch(wall, kin * Math.abs(q) / (A * A), s)); },
   };

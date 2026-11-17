@@ -64,9 +64,9 @@ test('one step with one shot; each reading is taken with the tip still; the resu
   assert.equal(procFrame('tipsgrad', T.back - 20, STOPS).shot, 'way'); assert.equal(procFrame('tipsgrad', T.back, STOPS).shot, '', 'the view stops following the tip as it comes out');
 });
 
-test('the gradient is the PPG the tiles show: 9.4 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {
+test('the gradient is the PPG the tiles show: 9.2 mmHg through an 8 mm stent and 7.9 through 10 mm in cirr-decomp, both under 12', () => {   // (9.4 before 17 Nov 2026: the TIPS's outlet, docs/tips-stent-model.md)
   const rd = READS.tipsgrad;
-  for (const [d, want] of [[8, 9.4], [10, 7.9]]) {
+  for (const [d, want] of [[8, 9.2], [10, 7.9]]) {
     const f = withTips(d);
     rd.pv = rd.iv = rd.ppg = NaN;
     G.capture(0, rd, f);
@@ -121,9 +121,9 @@ test('played step by step it travels the TIPS route, reads in order, ends once, 
     assert.ok(moves[0] === 'way', 'framed from the way in');
     const order = [...new Set(seen.filter(Boolean).map((x) => x.split(' ')[0]))];
     assert.deepEqual(order, ['PORTAL', 'IVC', 'GRADIENT'], 'the portal vein, then the IVC, then the gradient');
-    assert.ok(seen.includes('GRADIENT 9.4'), 'the gradient the tiles show');
+    assert.ok(seen.includes('GRADIENT 9.2'), 'the gradient the tiles show');
     assert.deepEqual([...rings], ['var(--tr-pv)', 'var(--tr-ivc)'], 'a ripple at the tip while each is read');
     assert.ok(follows.includes('way') && follows.at(-1) === false, 'the view follows the tip, and stops as it comes out');
-    assert.equal(READS.tipsgrad.ppg, 9.4);
+    assert.equal(READS.tipsgrad.ppg, 9.2);
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });

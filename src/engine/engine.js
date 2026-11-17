@@ -190,7 +190,7 @@ export class Engine {
     this.edgeT = new Int32Array(this.E);
     EDGES.forEach((e, k) => {
       // (A shunt drawn onto the middle of a vein is joined to the vein's own node here, whatever junction it is drawn at: topology.js JUNCTIONS.)
-      const f = this.ni[e.mfrom ?? e.from], t = this.ni[e.mto ?? e.to];
+      const f = this.ni[e.efrom ?? e.mfrom ?? e.from], t = this.ni[e.eto ?? e.mto ?? e.to];   // (efrom, eto: a shunt's hydraulic end where it is not its drawn one, topology.js TIPS)
       this.edgeF[k] = f; this.edgeT[k] = t;
       if (e.Q) this.Rbase[k] = (NODES[f].P - NODES[t].P) / e.Q;
       else if (e.R) this.Rbase[k] = e.R;

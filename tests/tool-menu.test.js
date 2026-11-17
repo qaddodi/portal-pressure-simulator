@@ -63,8 +63,9 @@ test('the numbers are the model’s: the recs’ table for the decompensated pat
   const { pts, fp0 } = run('cirr-decomp');
   assert.equal(pts.length, 8);
   const at = (id) => pts.find((q) => q.id === id);
+  // (17 Nov 2026: the TIPS drains to the cava past the right hepatic vein, its outlet stretch in its tract: 8 mm reads 9.2, not 9.4; 10 mm stays 7.9.)
   // (16 Nov 2026, the lymph model: the decompensated patient's ascites is 1.2 L, not 1.0, and its belly pressure lifts the PPG by about a tenth to two tenths.)
-  const want = { propranolol: [15.3, 52.3], carvedilol: [14.1, 58.6], pse: [16.4, 56], warren: [16.2, 55.5], tips8: [9.4, 28.8], tips10: [7.9, 23.7], mesocaval: [6.6, 23.3], portocaval: [3.0, 36.1] };
+  const want = { propranolol: [15.3, 52.3], carvedilol: [14.1, 58.6], pse: [16.4, 56], warren: [16.2, 55.5], tips8: [9.2, 30.1], tips10: [7.9, 25.4], mesocaval: [6.6, 23.3], portocaval: [3.0, 36.1] };
   for (const [id, [ppg, liver]] of Object.entries(want)) {
     assert.ok(Math.abs(at(id).ppg - ppg) < 0.06, `${id} PPG ${at(id).ppg}`);
     assert.ok(Math.abs(at(id).liver - liver) < 0.6, `${id} liver ${at(id).liver}`);
