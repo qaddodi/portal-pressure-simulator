@@ -23,7 +23,7 @@ import { tileEl } from './tile-el.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
-import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
+import { STENT_RANGE as RANGE } from './table-marks.js';
 import { stentBand } from '../engine/stent-geom.js';
 import { createStent, SIDE, BAR, VW } from './tool-stent.js';
 import { traceH } from './stent-trace-pic.js';
@@ -51,19 +51,21 @@ export const stentLine = (st) => {
 };
 
 export const NO_STENT_WHY = 'There is no TIPS or DIPS in this patient. Place one from Treat, and this view fills in.';
-const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read; the target is under 12 mmHg.';
+const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read. 12 mmHg is the reference line, not a target for this patient; the aim is set by the clinical goal.';
 // The four readings: name, unit, decimals, the bar's scale and ticks, the value from the model's metrics, the word under it and its band.
 // (The ids and words are the instrument-cards plan's: "Across stent", "Stent peak velocity". `hide` is the readout set that hides it in Explore.)
 const TILES = [
   { id: 'ppg', k: 'PPG', u: 'mmHg', d: 1, scale: [0, 25], ticks: [PPG_CUTS.red], hide: 'pv', title: PPG_TITLE,
-    v: (m) => m.ppg, word: (v) => tipsGoal(v)[1], sev: (v) => (tipsGoal(v)[0] === 'ok' ? 'ok' : 'danger') },
+    v: (m) => m.ppg, word: (v) => (v < PPG_CUTS.red ? `Below ${PPG_CUTS.red} mmHg` : `Above ${PPG_CUTS.red} mmHg`), sev: () => 'none' },   // (a reference line, not a verdict: it is not a target met or missed)
   { id: 'flow', k: 'TIPS flow', u: 'L/min', d: 1, scale: [0, 3], ticks: [], hide: 'model', title: 'The flow through the stent, from the portal side to the hepatic vein.',
     v: (m, st) => st?.flow ?? null, word: () => '', sev: () => 'none' },
   { id: 'dp', k: 'Across stent', u: 'mmHg', d: 1, scale: [0, 25], ticks: [], hide: 'model', title: 'The pressure drop from the stent\'s portal end to its hepatic vein end. It is smaller than the PPG: the rest is outside the stent.',
     v: (m, st) => st?.dp ?? null, word: () => '', sev: () => 'none' },
-  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter reads a scaled range.',
-    v: (m, st) => st?.vPeak ?? null, word: (v, st) => { const r = peakBand(st); return st?.still ? 'No flow' : v >= r[0] && v <= r[1] ? 'In range' : 'Out of range'; },
-    sev: (v, st) => { const r = peakBand(st); return st?.still || !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
+  { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
+    v: (m, st) => st?.vPeak ?? null,
+    // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
@@ -173,14 +175,14 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     x.band = k;
     const t = x.t;
     for (let i = 0; i < x.ticks.length; i++) x.ticks[i].style.left = pos(t, r[i]) * 100 + '%';
-    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. A working ${mm(st.d)} mm stent reads ${r[0]} to ${r[1]} cm/s (provisional: the 8 to 10 mm range, 90 to 190 cm/s, scaled for this diameter; no guideline gives one).`;
+    x.el.title = r === STENT_RANGE ? t.title : `The fastest of the three Doppler gates, as the Doppler card prints it. The model band for a ${mm(st.d)} mm stent is ${r[0]} to ${r[1]} cm/s. Provisional: the app scaled the reported 8 to 10 mm range (90 to 190 cm/s) for this diameter, and no study validates it. It is not a surveillance threshold.`;
   }
 
   function update(f) {
     frame = f;
     const st0 = store.get(), p = st0.params;
     syncStents(p);
-    if (view !== 'tips') return;
+    if (view !== 'tips' || !active) return;
     const m = f?.metrics;
     if (!m) return;
     if (sub === 'compare') { cmp.update(f, which); return; }
@@ -213,6 +215,15 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     const nk = which === 'DIPS' ? 'DIPS flow' : 'TIPS flow';
     if (tiles[1].lbl !== nk) { tiles[1].lbl = nk; const k = tiles[1].el.querySelector('.k'); if (k) swapText(k, nk); }
   }
+  /** The card is shown or hidden (dock.js pane.shown). Hidden, the sweep is cancelled and the stent pictures are not fed; shown, the live frame is handed over again. */
+  let active = true;
+  function setActive(on) {
+    on = !!on;
+    if (on === active) return;
+    active = on;
+    crv.setActive(on);
+    if (on && frame) update(frame);
+  }
   host.append(el);
-  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, curves: crv };
 }

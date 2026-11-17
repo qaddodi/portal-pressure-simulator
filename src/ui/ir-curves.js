@@ -32,13 +32,20 @@ export function curveToolOf(which, sweep) {
 /** Whether a setting changes anything for a stent as it stands: a waist length matters only to a narrowed stent. */
 export const sweepMatters = (sweep, st) => sweep !== 'waist' || (st?.s ?? 0) > 0.0005;
 
-/** Returns { el, update(frame, which), stop() }. update is called while the view is on screen; the sweep starts when the stent, the setting or the patient changes. */
-export function createIrCurves() {
-  let sweep = 'diameter', which = 'TIPS', lastKey = '', lastParams = null, timer = 0, token = 0, frame = null, shownMatters = true;
-  const curve = createCurve();
+/**
+ * Returns { el, update(frame, which), stop(), setActive(on) }. update is called while the view is on screen; the sweep starts when the stent, the setting, the patient or the day changes.
+ * The sweep is one piece of work with a life: idle, then WAITING (the change has to stop for SETTLE_MS), then LOADING (the live snapshot and fingerprint are asked for, the chart then works out
+ * its points on the calculation worker), then DRAWN. Leaving the view (stop) cancels whatever has not finished and forgets that it was asked, so coming back asks again; a finished sweep is
+ * kept, and only a changed patient, setting, stent or day makes another. The ring follows the live stent from every frame (the reference moment is the sweep's; the marker is now).
+ * Injected for tests: request (the live engine's requests), calc (the calculator), chart (the deck's curve), delay.
+ */
+export function createIrCurves({ request = (type) => host.request(type), calc = sharedCalc, chart = createCurve, delay = SETTLE_MS } = {}) {
+  let sweep = 'diameter', which = 'TIPS', timer = 0, token = 0, frame = null, shownMatters = true, active = true;
+  let phase = 'idle', want = null, drawn = null, ringKey = '';   // (want: the key and parameters asked for; drawn: those the chart now shows)
+  const curve = chart();
   const btns = SWEEPS.map((k) => h('button', { type: 'button', class: 'ps-btn', 'data-sweep': k, 'aria-pressed': String(k === sweep), onclick: () => setSweep(k) }, LABEL[k]));
   const sw = h('div', { class: 'pressure-switch ir-sweep', role: 'group', 'aria-label': 'Setting to vary' }, btns);
-  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same stent as a tube on a bench with ${BENCH_DP} mmHg across it. The ring is the stent as it stands.`);
+  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same stent as a tube on a bench with ${BENCH_DP} mmHg across it. The lines are worked out for the patient as they stand when this view opens, and again when the patient, the stent or the day changes; the ring follows the stent as it stands now.`);
   const warn = h('p', { class: 'ctl-sub ir-note ir-warn' }, NO_WAIST);   // (always laid out, faded in and out by its owner's data-flat: nothing pops, nothing shifts)
   const el = h('div', { class: 'ir-curves', 'data-flat': '' }, sw, h('div', { class: 'ir-chart' }, curve.el), warn, note);
 
@@ -46,36 +53,54 @@ export function createIrCurves() {
     if (k === sweep) return;
     sweep = k;
     for (const b of btns) attrSoon(b, 'aria-pressed', String(b.dataset.sweep === k));
-    lastKey = '';
     if (frame) update(frame, which);
   }
   // One sweep: the live snapshot and fingerprint, then the chart is told to work out its points from there.
-  async function start(my) {
+  async function start(my, mine) {
+    phase = 'loading';
     let got;
-    try { got = await Promise.all([host.request('snapshot'), host.request('metrics')]); } catch { return; }
+    try { got = await Promise.all([request('snapshot'), request('metrics')]); } catch { if (my === token) { phase = 'idle'; want = null; } return; }
     const snap = got[0]?.snap, fp = got[1]?.result;
-    if (my !== token || !snap || !fp) return;
-    const calc = sharedCalc(), params = store.get().params, deck = {};   // (a new deck object each time: the chart keeps its points per deck, so a changed patient is never answered from the one before)
+    if (my !== token) return;   // (cancelled while asking: stop() has already put the work back to idle)
+    if (!snap || !fp) { phase = 'idle'; want = null; return; }
+    const c = calc(), params = store.get().params, deck = {};   // (a new deck object each time: the chart keeps its points per deck, so a changed patient is never answered from the one before)
     const ctx = {
       slide: { id: `ir-${my}` }, index: 0, deck, snap, params, fp, liveParams: () => store.get().params, fpOf: () => null, shown: () => true,
-      run: (steps, from = snap) => { const out = []; return calc.sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
+      run: (steps, from = snap) => { const out = []; return c.sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
     };
-    curve.configure(curveToolOf(which, sweep), ctx);
+    drawn = mine; phase = 'drawn'; ringKey = '';
+    curve.configure(curveToolOf(mine.which, mine.sweep), ctx);
+  }
+  // The ring: the stent as it stands now, on the lines worked out for the sweep's moment (the chart's own pin; the lines are not worked out again).
+  const LIVE = {};   // alloc-rare: made once (the live reading handed to the chart)
+  function ring(stent, w) {
+    if (phase !== 'drawn' || !stent) return;
+    const k = w === 'DIPS' ? 'dips' : 'tips', fl = stent.flow, bn = stent.bench, rk = `${w}|${fl?.toFixed(3)}|${bn?.toFixed(3)}`;
+    if (rk === ringKey) return;
+    ringKey = rk; LIVE[`${k}Flow`] = fl; LIVE[`${k}Bench`] = bn;
+    curve.pin?.(LIVE);
   }
   function update(f, w = 'TIPS') {
     frame = f;
+    if (!active) return;
     const st = store.get(), p = st.params, m = f?.metrics, stent = m ? (w === 'DIPS' ? m.dips : m.tips) : null;
     const matters = sweepMatters(sweep, stent);
     if (matters !== shownMatters) { shownMatters = matters; dataSoon(el, 'flat', matters ? '' : '1'); }
     if (!stent) return;
-    // (The patient or the setting changed: a new sweep, after the changes stop. The stent's own numbers move every beat, so the key is the parameters, not the frame.)
-    const key = `${w}|${sweep}`;
-    if (key === lastKey && p === lastParams) return;
-    lastKey = key; lastParams = p; which = w;
+    // (The patient, the setting, the stent or the day changed: a new sweep, after the changes stop. The stent's own numbers move every beat, so the key is not the frame.)
+    const day = f?.clock === 'disease' && Number.isFinite(f.day) ? Math.floor(f.day) : 0;
+    const key = `${w}|${sweep}|${day}`;
+    if (drawn && drawn.key === key && drawn.p === p) { ring(stent, w); return; }
+    if (want && want.key === key && want.p === p && phase !== 'idle') return;   // (already asked for: waiting or loading)
+    which = w;
     clearTimeout(timer);
-    const my = ++token;
-    timer = setTimeout(() => restPass(() => start(my)), SETTLE_MS);
+    const my = ++token, mine = { key, p, which: w, sweep };
+    want = mine; phase = 'waiting';
+    timer = setTimeout(() => restPass(() => { if (my === token) start(my, mine); }), delay);
   }
-  const stop = () => { clearTimeout(timer); token++; };
-  return { el, update, stop, sweep: () => sweep, setSweep, chart: curve };
+  /** Leaving the view: work not finished is cancelled and forgotten (a sweep already drawn stays). */
+  const stop = () => { clearTimeout(timer); token++; if (phase !== 'drawn') { phase = 'idle'; want = null; } };
+  /** The card is shown or hidden (dock.js pane.shown): hidden, nothing is prepared and nothing is asked of the worker. */
+  const setActive = (on) => { on = !!on; if (on === active) return; active = on; if (!on) stop(); else if (frame) update(frame, which); };
+  return { el, update, stop, setActive, sweep: () => sweep, setSweep, chart: curve, phase: () => phase };
 }
