@@ -717,11 +717,17 @@ export function createZoom(st, live) {
       // (All read in one layout, then written: the tiles' columns are equal shares of the row, so one tile's short name never
       // changes another's room. Read and written tile by tile, each read laid the card out again.)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
-      for (const k of names) k.classList.remove('short');
+      const allNames = [...el.querySelectorAll('.pz-tiles .pzt-k')];
+      const names = allNames.filter((k) => k.hasAttribute('data-s'));
+      for (const k of allNames) k.classList.remove('short', 'wrap');
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const shorts = names.filter((k) => { const t = k.parentElement, cs = readStyle(t), room = readMetric(t, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && readMetric(k, 'scrollWidth') > room + 0.5; });
       for (const k of shorts) k.classList.add('short');
+      // (A name still wider than its tile in its short form (or with none) wraps onto a second line, balanced, rather than run out of the tile
+      // on both sides: "Liver blood flow, % of healthy" had clipped into its neighbour on a Mac at 1024. Read once more, after the short forms.)
+      // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
+      const wraps = allNames.filter((k) => { const t = k.parentElement, cs = readStyle(t), room = readMetric(t, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && readMetric(k, 'scrollWidth') > room + 0.5; });
+      for (const k of wraps) k.classList.add('wrap');
       // (A scale bar's cut-off numbers stay inside the bar, and where two would come within 8 px of each other the bar shows none of
       // them: sweep batch 03, 0.1 and 1.5 sat 6 px apart and read as one, and a lone survivor read as a mystery value (critique D2,
       // 17 Oct). The coloured bands still show where the cut-offs fall.)
