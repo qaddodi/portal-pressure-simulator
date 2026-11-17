@@ -89,10 +89,10 @@ export const SHUNTS = {
       // (The gradient across the stent, read on the app's one pressure monitor: the catheter's own measurement played alone (proc-anim.js MEASURES.tipsgrad),
       // the stent already in as on the slide before. (The placement itself plays no reading after it, 16 Nov 2026: this slide is where the gradient is taught.) The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
       id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 1, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
-      kicker: 'The stent', site: 'sin', title: 'The PPG target after a TIPS is <12 mmHg',
-      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. The target after a TIPS is {<12 mmHg}.',
-      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. The target after a TIPS is a PPG below 12 mmHg (AASLD 2024, in its discussion of gastric varices: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
-      ask: ['After a TIPS placed for variceal bleeding, what PPG is the target?', '<12 mmHg, read as the portal vein pressure minus the IVC pressure across the stent.'],
+      kicker: 'The stent', site: 'sin', title: 'After a TIPS, the gradient read is the PPG: portal vein minus IVC',
+      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. For a variceal bleed the reference is {<12 mmHg}.',
+      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. For a variceal indication a PPG below 12 mmHg is the reference (AASLD 2024, in its discussion of gastric varices: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII sets no gradient for ascites, where the response decides (6.5, 6.6). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
+      ask: ['After a TIPS placed for variceal bleeding, what PPG is the reference?', '<12 mmHg, read as the portal vein pressure minus the IVC pressure.'],
     },
     {
       id: 'heart', lens: 'flow', cam: 'liver', sites: ['split'], tool: { kind: 'profile', from: 'reasons', fromLabel: 'Before' }, data: 'tiles', tiles: ['co', 'ra'], key: ['co'], delta: 'reasons',
@@ -107,7 +107,7 @@ export const SHUNTS = {
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
       kicker: 'The stent', site: 'sin', title: 'TIPS lowers the PPG to <12 mmHg',
       line: 'A covered 8 to 10 mm stent runs from a hepatic vein to the portal vein. The PPG falls to {ppg} (<12 mmHg).',
-      notes: 'The stent traverses the liver from the right hepatic vein to the right portal vein, giving portal blood a low-resistance pathway to the systemic circulation. The PPG is measured before and after; for variceal bleeding the target is <12 mmHg. On Doppler the stent shows continuous flow toward the heart along its whole length; a marked fall or rise in velocity from the prior study suggests stenosis. The tiles compare with the same patient before TIPS.',
+      notes: 'The stent traverses the liver from the right hepatic vein to the right portal vein, giving portal blood a low-resistance pathway to the systemic circulation. The PPG is measured before and after; for variceal bleeding the reference is <12 mmHg (AASLD 2024). On Doppler the stent shows continuous flow toward the heart along its whole length; a marked fall or rise in velocity from the prior study suggests stenosis. The tiles compare with the same patient before TIPS.',
       ask: ['What does Doppler show in a patent TIPS?', 'Continuous flow toward the heart along the whole stent, at a velocity close to the prior study.'],
     },
     {

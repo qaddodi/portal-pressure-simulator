@@ -41,3 +41,25 @@ export function sidewaysWords(put, smallest, own) {
 /** How far a stacked pair of cards that overshoots the screen by `over` px may rise into its top margin: the overshoot, and no more than the margin
  *  less `keep` px (never closer than that to the top). 0 where it fits. (A phone on its side, presenter.js layout: the pair's last few px.) */
 export const pairRise = (over, top, keep) => Math.max(0, Math.min(over, top - keep));
+
+// A phone's stack (upright: the data card on top, the figure between, the words' card under it), planned from measured heights, screen px.
+// The words keep their Regular size on every slide (Mohammad, 17 Nov 2026, TIPS 6 and 12, MASLD 6: "Fix this issue everywhere"): they used to take
+// what the data card left them, 12 px to Compact, so a tall data card (a trial, Fibroscan) shrank them. Now the room is found on the other side:
+// the figure's share gives way first, from figMin down to figFloor, and where that is not enough the data card comes in closed (its handle at the
+// top, pulled open by the reader), never the words smaller. Pure: tests/phone-words-plan.test.js runs it over every height.
+//   room: the height for dtop + data card + figure + words (screen height less the foot, the glass's reach and the top margin)
+//   dtop: the data card's top margin; data: its height at full size; dmax: the tallest it may stand open (Infinity: no cap); lip: its sheet's edge
+//   regular: the words' card at Regular, its natural height; mine: the words' own cap (62 % of the screen); grip: the closed card's edge
+//   figMin, figFloor: the figure's usual share and the least it may give way to; gone: no data card; hasData: it has something to close
+export function phonePlan({ room, dtop, data, dmax = Infinity, lip = 0, regular, mine, grip, figMin, figFloor, gone = false, hasData = true }) {
+  let both = room - dtop - figMin, fig = figMin;
+  const short = regular - (both - data);
+  if (!gone && short > 0 && short <= figMin - figFloor) { both += short; fig = figMin - short; }
+  const shut = !gone && hasData && (both - data < regular || data - lip > dmax + 0.5);
+  const cap = shut
+    ? Math.min(room - grip, Math.max(Math.min(mine, room - dtop - Math.min(data, dmax + lip)), regular))
+    : Math.min(room - dtop - data, Math.max(Math.min(mine, both - data), regular));
+  return { cap: Math.max(120, cap), shut, fig };
+}
+/** The least a phone's figure gives way to: a tenth and a bit of the screen, never under 96 px. */
+export const figFloorOf = (H) => Math.round(Math.max(96, 0.12 * H));

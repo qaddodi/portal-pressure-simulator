@@ -9,6 +9,7 @@ import { appCss, presenterSource } from './split-src.js';
 // sheet whose edge shows under the card, fully open with the sheet flush, and closed to its edges at the top.
 const css = appCss();
 const js = unsnap(presenterSource());
+const cardType = readFileSync(new URL('../src/ui/card-type.js', import.meta.url), 'utf8');
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
@@ -53,7 +54,7 @@ test('a slide whose card does not fit comes in closed, and the next one that fit
   const auto = js.match(/function autoDock\(shut\) \{[\s\S]*?\n {2}\}/)?.[0] ?? '';
   assert.match(auto, /if \(shut && dock\.to === 0 && dock\.autoKey !== key && [^{]*\) \{ dock\.autoKey = key; dock\.auto = true;/, 'once per slide: brought back by the reader, it stays');
   assert.match(auto, /else if \(!shut && dock\.auto && dock\.to === 1\) \{ dock\.auto = false;/, 'a card the reader closed stays closed');
-  assert.match(js, /const shut = !gone && \(both - data < words \|\| data - sheetLip > dmax \+ 0\.5\)/);
+  assert.match(cardType, /const shut = !gone && hasData && \(both - data < regular \|\| data - lip > dmax \+ 0\.5\);/);
   assert.match(js, /if \(key\) phoneLock = \{ key, cap, shut, data: full, fig: phoneFig \};/);
   // (Brought back, it may cover the figure, never the words: the figure's share is kept only while it fits.)
   assert.match(js, /!phoneShut && !dd\.classList\.contains\('tool-open'\)/);
@@ -162,13 +163,10 @@ test('a stacked row of tiles whose bars show no cut-off number keeps no empty ro
 test('a phone\'s data card and the words\' plan leave room for the glass as far as it really reaches, tab included', () => {
   assert.match(js, /const glassLift = \(k\) => \{/);
   assert.match(js, /\(parseFloat\(cs\.top\) \|\| 0\) - glassLift\(k\) - 8 - lip - fig\);/, 'the data card\'s room');
-  assert.match(js, /const reach = glassLift\(k\) \* k;\s+let both = H - foot - reach - 8 - dtop - FIG_MIN\(H\);/, 'the words\' plan');
-  // A stacked card a little too tall arrives partly open: the figure lends it, never under FIG_REG.
-  assert.match(js, /const lim = FIG_MIN\(H\) - FIG_REG\(H\), lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\);\s+if \(!gone && short > 0 && short <= lim\) \{ both \+= lent; phoneFig = FIG_MIN\(H\) - lent; \}\s+const shut = !gone && \(both - data < words/, 'the card starts half-open, not hidden');
-  // Its landing size is its final size: the room is lent for the words at Compact, the size the cap then gives them.
-  assert.match(js, /lent = Math\.min\(lim, Math\.max\(short, compact - \(both - data\)\)\)/, 'lent for the words as they will stand');
-  assert.match(js, /lend <= phoneFig - FIG_REG\(H\)[^\n]*\n\s+if \(reg\) phoneFig -= lend;/, 'Regular words lend from what the figure still keeps');
-  assert.match(js, /const room = H - foot - reach - 8, mine/);
+  assert.match(js, /const reach = glassLift\(k\) \* k;[\s\S]*?const room = H - foot - reach - 8;/, 'the words\' plan');
+  // A stacked card a little too tall arrives partly open: the figure lends the words their room, never under figFloorOf (card-type.js phonePlan).
+  assert.match(cardType, /if \(!gone && short > 0 && short <= figMin - figFloor\) \{ both \+= short; fig = figMin - short; \}/, 'the card starts half-open on what the figure lends');
+  assert.match(js, /const room = H - foot - reach - 8;/);
   assert.match(js, /const lift = p && t \? glassLift\(k\) : 16;/, 'the glass itself is placed by the same reach');
   assert.doesNotMatch(js, /- 16 - 8\b/);
 });
@@ -176,10 +174,9 @@ test('a phone\'s data card and the words\' plan leave room for the glass as far 
 // Mohammad, 22 Oct (iPhone, Sites 4/12, a larger text size): the Gut to heart ladder's bottom row (mmHg, the sinusoidal brace) was cut off by the
 // card's foot. The words stood at Compact over the data card's room, the figure's share kept, so the layout capped the card under the chart,
 // which does not give way to fit. An open data card keeps its full room: the words take what it leaves them, between 12 px and Compact.
-test('the words at Compact never take the room of an open data card whose chart cannot shrink', () => {
-  assert.match(js, /const floorCap = !gone && !shut \? Math\.max\(words, Math\.min\(compact, both - data\)\) : compact;/, 'the floor of the words\' cap');
-  assert.match(js, /: reg \? regular : Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), floorCap\)\)\) \/ k;/, 'an open card\'s cap uses it');
-  assert.match(js, /shut\s+\? Math\.min\(room - GRIP \* k, Math\.max\(Math\.min\(mine, room - dtop - Math\.min\(data, dmax \+ sheetLip\)\), compact\)\)/, 'a closed card still gives the words Compact');
+test('the words never take the room of an open data card whose chart cannot shrink', () => {
+  assert.match(cardType, /: Math\.min\(room - dtop - data, Math\.max\(Math\.min\(mine, both - data\), regular\)\);/, 'an open card\'s cap stops at the card\'s foot');
+  assert.match(cardType, /shut\n\s+\? Math\.min\(room - grip, Math\.max\(Math\.min\(mine, room - dtop - Math\.min\(data, dmax \+ lip\)\), regular\)\)/, 'a closed card gives the words Regular');
 });
 
 // Mohammad, 21 Oct (iPhone, Sites 3/12): the Gut to heart ladder bounced between a small and a large version. "Just make it one version everywhere."
