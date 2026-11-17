@@ -6,7 +6,7 @@
 import { ENT_W } from './veins-bin.js';
 import { N_SAMPLES, N_QUADS } from './veins-mesh.js';
 
-export const MAX_TIERS = 20;           // as veins-gl (kept here so this file imports no GL code)
+export const MAX_TIERS = 21;           // as veins-gl (kept here so this file imports no GL code)
 export const F_SHADOW = 4;             // as veins-gl
 export const TUBE_FLOATS = 52;         // 13 texels of 4 floats a row (veins-gl TUBE_TEXELS)
 const T_ALPHA = 7, T_TIER = 8, T_FLAGS = 10, T_GLOW = 43, T_GLOW_W = 47, T_SEL = 48;

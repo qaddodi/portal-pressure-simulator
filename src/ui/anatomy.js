@@ -341,6 +341,11 @@ export const END_HOSTS = { C8: ['PV_TRUNK_1', 'PV_TRUNK'] };   // (the trunk is 
 // and the vein's end lay within the join reach of them, so it was joined to a channel (a fillet, a shared lumen: "the cavernoma connects to the coronary vein", 13 Nov 2026).
 // The cavernoma's own ends join the trunk, as END_HOSTS says; and that is all that joins it.
 export const JOIN_REFUSED = new Set(['C8']);
+// The Meso-Rex bypass (REX) crosses these vessels part-way along them, in the anatomy (the splenic vein's last stretch, the coronary vein) and in the circuit (the
+// portocaval shunt's column), and is joined to none of them: it passes UNDER them (17 Nov 2026, Mohammad: "it should go under the splenic vein"). Two vessels in one
+// tier merge where they cross (the taller lumen wins, no outline between them), so these are drawn one tier above the bypass while it is shown (stage.js levelTier).
+// tests/rex-under.test.js finds every crossing of the bypass in the drawn courses and fails one that is not listed here (or lies in a tier of its own).
+export const REX_UNDER = new Set(['SV_CONF', 'LGV_CONF', 'S_PC']);
 export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };

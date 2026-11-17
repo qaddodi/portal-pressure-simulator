@@ -73,7 +73,7 @@ export { binVeins };
 export { N_SAMPLES, ORIGIN_GREY };   // (the lumen text's constants live in comp-glsl.js, which the Tube's lumen shader includes too)
 export const FLOW_TEXELS = 8;          // per-vessel blood: see stage.js (stepBlood, chainRows)
 export const TUBE_TEXELS = 13;         // texels of per-vessel attributes (see the layout below)
-export const MAX_TIERS = 20;
+export const MAX_TIERS = 21;
 // The lumen buffer's row (x) carries this bit where the second lumen target holds a lumen too (near a join): the composite
 // masks it off, and reads the second target only where it is set (review/blood-shading-ideas item 6).
 export const LUMEN2 = 0x8000;
