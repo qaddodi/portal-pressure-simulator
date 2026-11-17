@@ -58,7 +58,6 @@ const appClass = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
 const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
-const NAMED_DETAILS = ['edge', 'node', 'organ'];   // (the selections whose name is the panel's title itself)
 const SN_L = { class: 'sn-l' }, SN_S = { class: 'sn-s' }, SN_C = { class: 'sn-c' };   // (the scenario name's three forms)
 const NAME_FORMS = ['l', 's', 's2', 'c2'], NAME_FORMS_NARROW = ['s2', 'c2'];   // (the scenario name's forms, widest first)
 const FOCUS_NO_SCROLL = { preventScroll: true };
@@ -252,19 +251,11 @@ async function main() {
     // (One card at a time: a patient fact's row puts the Treat card away and opens that vessel's or organ's card.)
     reveal: (sel) => { closeTreat(); select(sel); },
   });
-  inspector = createInspector($('#inspector'), {
-    onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
-    onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
-    // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
-    onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
-  });
+  inspector = createInspector($('#inspector'), { chart });
   watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
-    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
-    // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
-    // left to screen readers there (17 Oct, V9).
-    const named = NAMED_DETAILS.includes(d?.type);
-    $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
+    // (A vessel's or an organ's details are in its own card since 17 Nov 2026: the panel holds only the advanced physiology and the pinned comparison.)
+    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : 'Compare';
   });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
@@ -336,7 +327,7 @@ async function main() {
   } }));
   card = createCard({
     view, stage,
-    onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
+    onWhy: (m, el) => why.open(m, el),   // (the card's own details view asks the Why? explainer: card-details.js)
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
@@ -2313,6 +2304,7 @@ function wireKeyboard() {
       else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
       else if (store.get().sinusoid && !store.get().selection) setViewKey('lobule');
       else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
+      else if (card.detailsOpen()) card.closeDetails();   // (a card's details first, then the card)
       else store.set({ selection: null });
       return;
     }
