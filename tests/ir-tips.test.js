@@ -555,3 +555,34 @@ test('The readings never break inside a word, and in a narrow card (375 px phone
     assert.deepEqual(bad, [], `${name}: a reading's name must not break inside a word`);
   }
 });
+
+test('One stent editor on screen at a time (play-test F39): while the TIPS view\'s editor is shown, a vessel card\'s for the same stent folds to one line; and no hidden row sizes the editor (F40)', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  // (The DIPS: the views mounted by the tests above lead the TIPS and are never taken down.)
+  store.set({ params: paramsOf({ dips: { on: true, d: 10 }, stenosis: { DIPS: 0.5 }, stenosisSite: { DIPS: 'distal' }, stentGeom: { DIPS: { red: 0.4, waist: 2, trans: 0 } } }) });
+  const card = createStentEditor({ id: 'DIPS' }), lead = createStentEditor({ id: 'DIPS', lead: true, compact: true });
+  await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead not on screen: the card keeps its chips');
+  lead.setShown(true); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true', 'the lead on screen: the card folds');
+  assert.equal(card.el.querySelector('.se-chips').inert, true);
+  assert.equal(card.el.querySelector('.se-summary').textContent, '10.0 mm · stenosis 5.0 mm · Distal · waist 6.0 mm × 2.0 cm · edited in Tests › IR');
+  assert.equal(lead.el.getAttribute('data-fold'), 'false', 'the lead never folds');
+  lead.setStent('TIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead on another stent: the card keeps its chips');
+  lead.setStent('DIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true');
+  lead.setShown(false); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead off screen: the chips come back');
+  lead.setShown(true); lead.destroy(); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'a lead taken down never leaves a card folded');
+  card.destroy();
+  assert.ok(lead.el.classList.contains('se-compact'));
+  const src = read('src/ui/ir-tips.js');
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, compact: true \}\)/);
+  assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips'\);/);
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-strip, \.stent-editor \.se-summary, \.stent-editor\[data-fold="true"\] \.se-chips, \.stent-editor:not\(\[data-open=""\]\) \.se-chips \{ position: absolute;/, 'a layer not shown takes no room (F40)');
+  assert.match(plate, /\.stent-editor\.se-compact \.se-chip \{ flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column;/, 'the Tests view: one row, name over value');
+  assert.match(plate, /\.ir-editor \{[^}]*min-width: 0; overflow-x: clip;/, 'never wider than the sheet (F40)');
+});

@@ -33,10 +33,19 @@ export function splitValue(t) {
   return b.endsWith('mm') && !a.endsWith('mm') ? [b, a] : [a, b];
 }
 
-/** createStentEditor({ id }): { el, update(frame), setStent(id), open(chipId), close(), destroy() }. `id` is the stent ('TIPS', 'DIPS'). */
-export function createStentEditor({ id = 'TIPS' } = {}) {
-  const el = h('div', { class: 'stent-editor', role: 'group', 'aria-label': 'Edit stent', 'data-open': '' });
+// One editor on screen at a time (play-test F39, 17 Nov 2026: with the stent's vessel card and Tests › IR › TIPS both open the chips showed twice). The
+// TIPS view's editor leads (Mohammad edits there without opening the vessel card): while it is shown, a vessel card's editor for the same stent folds to
+// one line of the stent's numbers, which fades in where its chips were.
+const LEADS = new Set(), CARDS = new Set();
+const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.shown && l.sid() === c.sid())); };
+
+/** createStentEditor({ id, lead, compact }): { el, update(frame), setStent(id), setShown(on), open(chipId), close(), destroy() }. `id` is the stent ('TIPS',
+ *  'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `compact` its chips in one row, each its name over its value. */
+export function createStentEditor({ id = 'TIPS', lead = false, compact = false } = {}) {
+  const el = h('div', { class: `stent-editor${compact ? ' se-compact' : ''}`, role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': 'false' });
   const chipRow = h('div', { class: 'se-chips se-layer' });
+  const summary = h('div', { class: 'se-summary se-layer', 'aria-live': 'polite' });
+  let folded = false;
   let sid = null, ctls = [], chips = [], off = null, openId = '', lastOpen = '';
 
   function sliderCtl(v) {
@@ -127,7 +136,7 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
       chips.push({ id: g.id, btn, word, pick, strip, ctls: own, text: '', dim: null });
     }
     chipRow.replaceChildren(...chips.map((c) => c.btn));
-    el.replaceChildren(chipRow, ...strips);
+    el.replaceChildren(chipRow, ...strips, summary);
     if (openId && !chips.some((c) => c.id === openId)) openId = '';
     setOpen(openId);
     sync(store.get().params, true);
@@ -142,6 +151,16 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
       const dim = !!r.v.dimIf?.(p);
       if (dim !== r.dim) { r.dim = dim; for (const c of r.cells) c.classList.toggle('se-dim', dim); }
     }
+    if (!lead) {
+      // (The folded line: the stent and its narrowings, as the chips read them.)
+      const by = (k) => chips.find((c) => c.id === k);
+      const parts = [chipText(by('dia'), p)];
+      const st = chipText(by('end'), p), w = chipText(by('waist'), p);
+      if (st !== 'None') parts.push(`stenosis ${st}`);
+      if (w !== 'None') parts.push(`waist ${w} × ${chipText(by('len'), p)}`);
+      const t = `${parts.join(' · ')} · edited in Tests › IR`;
+      if (t !== summary.textContent) summary.textContent = t;
+    }
     for (const c of chips) {
       const t = chipText(c, p);
       if (t !== c.text) { c.text = t; const i = t.indexOf(CHOICE); c.word.textContent = i < 0 ? t : t.slice(0, i); c.pick.textContent = i < 0 ? '' : t.slice(i); }
@@ -151,14 +170,29 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
   }
   off = store.on('params', () => sync(store.get().params));
   build(id);
+  const me = {
+    shown: false,
+    sid: () => sid,
+    fold(on) {
+      if (on === folded) return;
+      folded = on;
+      if (on) setOpen('');
+      attrSoon(el, 'data-fold', on ? 'true' : 'false');
+      chipRow.inert = on || !!openId;
+    },
+  };
+  if (lead) LEADS.add(me); else CARDS.add(me);
+  hubSync();
   return {
     el,
+    /** The lead's view is on screen or not (ir-tips.js: the TIPS view shown in an open pane). */
+    setShown(on) { on = !!on; if (on !== me.shown) { me.shown = on; hubSync(); } },
     /** Which stent it edits (the IR view's chip). */
-    setStent(newId) { if (newId && newId !== sid) build(newId); },
+    setStent(newId) { if (newId && newId !== sid) { build(newId); hubSync(); } },
     /** Open a chip's control ('dia', 'end', 'waist', 'len', 'ends'), or give the chips back (''). */
     open: (cid) => setOpen(cid),
     close: () => setOpen(''),
     update() {},
-    destroy() { off?.(); off = null; },
+    destroy() { off?.(); off = null; LEADS.delete(me); CARDS.delete(me); hubSync(); },
   };
 }
