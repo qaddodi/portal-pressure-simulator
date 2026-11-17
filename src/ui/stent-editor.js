@@ -2,7 +2,7 @@
 // distal or proximal end should be a different option than making a waist with some length"; then "we should be able to edit the TIPS right from this
 // view please, no need to open the card", "elegantly"; and the play-test: the stent drawing must stay the card's main content). One slim row of value
 // chips, each the stent's number as it stands, the same controls as the stent's vessel card from the one list both read (actions.js stentControls):
-//   [Diameter 10 mm] [Stenosis 5.0 mm · Distal] [Waist 6.0 mm] [Length 2.0 cm · Abrupt]
+//   [Diameter 10 mm] [Stenosis 5.0 mm · Distal] [Waist 6.0 mm] [Length 2.0 cm] [Ends Abrupt]
 // A tap on a chip turns the row, in the same height, into that chip's control: its slider and value, the choice that goes with it (the stenosis's end,
 // the waist's ends), and Done. Escape, Done or a tap on the control's name gives the chips back. The rows sit in one grid cell and crossfade, so the
 // row's height never changes and nothing below it moves. A chip whose control does nothing now (the waist's length with no waist) dims, never hidden.
@@ -21,7 +21,8 @@ export const EDITOR_CHIPS = [
   { id: 'dia', name: 'Diameter', ids: ['diameter'] },
   { id: 'end', name: 'Stenosis', ids: ['narrow', 'site'] },
   { id: 'waist', name: 'Waist', ids: ['waistD'] },
-  { id: 'len', name: 'Length', ids: ['waist', 'ends'] },
+  { id: 'len', name: 'Length', ids: ['waist'] },
+  { id: 'ends', name: 'Ends', ids: ['ends'] },   // (its own chip, so Length reads "1.0 cm" whole on a phone: play-test F36)
 ];
 
 /** A value as the editor shows it: the millimetres first, then the rest (a percentage) ("40% · 6.0 mm" → ["6.0 mm", "40%"]). */
@@ -83,18 +84,20 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
   // The chip's words: its slider's value as it stands, the millimetres first, and its choice ("5.0 mm · Distal"; "None" alone at nothing).
   function chipText(c, p) {
     const [sl, sg] = c.ctls;
+    if (sl.kind === 2) { const cur = sl.v.get(), o = sl.v.options.find((q) => q[0] === cur); return o ? o[1] : ''; }
     const main = splitValue(sl.v.format(sl.v.get(p)))[0];
     if (!sg || main === 'None') return main;
     const cur = sg.v.get(), o = sg.v.options.find((q) => q[0] === cur);
     return o ? `${main} · ${o[1]}` : main;
   }
+  const CHOICE = ' · ';
 
   function setOpen(cid) {
     openId = cid || '';
     attrSoon(el, 'data-open', openId);
     for (const c of chips) { const on = c.id === openId; c.strip.inert = !on; c.strip.setAttribute('aria-hidden', on ? 'false' : 'true'); }
     chipRow.inert = !!openId;
-    if (openId) { lastOpen = openId; chips.find((c) => c.id === openId)?.ctls[0].input.focus({ preventScroll: true }); }
+    if (openId) { lastOpen = openId; const r = chips.find((c) => c.id === openId)?.ctls[0]; (r?.input || r?.btns?.[0])?.focus({ preventScroll: true }); }
     else if (lastOpen && el.contains(document.activeElement)) chips.find((c) => c.id === lastOpen)?.btn.focus({ preventScroll: true });
   }
 
@@ -106,10 +109,10 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
     for (const g of EDITOR_CHIPS) {
       const own = [];
       for (const cid of g.ids) { const v = byId.get(cid); if (v) own.push(v.type === 'seg' ? segCtl(v) : sliderCtl(v)); }
-      if (!own.length || own[0].kind !== 1) continue;
+      if (!own.length) continue;
       ctls.push(...own);
-      const word = h('span', { class: 'se-chip-v' });
-      const btn = h('button', { type: 'button', class: 'se-chip', 'data-chip': g.id, 'aria-label': `Edit ${g.name}` }, h('span', { class: 'se-chip-n' }, g.name), word);
+      const word = h('span', { class: 'se-chip-v' }), pick = h('span', { class: 'se-chip-c' });   // (the value, and the choice beside it, which a narrow card leaves to the open row)
+      const btn = h('button', { type: 'button', class: 'se-chip', 'data-chip': g.id, 'aria-label': `Edit ${g.name}` }, h('span', { class: 'se-chip-n' }, g.name), h('span', { class: 'se-chip-w' }, word, pick));
       btn.addEventListener('click', () => setOpen(g.id));
       const name = h('button', { type: 'button', class: 'se-name', tabindex: '-1', 'aria-hidden': 'true' }, g.name);
       name.addEventListener('click', () => setOpen(''));
@@ -118,7 +121,7 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
       const strip = h('div', { class: 'se-strip se-layer', 'data-strip': g.id, 'aria-hidden': 'true' }, name, ...own.flatMap((r) => r.cells), done);
       strip.inert = true;
       strips.push(strip);
-      chips.push({ id: g.id, btn, word, strip, ctls: own, text: '', dim: null });
+      chips.push({ id: g.id, btn, word, pick, strip, ctls: own, text: '', dim: null });
     }
     chipRow.replaceChildren(...chips.map((c) => c.btn));
     el.replaceChildren(chipRow, ...strips);
@@ -138,7 +141,7 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
     }
     for (const c of chips) {
       const t = chipText(c, p);
-      if (t !== c.text) { c.text = t; c.word.textContent = t; }
+      if (t !== c.text) { c.text = t; const i = t.indexOf(CHOICE); c.word.textContent = i < 0 ? t : t.slice(0, i); c.pick.textContent = i < 0 ? '' : t.slice(i); }
       const dim = !!c.ctls[0].v.dimIf?.(p);
       if (dim !== c.dim) { c.dim = dim; c.btn.classList.toggle('se-dim', dim); }
     }
@@ -149,7 +152,7 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
     el,
     /** Which stent it edits (the IR view's chip). */
     setStent(newId) { if (newId && newId !== sid) build(newId); },
-    /** Open a chip's control ('dia', 'end', 'waist', 'len'), or give the chips back (''). */
+    /** Open a chip's control ('dia', 'end', 'waist', 'len', 'ends'), or give the chips back (''). */
     open: (cid) => setOpen(cid),
     close: () => setOpen(''),
     update() {},
