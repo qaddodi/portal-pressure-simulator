@@ -20,6 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { lerp } from './num.js';
+import { panInto } from './card-clear.js';
 import { stageCovered } from './seen.js';
 import { carryCovers, carryBetween } from './carry-cover.js';
 import { runFlick, FLICK } from './flick.js';
@@ -419,16 +420,25 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return liveFreeInto(freeNow);
   }
   function liveFree() { return liveFreeInto({ l: 0, t: 0, r: 0, b: 0 }); }   // alloc-rare: only once, as a slide leaves the lobule (heldFree keeps it)
+  // The room the lobule is SIZED in is the bars' room, never the cards' (Mohammad, 17 Nov 2026: opening a card keeps the zoom; finding 21, zoomed in on a
+  // Mac, Tests blanked the lobule). The open cards only pan it: lzPan is how far that room moves, in px, to keep as much of it as possible inside the room the
+  // cards leave (card-clear.js panInto), and freeRect is the bars' room moved by it. lzApplied is the pan the lobule's view is framed for.
+  const lzPan = { x: 0, y: 0 }, lzApplied = { x: 0, y: 0 };
   function liveFreeInto(o) {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
-    let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
+    let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, l = 12 + cssN('--pz-l');
+    const pzR = cssN('--pz-r') + 12, pzB = cssN('--pz-b') + 8;
+    const b0 = H - (cssN('--dock-occ') || cssN('--bot-occ') || 100) - pzB, r0 = W - pzR;   // (the bars' room: the bottom bar, no card)
+    const b1 = H - (cssN('--bot-occ') || 100) - pzB, r1 = W - cssN('--right-occ') - pzR;   // (the room the open cards leave)
     // The zoom buttons: on a phone they sit above the dock (Zones and Lymph live in the View menu); should they sit near the top, the labels start below them.
     // (Its place is the one kept with the lobule's boxes, snap.zoom: read at a rest boundary, never in the frame.)
     const q = phone && snap.zoom;
     if (q && q.top < H / 2) t = Math.max(t, q.bottom + 14);
+    const r0m = Math.max(l + 80, r0), r1m = Math.max(l + 80, r1);
+    lzPan.x = panInto(l, r0m, l, r1m); lzPan.y = panInto(t, b0, t, b1);
     // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
-    o.l = l; o.t = t; o.r = Math.max(l + 80, r); o.b = b;
+    o.l = l + lzPan.x; o.t = t + lzPan.y; o.r = r0m + lzPan.x; o.b = b0 + lzPan.y;
     return o;
   }
   // The lobule and its labels' places, in world units.
@@ -591,12 +601,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     { const r = snap.hostRaw; if (r && r[0] >= 2 && r[1] >= 2) ensureGeo(Math.round(r[0]), Math.round(r[1])); }
     // (Mid-glide to a station, the glide's target follows the new space: clampV would read the glide's first, still unzoomed frames as the fit
     // and send the lobule back there, so a slide's zoom never arrived.)
-    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(); }
+    // (The pan the cards ask moves a lobule the learner zoomed or panned by the same amount, so what was in view stays in the room they leave.)
+    refitLater = false; const F0 = fitV(); kFit = F0.k; const dx = lzPan.x - lzApplied.x, dy = lzPan.y - lzApplied.y; lzApplied.x = lzPan.x; lzApplied.y = lzPan.y;
+    if (atFit) glideTo(F0, 260, false, null, 'inOut', true); else if (camAim) Object.assign(camAim.to, framing(camAim.part, camAim.zoom)); else if (aimed && fade <= 0.98) glideTo(framing(aimed.part, aimed.zoom)); else reclamp(dx, dy); }
   // Zoomed in (a presenter's station, or a hand's pan) when the free space changes: the new framing is glided to, never jumped to.
   // (A presenter slide's cards change the space as the next slide comes in: on the way out of the lobule from a central-vein close-up
   // the clamp used to snap the lobule sideways before the zoom out began, 20 Oct, Mohammad.)
-  function reclamp() {
-    const sk = V.k, sx = V.x, sy = V.y, wasFit = atFit; clampV();
+  function reclamp(dx = 0, dy = 0) {
+    const sk = V.k, sx = V.x, sy = V.y, wasFit = atFit; V.x += dx; V.y += dy; clampV();
     const to = { k: V.k, x: V.x, y: V.y }, fit = atFit;
     V.k = sk; V.x = sx; V.y = sy; atFit = wasFit;
     if (Math.abs(to.k - V.k) + Math.abs(to.x - V.x) + Math.abs(to.y - V.y) > 0.5) { glideTo(to, 420, false, null, 'inOut', true); atFit = fit; } else { clampV(); viewChanged(); }
@@ -624,7 +636,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sX = (x) => x * V.k + V.x, sY = (y) => y * V.k + V.y;
   function resetView() {
     stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; }
-    const F0 = fitV(); kFit = F0.k;
+    const F0 = fitV(); kFit = F0.k; lzApplied.x = lzPan.x; lzApplied.y = lzPan.y;   // (framed for the cards as they stand)
     // A presenter slide that dives straight to a station (aim): the lobule lands on that framing, in one move.
     if (aimed && aimed.part !== 'fit') { atFit = false; Object.assign(V, framing(aimed.part, aimed.zoom)); } else { atFit = true; Object.assign(V, F0); }
     viewChanged();

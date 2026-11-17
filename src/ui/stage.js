@@ -1350,7 +1350,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // free space, which stays where it is on screen.
   let rotHold = null;
     let rotWhole = null, rotGlide = null;
-  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
+  const { cardSpace, cardSpaceRead, cardsMoved, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
   function safeInsets(...a) { return safeInsets$(...a); }   // <stage-split stub>
 
 
@@ -3124,7 +3124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, CAM_MS_MAX, { scale: true }); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
-    fit, refit, closeView,
+    fit, refit, closeView, cardsMoved,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),

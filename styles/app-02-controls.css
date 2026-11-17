@@ -393,6 +393,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
   --tip-x: -4px; --tip-y: 0px; opacity: 0; transform: translate(var(--tip-x), var(--tip-y));
   transition: opacity var(--d-flip) var(--ease-in), transform 0s linear var(--d-flip);
 }
+.tooltip.one-line { white-space: nowrap; }
 .tooltip[data-side="left"] { --tip-x: 4px; }
 .tooltip[data-side="bottom"] { --tip-x: 0px; --tip-y: -4px; }
 .tooltip[data-side="top"] { --tip-x: 0px; --tip-y: 4px; }

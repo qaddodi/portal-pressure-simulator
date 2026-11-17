@@ -1674,7 +1674,7 @@ function fitScenarioName() {
 }
 let refitT = 0;
 // (The steps the layout's timers run are made once here, not for each call.)
-const stageRefit = () => stage?.refit();
+const stageRefit = () => stage?.cardsMoved();   // (a card opened, closed or changed size: the camera keeps its zoom and pans, stage-fit.js cardsMoved)
 const stageRelayoutSoon = () => stage?.relayout();
 const stageRelayout = () => stage.relayout();
 let dockFrame = null;   // (the frame the Tests card is brought up to date with, as asked last)
@@ -1771,14 +1771,12 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests leaves the camera alone, on every device (Mohammad, 17 Nov 2026: "opening the test card should not zoom to fit", on a Mac, then
-    // "even on phone": the figure keeps the same general view and the card lies over it). It reverses U3 (13 Nov), which fitted the figure into the
-    // space the card left. The framing no longer counts the Tests card (stage-fit.js fIns), so nothing the open starts (this, the card's
-    // announced place pps:occ, the resize that follows) moves the view; and no refit is asked here, which would also have fitted a view the learner
-    // zoomed or panned. Closing it fits again only a view that was fitted (it was fitted at the open too, now, so closing is a no-op glide);
-    // one the learner zoomed or panned stays where it is, and a refit still pending is dropped (Mohammad, 17 Oct). Fit, pressed on purpose,
-    // still frames the figure into the room the card leaves.
-    if (!instr) { if (stage?.closeView()) refitStage(); else clearTimeout(refitT); }
+    // A card opening or closing keeps the zoom and pans the view so as much of it as possible stays in the room the card leaves (Mohammad, 17 Nov 2026,
+    // every card, every device: "the zoom should remain the same when opening the cards; but the view should shift"). It reverses U3 (13 Nov), which fitted
+    // (resized) the figure to the room. stage-fit.js cardsMoved: a fitted view is framed again (same size, panned), one the learner placed is panned back
+    // and forth by the same amount, never refitted. Closing lets go of the home framing of a view the learner placed (closeView), as before.
+    if (!instr) stage?.closeView();
+    refitStage();
     const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
     setTimeout(fireResize, 320);
   }
@@ -1866,7 +1864,8 @@ function wireFloating() {
     const tall = !!readMetric(pn, 'offsetParent') && lift > 0 && readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - lift < tbH + 48;
     const vars = {
       '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0),
-      '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot),
+      '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot), '--dock-occ': px(vdock + gap),   // (--dock-occ: the bottom bar alone, with no card's sheet above it: the lobule is sized in this room and panned for the cards, lobule-zoom.js)
+
       '--panel-h': px(tall || !lift ? 0 : lift + 4), '--panel-cover': tall ? '1' : '0',
     };
     let changed = false;
