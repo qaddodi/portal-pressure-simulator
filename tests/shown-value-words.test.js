@@ -63,7 +63,7 @@ test('#15: a stent sampled at a 90% narrowing reads its jet, judged there, not "
   assert.ok(open < 2 && open * g > 2, `gate factor ${g}`);
   const src = read('../src/ui/doppler.js');
   assert.match(src, /function interpret\(r0, g = 1, seen = null\)/);
-  assert.match(src, /gf = gateFactor\(\); mean \*= gf;[\s\S]*?SEEN\.gated = mean; SEEN\.open = open;\n\s*const it = interpret\(r, gf, SEEN\);/);   // (and judged on the gated number shown)
+  assert.match(src, /gf = gateFactor\(\);[\s\S]*?mean \*= gf;[\s\S]*?SEEN\.gated = mean; SEEN\.open = open;\n\s*const it = interpret\(r, gf, SEEN\);/);   // (and judged on the gated number shown)
   assert.match(src, /r\.mean = r0\.mean \* g; r\.vmax = r0\.vmax \* g; r\.vmin = r0\.vmin \* g; r\.vmaxMean = r0\.vmaxMean \* g; r\.vminMean = r0\.vminMean \* g/);
 });
 

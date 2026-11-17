@@ -341,6 +341,7 @@ async function main() {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
       zoomLobule: (lobe) => zoomLobule(lobe), askSinusoid: () => stage.askSinusoid(), paneApi: (id) => dock.pane(id),
+      openIr: (id) => { dock.pane('hvpg')?.openStent?.(id); dock.show('hvpg', { reveal: true }); },   // (Tests › IR › TIPS on this stent: a stent card's IR action and its folded line)
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
     },

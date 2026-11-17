@@ -324,17 +324,18 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
-test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+test('The TIPS view fits the card without scrolling: it fills the pane, the readings are one line, the figures take the height left and are never wider than it allows', async () => {
   const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
-  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-tips \.ir-tiles\.rp-tiles \{ display: flex; flex-wrap: wrap; align-items: baseline;/, 'the four readings are one line of text, wrapping between readings (Mohammad, 17 Nov: no big tiles)');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, \.ir-tips \.ir-tiles \.tr, \.ir-tips \.ir-tiles \.cmp \{ display: none; \}/);
   // Width first (17 Nov 2026, play-test findings 22 and 25): the pictures fill the card's width up to 520 px; the height left may only shrink them to a readable 340 px, and the view scrolls before the text gets smaller.
   assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: calc\(min\(100cqw, var\(--fig-min, 340px\)\) \/ var\(--fig-r, 1\.35\) \+ 6px\); container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
   assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/);
   assert.match(plate, /\.ir-inside \{ flex: 1 0 auto;/, 'the readings and the smallest readable picture are never squeezed');
-  assert.match(plate, /\.ir-tips \{[^}]*overflow-y: auto;/, 'the last resort is a scroll, not small text');
-  assert.match(plate, /\.ir-tiles \.rb \{ display: none; \}/, 'the readings are numbers and words; the bar went to the picture\'s room');
+  assert.match(plate, /\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, 'the last resort is a scroll down, never sideways (overflow-y alone makes x scroll too: F-sideways, 17 Nov)');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, /, 'the readings are numbers and words; the bar went to the picture\'s room');
   // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
   assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
@@ -343,7 +344,8 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(src, /show: \['card'\]/, 'one stent drawing, one lens switch');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
-  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+  assert.ok(ir.el.querySelector('.ir-stents > .ir-sub'), 'two rows of controls: the chip with the three views, then the editor');
+  assert.equal(ir.el.querySelector('.ir-editor').previousElementSibling.className, 'ir-stents');
   assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
@@ -365,13 +367,39 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
   assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
   const chip = (id) => ed.querySelector(`.se-chip[data-chip="${id}"]`);
-  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist', 'len'], 'four chips: the stent, its end stenosis, its waist and the waist\'s length');
+  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist'], 'three chips: the stent, its end stenosis and its waist (its length and ends open with it: no chip that does nothing)');
+  assert.equal(ed.querySelectorAll('.se-chip.se-dim').length, 0, 'no greyed-out chip');
+  const ws = ed.querySelector('.se-strip[data-strip="waist"]');
+  assert.deepEqual([...ws.querySelectorAll('[data-ctl]')].map((c) => c.dataset.ctl), ['waistD', 'waist', 'ends'], 'the waist\'s row: its lumen, its length and its ends');
+  assert.equal(ws.querySelector('.se-cap')?.textContent, 'Length', 'the second slider is named');
   assert.equal(chip('dia').textContent, 'Diameter10.0 mm');
   assert.equal(chip('end').querySelector('.se-chip-v').textContent, 'None');
   const plate = read('styles/app-06-plate.css');
-  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*height: 30px;/, 'the chips and each strip share one cell, one slim height: nothing below moves');
+  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*min-height: 4[48]px;/, 'the chips and each strip share one cell: opening a chip moves nothing below');
+  // Play-test F33 (iPad): every chip and every control in the row is a 44 px tap target at the app's label size, and nothing is cut short (the row wraps).
+  const rules = plate.split('\n').filter((l) => l.includes('.stent-editor')).join('\n');
+  for (const sel of ['.se-chip', '.se-name', '.se-seg button', '.se-done']) assert.match(rules, new RegExp(`\\.stent-editor ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
+  assert.match(rules, /\.stent-editor \.se-range \{[^}]*height: 44px/);
+  assert.match(rules, /\.stent-editor \.se-chip-w \{[^}]*font: 500 var\(--fs-16\)/, 'the chip\'s value in the card\'s reading size');
+  assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no chip or value is cut short');
+  assert.match(rules, /\.stent-editor \.se-layer \{[^}]*flex-wrap: wrap;/, 'a row too narrow for the four wraps');
+  // Play-test F38 (Mac, a 240 px card): an open row wider than its card scrolled the card sideways. Every layer wraps, the slider gives way (min-width 0), the
+  // editor and its card panel never pass their width, and no card body scrolls sideways. (Rules only: jsdom lays nothing out; the play-test checks the pixels.)
+  assert.doesNotMatch(rules, /flex-wrap: nowrap/, 'no open row is kept on one line');
+  assert.match(rules, /\.stent-editor \.se-range \{[^}]*min-width: 0;/);
+  assert.match(rules, /\.stent-editor \{[^}]*min-width: 0; max-width: 100%;/);
+  assert.match(plate, /\.ac-panel \{[^}]*max-width: 100%; overflow-x: clip;/);
+  const lay = read('styles/app-03-layouts.css');
+  for (const k of ['.action-card:not(.docked) > .ac-body {', '.action-card.docked > .ac-body {']) {
+    const rules2 = lay.split('\n').filter((l) => l.startsWith(k)).join('\n');
+    assert.match(rules2, /min-width: 0; overflow-x: hidden;/, `${k} never scrolls sideways`);
+  }
+  // And should anything ever scroll its card sideways, opening or closing a chip puts the card back at its left edge.
+  assert.match(read('src/ui/stent-editor.js'), /const sc = el\.closest\('\.ac-body'\);\n\s*if \(sc\) sc\.scrollLeft = 0;/);
+  for (const id of ['dia', 'end', 'waist']) assert.ok(ed.querySelector(`.se-strip[data-strip="${id}"]`).classList.contains('se-layer'), `${id}'s open row is a wrapping layer`);
+  for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
-  assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');
+  assert.ok(ed.querySelector('[data-ctl="waist"]').classList.contains('se-dim'), 'no waist: its length dims in the open row');
   // A tap opens the waist's slider in the row; the chips go inert, the strip takes the hand.
   chip('waist').click();
   await wait(20);
@@ -385,7 +413,9 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(p.stentGeom.TIPS.red, 0.4, 'a waist, mid stent');
   assert.ok(!(p.stenosis?.TIPS > 0), 'no stenosis made');
   assert.equal(chip('waist').querySelector('.se-chip-v').textContent, '6.0 mm');
-  assert.ok(!chip('len').classList.contains('se-dim'), 'the waist\'s length wakes');
+  assert.equal(chip('waist').querySelector('.se-chip-c').textContent, ' · 1.0 cm', 'and its length beside it');
+  assert.equal(chip('waist').querySelector('.se-chip-num').textContent, '6.0', 'the number apart from its unit');
+  assert.ok(!ed.querySelector('[data-ctl="waist"]').classList.contains('se-dim'), 'the waist\'s length wakes');
   strip('waist').querySelector('.se-done').click();
   await wait(20);
   assert.equal(ed.getAttribute('data-open'), '', 'Done gives the chips back');
@@ -399,18 +429,19 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(p.stenosis.TIPS, 0.5);
   assert.equal(p.stenosisSite.TIPS, 'proximal');
   assert.equal(p.stentGeom.TIPS.red, 0.4, 'the waist stays mid stent');
-  assert.equal(chip('end').querySelector('.se-chip-v').textContent, '5.0 mm · Proximal');
+  assert.equal(chip('end').querySelector('.se-chip-w').textContent, '5.0 mm · Proximal');
+  assert.equal(chip('end').querySelector('.se-chip-c').textContent, ' · Proximal', 'the end apart, which a phone leaves to the open row');
   ed.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(20);
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
 });
 
-test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in a thin row over the pictures, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   ir.update(frameOf()); await wait(60);
-  const sw = ir.el.querySelector('.ir-stents > .sc-lens');
+  const sw = ir.el.querySelector('.ir-lensrow > .sc-lens');
   assert.ok(sw, 'moved into the header row');
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
   assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-lens'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
@@ -425,6 +456,7 @@ const lifeKit = (over = {}) => {
   const calc = () => ({ sequence: async () => ({}) });
   return { log, c: createIrCurves({ request, calc, chart, delay: 5, ...over.opts }) };
 };
+const until = async (ok, ms = 2000) => { const t0 = Date.now(); while (!ok() && Date.now() - t0 < ms) await wait(10); };   // (waits for a state, not a time: the quiet period runs on the rest-pass scheduler, slower on a busy machine)
 const frameWith = (flow, day) => ({ clock: day == null ? undefined : 'disease', day, metrics: { ppg: 9, tips: { s: 0.4, flow, bench: 3 }, dips: null } });
 
 test('Curves life: a change that settles asks once; further frames of the same stent ask nothing and only move the ring', async () => {
@@ -450,12 +482,12 @@ test('Curves life: leaving before the quiet time ends cancels the sweep, and com
 test('Curves life: leaving while the snapshot is being asked for draws nothing from the answer that comes late', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30);
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading');
   assert.equal(c.phase(), 'loading'); c.stop(); assert.equal(c.phase(), 'idle');
   for (const go of log.pending.splice(0)) go();
   await wait(20);
   assert.equal(log.configured.length, 0, 'the late answer is dropped');
-  c.update(frameWith(1.5)); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  c.update(frameWith(1.5)); await until(() => log.pending.length > 0); for (const go of log.pending.splice(0)) go(); await until(() => log.configured.length === 1);
   assert.equal(log.configured.length, 1, 'and the next visit draws');
 });
 
@@ -475,7 +507,7 @@ test('Curves life: a sweep that is drawn is kept on leaving and returning unchan
 test('Curves life: an edit while the answer is loading is the sweep that is drawn, not the one before it', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30); assert.equal(c.phase(), 'loading');
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading'); assert.equal(c.phase(), 'loading');
   store.set({ params: paramsOf({ tips: { on: true, d: 9 } }) }); c.update(frameWith(1.4)); assert.equal(c.phase(), 'waiting');
   for (const go of log.pending.splice(0)) go(); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
   assert.equal(log.configured.length, 1); assert.equal(log.configured[0].ctx.params.tips.d, 9);
@@ -516,4 +548,153 @@ test('the stent peak tile reads a deliberate reduction\'s jet as intended, and a
   assert.equal(peak().dataset.sev, 'caution');
   at({ vPeak: 400, peaks: [100, 400, 100], red: 0, end: 0, site: 'distal' }); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
+});
+
+test('The readings never break inside a word, and are one line of small text, not tiles (F37, and Mohammad 17 Nov)', async () => {
+  const plate = read('styles/app-06-plate.css'), tests = read('styles/app-09-tests.css');
+  const metric = plate.match(/\.ir-tips \.ir-tiles \.metric \{[^}]*\}/)?.[0] || '';
+  assert.match(metric, /display: inline-flex;/); assert.match(metric, /flex-wrap: nowrap;/, 'a reading\'s name, number and word stay together');
+  assert.match(plate.match(/\.ir-tips \.ir-tiles \.metric \.k \{[^}]*\}/)?.[0] || '', /white-space: nowrap;/, 'a name is never broken inside a word');
+  assert.match(metric, /background: none; box-shadow: none;/, 'no box round a reading');
+  assert.match(tests, /\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/);
+  for (const [name, css] of [['app-01', read('styles/app-01-chrome.css')], ['app-06', plate], ['app-08', read('styles/app-08-cards.css')], ['app-09', tests]]) {
+    const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
+    assert.deepEqual(bad, [], `${name}: a reading's name must not break inside a word`);
+  }
+});
+
+test('One stent editor on screen at a time (play-test F39): while the TIPS view\'s editor is shown, a vessel card\'s for the same stent folds to one line; and no hidden row sizes the editor (F40)', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  // (The DIPS: the views mounted by the tests above lead the TIPS and are never taken down.)
+  store.set({ params: paramsOf({ dips: { on: true, d: 10 }, stenosis: { DIPS: 0.5 }, stenosisSite: { DIPS: 'distal' }, stentGeom: { DIPS: { red: 0.4, waist: 2, trans: 0 } } }) });
+  const card = createStentEditor({ id: 'DIPS' }), lead = createStentEditor({ id: 'DIPS', lead: true, compact: true });
+  await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead not on screen: the card keeps its chips');
+  lead.setShown(true); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true', 'the lead on screen: the card folds');
+  assert.equal(card.el.querySelector('.se-chips').inert, true);
+  // (No diameter: the card's row above reads it. No "edited in Tests" note: the line itself is the way in.)
+  assert.equal(card.el.querySelector('.se-summary .se-sum-t').textContent, 'Stenosis 5.0 mm · Distal · Waist 6.0 mm × 2.0 cm');
+  assert.equal(card.el.querySelector('.se-summary').tagName, 'BUTTON');
+  assert.equal(card.el.querySelector('.se-summary').inert, false, 'folded: the line is the live control');
+  assert.equal(lead.el.getAttribute('data-fold'), 'false', 'the lead never folds');
+  lead.setStent('TIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead on another stent: the card keeps its chips');
+  lead.setStent('DIPS'); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'true');
+  lead.setShown(false); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead off screen: the chips come back');
+  lead.setShown(true); lead.destroy(); await wait(20);
+  assert.equal(card.el.getAttribute('data-fold'), 'false', 'a lead taken down never leaves a card folded');
+  card.destroy();
+  assert.ok(lead.el.classList.contains('se-compact'));
+  const src = read('src/ui/ir-tips.js');
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, compact: true \}\)/);
+  assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips'\);/);
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-strip, \.stent-editor \.se-summary, \.stent-editor\[data-fold="true"\] \.se-chips, \.stent-editor:not\(\[data-open=""\]\) \.se-chips \{ position: absolute;/, 'a layer not shown takes no room (F40)');
+  // F45 (iPad 1024, Mac 1440 vessel card): a chip is as wide as its words, its value never wraps or clips, and the row wraps whole chips. (A chip that may
+  // shrink below its words, min-width 0 or a zero basis, is what clipped "Diameter" and wrapped "8.0 mm".)
+  const chipRules = plate.split('\n').filter((l) => /\.se-chip \{/.test(l)).join('\n');
+  assert.match(chipRules, /\.stent-editor \.se-chip \{ flex: 1 1 0;[^}]*white-space: nowrap;/, 'equal tokens while they fit, each on one line');
+  assert.doesNotMatch(chipRules, /min-width: 0|white-space: normal/, 'no chip may shrink below its words (its least width is its words)');
+  // The open row grows from the tapped chip (17 Nov, Mohammad: "seamless"): a surface of three pieces moved by transforms only, its controls fading in after it.
+  const ed2 = read('src/ui/stent-editor.js');
+  assert.match(ed2, /class: 'se-pill'/); assert.match(ed2, /function grow\(c, opening\)/); assert.match(ed2, /readBox\(c\.btn\), b = readBox\(c\.strip\)/);
+  assert.doesNotMatch(ed2.slice(ed2.indexOf('function grow'), ed2.indexOf('function setOpen')), /width:|left:|height:/, 'transforms only, no layout animated');
+  assert.match(plate, /\.stent-editor \.se-pill \{ position: absolute; inset: 0;/);
+  // A sideways drag on the editor or a slider is the control's, never the dock's swipe to the next pane (17 Nov, iPhone: "scrolling sideways opens the next card").
+  assert.match(read('src/ui/swipe.js'), /const OWN_DRAG = '[^']*\.range-wrap, \.stent-editor'/);
+  // F46: a docked stent card whose editor is folded is as tall as what it holds.
+  assert.match(read('styles/app-03-layouts.css'), /\.action-card\.docked:has\(\.stent-editor\[data-fold="true"\]\) \{ min-height: 0; \}/);
+  assert.match(plate, /\.ir-editor \{[^}]*min-width: 0; overflow-x: clip;/, 'never wider than the sheet (F40)');
+  // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
+  // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).
+  assert.match(read('src/ui/dock.js'), /onClose\(\);\n(?:\s*\/\/.*\n)*\s*for \(const p of panes\) p\.shown\?\.\(false\);/);
+});
+
+test('The vessel card\'s mode is decided before its first paint (no flash of the chips), and its folded line and IR action open Tests › IR › TIPS', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  store.set({ params: paramsOf({ dips: { on: true, d: 10 } }) });
+  const lead = createStentEditor({ id: 'DIPS', lead: true, compact: true });
+  // Tests not on screen: the card is born with its chips.
+  const a = createStentEditor({ id: 'DIPS' });
+  assert.equal(a.el.getAttribute('data-fold'), 'false'); assert.equal(a.el.querySelector('.se-chips').inert, false); assert.equal(a.el.querySelector('.se-summary').inert, true);
+  // Tests on screen on this stent: born folded, read at once with no wait, so the first paint is the last (no chips for a frame, then the line).
+  lead.setShown(true);
+  const b = createStentEditor({ id: 'DIPS' });
+  assert.equal(b.el.getAttribute('data-fold'), 'true', 'born folded: data-fold is set at creation, not a frame later');
+  assert.equal(b.el.querySelector('.se-chips').inert, true); assert.equal(b.el.querySelector('.se-summary').inert, false);
+  // (A card for a stent the view is not on is not folded by it: the views the tests above mount lead the TIPS, so only the DIPS is asserted here.)
+  const c = createStentEditor({ id: 'TIPS' });
+  await wait(20);
+  assert.equal(b.el.getAttribute('data-fold'), 'true', 'and it stays so once the frame has run');
+  // A later switch is the stylesheet's crossfade, never a display flip.
+  lead.setShown(false); await wait(20);
+  assert.equal(b.el.getAttribute('data-fold'), 'false');
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-summary \{[^}]*opacity: 0;[^}]*transition: opacity var\(--d-small\)/, 'the line crossfades with the chips');
+  assert.match(plate, /\.stent-editor \.se-chips \{[^}]*transition: opacity var\(--d-small\)/, 'the chips crossfade with the line');
+  // The line opens Tests on that stent.
+  const seen = [];
+  const d = createStentEditor({ id: 'DIPS', onOpen: (id) => seen.push(id) });
+  d.el.querySelector('.se-summary').click();
+  assert.deepEqual(seen, ['DIPS']);
+  for (const e of [a, b, c, d, lead]) e.destroy();
+  // The wiring: an IR action beside Doppler and Dye on the TIPS and DIPS cards only, the pane api and the ctx that open the view.
+  const act = read('src/ui/actions.js');
+  assert.match(act, /id === 'TIPS' \|\| id === 'DIPS'\) verbs\.splice\(verbs\.indexOf\(dye\) \+ 1, 0, \{ type: 'button', id: 'ir'.*quiet: true, run: \(\) => CTX\.openIr\(id\)/);
+  assert.match(act, /onOpen: id === 'TIPS' \|\| id === 'DIPS' \? \(\) => CTX\.openIr\(id\) : null/);
+  assert.match(read('src/ui/main.js'), /openIr: \(id\) => \{ dock\.pane\('hvpg'\)\?\.openStent\?\.\(id\); dock\.show\('hvpg', \{ reveal: true \}\); \}/);
+  assert.match(read('src/ui/hvpg-proc.js'), /openStent: \(id\) => tips\.openStent\(id\)/);
+  const ir = createIrTips({ host: document.createElement('div') });
+  assert.equal(typeof ir.openStent, 'function');
+  assert.equal(ir.openStent('TIPS'), false, 'no TIPS in this patient: nothing opens');
+  assert.equal(ir.view(), 'measure');
+});
+
+test('No Tests pane scrolls sideways: the pane and the TIPS view clip x and take vertical pans only', async () => {
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.instrument-workspace \.dock-pane \{[^}]*overflow: hidden auto; touch-action: pan-y;/, 'every Tests pane');
+  for (const rule of plate.match(/\.ir-[\w-]*[^{}]*\{[^}]*overflow-y: (?:auto|scroll)[^}]*\}/g) || []) assert.match(rule, /overflow: hidden (?:auto|scroll)/, `a vertical scroller that also clips x: ${rule.slice(0, 60)}`);
+});
+
+test('Curves, working state (F42): while the points are worked out the chart rests faded with a line saying so and how far; when they are drawn it fades up', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  let release; const gate = new Promise((r) => { release = r; });
+  const request = async (type) => (type === 'snapshot' ? { snap: { s: 1 } } : { result: {} });
+  const calc = () => ({ sequence: async (steps, from, cb) => { cb({ i: 0, snap: {}, fp: {} }); await gate; steps.forEach((_s, i) => i && cb({ i, snap: {}, fp: {} })); return {}; } });
+  const chart = () => ({ el: document.createElement('div'), configure: (_t, ctx) => { ctx.run([1, 2, 3, 4]); }, pin() {} });
+  const c = createIrCurves({ request, calc, chart, delay: 5 });
+  c.update(frameWith(1.5)); assert.equal(c.el.dataset.state, undefined, 'set between frames');
+  await wait(60);
+  assert.equal(c.phase(), 'drawn');
+  assert.match(c.el.querySelector('.ir-work').textContent, /Working out the curves for this patient… 1 of 4/);
+  await wait(30);
+  assert.equal(c.el.dataset.state, 'working');
+  release(); await wait(40);
+  assert.equal(c.el.dataset.state, 'ready');
+  const css = read('styles/app-06-plate.css');
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-chart \{ opacity: \.25; \}/);
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-work \{ opacity: 1; \}/);
+});
+
+test('Curves, the dashed line has somewhere to stand (F43): an unset waist or length is filled from the stent\'s own geometry', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }) });
+  const { log, c } = lifeKit();
+  c.setSweep('waist');
+  c.update({ metrics: { ppg: 9, tips: { s: 0.4, red: 0.4, flow: 0.2, bench: 1, geom: { len: 8, waist: 2.4, trans: 0 } }, dips: null } });
+  await wait(60);
+  const lp = log.configured.at(-1).ctx.liveParams();
+  assert.equal(lp.stentGeom.TIPS.waist, 2.4);
+  assert.equal(log.configured.at(-1).ctx.liveParams(), lp, 'the same object while nothing changes');
+  assert.equal(log.configured.at(-1).t.param, 'stentGeom.TIPS.waist');
+});
+
+test('Compare says how to pin a moment before there is one, in one line (F44)', () => {
+  const c = createIrCompare();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
+  c.update(frameOf());
+  assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
+  assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
 });

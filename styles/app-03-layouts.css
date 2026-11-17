@@ -170,7 +170,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 /* (17 Nov 2026: the shelf's card is as tall as its words up to 500 px or the room under the case pill, whichever is less; past that its body scrolls, so no row is ever cut off.) */
 .action-card:not(.docked) { max-height: min(500px, calc(100% - var(--top-safe, 56px) - 24px)); }
 .action-card:not(.docked):not([hidden]) { display: flex; flex-direction: column; }
-.action-card:not(.docked) > .ac-body { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.action-card:not(.docked) > .ac-body { flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }   /* (never sideways: play-test F38, a stent editor's open row once ran wider than the card) */
 .action-card:not(.docked) > .ac-body::-webkit-scrollbar { display: none; }
 .ac-ghost { pointer-events: none; }
 .action-card [data-key]::after { display: none; }   /* (the number keys still work; the card shows no key marks) */
@@ -250,6 +250,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .ac-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--accent-ink); font: 500 13px/1.2 var(--font-ui); white-space: nowrap; cursor: pointer; transition: scale var(--d-flip) var(--ease); }
 .ac-btn .ac-ic { width: 18px; height: 18px; color: currentColor; }
 .ac-btn.danger { color: var(--danger-ink); margin-left: auto; }
+.ac-btn.quiet { color: var(--text-2); }   /* (an action beside Doppler and Dye that is a way through, not the card's own work: the stent's IR) */
 .ac-btn.on { color: var(--accent-ink); }
 .ac-dye { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .ac-dye.on .ac-ic { color: var(--dye-icon); }
@@ -262,11 +263,13 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 }
 .action-card.docked[data-size=l] { min-height: min(300px, var(--ac-max)); }
 .action-card.docked[data-size=x] { min-height: min(400px, var(--ac-max)); }
+/* (17 Nov 2026, F46: a stent card whose editor is folded, because the Tests view's own editor is on screen, is a slim strip, as tall as what it holds: its size's least height stood empty under the folded line.) */
+.action-card.docked:has(.stent-editor[data-fold="true"]) { min-height: 0; }
 /* (17 Nov 2026, the TIPS card was cut off behind the view switch on an iPhone: its two new rows, Waist length and Ends, made it taller than its size's 300 px, and a card showed
    only what fitted its fixed height. The size is now the least a card is: it grows with its words, as the shelf's card does, as far as the room under the case pill allows, and only
    past that does its body scroll, so a card of any height fits or scrolls on every screen.) */
 .action-card.docked:not([hidden]) { display: flex; flex-direction: column; }
-.action-card.docked > .ac-body { position: relative; inset: auto; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.action-card.docked > .ac-body { position: relative; inset: auto; flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .action-card.docked > .ac-body::-webkit-scrollbar { display: none; }
 .action-card.docked.ac-scroll > .ac-body { touch-action: pan-y; }   /* (set by card.js only while the words are taller than the room: a pull down still puts a card that fits away) */
 .action-card.docked :is(.ac-body, .ac-ghost) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
@@ -274,7 +277,14 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 /* With Measure / Instruments open on a phone the card rises above the sheet. */
 .app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); --ac-max: calc(100% - var(--bot-occ, 0px) - var(--top-safe, 56px) - 56px); }
 /* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
-.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
+/* (17 Nov 2026, F46, iPad portrait and phone: the card and Tests together covered the whole figure. With Tests open the card is a strip of its name and state, 56 px (stack-plan.js STRIP),
+   and Tests' Half height leaves the figure a 200 px band above it (dock-sheet.js stops). Tests' tallest size still leaves the strip its room.) */
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 56px - 14px); }
+.app.dock-open:not(.instrument-focus) .action-card.docked { min-height: 0; height: 56px; overflow: hidden; }
+.app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body { overflow: hidden; padding-top: 0; padding-bottom: 0; justify-content: center; height: 100%; }
+.app.dock-open:not(.instrument-focus) .action-card.docked > .ac-body > :not(.ac-nr) { display: none; }
+/* (F51, iPhone: even the strip left about 25 px of the stent above the sheet. On a phone the card steps aside while Tests is open: the stent is panned into the band above the sheet, and the card is back when Tests closes.) */
+@media (max-width: 699px) { .app.dock-open:not(.instrument-focus) .action-card.docked { height: 0; visibility: hidden; border-width: 0; } }
 /* How it comes and goes (B): on the shelf it slides in 16 px from the left as it fades in and fades back 8 px toward the edge; on a phone
    it rises 24 px and sinks 16 px. The plate (the glass) and the words move together; the box holds still so the leave ends on it. */
 .action-card > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }

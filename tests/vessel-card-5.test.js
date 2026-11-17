@@ -73,7 +73,7 @@ test('one fixed size for each kind of card: two controls fit the small card, thr
   const size = (sel) => cardSize(cardFor(sel, CTX), PARAMS);
   assert.equal(size({ type: 'edge', id: 'PV_TRUNK' }), 's');
   assert.equal(size({ type: 'organ', id: 'liver' }), 's');
-  assert.equal(size({ type: 'edge', id: 'TIPS' }), 'l', 'diameter, stenosis and where');
+  assert.equal(size({ type: 'edge', id: 'TIPS' }), 's', 'one row of value chips, the stent editor (17 Nov 2026: the phone\'s card covered the stent)');
   assert.equal(size({ type: 'organ', id: 'heart' }), 'l');
   assert.equal(size({ type: 'lobule', part: 'sin' }), 'x');
   assert.match(css, /\.action-card \{\n {2}position: absolute;[^}]*left: calc\(env\(safe-area-inset-left, 0px\) \+ 14px\); top: calc\(var\(--top-safe, 56px\) \+ 8px\); width: 276px; height: auto; max-height: 500px;/, 'the Mac shelf: 276 wide under the case pill, as tall as its words (16 Nov 2026)');

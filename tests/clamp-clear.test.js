@@ -14,14 +14,15 @@ const run = (o) => {
 for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy' }, { size: 'iphone', view: 'anatomy' }, { size: 'mac', view: 'anatomy', s: 0.5, waist: 2 }]) {
   test(`no label shows over a narrowing's words: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
     const r = run(o);
-    assert.ok(r.cl.some((c) => /^Narrowed/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
+    assert.ok(r.cl.some((c) => /^(Narrowed|Distal|Proximal|Waist)/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
     assert.deepEqual(r.lap, []);
+    assert.deepEqual(r.cross, []);
   });
 }
 
 // A card opening over the words (all of them, or half): they move off it or fade out whole; they never stand cut by the card's edge (finding 23,
 // 17 Nov 2026: "D…", "W…" beside the stent, under the Tests card).
-for (const card of [true, 'half']) {
+for (const card of [true, 'half', 'top']) {   // ('top': a bar across the top of the stage down past the words, as the top bar is after the Tests sheet's pan: F29)
   test(`a narrowing's words under a card move off it or fade out whole: ${card}`, { timeout: 320000 }, () => {
     const r = run({ size: 'mac', view: 'anatomy', card });
     const [x0, y0, x1, y1] = r.card, b = r.cl[0].box;
@@ -32,12 +33,23 @@ for (const card of [true, 'half']) {
 
 // A stent with an end stenosis and a waist both narrowed has two callouts ("Distal stenosis …", "Waist …"): they never stand on each other, and
 // each holds its place while the figure stands (the stent thread's heads-up, 17 Nov 2026).
-test('a stent\'s end stenosis and waist callouts stand apart', { timeout: 320000 }, () => {
+test('a stent\'s end stenosis and waist callouts stand apart, on a real gap, and no leader runs through them', { timeout: 320000 }, () => {
   const r = run({ size: 'mac', view: 'anatomy', s: 0.5, waist: 2, red: 0.4 });
   const w = r.cl.filter((c) => c.box[2] > c.box[0]);
   assert.ok(w.length >= 2, `two callouts: ${JSON.stringify(r.cl)}`);
+  assert.deepEqual(r.cross, []);
   for (let i = 0; i < w.length; i++) for (let j = i + 1; j < w.length; j++) {
-    const a = w[i].box, b = w[j].box;
-    assert.ok(!(a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]), `${w[i].t} over ${w[j].t}`);
+    const a = w[i].box, b = w[j].box, g = 8;   // (their boxes are grown 6 px each: 8 more is a real gap between the words)
+    assert.ok(!(a[0] - g < b[2] && a[2] + g > b[0] && a[1] - g < b[3] && a[3] + g > b[1]), `${w[i].t} crowds ${w[j].t}`);
   }
 });
+
+// Every figure label, not only a narrowing's words, stands wholly inside the free room (the screen's edges and every card) or fades out whole
+// (F50, 17 Nov 2026, iPad portrait with the stent card and Tests open: "Right sinusoids 15…" cut by the screen's left edge, "Rig…" half behind
+// the card). Judged on what the GPU drew: a label carried between layouts counts too.
+for (const o of [{ size: 'ipad', view: 'anatomy', card: 'right', pan: true }, { size: 'mac', view: 'anatomy', card: true }]) {
+  test(`no figure label is drawn past the screen's edge or under a card: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
+    const r = run(o);
+    assert.deepEqual(r.drawnOut, [], 'labels drawn cut by the edge or a card');
+  });
+}

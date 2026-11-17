@@ -28,6 +28,7 @@ import { readBox, readMetric } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
+import { handOver } from './hand-over.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -70,7 +71,7 @@ const P_CTLTOP = { class: 'ctl-top' }, P_CTLNAME = { class: 'ctl-name' }, P_CTLV
 const P_RANGEWRAP = { class: 'range-wrap' }, P_TICKS = { class: 'ac-ticks', 'aria-hidden': 'true' }, P_TICK = { class: 'ac-tick', style: '' };
 const P_METER = { class: 'ac-meter', 'aria-hidden': 'true' }, P_METER_FILL = { class: 'ac-meter-fill' }, P_METER_ROW = { class: 'ac-c ac-meter-row', role: 'meter', 'aria-label': '', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' };
 const P_SWITCHVIS = { class: 'switch-vis', 'aria-hidden': 'true' };
-const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' };
+const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' }, P_BTN_QUIET = { class: 'ac-btn quiet', 'aria-label': '', title: '' };
 const P_DYE = { class: 'ac-btn ac-dye', 'aria-label': 'Inject dye', title: 'Tap to inject for a few seconds; hold to go on longer' };
 // Props that vary a little, rewritten in place just before the call that reads them (the key order is the order the attributes are made in).
 const P_LINKB = { class: 'ac-btn ac-link', 'aria-label': '', onclick: null };
@@ -97,7 +98,7 @@ const RAMP_TOP = 30;
 // The cut colour of a gradient (HVPG, PPG) as a class: ok, caution, danger.
 const CUT_CLS = { ok: 'ac-cut ok', caution: 'ac-cut caution', danger: 'ac-cut danger' };
 // What each kind of control takes of the card (a segmented choice is two cells); a card with more than SMALL_CELLS is the tall size.
-const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 3 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
+const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 2 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
 const SMALL_CELLS = 2;
 const CTL = new Set(['slider', 'toggle', 'meter', 'seg']), ACT = new Set(['button', 'dye', 'link']), READ = new Set(['read', 'stat']);
 
@@ -157,7 +158,7 @@ export function cardShape(m, p) {
     else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
     else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
     else if (v.type === 'about') about = 1;
-    else if (v.type === 'panel') { c += 3; seg++; }   // (a panel's one row: its height as a choice's)
+    else if (v.type === 'panel') { c++; seg++; }   // (a panel's one row: its height as a choice's)
   }
   return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
 }
@@ -169,12 +170,12 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => { el.classList.remove('ac-in'); if (isDocked()) reveal(); };   // (entered: its rest size known, bring the vessel above it)
+  const endIn = () => { el.classList.remove('ac-in'); reveal(); };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); if (isDocked()) reveal(); }).observe(el);
-  new ResizeObserver(() => { if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   // live: the elements whose reading follows the model (each says which in _acK: 1 the direction word and, on a card with no bar, its
@@ -217,14 +218,25 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function coverNow() {
     return Math.max(0, readBox(view).bottom - readBox(el).top);
   }
+  // The card is up over the foot of the screen: a class on the page, so Tests' sheet leaves it room (dock-sheet.js stops, stack-plan.js) and the card is a strip above it (F46).
+  let stripped = false;
+  function stripState(on) {
+    if (on === stripped) return;
+    stripped = on;
+    document.documentElement.classList.toggle('vessel-card', on);
+    dispatchEvent(new Event('pps:vessel-card'));
+  }
   function revealNow() {
-    const open = model && !el.hidden && isDocked();
+    const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
+    stripState(open && !el.classList.contains('ac-leaving'));
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
     const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
-    if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
+    // (Every screen: the view pans for this card as for the others, then the selected vessel is brought into the room all the open cards leave.)
+    const shown = !!model && !el.hidden && !el.classList.contains('ac-leaving');
+    if (shown) { stage.cardsMoved?.(); stage.reveal?.(normalizeSel(selRef) || selRef, covered); }
   }
   function reveal() {
     // (A rest pass: the boxes are read between two frames, never inside one.)
@@ -232,7 +244,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
     revealRaf = restPass(revealNow);
   }
   let closeTimer = 0, sheetWired = false;
-  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); };
+  const afterLeave = () => { el.hidden = true; el.classList.remove('ac-leaving'); releaseWords(el); stage.cardsMoved?.(); };   // (gone: the view pans back)
   function hide() {
     stopSheetGesture();
     if (el.dataset.swiped) { delete el.dataset.swiped; el.hidden = true; setSheetOffset(el, 0); }   // (pulled away: already out of sight behind the tab row)
@@ -243,7 +255,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
     model = null; live.length = 0; syncs.length = 0; actionable.length = 0; dropPanels();
-    liftButtons('0px');
+    liftButtons('0px'); stripState(false);
     stage.unreveal?.();
     relayoutSoon();
   }
@@ -733,7 +745,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       return h('div', P_PANEL, x.el);
     }
     if (v.type === 'button') {
-      const b = actBtn(v.danger ? P_BTN_DANGER : P_BTN, v);
+      const b = actBtn(v.danger ? P_BTN_DANGER : v.quiet ? P_BTN_QUIET : P_BTN, v);
       b._acV = v;
       b.addEventListener('click', onBtnClick);   // (the card rebuilds between frames, never as a timer task inside one)
       b._acRun = 1; actionable.push(b);
@@ -767,6 +779,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // Where the card stands: a phone's in the figure column, above the view switch (app.css .action-card.docked); a Mac's or an iPad's
   // in the figure, on the shelf at its left edge under the case pill (app.css). Neither depends on what was picked, so nothing is
   // measured to place it.
+  const placed = {};
   function position() {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
@@ -776,11 +789,15 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (el.parentNode !== view) view.append(el);
       if (isDocked()) el.classList.remove('docked');
     }
+    handOver(placed, isDocked() ? 'sheet' : 'shelf', [el.querySelector(':scope > .ac-body')]);   // (turned between the shelf and the sheet: its words start at the top again, F35)
+    // The camera counts this card like Tests and Details: over the foot of a phone, on the left shelf elsewhere (it pans for it, stage-fit.js; 17 Nov 2026, F9, F27).
+    const edge = isDocked() ? 'bottom' : 'left';
+    if (el.dataset.safe !== edge) el.dataset.safe = edge;
   }
 
   // The floating pieces moved (the layout changed between a phone and a wider screen, the dock grew): stand the card in its place again.
-  addEventListener('pps:occ', () => { position(); if (isDocked()) reveal(); });
-  addEventListener('pps:reframed', () => { if (isDocked() && model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
+  addEventListener('pps:occ', () => { position(); reveal(); });
+  addEventListener('pps:reframed', () => { if (model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('colorMode', () => update());

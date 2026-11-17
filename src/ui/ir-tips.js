@@ -87,7 +87,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
 
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent' });
   const line = h('span', { class: 'ir-line' });
-  const editor = createStentEditor({ id: which });
+  const editor = createStentEditor({ id: which, lead: true, compact: true });   // (the lead: a vessel card's editor folds to a line while this one is shown)
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '', ticks: x.el.querySelectorAll('.rb-tick'), band: '' };
@@ -102,9 +102,10 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnV, btnC);
   btnI.addEventListener('click', () => setSub('inside')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside: the readings and the stent card, one drawing and one lens switch)
-  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
-  const stentsRow = h('div', { class: 'ir-stents' }, chips, line);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, subSwitch, inside, crv.el, cmp.el);
+  const lensRow = h('div', { class: 'ir-lensrow' });   // (the card's one lens switch: Velocity | Pressure | Where it goes, moved here when the card is made)
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), lensRow, figs);
+  const stentsRow = h('div', { class: 'ir-stents' }, chips, line, subSwitch);   // (two rows of controls in all: this one, the stent's chip and the three views, and the editor)
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, stentsRow, editorSlot, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -115,6 +116,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
     if (v === 'tips') showStent(); else crv.stop();
+    editor.setShown(active && v === 'tips');
     onChange();
     if (frame) update(frame);
   }
@@ -134,10 +136,10 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   function showStent() {
     if (!stent) {
       stent = createStent(); figs.append(stent.el); cfgId = '';
-      // (The card's one switch, Velocity | Pressure | Where it goes, lives in the view's own header row, beside the stent's chip, not between the pictures: there it took height the figures' band
+      // (The card's one switch, Velocity | Pressure | Where it goes, lives in a thin row of its own over the pictures, not between them: there it took height the figures' band
       // did not count and floated loose under the drawing. It is the same element and its handlers; this view gives it the switches' look.)
       const lsw = stent.el.querySelector(':scope > .sc-lens');
-      if (lsw) { lsw.classList.add('pressure-switch', 'ir-color'); stentsRow.append(lsw); }
+      if (lsw) { lsw.classList.add('pressure-switch', 'ir-color'); lensRow.append(lsw); }
     }   // alloc-rare: once, when the view first opens
     // (One card: the side view with its chart under it, which follows the lens. --fig-r, the pictures' width over their height together, comes from the card itself (stent.ratio()), read again
     // when the lens or the size changes (update, below), so the figures take the width of the card first.)
@@ -172,6 +174,14 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
       // (A stent taken away with the view open: back to Measure, which fades up. Nothing is held, nothing is left blank.)
       if (!on && view === 'tips') setView('measure');
     }
+  }
+  /** Open the view on a stent (a vessel card's IR shortcut, a folded card's line): the chip, the editor and the view follow, then the TIPS view shows. */
+  function openStent(id) {
+    if (!id || !ids.includes(id)) return false;
+    which = id; editor.setStent(id); syncChips();
+    setView('tips');
+    if (frame) update(frame);
+    return true;
   }
   function syncChips() { for (const c of chips.children) c.setAttribute('aria-pressed', String(c.dataset.id === which)); }
 
@@ -230,8 +240,9 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (on === active) return;
     active = on;
     crv.setActive(on);
+    editor.setShown(on && view === 'tips');
     if (on && frame) update(frame);
   }
   host.append(el);
-  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, curves: crv };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, openStent, curves: crv };
 }

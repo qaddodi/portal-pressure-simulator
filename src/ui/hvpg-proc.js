@@ -313,7 +313,9 @@ export function createHvpgProcedure() {
   store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
-  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start, shown: (on) => tips.setActive(on) };
+  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start, shown: (on) => tips.setActive(on),
+    /** Tests › IR › TIPS on this stent ('TIPS' or 'DIPS'): a vessel card's way in (actions.js, ctx.openIr). False when the patient has no such stent. */
+    openStent: (id) => tips.openStent(id) };
 }
 
 // The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's
