@@ -147,7 +147,7 @@ const ABOUT_EDGE = {
     C7: 'Retroperitoneal veins of Retzius connect mesenteric veins to lumbar and renal veins.',
     C8: 'Periportal (pericholedochal) collaterals bypass an occluded portal vein: cavernous transformation, which stays hepatopetal.',
     C9: 'The ascending lumbar–azygos route decompresses the IVC when IVC outflow resistance is high.',
-    TIPS: 'A covered stent from a portal branch to a hepatic vein. Target portosystemic gradient <12 mmHg. Risks: hepatic encephalopathy, reduced hepatic perfusion, increased cardiac preload.',
+    TIPS: 'A covered stent from a portal branch to a hepatic vein. After a TIPS for variceal bleeding a portosystemic gradient <12 mmHg is the reference (AASLD 2024); for ascites the response decides. Risks: hepatic encephalopathy, reduced hepatic perfusion, increased cardiac preload.',
     CAUD: 'The caudate lobe drains straight into the IVC through its own short veins, so it is spared (and hypertrophies) in Budd–Chiari syndrome.',
     PRE_R: 'Presinusoidal segment: portal venules in the portal tract. Resistance rises here in schistosomiasis and other non-cirrhotic portal hypertension.',
     SIN_RR: 'Sinusoids: normally low-resistance, fenestrated and compliant. In cirrhosis, collagen in the space of Disse, stellate-cell contraction and capillarization raise their resistance.',
