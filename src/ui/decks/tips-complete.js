@@ -21,9 +21,10 @@ const CARV = { drugs: { carvedilol: true } };
 const TIPS8 = { tips: { on: true, d: 8 } };
 const REFRACTORY = { diuretics: false, albumin: 2.5 };
 const STENT = { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' };
-// A waist experiment's whole geometry: an 8 cm, 10 mm stent narrowed to 6 mm in the middle, over a waist of `waist` cm and `trans` cm of taper at each end.
-// Every button gives all of it (diameter, narrowing, where, length, waist, taper), so what it shows never depends on the button pressed before it.
-const waistCfg = (waist, trans) => ({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { len: 8, waist, trans } } });
+// A waist experiment's whole geometry: an 8 cm, 10 mm stent with a waist in the middle (red: the share of its diameter the waist takes away, 0.4 = 6 mm
+// left), `waist` cm long, with `trans` cm of taper at each end, and no stenosis at either end. Every button gives all of it, so what it shows never depends on
+// the button pressed before it. `red` 0 is the open stent.
+const waistCfg = (waist, trans, red = 0.4) => ({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0 }, stentGeom: { TIPS: { len: 8, red, waist, trans } } });
 const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' };
 // The TIPS Doppler talk's patient: a 10 mm stent, a hyperdynamic splanchnic bed (so the stent reads 90 to 190 cm/s at each point).
 const DOPPLER = { cirrhosis: 0.92, tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
@@ -212,7 +213,7 @@ export const TIPS_COMPLETE = {
     {
       id: 'reduce', lens: 'flow', params: waistCfg(1, 0), days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
       // (An intentional reduction is a focal waist in the middle of the original 10 mm conduit, as the waist slide draws one: not a uniform 6 mm stent. Whole geometry in each button.)
-      compare: [{ label: '10 mm, open', short: 'Open', params: { ...waistCfg(1, 0), stenosis: { TIPS: 0 } }, title: 'Before the reduction the stent is open at 10 mm', line: 'The open 10 mm stent lets {shunt} of the portal blood bypass the liver, and sinusoidal flow is {liver} of normal, with a PPG of {ppg}.' },
+      compare: [{ label: '10 mm, open', short: 'Open', params: waistCfg(1, 0, 0), title: 'Before the reduction the stent is open at 10 mm', line: 'The open 10 mm stent lets {shunt} of the portal blood bypass the liver, and sinusoidal flow is {liver} of normal, with a PPG of {ppg}.' },
         { label: 'Reduced to 6 mm', short: '6 mm', own: true, params: waistCfg(1, 0) }],
       kicker: 'After the stent', site: 'sin', title: 'When encephalopathy persists, a reduction narrows the stent in the middle and gives some portal blood back to the liver',
       line: 'A 6 mm waist inside the 10 mm stent lifts sinusoidal flow to {liver} of normal, and the PPG rises to {ppg}. Baveno VIII makes reduction a weak recommendation.',
@@ -231,8 +232,9 @@ export const TIPS_COMPLETE = {
     {
       id: 'jet', question: 'Ascites returns after a TIPS. Where would you look?', params: { stenosis: { TIPS: 0.65 } }, days: 180, cam: 'liver', lens: 'velocity',
       mark: { edges: ['TIPS'], label: 'Stenosis', seg: 'site' }, tool: { kind: 'doppler', vessel: 'TIPS', gate: 'site', points: true }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['ppg'], delta: 'baseline',
-      compare: [{ label: 'Proximal', params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'proximal' } } }, { label: 'Mid', params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'mid' } } },
-        { label: 'Distal', own: true, params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'distal' } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 } } }],
+      // (Mid is the same 1 cm narrowing mid stent: on the stent card a stenosis sits at an end and a narrowing mid stent is the Waist, stent-geom.js.)
+      compare: [{ label: 'Proximal', params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'proximal' }, stentGeom: { TIPS: { red: 0 } } } }, { label: 'Mid', params: { stenosis: { TIPS: 0 }, stentGeom: { TIPS: { red: 0.65 } } } },
+        { label: 'Distal', own: true, params: { stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { red: 0 } } } }, { label: 'Dilated', params: { stenosis: { TIPS: 0 }, stentGeom: { TIPS: { red: 0 } } } }],
       kicker: 'After the stent', title: 'A stenosed stent shows low velocity with a focal jet, and venography with a gradient decides',
       line: 'At 6 months, {asc} of ascites has reaccumulated. The jet at the stenosis is {>190 cm/s}, the rest of the stent {<90 cm/s}, and the PPG has risen to {ppg}.',
       notes: 'Stenosis usually develops at the hepatic vein end of the stent, or in the hepatic vein beyond it, often from intimal hyperplasia at the junction of the stent and the hepatic vein. Along most of the stent the velocity falls, often <90 cm/s, while a short jet at the stenosis itself can exceed 190 cm/s. Doppler localizes the stenosis by its jet: the highest of the three velocities, with low velocity on either side, which is why all three points are sampled. The gradient rises again and the indication for the TIPS recurs: ascites, or varices that can bleed. Doppler raises the suspicion; it does not settle it. AASLD 2021: if ascites recurs after initial clearance, a TIPS venogram should be considered and the stent revised if a stenosis is found, with periodic Doppler surveillance in those patients; because Doppler can miss a stenosis, venography is considered in persistent or recurrent ascites even when the Doppler is unremarkable. A stenosed stent is treated with balloon angioplasty or a new stent, and the gradient is measured again. The model draws the stenosis as one short segment, about 1 cm long; in patients it can be longer or lie in the hepatic vein beyond the stent. Tap Proximal, Mid or Distal to move the stenosis along the stent; Dilated shows the stent after angioplasty.',

@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import { stentWaist, lossShares } from '../src/ui/stent-waist.js';
 import { alongCurve, LOSS_SPAN } from '../src/ui/pressure-along.js';
 import { lesionEase, GEOM_SNAP } from '../src/ui/lesion-ease.js';
-import { geomFix, profileAt, stentParts, waistSpan } from '../src/engine/stent-geom.js';
+import { geomFix, profileAt, stentParts, waistSpan, endSpan } from '../src/engine/stent-geom.js';
 import { STENT_SITES } from '../src/engine/topology.js';
 
 const N = 64, S = 0.6, W = 12, LEN = 160;
-const factors = (g, s = S, site = STENT_SITES.mid, id = 'T') => { const f = stentWaist(id, g, s, site, W, LEN); return Array.from({ length: 4 * N + 1 }, (_, i) => f(i / (4 * N))); };
+// (A narrowing mid stent is the waist, g.red; at an end, the end stenosis s: stent-geom.js, since 17 Nov 2026.)
+const factors = (g, s = S, site = STENT_SITES.mid, id = 'T') => { const f = site === STENT_SITES.mid ? stentWaist(id, { ...g, red: s }, 0, site, W, LEN) : stentWaist(id, g, s, site, W, LEN); return Array.from({ length: 4 * N + 1 }, (_, i) => f(i / (4 * N))); };
 // The narrowed stretch: the share of the stent's length where the lumen is below half way down.
 const narrowShare = (k, s = S) => k.filter((v) => v < 1 - s / 2).length / k.length;
 
@@ -60,9 +61,10 @@ test('the table is made once for the same numbers, and again when one changes', 
 
 // ── The pressure colour ──
 const flat = () => new Array(N).fill(1);
-const narrowed = (g, s = S, site = STENT_SITES.mid) => { const f = stentWaist('C', g, s, site, W, LEN); return Array.from({ length: N }, (_, i) => f(i / (N - 1))); };
+const narrowed = (g, s = S, site = STENT_SITES.mid) => { const f = stentWaist('C', { ...g, red: s }, 0, site, W, LEN); return Array.from({ length: N }, (_, i) => f(i / (N - 1))); };
 const steepest = (a) => { let m = 0, at = 0; for (let i = 1; i < a.length; i++) if (a[i] - a[i - 1] > m) { m = a[i] - a[i - 1]; at = i; } return { m, at: at / (a.length - 1) }; };
-const parts = (kind, d, q, s, g) => { const r = stentParts(kind, d, q, 1, s, g, {}); for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'total']) r[f] *= q; return r; };
+// (The narrowing here is the stent's mid waist, g.red = s: stent-geom.js, since 17 Nov 2026.)
+const parts = (kind, d, q, s, g) => { const r = stentParts(kind, d, q, 1, 0, { ...g, red: s }, {}); for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q; return r; };
 
 test('a uniform stent has no colour step: no curve at all, so the colour mixes by arc', () => {
   assert.equal(alongCurve(flat(), new Float32Array(N), { jet: 0.4, ends: 0.1, at: 0.6, dir: 1 }), null);
@@ -71,8 +73,11 @@ test('a uniform stent has no colour step: no curve at all, so the colour mixes b
 test('the jet is a rise at the waist\'s downstream end, and it moves to the other end when the flow reverses', () => {
   const g = geomFix({ len: 8, waist: 2, trans: 0 }, 'tips'), site = STENT_SITES.mid, k = narrowed(g);
   const pr = parts('tips', 10, 20, S, g);
-  const span = waistSpan(g, site, {});
-  const fwd = lossShares(pr, g, site, 1, {}), rev = lossShares(pr, g, site, -1, {});
+  const span = waistSpan(g, {});
+  const fw = lossShares(pr, g, site, 1, {}), rv = lossShares(pr, g, site, -1, {});
+  // (The waist's jet is the second one, jet2 at at2: the first is the end stenosis's, none here.)
+  const fwd = { jet: fw.jet2, at: fw.at2, dir: 1 }, rev = { jet: rv.jet2, at: rv.at2, dir: -1 };
+  assert.equal(fw.jet, 0, 'no end stenosis, no first jet');
   assert.ok(fwd.jet > 0.1 && fwd.jet < 0.9, `the jet's share, ${fwd.jet}`);
   assert.ok(Math.abs(fwd.at - span.b0) < 1e-9 && Math.abs(rev.at - span.a0) < 1e-9, 'the flow\'s sign picks the end');
   // With the friction alone, the colour falls fast across the waist; the jet's step is the steepest part, just past the end the flow leaves by.
@@ -146,15 +151,19 @@ test('a first write of a stent\'s geometry eases from its defaults, not from not
 });
 
 test('the profile the figure draws is the engine\'s profile: the same waist, the same ends (within the smoothing)', () => {
-  const g = geomFix({ len: 8, waist: 3, trans: 1 }, 'tips'), site = STENT_SITES.mid, f = stentWaist('E', g, S, site, W, LEN);
+  const g = geomFix({ len: 8, waist: 3, trans: 1, red: S }, 'tips'), site = STENT_SITES.distal, f = stentWaist('E', g, 0.4, site, W, LEN);
+  // (The end stenosis is abrupt: the smoothing rounds its two steps, so the match is judged away from them, and its depth at its middle.)
+  const e = endSpan(g, site, null), sig = (0.3 * W) / LEN, nearStep = (u) => Math.abs(u - e.a0) < 3 * sig || Math.abs(u - e.b0) < 3 * sig;
   let worst = 0;
-  for (let i = 0; i <= 200; i++) worst = Math.max(worst, Math.abs(f(i / 200) - profileAt(g, S, site, i / 200)));
+  for (let i = 0; i <= 200; i++) if (!nearStep(i / 200)) worst = Math.max(worst, Math.abs(f(i / 200) - profileAt(g, 0.4, site, i / 200)));
   assert.ok(worst < 0.06, `the figure follows profileAt to ${worst}`);
+  assert.ok(Math.abs(f(e.c) - 0.6) < 0.03, `the stenosis is drawn its full depth at its middle, ${f(e.c)}`);
+  assert.ok(Math.abs(f(0.5) - (1 - S)) < 0.03, `and the waist its full depth mid stent, ${f(0.5)}`);
 });
 
-test('a stent\'s site eases between the thirds, and a narrowing that comes stands where it is set', () => {
+test('a stent\'s stenosis eases between its ends, a waist never moves it, and a stenosis that comes stands where it is set', () => {
   const l = lesionEase(), mk = (site, geom = {}) => ({ stenosis: { TIPS: 0.6 }, thrombus: {}, stenosisSite: { TIPS: site }, stentGeom: geom });
-  const a = mk('mid');
+  const a = mk('proximal');
   assert.equal(l.view(a, 0), a);
   assert.equal(l.differs(a), false);
   const b = mk('distal');
@@ -162,17 +171,17 @@ test('a stent\'s site eases between the thirds, and a narrowing that comes stand
   const seen = [];
   for (let i = 0; i < 200 && l.differs(b); i++) seen.push(l.view(b, 1 / 60).stentSiteU?.TIPS ?? STENT_SITES.distal);
   assert.ok(seen.length > 8 && seen.length < 80, `${seen.length} frames`);
-  assert.ok(seen[0] > STENT_SITES.mid && seen[0] < STENT_SITES.distal, 'the first frame is a step on the way');
+  assert.ok(seen[0] > STENT_SITES.proximal && seen[0] < STENT_SITES.distal, 'the first frame is a step on the way');
   for (let i = 1; i < seen.length; i++) assert.ok(seen[i] >= seen[i - 1] && seen[i] - seen[i - 1] < 0.2, 'forward, in steps');
   assert.equal(l.view(b, 1 / 60), b, 'at rest the params themselves come back');
-  // A waist set along the stent puts the narrowing mid stent (topology.js stentSite): from the distal third it eases there, with the waist's length on the same clock.
-  const c = mk('distal', { TIPS: { len: 8, waist: 4, trans: 0 } });
+  // A waist set mid stent leaves the stenosis at its end: only the waist eases (17 Nov 2026: two narrowings, neither moves the other).
+  const c = mk('distal', { TIPS: { len: 8, waist: 4, trans: 0, red: 0.3 } });
   const first = l.view(c, 1 / 60);
-  assert.ok(first.stentSiteU.TIPS < STENT_SITES.distal && first.stentSiteU.TIPS > STENT_SITES.mid, 'the site is on its way');
-  assert.ok(first.stentGeom.TIPS.waist > 1 && first.stentGeom.TIPS.waist < 4, 'and so is the waist');
+  assert.ok(!first.stentSiteU || first.stentSiteU.TIPS === STENT_SITES.distal, 'the stenosis stays at the hepatic vein end');
+  assert.ok(first.stentGeom.TIPS.red > 0 && first.stentGeom.TIPS.red < 0.3, 'the waist closes in, eased');
   for (let i = 0; i < 200 && l.differs(c); i++) l.view(c, 1 / 60);
   assert.equal(l.differs(c), false);
-  // A narrowing that comes stands at its site at once.
+  // A stenosis that comes stands at its end at once.
   const fresh = lesionEase();
   fresh.view({ stenosis: {}, thrombus: {} }, 0);
   const d = fresh.view(mk('proximal'), 1 / 60);

@@ -319,15 +319,15 @@ export function createTransitions(st, live) {
   }
   // A stent's waist length as a dimension bracket along it: the waist's flat run, on the stent's left on screen, a hairline with a tick at each end (the mock
   // tips-geometry-on-figure.html). One mark (`brk:<stent>`): it fades in with the narrowing and out with it, and its ends slide with the waist as its length
-  // eases. The words are the clamp's callout, which the label solver places like every figure label: "Narrowed 8.0 to 6.0 mm × 1.5 cm", the open stent, the
-  // waist and its length (stage-clamps.js, stent-waist.js narrowedText). The bracket carries no words of its own: they would only repeat the callout (Mohammad, 17 Nov).
-  const brkG = { len: 0, waist: 0, trans: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
+  // eases. The words are the clamp's callout, which the label solver places like every figure label: "Waist 8.0 to 6.0 mm × 1.5 cm", the open stent, the
+  // waist and its length (stage-clamps.js, stent-waist.js waistText). Only the mid waist has a bracket; an end stenosis is its own callout (17 Nov 2026). The bracket carries no words of its own: they would only repeat the callout (Mohammad, 17 Nov).
+  const brkG = { len: 0, waist: 0, trans: 0, red: 0 }, brkS = { c: 0, a0: 0, a1: 0, b1: 0, b0: 0 };   // (read at once)
   function stentBracket(id, p) {
     const x = E[id], kind = stentKindOf(x?.e), L = geo[id]?.len;
     if (!kind || !(L > 0)) return;
     const g = stentGeomOf(p, id, kind, brkG);
-    if (g.waist < 0.25) { live.dimBoxes.delete(id); return; }
-    const w = waistSpan(g, siteU(p, id), brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
+    if (!(g.red > 0.004) || g.waist < 0.25) { live.dimBoxes.delete(id); return; }   // (no waist, no bracket)
+    const w = waistSpan(g, brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
     const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), off = sg * (x.width / 2 + (x.wallPx || 1) + 11);
     const f1 = (n) => n.toFixed(1);
     let d = '';
