@@ -78,6 +78,11 @@ test('the line under the chip names the width and the narrowing', () => {
   assert.equal(stentLine(null), 'No stent');
   assert.equal(stentLine({ d: 10, s: 0, dWaist: 10 }), '10 mm, open');
   assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6 }), '10 mm, narrowed to 6 mm');
+  // The two narrowings named apart (17 Nov 2026): the waist mid stent, the stenosis at its end.
+  assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6, red: 0.4, end: 0, site: 'distal', geom: { waist: 4 } }), '10 mm, waist 6 mm over 4 cm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0, end: 0.5, site: 'proximal', geom: { waist: 1 } }), '10 mm, proximal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0.3, end: 0.5, site: 'distal', geom: { waist: 2 } }), '10 mm, waist 7 mm over 2 cm, distal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 8, s: 0, dWaist: 8, red: 0, end: 0, site: 'distal', geom: { waist: 1 } }), '8 mm, open');
 });
 
 test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hidden; a stent lights it without moving anything', () => {
@@ -105,7 +110,7 @@ test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hi
 });
 
 test('the TIPS view fills its four readings from the stent; a stent taken away sends the view back to Measure', async () => {
-  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'mid' } }));
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4 } } }));
   ir.update(frameOf());
   await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
@@ -348,6 +353,41 @@ test('Along: the sub-switch has four views, and Along shows the side view with t
   ir.update(frameOf()); await wait(60);
   assert.equal(host.dataset.view, 'tips');
   assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
+});
+
+test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open the card"): two slim rows, the end stenosis and the waist apart, and a change reaches the params', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  const ed = ir.el.querySelector(':scope > .ir-editor > .stent-editor');
+  assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
+  assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
+  const ctl = [...ed.querySelectorAll('.se-cell')].map((c) => c.dataset.ctl);
+  assert.deepEqual(ctl, ['diameter', 'narrow', 'site', 'waistD', 'waist', 'ends'], 'row 1 the stent and its end stenosis, row 2 its mid waist');
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \{ display: grid; grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.05fr\);/, 'three columns: two rows of three cells');
+  assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
+  // With no stenosis and no waist, the end, the waist's length and its ends dim where they stand.
+  const dim = (id) => ed.querySelector(`[data-ctl="${id}"]`).classList.contains('se-dim');
+  assert.ok(dim('site') && dim('waist') && dim('ends') && !dim('narrow') && !dim('waistD'));
+  // A waist set from the view is a waist, mid stent: it leaves the end stenosis alone.
+  const slide = (id, v) => { const i = ed.querySelector(`[data-ctl="${id}"] input`); i.value = String(v); i.dispatchEvent(new window.Event('input')); i.dispatchEvent(new window.Event('change')); };
+  slide('waistD', 0.4);
+  await wait(30);
+  let p = store.get().params;
+  assert.equal(p.stentGeom.TIPS.red, 0.4);
+  assert.ok(!(p.stenosis?.TIPS > 0), 'no stenosis made');
+  assert.ok(!dim('waist') && !dim('ends'), 'the waist\'s length and ends wake');
+  // A stenosis set and moved to the portal vein end: the waist stays.
+  slide('narrow', 0.5);
+  await wait(30);
+  ed.querySelector('[data-ctl="site"] button').click();
+  await wait(30);
+  p = store.get().params;
+  assert.equal(p.stenosis.TIPS, 0.5);
+  assert.equal(p.stenosisSite.TIPS, 'proximal');
+  assert.equal(p.stentGeom.TIPS.red, 0.4, 'the waist stays mid stent');
+  assert.equal(ed.querySelector('[data-ctl="site"] button').getAttribute('aria-pressed'), 'true');
+  assert.equal(ed.querySelector('[data-ctl="narrow"] .se-val').textContent, '5.0 mm', 'the millimetres first');
+  assert.equal(ed.querySelector('[data-ctl="narrow"] .se-sub').textContent, '50%', 'then the percentage, which a phone leaves out');
 });
 
 test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {

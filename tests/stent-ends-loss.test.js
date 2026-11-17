@@ -7,9 +7,11 @@ import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
 
+// (The waist is stentGeom.red, mid stent, since the two narrowings, 17 Nov 2026: an end stenosis is always a short abrupt segment, so Tapered is the waist's.)
+
 const tipsAt = (s, trans, d = 8) => {
   const e = new Engine(); e.loadPreset('cirr-decomp');
-  e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d }, stenosis: { TIPS: s }, stentGeom: { TIPS: { trans } }, pulsatile: false, respiration: false })));
+  e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d }, stentGeom: { TIPS: { trans, red: s } }, pulsatile: false, respiration: false })));
   e.settle(3);
   return computeMetrics(e).tips;
 };

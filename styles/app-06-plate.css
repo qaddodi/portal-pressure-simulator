@@ -450,7 +450,23 @@
 .ir-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .ir-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-line { flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
-.ir-edit { margin-left: auto; flex: none; }
+/* The stent editor (stent-editor.js), built into the TIPS view: two slim rows, the stent and its end stenosis, then its mid waist; each cell its name and value over
+   its slider or its choice, the columns lined up. It fades in with the view and its cells when the chip changes stent; a control that does nothing now dims, never hidden. */
+.ir-editor { flex: none; }
+.stent-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr); gap: 4px 12px; padding: 6px 10px 4px; border: 1px solid var(--border); border-radius: var(--r-tile, 10px); background: var(--surface-2); animation: crossfade var(--d-small) var(--ease); }
+.stent-editor .se-cell { min-width: 0; display: flex; flex-direction: column; gap: 1px; animation: crossfade var(--d-small) var(--ease); transition: opacity var(--d-small) var(--ease); }
+.stent-editor .se-cell.se-dim { opacity: .42; }
+.stent-editor .se-top { display: flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; font-size: 11.5px; line-height: 16px; }
+.stent-editor .se-name { flex: none; font-weight: 600; color: var(--text-2); }
+.stent-editor .se-val { flex: none; color: var(--text); font-variant-numeric: tabular-nums; }
+.stent-editor .se-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.stent-editor .se-range { height: 26px; }
+.stent-editor .se-seg { margin-top: 2px; }
+.stent-editor .se-seg button { padding: 3px 4px; font-size: 11.5px; min-width: 0; }
+@container (max-width: 420px) {
+  .stent-editor { gap: 3px 8px; padding: 5px 8px 3px; }
+  .stent-editor .se-sub { display: none; }   /* (a phone: the millimetres stay, the percentage goes) */
+}
 .ir-tips .ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }   /* (four readings two by two in a narrow card, in one row from 400 px: below) */
 .ir-tiles .metric { padding: 6px 8px 5px; }
 .ir-tiles .metric .k { font-size: 11.5px; line-height: 1.2; }

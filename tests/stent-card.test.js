@@ -69,15 +69,15 @@ test('a part\'s number is on its segment once it fits it, at any size of words, 
 });
 
 test('the narrowing is where the profile says: the waist is s narrower, the open stent the full diameter, and a longer waist draws more of it', () => {
-  const buf = new Float64Array(4 * (N_PROFILE + 1)), dPx = 10 * SIDE.pxMm, g = geomFix({ len: 8, waist: 2, trans: 0 }, 'tips');
-  stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0.5, g, 0.5);
+  const buf = new Float64Array(4 * (N_PROFILE + 1)), dPx = 10 * SIDE.pxMm, g = geomFix({ len: 8, waist: 2, trans: 0, red: 0.5 }, 'tips');
+  stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0, g, 0.5);   // (a 50 % waist mid stent, no end stenosis: 17 Nov 2026, the two narrowings)
   const half = (i) => -buf[2 * i + 1], mid = N_PROFILE / 2;
   assert.ok(Math.abs(half(0) - dPx / 2) < 1e-9, 'open at the portal end');
   assert.ok(Math.abs(half(mid) - (dPx / 2) * 0.5) < 1e-9, 'half the diameter at the waist');
-  const narrow = (waist) => { const gg = geomFix({ len: 8, waist, trans: 0 }, 'tips'); let n = 0; stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0.5, gg, 0.5); for (let i = 0; i <= N_PROFILE; i++) if (half(i) < dPx / 2 - 1e-6) n++; return n; };
+  const narrow = (waist) => { const gg = geomFix({ len: 8, waist, trans: 0, red: 0.5 }, 'tips'); let n = 0; stentOutline(buf, 0, 8 * SIDE.pxCm, 0, dPx, 0, 0, gg, 0.5); for (let i = 0; i <= N_PROFILE; i++) if (half(i) < dPx / 2 - 1e-6) n++; return n; };
   assert.ok(narrow(3) > narrow(1) && narrow(1) > narrow(0), 'a waist that is longer is narrow over more of the stent');
   const w = waistSpan(g, 0.5);
-  assert.ok(Math.abs(profileAt(g, 0.5, 0.5, w.c) - 0.5) < 1e-12);
+  assert.ok(Math.abs(profileAt(g, 0, 0.5, w.c) - 0.5) < 1e-12);
 });
 
 test('the printed parts add up to the printed drop, whatever the split', () => {

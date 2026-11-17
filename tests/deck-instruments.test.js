@@ -235,8 +235,9 @@ test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits
   assert.equal(lumenLabel('TIPS', null, 'mid'), 'Mid TIPS');
   // Where a stent is cut: the slide's site, else its narrowing's segment, distal if unset (scenario.js).
   assert.equal(lumenSite({}, 'TIPS'), 'distal');
-  assert.equal(lumenSite({ stenosisSite: { TIPS: 'mid' } }, 'TIPS'), 'mid');
-  assert.equal(lumenSite({ stenosisSite: { TIPS: 'mid' } }, 'TIPS', 'proximal'), 'proximal');
+  assert.equal(lumenSite({ stenosisSite: { TIPS: 'proximal' } }, 'TIPS'), 'proximal');
+  assert.equal(lumenSite({ stentGeom: { TIPS: { red: 0.4 } } }, 'TIPS'), 'mid', 'a waist the tightest narrowing: cut mid stent');
+  assert.equal(lumenSite({ stentGeom: { TIPS: { red: 0.4 } } }, 'TIPS', 'proximal'), 'proximal');
   assert.equal(lumenLabel('PV_TRUNK', 'Superior MV'), 'Superior MV');
   assert.equal(lumenLabel('PV_TRUNK', '  '), 'Portal vein');
   // Every built-in name fits inside the inner wall, 2 units clear each side, at the word's font (9 to 10 units from 1.2 px per
