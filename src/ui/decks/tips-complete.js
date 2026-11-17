@@ -253,7 +253,7 @@ export const TIPS_COMPLETE = {
       tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'],
       vignette: 'A 31-year-old woman with Budd–Chiari syndrome has worsening symptoms despite anticoagulation. Imaging shows no hepatic vein that can be recanalized.',
       kicker: 'Other shunts', site: 'post', title: 'When no hepatic vein can be used, a DIPS from the IVC decompresses the liver',
-      line: 'A TIPS needs a hepatic vein, and none can be used. A DIPS runs from the IVC through the caudate lobe to the portal vein, lowering the pressure to {pv}.',
+      line: 'A TIPS needs a hepatic vein, and none can be used. A DIPS runs from the IVC through the liver to the portal vein, lowering the pressure to {pv}.',
       notes: 'Source: Baveno VIII 8.34. When medical management alone is insufficient and recanalization is not an option or has failed, TIPS is the recommended next step. A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are occluded the stent runs from the IVC through the caudate lobe to the portal vein, a direct intrahepatic portosystemic shunt (DIPS). Baveno VIII gives no DIPS recommendation outside hepatic vein outflow obstruction. The buttons compare the TIPS and the DIPS in the same patient.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are occluded?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead (a DIPS).'],
     },

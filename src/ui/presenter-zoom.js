@@ -718,8 +718,9 @@ export function createZoom(st, live) {
       // changes another's room. Read and written tile by tile, each read laid the card out again.)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const allNames = [...el.querySelectorAll('.pz-tiles .pzt-k')];
-      const names = allNames.filter((k) => k.hasAttribute('data-s'));
-      for (const k of allNames) k.classList.remove('short', 'wrap');
+      for (const k of allNames) k.classList.remove('wrap');
+      const names = [...el.querySelectorAll('.pz-tiles .pzt-k[data-s]')];
+      for (const k of names) k.classList.remove('short');
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       const shorts = names.filter((k) => { const t = k.parentElement, cs = readStyle(t), room = readMetric(t, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return room > 0 && readMetric(k, 'scrollWidth') > room + 0.5; });
       for (const k of shorts) k.classList.add('short');

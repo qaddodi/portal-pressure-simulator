@@ -490,8 +490,9 @@
 .ir-tiles .metric .k { font-size: 11.5px; line-height: 1.2; }
 .ir-tiles .metric .v { font-size: calc(var(--fs-20) * .9); }
 .ir-tiles .metric .s { min-height: 0; }
-/* In a narrow card each reading is one line (name, number), its word under it only when it has one. */
-@container (max-width: 399.9px) { .ir-tips .ir-tiles .metric { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "k v" "s s"; align-items: baseline; column-gap: 6px; } .ir-tips .ir-tiles .metric .k { grid-area: k; } .ir-tips .ir-tiles .metric .v { grid-area: v; } .ir-tips .ir-tiles .metric .s { grid-area: s; } }
+/* In a narrow card each reading is its name over its number, the name on one or two lines and never broken inside a word, the number under it, its word under that (17 Nov 2026, F37: side by side, the name got
+   a sliver of the tile and broke as "Acr / oss / ste / nt"). The tiles of a row are as tall as the tallest, and each reading starts at its tile's top. */
+@container (max-width: 399.9px) { .ir-tips .ir-tiles .metric { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "k" "v" "s"; align-content: start; row-gap: 1px; } .ir-tips .ir-tiles .metric .k { grid-area: k; white-space: normal; overflow-wrap: normal; word-break: normal; hyphens: none; text-wrap: balance; } .ir-tips .ir-tiles .metric .v { grid-area: v; } .ir-tips .ir-tiles .metric .s { grid-area: s; } }
 @container (min-width: 400px) { .ir-tips .ir-tiles.rp-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 /* The stent cards under the tiles (ir-tips.js, tool-stent.js): the side view and the bar of where the pressure goes, each a wide picture drawn on the GPU over a box
    of its own shape (the aspect ratio is on the box), one above the other, as wide as the card allows (the same as the deck's, app-11-deck-visuals.css). */
