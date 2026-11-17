@@ -35,3 +35,23 @@ for (const preset of ['budd-chiari', 'pvt-chronic', 'pvt-acute', 'svt']) {
     }
   });
 }
+
+// The phone's card draws its in → out bar from spanOfEdge (actions.js), a path of its own: it must read the same nodes.
+for (const preset of ['budd-chiari', 'pvt-chronic']) {
+  test(`${preset}: the card's in → out bar reads the whole vein's end nodes, whichever piece the card is opened on`, async () => {
+    const { spanOfEdge } = await import('../src/ui/actions.js');
+    const e = new Engine();
+    e.loadPreset(preset);
+    const f = e.snapshot(), PF = f.Pf || f.P, p = e.params;
+    let n = 0;
+    for (const x of EDGES.filter((y) => p.thrombus?.[partOf(y.id)] > 0 && !y.shunt)) {
+      const ends = JUNCTION_HOST_ENDS[partOf(x.id)] || [x.from, x.to], k = EDGES.indexOf(x);
+      const q = f.Qf ? f.Qf[k] : f.Q[k], pair = q >= -0.01 ? ends : [ends[1], ends[0]];
+      const s = spanOfEdge(x).at(f);
+      assert.equal(one(s.a), one(PF[NI[pair[0]]]), `${x.id}: in`);
+      assert.equal(one(s.b), one(PF[NI[pair[1]]]), `${x.id}: out`);
+      n++;
+    }
+    assert.ok(n > 0);
+  });
+}

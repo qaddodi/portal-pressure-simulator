@@ -103,11 +103,13 @@ function mmNum(c, x) { const big = x >= 9.95, k = big ? 1e6 + Math.round(x) : te
 // The pressure where the blood comes in and where it leaves, and the drop between them (the card's bar): written into SPAN, a kept
 // object the card reads at once. `ok` false: not measured here (the lens hides it, or the case has not measured the HVPG).
 const SPAN = { a: 0, b: 0, d: 0, ok: true };
-function spanOfEdge(e) {
-  const k = EI[e.id], i1 = NI[e.from], i2 = NI[e.to];
+// (A vein a shunt's junction splits in pieces reads its whole course, from the host's first end to its last, never the ends of the piece the card was opened on:
+// the clotted right hepatic vein read 4.0 → 4.0, the piece beside the cava, while the map showed 24.8 at its sinusoidal end, play-test 17 Nov 2026.)
+export function spanOfEdge(e) {
+  const k = EI[e.id], ends = JUNCTION_HOST_ENDS[partOf(e.id)], i1 = NI[ends ? ends[0] : e.from], i2 = NI[ends ? ends[1] : e.to];
   return { el: null, dn: null, cut: null, at: (f) => {
     const PF = f.Pf || f.P, q = f.Qf ? f.Qf[k] : f.Q[k];
-    if (q >= 0) { SPAN.a = PF[i1]; SPAN.b = PF[i2]; } else { SPAN.a = PF[i2]; SPAN.b = PF[i1]; }
+    if (q >= -0.01) { SPAN.a = PF[i1]; SPAN.b = PF[i2]; }   // (a vein with no flow through it, a clot, reads in its own direction: the sign of nothing flips the bar) else { SPAN.a = PF[i2]; SPAN.b = PF[i1]; }
     SPAN.d = SPAN.a - SPAN.b; SPAN.ok = true;
     return SPAN;
   } };
