@@ -128,7 +128,8 @@ export function createClamps(st, live) {
     const p0x = c.x + c.nx * 1 * d - c.ny * t, p0y = c.y + c.ny * 1 * d + c.nx * t, p1x = c.x + c.nx * -1 * d - c.ny * t, p1y = c.y + c.ny * -1 * d + c.nx * t;
     const xs = clampXs;
     xs[0] = worldToLocalInto(clampTmp, p0x, p0y)[0]; xs[1] = worldToLocalInto(clampTmp, p1x, p1y)[0];
-    const k = away && (away === 'W') !== (xs[0] < xs[1]) ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5;
+    const sib = c.opp && c.vessel === live.clampFor ? live.clampAway : null;   // (the end's words in the stent's column: the waist takes the column's other side)
+    const side = (a) => ((a === 'W') !== (xs[0] < xs[1]) ? 1 : 0), k = away ? side(away) : sib ? 1 - side(sib) : c.opp ? 1 : 0, left = xs[k] < xs[1 - k] - 0.5;
     const q = clampPos;   // (kept, rewritten: every caller reads it at once)
     q.x = k ? p1x : p0x; q.y = k ? p1y : p0y; q.left = left;
     const gap = (6 * live.clampBase) / 12 / Math.max(live.CTM?.sc || 1, 1e-3), deg = rotDeg();   // (6 px on screen at 12 px text, the text's own offset from its spot, in step with the text's size)
@@ -262,7 +263,10 @@ export function createClamps(st, live) {
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
       lab._txt = txt;
-      lab._c = { id, vessel, x, y, nx, ny, off };   // (id: the clamp's key; vessel: the vessel it narrows, which differs for a stent's waist, `<stent>~waist`: its own stent is the one vessel its words may stand over) clampLabelAt(lab); clampFontAt(lab);
+      // (A waist whose stent is also narrowed at an end stands on the other side of the stent from the end's words, so the two never crowd one
+      // side: F20, 17 Nov 2026.)
+      const opp = id !== vessel && want.has(vessel);
+      lab._c = { id, vessel, x, y, nx, ny, off, opp }; clampLabelAt(lab); clampFontAt(lab);   // (id: the clamp's key; vessel: the vessel it narrows, which differs for a stent's waist, `<stent>~waist`: its own stent is the one vessel its words may stand over)
       clampW.append(lab);
       clampShade(id);
     };

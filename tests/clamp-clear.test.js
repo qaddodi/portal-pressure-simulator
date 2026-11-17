@@ -16,6 +16,7 @@ for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy
     const r = run(o);
     assert.ok(r.cl.some((c) => /^(Narrowed|Distal|Proximal|Waist)/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
     assert.deepEqual(r.lap, []);
+    assert.deepEqual(r.cross, []);
   });
 }
 
@@ -32,12 +33,13 @@ for (const card of [true, 'half', 'top']) {   // ('top': a bar across the top of
 
 // A stent with an end stenosis and a waist both narrowed has two callouts ("Distal stenosis …", "Waist …"): they never stand on each other, and
 // each holds its place while the figure stands (the stent thread's heads-up, 17 Nov 2026).
-test('a stent\'s end stenosis and waist callouts stand apart', { timeout: 320000 }, () => {
+test('a stent\'s end stenosis and waist callouts stand apart, on a real gap, and no leader runs through them', { timeout: 320000 }, () => {
   const r = run({ size: 'mac', view: 'anatomy', s: 0.5, waist: 2, red: 0.4 });
   const w = r.cl.filter((c) => c.box[2] > c.box[0]);
   assert.ok(w.length >= 2, `two callouts: ${JSON.stringify(r.cl)}`);
+  assert.deepEqual(r.cross, []);
   for (let i = 0; i < w.length; i++) for (let j = i + 1; j < w.length; j++) {
-    const a = w[i].box, b = w[j].box;
-    assert.ok(!(a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]), `${w[i].t} over ${w[j].t}`);
+    const a = w[i].box, b = w[j].box, g = 8;   // (their boxes are grown 6 px each: 8 more is a real gap between the words)
+    assert.ok(!(a[0] - g < b[2] && a[2] + g > b[0] && a[1] - g < b[3] && a[3] + g > b[1]), `${w[i].t} crowds ${w[j].t}`);
   }
 });

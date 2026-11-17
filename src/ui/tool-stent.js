@@ -32,7 +32,7 @@ import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } fr
 import { smooth01 } from './num.js';
 import { createTracePic, traceFor, gateIndex, PANELS } from './stent-trace-pic.js';
 import { makeTrace, TRACE_N } from '../engine/stent-trace.js';
-import { readMetric } from './layout-snap.js';
+import { readMetric, readBox } from './layout-snap.js';
 
 const nextFrame = frameFor('stent');
 const sv = svgModel;
@@ -220,11 +220,6 @@ export function createStent() {
   const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   const ghostP = sv('path', { 'data-look': 'stent.ghost' });
-  // the flow: short streaks carried along the lumen at its own speed (faster where it narrows), one path of NP streaks, each a tail and a head
-  const GATES = [1 / 6, 0.5, 5 / 6];   // (the Doppler's three points, as fractions of the stent)
-  const NP = 36, flowBuf = new Float64Array(NP * 6), flowP = sv('path', { 'data-look': 'stent.flow' });
-  const fx = new Float64Array(NP), fl = new Float64Array(NP);
-  for (let i = 0; i < NP; i++) { fx[i] = ((i * 0.618034) % 1) * VW; fl[i] = ((((i * 0.381966) % 1) * 2) - 1) * 0.78; }
   const stops = Array.from({ length: N_STOPS }, (_, i) => sv('stop', { offset: (i / (N_STOPS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: a gradient's first stops, written at the first paint
   const grad = sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: S.x0, y1: 0, x2: S.x0 + S.span, y2: 0 }, stops);
   const stopsP = Array.from({ length: N_STOPS }, (_, i) => sv('stop', { offset: (i / (N_STOPS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: a gradient's first stops, written at the first paint
@@ -240,6 +235,7 @@ export function createStent() {
   const cap = sv('text', { 'data-look': 'stent.cap', x: VW / 2, y: S.capY, 'text-anchor': 'middle' });
   const none = sv('text', { 'data-look': 'stent.word', x: VW / 2, y: S.cy, 'text-anchor': 'middle' });
   // the pressure lens: the same three points read in mmHg, its caption, and the colour keys (a strip of the ramp with its ends named)
+  const GATES = [1 / 6, 0.5, 5 / 6];   // (the Doppler's three points, as fractions of the stent)
   const numsP = [0, 1, 2].map(() => sv('text', { 'data-look': 'stent.num', y: S.numY, 'text-anchor': 'middle' }));
   const capP = sv('text', { 'data-look': 'stent.cap', x: VW / 2, y: S.capY, 'text-anchor': 'middle' });
   const KEYW = 110, KX = (VW - KEYW) / 2, NKS = 11;
@@ -251,9 +247,9 @@ export function createStent() {
   const barP = sv('rect', { 'data-look': 'stent.key.bar', x: KX, y: S.keyY - 2.5, width: KEYW, height: 5, fill: `url(#${gid}kp)` });
   const kEnds = [['slower', KX - 5, 'end'], ['faster', KX + KEYW + 5, 'start'], ['0', KX - 5, 'end'], ['30', KX + KEYW + 5, 'start']].map(([t, x, a]) => { const e = sv('text', { 'data-look': 'stent.cap', x, y: S.keyY, 'text-anchor': a }); setWords(e, t); return e; });
   const nBuf = [new Float64Array(4), new Float64Array(4)], nTicks = [0, 1].map(() => sv('path', { 'data-look': 'stent.gate.tick' }));   // (the usual range's two edges on the velocity strip)
-  setWords(none, 'No stent'); setWords(cap, 'Doppler peak, cm/s'); setWords(capP, 'Static pressure, mmHg');
+  setWords(none, 'No stent'); setWords(cap, 'Peak at each gate, cm/s'); setWords(capP, 'Static pressure, mmHg');
   const picL = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${S.h}`, role: 'img' },
-    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, flowP, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
+    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
 
   // ── the pressure bar's pieces ──
   const B = BAR;
@@ -384,34 +380,6 @@ export function createStent() {
   const fix = { len: 8, waist: 1, trans: 0, red: 0 }, MESH = { cy: 0, x0: 0, dPx: 0, s: 0, sh: fix, site: 0, L: 0 };
   // the stent's frame for the figure's own device drawing: a along its length, side across (-1 to 1) at the lumen's wall there
   const frame = (a, side) => { const u = a / MESH.L; return [MESH.x0 + a, MESH.cy + side * (MESH.dPx * profileAt(MESH.sh, MESH.s, MESH.site, u)) / 2]; };
-  // The streaks' speed is the flow's through the lumen there: the open stent's rate times (its half width over the lumen's)^1.4, a little less than the continuity's square so a
-  // tight waist reads fast without turning to a blur. A frame that stalls (a hidden tab) moves them by no more than 50 ms.
-  let flowT = 0, flowRate = 0, flowShown = 0, lastEx = 0, geomDirty = true;
-  const hwAt = (x) => {
-    if (x < MESH.x0 || x > MESH.x0 + MESH.L) return S.stubH / 2;
-    const i = clamp(Math.round(((x - MESH.x0) / MESH.L) * N_PROFILE), 0, N_PROFILE);
-    return Math.max(0.8, MESH.cy - lumBuf[2 * i + 1]);
-  };
-  function stepFlow(now) {
-    const dt = flowT > 0 ? Math.min(0.05, Math.max(0, (now - flowT) / 1000)) : 0;
-    flowT = now;
-    if (!(MESH.dPx > 0)) return;
-    const u0 = flowRate, hw0 = MESH.dPx / 2;
-    for (let i = 0; i < NP; i++) {
-      const hw = hwAt(fx[i]);
-      fx[i] += u0 * Math.pow(hw0 / hw, 1.4) * dt;
-      if (fx[i] > VW + 12) fx[i] -= VW + 24;
-    }
-  }
-  function drawFlow(ex) {
-    const hw0 = MESH.dPx / 2;
-    for (let i = 0; i < NP; i++) {
-      const x = fx[i], hw = hwAt(x), sp = flowRate * Math.pow(hw0 / Math.max(0.8, hw), 1.4), len = clamp(sp * 0.09, 2, 26), y = MESH.cy + fl[i] * hw, b = 6 * i;
-      flowBuf[b] = x - len; flowBuf[b + 1] = y; flowBuf[b + 2] = x; flowBuf[b + 3] = y; flowBuf[b + 4] = NaN; flowBuf[b + 5] = 0;
-    }
-    setPts(flowP, flowBuf, NP * 3, false);
-    setGeo(flowP, 'opacity', ex * flowShown);
-  }
   /** The rows for words of size fs: where each row of the side view sits, and the picture's height (its box follows). */
   function placeSide(fs) {
     sideLayout(fs, S);
@@ -425,8 +393,9 @@ export function createStent() {
     setGeo(picL, 'viewBox', `0 0 ${VW} ${S.h.toFixed(1)}`);
     stageL.style.aspectRatio = `${VW} / ${S.h.toFixed(1)}`;
   }
+  const meshKey = new Float64Array(11);   // the numbers the device's mesh was last made from
   const capWords = new Map();   // alloc-rare: a usual range's caption, made when first met
-  const usualCaption = (lo, hi) => { const k = Math.round(lo) * 1000 + Math.round(hi); let w = capWords.get(k); if (!w) { w = `Doppler peak, cm/s (usual ${Math.round(lo)} to ${Math.round(hi)})`; capWords.set(k, w); } return w; };
+  const usualCaption = (lo, hi) => { const k = Math.round(lo) * 1000 + Math.round(hi); let w = capWords.get(k); if (!w) { w = `Peak at each gate, cm/s (usual ${Math.round(lo)} to ${Math.round(hi)})`; capWords.set(k, w); } return w; };
   function paintLumen(v) {
     const sh = geomFix({ len: v[CH.len] * SCALE[CH.len], waist: v[CH.waist] * SCALE[CH.waist], trans: v[CH.trans] * SCALE[CH.trans], red: v[CH.red] }, kind(), fix);
     // (the stent fills the picture's span whatever its length: to scale, but for a short stent, whose width would grow past what the picture holds, the lumen is drawn no taller than 3.3 units a mm)
@@ -470,8 +439,14 @@ export function createStent() {
     setWords(cap, usualCaption(bLo, bHi));
     // the device over it, as the figure draws it (a covered stretch with its rings, the bare stretch at the portal end, the gold band and tab), following the lumen's wall
     MESH.cy = cy; MESH.x0 = x0; MESH.dPx = dPx; MESH.s = s; MESH.sh = sh; MESH.site = site; MESH.L = L;
-    const m = stentLookD(frame, L, bareOf(L, sh.len), 1);
-    for (let i = 0; i < WIRES.length; i++) setPolys(wires[i], flattenPath(m[WIRES[i]] || ''));
+    // (the mesh depends on these numbers only: when none changed since the last paint, say a colour or lens crossfade, the wires stay as they are)
+    const mk = meshKey;
+    const same = mk[7] === 1 && mk[0] === cy && mk[1] === x0 && mk[2] === dPx && mk[3] === s && mk[4] === site && mk[5] === L && mk[6] === sh.len && mk[8] === sh.waist && mk[9] === sh.trans && mk[10] === sh.red;
+    if (!same) {
+      mk[0] = cy; mk[1] = x0; mk[2] = dPx; mk[3] = s; mk[4] = site; mk[5] = L; mk[6] = sh.len; mk[7] = 1; mk[8] = sh.waist; mk[9] = sh.trans; mk[10] = sh.red;
+      const m = stentLookD(frame, L, bareOf(L, sh.len), 1);
+      for (let i = 0; i < WIRES.length; i++) setPolys(wires[i], flattenPath(m[WIRES[i]] || ''));
+    }
     // (the covered stretch tinted as the cover is, over the lumen: the same outline, from where the bare stretch ends)
     const ub = clamp(bareOf(1, sh.len), 0, 0.9);
     for (let i = 0; i <= N_PROFILE; i++) {
@@ -503,9 +478,6 @@ export function createStent() {
     }
     const span = gateIdx >= 0 ? STENT_SPANS[['proximal', 'mid', 'distal'][gateIdx]] : STENT_SPANS.mid;
     setGeo(band, 'x', x0 + span[0] * L); setGeo(band, 'width', (span[1] - span[0]) * L); setGeo(band, 'opacity', gateIdx >= 0 ? ex : 0);
-    const fq = Math.abs(v[CH.flow] * SCALE[CH.flow]);
-    flowRate = 24 * clamp(fq / 1.2, 0.3, 1.8); flowShown = smooth01(fq / 0.1);   // (a stopped stent has none: they fade as its flow does)
-    drawFlow(ex); lastEx = ex;
     glL.paint();
   }
 
@@ -578,29 +550,22 @@ export function createStent() {
   }
 
   const reduce = typeof matchMedia === 'function' ? reduceMotionMQ : null;
-  // The streaks run while the stent's side view is in view, flowing, and motion is allowed; nothing is painted for a card that is hidden, off the screen or in a hidden tab.
-  let inView = true, wasMoving = false;
-  const flowOn = () => has('lumen') && have && el.isConnected && inView && !reduce?.matches && !(typeof document !== 'undefined' && document.hidden) && fol.v[CH.ex] > 0.5 && Math.abs(fol.v[CH.flow] * SCALE[CH.flow]) > 0.02;
   function tick() {
     raf = 0;
-    const now = easeNow(), moving = fol.at(now), flowing = flowOn();
-    if (flowing) stepFlow(now); else flowT = 0;
-    // (a frame that only carries the streaks on moves them and draws; the outline, the device's rings and the colours are made only when something changed)
-    if (!moving && !wasMoving && flowing && !geomDirty) { drawFlow(lastEx); glL.paint(); } else { paintAll(); geomDirty = false; }
-    wasMoving = moving;   // (the frame the follower arrives is drawn whole, with its last numbers)
-    if ((moving || flowing) && el.isConnected) raf = nextFrame(tick);
+    const moving = fol.at(easeNow());
+    paintAll();
+    if (moving && el.isConnected) raf = nextFrame(tick);
     else { if (moving) { fol.snap(fol.to); paintAll(); } animating(false); writeAriaSoon(); }
   }
-  const kick = () => { if (!raf && flowOn()) { animating(true); raf = nextFrame(tick); } };
   function refresh(live) {
-    read(live); geomDirty = true;
+    read(live);
     if (!hasShown || reduce?.matches || !el.isConnected) {
       fol.snap(goal); hasShown = true;
       if (raf) { cancelFrame(raf); raf = 0; }
-      animating(false); paintAll(); writeAriaSoon(); kick(); return;
+      animating(false); paintAll(); writeAriaSoon(); return;
     }
     if (fol.goal(goal, easeNow())) { animating(true); if (!raf) raf = nextFrame(tick); return; }
-    kick();   // (still, and nothing it shows changed: no redraw, but the flow goes on)
+    // (still, and nothing it shows changed: no redraw)
   }
 
   function configure(t) {
@@ -649,14 +614,21 @@ export function createStent() {
       paintLumen(fol.v); glL.relook(); glT?.relook(); glB.relook();
     }
   };
-  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { inView = es[es.length - 1].isIntersecting; if (inView) kick(); }) : null;
-  io?.observe(el);
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fitAll) : null;
   ro?.observe(stageL); ro?.observe(stageB);
-  const dispose = () => { ro?.disconnect(); io?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
+  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
   return {
     el, configure, dispose,
     /** The card's shape as it is now: its width over the height of what it shows (the side view and the chart under it, in the pictures' own units). Moves with the words' size. */
+    /** Where a pointer is on the side view, for an editor that drags the narrowing on the drawing: u along the stent (0 the portal end, 1 the hepatic end), r its distance
+     *  from the axis as a share of the open stent's radius (0 the axis, 1 the open wall), side (-1 above the axis, 1 under) and whether it is over the stent. null while the card has no size.
+     *  Reads the picture's box once, as a pointer event does. */
+    at(clientX, clientY) {
+      const b = readBox(stageL);
+      if (!b || !(b.width > 0)) return null;
+      const k = b.width / VW, x = (clientX - b.left) / k, y = (clientY - b.top) / k, u = (x - S.x0) / S.span, half = Math.max(1, MESH.dPx / 2), dy = y - S.cy;
+      return { u: clamp(u, 0, 1), r: Math.abs(dy) / half, side: dy < 0 ? -1 : 1, over: u >= 0 && u <= 1 && Math.abs(dy) <= half * 1.25 };
+    },
     /** What a y on the pressure chart reads (mmHg, absolute), as last drawn: the gates' labels must agree with it. */
     pressureAt: (y) => (tp ? tp.pressureAt(y) : NaN),
     ratio() { return VW / ((has('lumen') ? S.h : 0) + (has('trace') && tp ? tp.height() : 0) + (has('loss') ? B.h : 0)); },

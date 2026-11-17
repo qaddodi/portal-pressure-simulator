@@ -333,7 +333,7 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: calc\(min\(100cqw, var\(--fig-min, 340px\)\) \/ var\(--fig-r, 1\.35\) \+ 6px\); container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
   assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/);
   assert.match(plate, /\.ir-inside \{ flex: 1 0 auto;/, 'the readings and the smallest readable picture are never squeezed');
-  assert.match(plate, /\.ir-tips \{[^}]*overflow-y: auto;/, 'the last resort is a scroll, not small text');
+  assert.match(plate, /\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, 'the last resort is a scroll down, never sideways (overflow-y alone makes x scroll too: F-sideways, 17 Nov)');
   assert.match(plate, /\.ir-tiles \.rb \{ display: none; \}/, 'the readings are numbers and words; the bar went to the picture\'s room');
   // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
@@ -588,4 +588,10 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
   // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).
   assert.match(read('src/ui/dock.js'), /onClose\(\);\n(?:\s*\/\/.*\n)*\s*for \(const p of panes\) p\.shown\?\.\(false\);/);
+});
+
+test('No Tests pane scrolls sideways: the pane and the TIPS view clip x and take vertical pans only', async () => {
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.instrument-workspace \.dock-pane \{[^}]*overflow: hidden auto; touch-action: pan-y;/, 'every Tests pane');
+  for (const rule of plate.match(/\.ir-[\w-]*[^{}]*\{[^}]*overflow-y: (?:auto|scroll)[^}]*\}/g) || []) assert.match(rule, /overflow: hidden (?:auto|scroll)/, `a vertical scroller that also clips x: ${rule.slice(0, 60)}`);
 });

@@ -436,7 +436,7 @@
 .ir-switch { margin: 0 0 8px; }
 .ir-switch .ps-btn { transition: opacity var(--d-small) var(--ease); }
 .ir-switch .ps-btn.off { opacity: .42; }   /* (no stent: dimmed, never hidden, so nothing pops in when one is placed; a tap says why) */
-.ir-tips { display: flex; flex-direction: column; gap: 8px; min-width: 0; container-type: inline-size; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }   /* (scrolls only as a last resort: the pictures never shrink below a readable size to avoid it) */
+.ir-tips { display: flex; flex-direction: column; gap: 8px; min-width: 0; container-type: inline-size; overflow: hidden auto; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; }   /* (scrolls only as a last resort: the pictures never shrink below a readable size to avoid it) */
 /* The TIPS view fills the card as it stands and never scrolls (Mohammad, 17 Nov 2026: "fit the TIPS card, no need to scroll, compact but beautiful"): the card's pane is a flex column, the
    view takes what the switch rows leave, and the figures take what the rows above them leave (the tiles in one row, the chips and the sub-switch slim). */
 .instrument-view[data-pane="hvpg"][data-view="tips"] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; }
