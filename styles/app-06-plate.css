@@ -470,10 +470,16 @@
 @media (hover: hover) { .ir-mi:hover { background: color-mix(in srgb, var(--text) 7%, transparent); } }
 .ir-mi .ir-mi-ic { width: 16px; height: 16px; color: var(--accent-ink); opacity: 0; }
 .ir-mi[aria-checked="true"] .ir-mi-ic { opacity: 1; }
-.ir-keys { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 16px; row-gap: 2px; flex: none; }
-.ir-kv { white-space: nowrap; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
+/* The one line of numbers never wraps, at any value or width (play-test 17 Nov 2026: "PPG 18.3 mmHg  1.0 L/min  580 cm/s" broke in a 240 px card and pushed the tiles down).
+   Each number has a width of its own (so a changing digit moves nothing) and the type scales with the line's width (cqi), up to its usual size. */
+.ir-keys { display: flex; flex-wrap: nowrap; align-items: baseline; column-gap: clamp(6px, 3cqi, 16px); row-gap: 0; flex: none; container-type: inline-size; min-width: 0; }
+.ir-kv { white-space: nowrap; min-width: 0; font: 500 min(var(--fs-12), 4.4cqi) var(--font-ui); color: var(--text-3); }
 .ir-kv em { font-style: normal; color: var(--text-2); }
-.ir-kv b { margin: 0 3px; font: 500 var(--fs-16) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
+.ir-kv b { display: inline-block; margin: 0 3px; font-size: 1.33em; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
+.ir-kv[data-k="ppg"] b { min-width: 4.2ch; }   /* (18.3, up to 100.0) */
+.ir-kv[data-k="dp"] b { min-width: 3.4ch; }
+.ir-kv[data-k="flow"] b { min-width: 3.2ch; }   /* (1.0 to 9.9) */
+.ir-kv[data-k="peak"] b { min-width: 3.4ch; }   /* (580, up to 1241) */
 .ir-kv u { text-decoration: none; }
 .ir-zone { flex: none; }
 .tf { min-width: 0; }
@@ -481,8 +487,8 @@
    card's Doppler, Dye and Remove fold away while it is open (option A, 17 Nov); nothing covers the stent. */
 .tv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .tv > .tf { margin-top: 4px; }   /* (the mock: 10 px under the name, 8 px over the numbers, 10 px over the rows) */
-.tv-keys { padding: 0 2px; column-gap: 12px; }
-.tv-keys .ir-kv b { font-size: var(--fs-14); }   /* (the three on one line in a 240 px card) */
+.tv-keys { padding: 0 2px; }
+.tv-keys .ir-kv b { font-size: 1.17em; }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
 .ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }
 :is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; animation: crossfade var(--d-small) var(--ease); }   /* (right under the tiles; back in by a fade when a tray closes) */

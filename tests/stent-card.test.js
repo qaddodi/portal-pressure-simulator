@@ -472,3 +472,15 @@ test('the card says where a pointer is on its side view: along the stent, across
   assert.equal(card.at(100 + 2 * 10, 50 + 2 * SIDE.cy).over, false, 'out in the vein is not over the stent');
   card.dispose();
 });
+
+test('the veins\' names stand under their stubs, never behind the flow arrow, at every size of words the card draws (play-test 17 Nov 2026: RPV read "R")', () => {
+  for (const fs of [9, 11, 12, 14, 16]) {
+    const o = sideLayout(fs, {});
+    // the arrow lives inside the stub (at most 7 * 1.35 above and below the stent's axis); the name's row starts under the stub
+    assert.ok(o.nameY - fs * 0.55 >= o.cy + o.stubH / 2, `fs ${fs}: the name's top is under the stub`);
+    assert.ok(o.nameY - fs * 0.55 >= o.cy + 7 * 1.35, `fs ${fs}: and clear of the arrow`);
+    // three capitals (RPV, RHV, IVC) at about 0.7 em each fit in the vein's width beside the picture's edge
+    assert.ok(3 * fs * 0.7 <= o.x0 - 4, `fs ${fs}: the name fits the stub's width`);
+    assert.ok(o.nameY + fs * 0.55 < o.h, `fs ${fs}: inside the picture`);
+  }
+});

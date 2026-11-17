@@ -46,6 +46,7 @@ export const VW = 320;
 export function sideLayout(fs, o = {}) {
   o.pxCm = 26; o.pxMm = 3.1; o.x0 = 44; o.span = 232; o.stubH = 31;   // (the veins either side are wide enough for the chart's tick gutter and the pressure sites 1 and 5, which the chart under shares: stent-trace-pic.js xAt)
   o.labY = fs * 0.6 + 1; o.dimY = o.labY + fs * 0.6 + 3; o.siteY = o.dimY + 12; o.cy = o.dimY + 36;
+  o.nameY = o.cy + o.stubH / 2 + 3 + fs * 0.55;   // (the veins' names stand under their stubs, clear of the flow arrow in the left one: play-test 17 Nov, "R" for RPV)
   o.numY = o.cy + 20 + 5 + fs * 0.55; o.gateTop = o.numY - fs * 0.6 - 1;
   o.capY = o.numY + fs * 1.25; o.keyY = o.capY + fs * 1.25;
   o.bandY = o.cy + 12; o.bandH = o.numY + fs * 0.6 - o.bandY;
@@ -218,7 +219,7 @@ export function createStent() {
   const grfP = sv('path', { 'data-look': 'tf.wall' });   // the cover's two thin bands, one over each wall of the cut stent (never across the lumen)
   // the device as the figure draws it, a cut view (stent-mesh.js stentCutD: only the wall on each side, the cover's bands, the rings along them, the gold mark), over the lumen's edge
   // The veins' names, in the veins at the stent's two ends (the TIPS figure's too: tips-figure.js): RPV and RHV, the DIPS's far end the IVC.
-  const pvName = sv('text', { 'data-look': 'tf.vein.name', x: 4, y: S.cy, 'text-anchor': 'start', 'font-size': 11, opacity: 0 }), hvName = sv('text', { 'data-look': 'tf.vein.name', x: VW - 4, y: S.cy, 'text-anchor': 'end', 'font-size': 11, opacity: 0 });
+  const pvName = sv('text', { 'data-look': 'tf.vein.name', x: 4, y: S.nameY, 'text-anchor': 'start', 'font-size': 11, opacity: 0 }), hvName = sv('text', { 'data-look': 'tf.vein.name', x: VW - 4, y: S.nameY, 'text-anchor': 'end', 'font-size': 11, opacity: 0 });
   const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   const ghostP = sv('path', { 'data-look': 'stent.ghost' });
@@ -281,7 +282,7 @@ export function createStent() {
   const swL = h('div', { class: 'sc-lens', role: 'group', 'aria-label': 'What the stent shows' }, lensBtns);
   const el = h('div', { class: 'gl sc' }, stageL, swL, sw, stageB);
   const glL = createSvgGL(stageL), glB = createSvgGL(stageB);
-  const wordsAll = [dimTxt, lenTxt, ...siteDig, ...nums, ...numsP, cap, capP, ...kEnds, none, ...drop.words];
+  const wordsAll = [dimTxt, lenTxt, pvName, hvName, ...siteDig, ...nums, ...numsP, cap, capP, ...kEnds, none, ...drop.words];
   // the traces' picture is made when a slide first asks for it (a card that shows only the side view has no third canvas)
   let tp = null, picT = null, stageT = null, glT = null, swT = null;
   const PICK_NAMES = { pressure: 'Pressure', energy: 'Energy lost', velocity: 'Velocity' };
@@ -380,7 +381,7 @@ export function createStent() {
     for (const e of [barV, barP]) setGeo(e, 'y', S.keyY - 2.5);
     for (const e of kEnds) setGeo(e, 'y', S.keyY);
     setGeo(band, 'y', S.bandY); setGeo(band, 'height', S.bandH);
-    setGeo(pvName, 'y', S.cy); setGeo(hvName, 'y', S.cy);
+    setGeo(pvName, 'y', S.nameY); setGeo(hvName, 'y', S.nameY);
     setGeo(none, 'y', S.cy); setGeo(stubP, 'y', S.cy - S.stubH / 2); setGeo(stubH, 'y', S.cy - S.stubH / 2);
     setGeo(picL, 'viewBox', `0 0 ${VW} ${S.h.toFixed(1)}`);
     stageL.style.aspectRatio = `${VW} / ${S.h.toFixed(1)}`;

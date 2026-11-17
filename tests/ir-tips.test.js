@@ -319,7 +319,7 @@ test('The TIPS view fits the card without scrolling: the numbers are one line, t
   const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js'), fig = read('src/ui/tips-figure.js');
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
-  assert.match(plate, /\.ir-keys \{ display: flex; flex-wrap: wrap; align-items: baseline;/, 'the numbers are one line of text, wrapping between readings (Mohammad, 17 Nov: no big tiles)');
+  assert.match(plate, /\.ir-keys \{ display: flex; flex-wrap: nowrap; align-items: baseline;/, 'the numbers are one line of text, never wrapping (Mohammad, 17 Nov: no big tiles; play-test: a wrapped line pushed the tiles down)');
   assert.match(plate, /\.ir-inside \{ flex: none;/, 'the picture is never squeezed: its height is its own');
   assert.match(plate, /\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, 'the last resort is a scroll down, never sideways (overflow-y alone makes x scroll too: F-sideways, 17 Nov)');
   assert.match(plate, /\.se-panel \{ position: relative; overflow: hidden;/, 'the tiles\' tray is in the flow under the tiles, never over the stent or its chart (option A)');
@@ -1018,4 +1018,15 @@ test('The card that holds a stent editor glides to its new height as a tray open
   const ed = read('src/ui/stent-editor.js');
   assert.match(ed, /const ask = \(\) => \{/);
   assert.match(ed, /if \(!openId\) \{ ask\(\);/, 'the close asks as the rolled-up tray leaves the flow');
+});
+
+test('the one line of numbers never wraps: nowrap, a width for each number, type that scales with the line (play-test 17 Nov 2026: the vessel card\'s line broke in two and pushed the tiles down)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const css = appCss();
+  const rule = css.match(/\.ir-keys \{([^}]*)\}/)?.[1] || '';
+  assert.match(rule, /flex-wrap: nowrap/, 'the line never wraps');
+  assert.match(rule, /container-type: inline-size/, 'its type is sized against its own width');
+  assert.ok(!/flex-wrap: wrap/.test(rule));
+  assert.match(css.match(/\.ir-kv \{([^}]*)\}/)?.[1] || '', /min\(var\(--fs-12\), [\d.]+cqi\)/, 'the labels scale down with the line, never up past the usual size');
+  for (const k of ['ppg', 'dp', 'flow', 'peak']) assert.match(css, new RegExp(`\\.ir-kv\\[data-k="${k}"\\] b \\{ min-width: [\\d.]+ch`), `${k} has a width of its own`);
 });
