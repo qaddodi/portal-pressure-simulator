@@ -21,7 +21,7 @@ const NO_SOL = new Map(), NO_LAP = new Set(), DRY_VIS = new Map(), STEP_LEAD_GAP
 export function createLabelSolve(st, live) {
   const { stationRev, ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, oneName, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn } = st;
   // (What a layout keeps from label to label across a solve's slices (views, obstacles, boxes, callouts, "60 %" spots, stent dots, arrows, slots), in two records: the live layout's and the dry solve ahead's (stage-view.js preStep), which runs between live layouts.)
-  const rect0 = () => ({ x0: 0, y0: 0, x1: 0, y1: 0 }), scratch = () => ({ view: rect0(), plain: rect0(), ptView: rect0(), obst: [], placed: [], call: [], clampAlts: [], markDots: [[0, 0], [0, 0], [0, 0]], markArrows: [], markTris: Array.from({ length: 8 }, () => [[0, 0], [0, 0], [0, 0]]), sol: new Map() });
+  const rect0 = () => ({ x0: 0, y0: 0, x1: 0, y1: 0 }), scratch = () => ({ view: rect0(), plain: rect0(), ptView: rect0(), obst: [], placed: [], call: [], clampAlts: [], clampLabs: [], markDots: [[0, 0], [0, 0], [0, 0]], markArrows: [], markTris: Array.from({ length: 8 }, () => [[0, 0], [0, 0], [0, 0]]), sol: new Map() });
   const LIVE_SC = scratch(), DRY_SC = scratch(), slideInView = createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL });
   const viewOf = (it, S) => (it.key === 'scan' ? S.plain : it.point || (dop.all && /^focus/.test(it.key)) ? S.ptView : S.view);
   const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
@@ -53,6 +53,7 @@ export function createLabelSolve(st, live) {
     return r;
   }
   function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; return false; }
+  const CLB_G = { x0: 0, y0: 0, x1: 0, y1: 0 }, grow = (b, m) => (b ? ((CLB_G.x0 = b.x0 - m), (CLB_G.y0 = b.y0 - m), (CLB_G.x1 = b.x1 + m), (CLB_G.y1 = b.y1 + m), CLB_G) : b);
   function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
   // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
   function boxOfElInto(out, el, m = 2) {
@@ -252,6 +253,13 @@ export function createLabelSolve(st, live) {
         const sx = SB_A[0], sy = SB_A[1];
         placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
       }
+      // (A stent's waist bracket, one of its narrowing's own marks (class clamp-span), by its own box: a long waist reaches past the box above.)
+      for (let i = 0, cks = ov.clamps.children; i < cks.length; i++) {
+        const el = cks[i];
+        if (!el.classList.contains('clamp-span') || !(stenoses[el.getAttribute('data-id')] > 0)) continue;
+        const b = boxOfElInto({ x0: 0, y0: 0, x1: 0, y1: 0 }, el, 3);
+        if (b) placed.push(b);
+      }
     }
     // (A stent's dimensions drawn on the figure, its waist's bracket with its length and the diameter in mm at each section: obstacles, stage-label-col.js.)
     if (solve && !dry) dimObstacles(placed);
@@ -268,7 +276,7 @@ export function createLabelSolve(st, live) {
         const el = cws2[wi];
         if (!el.classList.contains('clamp-label')) continue;
         const c = el._c, id = c?.id, m = clampMv.get(id);
-        if (!c || id === live.clampFor || (!probe.length && !m?.cur)) continue;   // (a column's "60 %" has its own spot: clampD)
+        if (!c || id === live.clampFor) continue;   // (a column's "60 %" has its own spot: clampD)
         seen.add(id);
         buildLines();
         // (The box at the usual spot once, then shifted: a move of d out and t along the vessel is the same move on screen.)
@@ -277,9 +285,13 @@ export function createLabelSolve(st, live) {
         worldToLocalInto(SB_B, c.x, c.y);
         el._d = el._t = undefined;
         CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = id; CLB.credit = creditBox; CLB.probe = probe; CLB.view = view;
-        let want = null, probed = false;
-        for (let i = 0; i < probe.length; i++) if (hits(clBoxAt(16, 0), probe[i])) { probed = true; break; }
-        if (probed) {
+        // (Its usual spot is left for the nearest free one when the probe, a vessel other than its own, the stage's edge or the credit is there:
+        // 17 Nov 2026, play-test at 1024, "Narrowed 3.2 mm × 1.0 cm" over the hepatic vessel by HA. One that stood off comes back only with 4 px
+        // to spare, so a vessel easing at its edge cannot send it out and back.)
+        let want = null;
+        const home = clBoxAt(16, 0), moved = !!m?.want;
+        const homeOk = clFree(home) && (!moved || clFree(grow(home, 4)));
+        if (!homeOk) {
           const cur = m?.want;
           if (cur && clFree(clBoxAt(cur.d, cur.t))) want = cur;   // (a spot that still works is kept: nothing hops while the probe stays)
           else {
@@ -287,6 +299,7 @@ export function createLabelSolve(st, live) {
             let hit = null;
             for (let i = 0; i < steps.length; i++) if (clFree(clBoxAt(16 + steps[i][0] * k, steps[i][1] * k))) { hit = steps[i]; break; }
             if (hit) want = { d: 16 + hit[0] * k, t: hit[1] * k };
+            else if (cur) want = cur;   // (nowhere free: it stays where it stands rather than going back over the vessel)
           }
         }
         clampStep(id, want);
@@ -294,11 +307,13 @@ export function createLabelSolve(st, live) {
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
+    const clampLabs = S.clampLabs;   // (the narrowings' words as laid, for the last pass: no label shows over them)
+    clampLabs.length = 0;
     if (solve && !isImaging()) for (let wi = 0, cwl = clampW.children; wi < cwl.length; wi++) {
       const el = cwl[wi];
       if (!el.classList.contains('clamp-label')) continue;
       const b = boxOfElInto(BOX_TMP, el, 6);
-      if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); if (!dry) el._box = bx; }   // (el._box: the live figure's, read by the probe and the slide's mark)
+      if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); clampLabs.push(bx); if (!dry) el._box = bx; }   // (el._box: the live figure's, read by the probe and the slide's mark)
     }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)
@@ -1315,14 +1330,16 @@ export function createLabelSolve(st, live) {
     const boxOf = (it) => (it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it));
     // (A label this pass hid at the last layout comes back only with 4 px to spare, so two labels sliding past each other in a pan, a zoom
     // or a glide cannot flick the lesser on and off: 2 Nov.)
-    const lapWas = fresh ? NO_LAP : live.lapHid, crowded = (it, r) => { const p = lapWas.has(it.key) ? 4 : 0; return kept.some((k) => hits({ x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }, k)); };
+    // (A narrowing's words are not a label of this pass but stand where they are: a reading carried or pulled in over them gives way the same way,
+    // the slide's mark excepted (it was placed off them, and it never hides): 17 Nov 2026, "Narrowed …" over "IVC 4.0" and "HA".)
+    const lapWas = fresh ? NO_LAP : live.lapHid, crowded = (it, r) => { const p = lapWas.has(it.key) ? 4 : 0, g = { x0: r.x0 - p, y0: r.y0 - p, x1: r.x1 + p, y1: r.y1 + p }; return kept.some((k) => hits(g, k)) || (!/^focus/.test(it.key) && clampLabs.some((k) => hits(g, k))); };
     const lapOut = dry ? new Set() : (live.lapHid = new Set());
     for (const it of out.filter((o) => !o.hide && !o.live).sort((a, b) => rank(b) - rank(a))) {
       let r = boxOf(it);
       if (it.rot) { if (!it.sel && crowded(it, r)) { it.hide = true; lapOut.add(it.key); continue; } kept.push(r); continue; }
       if (crowded(it, r)) {
         const d = it.dir || '';
-        for (let w0 = it.w, h0 = it.h; it.canShort && kept.some((k) => hits(r, k)) && shortenItem(it); w0 = it.w, h0 = it.h) {
+        for (let w0 = it.w, h0 = it.h; it.canShort && (kept.some((k) => hits(r, k)) || (!/^focus/.test(it.key) && clampLabs.some((k) => hits(r, k)))) && shortenItem(it); w0 = it.w, h0 = it.h) {
           it.x += d.includes('W') ? w0 - it.w : d.includes('E') ? 0 : (w0 - it.w) / 2;
           it.y += d.includes('N') ? h0 - it.h : d.includes('S') ? 0 : (h0 - it.h) / 2;
           r = rectOf(it);

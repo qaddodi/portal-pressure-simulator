@@ -144,12 +144,12 @@ import { createLzGlassSeq } from './lobule-glass-seq.js';
 import { viewMovingOf } from './view-moving.js';
 import { createGeoHold } from './stage-geohold.js';
 import { createAscites } from './stage-ascites.js';
-import { createLobuleLoad } from './stage-lobload.js'; import { createCamLock, lockedWrite } from './slide-cam.js'; import { labelCourse } from './label-course.js';
+import { createLobuleLoad } from './stage-lobload.js'; import { createGlassCut, cardHolesOf, stageCutLayers } from './glass-cut.js'; import { createCamLock, lockedWrite } from './slide-cam.js'; import { labelCourse } from './label-course.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    labelFresh: false, labelSceneDone: null, stageDry: false, dimBoxes: new Map(), dimRects: [],   // (the labels' history-free solve: stage-labels.js labelSceneOf; stageDry: the stage put to the other view's end; dimBoxes: each stent's dimension words and bracket, world boxes (stage-transitions.js stentBracket), and dimRects the same in stage px at the last live solve)
+    labelFresh: false, labelSceneDone: null, stageDry: false, dimBoxes: new Map(), dimRects: [], zoomAff: null, glassCut: null,   // (the labels' history-free solve: stage-labels.js labelSceneOf; stageDry: the stage put to the other view's end; dimBoxes: each stent's dimension words and bracket, world boxes (stage-transitions.js stentBracket), and dimRects the same in stage px at the last live solve)
     caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
     scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
@@ -1988,8 +1988,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const l of holeSets.values()) for (let i = 0; i < l.length; i++) holesAll.push(l[i]);
     // (The liver's names and leaders, and the sinusoid's, are the lobule's own layers: a copy, as each keeps the list it is given.)
     lz?.setHoles(holesAll.length ? holesAll.slice() : NO_HOLES);
+    glassCut.set(cardHolesOf(holeSets, cutHoles));   // (and what the page paints over the figure is cut away under the cards: glass-cut.js)
   };
-  const NO_HOLES = [];
+  const NO_HOLES = [], cutHoles = [], cutLs = [], glassCut = (live.glassCut = createGlassCut({ layers: () => stageCutLayers(stageBox(), wrap, cath, sites, cutLs), zoom: () => live.zoomAff }));
   const frostHoles = (key) => (list) => { if (list.length) holeSets.set(key, list); else holeSets.delete(key); sendHoles(); };
   // (The canvas the glasses are drawn into now: frostCtx, its context; frostLiver, the liver's canvas (lobule-zoom.js glassHost) while the
   // frost is taken from it, else null and the figure's. What the glass keys its blur on follows it: a new picture there, not the figure's.)
