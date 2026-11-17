@@ -33,7 +33,7 @@
 
 import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
-import { setFenceContext, fencePart, fenceAfter, fenceLumen } from './gpu-fence.js';
+import { setFenceContext, fencePart, fenceAfter, fenceLumen, FENCE_FLOOR } from './gpu-fence.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL, EDGE_PX } from './edge.js';
 import { DYE_BINS } from './blood.js';
@@ -3228,23 +3228,29 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.SCISSOR_TEST);
     presents++;
     let laidUnder = false, how = PRES_HOW[0];
+    const sameSize = !!up && own.w === canvas.width && own.h === canvas.height && !restX && !restY;   // (the picture is the canvas's own size and sits where the canvas does)
     if (camOn() && camDraw(own.tex, false)) { how = PRES_HOW[1]; /* (laid: the kept picture under the camera and alpha) */ }
     else if (!up && under && under.on() && underLay()) { laidUnder = true; how = PRES_HOW[2]; }   // (laid: the under picture, the kept one over it)
-    else if (up && upDraw()) how = PRES_HOW[3];
+    else if (up && !sameSize && upDraw()) how = PRES_HOW[3];
     else {
-      if (up) how = PRES_HOW[4];
+      // (sameSize: a picture the canvas's own size laid by "upscale" was a nine-read shader pass that changes no pixel (scale 1: no edge to steepen, the
+      // sharpening an exact copy), 16 ms at rest in the fences of ?perf on his Mac (17 Nov 2026): a plain copy of the same pixels.)
+      if (up) how = sameSize ? PRES_HOW[5] : PRES_HOW[4];
       // (A picture under the canvas's size while the upscale shader is still compiling: a filtered copy, as the page's compositor scales a smaller canvas up.)
+      const big = up && !sameSize;
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
-      if (up || (own.w === canvas.width && own.h === canvas.height)) noLoad(gl.DRAW_FRAMEBUFFER, true);   // (the copy covers the whole canvas)
-      gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
+      if (big || (own.w === canvas.width && own.h === canvas.height)) noLoad(gl.DRAW_FRAMEBUFFER, true);   // (the copy covers the whole canvas)
+      gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, big ? canvas.width : own.w, big ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, big ? gl.LINEAR : gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
     // (?perf, 12 Nov 2026: how each present laid the picture and at what sizes, beside the copy's time: his Mac's 20 ms "present copy" at rest gave neither.)
     tally(counts.present, how);
-    if (psW !== own.w || psH !== own.h || psCw !== canvas.width || psCh !== canvas.height) { psW = own.w; psH = own.h; psCw = canvas.width; psCh = canvas.height; counts.presentSize = `picture ${psW}x${psH} onto the screen ${psCw}x${psCh}`; }   // alloc-rare: only when a size changes
+    const upW = up ? up[0] : 0, upH = up ? up[1] : 0;
+    if (psW !== own.w || psH !== own.h || psCw !== canvas.width || psCh !== canvas.height || psUw !== upW || psUh !== upH || psWho !== who) { psW = own.w; psH = own.h; psCw = canvas.width; psCh = canvas.height; psUw = upW; psUh = upH; psWho = who; counts.presentSize = `${who}: picture ${psW}x${psH} onto the screen ${psCw}x${psCh}${up ? `, upscale set at ${upW}x${upH}` : ', no upscale set'}`; }   // alloc-rare: only when a size changes (who: the lobule's renderer writes this line too)
     // (?perf, 10 Nov 2026: the copy timed alone, then the organ overlay laid over it: the Mac's 32 ms "present copy" at 8 MP held both, so it did not say which.)
     fencePart('present copy');
+    fencePart(FENCE_FLOOR);   // (?perf: a second wait right after the first, with nothing queued: what a fence costs by itself, gpu-fence.js FENCE_FLOOR)
     overLay(true);
     fencePart('organ overlay laid');
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
@@ -3401,8 +3407,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   const OB = [0, 0, 0, 0], CB = [0, 0, 0, 0];
   // (How a present laid the kept picture, for ?perf's present line (counts.present), and the sizes it last laid at.)
-  const PRES_HOW = ['copy', 'camera', 'under picture', 'upscale', 'filtered copy (upscale compiling)'];
-  let psW = 0, psH = 0, psCw = 0, psCh = 0;
+  const PRES_HOW = ['copy', 'camera', 'under picture', 'upscale', 'filtered copy (upscale compiling)', 'copy (picture is the canvas size)'];
+  let psW = 0, psH = 0, psCw = 0, psCh = 0, psUw = 0, psUh = 0, psWho = '';
   // The overlay bounds `ob` as the box camDraw lays them in: into CB (camLayBox).
   function camBox(ob) {
     const k = cam.k * scn.k;

@@ -21,7 +21,7 @@ import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
 import { contextText } from './gl-contexts.js';
 import { readAnims } from './layout-snap.js';
-import { setFences, setFenceBurst, fenceText, fenceSampling, fenceSummary, fenceBurstSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY, BURST_EVERY } from './gpu-fence.js';
+import { setFences, setFenceBurst, fenceText, fenceSampling, fenceSummary, fenceBurstSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY, BURST_EVERY, FENCE_FLOOR } from './gpu-fence.js';
 import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 const RING = 1024;          // (frames kept: about 8 s at 120 Hz, 17 s at 60)
@@ -102,6 +102,7 @@ export function heldAtHalf(spans, probeHz, goalHz) {
 const PLAIN = {
   'organ overlay laid': ['the organ overlay (outlines, labels\' layer) laid over the copied figure', 'the overlay is blended over its box each frame: lay it only where it changed'],
   'screen onto the canvas': ['the kept screen copied onto the browser\'s canvas at the frame\'s end (keep-screen.js)', 'a wait here, not the copy (8 MP is about 1 ms): the browser holding the canvas\'s buffers; see the frame interval beside it'],
+  'fence floor': ['a second GPU wait straight after the present copy\'s, with nothing queued before it (what a fence costs by itself)', ''],
   'present copy': ['kept figure picture copied onto the screen canvas', 'the copy writes every figure pixel each frame: no copy on frames where nothing in the figure changed, or copy only the changed area (lowering the FIG_OPTS cap broke the Mac picture on 2fc3302)'],
   'organ layer': ['live organs (liver, spleen, diaphragm) painted again at the figure\'s size', 'the organ layer is painted again on every change: see "organ layer painted" in the GPU section for how often and why, then paint only the changed box or less often'],
   'whole picture': ['whole figure picture drawn (vessels, blood, organs together)', 'a whole picture each frame: draw only the blood over the kept vessels (blood pass) where nothing else changed'],
@@ -118,6 +119,24 @@ const PLAIN = {
   'final phase': ['other GPU work in the final phase (charts, cards)', ''],
   'frame end': ['other GPU work at the frame end (present, glass)', ''],
 };
+/**
+ * Whether a sampled GPU step is a wait for the screen's beat, not draw work (17 Nov 2026, his Safari at rest: "present copy 16.0 ms, max 18.0" on
+ * all 16 samples, the other eight steps 0.0, a 1567x957 picture onto a 1567x957 screen: the copy of 1.5 MP takes well under a millisecond on that Mac).
+ * A step of 8 ms or more whose median sits within 1.5 ms of one or two screen refreshes, and whose largest is within 3 ms of it, is the browser holding
+ * the figure's buffers until the screen's next refresh (a sync), which the fence times as if it were the copy.
+ */
+export function onBeat(step, goal, frameMs = 0) {
+  const b = goal?.ms;
+  if (!(b > 0) || !(step.med >= 8)) return false;
+  if (frameMs > 0 && step.med < 1.5 * frameMs) return false;   // (a step as long as the frames themselves may be real work: a GPU-bound frame; a frame that runs in half the step's time cannot be waiting on it each time)
+  const k = Math.round(step.med / b);
+  return k >= 1 && k <= 2 && Math.abs(step.med - k * b) <= 1.5 && step.max - step.med <= 3;
+}
+const beatWords = (s, gpu) => {
+  const fl = gpu?.steps?.find((x) => x.name === FENCE_FLOOR);
+  return `as long as the screen's refresh on every sample: a sync wait, not draw work${fl ? `; a second fence straight after it read ${fl.med.toFixed(1)} ms` : ''}`;
+};
+const BEAT_FIX = 'a wait of exactly the screen\'s beat is the browser holding the canvas\'s buffers, not the pass: the cost is in the frame\'s interval (see BROWSER RENDERING and the interval p95 in the PAGE section), so cut how many figure frames are handed over, not the pass';
 /** A GPU step's plain words, its code name after them. */
 export const plainStep = (name) => (PLAIN[name] ? `${PLAIN[name][0]} ("${name}")` : name);
 const fixOf = (name) => PLAIN[name]?.[1] || '';
@@ -201,7 +220,11 @@ export function diagnose(i) {
   // (Every cost a frame, ranked: the GPU's named steps and phases from the sampled frames, the page's script by surface, the whole redraws spread.)
   const costs = [];   // alloc-rare: once a second, for the readout
   if (i.gpu) {
-    for (const s of i.gpu.steps) costs.push({ who: 'GPU', name: s.name, words: plainStep(s.name), ms: s.med, max: s.max, fix: fixOf(s.name) });
+    for (const s of i.gpu.steps) {
+      if (s.name === FENCE_FLOOR) continue;   // (a probe of the fence itself, shown in the GPU section and used below, not a cost)
+      const beat = onBeat(s, goal, st.p50);
+      costs.push({ who: 'GPU', name: s.name, words: beat ? `${plainStep(s.name)} (${beatWords(s, i.gpu)})` : plainStep(s.name), ms: s.med, max: s.max, beat, fix: beat ? BEAT_FIX : fixOf(s.name) });
+    }
     for (let k = 1; k < i.gpu.phases.length; k++) { const p = i.gpu.phases[k]; if (p.med >= 0.3) costs.push({ who: 'GPU', name: p.name, words: plainStep(p.name), ms: p.med, max: p.max, fix: '' }); }
   }
   if (i.whole?.perFrame >= 0.3) costs.push({ who: 'GPU', name: 'whole vessel redraw', words: `whole vessel redraws (${i.whole.rate.toFixed(1)}/s x ${f(i.whole.med)} ms each), spread over every frame`, ms: i.whole.perFrame, max: i.whole.worst?.ms || 0, fix: WHOLE_FIX[i.whole.worst?.why] || '' });
@@ -596,7 +619,7 @@ export function startFrameHud() {
     L.push(`== GPU (figure's context: fences, ${gpu ? `${gpu.n} sampled frames, 1 in ${gpu.every}` : 'no sample yet'}; plus every whole vessel redraw, at most one per ${EVENT_GAP_MS} ms) ==`);
     if (gpu) {
       L.push(`  a sampled frame's GPU work ${f(gpu.total)} ms (median), and ${f(gpu.backlog)} ms still queued from the frame before at its start (max ${f(gpu.phases[0].max)})`);
-      for (const s of gpu.steps) L.push(`  step  ${plainStep(s.name)}: ${f(s.med)} ms, max ${f(s.max)} (${s.n} samples)`);
+      for (const s of gpu.steps) L.push(`  step  ${plainStep(s.name)}: ${f(s.med)} ms, max ${f(s.max)} (${s.n} samples)${onBeat(s, goal, st.p50) ? `  <- ${beatWords(s, gpu)}` : ''}`);
       for (let k = 1; k < gpu.phases.length; k++) { const p = gpu.phases[k]; L.push(`  phase ${plainStep(p.name)}: ${f(p.med)} ms, max ${f(p.max)}`); }
     }
     for (const t of switchText(burst, lastSwitch, performance.now())) L.push(t);

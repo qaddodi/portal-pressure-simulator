@@ -64,6 +64,11 @@ export function fenceMark(i) {
 // (Named steps inside a phase, for the sampled frame alone: veins-gl.js marks the blood pass, the heads, the present copy and the glasses and labels
 // over it, so a late phase of 26 ms (Mohammad's Mac, 8 Nov 2026) says which of its passes took it. STEP_MAX names, each a ring of KEEP waits.)
 const STEP_MAX = 16;
+/** The step the readout times straight after another step's wait (veins-gl.js, after the present copy): a second fence with nothing queued before it,
+ *  17 Nov 2026. His Safari read "present copy 16.0 ms, max 18.0" on every sample with every other step at 0.0: a wait the length of one screen refresh.
+ *  If this floor reads 0 beside it the first wait was draw work or a sync only that step triggers; if it reads about the same, the fence itself costs a refresh
+ *  and nothing was measured. It is no part of a frame's passes (the totals leave it out). */
+export const FENCE_FLOOR = 'fence floor';
 const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
 /** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
 export function fencePart(name) {
@@ -74,8 +79,8 @@ export function fencePart(name) {
   const w = wait();
   const W = burstNow ? bStepWaits : stepWaits, N = burstNow ? bStepN : stepN, A = burstNow ? bStepAt : stepAt;
   W[i * KEEP + A[i]] = w; A[i] = (A[i] + 1) % KEEP; if (N[i] < KEEP) N[i]++;
-  curSteps += w;
-  if (sampled && burstNow) bTotal[(bAt + KEEP - 1) % KEEP] += w;   // (fenceAfter: a step after the frame's last mark, added to the burst sample just kept)
+  if (name !== FENCE_FLOOR) curSteps += w;
+  if (sampled && burstNow && name !== FENCE_FLOOR) bTotal[(bAt + KEEP - 1) % KEEP] += w;   // (fenceAfter: a step after the frame's last mark, added to the burst sample just kept)
   if (ev) endEvent(w, name);
 }
 
@@ -197,7 +202,7 @@ function summaryOf(W, cnt, SW, SN, every) {
   const phases = [], steps = [];   // alloc-rare: once a second, for the readout
   let total = 0;
   for (let i = 0; i < PHASES; i++) { const med = median(i, W, cnt); phases.push({ name: PHASE_NAMES[i], med, max: phaseMax(i, W, cnt) }); if (i) total += med; }
-  for (let i = 0; i < stepNames.length; i++) if (SN[i]) { const med = stepMedian(i, SW, SN); total += med; steps.push({ name: stepNames[i], med, max: stepMax(i, SW, SN), n: SN[i] }); }
+  for (let i = 0; i < stepNames.length; i++) if (SN[i]) { const med = stepMedian(i, SW, SN); if (stepNames[i] !== FENCE_FLOOR) total += med; steps.push({ name: stepNames[i], med, max: stepMax(i, SW, SN), n: SN[i] }); }
   return { n: cnt, every, phases, steps, total, backlog: phases[0].med };
 }
 /** The samples kept, oldest first: [backlog, early, late, final, end] ms each. For the tests and the console. */
@@ -215,6 +220,6 @@ export function fenceText() {
   // "present copy 33" (Mohammad's Mac, 8 Nov 2026) is one wait, read in the step; the frame's total counts both.)
   let total = 0; for (let i = 1; i < PHASES; i++) total += median(i);
   let steps = '';
-  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) { const w = stepMedian(i); total += w; steps += `${steps ? ', ' : ''}${stepNames[i]} ${w.toFixed(1)}`; }   // alloc-rare: once a second, for the readout
+  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) { const w = stepMedian(i); if (stepNames[i] !== FENCE_FLOOR) total += w; steps += `${steps ? ', ' : ''}${stepNames[i]} ${w.toFixed(1)}`; }   // alloc-rare: once a second, for the readout
   return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms${steps ? `; inside (taken out of the phases): ${steps}` : ''}`;
 }

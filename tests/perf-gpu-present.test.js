@@ -206,3 +206,21 @@ test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the hos
   assert.equal(lob.target.w, 640, 'sized again, cleared, when it is next asked for at the canvas\'s size');
   assert.ok(lob.target.gen > gen, 'a new texture generation: a kept picture of it is out of date');
 });
+
+// ── 17 Nov 2026: the upscale pass on a picture that is the canvas's own size ──
+// His Safari at rest: "figure laid on the screen: upscale 30; picture 1567x957 onto the screen 1567x957" and the fence of that step 16.0 ms (max 18.0) on every
+// sample. A picture the size of the canvas is the same pixels: the nine-read upscale shader changed none of them (scale 1), so it is a plain copy.
+test('a picture the canvas\'s own size is laid by a plain copy, not the upscale shader', () => {
+  const { g, f, canvas, look } = renderer();
+  g.setPicture([400, 300]);
+  g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
+  // (the canvas takes the picture's size afterwards, as a resize that leaves the renderer's picture setting as it was does)
+  canvas.width = 400; canvas.height = 300;
+  const n0 = f.calls.length;
+  g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
+  const after = f.calls.slice(n0);
+  const blits = after.filter((c) => c[0] === 'blitFramebuffer');
+  const toCanvas = blits.filter((c) => c[3] === 400 && c[4] === 300 && c[5] === 0);
+  assert.ok(toCanvas.length >= 1, 'the kept picture reaches the canvas by a blit');
+  assert.ok(toCanvas.every((c) => c[c.length - 1] === f.gl.NEAREST), 'an unfiltered copy: the same pixels');
+});

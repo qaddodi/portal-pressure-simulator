@@ -328,3 +328,22 @@ test('CSS animations off the compositor are named with their property and elemen
   assert.equal(nodeName(grp), 'g in #ov-clamps', 'a bare group is named by its nearest named ancestor');
   assert.equal(nodeName({ localName: 'g', classList: ['halos'] }), 'g.halos');
 });
+
+// 17 Nov 2026, his Safari at rest ("present copy 16.0 ms, max 18.0" on every sample, every other step 0.0, a 1567x957 picture onto a 1567x957
+// screen): a step that is one screen refresh long, every time, is a sync wait the fence times, and the readout says so instead of ranking it a cost.
+test('a GPU step as long as one screen refresh on every sample is called a sync wait, not draw work', async () => {
+  const { onBeat } = hud;
+  const g60 = { ms: 1000 / 60 };
+  assert.equal(onBeat({ med: 16.0, max: 18.0 }, g60), true);
+  assert.equal(onBeat({ med: 33.0, max: 34.0 }, g60), true, 'two refreshes');
+  assert.equal(onBeat({ med: 20.0, max: 21.0 }, g60), false, 'not on the beat');
+  assert.equal(onBeat({ med: 16.0, max: 40.0 }, g60), false, 'a step that sometimes takes far longer is work');
+  assert.equal(onBeat({ med: 18.0, max: 18.0 }, g60, 25), false, 'frames as long as the step: a GPU-bound frame, real work');
+  assert.equal(onBeat({ med: 16.0, max: 18.0 }, g60, 8), true, 'frames at half the step: it cannot be work every frame');
+  assert.equal(onBeat({ med: 4.0, max: 4.5 }, g60), false, 'a small step is never one');
+  assert.equal(onBeat({ med: 8.0, max: 8.5 }, { ms: 1000 / 120 }), true, 'one refresh of a 120 Hz screen');
+  const d = diagnose({ st: st({ fps: 126, p50: 8, s50: 0.5 }), goal: { hz: 60, ms: 1000 / 60 }, gpu: gpuOf([['present copy', 16, 18], ['fence floor', 0.0, 0.0], ['blood pass', 0]]), surfaces: [['stage', 0.6]], whole: { perFrame: 0, rate: 0, med: 0 } });
+  assert.match(d.top[0].words, /sync wait, not draw work; a second fence straight after it read 0\.0 ms/);
+  assert.ok(!d.top.some((c) => c.name === 'fence floor'), 'the fence probe is never ranked as a cost');
+  assert.match(d.top[0].fix, /browser holding the canvas/);
+});
