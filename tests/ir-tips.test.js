@@ -452,7 +452,7 @@ test('The one lens switch (Velocity | Pressure) is in the title row; it colours 
   ir.setLens('velocity');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:not\(\[data-sub="inside"\]\) \.ir-lens \{ opacity: 0; pointer-events: none; \}/);
   const fig = read('src/ui/tips-figure.js');
-  assert.match(fig, /'Peak velocity, cm\/s'/); assert.match(fig, /'Pressure, mmHg · dashed: total energy'/);
+  assert.match(fig, /'Peak velocity, cm\/s'/); assert.match(fig, /setWords\(titleP, 'Pressure, mmHg'\);/); assert.doesNotMatch(fig, /total energy|tf\.energy|o\.head/, 'no dashed energy line (Mohammad, 17 Nov: "Remove dashed line")');
 });
 
 // ---- The curves' life (external review, 17 Nov 2026): idle, waiting, loading, drawn; leaving cancels and forgets; the ring follows the live stent ----
@@ -826,4 +826,85 @@ test('Compare says how to pin a moment before there is one, in one line (F44)', 
   c.update(frameOf());
   assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
   assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
+});
+
+test('A closing row lands exactly on the row, word on word, and its raised surface is gone by then: nothing jumps when the panel goes (17 Nov, Mohammad: "it scales back to where it was but then not exactly and then snaps")', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const made = [];
+  const proto = window.Element.prototype, oldA = proto.animate, oldR = proto.getBoundingClientRect;
+  proto.animate = function (kf, o) { let res; const a = { el: this, kf, o, finished: new Promise((r) => { res = r; }), cancel() {}, finish() { res(); } }; made.push(a); return a; };
+  // a laid-out card: the panel over the zone, the waist row 100 px down; the panel's name button 44 px tall with its words 12 px into it, 2 px in
+  const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top });
+  const BOX = { 'se-panel': box(0, 0, 300, 220), 'se-row': box(0, 100, 300, 46), 'se-row-n': box(2, 113, 40, 20), 'se-row-v': box(150, 113, 110, 20), 'se-ph-n': box(12, 1, 44, 44), 'se-ph-nt': box(14, 13, 40, 20), 'se-ph-v': box(130, 13, 110, 20) };
+  proto.getBoundingClientRect = function () { const k = Object.keys(BOX).find((c) => this.classList?.contains(c)); return k ? BOX[k] : box(0, 0, 300, 220); };
+  try {
+    const zone = document.createElement('div');
+    document.body.append(zone);
+    const ed = createStentEditor({ id: 'TIPS', zone });
+    zone.prepend(ed.el);
+    for (const row of ['waist', 'end', 'dia']) {
+      ed.el.querySelector(`.se-row[data-row="${row}"]`).click();
+      for (const a of made) a.finish();
+      made.length = 0;
+      ed.panel.querySelector('.se-done').click();
+      const name = made.find((a) => a.el.classList.contains('se-ph-n')), val = made.find((a) => a.el.classList.contains('se-ph-tr'));
+      // the name's words (14, 13) onto the row's (2, 113); the value's right edge (240) onto the row's (260), its top 13 onto 113
+      assert.equal(name.kf.at(-1).transform, 'translate(-12.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the name lands on the row's name`);
+      assert.equal(val.kf.at(-1).transform, 'translate(20.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the value lands on the row's value`);
+      const surf = made.find((a) => a.el.classList.contains('se-surf'));
+      assert.ok(surf, `${row}: the surface fades`);
+      assert.equal(surf.kf.at(-1).opacity, 0, `${row}: gone when it lands, so the panel leaving shows nothing new`);
+      assert.equal(surf.o.duration, made.find((a) => a.el.classList.contains('se-s-tl')).o.duration, 'over the same time as the shrink');
+      assert.equal(surf.o.fill, 'forwards');
+      for (const a of made) a.finish();
+      made.length = 0;
+      await wait(0);
+      assert.equal(ed.panel.dataset.open, '', `${row} closed`);
+      assert.equal(ed.panel.querySelector('.se-ph-n').textContent, '', 'and its name cleared');
+    }
+    ed.destroy();
+  } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
+});
+
+test('The IR stent: its two ends carry their numbers (pressure and velocity), the PPG bracket stands at the chart\'s left edge, and there is no dashed energy line (17 Nov, Mohammad)', async () => {
+  const { createTipsFigure, GUTTER } = await import('../src/ui/tips-figure.js');
+  const { wordsOf, geoOf } = await import('../src/ui/svg-gl.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const RO = globalThis.ResizeObserver, OW = Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'offsetWidth');
+  const seen = [];
+  globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; } observe(el) { seen.push([el, this.cb]); } disconnect() {} };
+  Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return 340; } });
+  try {
+    const fig = createTipsFigure({ id: 'TIPS', labels: true, chart: true });
+    document.body.append(fig.el);
+    for (const [e, cb] of seen) if (e.classList?.contains('tf-stage')) cb([]);   // (the stage's width is known: the figure lays out)
+    fig.update(frameOf());
+    const L = fig.layout(), at = (look) => [...fig.el.querySelectorAll(`[data-look="${look}"]`)];
+    assert.equal(L.W, 340, 'laid out at the card\'s width');
+    // five numbers under the stent in each lens: the inflow, the three gates, the outflow, left to right, the ends on the stent's ends
+    const nums = at('tf.num'), xs = nums.map((e) => +geoOf(e, 'x'));
+    assert.equal(nums.length, 10, 'five places, two lenses');
+    for (const x of [L.x0, L.x1]) assert.equal(xs.filter((v) => Math.abs(v - x) < 0.01).length, 2, `a number in each lens at the stent's end x=${x.toFixed(1)}`);
+    assert.ok(nums.every((e) => /^\d+(\.\d)?$/.test(wordsOf(e))), 'each a number');
+    assert.equal(at('stent.gate.tick').length, 5, 'a tick to each');
+    assert.equal(fig.el.querySelectorAll('text').length, [...fig.el.querySelectorAll('text')].filter((t) => !['mmHg', 'cm/s'].includes(wordsOf(t))).length, 'no unit word on the outflow\'s place (the chart\'s title names it)');
+    // the PPG bracket: at the left edge, opening right, its words beside it
+    const br = at('tf.brk.ppg')[0]._pts, x = br.buf[2];
+    assert.equal(x, GUTTER + 3, 'the bracket stands just inside the axis numbers');
+    assert.ok(br.buf[0] > x && br.buf[6] > x, 'its ends point into the chart');
+    const pT = at('tf.lab.ppg')[0];
+    assert.equal(geoOf(pT, 'text-anchor'), 'start'); assert.equal(+geoOf(pT, 'x'), GUTTER + 11);
+    assert.match(wordsOf(pT), /^PPG \d/);
+    assert.ok(+geoOf(pT, 'x') < L.x0 + 10, 'on the left, over the portal vein');
+    // no dashed line, and the title says only what the chart is
+    assert.equal(at('tf.energy').length, 0);
+    assert.ok([...fig.el.querySelectorAll('text')].some((t) => wordsOf(t) === 'Pressure, mmHg'));
+    fig.dispose(); fig.el.remove();
+  } finally {
+    globalThis.ResizeObserver = RO;
+    if (OW) Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', OW); else delete window.HTMLElement.prototype.offsetWidth;
+  }
 });
