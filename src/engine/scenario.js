@@ -130,6 +130,12 @@ export const PRESETS = [
   { id: 'cirr-decomp', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥15 mmHg, large varices, ascites, splenomegaly, hyperdynamic circulation.',
     note: 'HVPG ≥15 mmHg. Large varices, ascites, splenomegaly and a hyperdynamic circulation.' },
+  // The patient the TIPS slides and the Tests card start from: the sickest cirrhosis the model has (severity 100%) with the default stent (8 mm, uniform, covered) in
+  // place from the first day, so the 540 days are the years on a shunt and the readings are settled (a stent switched on after them would leave the ascites and the
+  // right atrium mid-transient: 1.3 L still to clear). No pressure is tuned for it: it is the cirr-decomp patient's rule at severity 1 with `tips` on (17 Nov 2026).
+  { id: 'cirr-decomp-tips', facts: { decompensated: true }, group: 'Sinusoidal', label: 'Decompensated cirrhosis + TIPS', apply: P({ cirrhosis: 1, albumin: 2.8, diuretics: true, tips: { on: true, d: 8 } }), days: 540,
+    summary: 'Decompensated cirrhosis at full severity with an 8 mm covered TIPS in place for good: the portal pressure falls and the ascites clears, with the hyperdynamic circulation and the low albumin left.',
+    note: 'Severity 100% with an 8 mm covered TIPS: portal pressure down, ascites cleared, hyperdynamic circulation remains.' },
   // (Cirrhosis 0.84, not 0.95: at 0.95 the PPG rested on the red line at 12, 11.8 at the bedside and 12.1 settled, so the tile and the
   // slides' tables could rate it differently. At 0.84: HVPG 11.1 and PPG 11.2 at the bedside, 11.4 and 11.5 settled, and the portal flow
   // stays reversed (no higher setting clears 12 at the bedside: 1.0 reads 12.0). ENG-5.)
