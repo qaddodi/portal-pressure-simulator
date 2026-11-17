@@ -110,3 +110,8 @@ test('the figure draws a stent to scale with its lumen: 12 mm twice 6 mm (play-t
   const tub = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
   assert.match(tub, /if \(isStent\(e\) && e\.kind === 'shunt'\) wA = vesselPx\(8\) \* Math\.max\(0\.5, D\) \/ 8;/);
 });
+
+test('the Dye button keeps the room of "Injecting", so the buttons beside it do not jump (play-test V16)', async () => {
+  const { appCss } = await import('./split-src.js');
+  assert.match(appCss(), /\.ac-dye \.ac-bl \{[^}]*min-width: 4\.9em/);
+});
