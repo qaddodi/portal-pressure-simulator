@@ -168,6 +168,7 @@ async function made() {
   const w = new JSDOM('<!doctype html><html><body></body></html>', { pretendToBeVisual: true }).window;
   Object.assign(globalThis, { window: w, document: w.document, Element: w.Element, MutationObserver: w.MutationObserver, getComputedStyle: w.getComputedStyle.bind(w),
     addEventListener() {}, removeEventListener() {}, requestAnimationFrame: (f) => setTimeout(f, 16), ResizeObserver: class { observe() {} disconnect() {} }, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} }) });
+  w.document.documentElement.style.setProperty('--ramp-pressure', '#B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30');
   w.document.documentElement.style.setProperty('--ramp-velocity', '#C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1');
   const { createStent } = await import('../src/ui/tool-stent.js');
   const { store } = await import('../src/ui/store.js');
@@ -185,7 +186,7 @@ test('the made card: every piece has a look, its outline keeps its point count t
   assert.ok(pieces.length > 40, `${pieces.length} pieces`);
   for (const p of pieces) assert.ok(LOOKS[p.getAttribute('data-look')], `${p.getAttribute('data-look')} is in the table`);
   const outlines = pieces.filter((p) => ['stent.lumen', 'stent.graft'].includes(p.getAttribute('data-look')));
-  assert.equal(outlines.length, 2);
+  assert.equal(outlines.length, 3, 'the lumen twice (velocity colours, pressure colours) and the cover');
   assert.equal(pieces.filter((p) => /^stent\.wire\./.test(p.getAttribute('data-look'))).length, 7, 'the device the figure draws: its rings, glint, band and tab');
   const counts = () => outlines.map((p) => p._pts.n);
   const grad = card.el.querySelector('linearGradient');
@@ -197,7 +198,7 @@ test('the made card: every piece has a look, its outline keeps its point count t
   assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontCov')._polys.length > 0, 'the covered stretch\'s rings are drawn');
   assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontBare')._polys.length > 0, 'and the bare stretch\'s');
   const first = counts();
-  assert.deepEqual(first, [2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1)]);
+  assert.deepEqual(first, [2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1)]);
   // the same card, a different stent: a wider one, a longer waist, tapered ends, the narrowing at the portal end, no narrowing at all
   for (const set of [(p) => { p.stentGeom = { TIPS: { len: 10, waist: 4, trans: 1 } }; p.tips.d = 12; }, (p) => { p.stenosis.TIPS = 0.8; p.stenosisSite = { TIPS: 'proximal' }; }, (p) => { p.stenosis.TIPS = 0; }]) {
     set(e.params); store.set({ params: { ...e.params } });
@@ -279,4 +280,38 @@ test('the bar prints the stent\'s own entry and exit loss, never 0.0 for a patie
   }
   assert.ok(![...card.el.querySelectorAll('[data-look="stent.key.text"]')].some((p) => /^Ends/.test(p._t)), 'no part is called Ends');
   card.dispose();
+});
+
+test('the lumen is coloured by velocity or by pressure: the switch fades one over the other, and the pressure colours fall along the stent', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.5; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['lumen'] });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const lum = [...card.el.querySelectorAll('[data-look="stent.lumen"]')];
+  assert.equal(lum.length, 2);
+  assert.equal(lum[1]._g.opacity, 0, 'velocity colours to start with');
+  const btns = [...card.el.querySelectorAll('.sc-color button')];
+  assert.deepEqual(btns.map((b) => b.textContent), ['Velocity', 'Pressure']);
+  btns[1].click();
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(lum[1]._g.opacity, 1, 'pressure colours over it');
+  assert.equal(btns[1].getAttribute('aria-pressed'), 'true');
+  const stops = [...card.el.querySelectorAll(`linearGradient[id$="p"] stop`)].map((st) => st._g['stop-color']);
+  assert.ok(stops.length >= 17 && stops.every((c) => c && c !== '#888888'), 'every stop has a pressure colour');
+  assert.ok(new Set(stops).size > 3, 'the colour changes along the stent');
+  card.configure({ vessel: 'TIPS', show: ['lumen'] });
+  assert.equal(btns[1].getAttribute('aria-pressed'), 'true', 'a slide that does not ask leaves the viewer\'s choice');
+  btns[0].click();
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(lum[1]._g.opacity, 0, 'and the switch goes back');
+  card.dispose();
+  const b = await made();
+  b.doc.body.append(b.card.el); b.store.set({ params: e.params });
+  b.card.configure({ vessel: 'TIPS', show: ['lumen'], color: 'pressure' }); b.card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal([...b.card.el.querySelectorAll('[data-look="stent.lumen"]')][1]._g.opacity, 1, 'a slide can ask for pressure');
+  b.card.dispose();
 });
