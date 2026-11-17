@@ -417,6 +417,9 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   const plate = read('styles/app-06-plate.css');
   const rules = plate.split('\n').filter((l) => /\.stent-editor|\.se-panel|\.se-zone/.test(l)).join('\n');
   assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 46px;/, 'the mock\'s rows');
+  // (At 468 px, Tests on an iPad, "Waist 6.3 mm × 1.0 cm" was cut in a third of the row and Abrupt | Tapered in a third of the panel: both wait for 560 px.)
+  assert.match(plate, /@container \(min-width: 560px\) \{\n {2}\.se-zone \.stent-editor \.se-rows \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(plate, /@container \(min-width: 560px\) \{ \.se-panel\[data-row="waist"\] \.se-pb \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
   assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -8px 0; \}/, 'a 28 px choice to see, 44 px to tap');
   for (const sel of ['.se-done', '.se-ph-n']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no value is cut short');

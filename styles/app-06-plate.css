@@ -507,8 +507,8 @@
 .stent-editor .se-row-v.se-none { color: var(--text-3); }
 .stent-editor .se-row-c { justify-self: end; width: 16px; height: 16px; margin-right: 4px; color: var(--text-3); }
 @media (hover: hover) { .stent-editor .se-row:hover .se-row-c { color: var(--text-2); } }
-/* Three across on a wide card (Tests › IR on a Mac or an iPad in landscape): the same rows side by side, a hairline between them. */
-@container (min-width: 460px) {
+/* Three across on a wide card (Tests › IR on a wide Mac pane): the same rows side by side, a hairline between them; from 560 px, where "Waist 6.3 mm × 3.0 cm" fits a third (at 468 px it was cut). */
+@container (min-width: 560px) {
   .se-zone .stent-editor .se-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--hairline); }
   .se-zone .stent-editor .se-row { border-top: 0; padding: 0 2px 0 12px; }
   .se-zone .stent-editor .se-row + .se-row { border-left: 1px solid var(--hairline); }
@@ -540,7 +540,7 @@
 .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .se-panel[data-row="waist"] .se-ctl-seg { grid-column: 1 / -1; }
 @container (min-width: 460px) { .se-panel .se-pb { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } }
-@container (min-width: 460px) { .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(3, minmax(0, 1fr)); } .se-panel[data-row="waist"] .se-ctl-seg { grid-column: auto; grid-template-columns: minmax(0, 1fr); align-content: center; } }
+@container (min-width: 560px) { .se-panel[data-row="waist"] .se-pb { grid-template-columns: repeat(3, minmax(0, 1fr)); } .se-panel[data-row="waist"] .se-ctl-seg { grid-column: auto; grid-template-columns: minmax(0, 1fr); align-content: center; } }
 .se-panel .se-ctl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-width: 0; min-height: 48px; }
 .se-panel .se-ctl.se-dim { opacity: .45; }
 .se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding-top: 2px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }

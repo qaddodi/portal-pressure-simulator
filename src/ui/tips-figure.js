@@ -35,6 +35,7 @@ export const VEIN_CM = 1.3, REF_CM = 8;
 /** The Doppler's three gates, as fractions of the stent (the engine's own: topology.js STENT_SITES). */
 export const GATES = [STENT_SITES.proximal, STENT_SITES.mid, STENT_SITES.distal];
 /** The chart's gutter for its tick numbers (px), and its height (px) on a narrow and a wide card. */
+const HEAD = 1.2;
 export const GUTTER = 24, CHART_H = 140, CHART_H_WIDE = 150, WIDE = 460;
 
 /** The figure's rows for a card W px wide: px a cm along, px a mm across, the stent's two ends, the axis, the rows of words and the heights. Written into o. */
@@ -261,10 +262,11 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   function paintChart(v, o, sh, ex, cm, ivc) {
     const len = sh.len, top = L.plotTop, bot = L.plotBot, G = GUTTER, X = (c) => xOf(c, len, L, G);
     const vHi = Math.max(1, v[CH.vHi] * SCALE[CH.vHi]), pHi = Math.max(1, v[CH.pHi] * SCALE[CH.pHi]);
-    const yV = (x) => clamp(bot - (x / vHi) * (bot - top), top - 2, bot), yP = (p) => clamp(bot - (p / pHi) * (bot - top), top - 2, bot);
-    for (let i = 0; i < 4; i++) { const y = bot - ((bot - top) * i) / 3, gb = gridBuf[i]; gb[0] = G; gb[1] = y; gb[2] = L.W; gb[3] = y; setPts(grid[i], gb, 2, false); setGeo(grid[i], 'opacity', ex); }
+    // (The axis runs a fifth past its top tick, as the mock's: the top tick and its number sit clear under the chart's title.)
+    const yV = (x) => clamp(bot - (x / (vHi * HEAD)) * (bot - top), top - 2, bot), yP = (p) => clamp(bot - (p / (pHi * HEAD)) * (bot - top), top - 2, bot);
+    for (let i = 0; i < 4; i++) { const y = bot - ((bot - top) * i) / (3 * HEAD), gb = gridBuf[i]; gb[0] = G; gb[1] = y; gb[2] = L.W; gb[3] = y; setPts(grid[i], gb, 2, false); setGeo(grid[i], 'opacity', ex); }
     for (let i = 0; i < 3; i++) {
-      const y = bot - ((bot - top) * (i + 1)) / 3 - 7;
+      const y = bot - ((bot - top) * (i + 1)) / (3 * HEAD) - 7;
       setGeo(tickV[i], 'x', 0); setGeo(tickV[i], 'y', y); setWords(tickV[i], int((vHi * (i + 1)) / 3)); setGeo(tickV[i], 'opacity', ex * (1 - cm));
       setGeo(tickP[i], 'x', 0); setGeo(tickP[i], 'y', y); setWords(tickP[i], int((pHi * (i + 1)) / 3)); setGeo(tickP[i], 'opacity', ex * cm);
     }
