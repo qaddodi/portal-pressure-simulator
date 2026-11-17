@@ -87,3 +87,8 @@ test('Tests going away by the panel switch (not close()) tells every pane it is 
   assert.match(dock, /function away\(\) \{[^}]*p\.shown\?\.\(false\)/);
   assert.match(main, /if \(!instr && was\) dock\.away\(\)/);
 });
+
+test('the History badge keeps its room in the top bar, so the first edit does not tip the bar to icons (play-test R2-1)', async () => {
+  const { appCss } = await import('./split-src.js');
+  assert.match(appCss(), /\.topbar:not\(\[data-fit="2"\], \[data-fit="3"\]\) \.tb-act \.tb-hc:empty \{[^}]*visibility: hidden/);
+});

@@ -188,6 +188,7 @@
    beside Treat and Tests (its card opens in Treat's place on the right); upright, it is a tab in the thumb dock. */
 .vdock .tl-hist { display: none !important; }
 .tb-act .tb-hc:empty { display: none; }
+.topbar:not([data-fit="2"], [data-fit="3"]) .tb-act .tb-hc:empty { display: inline-block; visibility: hidden; }   /* (it keeps its room: the badge appearing after the first edit widened History and tipped the bar to its icon-only step, R2-1, 17 Nov) */
 .tb-act .tb-hc { min-width: 18px; height: 18px; margin-left: -2px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12)/18px var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 .topbar[data-fit="2"] .tb-act .tb-hc, .topbar[data-fit="3"] .tb-act .tb-hc { display: none; }
 .history-card .tl-pop.tl-history { width: auto; max-height: none; overflow: visible; padding: 2px 0 6px; }
