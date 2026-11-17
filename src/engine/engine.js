@@ -1530,7 +1530,7 @@ export class Engine {
     if (!(d > 0)) return null;
     const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
     const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
-    const g = geomOf(p, id, kind, o.geom), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts, su);
+    const g = geomOf(p, id, kind, o.geom || (o.geom = {})), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts || (o.parts = {}), su);   // alloc-rare: a record brought without them, once
     for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q;
     const A = Math.PI * (d / 10) * (d / 10) / 4;
     // (Its two narrowings, stent-geom.js: the end stenosis `end` at its end `site`, the waist `red` mid stent. s, dWaist and vWaist are the
@@ -1559,6 +1559,11 @@ export class Engine {
       for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] = 0;
     }
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
+    // (The record is one descriptor of one moment, for a card to pin whole (external review, 17 Nov 2026): its geometry (geom, d, end, red, site), its
+    // readings, the direction of its flow (dir: 1 portal to systemic, −1 reversed, 0 stopped; the parts are signed with the flow, so a reversed
+    // stent's parts and dp are both negative), the raw residual of its pressure split (resid: dp less the parts' sum, mmHg, signed; the smoothed
+    // pressures and flow are not one instant, so it is small but not 0 while the patient moves, and 0 once settled) and the patient's revision.)
+    o.dir = o.still ? 0 : q < 0 ? -1 : 1; o.resid = o.still ? 0 : o.dp - r.total; o.rev = this.paramsRev | 0;
     // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
     o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP, su) * 0.06;
     return o;

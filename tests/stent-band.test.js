@@ -146,7 +146,7 @@ test('the summary tiles and the presenter bar read the stent peak against the st
     assert.deepEqual(rateOf(key, { [key]: 70, [`${id}D`]: 10 }), ['mid', 'Low']);
     assert.deepEqual(rateOf(key, { [key]: 130, [`${id}D`]: 9 }), ['ok', 'Normal']);
     // another diameter: the app's own scaled band, in the neutral tone and words that are not a verdict, never Normal, Low or High
-    for (const [v, d, word] of [[215, 6, 'Within model band'], [350, 6, 'Above model band'], [70, 12, 'Within model band'], [50, 12, 'Below model band'], [70, 6, 'Below model band']]) {
+    for (const [v, d, word] of [[215, 6, 'In band'], [350, 6, 'Over band'], [70, 12, 'In band'], [50, 12, 'Under band'], [70, 6, 'Under band']]) {
       const r = rateOf(key, { [key]: v, [`${id}D`]: d });
       assert.deepEqual([...r], ['info', word], `${key}: ${v} cm/s in a ${d} mm stent`);
     }
@@ -174,7 +174,7 @@ test('no file but the three that hold the reference writes the stent range out, 
   assert.match(dop, /p\.kind === 'tips'\) && frame\?\.D \? velNormal\(EI\[p\.id\], frame\)/);
   assert.match(dop, /rangeNoteOf\(p, normal, frame\?\.D\?\.\[EI\[p\.id\]\]\)/);
   // a scaled band is never worded or toned as a clinical verdict on the card: no "Patent", "High velocity", "suggest stenosis" or amber out-of-range for it
-  assert.match(dop, /'Within model band'/); assert.match(dop, /'Above model band'/); assert.match(dop, /'Below model band'/);
+  assert.match(dop, /'In band'/); assert.match(dop, /'Over band'/); assert.match(dop, /'Under band'/);
   const note = dop.slice(dop.indexOf('function rangeNoteOf'), dop.indexOf('const PROBES_BY_ID'));
   assert.match(note, /scaled \? `Model band for a[^`]*Provisional[^`]*not a surveillance threshold\.`/);
   assert.ok(!/suggest stenosis/.test(note.split(': `Stent velocities')[0]), 'the scaled band\'s note does not call a velocity outside it a sign of stenosis');

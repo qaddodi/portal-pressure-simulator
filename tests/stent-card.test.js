@@ -372,3 +372,26 @@ test('the card with one switch: the stent, and under it the chart of the lens (v
   void stages;
   card.dispose();
 });
+
+test('the flow: a fixed set of streaks carried along the lumen, faster where the lumen is narrow, none for a stent with no flow', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.6; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['lumen'] });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const flow = [...card.el.querySelectorAll('[data-look="stent.flow"]')][0];
+  assert.ok(flow && flow._pts.n === 36 * 3, 'one path of 36 streaks (a tail, a head and a lifted pen each)');
+  assert.equal(flow._g.opacity, 1);
+  const before = Array.from(flow._pts.buf);
+  await new Promise((r) => setTimeout(r, 400));
+  const after = Array.from(flow._pts.buf);
+  let moved = 0;
+  for (let i = 0; i < 36; i++) { assert.ok(Number.isFinite(after[6 * i]) && Number.isFinite(after[6 * i + 1])); if (Math.abs(after[6 * i + 2] - before[6 * i + 2]) > 0.5 && after[6 * i + 2] > before[6 * i + 2]) moved++; assert.ok(after[6 * i + 2] > after[6 * i], 'a streak runs with the flow: its head is ahead of its tail'); }
+  assert.ok(moved >= 20, `${moved} of 36 streaks moved on`);
+  card.pin({ ...fp, tipsFlow: 0, tipsG0: 0, tipsG1: 0, tipsG2: 0 });
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(flow._g.opacity, 0, 'a stent with no flow has no streaks');
+  card.dispose();
+});

@@ -208,6 +208,10 @@ export function createStent() {
   const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
   const ghostP = sv('path', { 'data-look': 'stent.ghost' });
+  // the flow: short streaks carried along the lumen at its own speed (faster where it narrows), one path of NP streaks, each a tail and a head
+  const NP = 36, flowBuf = new Float64Array(NP * 6), flowP = sv('path', { 'data-look': 'stent.flow' });
+  const fx = new Float64Array(NP), fl = new Float64Array(NP);
+  for (let i = 0; i < NP; i++) { fx[i] = ((i * 0.618034) % 1) * VW; fl[i] = ((((i * 0.381966) % 1) * 2) - 1) * 0.78; }
   const stops = Array.from({ length: N_STOPS }, (_, i) => sv('stop', { offset: (i / (N_STOPS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: a gradient's first stops, written at the first paint
   const grad = sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: S.x0, y1: 0, x2: S.x0 + S.span, y2: 0 }, stops);
   const stopsP = Array.from({ length: N_STOPS }, (_, i) => sv('stop', { offset: (i / (N_STOPS - 1)).toFixed(3), 'stop-color': '#888888' }));   // colour-exempt: a gradient's first stops, written at the first paint
@@ -236,7 +240,7 @@ export function createStent() {
   const nBuf = [new Float64Array(4), new Float64Array(4)], nTicks = [0, 1].map(() => sv('path', { 'data-look': 'stent.gate.tick' }));   // (the usual range's two edges on the velocity strip)
   setWords(none, 'No stent'); setWords(cap, 'Doppler peak, cm/s'); setWords(capP, 'Static pressure, mmHg');
   const picL = sv('svg', { class: 'gl-pic', viewBox: `0 0 ${VW} ${S.h}`, role: 'img' },
-    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
+    sv('defs', {}, grad, gradP, gradKV, gradKP), stubP, stubH, veinP, veinH, ghostP, lumP, lumQ, grfP, ...wires, flowP, band, dimP, dimTxt, lenTxt, arrowP, ...ticks, ...nums, ...numsP, cap, capP, barV, barP, ...kEnds, ...nTicks, none);
 
   // ── the pressure bar's pieces ──
   const B = BAR;
@@ -364,6 +368,34 @@ export function createStent() {
   const fix = { len: 8, waist: 1, trans: 0, red: 0 }, MESH = { cy: 0, x0: 0, dPx: 0, s: 0, sh: fix, site: 0, L: 0 };
   // the stent's frame for the figure's own device drawing: a along its length, side across (-1 to 1) at the lumen's wall there
   const frame = (a, side) => { const u = a / MESH.L; return [MESH.x0 + a, MESH.cy + side * (MESH.dPx * profileAt(MESH.sh, MESH.s, MESH.site, u)) / 2]; };
+  // The streaks' speed is the flow's through the lumen there: the open stent's rate times (its half width over the lumen's)^1.4, a little less than the continuity's square so a
+  // tight waist reads fast without turning to a blur. A frame that stalls (a hidden tab) moves them by no more than 50 ms.
+  let flowT = 0, flowRate = 0, flowShown = 0;
+  const hwAt = (x) => {
+    if (x < MESH.x0 || x > MESH.x0 + MESH.L) return S.stubH / 2;
+    const i = clamp(Math.round(((x - MESH.x0) / MESH.L) * N_PROFILE), 0, N_PROFILE);
+    return Math.max(0.8, MESH.cy - lumBuf[2 * i + 1]);
+  };
+  function stepFlow(now) {
+    const dt = flowT > 0 ? Math.min(0.05, Math.max(0, (now - flowT) / 1000)) : 0;
+    flowT = now;
+    if (!(MESH.dPx > 0)) return;
+    const u0 = flowRate, hw0 = MESH.dPx / 2;
+    for (let i = 0; i < NP; i++) {
+      const hw = hwAt(fx[i]);
+      fx[i] += u0 * Math.pow(hw0 / hw, 1.4) * dt;
+      if (fx[i] > VW + 12) fx[i] -= VW + 24;
+    }
+  }
+  function drawFlow(ex) {
+    const hw0 = MESH.dPx / 2;
+    for (let i = 0; i < NP; i++) {
+      const x = fx[i], hw = hwAt(x), sp = flowRate * Math.pow(hw0 / Math.max(0.8, hw), 1.4), len = clamp(sp * 0.09, 2, 26), y = MESH.cy + fl[i] * hw, b = 6 * i;
+      flowBuf[b] = x - len; flowBuf[b + 1] = y; flowBuf[b + 2] = x; flowBuf[b + 3] = y; flowBuf[b + 4] = NaN; flowBuf[b + 5] = 0;
+    }
+    setPts(flowP, flowBuf, NP * 3, false);
+    setGeo(flowP, 'opacity', ex * flowShown);
+  }
   /** The rows for words of size fs: where each row of the side view sits, and the picture's height (its box follows). */
   function placeSide(fs) {
     sideLayout(fs, S);
@@ -454,6 +486,9 @@ export function createStent() {
     }
     const span = gateIdx >= 0 ? STENT_SPANS[['proximal', 'mid', 'distal'][gateIdx]] : STENT_SPANS.mid;
     setGeo(band, 'x', x0 + span[0] * L); setGeo(band, 'width', (span[1] - span[0]) * L); setGeo(band, 'opacity', gateIdx >= 0 ? ex : 0);
+    const fq = Math.abs(v[CH.flow] * SCALE[CH.flow]);
+    flowRate = 24 * clamp(fq / 1.2, 0.3, 1.8); flowShown = smooth01(fq / 0.1);   // (a stopped stent has none: they fade as its flow does)
+    drawFlow(ex);
     glL.paint();
   }
 
@@ -526,22 +561,27 @@ export function createStent() {
   }
 
   const reduce = typeof matchMedia === 'function' ? reduceMotionMQ : null;
+  // The streaks run while the stent's side view is in view, flowing, and motion is allowed; nothing is painted for a card that is hidden, off the screen or in a hidden tab.
+  let inView = true;
+  const flowOn = () => has('lumen') && have && el.isConnected && inView && !reduce?.matches && !(typeof document !== 'undefined' && document.hidden) && fol.v[CH.ex] > 0.5 && Math.abs(fol.v[CH.flow] * SCALE[CH.flow]) > 0.02;
   function tick() {
     raf = 0;
-    const moving = fol.at(easeNow());
+    const now = easeNow(), moving = fol.at(now), flowing = flowOn();
+    if (flowing) stepFlow(now); else flowT = 0;
     paintAll();
-    if (moving && el.isConnected) raf = nextFrame(tick);
+    if ((moving || flowing) && el.isConnected) raf = nextFrame(tick);
     else { if (moving) { fol.snap(fol.to); paintAll(); } animating(false); writeAriaSoon(); }
   }
+  const kick = () => { if (!raf && flowOn()) { animating(true); raf = nextFrame(tick); } };
   function refresh(live) {
     read(live);
     if (!hasShown || reduce?.matches || !el.isConnected) {
       fol.snap(goal); hasShown = true;
       if (raf) { cancelFrame(raf); raf = 0; }
-      animating(false); paintAll(); writeAriaSoon(); return;
+      animating(false); paintAll(); writeAriaSoon(); kick(); return;
     }
     if (fol.goal(goal, easeNow())) { animating(true); if (!raf) raf = nextFrame(tick); return; }
-    // (still, and nothing it shows changed: no redraw)
+    kick();   // (still, and nothing it shows changed: no redraw, but the flow goes on)
   }
 
   function configure(t) {
@@ -589,11 +629,15 @@ export function createStent() {
       paintLumen(fol.v); glL.relook(); glT?.relook(); glB.relook();
     }
   };
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { inView = es[es.length - 1].isIntersecting; if (inView) kick(); }) : null;
+  io?.observe(el);
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fitAll) : null;
   ro?.observe(stageL); ro?.observe(stageB);
-  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
+  const dispose = () => { ro?.disconnect(); io?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); glL.dispose?.(); glT?.dispose?.(); glB.dispose?.(); };
   return {
     el, configure, dispose,
+    /** The card's shape as it is now: its width over the height of what it shows (the side view and the chart under it, in the pictures' own units). Moves with the words' size. */
+    ratio() { return VW / ((has('lumen') ? S.h : 0) + (has('trace') && tp ? tp.height() : 0) + (has('loss') ? B.h : 0)); },
     /** The slide's numbers (its fingerprint): the card shows these, not the beat-to-beat live ones. */
     pin(fp) { pinned = fp || null; refresh(); },
     /** A live frame (the Tests dock): used while the card has no slide's numbers pinned. */
