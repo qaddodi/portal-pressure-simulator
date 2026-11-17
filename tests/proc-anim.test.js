@@ -352,7 +352,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
 test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {
   const guided = new Set();
   for (const d of DECKS) for (const s of d.slides) if (procKindOf(s.procedure) === 'tips') guided.add(`${d.id}/${s.id}`);
-  assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
+  assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'tips-complete/play', 'variceal-bleed/tips']);
   // (The placement ends with the stent in: no reading follows it. Mohammad, 16 Nov 2026: "Remove the measuring gradient step after TIPS". The gradient across the stent is taught
   // on its own slide, MEASURES.tipsgrad played alone; no slide chains it after a TIPS, and no slide's notes tell of a "step 5".)
   const thens = [];
