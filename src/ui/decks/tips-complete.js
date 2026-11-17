@@ -93,7 +93,7 @@ export const TIPS_COMPLETE = {
     },
     {
       id: 'ascites', preset: 'cirr-decomp', params: REFRACTORY, relax: 200, cam: 'fit', tool: { kind: 'trial', id: 'covered' }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
-      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis needs a 5 L paracentesis every two weeks; diuretics were stopped when her sodium fell to 124 mmol/L. MELD 11, no encephalopathy, normal echocardiogram.',
+      vignette: 'A 61-year-old woman with alcohol-associated cirrhosis needs a 5 L paracentesis every two weeks; diuretics stopped at sodium 124 mmol/L. MELD 11, no encephalopathy, normal echocardiogram.',
       caseQ: 'Is she a candidate for TIPS?',
       kicker: 'Choosing the patient', site: 'sin', title: 'Ascites that returns after every paracentesis is an indication for TIPS', cite: 'Baveno VIII 6.3, 6.4',
       line: 'Her ascites is {asc} with a PPG of {ppg}. Her liver, heart and kidneys pass the checks, so TIPS is considered, and discussed together with liver transplant.',
