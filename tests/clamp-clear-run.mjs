@@ -41,7 +41,8 @@ if (o.card) {
 const doc = page.document, laid = st.labelLaid().items;
 const cl = [...doc.querySelectorAll('#stageOver .clamp-label')].map((el) => ({ t: el._txt ?? el.textContent, box: el._box ? [el._box.x0, el._box.y0, el._box.x1, el._box.y1].map(Math.round) : [0, 0, 0, 0] }));
 const lap = [];
-for (const c of cl) for (const d of laid) { const [a0, b0, a1, b1] = c.box, [x0, y0, x1, y1] = d.box; if (a0 < x1 && a1 > x0 && b0 < y1 && b1 > y0) lap.push(d.key + ' ' + d.text); }
+// (the words' box is the solver's, grown 9 px round them; a label is over them only past a pixel of it, the rounding of the two boxes)
+for (const c of cl) for (const d of laid) { const [a0, b0, a1, b1] = c.box, [x0, y0, x1, y1] = d.box; if (a0 < x1 - 1 && a1 > x0 + 1 && b0 < y1 - 1 && b1 > y0 + 1) lap.push(d.key + ' ' + d.text); }
 // (every leader that runs through a narrowing's words: from its point to its label's centre, sampled every 2 px)
 const cross = [];
 for (const d of laid) {
