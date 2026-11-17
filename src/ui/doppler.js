@@ -84,8 +84,20 @@ for (let i = 0; i <= 100; i++) RI_TEXT.push(`Resistive index ${fmt(i / 100, 2)}`
 // A stent's name with the gate it samples at, for each gate (the label in the strip), and the strip's settings words for each window.
 const GATE_NAME = { proximal: 'Proximal', mid: 'Mid', distal: 'Distal' };
 for (const p of PROBES) if (p.kind === 'tips') { p.byGate = {}; for (const g in GATE_NAME) p.byGate[g] = `${p.name} · ${GATE_NAME[g]}`; }
-// (A stent's note on its range, made once from its normal: "Stent velocities <90 or >190 cm/s, …".)
-for (const p of PROBES) if (p.kind === 'tips') p.rangeNote = `Stent velocities <${p.normal[0]} or >${p.normal[1]} cm/s, or a change of >50 cm/s from the baseline scan, suggest stenosis.`;
+// (A stent's note on its range, made once for each range it has had: "Stent velocities <90 or >190 cm/s, …". An 8 to 10 mm stent keeps the reference words; any other
+// diameter names its own range and says it is scaled, not reported (stent-geom.js stentBand).)
+const RANGE_NOTES = new Map();
+const NOTE_TAIL = 'or a change of >50 cm/s from the baseline scan, suggest stenosis.';
+function rangeNoteOf(p, normal, d) {
+  const scaled = normal !== p.normal, key = scaled ? `${normal[0]}|${normal[1]}|${d}` : '';
+  let t = RANGE_NOTES.get(key);
+  if (t === undefined) {
+    t = scaled ? `Stent velocities <${normal[0]} or >${normal[1]} cm/s for a ${Math.round(d * 10) / 10} mm stent (provisional: the 8 to 10 mm range, scaled; no guideline gives one), ${NOTE_TAIL}`
+      : `Stent velocities <${normal[0]} or >${normal[1]} cm/s, ${NOTE_TAIL}`;
+    RANGE_NOTES.set(key, t);
+  }
+  return t;
+}
 const PROBES_BY_ID = new Map(PROBES.map((p) => [p.id, p]));
 const PI_TEXT = [];   // (the calipers' index in words, for each hundredth up to 3)
 for (let i = 0; i <= 300; i++) PI_TEXT.push(`PI ${fmt(i / 100, 2)}`);
@@ -468,8 +480,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
-  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged.
-  const normalOf = (p) => (p.id === 'PV_TRUNK' && frame?.D ? velNormal(EI.PV_TRUNK, frame) : null) || p.normal;
+  // A vessel's usual range: with a TIPS or DIPS in, the main portal vein's is 30 cm/s and up (velNormal.js), so fast flow is not flagged; a stent's follows its
+  // own open diameter (an 8 to 10 mm stent keeps 90 to 190 cm/s, velNormal.js stentNormal).
+  const normalOf = (p) => ((p.id === 'PV_TRUNK' || p.kind === 'tips') && frame?.D ? velNormal(EI[p.id], frame) : null) || p.normal;
   // A stent is judged at its gate, as its reading, trace and tiles show it: a 90% narrowing's jet is flow, not an occlusion,
   // although the open stent around it barely moves (g, the gate's factor; open, the open stent's mean for its segment tiles).
   // (seen: the reading the strip shows, signed and at the stent's gate, and the open stent's velocity its segment tiles read from: a stent's
@@ -547,7 +560,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
       const hiV = normal[1];   // (the stent's ceiling: its probe's normal, from the one table of them, velNormal.js PROBE_NORMAL)
       pattern = jsS.none ? 'Occluded' : jsS.slow ? (jet > hiV ? 'Low velocity, jet' : 'Low velocity') : jet > hiV ? 'High velocity' : 'Patent';
       if (sev === 'ok' && jet > hiV) sev = 'caution';
-      note = jsS.none ? 'No flow in the stent: occluded.' : p.rangeNote;
+      note = jsS.none ? 'No flow in the stent: occluded.' : rangeNoteOf(p, normal, frame?.D?.[EI[p.id]]);
     } else if (p.kind === 'ivc') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
       pattern = r.vminMean < -1 ? 'Phasic, with reversal' : pi > 0.3 ? 'Phasic' : 'Continuous';
@@ -723,12 +736,12 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const isStent = p.kind === 'tips';
     showTiles(p);
     if (isStent) {
-      // Each segment against the stent's usual range (90–190 cm/s, p.normal), the gated one marked.
-      const at = gateOf(), reads = stentReads(open);
+      // Each segment against the stent's usual range (90–190 cm/s for an 8 to 10 mm stent, scaled for another: normalOf), the gated one marked.
+      const at = gateOf(), reads = stentReads(open), sn = normalOf(p);
       for (let i = 0; i < SEGS.length; i++) {
         const seg = SEGS[i][0], name = SEGS[i][1], v = reads[i], w = statEls[name].wrap, here = seg === at;
         setStat(statEls[name].dd, num(v), 'cm/s');
-        dataSoon(w, 'out', v < p.normal[0] || v > p.normal[1]);
+        dataSoon(w, 'out', v < sn[0] || v > sn[1]);
         classSoon(w, 'on', here);
         const b = statEls[name].btn;
         if (b) {

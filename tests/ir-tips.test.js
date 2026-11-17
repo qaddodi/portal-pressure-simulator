@@ -20,7 +20,7 @@ document.body.innerHTML = '<div id="toastsFoot"></div>';
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true }); } catch { /* already there */ }
 
-const { createIrTips, stentIds, stentLine, STENT_RANGE, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
+const { createIrTips, stentIds, stentLine, STENT_RANGE, peakBand, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
 const { curveToolOf, sweepMatters, SWEEPS } = await import('../src/ui/ir-curves.js');
 const { curveSteps, curveSeries, drawnLines, curveXs } = await import('../src/ui/tool-curve.js');
@@ -193,6 +193,30 @@ test('Compare: the sub-switch changes the sub-view, and the DIPS names its own f
   assert.equal(ir.el.dataset.sub, 'inside');
   assert.equal(host.dataset.view, 'tips');
   assert.doesNotMatch(read('src/ui/ir-compare.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
+});
+
+test('the stent peak tile reads the range for the stent\'s own diameter: 8 to 10 mm as before, scaled and marked provisional for another', async () => {
+  assert.equal(peakBand({ d: 8 }), STENT_RANGE); assert.equal(peakBand({ d: 10 }), STENT_RANGE); assert.equal(peakBand(null), STENT_RANGE);
+  assert.deepEqual([...peakBand({ d: 6 })], [90, 338]); assert.deepEqual([...peakBand({ d: 12 })], [63, 132]);
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 6 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
+  const at = (d, vPeak) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d, s: 0, dWaist: d, vPeak, peaks: [vPeak, vPeak, vPeak] } }));
+  // a 6 mm stent whose gates read about 216 cm/s: high against 90 to 190, in range against its own 90 to 338
+  at(6, 216); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'In range');
+  assert.equal(peak().dataset.sev, 'none');
+  assert.match(peak().title, /6 mm stent reads 90 to 338 cm\/s \(provisional/);
+  const lefts = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
+  assert.ok(Math.abs(lefts[0] - 90 / 4) < 0.01 && Math.abs(lefts[1] - 338 / 4) < 0.01, `the ticks sit at 90 and 338 of 400: ${lefts}`);
+  // the same reading in a 10 mm stent is out of range, and the ticks go back to 90 and 190
+  at(10, 216); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range');
+  assert.equal(peak().dataset.sev, 'caution');
+  assert.doesNotMatch(peak().title, /provisional/);
+  const back = [...peak().querySelectorAll('.rb-tick')].map((t) => parseFloat(t.style.left));
+  assert.ok(Math.abs(back[1] - 190 / 4) < 0.01, `${back}`);
 });
 
 test('Curves: the tool a stent and a setting give is the deck\'s own curve, two lines, the bench dashed, in the flow\'s colour', () => {

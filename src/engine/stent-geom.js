@@ -157,6 +157,36 @@ export function benchFlow(kind, d, visc, s, g, dP) {
   return Math.sign(dP) * (2 * m) / (R + Math.sqrt(R * R + 4 * B * m));
 }
 
+// ── The Doppler's usual peak velocity for a stent, by its diameter (17 Nov 2026) ──
+// The 90 to 190 cm/s the scan reports for a working stent is for 8 to 10 mm stents (Mitchell et al., Abdom Radiol 2025, and the surveillance literature the TIPS
+// Doppler talk teaches). A narrower stent runs faster at the same flow (velocity goes with 1 / diameter²: a patent 6 mm stent in a decompensated patient reads 205 to
+// 228 cm/s, wrongly "High velocity" against 190), a wider one slower. Nothing published gives a range for any other diameter, so the band is scaled from the
+// 8 to 10 mm one, and every number made this way is provisional:
+//   8 to 10 mm   the reference band as it stands (the same array, so nothing that reads it moves).
+//   over 10 mm   both edges × (10 / d)²: the stent's flow barely rises past 10 mm (1.2 to 1.8 L/min at 12 mm), so a wider lumen is a slower velocity.
+//   under 8 mm   the ceiling × (8 / d)². The floor stays: a narrower stent carries less flow (the model's 6 mm stent carries about three quarters of an 8 mm one's),
+//                so its velocity rises less than 1 / d², and a floor scaled that way would call a patent 6 mm stent in a compensated patient, or in schistosomiasis,
+//                "slow" (the model's 6 mm stents read 113 to 126 and 146 to 171 cm/s there against a floor of 160).
+// A narrowing is not the stent's diameter: the band follows the open stent's d (params.tips.d), and the waist's jet is what it is read against.
+/** The reference diameters (mm) the reference band belongs to: inside them the band is the reference band. */
+export const STENT_BAND_D = Object.freeze([8, 10]);
+/** The narrowest stent the tool offers (mm, scenario.js): under it, while a stent opens or closes, the band is the one at this width. */
+export const STENT_BAND_MIN_D = 6;
+/**
+ * A stent's usual peak velocity range [lo, hi] (cm/s) at its open diameter d (mm), from the reference band `ref` (its 8 to 10 mm range).
+ * Inside 8 to 10 mm (and for no diameter) it is `ref` itself; otherwise the numbers are written into `out` (rounded to whole cm/s) and `out` is returned.
+ * Pure and allocation-free given an `out`.
+ */
+export function stentBand(d, ref, out = null) {
+  if (!(d > 0) || (d >= STENT_BAND_D[0] && d <= STENT_BAND_D[1])) return ref;
+  if (d < STENT_BAND_MIN_D) d = STENT_BAND_MIN_D;   // (a stent opening or closing eases through every width, stent-ease.js: its band stops at the narrowest the tool offers)
+  const o = out || [0, 0];   // alloc-rare: only a caller that brings no list (a test); the drawn paths pass one
+  if (d > STENT_BAND_D[1]) { const k = (STENT_BAND_D[1] / d) ** 2; o[0] = Math.round(ref[0] * k); o[1] = Math.round(ref[1] * k); }
+  else { o[0] = ref[0]; o[1] = Math.round(ref[1] * (STENT_BAND_D[0] / d) ** 2); }
+  return o;
+}
+/** Whether the band at diameter d is the reference band (no scaling): true for 8 to 10 mm and for a stent not in. */
+export const stentBandIsRef = (d) => !(d > 0) || (d >= STENT_BAND_D[0] && d <= STENT_BAND_D[1]);
 /** The card's two setters, kept here so Where, Waist length and Ends always tell one story (17 Nov 2026): params with stent `id`'s waist field
  *  `f` ('waist' or 'trans') set to v, which moves the narrowing to Mid (a waist set along the stent is mid stent); and params with the
  *  narrowing moved to `site`, which at Proximal or Distal puts back the short focal waist. Both write into and return `p` (a copy the caller made). */

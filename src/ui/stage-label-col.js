@@ -60,7 +60,7 @@ export function createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, steno
     LANE.ox = ox; LANE.oy = oy; LANE.ux = (sg * (tx - ox)) / n; LANE.uy = (sg * (ty - oy)) / n;
     return LANE;
   }
-  // (A stent's dimensions drawn on the figure (stage-transitions.js stentBracket: its waist's bracket with its length, and the diameter in mm at each section):
+  // (A stent's dimensions drawn on the figure (stage-transitions.js stentBracket: its waist's bracket, and any words a box is marked lab for):
   // no label, slide callout or stent point sits on them, and a leader runs through none of the words (lab). Their boxes are the live figure's world boxes, so a
   // solve ahead for the other view takes none. The Doppler probe keeps off the same boxes, as of this solve (live.dimRects: stage-doppler.js dprAvoid). 17 Nov 2026.)
   function dimObstacles(placed) {

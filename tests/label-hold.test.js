@@ -4,7 +4,7 @@
 // restarted the live stent's settling clock: the cm/s labels went for 1.2 s and came back, every few seconds, for as long as the slide stood; it also wrote
 // the live column's side and moved the live "60 %". (2) Every solve on a slide (no pan before it) placed every label afresh, so a near tie between two
 // spots flipped a callout there and back as a value, a vessel's width, the probe or a card moved; a scene's solves now keep their slots once it has settled,
-// and a slide's mark keeps its spot while that spot is free. (3) The stent's own dimension words (waist length, mm per section) were not obstacles.
+// and a slide's mark keeps its spot while that spot is free. (3) The stent's waist bracket was not an obstacle.
 // Each slide is the real stage booted in node (label-hold-run.mjs) on the test clock, in a process of its own; a solve is asked every few frames.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +29,7 @@ const judge = (name, { rec, over }, want) => {
     assert.deepEqual(gone, [], `${name}: ${k} went at frames ${gone.join(', ')} while the slide stood`);
     assert.deepEqual(jumps, [], `${name}: ${k} changed spot while the slide stood`);
   }
-  assert.deepEqual(over, [], `${name}: a label covers the stent's dimension words`);
+  assert.deepEqual(over, [], `${name}: a label covers the stent's waist bracket`);
 };
 
 test('a TIPS slide\'s callout and the stent\'s cm/s labels hold their spots and never go while the slide stands', async () => {

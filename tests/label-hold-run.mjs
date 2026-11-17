@@ -39,9 +39,9 @@ for (let i = 0; i < frames; i++) {
   for (const d of sn.items) if (/^focus/.test(d.key)) { seen.add(d.key); (rec[d.key] ||= []).push([i, Math.round(d.x), Math.round(d.y), d.a > 0.5 ? 1 : 0]); boxes.push([d.key, d.x, d.y, d.x + d.w, d.y + d.h]); }
   for (const d of laid) if (/TIPS|DIPS/.test(d.key)) { seen.add(d.key); (rec[d.key] ||= []).push([i, Math.round(d.box[0]), Math.round(d.box[1]), 1]); boxes.push([d.key, ...d.box]); }
   for (const k in rec) if (!seen.has(k)) { const l = rec[k].at(-1); rec[k].push([i, l[1], l[2], 0]); }
-  // (the stent's dimension words, as the solve keeps labels off them: none of the boxes above may cover them; the stage stands at the page's corner)
+  // (the stent's waist bracket, as the solve keeps labels off it: none of the boxes above may cover it; the stage stands at the page's corner)
   dims = st.labelDims();
-  for (const [k, x0, y0, x1, y1] of boxes) for (const d of dims) if (d[4] && x0 < d[2] && x1 > d[0] && y0 < d[3] && y1 > d[1]) over.push(`${i}:${k}`);
+  for (const [k, x0, y0, x1, y1] of boxes) for (const d of dims) if (x0 < d[2] && x1 > d[0] && y0 < d[3] && y1 > d[1]) over.push(`${i}:${k}`);
 }
 console.log('HOLD' + JSON.stringify({ rec, dims: dims.length, over: over.slice(0, 10) }));
 process.exit(0);
