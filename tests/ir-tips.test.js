@@ -324,17 +324,18 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
-test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+test('The TIPS view fits the card without scrolling: it fills the pane, the readings are one line, the figures take the height left and are never wider than it allows', async () => {
   const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
-  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-tips \.ir-tiles\.rp-tiles \{ display: flex; flex-wrap: wrap; align-items: baseline;/, 'the four readings are one line of text, wrapping between readings (Mohammad, 17 Nov: no big tiles)');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, \.ir-tips \.ir-tiles \.tr, \.ir-tips \.ir-tiles \.cmp \{ display: none; \}/);
   // Width first (17 Nov 2026, play-test findings 22 and 25): the pictures fill the card's width up to 520 px; the height left may only shrink them to a readable 340 px, and the view scrolls before the text gets smaller.
   assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: calc\(min\(100cqw, var\(--fig-min, 340px\)\) \/ var\(--fig-r, 1\.35\) \+ 6px\); container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
   assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/);
   assert.match(plate, /\.ir-inside \{ flex: 1 0 auto;/, 'the readings and the smallest readable picture are never squeezed');
   assert.match(plate, /\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, 'the last resort is a scroll down, never sideways (overflow-y alone makes x scroll too: F-sideways, 17 Nov)');
-  assert.match(plate, /\.ir-tiles \.rb \{ display: none; \}/, 'the readings are numbers and words; the bar went to the picture\'s room');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, /, 'the readings are numbers and words; the bar went to the picture\'s room');
   // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
   assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
@@ -343,7 +344,8 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(src, /show: \['card'\]/, 'one stent drawing, one lens switch');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
-  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+  assert.ok(ir.el.querySelector('.ir-stents > .ir-sub'), 'two rows of controls: the chip with the three views, then the editor');
+  assert.equal(ir.el.querySelector('.ir-editor').previousElementSibling.className, 'ir-stents');
   assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
@@ -430,12 +432,12 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
 });
 
-test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in a thin row over the pictures, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   ir.update(frameOf()); await wait(60);
-  const sw = ir.el.querySelector('.ir-stents > .sc-lens');
+  const sw = ir.el.querySelector('.ir-lensrow > .sc-lens');
   assert.ok(sw, 'moved into the header row');
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
   assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-lens'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
@@ -544,12 +546,12 @@ test('the stent peak tile reads a deliberate reduction\'s jet as intended, and a
   assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
 });
 
-test('The readings never break inside a word, and in a narrow card (375 px phone) each is its name over its number (F37)', async () => {
+test('The readings never break inside a word, and are one line of small text, not tiles (F37, and Mohammad 17 Nov)', async () => {
   const plate = read('styles/app-06-plate.css'), tests = read('styles/app-09-tests.css');
-  const narrow = plate.match(/@container \(max-width: 399\.9px\) \{ \.ir-tips \.ir-tiles \.metric \{[^}]*\}[^@]*?\}\n/)?.[0] || '';
-  assert.match(narrow, /grid-template-areas: "k" "v" "s"/, 'name above number above word, one column');
-  assert.match(narrow, /overflow-wrap: normal; word-break: normal; hyphens: none/);
-  assert.doesNotMatch(narrow, /grid-template-columns: minmax\(0, 1fr\) auto/, 'no name squeezed beside its number');
+  const metric = plate.match(/\.ir-tips \.ir-tiles \.metric \{[^}]*\}/)?.[0] || '';
+  assert.match(metric, /display: inline-flex;/); assert.match(metric, /flex-wrap: nowrap;/, 'a reading\'s name, number and word stay together');
+  assert.match(plate.match(/\.ir-tips \.ir-tiles \.metric \.k \{[^}]*\}/)?.[0] || '', /white-space: nowrap;/, 'a name is never broken inside a word');
+  assert.match(metric, /background: none; box-shadow: none;/, 'no box round a reading');
   assert.match(tests, /\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/);
   for (const [name, css] of [['app-01', read('styles/app-01-chrome.css')], ['app-06', plate], ['app-08', read('styles/app-08-cards.css')], ['app-09', tests]]) {
     const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
