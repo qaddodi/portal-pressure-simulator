@@ -19,4 +19,6 @@ export default [
   { file: 'src/ui/ir-tips.js', need: [/const out = leaveFade\(\[subEl\(sub\)\], subEl\(v\)\);[^\n]*\n\s+sub = v;/, `${W} the sub-view that goes out is lifted before the flip`] },
   { file: 'src/ui/ir-tips.js', exactly: [/out\.start\(\);/, 2, `${W} both changes of view start the fade`] },
   { file: 'src/ui/stent-editor.js', need: [/if \(!switching\) holdActions\(\);\s+show\(rowId, switching\);/, `${W} the tray holds the action row's place before it takes its room, and a switch of tile fades the old controls`] },
+  { file: 'src/ui/stent-editor.js', need: [/const out = on \? leaveFade\(\[rowsEl\], summary\) : leaveFade\(\[summary\], rowsEl\);/, `${W} the fold of a card's editor (its rows to one line and back) fades the part that goes out`] },
+  { file: 'styles/app-06-plate.css', need: [/\.stent-editor\[data-fold="true"\] > \.se-rows \{ display: none; \}/, `${W} the fold's hide rule is a child rule: the rows going out stay visible in their ghost`] },
 ];

@@ -561,8 +561,9 @@
 .stent-editor .se-summary { display: none; width: 100%; align-items: center; gap: 4px; min-height: 44px; padding: 4px 2px; border: 0; border-top: 1px solid var(--hairline); background: none; text-align: left; cursor: pointer; font: 500 var(--fs-12)/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
 .stent-editor .se-sum-t { flex: 1 1 auto; min-width: 0; }
 .stent-editor .se-sum-ic { flex: none; width: 14px; height: 14px; color: var(--text-3); }
-.stent-editor[data-fold="true"] .se-rows { display: none; }
-.stent-editor[data-fold="true"] .se-summary { display: flex; animation: crossfade var(--d-small) var(--ease); }
+.stent-editor[data-fold="true"] > .se-rows { display: none; }   /* (a child rule: the rows going out are in the leaving view's ghost, leave-fade.js, which stays) */
+.stent-editor[data-fold="true"] > .se-summary { display: flex; animation: crossfade var(--d-small) var(--ease); }
+.stent-editor .lf-ghost .se-summary { display: flex; }   /* (the line going out fades in the ghost where it stood, leave-fade.js) */
 .lf-ghost { position: relative; flex: none; display: flex; flex-direction: column; pointer-events: none; }   /* (a leaving view's ghost: it stands where the view stood and takes no room, leave-fade.js) */
 .ir-inside { flex: none; display: flex; flex-direction: column; gap: 8px; }
 .ir-tips:is([data-sub="compare"], [data-sub="curves"]) > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */

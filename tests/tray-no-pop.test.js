@@ -60,3 +60,36 @@ test('the stent editor holds the action row\'s place on the tap that opens a tra
     ed.destroy();
   } finally { proto.animate = old; proto.getBoundingClientRect = R0; }
 });
+
+test('the editor\'s fold (the Tests view\'s editor shows, so the card\'s rows become one line) glides the card, writes the swap in the tap and fades the rows out where they stood', async () => {
+  const anims = [];
+  const proto = window.Element.prototype, old = proto.animate;
+  proto.animate = function (kf, o) { let res; const a = { el: this, kf, o, finished: new Promise((r) => { res = r; }), cancel() {}, finish() { res(); } }; anims.push(a); return a; };
+  const R0 = proto.getBoundingClientRect;
+  proto.getBoundingClientRect = function () { return { left: 0, top: 0, right: 300, bottom: 64, width: 300, height: 64, x: 0, y: 0 }; };
+  try {
+    const { store } = await import('../src/ui/store.js');
+    const { createStentEditor } = await import('../src/ui/stent-editor.js');
+    const { GLIDE_EVENT } = await import('../src/ui/card-glide.js');
+    const p = store.get().params; store.set({ params: { ...p, tips: { ...(p.tips || {}), on: true, d: 10 } } });
+    const host = document.createElement('div'); document.body.append(host);
+    let asks = 0; host.addEventListener(GLIDE_EVENT, () => { asks++; });
+    const cardEd = createStentEditor({ id: 'TIPS' });
+    host.append(cardEd.el);
+    const lead = createStentEditor({ id: 'TIPS', lead: true });
+    const rows = cardEd.el.querySelector('.se-rows'), line = cardEd.el.querySelector('.se-summary');
+    assert.ok(rows && line && cardEd.el.dataset.fold !== 'true');
+    lead.setShown(true);   // (the Tests view's editor is on screen: the card's folds to its line)
+    assert.equal(asks, 1, 'the card is asked to glide first');
+    assert.equal(cardEd.el.dataset.fold, 'true', 'the swap is written in the tap, so no frame is drawn between the lift and the swap');
+    const ghost = cardEd.el.querySelector(':scope > .lf-ghost');
+    assert.ok(ghost && ghost.contains(rows), 'the rows go out in their ghost, where they stood');
+    assert.ok(anims.some((a) => a.el === ghost && a.kf[1].opacity === 0), 'fading by opacity');
+    anims.length = 0;
+    lead.setShown(false);   // (and back: the line goes out the same way, the rows rise from nothing)
+    assert.equal(asks, 2); assert.equal(cardEd.el.dataset.fold, 'false');
+    assert.ok(anims.some((a) => a.el === rows && a.kf[0].opacity === 0 && a.kf[1].opacity === 1), 'the rows fade in');
+    assert.ok(cardEd.el.querySelector(':scope > .lf-ghost')?.contains(line), 'the line fades out where it stood');
+    lead.destroy(); cardEd.destroy();
+  } finally { proto.animate = old; proto.getBoundingClientRect = R0; }
+});
