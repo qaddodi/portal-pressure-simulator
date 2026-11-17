@@ -8,11 +8,13 @@ import { T, pressureAt } from '../src/ui/hvpg-clock.js';
 
 const src = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
 
-test('the free baseline is steady: a faint tremor around the mean, never a heave (12 Nov 2026), and still not exactly the reading', () => {
+// (12 Nov 2026 the free baseline "is bouncing": it was cut to a 0.3 mmHg tremor; 17 Nov 2026 that tremor read as "a zigzag" that "doesn't seem real or
+// reflect real heart beat": the pulse is a real venous a/c/v pulse on the patient's heart rate and the breath swing, still within a mmHg of the level.)
+test('the free baseline is a real venous pulse around the mean, never a heave, and still not exactly the reading', () => {
   const v = { fhvp: 4.8, whvp: 16.6 };
   const off = Math.max(...Array.from({ length: 200 }, (_, i) => Math.abs(pressureAt(T.free + i * 15, v) - v.fhvp)));
-  assert.ok(off > 0.02, `the free trace still carries a pulse: ${off.toFixed(2)} mmHg`);
-  assert.ok(off < 0.45, `the free baseline stays within ${off.toFixed(2)} mmHg of its level`);
+  assert.ok(off > 0.3, `the free trace carries a visible pulse: ${off.toFixed(2)} mmHg`);
+  assert.ok(off < 1.0, `the free baseline stays within ${off.toFixed(2)} mmHg of its level`);
 });
 
 
