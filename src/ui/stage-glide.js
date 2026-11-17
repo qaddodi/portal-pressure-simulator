@@ -3,6 +3,7 @@
 import { VB_ANAT, VIEW } from './anatomy.js';
 import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.js';
 import { CAM_CARRY_MAX, CAM_MS_MAX, camMs, carriedCam, easeMove, slideMs, springSlope } from './ease.js';
+import { subjectDelta } from './card-clear.js';
 import { cancelFrame } from './frame.js';
 import { STALL_MAX, glideClock, lateShift } from './glide-clock.js';
 import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
@@ -202,7 +203,7 @@ export function createGlide(st, live) {
   function bvFitK(q) { return Math.min(Math.max(40, q.r - q.l - 2 * bvPad) / bvS0 / (bvX1 - bvX0), Math.max(40, q.b - q.t - 2 * bvPad) / bvS0 / (bvY1 - bvY0)); }
   const bvScore = (q) => Math.min(bvFitK(q), bvKMax);
   const bvArea = (q) => (q.r - q.l) * (q.b - q.t);
-  function boxVT(box, kMax = 4, clear = false) {
+  function boxVT(box, kMax = 4, clear = false, subject = null) {
     // (In the circuit the box is in the circuit's world units, turned a quarter turn about its centre when the map stands upright,
     // and the view box is the circuit's: the same sums, the other plate.)
     const circ = live.morphTarget === 1, VB = circ ? circVB() : VB_ANAT, turn = circ && live.rotTarget;
@@ -227,25 +228,33 @@ export function createGlide(st, live) {
     live.lastFree = { ...f, box: [x0, y0, x1, y1] };
     const k = clamp(bvFitK(f), clear ? 0.3 : 0.6, kMax);
     const cx = VB[0] + VB[2] / 2 + ((f.l + f.r) / 2 - rw / 2) / s0, cy = VB[1] + VB[3] / 2 + ((f.t + f.b) / 2 - rh / 2) / s0;
-    return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
+    const to = { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
+    // (F49, a phone: the frame is fitted into a room that is squeezed under the cards' real edge, so the slide's subject, the vessel it rings, could stand behind
+    // a card. It is brought into the room above them, in this same move: card-clear.js subjectDelta.)
+    if (subject && !circ && rects === bvDefault && store.get().presenting) {
+      const ex = safeInsets(true), l = ex.r && ex.l ? ex.l : 0;
+      const d = subjectDelta(subject, to, { rw, rh, vb: VB }, { top: ex.t + 12, bottom: rh - ex.b - 12, left: Math.max(8, l), right: rw - Math.max(8, ex.r) });
+      to.x += d.dx; to.y += d.dy;
+    }
+    return to;
   }
   // (opt.drift: a slow push, see drifting.)
   function frameBox(box, ms = 1300, kMax = 4, clear = false, opt = {}) {
     live.fitted = false; live.handed = false;
     if (live.morphTarget !== 0 && live.morphTarget !== 1) return;   // (the anatomy or the circuit; not on the way between)
-    const to = boxVT(box, kMax, clear);
+    const to = boxVT(box, kMax, clear, opt.subject);
     if (!to || sameView(to, live.vtGliding ? live.vtTarget : live.vt)) return;
     freeAsk = live.lastFree;   // (read by the glide this asks for, at once: the rectangle this framing was fitted into)
     const slide = !!opt.slide && !opt.steady;
     if (opt.drift) animateVT(to, ms, { drift: true }); else if (opt.slow) animateVT(to, ms, { arc: true, scale: true, floor: CAM_MS_MAX, slide }); else animateVT(to, ms, { arc: true, steady: !!opt.steady, scale: !opt.steady, slide });   // (a drift never arcs)
     freeAsk = null;
   }
-  function riseTo(box, kMax, clear) { live.riseBox = box ? { box, kMax, clear } : null; live.riseExp = performance.now() + 4000; }
+  function riseTo(box, kMax, clear, subject = null) { live.riseBox = box ? { box, kMax, clear, subject } : null; live.riseExp = performance.now() + 4000; }
   function riseVT() {
     const r = live.riseBox; live.riseBox = null; live.handed = false;
     if (!r || performance.now() > live.riseExp) return null;
     const box = typeof r.box === 'function' ? r.box() : r.box;
-    return box ? boxVT(box, r.kMax, r.clear) : null;
+    return box ? boxVT(box, r.kMax, r.clear, r.subject) : null;
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   /** A new slide change begins (Next, Back, a jump): the last slide's move lets go of the camera, and the next counts its start from now (slide-cam.js). */
