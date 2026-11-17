@@ -534,6 +534,10 @@
 .ir-chart { flex: 1 1 0; min-height: 150px; display: grid; }
 .ir-chart .pz-curve { height: 100%; min-height: 0; --pz-fit: 1; }
 .ir-sweep { align-self: flex-start; flex-wrap: wrap; }
+.ir-work { margin: 0; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.ir-curves[data-state="working"] .ir-work { opacity: 1; }
+.ir-chart { transition: opacity var(--d-surface, .42s) var(--ease); }
+.ir-curves[data-state="working"] .ir-chart { opacity: .25; }   /* (the lines are worked out for 10 s or more: the chart rests faded, says so beneath, and fades up when they are drawn) */
 .ir-warn { margin: 0; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .ir-curves[data-flat="1"] .ir-warn { opacity: 1; }
 .ir-note { margin: 0; }

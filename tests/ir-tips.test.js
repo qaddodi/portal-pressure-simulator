@@ -595,3 +595,43 @@ test('No Tests pane scrolls sideways: the pane and the TIPS view clip x and take
   assert.match(plate, /\.instrument-workspace \.dock-pane \{[^}]*overflow: hidden auto; touch-action: pan-y;/, 'every Tests pane');
   for (const rule of plate.match(/\.ir-[\w-]*[^{}]*\{[^}]*overflow-y: (?:auto|scroll)[^}]*\}/g) || []) assert.match(rule, /overflow: hidden (?:auto|scroll)/, `a vertical scroller that also clips x: ${rule.slice(0, 60)}`);
 });
+
+test('Curves, working state (F42): while the points are worked out the chart rests faded with a line saying so and how far; when they are drawn it fades up', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  let release; const gate = new Promise((r) => { release = r; });
+  const request = async (type) => (type === 'snapshot' ? { snap: { s: 1 } } : { result: {} });
+  const calc = () => ({ sequence: async (steps, from, cb) => { cb({ i: 0, snap: {}, fp: {} }); await gate; steps.forEach((_s, i) => i && cb({ i, snap: {}, fp: {} })); return {}; } });
+  const chart = () => ({ el: document.createElement('div'), configure: (_t, ctx) => { ctx.run([1, 2, 3, 4]); }, pin() {} });
+  const c = createIrCurves({ request, calc, chart, delay: 5 });
+  c.update(frameWith(1.5)); assert.equal(c.el.dataset.state, undefined, 'set between frames');
+  await wait(60);
+  assert.equal(c.phase(), 'drawn');
+  assert.match(c.el.querySelector('.ir-work').textContent, /Working out the curves for this patient… 1 of 4/);
+  await wait(30);
+  assert.equal(c.el.dataset.state, 'working');
+  release(); await wait(40);
+  assert.equal(c.el.dataset.state, 'ready');
+  const css = read('styles/app-06-plate.css');
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-chart \{ opacity: \.25; \}/);
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-work \{ opacity: 1; \}/);
+});
+
+test('Curves, the dashed line has somewhere to stand (F43): an unset waist or length is filled from the stent\'s own geometry', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }) });
+  const { log, c } = lifeKit();
+  c.setSweep('waist');
+  c.update({ metrics: { ppg: 9, tips: { s: 0.4, red: 0.4, flow: 0.2, bench: 1, geom: { len: 8, waist: 2.4, trans: 0 } }, dips: null } });
+  await wait(60);
+  const lp = log.configured.at(-1).ctx.liveParams();
+  assert.equal(lp.stentGeom.TIPS.waist, 2.4);
+  assert.equal(log.configured.at(-1).ctx.liveParams(), lp, 'the same object while nothing changes');
+  assert.equal(log.configured.at(-1).t.param, 'stentGeom.TIPS.waist');
+});
+
+test('Compare says how to pin a moment before there is one, in one line (F44)', () => {
+  const c = createIrCompare();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
+  c.update(frameOf());
+  assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
+  assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
+});
