@@ -26,7 +26,8 @@ let lastF = null;
 const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) lastF = f; if (lastF) st.update(lastF); await tasks(); await tasks(); };
 page.document.querySelector('.app')?.style.setProperty('--pz-b', coarse ? '260px' : '0px');
 const marks = [o.mark];
-store.set({ presenting: true, presentLabels: [], presentTerms: null, params: P, dopGate: 'site', focus: { ...marks[0], marks } });
+if (o.free) store.set({ presenting: false, params: P, selection: { type: 'edge', id: 'TIPS' } });   // (the free Anatomy view with the TIPS's card open, Mohammad's iPhone shot, 17 Nov)
+else store.set({ presenting: true, presentLabels: [], presentTerms: null, params: P, dopGate: 'site', focus: { ...marks[0], marks }, ...(o.sel ? { selection: { type: 'edge', id: 'TIPS' } } : {}) });
 st.setView?.('anatomy');
 st.frameBox(REGIONS.liver, 800, 3.2, false, {});
 st.pinDoppler('TIPS', { points: o.points === true });
@@ -37,5 +38,5 @@ const laid = st.labelLaid(), it = laid.items.find((d) => d.key === 'n:TIPS'), di
 const dist = (r, q) => Math.hypot(Math.max(r[0] - q[2], 0, q[0] - r[2]), Math.max(r[1] - q[3], 0, q[1] - r[3]));
 const br = dims.length ? [Math.min(...dims.map((d) => d[0])), Math.min(...dims.map((d) => d[1])), Math.max(...dims.map((d) => d[2])), Math.max(...dims.map((d) => d[3]))] : null;
 const others = laid.items.filter((d) => d !== it);
-console.log('WAIST' + JSON.stringify({ text: it?.text, box: b, bracket: br, gap: b && br ? dist(br, b) : null, air: b && others.length ? Math.min(...others.map((d) => dist(d.box, b))) : null, over: b ? others.filter((d) => dist(d.box, b) === 0).map((d) => d.key) : [], overBracket: b ? dims.filter((d) => dist(d, b) === 0).length : 0, leader: !!it?.leader, arrows: page.document.querySelectorAll('#stageOver .clamp[data-id="TIPS~waist"]').length, clampLabels: page.document.querySelectorAll('#stageOver .clamp-label').length, spans: page.document.querySelectorAll('#stageOver .clamp-span[data-id="TIPS~waist"]').length, keys: laid.items.filter((d) => /TIPS|DIPS/.test(d.key)).map((d) => d.key + ' ' + d.text) }));
+console.log('WAIST' + JSON.stringify({ text: it?.text, box: b, bracket: br, gap: b && br ? dist(br, b) : null, air: b && others.length ? Math.min(...others.map((d) => dist(d.box, b))) : null, over: b ? others.filter((d) => dist(d.box, b) === 0).map((d) => d.key) : [], overBracket: b ? dims.filter((d) => dist(d, b) === 0).length : 0, leader: !!it?.leader, arrows: page.document.querySelectorAll('#stageOver .clamp[data-id="TIPS~waist"]').length, clampLabels: page.document.querySelectorAll('#stageOver .clamp-label').length, spans: page.document.querySelectorAll('#stageOver .clamp-span[data-id="TIPS~waist"]').length, keys: laid.items.filter((d) => /TIPS|DIPS/.test(d.key)).map((d) => d.key + ' ' + d.text), all: o.free ? laid.items.map((d) => d.key) : undefined, vis: st.stentHalf('TIPS', 2)?.vis, anchor: o.free ? st.labelVessels?.().segs.filter((q) => q[5] === 'TIPS').slice(0, 2) : undefined }));
 process.exit(0);

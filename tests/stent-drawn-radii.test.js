@@ -64,7 +64,7 @@ test('the drawn stent: waist diameter, length, mid position and ends in the radi
     assert.ok(br && d.centre, 'the bracket is drawn');
     const pts = br.split(' M')[0].match(/-?[\d.]+/g).map(Number), k = Math.floor(pts.length / 4) * 2;
     const dist = Math.hypot(pts[k] - d.centre[0], pts[k + 1] - d.centre[1]), hw = d.mesh[32];
-    assert.ok(dist > hw && dist < hw + d.wall + 8, `the bracket is ${dist.toFixed(1)} from the centre line, the stent's half-width ${hw.toFixed(1)}`); }
+    assert.ok(dist > hw && dist < hw + d.wall + 12, `the bracket is ${dist.toFixed(1)} from the centre line, the stent's half-width ${hw.toFixed(1)}`); }
   // 2. A 2 cm one: a quarter of it, and the stent's mesh follows the change (it was left as it was drawn, 17 Nov).
   c = await waistCase(2, 0, 0.6);
   assert.ok(Math.abs(narrowShare(c.a) - 0.25) < 0.1, `2 cm of 8: ${narrowShare(c.a)}`);

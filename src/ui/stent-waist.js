@@ -8,7 +8,7 @@ import { endOf, endSiteOf, endSpan, geomOf, kindOf, profileAt, waistSpan } from 
 import { STENT_SITES } from '../engine/topology.js';
 
 /** The smoothing, as a share of the stent's drawn width (the Gaussian's sigma). */
-export const WAIST_SMOOTH = 0.3;
+export const WAIST_SMOOTH = 0.1;
 /** The narrowest flat bottom the drawing keeps, in sigmas: a waist of no length is still drawn, as a pinch. */
 const FLAT_MIN = 4;
 const M = 128;   // the table's cells
