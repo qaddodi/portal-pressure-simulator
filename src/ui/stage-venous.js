@@ -54,6 +54,7 @@ export function createVenous(st, live) {
         const same = next.length === old.fade.length && next.every((el, i) => el.getAttribute('class') === old.fade[i].getAttribute('class'));
         if (same) {
           next.forEach((el, i) => putA(old.fade[i], 'd', el.getAttribute('d')));
+          late('marks');   // (the paths changed in place: the GPU's copy is read again, or it keeps drawing the old mesh)
           old.sig = sig;
           v.parts = old; venousMove(id, v); kids.push(old.root); continue;
         }
@@ -67,7 +68,7 @@ export function createVenous(st, live) {
       kids.push(root);
     }
     // (The layer is handed the roots again only when one is new or one has gone: the same roots in the same order are what it holds.)
-    if (fresh || kids.length !== vstKids.length || kids.some((k, i) => k !== vstKids[i])) { vstKids = kids; late('kids', ov.venous, kids); }
+    if (fresh || kids.length !== vstKids.length || kids.some((k, i) => k !== vstKids[i])) { vstKids = kids; late('kids', ov.venous, kids); late('marks'); }   // (the new mesh is read by the GPU once it has landed: the marks' own read ran before it did, so the GPU kept drawing the old mesh, on the old route, under the new one, 17 Nov 2026)
   }
   // A stent at its k: the whole device at one strength, ease(k), so it comes in (or goes out) as one.
   function venousMove(id, v) {
