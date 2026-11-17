@@ -171,7 +171,7 @@ test('the drawing keeps every word and bar inside the card, the bars proportiona
     bars.forEach((b, i) => assert.ok(Math.abs((b.w / W) * 100 - t.arms[i].rate) < 1e-6, `${id}@${W}: bar ${i} is the rate ${t.arms[i].rate} on a 0 to 100 scale`));
     assert.equal(L.rects.filter((r) => r.look === 'trial.track').length, t.arms.length);
     const words = L.texts.map((s) => s.t);
-    for (const a of t.arms) assert.ok(words.includes(`${a.rate}%`) && words.includes(a.label), `${id}@${W}: ${a.label} and its percent`);
+    for (const a of t.arms) assert.ok(words.includes(`${a.rate}%`) && (words.includes(a.label) || (a.short && words.includes(a.short))), `${id}@${W}: ${a.label} (or its short name) and its percent`);
     assert.ok(words.includes(trialSource(t) + ` · ${t.n} randomized`) || words.some((w) => w.startsWith(t.journal) || w.endsWith('randomized')), `${id}@${W}: the source line`);
     assert.deepEqual(trialLayout(t, W, f, measure), L, `${id}@${W}: the same drawing every time`);
   }

@@ -42,7 +42,7 @@
 //   verified   the reviewer's verification level for the trial, short
 //   status     'checked' (numbers from the audited file) | 'unchecked'
 
-/** @typedef {{ label: string, rate: number, n?: number, events?: number, side: 'treat' | 'control' }} TrialArm */
+/** @typedef {{ label: string, short?: string, rate: number, n?: number, events?: number, side: 'treat' | 'control' }} TrialArm */
 /** @typedef {{ kind: 'HR' | 'OR' | 'RR', est: number, lo: number, hi: number, of: string, vs?: string }} TrialRatio */
 /** @typedef {{ rule: string, test: string | null, value?: number, minor?: boolean }} TrialEntry */
 /** @typedef {{ id: string, name: string, short: string, group: 'decomp' | 'bleed' | 'ascites' | 'kidney' | 'infection' | 'he', journal: string,
@@ -217,7 +217,7 @@ export const TRIALS = {
     pmid: '27663604', doi: '10.1053/j.gastro.2016.09.016', n: 62,
     setting: 'Cirrhosis with recurrent ascites: ≥2 large-volume paracenteses over ≥3 weeks',
     followUp: '1 year', endpoint: 'Alive and not transplanted at 1 year', better: 'higher',
-    arms: [{ label: 'Covered TIPS', rate: 93, n: 29, side: 'treat' }, { label: 'Large-volume paracentesis', rate: 52, n: 33, side: 'control' }],
+    arms: [{ label: 'Covered TIPS', rate: 93, n: 29, side: 'treat' }, { label: 'Large-volume paracentesis', short: 'LVP', rate: 52, n: 33, side: 'control' }],
     km: true, effect: 'P = .003', ratios: [], bav: ['6.3'],
     entry: [CIRRHOSIS, { rule: 'Ascites', test: 'ascites' }, { rule: 'At least 2 large-volume paracenteses over at least 3 weeks', test: null }, { rule: 'No TIPS in place', test: 'no_tips' }],
     note: 'A small, selected group with recurrent ascites, not all refractory ascites.', verified: ABSTRACT, status: 'checked',

@@ -103,8 +103,9 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     return L;
   };
   if (head) {
-    lines(t.name, 'trial.name', ALL_LINES);
-    y += f * 0.15;
+    // (Compact, the phone's slide card: its own header, a line above, already says the trial's name in capitals, so it is not drawn a second
+    // time: 22 px more room for the words' card, which takes its size from what the data card leaves it, 17 Nov 2026. The spoken name stays.)
+    if (!compact) { lines(t.name, 'trial.name', ALL_LINES); y += f * 0.15; }
     lines(`${trialSource(t)} · ${t.n} randomized`, 'trial.src', ALL_LINES);
     y += f * 0.35;
   }
@@ -119,13 +120,16 @@ export function trialLayout(t, W, f, meas, fit = null, { head = true, zero = fal
     if (w > 0 || (zero && a.rate > 0)) rects.push({ x: 0, y: by, w, h: bh, r: Math.min(bh, w) / 2, look: 'trial.bar', tone: TONE[a.side] || 'text-3' });
   };
   const people = (a) => !compact && a.n;
-  const side = n <= 3 && arms.every((a) => meas(a.label, font('trial.lab')) + kx <= cw && meas(pct(a), font('trial.pct')) <= cw && (!people(a) || meas(`n = ${a.n}`, font('trial.n')) <= cw));
+  // An arm's name as drawn: in full where its column holds it, else the arm's own short name (a.short: "LVP" for large-volume paracentesis, 17 Nov
+  // 2026), so every two-arm card keeps its numbers side by side on a phone instead of one under another. null: neither fits, the arms stack.
+  const nameOf = (a) => [a.label, a.short].find((s) => s && meas(s, font('trial.lab')) + kx <= cw) ?? null;
+  const side = n <= 3 && arms.every((a) => nameOf(a) != null && meas(pct(a), font('trial.pct')) <= cw && (!people(a) || meas(`n = ${a.n}`, font('trial.n')) <= cw));
   if (side) {
     let foot = y;
     arms.forEach((a, i) => {
       const x = i * (cw + cg), tone = TONE[a.side] || 'text-3';
       rects.push({ x, y: y + L * 0.32, w: ks, h: ks, r: ks * 0.25, look: 'trial.key', tone });
-      say(x + kx, y + L, a.label, 'trial.lab');
+      say(x + kx, y + L, nameOf(a), 'trial.lab');
       const nb = y + lh('trial.lab') + f * 0.2 + N * 0.76;
       say(x, nb, pct(a), 'trial.pct');
       let b = nb;

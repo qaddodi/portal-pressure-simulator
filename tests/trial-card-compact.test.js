@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
-import { trialLayout, endpointOf, sameTime } from '../src/ui/tool-trial.js';
+import { trialLayout, endpointOf, sameTime, trialWords } from '../src/ui/tool-trial.js';
 import { TRIALS } from '../src/ui/trials.js';
 import { measure } from '../src/ui/glyph-measure.js';
 
@@ -23,7 +23,7 @@ test('compact, every trial card is shorter, keeps its two large numbers and draw
 });
 
 test('on a phone the landmark deck\'s trial cards draw at most 230 px (they were 229 to 269 full; 215 until the footnote stopped being cut with an ellipsis, B17), covered TIPS aside: its arm names stack', () => {
-  for (const id of ['predesci', 'earlytips', 'lvtips', 'transfusion', 'rifaximin', 'groszmann', 'monescillo']) {
+  for (const id of ['predesci', 'earlytips', 'lvtips', 'transfusion', 'rifaximin', 'groszmann', 'monescillo', 'covered']) {
     const H = trialLayout(TRIALS[id], 340, 12, measure, FIT, { compact: true }).H;
     assert.ok(H <= 230, `${id}: ${H} px`);
   }
@@ -37,5 +37,29 @@ test('the endpoint line names its time once', () => {
   for (const t of Object.values(TRIALS)) {
     const e = endpointOf(t), times = [...e.matchAll(/(\d[\d.]*)\s*(day|week|month|year)s?\b/gi)].map((m) => `${m[1]} ${m[2].toLowerCase()}`);
     assert.equal(new Set(times).size, times.length, `${t.id}: "${e}" names a time twice`);
+  }
+});
+
+// Mohammad, 17 Nov 2026 (TIPS deck, iPhone): the covered-TIPS card stacked its two arms because "Large-volume paracentesis" did not fit half the
+// card, and the words' card under it shrank, as it takes its size from what the data card leaves. An arm names itself short (a.short) where its
+// full name does not fit its column, so every two-arm card keeps its numbers on one line; the name is drawn once (the card's header says it).
+test('on a phone every two-arm trial card has its two large numbers on one line, covered TIPS with "LVP"', () => {
+  for (const t of Object.values(TRIALS)) {
+    if (t.arms.length !== 2) continue;
+    const c = trialLayout(t, 340, 12, measure, FIT, { compact: true });
+    const ys = new Set(c.texts.filter((s) => s.look === 'trial.pct').map((s) => s.y.toFixed(1)));
+    assert.equal(ys.size, 1, `${t.id}: the two arms stack`);
+  }
+  const cov = trialLayout(TRIALS.covered, 340, 12, measure, FIT, { compact: true }), names = cov.texts.filter((s) => s.look === 'trial.lab').map((s) => s.t);
+  assert.deepEqual(names, ['Covered TIPS', 'LVP']);
+  assert.equal(trialLayout(TRIALS.covered, 600, 12, measure, FIT, { compact: true }).texts.filter((s) => s.look === 'trial.lab')[1].t, 'Large-volume paracentesis', 'wide enough, the full name');
+  assert.match(trialWords(TRIALS.covered, FIT), /Large-volume paracentesis 52%/, 'the spoken card keeps the full name');
+});
+
+test('compact, the card does not draw the trial name its header already says; the full card still does', () => {
+  for (const t of Object.values(TRIALS)) {
+    const c = trialLayout(t, 340, 12, measure, FIT, { compact: true }), full = trialLayout(t, 340, 12, measure, FIT);
+    assert.equal(c.texts.filter((s) => s.look === 'trial.name').length, 0, `${t.id}: name in the compact card`);
+    assert.ok(full.texts.some((s) => s.look === 'trial.name'), `${t.id}: name in the full card`);
   }
 });
