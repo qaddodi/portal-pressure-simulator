@@ -449,59 +449,81 @@
 .ir-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .ir-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-line { display: none; flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
-/* The stent editor (stent-editor.js), built into the TIPS view: one slim row of value chips; a tapped chip turns the row, in the same height, into its slider,
-   its choice and Done. The chips and the strips share one grid cell and crossfade, so the row never changes height and the stent drawing keeps the room. */
 .ir-editor { flex: none; min-width: 0; overflow-x: clip; }   /* (never wider than the sheet: F40) */
-.stent-editor { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; animation: crossfade var(--d-small) var(--ease); }
-.stent-editor .se-layer { grid-area: 1 / 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; transition: opacity var(--d-small) var(--ease); }
-.stent-editor:not([data-open=""]) .se-chips, .stent-editor .se-strip, .stent-editor .se-summary, .stent-editor[data-fold="true"] .se-chips { opacity: 0; pointer-events: none; }
-/* (A layer not shown takes no room: only the chips, or the one open row, or the folded line, sizes the editor, so no row's wrapped height leaves blank space
-   around the chips, play-test F40. A tapped chip's row takes its own height in their place.) */
+/* The stent editor (stent-editor.js): a row of value chips, each its name over its number; a tapped chip's surface grows into the row of its control (its slider,
+   its choice, Done) and Done runs it back. One look for every part (17 Nov 2026, Mohammad: "professional, production ready"): a quiet tinted surface, 12 px
+   corners, the name small and set apart, the number the strong word, a press that gives, a focus ring; 44 px or more to touch, the app's label sizes. */
+.stent-editor { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; animation: crossfade var(--d-small) var(--ease);
+  --se-fill: color-mix(in srgb, var(--text) 5%, transparent); --se-fill-hi: color-mix(in srgb, var(--text) 9%, transparent); --se-line: color-mix(in srgb, var(--text) 9%, transparent); }
+.stent-editor .se-layer { grid-area: 1 / 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; min-height: 48px; }
+/* (A layer not shown takes no room, F40: only the chips, the one open row or the folded line sizes the editor.) */
 .stent-editor .se-strip, .stent-editor .se-summary, .stent-editor[data-fold="true"] .se-chips, .stent-editor:not([data-open=""]) .se-chips { position: absolute; inset: 0 0 auto 0; }
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"], .stent-editor[data-open="waist"] .se-strip[data-strip="waist"],
-.stent-editor[data-open="len"] .se-strip[data-strip="len"], .stent-editor[data-open="ends"] .se-strip[data-strip="ends"], .stent-editor[data-fold="true"] .se-summary { position: static; }
-/* (Folded, play-test F39: the Tests view's editor is on screen, so a vessel card shows the stent's numbers in one line where its chips were.) */
-.stent-editor[data-fold="true"] .se-summary { opacity: 1; }
-.stent-editor .se-summary { min-height: 0; padding: 6px 2px; font-size: var(--fs-14); line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"],
-.stent-editor[data-open="waist"] .se-strip[data-strip="waist"], .stent-editor[data-open="len"] .se-strip[data-strip="len"],
-.stent-editor[data-open="ends"] .se-strip[data-strip="ends"] { opacity: 1; pointer-events: auto; }
-/* (Each chip is a tap target of 44 px at the app's label size, and never cut short: a row that does not hold the four wraps, finding F33.) */
-.stent-editor .se-chip { flex: 1 1 auto; max-width: 100%; min-height: 44px; display: flex; align-items: baseline; justify-content: center; column-gap: 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; min-width: 0; font: 500 var(--fs-14)/42px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
-.stent-editor .se-chip:hover { border-color: var(--accent-line); }
-.stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.stent-editor .se-chip-n { flex: none; color: var(--text-3); font-weight: 600; }
-.stent-editor .se-chip-w { flex: none; font-variant-numeric: tabular-nums; }
-.stent-editor .se-dim { opacity: .42; }
-.stent-editor .se-strip { padding: 0 2px 0 0; }   /* (it wraps as the chips do: in a narrow card the choice and Done go under the slider, never past the edge, F38) */
-.stent-editor .se-name { flex: none; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-2); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); }
+.stent-editor[data-open="len"] .se-strip[data-strip="len"], .stent-editor[data-open="ends"] .se-strip[data-strip="ends"] { position: relative; pointer-events: auto; }
+.stent-editor[data-fold="true"] .se-summary { position: static; }
+/* The chips: one quiet row of tokens across the card, equal widths while they fit, a hairline between them, no boxes (17 Nov 2026, Mohammad on the boxed
+   chips: "NOT elegant"). Each is its caption over its value, the value in the card's own reading style (the number, then its unit in the unit's ink), never
+   wrapped and never cut: a token is never narrower than its words (F45), and a row too narrow wraps whole tokens. */
+.stent-editor .se-chips { gap: 0; transition: opacity var(--d-small) var(--ease); }
+.stent-editor:not([data-open=""]) .se-chips, .stent-editor[data-fold="true"] .se-chips { opacity: 0; pointer-events: none; }
+.stent-editor .se-chip { flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 4px 12px; border: 0; border-left: 1px solid var(--hairline); border-radius: 0; background: none; color: var(--text); cursor: pointer; white-space: nowrap; text-align: left; font: inherit; transition: opacity var(--d-small) var(--ease); -webkit-tap-highlight-color: transparent; }
+.stent-editor .se-chip:first-child { border-left-color: transparent; padding-left: 0; }
+@media (hover: hover) { .stent-editor .se-chip:hover .se-chip-num, .stent-editor .se-chip:hover .se-chip-n { color: var(--accent); } }
+.stent-editor .se-chip:active { opacity: .6; transition-duration: 0s; }
+.stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible, .stent-editor .se-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.stent-editor .se-chip-n { display: flex; align-items: center; gap: 3px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
+.stent-editor .se-chip-n::after { content: ''; width: 5px; height: 5px; margin-top: -2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .7; }   /* (a small chevron: the token opens) */
+.stent-editor .se-chip-w { font: 500 var(--fs-16)/20px var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
+.stent-editor .se-chip-num { font-weight: 600; }
+.stent-editor .se-chip-u, .stent-editor .se-chip-c { color: var(--text-3); font-weight: 500; }
+.stent-editor .se-chip.se-dim { opacity: .45; }
+/* The open row: its surface is the pill (three pieces that grow from the chip, stent-editor.js grow), its controls rise into it once it is there. */
+.stent-editor .se-strip { flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 4px 2px 12px; pointer-events: none; }
+.stent-editor .se-pill { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity var(--d-flip) linear var(--d-small); }
+.stent-editor .se-pill > i { position: absolute; top: 0; bottom: 0; transform-origin: 0 0; background: var(--se-fill); border: 1px solid var(--se-line); }
+.stent-editor .se-pill-l { left: 0; width: 12px; border-right: 0 !important; border-radius: 12px 0 0 12px; }
+.stent-editor .se-pill-r { right: 0; width: 12px; border-left: 0 !important; border-radius: 0 12px 12px 0; transform-origin: 100% 0 !important; }
+.stent-editor .se-pill-m { left: 12px; right: 12px; border-left: 0 !important; border-right: 0 !important; }
+.stent-editor .se-strip { isolation: isolate; }
+.stent-editor .se-strip > :not(.se-pill) { opacity: 0; transition: opacity var(--d-flip) var(--ease); }
+.stent-editor[data-open="dia"] .se-strip[data-strip="dia"] > *, .stent-editor[data-open="end"] .se-strip[data-strip="end"] > *, .stent-editor[data-open="waist"] .se-strip[data-strip="waist"] > *,
+.stent-editor[data-open="len"] .se-strip[data-strip="len"] > *, .stent-editor[data-open="ends"] .se-strip[data-strip="ends"] > * { opacity: 1; transition: opacity var(--d-small) var(--ease) calc(var(--d-small) * .45); }
+.stent-editor .se-strip > .se-pill { transition: opacity var(--d-flip) linear var(--d-small) !important; }
+.stent-editor[data-open="dia"] [data-strip="dia"] > .se-pill, .stent-editor[data-open="end"] [data-strip="end"] > .se-pill, .stent-editor[data-open="waist"] [data-strip="waist"] > .se-pill,
+.stent-editor[data-open="len"] [data-strip="len"] > .se-pill, .stent-editor[data-open="ends"] [data-strip="ends"] > .se-pill { opacity: 1; transition: none !important; }
+.stent-editor .se-name { flex: none; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--text-3); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); letter-spacing: .02em; }
 .stent-editor .se-range { flex: 1 1 120px; min-width: 0; height: 44px; }   /* (the slider takes the width the row leaves) */
-.stent-editor .se-val { flex: none; text-align: right; font: 500 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stent-editor .se-sub { color: var(--text-3); }
-.stent-editor .se-seg { flex: none; display: flex; }
-.stent-editor .se-seg button { min-height: 44px; padding: 0 12px; font-size: var(--fs-14); }
-.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 1px solid var(--accent-line); border-radius: 22px; background: var(--accent-soft); color: var(--accent-ink); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); }
+.stent-editor .se-range.se-dim, .stent-editor .se-val.se-dim, .stent-editor .se-seg.se-dim { opacity: .45; }
+.stent-editor .se-val { flex: none; text-align: right; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stent-editor .se-sub { font-weight: 500; color: var(--text-3); }
+.stent-editor .se-seg { flex: none; display: flex; padding: 2px; gap: 2px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.stent-editor .se-seg button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
+.stent-editor .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent); }
+.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-contrast, #fff); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
+.stent-editor .se-done:active { transform: scale(.96); }
+.stent-editor .se-ctl { flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.stent-editor .se-ctl-seg { flex: 0 0 auto; }
+.stent-editor .se-cap { flex: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
+/* The folded line (F39): the Tests view's editor is on screen, so a vessel card shows the stent's numbers where its chips were. */
+.stent-editor .se-summary { min-height: 0; padding: 4px 2px; font: 500 var(--fs-12)/1.4 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.stent-editor[data-fold="true"] .se-summary { opacity: 1; }
+/* A narrow card (a phone, a vessel card) and the Tests view's compact editor: the value alone on the chip (the open row shows the end or the ends), no name in the
+   open row (the chip just tapped names it; the slider keeps its accessible name), no percentage. Chips size to their words and wrap as whole chips (F45). */
 @container (max-width: 420px) {
-  .stent-editor .se-layer { gap: 4px; }
-  .stent-editor .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 1px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
-  .stent-editor .se-chip-n { font-size: var(--fs-12); line-height: 16px; }
-  .stent-editor .se-chip-c { display: none; }   /* (a phone: the value alone; the open row shows the end or the ends) */
-  .stent-editor .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */
-  .stent-editor .se-sub { display: none; }
-  .stent-editor .se-val { font-size: var(--fs-12); }
-  .stent-editor .se-seg button { padding: 0 8px; font-size: var(--fs-12); }
-  .stent-editor .se-done { padding: 0 10px; font-size: var(--fs-12); }
+  .stent-editor .se-strip { gap: 4px 6px; }
+  .stent-editor .se-chip { padding: 4px 8px; }
+  .stent-editor .se-chip-c, .stent-editor .se-name, .stent-editor .se-sub { display: none; }
+  .stent-editor .se-strip { padding-left: 8px; }
+  .stent-editor .se-seg button { padding: 0 8px; }
+  .stent-editor .se-done { padding: 0 12px; }
 }
-/* The Tests view's editor is compact at any width (F39: one row, each chip its name over its value, so the drawing sits high): the narrow card's rules. */
-.stent-editor.se-compact .se-layer { gap: 4px; }
-.stent-editor.se-compact .se-chip { flex: 1 1 0; min-width: 0; white-space: normal; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 48px; padding: 3px 1px; border-radius: 12px; font-size: var(--fs-14); line-height: 18px; }
-.stent-editor.se-compact .se-chip-n { font-size: var(--fs-12); line-height: 16px; }
-.stent-editor.se-compact .se-chip-c { display: none; }   /* (a phone: the value alone; the open row shows the end or the ends) */
-.stent-editor.se-compact .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */
-.stent-editor.se-compact .se-sub { display: none; }
-.stent-editor.se-compact .se-val { font-size: var(--fs-12); }
-.stent-editor.se-compact .se-seg button { padding: 0 8px; font-size: var(--fs-12); }
-.stent-editor.se-compact .se-done { padding: 0 10px; font-size: var(--fs-12); }
+/* The Tests view's editor is compact at any width: the narrow card's rules (three tokens in one row, each its caption over its value). */
+.stent-editor.se-compact .se-strip { gap: 4px 6px; }
+.stent-editor.se-compact .se-chip { padding: 4px 8px; }
+.stent-editor.se-compact .se-chip-c, .stent-editor.se-compact .se-name, .stent-editor.se-compact .se-sub { display: none; }
+.stent-editor.se-compact .se-strip { padding-left: 8px; }
+.stent-editor.se-compact .se-seg button { padding: 0 8px; }
+.stent-editor.se-compact .se-done { padding: 0 12px; }
 /* The readings are one line (17 Nov 2026, Mohammad: "huge number tiles unnecessary, not minimalistic"): each a small name, its number and unit, and its word where it has one, side by side and wrapping
    between readings, never inside a name. No box, no bar. */
 .ir-tips .ir-tiles.rp-tiles { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; }
