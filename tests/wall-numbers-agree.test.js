@@ -66,12 +66,12 @@ test('the headline, the "above the tear point" switch, the Tests row, Compare, t
   assert.ok(!/ratio \* 100\)\} % of the tear point/.test(wall.replace(/ratioShown/g, 'S')));
 });
 
-test('one wall-stress number on every screen: the Wall mechanics card, the Readouts tile, Compare, the explainer and the inspector all read wallShare (A6, 16 Nov 2026: 139% on one tab, 153% on the other)', async () => {
+test('one wall-stress number on every screen: the Wall mechanics card, the Readouts tile, Compare, the explainer and the details inside a card all read wallShare (A6, 16 Nov 2026: 139% on one tab, 153% on the other)', async () => {
   const { wallShare, WALL_WORDS, WALL_MEANING } = await import('../src/engine/wall-read.js');
   assert.equal(wallShare({ ratioMean: 1.1, ratioShown: 1.4 }), 1.1, 'the two-breath mean when there is one');
   assert.equal(wallShare({ ratioShown: 1.4 }), 1.4, 'the shown index when there is none');
   const ui = (p) => readFileSync(new URL(`../src/ui/${p}`, import.meta.url), 'utf8');
-  for (const f of ['dock.js', 'compare.js', 'instruments.js', 'inspector.js']) assert.match(ui(f), /wallShare\(/, f);
+  for (const f of ['dock.js', 'compare.js', 'instruments.js', 'card-details.js']) assert.match(ui(f), /wallShare\(/, f);
   assert.match(readFileSync(new URL('../src/engine/explain.js', import.meta.url), 'utf8'), /wallShare\(m\.varix\)/);
   // the Scope card keeps no mean of its own on top of the engine's (the second smoothing made it read differently from the tile)
   assert.ok(!/wMean \+= /.test(ui('instruments.js')));

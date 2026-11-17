@@ -6,7 +6,9 @@
 //   4. "No beta-blocker once the gradient is under 12 mmHg" is AASLD 2024's sentence on gastric varices: a slide that says it names them.
 //   5. A slide line that sends uncontrolled bleeding to an esophageal stent names balloon tamponade with it (not FDA approved in the US; AASLD 2024 #34),
 //      unless it quotes the Baveno VIII algorithm.
-//   6. The TIPS deck: TIPS is never offered for varices alone (no primary prophylaxis), and no vignette calls a new patient "the same" one.
+//   6. After a TIPS, <12 mmHg is AASLD 2024's reference for a variceal indication (no beta-blocker under it), never "the target": neither guideline
+//      calls it one, and Baveno VIII sets no gradient for ascites (6.5, 6.6). Mohammad, 17 Nov 2026: "whichever the guideline supports", in every talk.
+//   7. The TIPS deck: TIPS is never offered for varices alone (no primary prophylaxis), and no vignette calls a new patient "the same" one.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
@@ -50,6 +52,15 @@ test('"no beta-blocker under 12 mmHg after a TIPS" names the gastric varices it 
 test('a line that bridges with an esophageal stent names balloon tamponade, or quotes the Baveno VIII algorithm', () => {
   const bad = [];
   for (const d of decks) for (const s of d.slides) if (/esophageal stent/i.test(s.line || '') && !/tamponade|algorithm/i.test(s.line)) bad.push(`${d.id}/${s.id}`);
+  assert.deepEqual(bad, []);
+});
+
+test('no talk calls a post-TIPS gradient of 12 mmHg a target', () => {
+  const bad = [];
+  for (const d of [...decks, { id: 'objectives', slides: decks.map((x) => ({ objectives: x.objectives, checks: x.checks })) }]) for (const t of strings(d.slides)) for (const m of t.split(/(?<=[.?])\s/)) {
+    if (/12\s?mmHg/.test(m) && /TIPS|stent/.test(m) && /\btarget\b/i.test(m) && !/\bno (?:\w+ )?(?:gradient |PPG )?target\b/i.test(m)) bad.push(`${d.id}: ${m.slice(0, 120)}`);
+    if (/stent|TIPS|PPG|gradient/i.test(m) && /\b(?:at|meets?|meeting|reaches) (?:the )?target\b/i.test(m)) bad.push(`${d.id}: ${m.slice(0, 120)}`);
+  }
   assert.deepEqual(bad, []);
 });
 

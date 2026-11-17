@@ -90,7 +90,6 @@
   .entry-grid { grid-template-columns: 1fr; }
   .keys { column-count: 1; }
   .toast-wrap { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
   .range-wrap { --tw: 32px; --dot: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw, the box of the dot and its ring, and --dot, the dot itself) */
@@ -164,7 +163,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
 /* Its rows, top to bottom, spread over the card's height: the name, the bar, the readings, the controls, the actions. The last structure's
    words fading out over the new ones (.ac-ghost, card.js) are laid out the same and take no taps. */
-.ac-body, .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 16px 18px 14px; min-width: 0; overflow: hidden; }
+.ac-body, .ac-ghost, .ac-details { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 16px 18px 14px; min-width: 0; overflow: hidden; }
 /* (The shelf's own words are in the card's flow, which gives it its height; the words fading out over them, and the phone's, are laid over the box.) */
 .action-card:not(.docked) > .ac-body { position: relative; inset: auto; }
 /* (17 Nov 2026: the shelf's card is as tall as its words up to 500 px or the room under the case pill, whichever is less; past that its body scrolls, so no row is ever cut off.) */
@@ -173,6 +172,26 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card:not(.docked) > .ac-body { flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }   /* (never sideways: play-test F38, a stent editor's open row once ran wider than the card) */
 .action-card:not(.docked) > .ac-body::-webkit-scrollbar { display: none; }
 .ac-ghost { pointer-events: none; }
+/* The card's details (17 Nov 2026, card-details.js): the face slides away and this slides in, in the same box, so the card's height never changes; a view taller than the box scrolls
+   up and down inside it (never sideways), under a head that stays. Its head is the face's name row: the same type, the way back where the chevron was. */
+.ac-details[inert] { pointer-events: none; }
+.ac-body.ac-under { visibility: hidden; pointer-events: none; }   /* (the face under the details, once it has slid out: card.js openDetails) */
+.ad-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; flex: none; }
+.ad-back { display: flex; align-items: baseline; flex: 0 1 auto; min-width: 0; gap: 2px; margin: -4px 0 -4px -6px; padding: 4px 6px 4px 2px; border: 0; border-radius: 8px; background: none; color: var(--text); font: 600 17px/1.25 var(--font-ui); letter-spacing: -.005em; text-align: left; cursor: pointer; }
+.action-card.docked .ad-back { font-size: 16px; }
+.ad-back .ic { flex: none; align-self: center; width: 16px; height: 16px; color: var(--text-3); }
+.ad-kicker { flex: none; font-size: 13px; font-weight: 500; color: var(--text-3); white-space: nowrap; }
+.ad-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+.ad-scroll::-webkit-scrollbar { display: none; }
+.ad-between { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--text); }
+.ad-between em, .ad-stat em { display: block; font-style: normal; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); letter-spacing: .02em; margin-bottom: 1px; }
+.ad-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.ad-stat { min-width: 0; }
+.ad-v { display: block; font-size: 17px; font-weight: 500; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.ad-why { display: inline-flex; align-items: center; align-self: flex-start; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--accent-ink); font: 500 13px/1.2 var(--font-ui); cursor: pointer; }
+.ad-why .ic { width: 18px; height: 18px; color: currentColor; }
+.ad-about { margin: 0; padding-top: 10px; border-top: 1px solid var(--hairline); font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); text-wrap: pretty; }
+.ad-scroll > :first-child { margin-top: 0; }
 .action-card [data-key]::after { display: none; }   /* (the number keys still work; the card shows no key marks) */
 .ac-nr { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
 .ac-name { display: block; flex: 0 1 auto; min-width: 0; margin: -4px 0; padding: 4px 0; border: 0; background: none; color: var(--text); font: 600 17px/1.25 var(--font-ui); letter-spacing: -.005em; text-align: left; cursor: pointer; }   /* (a long name, a shunt between two named veins, wraps: it is never cut) */
@@ -272,7 +291,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .action-card.docked > .ac-body { position: relative; inset: auto; flex: 0 1 auto; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .action-card.docked > .ac-body::-webkit-scrollbar { display: none; }
 .action-card.docked.ac-scroll > .ac-body { touch-action: pan-y; }   /* (set by card.js only while the words are taller than the room: a pull down still puts a card that fits away) */
-.action-card.docked :is(.ac-body, .ac-ghost) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
+.action-card.docked :is(.ac-body, .ac-ghost, .ac-details) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
 .action-card.docked .ac-name { font-size: 16px; }
 /* With Measure / Instruments open on a phone the card rises above the sheet. */
 .app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); --ac-max: calc(100% - var(--bot-occ, 0px) - var(--top-safe, 56px) - 56px); }
@@ -287,9 +306,9 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 @media (max-width: 699px) { .app.dock-open:not(.instrument-focus) .action-card.docked { height: 0; visibility: hidden; border-width: 0; } }
 /* How it comes and goes (B): on the shelf it slides in 16 px from the left as it fades in and fades back 8 px toward the edge; on a phone
    it rises 24 px and sinks 16 px. The plate (the glass) and the words move together; the box holds still so the leave ends on it. */
-.action-card > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }
+.action-card > :is(.sheet-plate, .ac-body, .ac-ghost, .ac-details) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }
 .action-card.ac-leaving > * { --edge-x: -8px; }
-.action-card.docked > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-x: 0px; --edge-y: 24px; }
+.action-card.docked > :is(.sheet-plate, .ac-body, .ac-ghost, .ac-details) { --edge-x: 0px; --edge-y: 24px; }
 .action-card.docked.ac-leaving > * { --edge-y: 16px; }
 .action-card.ac-in > :is(.sheet-plate, .ac-body) { animation: slide-from-edge var(--d-small) var(--ease-arrive) backwards; }
 .action-card.ac-leaving { pointer-events: none; animation: sheet-hold calc(var(--d-flip) * 4 / 3) var(--ease) forwards; }

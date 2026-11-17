@@ -58,7 +58,6 @@ const appClass = () => app.className.replace(/(?:^|\s)stage-busy(?=\s|$)/g, '');
 const view = $('#stageView');
 const isPhone = isPhoneLayout;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
-const NAMED_DETAILS = ['edge', 'node', 'organ'];   // (the selections whose name is the panel's title itself)
 const SN_L = { class: 'sn-l' }, SN_S = { class: 'sn-s' }, SN_C = { class: 'sn-c' };   // (the scenario name's three forms)
 const NAME_FORMS = ['l', 's', 's2', 'c2'], NAME_FORMS_NARROW = ['s2', 'c2'];   // (the scenario name's forms, widest first)
 const FOCUS_NO_SCROLL = { preventScroll: true };
@@ -252,19 +251,11 @@ async function main() {
     // (One card at a time: a patient fact's row puts the Treat card away and opens that vessel's or organ's card.)
     reveal: (sel) => { closeTreat(); select(sel); },
   });
-  inspector = createInspector($('#inspector'), {
-    onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
-    onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
-    // Back from a selection's details: to the pinned comparison if there is one, else the panel closes.
-    onBack: () => { if (store.get().compareSnap) store.set({ details: null }); else closePanel(); },
-  });
+  inspector = createInspector($('#inspector'), { chart });
   watchSelection(store);   // (a card for a stent or shunt that is no longer in the patient is put away: selection-live.js)
   store.on('details', (d) => {
-    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : d ? 'Details' : 'Compare';
-    // A vessel, compartment or organ is the panel's title itself (its name, its kind small above it), so "Details" is
-    // left to screen readers there (17 Oct, V9).
-    const named = NAMED_DETAILS.includes(d?.type);
-    $('#panelTitle')?.classList.toggle('sr-only', named); $('#panel')?.classList.toggle('named', named);
+    // (A vessel's or an organ's details are in its own card since 17 Nov 2026: the panel holds only the advanced physiology and the pinned comparison.)
+    const el = $('#panelTitle span'); if (el) el.textContent = d?.type === 'advanced' ? 'Advanced physiology' : 'Compare';
   });
   // The figure's labels the open menu covers are hidden while it is open: one tucked under its edge showed a sliver, the "S" of
   // Sinusoids R between the screen edge and the menu (sweep batches 02 and 04). The labels keep their places.
@@ -336,7 +327,7 @@ async function main() {
   } }));
   card = createCard({
     view, stage,
-    onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
+    onWhy: (m, el) => why.open(m, el),   // (the card's own details view asks the Why? explainer: card-details.js)
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
@@ -2313,6 +2304,7 @@ function wireKeyboard() {
       else if (app.classList.contains('dock-open') && dock) dock.close();   // Tests (it hands focus back to its tab)
       else if (store.get().sinusoid && !store.get().selection) setViewKey('lobule');
       else if (panelShown() && !store.get().selection) closePanel({ focus: true });   // the patient chart (its close button says Esc)
+      else if (card.detailsOpen()) card.closeDetails();   // (a card's details first, then the card)
       else store.set({ selection: null });
       return;
     }
@@ -2476,7 +2468,7 @@ function openAbout(section) {
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c)))))))),
-    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. 12 mmHg is the usual post-TIPS target for the directly measured portosystemic gradient.'),
+    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. After a TIPS for variceal bleeding, 12 mmHg is the reference for the directly measured portosystemic gradient (AASLD 2024).'),
     h('h3', {}, 'Reference review'),
     h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
