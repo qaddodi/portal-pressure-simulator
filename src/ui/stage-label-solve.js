@@ -320,7 +320,7 @@ export function createLabelSolve(st, live) {
       if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); clampLabs.push(bx); if (!dry) el._box = bx; }
       // (Words a card still covers where they had to stay fade out whole; they come back 10 px clear of it, so a card easing at their edge
       // cannot flick them.)
-      if (!dry && el._c) { const was = !!el._cov, m = was ? 10 : 0, g = b && { x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }; el._cov = !!g && blockers.some((o) => hits(g, o)); live.clampCover?.(el._c.id, el._cov); }   // (el._box: the live figure's, read by the probe and the slide's mark)
+      if (!dry && el._c) { const was = !!el._cov, m = was ? 10 : 0, g = b && { x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }; el._cov = !!g && (blockers.some((o) => hits(g, o)) || !within(b, plain)); live.clampCover?.(el._c.id, el._cov); }   // (or past the stage's edge: F29, iPad, the Tests sheet's pan put "Distal stenosis …" above the screen)   // (el._box: the live figure's, read by the probe and the slide's mark)
     }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)

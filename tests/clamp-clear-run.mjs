@@ -29,7 +29,7 @@ st.labelLayoutNow(); for (let i = 0; i < 40; i++) await step();
 let card = null;
 if (o.card) {
   const el0 = page.document.querySelector('#stageOver .clamp-label'), b = el0?._box;
-  card = !b ? null : o.card === "half" ? [(b.x0 + b.x1) / 2, b.y0 - 10, b.x1 + 20, b.y1 + 10] : [b.x0 - 20, b.y0 - 10, b.x1 + 20, b.y1 + 10];
+  card = !b ? null : o.card === "top" ? [0, 0, w, b.y1 + 10] : o.card === "half" ? [(b.x0 + b.x1) / 2, b.y0 - 10, b.x1 + 20, b.y1 + 10] : [b.x0 - 20, b.y0 - 10, b.x1 + 20, b.y1 + 10];
   const div = page.document.createElement('div'); div.className = 'stage-blocker'; div.id = 'testCard';
   page.document.querySelector('#stageView').append(div);
   const was = page.dom.window.Element.prototype.getBoundingClientRect;
