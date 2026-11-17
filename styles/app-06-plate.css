@@ -473,7 +473,7 @@
 /* The one line of numbers never wraps, at any value or width (play-test 17 Nov 2026: "PPG 18.3 mmHg  1.0 L/min  580 cm/s" broke in a 240 px card and pushed the tiles down).
    Each number has a width of its own (so a changing digit moves nothing) and the type scales with the line's width (cqi), up to its usual size. */
 .ir-keys { display: flex; flex-wrap: nowrap; align-items: baseline; column-gap: clamp(6px, 3cqi, 16px); row-gap: 0; flex: none; container-type: inline-size; min-width: 0; }
-.ir-kv { white-space: nowrap; min-width: 0; font: 500 min(var(--fs-12), 4.4cqi) var(--font-ui); color: var(--text-3); }
+.ir-kv { white-space: nowrap; min-width: 0; font: 500 min(var(--fs-12), 3.2cqi) var(--font-ui); color: var(--text-3); }
 .ir-kv em { font-style: normal; color: var(--text-2); }
 .ir-kv b { display: inline-block; margin: 0 3px; font-size: 1.33em; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); text-align: right; }
 .ir-kv[data-k="ppg"] b { min-width: 4.2ch; }   /* (18.3, up to 100.0) */

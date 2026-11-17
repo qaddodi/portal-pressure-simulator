@@ -1027,6 +1027,13 @@ test('the one line of numbers never wraps: nowrap, a width for each number, type
   assert.match(rule, /flex-wrap: nowrap/, 'the line never wraps');
   assert.match(rule, /container-type: inline-size/, 'its type is sized against its own width');
   assert.ok(!/flex-wrap: wrap/.test(rule));
-  assert.match(css.match(/\.ir-kv \{([^}]*)\}/)?.[1] || '', /min\(var\(--fs-12\), [\d.]+cqi\)/, 'the labels scale down with the line, never up past the usual size');
+  assert.match(css.match(/\.ir-kv \{([^}]*)\}/)?.[1] || '', /min\(var\(--fs-12\), 3\.2cqi\)/, 'the labels scale down with the line (the longest set, PPG, Across stent and Flow, fits 340 px at 3.2 cqi), never up past the usual size');
   for (const k of ['ppg', 'dp', 'flow', 'peak']) assert.match(css, new RegExp(`\\.ir-kv\\[data-k="${k}"\\] b \\{ min-width: [\\d.]+ch`), `${k} has a width of its own`);
+});
+
+test('a card\'s readings row wraps whole readings instead of being cut at the card\'s edge (play-test 17 Nov 2026: the Sinusoids card\'s four readings on a phone)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const rs = appCss().match(/\.ac-rs \{([^}]*)\}/)?.[1] || '';
+  assert.match(rs, /flex-wrap: wrap/);
+  assert.match(rs, /white-space: nowrap/, 'a reading itself never breaks inside');
 });

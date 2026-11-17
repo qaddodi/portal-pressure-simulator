@@ -21,7 +21,8 @@ test('the patient name and the menu titles are never cut with an ellipsis', () =
 });
 
 test('the compact names are the short names that cannot fit two lines of 84 px', () => {
-  const m = main.match(/const COMPACT = (\{[^}]*\})/);
+  const names = readFileSync(new URL('../src/ui/scenario-names.js', import.meta.url), 'utf8');   // (the forms moved out of main.js: scenario-names.js)
+  const m = names.match(/const COMPACT = (\{[^}]*\})/);
   assert.ok(m, 'COMPACT map');
   const map = Function(`return ${m[1]}`)();
   assert.equal(map['Sinusoidal obstruction syndrome'], 'SOS');
