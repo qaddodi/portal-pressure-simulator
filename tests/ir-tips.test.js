@@ -587,7 +587,7 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   card.destroy();
   assert.equal(card.panel.isConnected, false, 'its panel goes with it');
   const src = read('src/ui/ir-tips.js');
-  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone \}\)/);
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone, reveal \}\)/);
   assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips' && sub === 'inside'\);/);
   const plate = read('styles/app-06-plate.css');
   assert.match(plate, /\.stent-editor\[data-fold="true"\] \.se-rows \{ display: none; \}/);
@@ -728,6 +728,46 @@ test('A row opens by growing its nine pieces, and Done, its name and Escape each
     }
     ed.destroy();
   } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
+});
+
+test('Tests › IR › TIPS: an opened row grows under the chart, never over it, and the view scrolls down only as far as the panel needs (17 Nov, Mohammad: "I wanna see the graph while editing")', async () => {
+  quiet();
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.update(frameOf()); await wait(60);
+  const L = ir.figure().layout(), top = ir.el.querySelector('.ir-zone').style.getPropertyValue('--se-top');
+  assert.equal(top, `${Math.round(L.h)}px`, 'the panel starts where the chart ends');
+  assert.ok(L.h > L.heroH + 100, 'under the stent and the chart both');
+  const panel = ir.el.querySelector('.ir-zone > .se-panel'), seen = [];
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 500, bottom: 760, width: 300, height: 260 });
+  ir.el.getBoundingClientRect = () => ({ left: 0, right: 300, top: 0, bottom: 700, width: 300, height: 700 });
+  ir.el.scrollBy = (o) => seen.push(o);
+  ir.editor.open('waist');
+  assert.equal(seen.length, 1); assert.equal(seen[0].top, 68, 'down by what the panel overruns, and a little room');
+  ir.editor.close();
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 400, bottom: 600, width: 300, height: 200 });
+  ir.editor.open('dia');
+  assert.equal(seen.length, 1, 'a panel already in sight scrolls nothing');
+  ir.editor.close();
+  ir.setActive(false);
+});
+
+test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad), from none to 6 cm', async () => {
+  quiet();
+  const { createTipsVessel } = await import('../src/ui/tips-vessel.js');
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }), frame: frameOf() });
+  const v = createTipsVessel({ id: 'TIPS' });
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }));
+  for (const [name, root] of [['vessel card', v.el], ['Tests', ir.el]]) {
+    const len = root.querySelector('.se-panel [data-ctl="waist"] input') || (() => { root.querySelector('.se-row[data-row="waist"]').click(); return root.querySelector('.se-panel [data-ctl="waist"] input'); })();
+    assert.ok(len, `${name}: the length slider`);
+    assert.equal(len.step, '0.5', `${name}: 0.5 cm a step`);
+    assert.equal(len.min, '0'); assert.equal(len.max, '6');
+  }
+  const { stentControls } = await import('../src/ui/actions.js');
+  for (const id of ['TIPS', 'DIPS']) assert.equal(stentControls(id).find((c) => c.id === 'waist').step, 0.5, `${id}: the one list both editors read`);
+  v.destroy(); ir.setActive(false);
 });
 
 test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the waist\'s lumen and length, or None', async () => {

@@ -69,10 +69,10 @@ const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.s
 const PIECES = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
 const PIECE_CLASS = ['se-s se-s-tl', 'se-s se-s-tc', 'se-s se-s-tr', 'se-s se-s-ml', 'se-s se-s-mc', 'se-s se-s-mr', 'se-s se-s-bl', 'se-s se-s-bc', 'se-s se-s-br'];   // (written out: the stylesheet's check finds each)
 
-/** createStentEditor({ id, lead, onOpen, zone }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
+/** createStentEditor({ id, lead, onOpen, zone, reveal }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
  *  `id` the stent ('TIPS', 'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `onOpen(id)` what the folded line does (opens
  *  Tests › IR › TIPS on that stent); `zone` the element the panel grows to fill (the card's room: it must be the panel's offset parent), else the editor itself. */
-export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null } = {}) {
+export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null, reveal = null } = {}) {
   const born = !lead && [...LEADS].some((l) => l.shown && l.sid() === id);
   const el = h('div', { class: 'stent-editor', role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': born ? 'true' : 'false' });
   const rowsEl = h('div', { class: 'se-rows' });
@@ -190,6 +190,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       panel.dataset.open = rowId; el.dataset.open = rowId;
       panel.inert = false; panel.setAttribute('aria-hidden', 'false'); rowsEl.inert = true;
       grow(to.btn, true);
+      // (`reveal(panel)`: the holder brings an opened panel into sight, Tests › IR, whose panel opens under the chart.)
+      reveal?.(panel);
       const first = to.ctls[0];
       (first?.input || first?.btns?.find((b) => b.getAttribute('aria-pressed') === 'true') || done).focus({ preventScroll: true });
     } else {

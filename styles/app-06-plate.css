@@ -476,7 +476,7 @@
 .ir-kv b { margin: 0 3px; font: 500 var(--fs-16) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
 .ir-kv u { text-decoration: none; }
 .ir-zone { flex: none; }
-.ir-zone > .se-panel { top: var(--se-top, 0px); min-height: calc(100% - var(--se-top, 0px)); }   /* (the panel grows over the chart and the rows, never over the stent) */
+.ir-zone > .se-panel { top: var(--se-top, 0px); min-height: calc(100% - var(--se-top, 0px)); }   /* (the panel grows over the rows under the chart: the stent and its chart stay in sight while it is edited, 17 Nov) */
 .tf { min-width: 0; }
 /* The TIPS and DIPS vessel card (tips-vessel.js): the stent to scale, one line of numbers, the three rows. The rows' panel grows over the rows and the actions
    under them (the card's Doppler, Dye and Remove), so the panel's card piece sits above the actions that follow it; never over the stent. */
