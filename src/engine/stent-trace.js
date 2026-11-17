@@ -30,7 +30,7 @@ export const headOf = (vCms) => HEAD * (vCms / 100) * (vCms / 100);
 /**
  * stentTrace(inp, out): inp = { len (cm), q (mL/s, the stent's flow), d (mm, the open stent), prof(u) (the lumen as a share of d at fraction u of the stent), xa, xb (cm, the span:
  * the stent runs 0 to len, the veins the rest), tract, wall, entry, jet, inlet (mmHg, the stent's parts), ppg, dp (mmHg: the PPG, and the drop across the stent) }.
- * Writes into out (a makeTrace() record the caller keeps: nothing is made here) the arrays x, D (mm), v (cm/s), loss, head, P (mmHg, TRACE_N + 1 each) and returns it, with out.sites: the five pressure sampling
+ * Writes into out (a makeTrace() record the caller keeps: nothing is made here) the arrays x, D (mm), v (cm/s), loss, head, P (mmHg, TRACE_N + 1 each) and returns it, with each part's cumulative share cOut, cTract, cWall, cEnds, cJet (they add up to loss) and out.sites: the five pressure sampling
  * sites' x (cm): the portal vein, the stent's inlet, its narrowest place, its outlet, the IVC; out.i: their sample indices.
  */
 export function stentTrace(inp, o) {
@@ -56,14 +56,19 @@ export function stentTrace(inp, o) {
   // the parts as they are taken, scaled so they add up to the drop across the stent (the card's own bar does the same: its length is the printed drop)
   const sum = (inp.tract || 0) + inp.wall + (inp.entry || 0) + inp.jet + (inp.inlet || 0), k = sum > 1e-9 && inp.dp > 0 ? inp.dp / sum : 1;
   // a part with nowhere to happen (no widening for the jet, no narrowing for the inlet) is taken at the ends, so the total still adds up
-  const wall = sf > 0 ? inp.wall * k : 0, jet = sj > 0 ? inp.jet * k : 0, inlet = si > 0 ? (inp.inlet || 0) * k : 0;
-  const ends = sum * k - wall - jet - inlet;
+  const tract = (inp.tract || 0) * k, wall = sf > 0 ? inp.wall * k : 0, jet = sj > 0 ? inp.jet * k : 0, inlet = si > 0 ? (inp.inlet || 0) * k : 0;
+  const entry = sum * k - tract - wall - jet - inlet;
   const iA = firstAtLeast(o.x, 0), iB = firstAtLeast(o.x, len + 1e-9);
   let cf = 0, cj = 0, ci = 0;
   for (let i = 0; i <= N; i++) {
     cf += wf[i]; cj += wj[i]; ci += wi[i];
-    const up = half * clamp((o.x[i] - xa) / Math.max(1e-9, -xa), 0, 1), dn = half * clamp((o.x[i] - len) / Math.max(1e-9, xb - len), 0, 1);
-    o.loss[i] = up + dn + (sf > 0 ? (wall * cf) / sf : 0) + (sj > 0 ? (jet * cj) / sj : 0) + (si > 0 ? (inlet * ci) / si : 0) + (i >= iA ? ends / 2 : 0) + (i >= iB ? ends / 2 : 0);
+    // (each part's cumulative share by place: the outside, the tract and the entry and exit at the two ends, the friction along the lumen, the jet where it widens)
+    o.cOut[i] = half * clamp((o.x[i] - xa) / Math.max(1e-9, -xa), 0, 1) + half * clamp((o.x[i] - len) / Math.max(1e-9, xb - len), 0, 1);
+    o.cTract[i] = (i >= iA ? tract / 2 : 0) + (i >= iB ? tract / 2 : 0);
+    o.cWall[i] = sf > 0 ? (wall * cf) / sf : 0;
+    o.cEnds[i] = (i >= iA ? entry / 2 : 0) + (i >= iB ? entry / 2 : 0);
+    o.cJet[i] = (sj > 0 ? (jet * cj) / sj : 0) + (si > 0 ? (inlet * ci) / si : 0);
+    o.loss[i] = o.cOut[i] + o.cTract[i] + o.cWall[i] + o.cEnds[i] + o.cJet[i];
   }
   // the total head falls by it; the static pressure is what is left after the velocity head. The portal end starts at the PPG plus its own velocity head.
   const H0 = (inp.ppg ?? 0) + headOf(o.v[0]);
@@ -85,5 +90,5 @@ const firstAtLeast = (xs, v) => { for (let i = 0; i < xs.length; i++) if (xs[i] 
 /** A record for stentTrace to write into. */
 export function makeTrace() {
   const n = TRACE_N + 1, f = () => new Float64Array(n);
-  return { x: f(), in: new Uint8Array(n), D: f(), v: f(), loss: f(), head: f(), P: f(), w1: f(), w2: f(), w3: f(), sites: new Float64Array(5), i: new Int32Array(5) };
+  return { x: f(), in: new Uint8Array(n), D: f(), v: f(), loss: f(), head: f(), P: f(), w1: f(), w2: f(), w3: f(), cOut: f(), cTract: f(), cWall: f(), cEnds: f(), cJet: f(), sites: new Float64Array(5), i: new Int32Array(5) };
 }

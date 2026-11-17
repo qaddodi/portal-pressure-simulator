@@ -261,7 +261,6 @@ export function createStent() {
     stageT = h('div', { class: 'gl-stage sc-stage', style: `aspect-ratio: ${VW} / ${traceH(3)}` }, picT);
     el.insertBefore(stageT, stageB);
     glT = createSvgGL(stageT);
-    wordsAll.push(...tp.words);
     ro?.observe(stageT); fitAll();
     return tp;
   }
@@ -488,6 +487,7 @@ export function createStent() {
       const fs = clamp(12 / (w / VW), 9, 14);
       fsU = fs;
       for (const e of wordsAll) e.setAttribute('font-size', fs);
+      tp?.fitWords(fs);
       glL.relook(); glT?.relook(); glB.relook();
     }
   };

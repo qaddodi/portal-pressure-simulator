@@ -483,6 +483,8 @@
    by the height it has left, the deck by the width. This was the overlap on the Mac, 17 Nov: the stages took the card's whole width and ran taller than their band.) */
 .ir-figs .sc > .sc-stage { flex: none; width: min(100cqw, 520px, calc((100cqh - 6px) * var(--fig-r, 1.35))); }   /* (as wide as the card allows, never taller than the room left) */
 .ir-figs .gl-stage[hidden] { display: none; }
+.ir-color { flex: none; margin: 0; transition: opacity var(--d-small) var(--ease); }
+.ir-tips:is([data-sub="compare"], [data-sub="curves"]) .ir-color { opacity: 0; pointer-events: none; }   /* (it colours the side view's lumen: no side view, no switch; faded, never popped) */
 .ir-sub { align-self: flex-start; position: relative; z-index: 1; flex: none; }   /* (the switch stays on top of anything below it and clickable) */
 .ir-tips:is([data-sub="compare"], [data-sub="curves"]) > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
 .ir-tips:not([data-sub="compare"]) > .ir-compare { display: none; }

@@ -153,7 +153,7 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
   assert.match(plate, /\.ir-figs \.sc \{ display: flex; flex-direction: column;/);
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\) \{ display: none; \}/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\):not\(\.ir-color\) \{ display: none; \}/);
 });
 
 test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
@@ -384,4 +384,16 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(ed.querySelector('[data-ctl="site"] button').getAttribute('aria-pressed'), 'true');
   assert.equal(ed.querySelector('[data-ctl="narrow"] .se-val').textContent, '5.0 mm', 'the millimetres first');
   assert.equal(ed.querySelector('[data-ctl="narrow"] .se-sub').textContent, '50%', 'then the percentage, which a phone leaves out');
+});
+
+test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.update(frameOf()); await wait(60);
+  const sw = ir.el.querySelector('.ir-stents > .sc-color');
+  assert.ok(sw, 'moved into the header row');
+  assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
+  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
+  assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
 });

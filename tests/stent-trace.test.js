@@ -58,3 +58,15 @@ test('trace: the record is reused (nothing made per call)', () => {
   assert.equal(o, rec);
   assert.ok(Math.abs(headOf(100) - HEAD) < 1e-12);
 });
+
+test('trace: the parts add up to the loss at every sample, each only rises, and the stent\'s own four end at the stent\'s drop', () => {
+  const o = stentTrace(base), N = TRACE_N, parts = ['cOut', 'cTract', 'cWall', 'cEnds', 'cJet'];
+  for (let i = 0; i <= N; i++) {
+    let s = 0;
+    for (const p of parts) { s += o[p][i]; if (i) assert.ok(o[p][i] >= o[p][i - 1] - 1e-12, `${p} falls at ${i}`); }
+    assert.ok(Math.abs(s - o.loss[i]) < 1e-9);
+  }
+  assert.ok(Math.abs(o.cTract[N] + o.cWall[N] + o.cEnds[N] + o.cJet[N] - base.dp) < 1e-9, 'the stent\'s four parts are its drop');
+  assert.ok(Math.abs(o.cOut[N] - (base.ppg - base.dp)) < 1e-9, 'and the outside is the rest of the PPG');
+  assert.ok(o.cEnds[0] === 0 && o.cEnds[N] > 0 && o.cWall[0] === 0);
+});
