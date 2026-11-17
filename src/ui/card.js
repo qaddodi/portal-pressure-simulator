@@ -218,10 +218,19 @@ export function createCard({ view, stage, ctx, onDetails }) {
   function coverNow() {
     return Math.max(0, readBox(view).bottom - readBox(el).top);
   }
+  // The card is up over the foot of the screen: a class on the page, so Tests' sheet leaves it room (dock-sheet.js stops, stack-plan.js) and the card is a strip above it (F46).
+  let stripped = false;
+  function stripState(on) {
+    if (on === stripped) return;
+    stripped = on;
+    document.documentElement.classList.toggle('vessel-card', on);
+    dispatchEvent(new Event('pps:vessel-card'));
+  }
   function revealNow() {
     const open = model && !el.hidden && isDocked();   // (the phone's sheet: its cover lifts the zoom pill and the clock)
     const covered = open ? coverNow() : 0;
     liftButtons(open ? `${covered + 6}px` : '0px');
+    stripState(open && !el.classList.contains('ac-leaving'));
     // A phone's card grows with its words up to the room there is (app-03-layouts.css); past that its body scrolls, and takes the vertical touch for it.
     const body = open ? el.querySelector(':scope > .ac-body') : null, tall = !!body && readMetric(body, 'scrollHeight') > readMetric(body, 'clientHeight') + 1;
     if (tall !== cardTall) { cardTall = tall; el.classList.toggle('ac-scroll', tall); }
@@ -246,7 +255,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       closeTimer = afterExit(el, 'ac-leaving', afterLeave);
     }
     model = null; live.length = 0; syncs.length = 0; actionable.length = 0; dropPanels();
-    liftButtons('0px');
+    liftButtons('0px'); stripState(false);
     stage.unreveal?.();
     relayoutSoon();
   }
