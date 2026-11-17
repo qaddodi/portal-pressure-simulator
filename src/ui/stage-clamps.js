@@ -262,7 +262,7 @@ export function createClamps(st, live) {
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
       const lab = s('g', { class: 'clamp-label', 'data-id': id });
       lab._txt = txt;
-      lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
+      lab._c = { id, vessel, x, y, nx, ny, off };   // (id: the clamp's key; vessel: the vessel it narrows, which differs for a stent's waist, `<stent>~waist`: its own stent is the one vessel its words may stand over) clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
     };

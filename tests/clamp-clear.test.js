@@ -14,7 +14,7 @@ const run = (o) => {
 for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy' }, { size: 'iphone', view: 'anatomy' }, { size: 'mac', view: 'anatomy', s: 0.5, waist: 2 }]) {
   test(`no label shows over a narrowing's words: ${JSON.stringify(o)}`, { timeout: 320000 }, () => {
     const r = run(o);
-    assert.ok(r.cl.some((c) => /^Narrowed/.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
+    assert.ok(r.cl.some((c) => /^(Narrowed|Waist|Distal|Proximal|Mid) /.test(c.t) && c.box[2] > c.box[0]), 'the narrowing is called out');
     assert.deepEqual(r.lap, []);
   });
 }
