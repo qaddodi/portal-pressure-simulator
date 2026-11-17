@@ -52,3 +52,12 @@ test('the stent\'s card holds more rows than its size\'s old height: Waist lengt
   const actions = read('src/ui/actions.js');
   for (const id of ["id: 'waist'", "id: 'ends'"]) assert.ok(actions.includes(id), `the stent's card has ${id}`);
 });
+
+test('a stent\'s vessel card holds one row of value chips, the TIPS view\'s editor, so the phone\'s card leaves the stent in sight (play-test finding 9, 17 Nov 2026)', () => {
+  const actions = read('src/ui/actions.js'), card = read('src/ui/card.js');
+  assert.match(actions, /const STENT_PANEL = \(id\) => \(\{ type: 'panel', id: 'stent', label: 'Edit stent', make: \(\) => createStentEditor\(\{ id \}\) \}\);/);
+  assert.equal((actions.match(/verbs\.push\(STENT_PANEL\(id\)\);/g) || []).length, 2, 'the TIPS and DIPS, and a drawn stent');
+  assert.doesNotMatch(actions, /stentControls\(id\)\.slice\(1\)/, 'no stack of slider rows on the card');
+  assert.match(card, /const x = v\.make\(\);\n\s*panels\.push\(x\);/, 'a panel is kept to be destroyed');
+  assert.equal((card.match(/dropPanels\(\);/g) || []).length, 2, 'on a rebuild and on close: no editor keeps following the params after its card');
+});

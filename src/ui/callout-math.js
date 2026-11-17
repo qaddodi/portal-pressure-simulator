@@ -40,7 +40,7 @@ export function valueText(k, fp, whole = false) {
   return `${fmt(v * (T.x || 1), whole ? 0 : T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
 }
 // A reading's rating colour, as its tile's bar shows it (and the line's pill: presenter valTone): green, amber or red; after TIPS
-// the PPG is read against its target. A reading its tile does not rate has none.
+// the PPG is read against its 12 mmHg reference line. A reading its tile does not rate has none.
 const TONE = TOKEN_OF_RATE;
 export function valueTone(k, fp, tips = false) {
   if (fp?.[k] == null) return null;

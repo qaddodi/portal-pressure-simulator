@@ -257,8 +257,8 @@ export function bigTiles() {
   const ts = createTileShown(pageShown);
   const vText = (p) => (p.vw ? p.vw.text : p.v.textContent);
   const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else p.vw.set(t); };
-  // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
-  // says the target is reached.
+  // After TIPS the PPG is read against the 12 mmHg reference line, so a tile never says "High" under a line that
+  // says it is below the reference.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
   // (A tile's word judges the number it prints: 4.98 L shows "5.0 L", so it reads Grade 3.)
   const ratedShown = (k, f) => (f[k] != null ? rated(k, { ...f, [k]: tileShown(k, f[k]) }) : rated(k, f));
@@ -427,7 +427,7 @@ export function bigTiles() {
     draw.glide(to);
     return true;
   }
-  // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
+  // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its reference line, as its word does).
   // A stent's peak velocity bar keeps its cut-offs at the range for the stent's own diameter (90 to 190 cm/s for 8 to 10 mm, scaled and provisional for another: stentCuts):
   // the bands, ticks and labels are moved when that range changes (a new slide's stent), never while a frame is drawn, so the bar and the word agree.
   const STENT_VEL = { tipsVel: 'tips', dipsVel: 'dips' };
