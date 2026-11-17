@@ -543,7 +543,7 @@
 .se-panel .se-done:active { transform: scale(.96); }
 .se-panel .se-ctl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-width: 0; min-height: 48px; }
 .se-panel .se-ctl.se-dim { opacity: .45; }
-.se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding-top: 2px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
+.se-panel .se-cap { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0 6px;   /* (6 px under the words: the thumb at the end of its track no longer covers 'No waist' or 'Open', play-test 17 Nov 2026) */ font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
 .se-panel .se-cap b { font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .se-panel .se-ctl input[type="range"] { width: 100%; min-width: 0; height: 32px; margin: 0; }   /* (the app's 32 px thumb fits inside it, clear of the caption above) */
 .se-panel .se-ctl-seg { display: flex; align-items: center; gap: 10px; min-height: 44px; }

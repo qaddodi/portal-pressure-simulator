@@ -986,6 +986,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
+  /** Tests left the screen by any road (the tab bar, a panel switch, Esc: main.js setPanelTab) and not through close(): every pane is told it is out of sight, so the Tests view's stent editor gives the vessel card its chips back (F11). */
+  function away() { cancelStage(); for (const p of panes) p.shown?.(false); }
   function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void readMetric(workspace, 'offsetWidth'); workspace.classList.add('entering'); }
   function toggleDock() {
     if (isVisible()) close();
@@ -1129,7 +1131,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   /** Bring in the instruments that load after the first paint (main.js calls it when the app is idle). */
   function load() { for (const p of panes) p.need?.(); }
   return {
-    update: updateDock, ingest, clearTraces, backfillTraces, show, toggle: toggleDock, close, ensure, openGrid, profile, load,
+    update: updateDock, ingest, clearTraces, backfillTraces, show, toggle: toggleDock, close, away, ensure, openGrid, profile, load,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

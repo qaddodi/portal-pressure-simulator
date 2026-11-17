@@ -1765,6 +1765,7 @@ function setPanelTab(tab) {
   if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
+  if (!instr && was) dock.away();   // (the panes are told they are out of sight: the Tests stent editor lets go of the vessel card's chips, F11)
   $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');
   if (instr) $('#tabInstruments').classList.remove('ping');
   else app.classList.remove('instrument-focus');

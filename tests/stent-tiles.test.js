@@ -73,3 +73,17 @@ test('a DIPS has its own readings, and the TIPS keys stay empty without a TIPS',
   assert.ok(f.dipsFlow > 0 && f.dipsDp > 0 && f.dipsVel > 0 && f.dipsLumen === 10, JSON.stringify([f.dipsFlow, f.dipsDp, f.dipsVel, f.dipsLumen]));
   assert.equal(f.tipsVel, null);
 });
+
+test('the tray\'s caption keeps clear of the slider thumb: padding under the words (play-test 17 Nov 2026: the thumb covered "No waist")', async () => {
+  const { appCss } = await import('./split-src.js');
+  const pad = appCss().match(/\.se-panel \.se-cap \{[^}]*padding: (\d+)px 0 (\d+)px/);
+  assert.ok(pad && +pad[2] >= 4, 'at least 4 px under the caption');
+});
+
+test('Tests going away by the panel switch (not close()) tells every pane it is out of sight, so the stent editor frees the vessel card (play-test F11)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  const dock = readFileSync(new URL('../src/ui/dock.js', import.meta.url), 'utf8');
+  assert.match(dock, /function away\(\) \{[^}]*p\.shown\?\.\(false\)/);
+  assert.match(main, /if \(!instr && was\) dock\.away\(\)/);
+});
