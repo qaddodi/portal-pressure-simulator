@@ -44,3 +44,11 @@ test('zoomed out the label still stands by its waist, or on a leader that reache
   assert.ok(r.gap <= 30 || r.leader, `the label stands ${Math.round(r.gap)} px off the bracket, with${r.leader ? '' : 'out'} a leader`);
   assert.equal(r.overBracket, 0);
 });
+
+test('the label is never shortened to its numbers ("6 2.0" for "waist 6 mm × 2.0 cm", Mohammad, 17 Nov): whole, or not placed', { timeout: 640000 }, () => {
+  for (const o of [{ red: 0.25, waist: 2 }, { red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, size: 'iphone', zoom: 0.6 }, { red: 0.25, waist: 2, zoom: 0.5 }]) {
+    const r = run(o);
+    assert.ok(r.text === '' || r.text === null || r.text === undefined || r.text === 'TIPS 8 mm / waist 6 mm × 2.0 cm', `${JSON.stringify(o)} reads "${r.text}"`);
+    assert.ok(!/(^| \/ )[\d.]+ [\d.]+( \/|$)/.test(r.text || ''), 'no line of bare numbers');
+  }
+});

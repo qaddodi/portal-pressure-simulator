@@ -287,6 +287,7 @@ const unitNow = () => !!store.get().presenting;
     if (g?.waist != null) { lines.push([{ ...head, t: 'waist' }, num(MM(g.waist), 4, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
     if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
     it.lines = lines;
+    it.canShort = false;   // (nodeItem's shortening keeps only a second line's numbers, "6 2.0" for "waist 6 mm × 2.0 cm": Mohammad's screenshot, 17 Nov; this label shows whole or not at all)
     it.key = `n:${sid}`; it.src = ['vel', sid, null]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0); it.label = say;
     return it;
