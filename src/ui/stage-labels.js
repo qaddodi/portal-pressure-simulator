@@ -169,6 +169,20 @@ export function createLabelDriver(st, live) {
     live.labelSol = keep;
     return false;
   }
+  // (No label is laid out before the page's first framing has settled: the stage's size and the camera unchanged for LABELS_SETTLE_MS, no glide
+  // under way. On a fresh load the first fit moves the figure a few times as the page lays itself out, and labels laid for the first view
+  // crossfaded to the next for seconds: two "Right hepatic vein 4.6", one fading over RIGHT ATRIUM, one at the left (F24, iPhone, 17 Nov 2026).
+  // Then they fade in once, where they stay. At most LABELS_WAIT_MAX after the first ask, so a figure that never rests still shows its labels.)
+  const LABELS_SETTLE_MS = 300, LABELS_WAIT_MAX = 3000, settle = { w: -1, h: -1, k: 0, x: 0, y: 0, t: 0, t0: -1, ask: 0 };
+  function firstSettled(b) {
+    const now = performance.now(), z = settle, cam = live.vt || NO_VT;
+    if (z.t0 < 0) z.t0 = now;
+    if (z.w !== b.width || z.h !== b.height || Math.abs(z.k - cam.k) > 1e-4 || Math.abs(z.x - cam.x) > 0.05 || Math.abs(z.y - cam.y) > 0.05) { z.w = b.width; z.h = b.height; z.k = cam.k; z.x = cam.x; z.y = cam.y; z.t = now; }
+    if ((now - z.t >= LABELS_SETTLE_MS && !live.vtGliding && !live.camMove) || now - z.t0 >= LABELS_WAIT_MAX) { live.labelsUp = true; return true; }
+    z.ask ||= nextFrame(() => { z.ask = 0; if (live.F && !live.labelsUp) updateLabels(live.F); });
+    return false;
+  }
+  const NO_VT = { k: 1, x: 0, y: 0 };
   function updateLabels(f, force = false) {
     rollF = f;
     live.labelPainted = false;
@@ -183,6 +197,7 @@ export function createLabelDriver(st, live) {
     const t0 = performance.now();
     refreshCTM();
     const st = store.get(), b = stageBox();
+    if (!live.labelsUp && !firstSettled(b)) return;
     // (Rigid labels, labels-plan.md step 6: while the camera moves (a hand's pan, pinch or wheel, a glide, a slow push, a card's zoom) and what
     // the labels show is the same, nothing is laid out. Every label stands at CTM x its world anchor + its offset, drawn by the GPU in the figure's
     // own frame (label-gl pinDraw), so it moves with the figure to the pixel; the layout is solved once, when the camera comes to rest. What the

@@ -379,6 +379,20 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.match(rules, /\.stent-editor \.se-chip \{[^}]*font: 500 var\(--fs-14\)/, 'the chip at the label size');
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no chip or value is cut short');
   assert.match(rules, /\.stent-editor \.se-layer \{[^}]*flex-wrap: wrap;/, 'a row too narrow for the four wraps');
+  // Play-test F38 (Mac, a 240 px card): an open row wider than its card scrolled the card sideways. Every layer wraps, the slider gives way (min-width 0), the
+  // editor and its card panel never pass their width, and no card body scrolls sideways. (Rules only: jsdom lays nothing out; the play-test checks the pixels.)
+  assert.doesNotMatch(rules, /flex-wrap: nowrap/, 'no open row is kept on one line');
+  assert.match(rules, /\.stent-editor \.se-range \{[^}]*min-width: 0;/);
+  assert.match(rules, /\.stent-editor \{[^}]*min-width: 0; max-width: 100%;/);
+  assert.match(plate, /\.ac-panel \{[^}]*max-width: 100%; overflow-x: clip;/);
+  const lay = read('styles/app-03-layouts.css');
+  for (const k of ['.action-card:not(.docked) > .ac-body {', '.action-card.docked > .ac-body {']) {
+    const rules2 = lay.split('\n').filter((l) => l.startsWith(k)).join('\n');
+    assert.match(rules2, /min-width: 0; overflow-x: hidden;/, `${k} never scrolls sideways`);
+  }
+  // And should anything ever scroll its card sideways, opening or closing a chip puts the card back at its left edge.
+  assert.match(read('src/ui/stent-editor.js'), /const sc = el\.closest\('\.ac-body'\);\n\s*if \(sc\) sc\.scrollLeft = 0;/);
+  for (const id of ['dia', 'end', 'waist', 'len', 'ends']) assert.ok(ed.querySelector(`.se-strip[data-strip="${id}"]`).classList.contains('se-layer'), `${id}'s open row is a wrapping layer`);
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
   assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');

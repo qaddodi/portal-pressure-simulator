@@ -452,22 +452,22 @@
 /* The stent editor (stent-editor.js), built into the TIPS view: one slim row of value chips; a tapped chip turns the row, in the same height, into its slider,
    its choice and Done. The chips and the strips share one grid cell and crossfade, so the row never changes height and the stent drawing keeps the room. */
 .ir-editor { flex: none; }
-.stent-editor { display: grid; grid-template-columns: minmax(0, 1fr); animation: crossfade var(--d-small) var(--ease); }
+.stent-editor { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; animation: crossfade var(--d-small) var(--ease); }
 .stent-editor .se-layer { grid-area: 1 / 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; transition: opacity var(--d-small) var(--ease); }
 .stent-editor:not([data-open=""]) .se-chips, .stent-editor .se-strip { opacity: 0; pointer-events: none; }
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"],
 .stent-editor[data-open="waist"] .se-strip[data-strip="waist"], .stent-editor[data-open="len"] .se-strip[data-strip="len"],
 .stent-editor[data-open="ends"] .se-strip[data-strip="ends"] { opacity: 1; pointer-events: auto; }
 /* (Each chip is a tap target of 44 px at the app's label size, and never cut short: a row that does not hold the four wraps, finding F33.) */
-.stent-editor .se-chip { flex: 1 1 auto; min-height: 44px; display: flex; align-items: baseline; justify-content: center; column-gap: 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; font: 500 var(--fs-14)/42px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
+.stent-editor .se-chip { flex: 1 1 auto; max-width: 100%; min-height: 44px; display: flex; align-items: baseline; justify-content: center; column-gap: 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface-2); color: var(--text); cursor: pointer; white-space: nowrap; font: 500 var(--fs-14)/42px var(--font-ui); transition: opacity var(--d-small) var(--ease); }
 .stent-editor .se-chip:hover { border-color: var(--accent-line); }
 .stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .stent-editor .se-chip-n { flex: none; color: var(--text-3); font-weight: 600; }
 .stent-editor .se-chip-w { flex: none; font-variant-numeric: tabular-nums; }
 .stent-editor .se-dim { opacity: .42; }
-.stent-editor .se-strip { flex-wrap: nowrap; padding: 0 2px 0 0; }
+.stent-editor .se-strip { padding: 0 2px 0 0; }   /* (it wraps as the chips do: in a narrow card the choice and Done go under the slider, never past the edge, F38) */
 .stent-editor .se-name { flex: none; min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--text-2); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); }
-.stent-editor .se-range { flex: 1 1 0; min-width: 72px; height: 44px; }
+.stent-editor .se-range { flex: 1 1 120px; min-width: 0; height: 44px; }   /* (the slider takes the width the row leaves) */
 .stent-editor .se-val { flex: none; text-align: right; font: 500 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stent-editor .se-sub { color: var(--text-3); }
 .stent-editor .se-seg { flex: none; display: flex; }
@@ -720,4 +720,4 @@
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
 /* A stent's vessel card holds the same editor as the TIPS view (actions.js STENT_PANEL, card.js panel): one row, its own container so the chips take their narrow form. */
-.ac-panel { container-type: inline-size; min-width: 0; margin-top: 6px; }
+.ac-panel { container-type: inline-size; min-width: 0; max-width: 100%; overflow-x: clip; margin-top: 6px; }

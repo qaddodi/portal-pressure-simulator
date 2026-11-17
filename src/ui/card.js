@@ -28,6 +28,7 @@ import { readBox, readMetric } from './layout-snap.js';
 import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
+import { handOver } from './hand-over.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -769,6 +770,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // Where the card stands: a phone's in the figure column, above the view switch (app.css .action-card.docked); a Mac's or an iPad's
   // in the figure, on the shelf at its left edge under the case pill (app.css). Neither depends on what was picked, so nothing is
   // measured to place it.
+  const placed = {};
   function position() {
     if (!model || el.hidden) return;
     if (isPhoneLayout()) {
@@ -778,6 +780,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       if (el.parentNode !== view) view.append(el);
       if (isDocked()) el.classList.remove('docked');
     }
+    handOver(placed, isDocked() ? 'sheet' : 'shelf', [el.querySelector(':scope > .ac-body')]);   // (turned between the shelf and the sheet: its words start at the top again, F35)
     // The camera counts this card like Tests and Details: over the foot of a phone, on the left shelf elsewhere (it pans for it, stage-fit.js; 17 Nov 2026, F9, F27).
     const edge = isDocked() ? 'bottom' : 'left';
     if (el.dataset.safe !== edge) el.dataset.safe = edge;
