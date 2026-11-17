@@ -250,6 +250,7 @@ html[data-embed] .topbar, html[data-embed] button[aria-label="Exit the presentat
 .ac-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--accent-ink); font: 500 13px/1.2 var(--font-ui); white-space: nowrap; cursor: pointer; transition: scale var(--d-flip) var(--ease); }
 .ac-btn .ac-ic { width: 18px; height: 18px; color: currentColor; }
 .ac-btn.danger { color: var(--danger-ink); margin-left: auto; }
+.ac-btn.quiet { color: var(--text-2); }   /* (an action beside Doppler and Dye that is a way through, not the card's own work: the stent's IR) */
 .ac-btn.on { color: var(--accent-ink); }
 .ac-dye { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .ac-dye.on .ac-ic { color: var(--dye-icon); }

@@ -12,7 +12,7 @@
 // A drag sends the newest value once per frame and the last at once when the hand lets go (as the vessel card does: card.js); a change made anywhere
 // else (the vessel card, a slide, undo) is followed between frames.
 
-import { h, paintRange } from './util.js';
+import { h, svgIcon, paintRange } from './util.js';
 import { store, updateParams } from './store.js';
 import { frameFor } from './frame.js';
 import { runSoon, propSoon, attrSoon } from './class-soon.js';
@@ -45,13 +45,20 @@ export function splitValue(t) {
 const LEADS = new Set(), CARDS = new Set();
 const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.shown && l.sid() === c.sid())); };
 
-/** createStentEditor({ id, lead, compact }): { el, update(frame), setStent(id), setShown(on), open(chipId), close(), destroy() }. `id` is the stent ('TIPS',
- *  'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `compact` its chips in one row, each its name over its value. */
-export function createStentEditor({ id = 'TIPS', lead = false, compact = false } = {}) {
-  const el = h('div', { class: `stent-editor${compact ? ' se-compact' : ''}`, role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': 'false' });
+/** createStentEditor({ id, lead, compact, onOpen }): { el, update(frame), setStent(id), setShown(on), open(chipId), close(), destroy() }. `id` is the stent ('TIPS',
+ *  'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `compact` its chips in one row, each its name over its value; `onOpen(id)` what
+ *  the folded line does when it is tapped (opens Tests › IR › TIPS on that stent: the line is the way in, not a note). */
+export function createStentEditor({ id = 'TIPS', lead = false, compact = false, onOpen = null } = {}) {
+  // (The card's mode is decided here, before its first paint: made while the Tests view is on screen for this stent it is born folded, never chips that fold a frame later.)
+  const born = !lead && [...LEADS].some((l) => l.shown && l.sid() === id);
+  const el = h('div', { class: `stent-editor${compact ? ' se-compact' : ''}`, role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': born ? 'true' : 'false' });
   const chipRow = h('div', { class: 'se-chips se-layer' });
-  const summary = h('div', { class: 'se-summary se-layer', 'aria-live': 'polite' });
-  let folded = false;
+  chipRow.inert = born;
+  const sumText = h('span', { class: 'se-sum-t' });
+  const summary = h('button', { type: 'button', class: 'se-summary se-layer', 'aria-live': 'polite', 'aria-label': 'Open in Tests, IR' }, sumText, svgIcon('chev-right', 'se-sum-ic'));
+  summary.inert = !born; summary.tabIndex = born ? 0 : -1;
+  summary.addEventListener('click', () => onOpen?.(sid));
+  let folded = born;
   let sid = null, ctls = [], chips = [], off = null, openId = '', lastOpen = '';
 
   function sliderCtl(v) {
@@ -133,7 +140,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, compact = false }
     }
     attrSoon(el, 'data-open', openId);
     for (const c of chips) { const on = c.id === openId; c.strip.inert = !on; c.strip.setAttribute('aria-hidden', on ? 'false' : 'true'); }
-    chipRow.inert = !!openId;
+    chipRow.inert = folded || !!openId;
     // (A card must never sit scrolled sideways, play-test F38: its body cannot scroll that way now, and this puts it back should anything ever do so.)
     const sc = el.closest('.ac-body');
     if (sc) sc.scrollLeft = 0;   // (a write only: no layout read)
@@ -185,14 +192,15 @@ export function createStentEditor({ id = 'TIPS', lead = false, compact = false }
       if (dim !== r.dim) { r.dim = dim; for (const c of r.cells) c.classList.toggle('se-dim', dim); }
     }
     if (!lead) {
-      // (The folded line: the stent and its narrowings, as the chips read them.)
+      // (The folded line: the stent's narrowings as the chips read them. Its diameter is left out: the card's row above already reads it.)
       const by = (k) => chips.find((c) => c.id === k);
-      const parts = [chipText(by('dia'), p)];
+      const parts = [];
       const st = chipText(by('end'), p), w = chipText(by('waist'), p);
-      if (st !== 'None') parts.push(`stenosis ${st}`);
-      if (w !== 'None') parts.push(`waist ${w.replace(CHOICE, ' × ')}`);
-      const t = `${parts.join(' · ')} · edited in Tests › IR`;
-      if (t !== summary.textContent) summary.textContent = t;
+      if (st !== 'None') parts.push(`Stenosis ${st}`);
+      if (w !== 'None') parts.push(`Waist ${w.replace(CHOICE, ' × ')}`);
+      const t = parts.length ? parts.join(' · ') : 'No narrowing';
+      if (t !== sumText.textContent) sumText.textContent = t;
+      summary.setAttribute('aria-label', `${t}. Open in Tests, IR`);
     }
     for (const c of chips) {
       const t = chipText(c, p);
@@ -215,8 +223,9 @@ export function createStentEditor({ id = 'TIPS', lead = false, compact = false }
       if (on === folded) return;
       folded = on;
       if (on) setOpen('');
-      attrSoon(el, 'data-fold', on ? 'true' : 'false');
+      attrSoon(el, 'data-fold', on ? 'true' : 'false');   // (the stylesheet crossfades the chips and the line)
       chipRow.inert = on || !!openId;
+      summary.inert = !on; summary.tabIndex = on ? 0 : -1;
     },
   };
   if (lead) LEADS.add(me); else CARDS.add(me);
