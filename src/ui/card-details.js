@@ -46,7 +46,8 @@ const STATION = {
 /** The place a vessel's end stands, in words: its own label, or its place along a vessel that is cut into segments. */
 export const stationName = (id) => STATION[id] || NODES[NI[id]].label;
 
-const aboutEdge = (e) => ABOUT_EDGE[e.id] || ABOUT_EDGE[e.id.replace(/_L$|L$/, '')] || `${e.label}. Connects ${stationName(e.from)} → ${stationName(e.to)} (physiological flow direction).`;   // alloc-rare: the About card is made when a vessel is selected
+// (A vessel with no authored words has no paragraph: the old generated "Right hepatic vein. Connects Right hepatic vein … → IVC" only repeated the card's name and its Between line, play-test V8, 17 Nov.)
+const aboutEdge = (e) => ABOUT_EDGE[e.id] || ABOUT_EDGE[e.id.replace(/_L$|L$/, '')] || null;   // alloc-rare: the About card is made when a vessel is selected
 
 
 // What an organ is, in words, and the one or two numbers its card does not carry. (The card's own: the liver's sinusoid pressure, HVPG and inflows; the heart's
@@ -80,7 +81,7 @@ export function detailsPlan(m) {
   return {
     kicker: kickerOfEdge(edge), between: `${stationName(edge.from)} → ${stationName(edge.to)}`, about: aboutEdge(edge), why: m.why || null,
     stats: [
-      ['Resistance', (f, c) => { const q = Qof(f)[k]; return Math.abs(q) > 1e-3 ? numText(c, (Pof(f)[iFrom] - Pof(f)[iTo]) / (q * 0.06), 2, ' WU') : '∞'; }],
+      ['Resistance', (f, c) => { const q = Qof(f)[k]; if (!(Math.abs(q) > 1e-3)) return '∞'; const r = (Pof(f)[iFrom] - Pof(f)[iTo]) / (q * 0.06); return Math.abs(r) < 0.005 ? '< 0.01 WU' : numText(c, r, 2, ' WU'); }],   // (a healthy vein's 0.00 read as missing data, V8)
       // (A collateral: how far it has opened. A shunt: nothing, a healthy patient has none, so its healthy flow is always nought. Any other vessel: its flow in a healthy patient.)
       ...(edge.kind === 'collateral'
         ? [['Recruited', (f, c) => numText(c, clamp(((f.slow.dEff?.[edge.id] ?? f.slow.d[edge.id]) - dMinOf(edge)) / (edge.dMax - dMinOf(edge)), 0, 1) * 100, 0, '%')]]
@@ -112,7 +113,7 @@ export function createCardDetails(m, { onWhy, onBack }) {
   const title = m.title;
   const back = h('button', { class: 'ad-back', type: 'button', 'aria-label': `Back to ${title}`, onclick: onBack }, icon('chev-left'), h('span', {}, title));   // alloc-rare: built when the details open
   const head = h('div', { class: 'ad-head' }, back, h('span', { class: 'ad-kicker' }, plan.kicker));   // alloc-rare: built when the details open
-  const el = h('section', { class: 'ac-details', role: 'region', 'aria-label': `${title}: details` }, head, h('div', { class: 'ad-scroll' }, rows, why, h('p', { class: 'ad-about' }, plan.about)));   // alloc-rare: built when the details open
+  const el = h('section', { class: 'ac-details', role: 'region', 'aria-label': `${title}: details` }, head, h('div', { class: 'ad-scroll' }, rows, why, ...(plan.about ? [h('p', { class: 'ad-about' }, plan.about)] : [])));   // alloc-rare: built when the details open
   return {
     el,
     update(f) { if (!f) return; for (let i = 0; i < live.length; i++) { const x = live[i], v = x[1](f, x[2]); if (v != null) putText(x[0], v); } },

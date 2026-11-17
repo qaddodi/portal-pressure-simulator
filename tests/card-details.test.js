@@ -33,12 +33,14 @@ test('every card with a name to tap has details: its kind, its words, its Why?, 
       assert.ok(!m.noDetails, id);
       const plan = detailsPlan(m);
       assert.ok(plan, `${id}: details`);
-      assert.ok(plan.kicker && plan.about.length > 40, `${id}: says what it is`);
+      assert.ok(plan.kicker && (plan.about == null || plan.about.length > 40), `${id}: says what it is, or has no paragraph at all`);
+      assert.ok(!plan.about || !/Connects .* → /.test(plan.about), `${id}: no generated filler`);
       assert.ok(plan.why, `${id}: asks the Why? explainer, by the card's own id`);
       assert.equal(plan.why, m.why, `${id}: the card's own Why?`);
       for (const [name, fn] of plan.stats) {
         const text = fn(f, newCell());
         assert.equal(typeof text, 'string', `${id} ${name}`);
+        assert.ok(!/^-?0\.00 WU/.test(text), `${id} ${name}: a near-zero resistance reads "< 0.01 WU", not "0.00 WU"`);
         assert.ok(text.length > 0 && !/NaN|undefined|Infinity/.test(text), `${id} ${name}: "${text}" (${preset})`);
       }
     }
