@@ -257,7 +257,7 @@ export const ADOPTED = {
   'tips-complete/waist': ['kind:stent', 'question'],
   'tips-complete/he': ['kind:criteria', 'caseQ'],
   'tips-complete/reduce': ['kind:stent'],
-  'tips-complete/baseline': ['beats'],
+  'tips-complete/baseline': ['beats', 'cite'],
   'tips-complete/jet': ['question'],
   'tips-complete/dysfunction': ['kind:curve'],
   'tips-complete/dips': ['kind:flows'],

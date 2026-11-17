@@ -2219,6 +2219,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await calmFrames({ smooth, alive: () => !!ui });   // (cover-lift.js: the cover's fade is on the clock too: it lifts on smooth frames, as the cards' fades do)
     }
     clearTimeout(coverT); booting = false;
+    document.documentElement.classList.remove('pz-covered');   // (the cards show as the cover fades off them: it is 90 % opaque, so they come up with it, whole, never popping)
     const c = cover; cover = null;
     if (!c) return;
     c.classList.remove('on');
