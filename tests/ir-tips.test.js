@@ -147,7 +147,7 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > :not\(\.ir-tips\) \{ display: none; \}/);
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
-  assert.match(plate, /\.ir-figs \.gl \{ display: flex; flex-direction: column;/);
+  assert.match(plate, /\.ir-figs \.sc \{ display: flex; flex-direction: column;/);
   assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\) \{ display: none; \}/);
 });
 
@@ -315,14 +315,20 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
   assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
-  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; \}/);
-  assert.match(plate, /\.ir-figs \.gl-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/);
+  assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
+  // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
+  const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
+  assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
+  assert.doesNotMatch(read('src/ui/ir-tips.js').replace(/\/\/.*$/gm, ''), /ir-note/, 'no explanatory sentence in the figures\' band: the tiles\' titles say it');
   assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ \(along \? traceH\(3\) : BAR\.h\)\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
   const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
   assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
   assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+  assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
 test('Along: the sub-switch has four views, and Along shows the side view with the traces in place of the loss bar', async () => {

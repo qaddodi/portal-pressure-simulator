@@ -82,7 +82,6 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   const figs = h('div', { class: 'ir-figs' });
   const editorSlot = h('div', { class: 'ir-editor' });   // (the stent editor mounts here, above the sub-switch: stent-editor.js; empty it takes no room)
   let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
-  const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the stent\'s own drop; the PPG runs on to the IVC. Under 12 mmHg is the target.');
   const cmp = createIrCompare(), crv = createIrCurves();
   const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true', title: 'Inside the stent: the readings, the stent in side view and where its pressure goes' }, 'Inside');
   const btnA = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'along', 'aria-pressed': 'false', title: 'Along the stent: pressure, energy lost and velocity from one end to the other (a schematic)' }, 'Along');
@@ -91,7 +90,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnA, btnV, btnC);
   btnI.addEventListener('click', () => setSub('inside')); btnA.addEventListener('click', () => setSub('along')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);   // (Inside and Along share one element: the readings go, the figures change)
-  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
+  const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs);
   const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), editorSlot, subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
