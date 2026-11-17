@@ -12,7 +12,7 @@ import { EDGES } from '../src/engine/topology.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
-import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE } from '../src/ui/tool-stent.js';
+import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE, sideLayout } from '../src/ui/tool-stent.js';
 import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
 import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
 
@@ -40,19 +40,25 @@ test('the outline has the same number of points for every geometry, so the pictu
   }
 });
 
-test('everything lies inside the picture, for every stent size and length, and the room above the stent is no more than its dimension line needs', () => {
+test('everything lies inside the picture, for every stent size, length and text size, and no row of words touches another', () => {
   const buf = new Float64Array(4 * (N_PROFILE + 1));
-  for (const d of [6, 8, 10, 12]) for (const len of [4, 8, 10]) for (const s of [0, 0.5, 0.9]) {
-    const g = geomFix({ len, waist: 2, trans: 1 }, 'tips'), L = g.len * SIDE.pxCm, x0 = SIDE.x0 + (SIDE.span - L) / 2;
-    stentOutline(buf, x0, L, SIDE.cy, d * SIDE.pxMm, 0, s, g, 0.5);
-    for (let i = 0; i < 2 * (N_PROFILE + 1); i++) {
-      assert.ok(buf[2 * i] >= 0 && buf[2 * i] <= VW, `x ${buf[2 * i]}`);
-      assert.ok(buf[2 * i + 1] > SIDE.dimY + 6 && buf[2 * i + 1] < SIDE.gateTop, `y ${buf[2 * i + 1]} is between the dimension line and the gates' ticks (${d} mm)`);
+  for (const fs of [9, 11, 12.8, 14]) {
+    const S = sideLayout(fs, {});
+    for (const d of [6, 8, 10, 12]) for (const len of [4, 8, 10]) for (const s of [0, 0.5, 0.9]) {
+      const g = geomFix({ len, waist: 2, trans: 1 }, 'tips'), L = g.len * S.pxCm, x0 = S.x0 + (S.span - L) / 2;
+      stentOutline(buf, x0, L, S.cy, d * S.pxMm, 0, s, g, 0.5);
+      for (let i = 0; i < 2 * (N_PROFILE + 1); i++) {
+        assert.ok(buf[2 * i] >= 0 && buf[2 * i] <= VW, `x ${buf[2 * i]}`);
+        assert.ok(buf[2 * i + 1] > S.dimY + 4 && buf[2 * i + 1] < S.gateTop, `y ${buf[2 * i + 1]} is between the dimension line and the gates' ticks (${d} mm, words ${fs})`);
+      }
     }
+    // the rows, each as tall as its words (about 1.1 of their size): the dimension words, the gates' numbers, the caption, the key; none on another, all inside the picture
+    const rows = [S.labY, S.numY, S.capY, S.keyY];
+    for (let k = 1; k < rows.length; k++) assert.ok(rows[k] - rows[k - 1] >= fs * 1.1, `row ${k} clears row ${k - 1} at words ${fs}`);
+    assert.ok(S.dimY - S.labY >= fs * 0.55, 'the dimension line is under its words');
+    assert.ok(S.keyY + fs * 0.6 <= S.h && S.labY - fs * 0.6 >= -1, 'the first and last rows are inside the picture');
+    assert.ok(S.h <= 130, `no tall blank band (${S.h.toFixed(0)} at words ${fs})`);
   }
-  assert.ok(SIDE.capY + 7 <= SIDE.h && SIDE.numY + 7 < SIDE.capY, 'the words fit under the stent');
-  assert.ok(SIDE.labY - 7 >= -1, 'the dimension words fit above it');
-  assert.ok(SIDE.h <= 110, 'the side view is no taller than its rows: no blank band');
   assert.ok(BAR.keyY[1] + 7 <= BAR.h);
 });
 
@@ -339,5 +345,53 @@ test('a live frame (the Tests dock\'s, the metrics untouched) prints the in-and-
     const inOut = words.find((t) => /^In and out/.test(t)), val = parseFloat(inOut.replace(/^In and out /, ''));
     assert.ok(val >= 0.2 && val <= 0.4, `${inOut} (the engine has ${m.tips.parts.entry.toFixed(2)}) with ends ${trans ? 'tapered' : 'abrupt'}`);
   }
+  card.dispose();
+});
+
+test('the card with one switch: the stent, and under it the chart of the lens (velocity, pressure, or where it goes), the colour and the chart changing together', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.5; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['card'], to: 'ppg' });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const btns = [...card.el.querySelectorAll('.sc-lens button')];
+  assert.deepEqual(btns.map((b) => b.textContent), ['Velocity', 'Pressure', 'Where it goes']);
+  const stages = () => [...card.el.querySelectorAll('.sc-stage')].map((s) => !s.hidden && s.style.display !== 'none');
+  const lum = [...card.el.querySelectorAll('[data-look="stent.lumen"]')];
+  const lines = () => [...card.el.querySelectorAll('[data-look^="stent.tr.line."]')].map((p) => p._g.opacity);
+  assert.equal(lum[1]._g.opacity, 0, 'velocity colours first');
+  assert.deepEqual(lines(), [0, 0, 1], 'and the velocity chart');
+  btns[1].click(); await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(lum[1]._g.opacity, 1, 'pressure colours');
+  assert.deepEqual(lines(), [1, 0, 0], 'and the pressure chart');
+  btns[2].click(); await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(card.el.querySelectorAll('.sc-color, .sc-tracesw').length, 2, 'the two older switches exist but are not shown in this card');
+  assert.equal(btns[2].getAttribute('aria-pressed'), 'true');
+  void stages;
+  card.dispose();
+});
+
+test('the flow: a fixed set of streaks carried along the lumen, faster where the lumen is narrow, none for a stent with no flow', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.6; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['lumen'] });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const flow = [...card.el.querySelectorAll('[data-look="stent.flow"]')][0];
+  assert.ok(flow && flow._pts.n === 36 * 3, 'one path of 36 streaks (a tail, a head and a lifted pen each)');
+  assert.equal(flow._g.opacity, 1);
+  const before = Array.from(flow._pts.buf);
+  await new Promise((r) => setTimeout(r, 400));
+  const after = Array.from(flow._pts.buf);
+  let moved = 0;
+  for (let i = 0; i < 36; i++) { assert.ok(Number.isFinite(after[6 * i]) && Number.isFinite(after[6 * i + 1])); if (Math.abs(after[6 * i + 2] - before[6 * i + 2]) > 0.5 && after[6 * i + 2] > before[6 * i + 2]) moved++; assert.ok(after[6 * i + 2] > after[6 * i], 'a streak runs with the flow: its head is ahead of its tail'); }
+  assert.ok(moved >= 20, `${moved} of 36 streaks moved on`);
+  card.pin({ ...fp, tipsFlow: 0, tipsG0: 0, tipsG1: 0, tipsG2: 0 });
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(flow._g.opacity, 0, 'a stent with no flow has no streaks');
   card.dispose();
 });

@@ -141,5 +141,5 @@ export function createTracePic(sv, gid, colourOf) {
     for (const p of pan) fitTo(p.title, TITLES[p.name].length);
     return layout(fs);
   }
-  return { svg, words, fit, paint, layout, fitWords };
+  return { svg, words, fit, paint, layout, fitWords, height: () => G.h };
 }

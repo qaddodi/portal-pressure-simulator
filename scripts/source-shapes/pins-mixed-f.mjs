@@ -286,7 +286,7 @@ export default [
   { file: 'src/ui/stage*', need: [/if \(dpr\.on && dpr\.box\) \{ probe\.push\(dpr\.box\); const pm = dpr\.marks; for \(let i = 0; i < pm\.length; i\+\+\) probe\.push\(pm\[i\]\); \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/const homeOk = clFree\(home\) && \(!moved \|\| clFree\(grow\(home, 4\)\)\);/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/function clFree\(b\) \{ return b && !clProbeHit\(b\) && within\(b, CLB\.view\) && lineHits\(b, 6, CLB\.id\) < 1 && !\(CLB\.credit && hits\(b, CLB\.credit\)\); \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
-  { file: 'src/ui/stage*', need: [/function clProbeHit\(b\) \{ const pr = CLB\.probe; for \(let i = 0; i < pr\.length; i\+\+\) if \(hits\(b, pr\[i\]\)\) return true; return false; \}/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
+  { file: 'src/ui/stage*', need: [/function clProbeHit\(b\) \{ const pr = CLB\.probe; for \(let i = 0; i < pr\.length; i\+\+\) if \(hits\(b, pr\[i\]\)\) return true;/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/if \(cur && clFree\(clBoxAt\(cur\.d, cur\.t\)\)\) want = cur;/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/function clampStep\(id, want\)/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },
   { file: 'src/ui/stage*', need: [/el\.animate\?\.\(\[\{ opacity: 0 \}\], \{ duration: dur, fill: 'forwards' \}\)/, 'The Doppler probe on the figure (19 Oct, Mohammad\'s pick "B1 + white";'] },

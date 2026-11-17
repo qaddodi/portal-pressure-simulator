@@ -155,7 +155,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
   }
   const OPT_STEADY = { steady: true };   // (a glide's options, read and never changed)
-  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); } };
+  const REFRAMED = new Event('pps:reframed');   // (a vessel card on a phone brings its vessel above itself again: card.js)
+  const homeGo = (d) => { if (!sameView(d, live.homeAt)) { live.homeAt = d; live.fitted = true; animateVT(d, 400, OPT_STEADY); dispatchEvent(REFRAMED); } };
   let homeAsk = 0;
   function homeLookRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
@@ -772,7 +773,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (!parts) {
       const d = p.customShunts?.[id];
       if (!(d > 0)) return 0;
-      parts = stentParts(kind, d, q, 1, v, g, lossP);
+      parts = stentParts(kind, d, q, 1, v, g, lossP, siteU(p, id));
       for (const n of LOSS_KEYS) parts[n] *= Math.abs(q);
     }
     lossShares(parts, g, siteU(p, id), dir, lossS);

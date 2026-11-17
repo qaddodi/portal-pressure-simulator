@@ -16,21 +16,22 @@ import { attrSoon, dataSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
 import { GEOM_RANGE, BENCH_DP } from '../engine/stent-geom.js';
 
-export const SWEEPS = ['diameter', 'waist', 'length'];
-const LABEL = { diameter: 'Diameter', waist: 'Waist length', length: 'Stent length (idealized)' };
-export const NO_WAIST = 'This stent has no narrowing, so its waist length changes nothing. Narrow it on its vessel card, then come back.';
+export const SWEEPS = ['diameter', 'end', 'waist', 'length'];
+const LABEL = { diameter: 'Diameter', end: 'End narrowing', waist: 'Waist length', length: 'Stent length (idealized)' };
+export const NO_WAIST = 'This stent has no waist, so a waist length changes nothing. Give it a waist in the stent editor above, then come back.';
 const SETTLE_MS = 450;   // (a drag on the stent's card ends before the sweep starts: one sweep, not thirty)
 
 /** The curve tool for a stent and a setting: the sweep's x axis, the two lines (the patient's flow, the bench's), their words. */
 export function curveToolOf(which, sweep) {
   const id = which === 'DIPS' ? 'DIPS' : 'TIPS', k = id === 'DIPS' ? 'dips' : 'tips';
-  const s = sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: 0.5, unit: 'cm' }
+  const s = sweep === 'end' ? { param: `stenosis.${id}`, from: 0, to: 0.8, step: 0.05, unit: '%' }
+    : sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: 0.5, unit: 'cm' }
     : sweep === 'length' ? { param: `stentGeom.${id}.len`, from: GEOM_RANGE.len[0], to: GEOM_RANGE.len[1], step: 1, unit: 'cm' }
     : { param: `${k}.d`, from: 6, to: 12, step: 1, unit: 'mm' };
   return { kind: 'curve', ...s, label: LABEL[sweep] || LABEL.diameter, lines: [`${k}Flow`, `${k}Bench`], oneScale: true, cuts: false, names: { [`${k}Flow`]: 'In the patient', [`${k}Bench`]: `Tube alone, ${BENCH_DP} mmHg` } };
 }
-/** Whether a setting changes anything for a stent as it stands: a waist length matters only to a narrowed stent. */
-export const sweepMatters = (sweep, st) => sweep !== 'waist' || (st?.s ?? 0) > 0.0005;
+/** Whether a setting changes anything for a stent as it stands: a waist length matters only to a stent with a waist (its reduction, st.red, above 0; the end narrowing is another setting). */
+export const sweepMatters = (sweep, st) => sweep !== 'waist' || (st?.red ?? 0) > 0.0005;
 
 /**
  * Returns { el, update(frame, which), stop(), setActive(on) }. update is called while the view is on screen; the sweep starts when the stent, the setting, the patient or the day changes.
