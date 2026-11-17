@@ -442,7 +442,6 @@
 .instrument-view[data-pane="hvpg"][data-view="tips"] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0; }
 .instrument-view[data-pane="hvpg"][data-view="tips"] > .ir-tips { flex: 1 1 0; min-height: 0; }
 .ir-editor:empty { display: none; }
-.ir-tips[data-sub="along"] > .ir-inside > :is(.ir-tiles, .ir-note) { display: none; }   /* (Along gives its room to the figures) */
 .ir-sub .ps-btn { padding-inline: 10px; }
 .ir-stents { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; flex: none; }
 .ir-chips { display: flex; gap: 6px; }
