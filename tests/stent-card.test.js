@@ -181,8 +181,11 @@ test('the made card: every piece has a look, its outline keeps its point count t
   const pieces = [...card.el.querySelectorAll('[data-look]')];
   assert.ok(pieces.length > 40, `${pieces.length} pieces`);
   for (const p of pieces) assert.ok(LOOKS[p.getAttribute('data-look')], `${p.getAttribute('data-look')} is in the table`);
-  const outlines = pieces.filter((p) => ['stent.lumen', 'stent.graft'].includes(p.getAttribute('data-look')));
-  assert.equal(outlines.length, 3, 'the lumen twice (velocity colours, pressure colours) and the cover');
+  const outlines = pieces.filter((p) => p.getAttribute('data-look') === 'stent.lumen');
+  assert.equal(outlines.length, 2, 'the lumen twice (velocity colours, pressure colours)');
+  assert.equal(pieces.filter((p) => p.getAttribute('data-look') === 'tf.wall').length, 1, 'and the cover, a cut view: two thin bands over the walls, none over the lumen (stent-cut-view.test.js)');
+  assert.equal(pieces.filter((p) => p.getAttribute('data-look') === 'stent.graft').length, 0);
+  assert.deepEqual(pieces.filter((p) => p.getAttribute('data-look') === 'tf.vein.name').map((p) => p._t).sort(), ['RHV', 'RPV'], 'the veins at the stent\'s ends are named');
   assert.equal(pieces.filter((p) => /^stent\.wire\./.test(p.getAttribute('data-look'))).length, 7, 'the device the figure draws: its rings, glint, band and tab');
   const counts = () => outlines.map((p) => p._pts.n);
   const grad = card.el.querySelector('linearGradient');
@@ -194,7 +197,7 @@ test('the made card: every piece has a look, its outline keeps its point count t
   assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontCov')._polys.length > 0, 'the covered stretch\'s rings are drawn');
   assert.ok(wires.find((p) => p.getAttribute('data-look') === 'stent.wire.frontBare')._polys.length > 0, 'and the bare stretch\'s');
   const first = counts();
-  assert.deepEqual(first, [2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1)]);
+  assert.deepEqual(first, [2 * (N_PROFILE + 1), 2 * (N_PROFILE + 1)]);
   // the same card, a different stent: a wider one, a longer waist, tapered ends, the narrowing at the portal end, no narrowing at all
   for (const set of [(p) => { p.stentGeom = { TIPS: { len: 10, waist: 4, trans: 1 } }; p.tips.d = 12; }, (p) => { p.stenosis.TIPS = 0.8; p.stenosisSite = { TIPS: 'proximal' }; }, (p) => { p.stenosis.TIPS = 0; }]) {
     set(e.params); store.set({ params: { ...e.params } });

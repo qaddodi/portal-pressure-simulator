@@ -108,6 +108,12 @@
 .pze-plot.pze-incard.pze-ownwords { height: calc(clamp(200px, calc(30 * var(--pzh)), 360px) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
 .pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(min(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1), max(150px, var(--pz-ph, 9999px))) + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
+/* (17 Nov 2026, Mohammad: the HVPG against PPG chart "doesn't need to be that tall". compact: wide and low, the plot about twice as wide as high: a summary's lower than the zones' 44 and an iPhone's 1.2 wide to 1 high, where six or seven names must still find room; the card's about 60 % of the height it had.) */
+.pze-plot.pze-short { height: calc(34 * var(--pzh)); min-height: 200px; }
+.pz.stack .pze-plot.pze-short { height: auto; aspect-ratio: 1.2; min-height: 0; }
+.pze-plot.pze-incard.pze-short { height: clamp(130px, calc(19 * var(--pzh)), 220px); min-height: 0; }
+.pz.stack .pze-plot.pze-incard.pze-short { height: min(calc(clamp(140px, 44cqi, 190px) * var(--pz-fit, 1)), max(110px, var(--pz-ph, 9999px))); aspect-ratio: auto; }
+.pz.low .pze-plot.pze-incard.pze-short { height: 110px; }
 .pze-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
 /* (The indeterminate zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
 /* A scatter's axes (a plane with no zones, visual-plane.js axesFrame and axesMarks): the app's chart panel under hairline gridlines at the

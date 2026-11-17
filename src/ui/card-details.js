@@ -67,9 +67,10 @@ export function detailsPlan(m) {
     kicker: kickerOfEdge(edge), between: `${NODES[iFrom].label} → ${NODES[iTo].label}`, about: aboutEdge(edge), why: m.why || null,
     stats: [
       ['Resistance', (f, c) => { const q = Qof(f)[k]; return Math.abs(q) > 1e-3 ? numText(c, (Pof(f)[iFrom] - Pof(f)[iTo]) / (q * 0.06), 2, ' WU') : '∞'; }],
-      edge.kind === 'collateral'
-        ? ['Recruited', (f, c) => numText(c, clamp(((f.slow.dEff?.[edge.id] ?? f.slow.d[edge.id]) - dMinOf(edge)) / (edge.dMax - dMinOf(edge)), 0, 1) * 100, 0, '%')]
-        : ['Healthy flow', (f, c) => { const q = store.get().healthy?.Q?.[k]; return q != null ? lpmText(c, q * 0.06) : '—'; }],
+      // (A collateral: how far it has opened. A shunt: nothing, a healthy patient has none, so its healthy flow is always nought. Any other vessel: its flow in a healthy patient.)
+      ...(edge.kind === 'collateral'
+        ? [['Recruited', (f, c) => numText(c, clamp(((f.slow.dEff?.[edge.id] ?? f.slow.d[edge.id]) - dMinOf(edge)) / (edge.dMax - dMinOf(edge)), 0, 1) * 100, 0, '%')]]
+        : edge.kind === 'shunt' ? [] : [['Healthy flow', (f, c) => { const q = store.get().healthy?.Q?.[k]; return q != null ? lpmText(c, q * 0.06) : '—'; }]]),
     ],
   };
 }

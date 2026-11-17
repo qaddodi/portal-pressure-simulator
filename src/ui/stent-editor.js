@@ -1,13 +1,11 @@
 // The stent editor, one for the TIPS and DIPS vessel card and Tests › IR › TIPS (17 Nov 2026, Mohammad approved the mock
 // /mnt/project-files/tips-geometry-mocks/tips-cards-elegant.html: "Do it exactly like this please with all the animations and no insane bugs").
-// Three rows, each its name and the stent's value as it stands, from the one list both cards read (actions.js stentControls):
-//   Diameter   10 mm
-//   Stenosis   Distal 5.0 mm       (a short focal narrowing at one end: its end and its lumen)
-//   Waist      6.3 mm × 3.0 cm     (the reduction made on purpose, mid stent: its lumen, its length, its ends)
-// A tap grows that row's own surface into its controls, in place: the surface (nine pieces, so its corners keep their round) grows from the row's box to
-// the editor's room (the zone the card gives it: the vessel card's rows and actions, the IR card's chart and rows), the row's name and value glide to the
-// panel's top line and stay the same words, Done comes in where the chevron was, and the controls rise into the room. Done, Escape or the name runs it back.
-// Transforms and opacity only, on the compositor; the boxes are read once, on the tap (layout-snap.js).
+// Option A, the tab tray (17 Nov 2026, Mohammad: "Ok build A", /mnt/project-files/stent-tile-mocks/stent-tiles-three-ways.html): three tiles side by side,
+// each its name, its value and one small line, from the one list both cards read (actions.js stentControls):
+//   Diameter 8.0 mm / Whole stent    Stenosis None / Ends clear (or 5.0 mm / Distal)    Waist 6.0 mm / × 3.5 cm
+// A tap fills the tile in and a tray unrolls from under the row with its controls, its two-way choice and Done at its foot; the other tiles stay, so another
+// tap moves the tray to them (it stretches to their height), a tap on the open tile, Done or Escape rolls it back up. Nothing covers the stent or its chart:
+// the tray is in the card's flow, under the tiles. Transforms and opacity only, on the compositor; the boxes are read once, on the tap (layout-snap.js).
 // The lumens are set in mm (the slider's right is the open stent), as the rows say them; the params keep the share (stenosis, stentGeom.red), as the engine reads it.
 // A drag sends the newest value once per frame and the last at once when the hand lets go; a change made anywhere else (the other card, a slide, undo)
 // is followed between frames. One editor on screen at a time (play-test F39): while the Tests view's is shown, a vessel card's for the same stent folds to
@@ -21,6 +19,7 @@ import { stentControls } from './actions.js';
 import { readBox } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';
+import { GLIDE_EVENT } from './card-glide.js';
 
 const nextFrame = frameFor('stent-editor');
 /** The rows, by the controls' ids in actions.js stentControls: each opens its controls, in this order. */
@@ -35,7 +34,7 @@ export const EDITOR_CHIPS = EDITOR_ROWS;
 const CAPTION = { narrow: 'Lumen', waistD: 'Lumen', waist: 'Length', site: 'At', ends: 'Ends' };
 /** Controls whose value is a share narrowed (0 open): the slider shows the lumen left, in mm. */
 const LUMEN = new Set(['narrow', 'waistD']);
-const R = 12;   // (the surface's corner radius, px: the card's controls' --r-card)
+const R = 12;   // (the tray's corner radius, px: the card's controls' --r-card)
 
 /** A value as the editor shows it: the millimetres first, then the rest (a percentage) ("40% · 6.0 mm" → ["6.0 mm", "40%"]). */
 export function splitValue(t) {
@@ -61,13 +60,25 @@ export function rowValue(rowId, id, p) {
   return `${mm1(d * (1 - red))} mm × ${mm1(ctl.get('waist')?.get(p) ?? 1)} cm`;
 }
 
+/** A tile's words (option A, Mohammad 17 Nov): its number, its unit and one small line under them (8.0 mm / Whole stent, 5.0 mm / Distal, 6.0 mm / × 3.5 cm, None / Uniform). */
+export function tileWords(rowId, id, p) {
+  const ctl = new Map(stentControls(id).map((v) => [v.id, v]));
+  const d = ctl.get('diameter')?.get(p) ?? 10;
+  if (rowId === 'dia') return [mm1(d), 'mm', 'Whole stent'];
+  if (rowId === 'end') {
+    const s = ctl.get('narrow')?.get(p) || 0;
+    if (!(s > 0.004)) return ['None', '', 'Ends clear'];
+    return [mm1(d * (1 - s)), 'mm', ctl.get('site')?.get() === 'proximal' ? 'Proximal' : 'Distal'];
+  }
+  const red = ctl.get('waistD')?.get(p) || 0;
+  if (!(red > 0.004)) return ['None', '', 'Uniform'];
+  return [mm1(d * (1 - red)), 'mm', `× ${mm1(ctl.get('waist')?.get(p) ?? 1)} cm`];
+}
+
 // One editor on screen at a time (play-test F39): the TIPS view's leads; while it is shown a vessel card's editor for the same stent folds to one line.
 const LEADS = new Set(), CARDS = new Set();
 const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.shown && l.sid() === c.sid())); };
 
-/** The nine pieces of the growing surface, each placed for the panel's full size by the stylesheet; grow() moves them from a row's box. */
-const PIECES = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
-const PIECE_CLASS = ['se-s se-s-tl', 'se-s se-s-tc', 'se-s se-s-tr', 'se-s se-s-ml', 'se-s se-s-mc', 'se-s se-s-mr', 'se-s se-s-bl', 'se-s se-s-bc', 'se-s se-s-br'];   // (written out: the stylesheet's check finds each)
 
 /** createStentEditor({ id, lead, onOpen, zone, reveal }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
  *  `id` the stent ('TIPS', 'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `onOpen(id)` what the folded line does (opens
@@ -81,20 +92,19 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   const summary = h('button', { type: 'button', class: 'se-summary', 'aria-live': 'polite', 'aria-label': 'Open in Tests, IR' }, sumText, svgIcon('chev-right', 'se-sum-ic'));
   summary.inert = !born; summary.tabIndex = born ? 0 : -1;
   summary.addEventListener('click', () => onOpen?.(sid));
-  // the panel: its surface, its top line (the row's name and value, and Done) and its body (the open row's controls)
-  const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECE_CLASS.map((c) => h('i', { class: c })));
-  const surfEls = [...surf.children];   // alloc-rare: once per editor
-  // (The name's words are a span of their own: the button is 44 px tall round them, so its box is not where they are. The glide moves the words onto the
-  // row's words, measured word to word; measured from the button they landed 12 px low and 2 px right, then jumped home when the panel went: 17 Nov.)
-  const pNameT = h('span', { class: 'se-ph-nt' });
-  const pName = h('button', { type: 'button', class: 'se-ph-n', tabindex: '-1' }, pNameT), pVal = h('span', { class: 'se-ph-v' });
-  const done = h('button', { type: 'button', class: 'se-done' }, 'Done');
-  const pTrail = h('span', { class: 'se-ph-tr' }, pVal, done);
-  const head = h('div', { class: 'se-ph' }, pName, pTrail);
+  // the tray (option A, the tab tray): one surface under the tiles that the open tile joins; it unrolls from under them, carries the open tile's controls and,
+  // at its foot, its two-way choice (or a line saying the range) and Done. Its paper is three pieces (top, middle, foot) so a change of height keeps its
+  // corners round; a patch the open tile's width squares the corner under that tile and glides to the next one.
+  const bgT = h('i', { class: 'se-bg se-bg-t' }), bgM = h('i', { class: 'se-bg se-bg-m' }), bgB = h('i', { class: 'se-bg se-bg-b' });
+  const join = h('i', { class: 'se-join' });
+  const paper = h('div', { class: 'se-paper', 'aria-hidden': 'true' }, bgT, bgM, bgB, join);
   const body = h('div', { class: 'se-pb' });
-  const panel = h('div', { class: 'se-panel', role: 'dialog', 'data-open': '', 'aria-hidden': 'true' }, surf, head, body);
+  const footL = h('div', { class: 'se-fl' });
+  const done = h('button', { type: 'button', class: 'se-done' }, 'Done');
+  const foot = h('div', { class: 'se-foot' }, footL, done);
+  const tin = h('div', { class: 'se-tin' }, paper, body, foot);
+  const panel = h('div', { class: 'se-panel', role: 'dialog', 'data-open': '', 'aria-hidden': 'true' }, tin);
   panel.inert = true;
-  pName.addEventListener('click', () => setOpen(''));
   done.addEventListener('click', () => setOpen(''));
   el.append(rowsEl, summary);
   (zone || el).append(panel);
@@ -106,16 +116,15 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     const lo = lum ? +(d * (1 - v.max)).toFixed(1) : v.min, hi = lum ? d : v.max, step = lum ? 0.1 : v.step;
     const input = h('input', { type: 'range', min: lo, max: hi, step, 'aria-label': v.id === 'diameter' ? `${v.label}` : `${CAPTION[v.id] || v.label}` });
     const val = h('b', { class: 'se-cv' });
-    const cap = h('div', { class: 'se-cap' }, h('span', {}, v.id === 'diameter' ? '' : CAPTION[v.id] || v.label), val);
-    const ends = v.id === 'diameter' ? h('div', { class: 'se-ends', 'aria-hidden': 'true' }, h('span', {}, `${v.min} mm`), h('span', {}, `${v.max} mm`)) : null;
-    const cell = h('div', { class: 'se-ctl range-wrap', 'data-ctl': v.id }, cap, input, ends);
+    const cap = h('div', { class: 'se-cap' }, h('span', {}, v.id === 'diameter' ? 'Diameter' : CAPTION[v.id] || v.label), val);
+    const cell = h('div', { class: 'se-ctl range-wrap', 'data-ctl': v.id }, cap, input);
     const r = { v, cell, input, val, kind: 1, shown: NaN, pend: false, x: 0, fresh: true, hist: false, raf: 0, dim: null, lum, d, lo, hi };
     const toIn = (x) => (lum ? +(r.d * (1 - x)).toFixed(1) : x), fromIn = (y) => (lum ? (y >= r.d - 0.05 ? 0 : Math.max(0, Math.min(v.max, 1 - y / r.d))) : y);
     r.toIn = toIn;
     r.paint = (x) => {
       r.shown = x;
       const y = toIn(x);
-      val.textContent = lum ? (x > 0.004 ? `${mm1(y)} mm` : 'Open') : v.id === 'diameter' ? '' : splitValue(v.format(x))[0];
+      val.textContent = lum ? (x > 0.004 ? `${mm1(y)} mm` : v.id === 'waistD' ? 'No waist' : 'Open') : v.id === 'diameter' ? `${mm1(x)} mm` : splitValue(v.format(x))[0];
       attrSoon(input, 'aria-valuetext', lum ? (x > 0.004 ? `${mm1(y)} mm` : 'open') : v.format(x));
       paintRange(input, (y - r.lo) / Math.max(1e-6, r.hi - r.lo));
     };
@@ -146,65 +155,86 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       return b;
     });
     const seg = h('div', { class: 'se-seg', role: 'group', 'aria-label': CAPTION[v.id] || v.label, 'data-at': '0' }, h('i', { class: 'se-thumb', 'aria-hidden': 'true' }), btns);   // (the thumb slides under the pressed choice, as the mock's: a transform)
-    const cell = h('div', { class: 'se-ctl se-ctl-seg', 'data-ctl': v.id }, h('span', { class: 'se-cap' }, h('span', {}, CAPTION[v.id] || v.label)), seg);
+    const cell = h('div', { class: 'se-ctl se-ctl-seg', 'data-ctl': v.id }, h('span', { class: 'se-cap' }, CAPTION[v.id] || v.label), seg);
     return { v, cell, seg, btns, kind: 2, shown: null, dim: null };
   }
 
-  // ── the grow: the surface's nine pieces from the row's box to the panel's, the top line's two ends from the row's words to their own ──
-  function grow(row, opening) {
+  // ── the tray's motion: transforms and opacity only (the boxes read once, on the tap) ──
+  const tileOf = (rowId) => rows.find((x) => x.id === rowId)?.btn;
+  // The patch under the open tile: placed by its box (a write on the tap, never in a frame); from `from` (the last tile's box) it glides there.
+  function placeJoin(rowId, from) {
+    const t = tileOf(rowId), pb = readBox(tin), tb = t && readBox(t);
+    if (!pb || !tb) return null;
+    const x = tb.left - pb.left, w = tb.width;
+    join.style.left = `${x.toFixed(1)}px`; join.style.width = `${w.toFixed(1)}px`;
+    if (from && from.w > 0 && w > 0 && !reduced() && join.animate) anims.push(join.animate([{ transform: `translateX(${(from.x - x).toFixed(1)}px) scaleX(${(from.w / w).toFixed(4)})` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE }));
+    return { x, w };
+  }
+  let joinAt = null;
+  function roll(kind, oldH) {
     for (const a of anims) a.cancel();
     anims = [];
-    if (reduced() || !surf.animate) return null;
-    const pb = readBox(panel), rb = readBox(row);
-    if (!pb || !rb || !(pb.width > 2 * R) || !(pb.height > 2 * R) || !(rb.width > 2 * R)) return null;
-    const rn = readBox(row.querySelector('.se-row-n')), rv = readBox(row.querySelector('.se-row-v')), hn = readBox(pNameT), hv = readBox(pVal);
-    const sx = rb.left - pb.left, sy = rb.top - pb.top, sw = rb.width, shh = Math.max(2 * R, rb.height), PW = pb.width, PH = pb.height;
-    const kx = (sw - 2 * R) / (PW - 2 * R), ky = (shh - 2 * R) / (PH - 2 * R);
-    const T = (x, y, a = 1, b = 1) => `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${a.toFixed(4)}, ${b.toFixed(4)})`;
-    const from = { tl: T(sx, sy), tc: T(sx, sy, kx), tr: T(sx + sw - PW, sy), ml: T(sx, sy, 1, ky), mc: T(sx, sy, kx, ky), mr: T(sx + sw - PW, sy, 1, ky), bl: T(sx, sy + shh - PH), bc: T(sx, sy + shh - PH, kx), br: T(sx + sw - PW, sy + shh - PH) };
-    const o = { duration: D_SURFACE, easing: EASE_ARRIVE, fill: opening ? 'none' : 'forwards' };
-    const run = (e, f) => anims.push(e.animate(opening ? [{ transform: f }, { transform: 'none' }] : [{ transform: 'none' }, { transform: f }], o));
-    for (let i = 0; i < surfEls.length; i++) run(surfEls[i], from[PIECES[i]]);   // (an array: an HTMLCollection has no forEach, which threw here and left every panel open, 17 Nov)
-    if (rn && hn) run(pName, T(rn.left - hn.left, rn.top - hn.top));
-    if (rv && hv) run(pTrail, T(rv.right - hv.right, rv.top - hv.top));
-    // The surface is the row's own raised fill only while it moves: it comes up as it leaves the row and is gone by the time it lands back on it, so the
-    // panel going away at the end of a close changes nothing on screen (17 Nov, Mohammad: a closing row "snaps" back into place).
-    anims.push(surf.animate(opening ? [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: D_SURFACE, easing: 'linear', fill: opening ? 'none' : 'forwards' }));
-    const fade = { duration: opening ? D_SMALL : D_SMALL * 0.6, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.5 : 0, fill: 'both' };
-    anims.push(body.animate(opening ? [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 1 }, { opacity: 0 }], fade));
-    anims.push(done.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.4 : 0, fill: 'both' }));
-    return anims[0];
+    if (reduced() || !tin.animate) return null;
+    const H = readBox(tin)?.height || 0;
+    if (!(H > 0)) return null;
+    const ease = { duration: D_SURFACE, easing: EASE_ARRIVE };
+    if (kind === 'open') {
+      // (it unrolls: the tray's paper and words slide down from behind the tiles, the tray clipping them at its top; the words follow a beat later)
+      anims.push(tin.animate([{ transform: `translateY(${(-H).toFixed(1)}px)` }, { transform: 'none' }], ease));
+      for (const e of [body, foot]) anims.push(e.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: D_SMALL * 0.4, fill: 'both' }));
+    } else if (kind === 'close') {
+      anims.push(tin.animate([{ transform: 'none' }, { transform: `translateY(${(-H).toFixed(1)}px)` }], { duration: D_SURFACE * 0.8, easing: EASE_ARRIVE, fill: 'forwards' }));
+      for (const e of [body, foot]) anims.push(e.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL * 0.5, easing: EASE_ARRIVE, fill: 'forwards' }));
+    } else if (oldH > 0 && Math.abs(oldH - H) > 0.5) {
+      // (another tile: the paper's middle stretches from the old height to the new and its foot and Done ride with it; the new controls fade in)
+      const dy = oldH - H, k = Math.max(0, oldH - 2 * R) / Math.max(1, H - 2 * R);
+      anims.push(bgM.animate([{ transform: `scaleY(${k.toFixed(4)})` }, { transform: 'none' }], ease));
+      for (const e of [bgB, foot]) anims.push(e.animate([{ transform: `translateY(${dy.toFixed(1)}px)` }, { transform: 'none' }], ease));
+    }
+    if (kind === 'switch') anims.push(body.animate([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }));
+    return anims[0] || null;
   }
 
   function show(rowId) {
     const r = rows.find((x) => x.id === rowId);
-    body.replaceChildren(...(r ? r.ctls.map((c) => c.cell) : []));
-    pNameT.textContent = r ? r.name : ''; pName.setAttribute('aria-label', r ? `Close ${r.name}` : 'Close');
+    const cells = r ? r.ctls : [];
+    body.replaceChildren(...cells.filter((c) => c.kind === 1).map((c) => c.cell));
+    const pick = cells.find((c) => c.kind === 2);
+    const dia = cells.find((c) => c.v.id === 'diameter');
+    footL.replaceChildren(pick ? pick.cell : dia ? h('span', { class: 'se-hint' }, `${dia.v.min} to ${dia.v.max} mm`) : '');
+    panel.setAttribute('aria-label', r ? `Edit ${r.name}` : 'Edit stent');
     done.setAttribute('aria-label', r ? `Done with ${r.name}` : 'Done');
-    pVal.textContent = r ? r.text : '';
     panel.dataset.row = rowId || '';
   }
   function setOpen(rowId) {
     rowId = rowId || '';
-    if (rowId === openId || (rowId && folded)) return;   // (a folded card has no rows on screen: nothing of it opens)
+    if (rowId === openId || (rowId && folded)) return;
     const was = rows.find((x) => x.id === openId), to = rows.find((x) => x.id === rowId);
+    const switching = !!(was && to);
+    const oldH = switching ? readBox(tin)?.height || 0 : 0;
     clearTimeout(closing); closing = 0;
     openId = rowId;
     for (const r of rows) r.btn.setAttribute('aria-expanded', r.id === openId ? 'true' : 'false');
+    // (The card that holds it glides to its new height, card-glide.js: asked just before the tray changes it.)
+    const ask = () => { const E = el.ownerDocument?.defaultView?.CustomEvent || globalThis.CustomEvent; if (E && el.dispatchEvent) el.dispatchEvent(new E(GLIDE_EVENT, { bubbles: true })); };   // (the page's own event kind)
     if (to) {
+      const pos = rows.indexOf(to);
+      ask();
       show(rowId);
       panel.dataset.open = rowId; el.dataset.open = rowId;
-      panel.inert = false; panel.setAttribute('aria-hidden', 'false'); rowsEl.inert = true;
-      grow(to.btn, true);
-      // (`reveal(panel)`: the holder brings an opened panel into sight, Tests › IR, whose panel opens under the chart.)
+      panel.dataset.pos = pos === 0 ? 'first' : pos === rows.length - 1 ? 'last' : 'mid';
+      panel.inert = false; panel.setAttribute('aria-hidden', 'false');
+      sync(store.get().params, true);
+      const from = switching ? joinAt : null;
+      roll(switching ? 'switch' : 'open', oldH);
+      joinAt = placeJoin(rowId, from);
       reveal?.(panel);
-      const first = to.ctls[0];
-      (first?.input || first?.btns?.find((b) => b.getAttribute('aria-pressed') === 'true') || done).focus({ preventScroll: true });
+      if (!switching) { const first = to.ctls[0]; (first?.input || first?.btns?.find((b) => b.getAttribute('aria-pressed') === 'true') || done).focus({ preventScroll: true }); }
     } else {
-      rowsEl.inert = folded; panel.inert = true; panel.setAttribute('aria-hidden', 'true');
+      panel.inert = true; panel.setAttribute('aria-hidden', 'true');
       el.dataset.open = '';
-      const a = was ? grow(was.btn, false) : null;
-      const end = () => { closing = 0; if (!openId) { for (const x of anims) x.cancel(); anims = []; panel.dataset.open = ''; show(''); } };
+      const a = was ? roll('close') : null;
+      const end = () => { closing = 0; if (!openId) { ask(); for (const x of anims) x.cancel(); anims = []; panel.dataset.open = ''; joinAt = null; show(''); } };
       if (a) a.finished.then(end, end); else end();
       if (was && panel.contains(document.activeElement)) was.btn.focus({ preventScroll: true });
     }
@@ -223,10 +253,13 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       for (const cid of g.ids) { const v = byId.get(cid); if (v) own.push(v.type === 'seg' ? segCtl(v) : sliderCtl(v, d)); }
       if (!own.length) continue;
       ctls.push(...own);
-      const val = h('span', { class: 'se-row-v' });
-      const btn = h('button', { type: 'button', class: 'se-row', 'data-row': g.id, 'aria-expanded': 'false', 'aria-label': `Edit ${g.name}` }, h('span', { class: 'se-row-n' }, g.name), val, svgIcon('chev-right', 'se-row-c'));
-      btn.addEventListener('click', () => setOpen(g.id));
-      rows.push({ id: g.id, name: g.name, btn, val, ctls: own, text: '' });
+      // a tile: its name and a chevron, its value, one small line under it; the open tile fills in (its own fill, faded) and joins the tray
+      const num = h('b', {}), unit = h('u', {}), val = h('span', { class: 'se-row-v' }, num, unit), sub = h('span', { class: 'se-ts' });
+      const btn = h('button', { type: 'button', class: 'se-row', 'data-row': g.id, 'aria-expanded': 'false', 'aria-label': `Edit ${g.name}` },
+        h('i', { class: 'se-tfill', 'aria-hidden': 'true' }),
+        h('span', { class: 'se-tc' }, h('span', { class: 'se-row-n' }, g.name), svgIcon('chev-down', 'se-row-c')), val, sub);
+      btn.addEventListener('click', () => setOpen(openId === g.id ? '' : g.id));
+      rows.push({ id: g.id, name: g.name, btn, val, num, unit, sub, ctls: own, text: '', small: '' });
     }
     rowsEl.replaceChildren(...rows.map((r) => r.btn));
     if (openId && !rows.some((r) => r.id === openId)) openId = '';
@@ -249,8 +282,12 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       if (dim !== r.dim) { r.dim = dim; r.cell.classList.toggle('se-dim', dim); }
     }
     for (const r of rows) {
-      const t = rowValue(r.id, sid, p);
-      if (t !== r.text) { r.text = t; r.val.textContent = t; r.val.classList.toggle('se-none', t === 'None'); if (r.id === openId) pVal.textContent = t; }
+      const t = rowValue(r.id, sid, p), w = tileWords(r.id, sid, p);
+      if (t !== r.text) { r.text = t; r.btn.setAttribute('aria-label', `Edit ${r.name}: ${t}`); }
+      if (w[0] !== r.num.textContent) { r.num.textContent = w[0]; r.val.classList.toggle('se-none', w[0] === 'None'); }
+      const u = w[1] ? ` ${w[1]}` : '';
+      if (u !== r.unit.textContent) r.unit.textContent = u;
+      if (w[2] !== r.small) { r.small = w[2]; r.sub.textContent = w[2]; }
     }
     if (!lead) {
       // (The folded line: the stent's narrowings as the rows read them. Its diameter is left out: the card's picture shows it.)
@@ -272,7 +309,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       folded = on;
       if (on) setOpen('');
       attrSoon(el, 'data-fold', on ? 'true' : 'false');   // (the stylesheet swaps the rows for the line, which fades in)
-      rowsEl.inert = on || !!openId;
+      rowsEl.inert = on;
       summary.inert = !on; summary.tabIndex = on ? 0 : -1;
     },
   };

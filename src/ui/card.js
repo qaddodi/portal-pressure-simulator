@@ -2,7 +2,7 @@
 // (card 5 on the side shelf, Mohammad's picks of 13 Nov 2026). It replaces the tool trays, the tool hint card and the sliders that
 // used to live in the side panel. Every verb takes effect at once and becomes one entry in the timeline; nothing stays "armed".
 //
-// One shape for every structure, top to bottom: the name (a tap opens Details) with the direction of flow at its right; the pressure
+// One shape for every structure, top to bottom: the name (a tap slides the card to its own details, card-details.js) with the direction of flow at its right; the pressure
 // where the blood comes in and where it leaves, on a bar in the pressure colours with the drop between them (Δ, or the PPG across a
 // stent and the HVPG across the liver, in their cut colours); the readings, named by their units; the controls, each with the app's
 // icon; the actions, an icon and one word. Every card has one fixed size for its kind (app.css [data-size]) and shows all it holds:
@@ -30,6 +30,7 @@ import { gradientCss } from './colormap.js';
 import { hvpgSev, ppgSev } from '../engine/pressure-cuts.js';
 import { reduceMotionMQ } from './motion.js';
 import { handOver } from './hand-over.js';
+import { glideCard, GLIDE_EVENT } from './card-glide.js';
 const nextFrame = frameFor('card');
 
 // A reading's printed number ("12.5", "−3.0"), with its decimals, or null for one that isn't a plain number: `out` ({ n, d }, a kept
@@ -179,7 +180,15 @@ export function createCard({ view, stage, ctx, onWhy }) {
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
-  new ResizeObserver(() => { sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px'); reveal(); }).observe(el);
+  // (A change of height its content asks to glide, card-glide.js: the height it had when asked, glided from when the observer sees the new one.)
+  let glideFrom = 0, glides = [];
+  el.addEventListener(GLIDE_EVENT, () => { if (!el.classList.contains('ac-in') && !reduceMotionMQ?.matches) glideFrom = sizes.h; });
+  new ResizeObserver(() => {
+    const was = sizes.h;
+    sizes.h = readMetric(el, 'offsetHeight'); el.style.setProperty('--sheet-size', sizes.h + 'px');
+    if (glideFrom > 0) { const h0 = glideFrom; glideFrom = 0; if (was === h0) glides = glideCard(el, h0, sizes.h, { foot: el.classList.contains('docked'), prior: glides }); }
+    reveal();
+  }).observe(el);
   new ResizeObserver(() => { reveal(); }).observe(view);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
@@ -463,7 +472,7 @@ export function createCard({ view, stage, ctx, onWhy }) {
   // The content of the card, built for a model: its rows in their fixed order (app.css .ac-body).
   function build(m) {
     const p0 = store.get().params;
-    // The name (a tap opens Details: the chevron says so) and the direction of flow at its right.
+    // The name (a tap slides the card to its details: the chevron says so) and the direction of flow at its right.
     const pillEl = h('span', P_STATE);
     P_NAME['aria-label'] = `${m.title}: details`;
     const name = m.noDetails ? h('span', P_NAME_PLAIN, m.title) : h('button', P_NAME, h('span', P_NONE, m.title), svgIcon('chev-right', 'ac-chev'));
