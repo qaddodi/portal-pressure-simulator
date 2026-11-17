@@ -827,3 +827,43 @@ test('Compare says how to pin a moment before there is one, in one line (F44)', 
   assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
   assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
 });
+
+test('A closing row lands exactly on the row, word on word, and its raised surface is gone by then: nothing jumps when the panel goes (17 Nov, Mohammad: "it scales back to where it was but then not exactly and then snaps")', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const made = [];
+  const proto = window.Element.prototype, oldA = proto.animate, oldR = proto.getBoundingClientRect;
+  proto.animate = function (kf, o) { let res; const a = { el: this, kf, o, finished: new Promise((r) => { res = r; }), cancel() {}, finish() { res(); } }; made.push(a); return a; };
+  // a laid-out card: the panel over the zone, the waist row 100 px down; the panel's name button 44 px tall with its words 12 px into it, 2 px in
+  const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top });
+  const BOX = { 'se-panel': box(0, 0, 300, 220), 'se-row': box(0, 100, 300, 46), 'se-row-n': box(2, 113, 40, 20), 'se-row-v': box(150, 113, 110, 20), 'se-ph-n': box(12, 1, 44, 44), 'se-ph-nt': box(14, 13, 40, 20), 'se-ph-v': box(130, 13, 110, 20) };
+  proto.getBoundingClientRect = function () { const k = Object.keys(BOX).find((c) => this.classList?.contains(c)); return k ? BOX[k] : box(0, 0, 300, 220); };
+  try {
+    const zone = document.createElement('div');
+    document.body.append(zone);
+    const ed = createStentEditor({ id: 'TIPS', zone });
+    zone.prepend(ed.el);
+    for (const row of ['waist', 'end', 'dia']) {
+      ed.el.querySelector(`.se-row[data-row="${row}"]`).click();
+      for (const a of made) a.finish();
+      made.length = 0;
+      ed.panel.querySelector('.se-done').click();
+      const name = made.find((a) => a.el.classList.contains('se-ph-n')), val = made.find((a) => a.el.classList.contains('se-ph-tr'));
+      // the name's words (14, 13) onto the row's (2, 113); the value's right edge (240) onto the row's (260), its top 13 onto 113
+      assert.equal(name.kf.at(-1).transform, 'translate(-12.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the name lands on the row's name`);
+      assert.equal(val.kf.at(-1).transform, 'translate(20.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the value lands on the row's value`);
+      const surf = made.find((a) => a.el.classList.contains('se-surf'));
+      assert.ok(surf, `${row}: the surface fades`);
+      assert.equal(surf.kf.at(-1).opacity, 0, `${row}: gone when it lands, so the panel leaving shows nothing new`);
+      assert.equal(surf.o.duration, made.find((a) => a.el.classList.contains('se-s-tl')).o.duration, 'over the same time as the shrink');
+      assert.equal(surf.o.fill, 'forwards');
+      for (const a of made) a.finish();
+      made.length = 0;
+      await wait(0);
+      assert.equal(ed.panel.dataset.open, '', `${row} closed`);
+      assert.equal(ed.panel.querySelector('.se-ph-n').textContent, '', 'and its name cleared');
+    }
+    ed.destroy();
+  } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
+});
