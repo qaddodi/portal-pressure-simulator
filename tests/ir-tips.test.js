@@ -663,6 +663,7 @@ test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one
   assert.match(act, /noValue: id === 'TIPS' \|\| id === 'DIPS',/);
   assert.match(card, /else if \(!m\.noValue\) \{ numEl = h\('span', P_NUM\);/, 'and no reading row');
   assert.match(read('styles/app-06-plate.css'), /\.ac-panel:has\(> \.tv\) \{ position: relative; z-index: 4; \}/, 'the panel covers the actions under the rows');
+  assert.match(read('styles/app-06-plate.css'), /\.tv-zone > \.se-panel \{ min-height: calc\(100% \+ 54px\); \}/, 'and fills down to their bottom: no empty band');
 });
 
 test('The figure\'s geometry: 8 cm of stent fill the same span at every length, the veins squeezed either side; rows by width; round axis tops', async () => {
