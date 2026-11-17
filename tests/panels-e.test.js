@@ -91,7 +91,7 @@ test('words fit whole or not at all, and names never overlap one another or leav
   assert.equal(boxes.length, pts.length, 'every point keeps its name');
   // (The levels slide on a phone: six patients, four of them near the left axis; a name with no room beside its point sits
   // further out on a thin line.)
-  const hp = planeOf('hvpg-ppg'), hf = frame(345, 290);   // (the phone's plot and its 16 px caption)
+  const hp = planeOf('hvpg-ppg'), hf = frame(345, 230);   // (the phone's plot, 1.5 wide to 1 high: compact, 17 Nov 2026)
   const { X, Y } = scaler(hp, hf), rules = lineBoxes(hp, X, Y, hf);
   const crowd = [[0.4, 22, 'Budd–Chiari'], [2, 15, 'Portal vein thrombosis', 'PVT'], [3.5, 16.5, 'Schistosomiasis'], [16, 17, 'Cirrhosis'], [2.2, 4, 'Healthy'], [0.5, 1.5, 'Heart failure']]
     .map(([a, b, name, short]) => ({ x: X(a), y: Y(b), name, short }));
