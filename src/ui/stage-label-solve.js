@@ -307,7 +307,7 @@ export function createLabelSolve(st, live) {
         }
         clampStep(id, want);
         clampLabelAt(el);
-        { const w = want || null, bb = w ? clBoxAt(w.d, w.t) : clBoxAt(16, 0); if (bb) prev.push({ x0: bb.x0, y0: bb.y0, x1: bb.x1, y1: bb.y1 }); }   // alloc-rare: one box per narrowing, per solve
+        { const w = want || null, bb = w ? clBoxAt(w.d, w.t) : clBoxAt(16, 0); if (bb) prev.push({ x0: bb.x0 - 10, y0: bb.y0 - 10, x1: bb.x1 + 10, y1: bb.y1 + 10 }); }   // (10 px of air between two narrowings' words)   // alloc-rare: one box per narrowing, per solve
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
@@ -426,6 +426,8 @@ export function createLabelSolve(st, live) {
         // (A long leader may not run through another label: only boxes clear of its own station count, by 8 px, so a clamp's arrows at
         // the station do not.)
         if (ps.uncrossed && placed.some((p) => !(it.point && p.probe) && (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
+        // (No leader runs through a narrowing's words, in any pass: F20, 17 Nov 2026, the right sinusoids' leader across "Waist …".)
+        if (clampLabs.length && clampLabs.some((p) => !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
         // (...nor, the slide's mark's, pass within 18 px of another of the stent's dots: Review 15 Oct.)
         if (markDots && /^focus/.test(it.key) && !ps.loose) {
           const le = leaderEnd(r, it.ax, it.ay), ex = le.x - it.ax, ey = le.y - it.ay, L2 = ex * ex + ey * ey || 1;
