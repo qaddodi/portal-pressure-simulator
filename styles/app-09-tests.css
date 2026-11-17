@@ -846,10 +846,12 @@
 .pz-flowtime svg, .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; height: 100%; max-height: none; }
 @media (pointer: coarse) { .pz:not(.stack) .pz-grip { opacity: 0; transition: opacity var(--d-small) var(--ease); } .pz:not(.stack) .pz-data:is(:hover, :active) .pz-grip { opacity: 1; } }   /* (a tablet's handle shows once the card is touched, not at rest over the tiles' edge) */
 /* Tile names stay on one line everywhere; a name too long for its tile (measured, see fitCards) shows its short form. */
-.pz .pz-data .pz-tiles .pzt-k { white-space: nowrap !important; min-height: 0 !important; }
+.pz .pz-data .pz-tiles .pzt-k { white-space: var(--tk-ws, nowrap) !important; min-height: 0 !important; }
 .pz .pz-data .pz-tiles .pzt-k.short { font-size: 0 !important; letter-spacing: 0 !important; }
 .pz:not(.stack) .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-sm); letter-spacing: .03em; }
 .pz.stack .pz-data .pz-tiles .pzt-k.short::after { content: attr(data-s); font-size: var(--pz-psm); letter-spacing: .03em; }
+/* (A name that does not fit even short wraps, balanced, inside its tile (presenter-zoom.js fitCards); a single long word breaks rather than clip.) */
+.pz .pz-data .pz-tiles .pzt-k.wrap { --tk-ws: normal; text-wrap: balance; overflow-wrap: anywhere; text-align: center; line-height: 1.2; }
 
 /* A tile's scale bar (Mohammad's layout A, 14 Oct): bands coloured by the tile's own rating, the cut-offs numbered under them, a
    ring where the value started (a slide that gives a change) and a dot where it is now. The rating has no dot of its own: the

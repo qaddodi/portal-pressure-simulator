@@ -7,6 +7,10 @@ const halo = { stroke: tok('surface'), width: 3, join: 'round' };
 const seg = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
 const dot = (t) => ({ base: { fill: mix('srgb', tok(t), 70, 'transparent') } });
 
+const area = (t) => ({ base: { fill: mix('srgb', tok(t), 16, 'transparent'), stroke: 'none' } });
+const line = (t) => ({ base: { fill: 'none', stroke: tok(t), width: 2, cap: 'round', join: 'round' } });
+const dotOn = (t) => ({ base: { fill: tok(t), stroke: tok('surface'), width: 1.4 } });
+
 export const STENT = {
   // the vein stubs either side, open ended: a faint fill in the vein's colour and its two walls running up to the stent
   'stent.vein.p': { base: { fill: mix('srgb', tok('tour-portal'), 14, 'transparent') } },
@@ -56,4 +60,15 @@ export const STENT = {
   'stent.bracket': { base: { fill: 'none', stroke: tok('text-3'), width: 1.25, cap: 'round', join: 'round' } },
   'stent.mark': { base: { fill: 'none', stroke: tok('text'), width: 1.75, cap: 'round' } },
   'stent.mark.text': { base: { weight: 600, fill: tok('text'), halo, baseline: 'central' } },
+  // ── the traces along the stent (stent-trace-pic.js) ──
+  // the lumen with its veins, the five sites' dashed lines, a numbered badge on each, a panel's baseline, its area, its line and a dot where each site reads
+  'stent.tr.lumen': { base: { stroke: mix('srgb', tok('text-3'), 80, 'transparent'), width: 1, join: 'round' } },
+  'stent.tr.site': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
+  'stent.tr.badge': { base: { fill: tok('text'), stroke: tok('surface'), width: 1.2 } },
+  'stent.tr.badgeNum': { base: { fill: tok('surface'), weight: 700, baseline: 'central' } },
+  'stent.tr.axis': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 55, 'transparent'), width: 1 } },
+  'stent.tr.title': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
+  'stent.tr.area.pressure': area('accent'), 'stent.tr.area.energy': area('flow-reversed'), 'stent.tr.area.velocity': area('ramp-violet'),
+  'stent.tr.line.pressure': line('accent'), 'stent.tr.line.energy': line('flow-reversed'), 'stent.tr.line.velocity': line('ramp-violet'),
+  'stent.tr.dot.pressure': dotOn('accent'), 'stent.tr.dot.energy': dotOn('flow-reversed'), 'stent.tr.dot.velocity': dotOn('ramp-violet'),
 };
