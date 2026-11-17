@@ -97,6 +97,9 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
     attrSoon(el, 'data-open', openId);
     for (const c of chips) { const on = c.id === openId; c.strip.inert = !on; c.strip.setAttribute('aria-hidden', on ? 'false' : 'true'); }
     chipRow.inert = !!openId;
+    // (A card must never sit scrolled sideways, play-test F38: its body cannot scroll that way now, and this puts it back should anything ever do so.)
+    const sc = el.closest('.ac-body');
+    if (sc) sc.scrollLeft = 0;   // (a write only: no layout read)
     if (openId) { lastOpen = openId; const r = chips.find((c) => c.id === openId)?.ctls[0]; (r?.input || r?.btns?.[0])?.focus({ preventScroll: true }); }
     else if (lastOpen && el.contains(document.activeElement)) chips.find((c) => c.id === lastOpen)?.btn.focus({ preventScroll: true });
   }
