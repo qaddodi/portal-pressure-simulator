@@ -22,6 +22,7 @@ try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigat
 
 const { createIrTips, stentIds, stentLine, STENT_RANGE, NO_STENT_WHY } = await import('../src/ui/ir-tips.js');
 const { store } = await import('../src/ui/store.js');
+const { createIrCompare, changeOf, NOTHING_PINNED } = await import('../src/ui/ir-compare.js');
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -144,5 +145,49 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
   assert.match(plate, /\.ir-figs \.gl \{ display: flex; flex-direction: column;/);
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\) \{ display: none; \}/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\) \{ display: none; \}/);
+});
+
+test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
+  assert.deepEqual(changeOf(9.2, 14.2, 1), { cls: 'd up', tri: '▲', txt: '+5.0' });
+  assert.deepEqual(changeOf(14.2, 9.2, 1), { cls: 'd down', tri: '▼', txt: '−5.0' });
+  assert.deepEqual(changeOf(9.2, 9.21, 1), { cls: 'd same', tri: '', txt: '—' });
+  assert.deepEqual(changeOf(null, 9.2, 1), { cls: 'd same', tri: '', txt: '—' });
+});
+
+test('Compare: nothing pinned says how, with the table already laid out in dashes; a pin fills it in', () => {
+  const c = createIrCompare();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
+  const f = frameOf({ ppg: 9.2 });
+  c.update(f, 'TIPS');
+  assert.equal(c.el.querySelectorAll('tbody tr').length, 5, 'five readings, always laid out');
+  assert.equal(c.el.querySelector('.ir-note').textContent, NOTHING_PINNED);
+  assert.deepEqual([...c.el.querySelectorAll('td.a')].map((x) => x.textContent), ['—', '—', '—', '—', '—']);
+  assert.equal(c.el.querySelector('td.b').textContent, '9.2');
+  const then = { ppg: 14.2, tips: { ...f.metrics.tips, flow: 1.2, dp: 5.1, dWaist: 8, vPeak: 150 }, dips: null };
+  store.set({ compareSnap: { metrics: then, when: '10:30', names: null } });
+  c.update(f, 'TIPS');
+  const rows = [...c.el.querySelectorAll('tbody tr')].map((r) => [...r.children].map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
+  assert.equal(rows[0][1], '14.2'); assert.match(rows[0][3], /−5\.0/); assert.equal(c.el.querySelector('td.d').className, 'd down');
+  assert.match(c.el.querySelector('.ir-note').textContent, /Compared with 10:30/);
+  store.set({ compareSnap: { metrics: { ppg: 14.2, tips: null, dips: null }, when: '10:30', names: null } });
+  c.update(f, 'TIPS');
+  assert.equal([...c.el.querySelectorAll('tbody tr')][1].children[1].textContent, '—', 'no stent then: a dash, never a zero');
+  store.set({ compareSnap: null });
+});
+
+test('Compare: the sub-switch changes the sub-view, and the DIPS names its own flow', async () => {
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  assert.equal(ir.sub(), 'inside');
+  ir.el.querySelector('[data-sub="compare"]').click();
+  assert.equal(ir.sub(), 'compare');
+  assert.equal(ir.el.dataset.sub, 'compare');
+  ir.update(frameOf()); await wait(60);
+  assert.equal(ir.el.querySelectorAll('.ir-compare tbody tr').length, 5);
+  ir.el.querySelector('[data-sub="inside"]').click();
+  assert.equal(ir.el.dataset.sub, 'inside');
+  assert.equal(host.dataset.view, 'tips');
+  assert.doesNotMatch(read('src/ui/ir-compare.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
