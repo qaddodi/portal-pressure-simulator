@@ -11,6 +11,7 @@ export const FLOW_CUTS = Object.freeze({
   reversedRel: 0.02,
   reversedThrough: 0.03,   // a stretch of a cut vein (topology.js JUNCTIONS) is not reversed while its backward flow is under this share of the flow through the vein (the vein's busiest stretch): near-stagnant beside a TIPS that carries 25 mL/s
   stillQ: 0.05,     // mL/s: a vessel that normally carries more than stillRef has "almost stopped" under it
+  stillOffQ: 0.08,  // mL/s: a stent that has stopped counts as flowing again only above it, so a flow hovering at 0.05 does not flip Stasis and Patent
   stillRef: 0.3,
 });
 
@@ -18,3 +19,5 @@ export const FLOW_CUTS = Object.freeze({
  *  gate numbers, the Doppler's gates and the Compare row: a tiny flow through a narrow waist makes a jet velocity of a few tens of cm/s on paper, but a stopped stent reads 0
  *  cm/s everywhere, never a number on one screen and "Stasis" on the next. */
 export const stentStill = (q) => Math.abs(q) < FLOW_CUTS.stillQ;
+/** The same with its memory (`was`: stopped at the last reading): the one a stent's live state uses (engine.js stentState), which every view reads. */
+export const stentStillHeld = (q, was) => Math.abs(q) < (was ? FLOW_CUTS.stillOffQ : FLOW_CUTS.stillQ);
