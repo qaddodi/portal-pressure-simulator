@@ -15,6 +15,10 @@ import { factTarget } from './fact-target.js';
 import { caught } from './caught.js';
 import { SURGICAL, surgicalVerbs } from './surgical-shunts.js';
 import { PROCEDURES, procLabel, procLong } from './procedure-names.js';
+import { glideCard } from './card-glide.js';
+import { readMetric } from './layout-snap.js';
+import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { reduceMotionMQ } from './motion.js';
 
 
 // The interventions treatCount counts, besides any drug.
@@ -38,6 +42,21 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const shut = id.startsWith('adv-');
     if (open.has(id) !== shut) d.open = true;
     d.addEventListener('toggle', () => { if (d.open !== shut) open.add(id); else open.delete(id); remember(); });
+    // A section opening or closing in a card moves the card's foot: it glides there (card-glide.js), never snapping (17 Nov 2026, Mohammad's play-test of the
+    // Treat card: Changes opened and the card jumped 82 px). Done in the tap itself so no frame is drawn at the new height first: opening is the same change made
+    // at once with the lower part of it uncovered downward; closing fades the words first (a closed section's words are gone the moment it folds), then folds and glides.
+    let glides = [], closing = false;
+    d.firstElementChild.addEventListener('click', (e) => {
+      const card = d.closest('.has-plate');
+      if (!card || reduceMotionMQ.matches || closing) { if (closing) e.preventDefault(); return; }
+      e.preventDefault();
+      const h0 = readMetric(card, 'offsetHeight');
+      if (!d.open) { d.open = true; glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, cut: [d, d.closest('.tc-body')], free: [d.closest('.tc-body')] }); return; }
+      closing = true;
+      const a = d.lastElementChild.animate([{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL * 0.6, easing: EASE_ARRIVE, fill: 'forwards' });
+      const fold = () => { closing = false; const was = readMetric(card, 'offsetHeight'); d.open = false; a.cancel(); glides = glideCard(card, was, readMetric(card, 'offsetHeight'), { prior: glides }); };
+      a.finished.then(fold, fold);
+    });
     return d;
   }
 
@@ -183,11 +202,16 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
     // All three panes share one grid cell so one tab fades out as the next rises in; the pane's height is set to the shown one's below.
     const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[2]));
+    // (A tab that changes the card's height glides it, card-glide.js: the Changes row under the list rides from where it stood and the list's cut at its foot opens
+    // or closes with the plate, so a taller tab going out is not cut in half before the card has shrunk. 17 Nov 2026, Mohammad's play-test.)
+    let glides = [];
     const show = (id) => {
+      const card = body.isConnected && !reduceMotionMQ.matches ? body.closest('.has-plate') : null, h0 = card ? readMetric(card, 'offsetHeight') : 0;
       treatTab = id;
       for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
       for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
       if (body.isConnected) spare();
+      if (h0 > 0) glides = glideCard(card, h0, readMetric(card, 'offsetHeight'), { prior: glides, ride: [body.nextElementSibling], cut: [body, body.parentElement], free: [body.parentElement] });
     };
     // The card is as tall as the tab shown (U3, 13 Nov 2026: it was as tall as the tallest tab, with the spare room under Changes, which left
     // the Drugs tab's card half empty): the pane takes the shown tab's height and the card follows it.

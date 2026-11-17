@@ -440,7 +440,7 @@
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
 .instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }
 /* Tests › IR (ir-tips.js): one view at a time. The Measure view's parts and the TIPS view are children of the one pane; the switch in its head row sets data-view. */
-.instrument-view[data-pane="hvpg"][data-view="tips"] > :not(.ir-tips) { display: none; }
+.instrument-view[data-pane="hvpg"][data-view="tips"] > :not(.ir-tips, .lf-ghost) { display: none; }
 .instrument-view[data-pane="hvpg"]:not([data-view="tips"]) > .ir-tips { display: none; }
 .ir-switch { margin: 0 0 8px; }
 .ir-switch .ps-btn { transition: opacity var(--d-small) var(--ease); }
@@ -563,6 +563,7 @@
 .stent-editor .se-sum-ic { flex: none; width: 14px; height: 14px; color: var(--text-3); }
 .stent-editor[data-fold="true"] .se-rows { display: none; }
 .stent-editor[data-fold="true"] .se-summary { display: flex; animation: crossfade var(--d-small) var(--ease); }
+.lf-ghost { position: relative; flex: none; display: flex; flex-direction: column; pointer-events: none; }   /* (a leaving view's ghost: it stands where the view stood and takes no room, leave-fade.js) */
 .ir-inside { flex: none; display: flex; flex-direction: column; gap: 8px; }
 .ir-tips:is([data-sub="compare"], [data-sub="curves"]) > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
 .ir-tips:not([data-sub="compare"]) > .ir-compare { display: none; }

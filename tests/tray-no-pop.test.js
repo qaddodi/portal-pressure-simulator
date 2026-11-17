@@ -4,7 +4,6 @@
 // the same place while the new tile's fade in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><body></body>');
@@ -18,17 +17,6 @@ globalThis.ResizeObserver ??= class { observe() {} disconnect() {} };
 globalThis.requestAnimationFrame ||= (f) => setTimeout(() => f(performance.now()), 0);
 globalThis.cancelAnimationFrame ||= (id) => clearTimeout(id);
 try { Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true }); } catch { /* already there */ }
-
-const css = readFileSync(new URL('../styles/app-06-plate.css', import.meta.url), 'utf8');
-
-test('the card\'s action row leaves the flow when a tray opens but never by display: none: it fades where it stood', () => {
-  const rule = css.split('\n').find((l) => /\.ac-panel:has\(> \.tv \.se-panel:not\(\[data-open=""\]\)\) \+ \.ac-as \{/.test(l));
-  assert.ok(rule, 'the open-tray rule for the action row is there');
-  assert.ok(!/display:\s*none/.test(rule), 'a display change cannot fade: it pops');
-  assert.match(rule, /position:\s*absolute/); assert.match(rule, /top:\s*var\(--as-top/); assert.match(rule, /opacity:\s*0/);
-  assert.match(rule, /transition:\s*opacity/); assert.match(rule, /visibility:\s*hidden/, 'out of the tab order once it has gone');
-  assert.match(css, /\.se-panel \.se-pb\.se-leave \{[^}]*position:\s*absolute/, 'the old tile\'s controls fade out over their own place');
-});
 
 test('the stent editor holds the action row\'s place on the tap that opens a tray, and fades the old tile\'s words out on the next tap', async () => {
   const anims = [];

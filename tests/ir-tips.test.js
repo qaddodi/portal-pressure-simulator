@@ -158,7 +158,7 @@ test('after a TIPS nothing in the view says HVPG: not its words, not its labels,
 
 test('the stylesheet shows one view at a time, keeps the switch in pair mode, and dims the segment by opacity alone', () => {
   const plate = read('styles/app-06-plate.css'), cards = read('styles/app-08-cards.css');
-  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > :not\(\.ir-tips\) \{ display: none; \}/);
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > :not\(\.ir-tips, \.lf-ghost\) \{ display: none; \}/);   // (the leaving view's ghost, leave-fade.js, is the one thing that stays)
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
   assert.match(plate, /\.tf-stage \{ width: 100%;/, 'the figure is as wide as the card; its height follows from its width');

@@ -27,6 +27,7 @@ import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
 import { createStentEditor } from './stent-editor.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { leaveFade } from './leave-fade.js';
 import { readBox } from './layout-snap.js';
 import { reduced } from './motion.js';
 
@@ -128,12 +129,16 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   }
   function setView(v) {
     if (v === view) return;
+    // The view that comes in fades up where the other was (display flips at once; its parts rise from nothing, as Scope's second view does), and the one that
+    // goes out fades where it stood over it (leave-fade.js: lifted into its ghost before the flip, since a hidden view cannot fade; it was gone at once and the card
+    // blank for a beat, 17 Nov 2026).
+    const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
+    const out = leaveFade(v === 'tips' ? [...host.children].filter((c) => c !== el) : [el], parts[0]);
     view = v;
     host.dataset.view = v;
     attrSoon(btnM, 'aria-pressed', v === 'measure' ? 'true' : 'false'); attrSoon(btnT, 'aria-pressed', v === 'tips' ? 'true' : 'false');
-    // The view that comes in fades up where the other was (display flips at once; its parts rise from nothing, as Scope's second view does).
-    const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
+    out.start();
     if (v !== 'tips') { crv.stop(); setMenu(false); editor.close(); }
     editor.setShown(active && v === 'tips');
     onChange();
@@ -141,6 +146,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   }
   function setSub(v) {
     if (v === sub || !SUBS.some((x) => x[0] === v)) return;
+    const out = leaveFade([subEl(sub)], subEl(v));   // (the view that goes out fades where it stood, leave-fade.js)
     sub = v;
     el.dataset.sub = v;
     for (const b of menuBtns) b.setAttribute('aria-checked', b.dataset.sub === v ? 'true' : 'false');
@@ -148,6 +154,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (v !== 'inside') editor.close();
     editor.setShown(active && view === 'tips' && v === 'inside');
     subEl(v).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
+    out.start();
     onChange();
     if (frame) update(frame);
   }
