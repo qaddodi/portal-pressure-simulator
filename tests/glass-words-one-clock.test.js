@@ -47,10 +47,10 @@ const rect = (l, t, w, h) => ({ left: l, top: t, width: w, height: h, right: l +
 // An animation of opacity with the browser's rules. Its time on screen is the compositor's (wall), on the page the main thread's (clock).
 let wall = clock;
 class Anim {
-  constructor(el, from, to, dur, kind) {
+  constructor(el, from, to, dur, kind, frames = null) {
     Object.assign(this, { el, from, to, dur, kind, playState: 'running', playbackRate: 1, startTime: clock, hold: 0, timeline, ls: {}, ready: Promise.resolve() });
     this.effect = { target: el,
-      getKeyframes: () => [{ offset: 0, computedOffset: 0, opacity: String(from), easing: 'linear', composite: 'auto' }, { offset: 1, computedOffset: 1, opacity: String(to), easing: 'linear', composite: 'auto' }],
+      getKeyframes: () => frames || [{ offset: 0, computedOffset: 0, opacity: String(from), easing: 'linear', composite: 'auto' }, { offset: 1, computedOffset: 1, opacity: String(to), easing: 'linear', composite: 'auto' }],
       getTiming: () => ({ duration: dur, delay: 0, endDelay: 0, easing: 'linear', fill: kind === 'transition' ? 'backwards' : 'both', iterations: 1, direction: 'normal', iterationStart: 0 }) };
     el.anims.push(this);
   }
@@ -76,7 +76,10 @@ function el(name, r, parent = null) {
   const e = {
     name, rest: r, isConnected: true, parentElement: parent, attrs: new Map(), cls: new Set(), nodeType: 1, anims: [], hidden: false, children: [],
     getAnimations: () => e.anims.filter((a) => a.shows()),
-    animate(kf, o) { const a = new Anim(e, +kf[0].opacity, +kf[1].opacity, o.duration, 'waapi'); return a; },
+    animate(kf, o) {
+      if (kf[0].opacity == null) return new Anim(e, 1, 1, o.duration, 'waapi', kf.map((k, i) => ({ offset: i, computedOffset: i, easing: 'linear', composite: 'auto', ...k })));   // (a move: its opacity stays)
+      return new Anim(e, +kf[0].opacity, +kf[1].opacity, o.duration, 'waapi');
+    },
     style: {
       setProperty(k, v) { const was = text(); props.set(k, String(v)); if (text() !== was) record(e, { type: 'attributes', attributeName: 'style', oldValue: was }); },
       removeProperty(k) { const was = text(); props.delete(k); if (text() !== was) record(e, { type: 'attributes', attributeName: 'style', oldValue: was }); },
@@ -104,7 +107,7 @@ const source = { addEventListener() {}, removeEventListener() {}, width: 2400, h
 
 const F = await import('../src/ui/frame.js');
 const { createGlassGL } = await import('../src/ui/glass-gl.js');
-const { animRunning } = await import('../src/ui/glass-clock.js');
+const { animRunning, heldOnGlass } = await import('../src/ui/glass-clock.js');
 
 // The glasses on the page now, and for a glass whose words are not inside it, the element they are in.
 const glasses = [], words = new Map();
@@ -229,6 +232,40 @@ test('a held fade is given back to the browser when the glass stops drawing', as
   assert.equal(a.playState, 'paused', 'held on the glass clock');
   G.release();   // (the glass gives the figure's canvas back: the browser's glass shows)
   assert.equal(a.playState, 'running', 'given back to the browser at once, running on from where it stood');
+  glasses.splice(glasses.indexOf(c), 1);
+  for (let i = 0; i < 4; i++) await frame();
+});
+
+test('a finger\'s pull on a sheet (an animation the page scrubs itself, num-move.js) is never run by the glass clock', async () => {
+  // (Mohammad, 17 Nov 2026, the Layers sheet on the iPhone: "Text flies and moves outside the card". The pull's animate() was taken onto the glass
+  // clock in the call itself, before the pull paused it, and the clock ran it on its own time while the finger set it: the words flew off the glass.)
+  const c = el('pulled sheet', rect(0, 400, 400, 400), stage);
+  glasses.push(c);
+  for (let i = 0; i < 6; i++) await frame();
+  const a = c.animate([{ translate: '0px 0px' }, { translate: '0px 64px' }], { duration: 64 });
+  a.pause();
+  for (let i = 0; i < 12; i++) {
+    a.currentTime = 10 + i * 3;   // (the finger's distance)
+    await frame();
+    assert.equal(a.currentTime, 10 + i * 3, 'the finger alone sets where the sheet is');
+    assert.equal(heldOnGlass(a), false, 'never held on the glass clock');
+  }
+  glasses.splice(glasses.indexOf(c), 1);
+  for (let i = 0; i < 4; i++) await frame();
+});
+
+test('a fade the glass holds is let go, untouched, the moment another script sets its time', async () => {
+  const c = el('card scrubbed later', rect(600, 100, 300, 200), stage);
+  glasses.push(c);
+  c.classList.add('out');
+  for (let i = 0; i < 6; i++) await frame();
+  const a = waapi(1, 600)(c);
+  await frame(); await frame();
+  assert.equal(heldOnGlass(a), true, 'held on the glass clock while it plays');
+  a.currentTime = 450;   // (another hand takes it: a drag's level)
+  await frame();
+  assert.equal(heldOnGlass(a), false, 'let go');
+  assert.equal(a.currentTime, 450, 'left where the other hand put it');
   glasses.splice(glasses.indexOf(c), 1);
   for (let i = 0; i < 4; i++) await frame();
 });
