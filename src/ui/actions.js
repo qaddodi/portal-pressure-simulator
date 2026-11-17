@@ -178,7 +178,7 @@ export function stentControls(id) {
   const noWaist = (p) => !(geo(p).red > 0.004), noSten = (p) => !((p.stenosis?.[id] || 0) > 0.004);
   const diameter = k
     ? { type: 'slider', id: 'diameter', key: k, label: 'Diameter', icon: 'stent', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
-      get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' }
+      get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'A smaller lumen increases friction along the stent strongly (as 1/d⁴). The flow it carries also depends on the fixed resistance of its tract, the losses at its ends and any narrowing, and how the circulation answers.' }
     : { type: 'slider', id: 'diameter', key: 'customShunts', label: 'Diameter', icon: 'stent', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label
       get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` };   // alloc-rare: the slider's setter, run on its own input event
   c = [diameter,

@@ -183,7 +183,9 @@ export function profileAt(g, s, site, u) {
 /** The fixed pressure difference (mmHg) the tube-alone line holds across the stent: a bench, not a patient (stentState .bench, the fingerprint's tipsBench, the curve's dashed line). */
 export const BENCH_DP = 7;
 const BENCH = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, total: 0 };   // alloc-rare: made once (benchFlow's parts)
-/** Flow (mL/s) through the stent alone at a fixed pressure difference dP (mmHg) across it: the tube on a bench, not in the patient.
+/** Flow (mL/s) through the shunt alone at a fixed pressure difference dP (mmHg) from its portal end to its hepatic end: the bench, not the patient.
+ *  It is the whole branch the engine solves (every part of stentParts: the tract, the wall, the ends and any narrowing), the same resistances the
+ *  patient's shunt has, so the only difference between the two lines is the circulation's answer (external review, 17 Nov 2026: say what it includes).
  *  ΔP = R·Q + B·Q|Q| solved in its stable form, Q = 2ΔP / (R + √(R² + 4B|ΔP|)); its sign follows ΔP, and no gradient gives no flow. */
 export function benchFlow(kind, d, visc, s, g, dP) {
   if (!(Math.abs(dP) > 0)) return 0;
