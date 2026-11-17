@@ -27,12 +27,7 @@ const SCOPE = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' };
 export const CARVEDILOL = {
   id: 'carvedilol', level: 'advanced', title: 'Carvedilol, from the first visit to stopping', minutes: 12,
   sections: [['Compensated', ['First visit', 'Starting']], ['Ascites and hypotension', ['Ascites and varices', 'Hypotension']], ['A bleed and a TIPS', ['After a bleed', 'After a TIPS']], ['Stopping', ['Stopping']]],
-  objectives: [
-    'State when to start carvedilol, and why not before CSPH',
-    'State who needs no screening endoscopy while taking carvedilol',
-    'Reduce or stop carvedilol for a systolic blood pressure <90 mmHg, a MAP <65 mmHg or HRS-AKI, and restart it',
-    'State when carvedilol may be stopped after recompensation',
-  ],
+  objectives: ['State when to start carvedilol, and why not before CSPH', 'State who needs no screening endoscopy while taking carvedilol', 'Reduce, stop and restart carvedilol for low blood pressure or HRS-AKI'],
   checks: [
     ['Cirrhosis, liver stiffness measurement (LSM) 12 kPa, platelets 160,000/µL. Does she start carvedilol?', 'No. CSPH is ruled out, and Baveno VIII advises against a nonselective beta-blocker (NSBB) to prevent decompensation without CSPH. LSM is repeated in 12 months.'],
     ['A man with CSPH takes carvedilol. Does he need a screening endoscopy?', 'No. Endoscopy would not change his management (Baveno VIII 3.18). Only a patient who cannot take an NSBB needs endoscopy, unless LSM <20 kPa with platelets ≥150,000/µL, or spleen stiffness (SSM) <40 kPa.'],

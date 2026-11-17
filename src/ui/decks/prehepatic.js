@@ -6,12 +6,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 export const PREHEPATIC = {
   id: 'prehepatic', level: 'core', title: 'Portal vein thrombosis', minutes: 10,
   sections: [['PVT without cirrhosis', ['Acute thrombosis', 'Months later']], ['PVT in cirrhosis', ['PVT in cirrhosis', 'Before anticoagulation']], ['Anticoagulation in cirrhosis', ['Anticoagulation']]],
-  objectives: [
-    'Recognize acute portal vein thrombosis (PVT) on Doppler',
-    'Explain why the HVPG is normal and the PPG is high',
-    'Describe cavernous transformation and its varices with normal liver stiffness',
-    'Start anticoagulation in cirrhosis without delaying it for variceal prophylaxis',
-  ],
+  objectives: ['Recognize acute portal vein thrombosis on Doppler, and explain the normal HVPG and high PPG', 'Describe cavernous transformation and its varices with normal liver stiffness', 'Start anticoagulation in cirrhosis without delaying it for variceal prophylaxis'],
   checks: [
     ['Why is the HVPG normal in PVT?', 'The thrombus is prehepatic. The WHVP reflects the normal sinusoidal pressure downstream of it.'],
     ['Which measurement shows the resistance?', 'The PPG: portal vein pressure minus IVC pressure.'],

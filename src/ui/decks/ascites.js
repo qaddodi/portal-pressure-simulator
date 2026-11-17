@@ -25,12 +25,7 @@ export const ASCITES = {
   id: 'ascites', level: 'advanced', title: 'Ascites: why it forms and how it is treated', minutes: 18,
   summary: 'How ascites forms in the sinusoids, what diagnostic paracentesis shows, and what each treatment does: large-volume paracentesis with albumin, diuretics and TIPS.',
   sections: [['Where ascites forms', ['Ascites']], ['Diagnostic paracentesis', ['Diagnostic paracentesis', 'Protein-rich ascites', 'Telling them apart']], ['Treating it', ['Tense ascites', 'Large-volume paracentesis', 'Two weeks later', 'Treatment', 'Refractory ascites', 'Complications', 'Summary']]],
-  objectives: [
-    'Explain how sinusoidal pressure and hepatic lymph flow produce ascites',
-    'Interpret the SAAG and ascitic total protein, and distinguish cirrhosis, heart failure and Budd–Chiari syndrome by diagnostic paracentesis',
-    'Give albumin correctly with large-volume paracentesis (LVP)',
-    'Use diuretics and TIPS for recurrent ascites, and define refractory ascites',
-  ],
+  objectives: ['Explain how sinusoidal pressure and hepatic lymph flow produce ascites', 'Read the SAAG and ascitic protein to separate cirrhosis, heart failure and Budd–Chiari syndrome', 'Give albumin with large-volume paracentesis, and treat recurrent and refractory ascites'],
   checks: [
     ['What SAAG points to portal hypertension?', '≥1.1 g/dL.'],
     ['A high SAAG with an ascitic total protein ≥2.5 g/dL. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoidal fenestrae are still open and let protein through.'],

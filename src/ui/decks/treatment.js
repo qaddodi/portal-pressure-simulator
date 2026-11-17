@@ -11,7 +11,7 @@ export const TREATMENT = {
   id: 'treatment', level: 'advanced', title: 'Lowering portal pressure', minutes: 10,
   sections: [['The patient', ['Lowering portal pressure']], ['Beta-blockers', ['Nonselective beta-blocker']], ['Bleeding and HRS-AKI', ['Acute variceal bleeding', 'Hepatorenal syndrome']], ['Compared', ['Compared']], ['Before the sinusoids', ['Schistosomiasis']]],
   summary: 'Propranolol, carvedilol, octreotide, terlipressin and TIPS in one patient with decompensated cirrhosis, the HVPG fall with each, and a patient with schistosomiasis whose resistance is presinusoidal, where carvedilol adds little.',
-  objectives: ['Explain how each drug lowers portal pressure: inflow, resistance or both', 'Explain why carvedilol lowers the HVPG more than propranolol only where the resistance is sinusoidal', 'Explain how a vasoactive drug lowers portal pressure in acute variceal bleeding', 'Judge a drug by the fall in the HVPG, and know when the HVPG misleads'],
+  objectives: ['Explain how each drug lowers portal pressure: inflow, resistance or both', 'Explain why carvedilol beats propranolol only where the resistance is sinusoidal', 'Judge a drug by the fall in the HVPG, and know when the HVPG misleads'],
   checks: [
     ['Why does carvedilol lower the HVPG more than propranolol?', 'It also blocks α1 receptors, so it lowers intrahepatic resistance as well as portal inflow.'],
     ['On propranolol the heart rate falls from 80 to 58 bpm, but the HVPG only from 18 to 17.5 mmHg. Has the portal pressure responded?', 'No. The heart rate shows the β1 blockade, not the portal response; a fall <10% marks a non-responder.'],

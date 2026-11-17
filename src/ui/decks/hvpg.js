@@ -5,7 +5,8 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 export const HVPG = {
   id: 'hvpg', level: 'core', title: 'Measuring HVPG and PPG', minutes: 15,
   summary: 'How the HVPG is measured and interpreted, where it misleads, and when to measure the PPG instead.',
-  objectives: ['Describe how the free and wedged hepatic venous pressures are recorded', 'Calculate the HVPG, state its 5 and 10 mmHg cut-offs, and state where the bleeding risk climbs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient (PPG) when it does'],
+  objectives: ['Describe how the free and wedged hepatic venous pressures are recorded', 'Calculate the HVPG and state its 5 and 10 mmHg cut-offs', 'Recognize when the HVPG misleads, and use the PPG then'],
+  sections: [['Recording the pressures', ['Measuring portal pressure']], ['When the HVPG misses', ['presin', 'ppg', 'eus', 'eus-ladder']], ['Heart and hepatic veins', ['heart', 'bc']], ['Putting them together', ['plane', 'summary']]],
   checks: [
     ['How is the HVPG calculated?', 'Wedged hepatic venous pressure minus free hepatic venous pressure (WHVP − FHVP).'],
     ['At which HVPG levels does the risk rise?', 'An HVPG >5 mmHg is portal hypertension, ≥10 mmHg is CSPH, and from about 12 mmHg the risk of variceal bleeding rises steeply.'],

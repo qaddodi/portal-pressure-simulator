@@ -33,12 +33,7 @@ const fibrotic = (cirrhosis) => ({ preset: 'cirr-decomp', params: { ...REFRACTOR
 
 export const TIPS_COMPLETE = {
   id: 'tips-complete', level: 'advanced', title: 'TIPS: indication to follow-up', minutes: 24,
-  objectives: [
-    'Name who is offered a preemptive, a rescue, a salvage and an elective TIPS, and the other indications',
-    'Explain why a failing liver, a congested heart and a past episode of encephalopathy change the decision',
-    'Read the PPG after a TIPS, tell the device\'s own resistance from the circulation\'s response to it, and say what the stent costs the liver',
-    'Interpret the follow-up Doppler and a narrowing stent, and say what confirms it',
-  ],
+  objectives: ['Name who is offered a preemptive, a rescue, a salvage and an elective TIPS', 'Explain why a failing liver, a congested heart and past encephalopathy change the decision', 'Read the PPG and the Doppler after a TIPS, and say what a narrowing stent costs and confirms'],
   checks: [
     ['A man bleeds from varices and banding controls it. He is Child–Pugh C 11 with a bilirubin of 6 mg/dL. Does the bilirubin rule out a preemptive TIPS?', 'No. Once he meets the criteria, a high bilirubin and the MELD score are not absolute contraindications (Baveno VIII 5.33). Place the stent within 72 hours, ideally within 24.'],
     ['A TIPS is placed for recurrent ascites. How is the result judged?', 'By the ascites response, with the PPG (portal vein minus IVC pressure, not the HVPG) and the risk of overshunting. Baveno VIII asks for the smallest stent diameter that gives an adequate response and for stepwise dilation if ascites persists (6.5, 6.6); it sets no gradient target.'],

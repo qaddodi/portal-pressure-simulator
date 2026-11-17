@@ -35,12 +35,7 @@ const fibrotic = (cirrhosis) => ({ preset: 'cirr-decomp', params: { ...REFRACTOR
 
 export const TIPS_CANDIDACY = {
   id: 'tips-candidacy', level: 'advanced', title: 'Who should get a TIPS', minutes: 14,
-  objectives: [
-    'Name who qualifies for a preemptive, a rescue and an elective TIPS',
-    'Explain why a failing liver and a congested heart weigh against an elective TIPS',
-    'Say which findings do not exclude a TIPS on their own: bilirubin, MELD, an old episode of encephalopathy, age and frailty',
-    'Read the gradients with the right atrial pressure before deciding',
-  ],
+  objectives: ['Name who qualifies for a preemptive, a rescue and an elective TIPS', 'Know what weighs against an elective TIPS, and what does not rule one out alone', 'Read the gradients with the right atrial pressure before deciding'],
   checks: [
     ['A man bleeds from varices and banding controls it. He is Child–Pugh C 11 with a bilirubin of 6 mg/dL. Does the bilirubin rule out a preemptive TIPS?', 'No. Once he meets the criteria, a high bilirubin and the MELD score are not absolute contraindications (Baveno VIII 5.33). Place the stent within 72 hours, ideally within 24.'],
     ['A woman with refractory ascites has a MELD of 22. Is she a candidate for an elective TIPS?', 'A poor one: AASLD 2021 considers a MELD ≥18 a marker of poor outcome after TIPS. Evaluate her for liver transplant, with LVP and albumin meanwhile.'],

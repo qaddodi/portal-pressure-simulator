@@ -5,12 +5,7 @@ const BEATS = { kind: 'trace', range: 'beats', deltaLabel: 'before the bleed' };
 
 export const GASTRIC = {
   id: 'gastric-varices', level: 'core', title: 'Gastric varices', minutes: 9,
-  objectives: [
-    'Name the four Sarin classes of gastric varices',
-    'Treat fundal varices that have not bled with carvedilol, not cyanoacrylate, BRTO or a TIPS',
-    'Explain why a TIPS is preferred after a fundal variceal bleed, and what BRTO does to the portal pressure',
-    'Recognize left-sided portal hypertension: obliterate the varix with EUS-guided coils and cyanoacrylate, then treat the spleen',
-  ],
+  objectives: ['Name the four Sarin classes of gastric varices', 'Treat fundal varices that have not bled with carvedilol, not cyanoacrylate, BRTO or a TIPS', 'Recognize left-sided portal hypertension, and why a TIPS is preferred after a fundal bleed'],
   checks: [
     ['Which gastric varices are managed like esophageal varices?', 'GOV1, which extend along the lesser curvature from the esophagus.'],
     ['What is the first treatment for fundal varices that have never bled?', 'A nonselective beta-blocker (NSBB), preferably carvedilol. Cyanoacrylate glue, BRTO or a TIPS is not used to prevent a first bleed; cyanoacrylate is reserved for high-risk varices when an NSBB cannot be taken.'],

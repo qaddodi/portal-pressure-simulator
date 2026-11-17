@@ -5,7 +5,7 @@
 export const NCPH = {
   id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 8,
   objectives: [
-    'Recognize portal hypertension with preserved liver function: varices, splenomegaly, normal liver stiffness',
+    'Recognize portal hypertension with preserved liver function and normal stiffness',
     'Explain why the HVPG is near normal in presinusoidal resistance',
     'Name the two main causes: schistosomiasis and porto-sinusoidal vascular disorder (PSVD)',
   ],

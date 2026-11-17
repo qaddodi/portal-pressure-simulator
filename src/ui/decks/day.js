@@ -14,12 +14,7 @@ const BEATS = { kind: 'trace', range: 'beats' };
 export const DAY = {
   id: 'day', level: 'core', title: 'A day in the portal vein', minutes: 6,
   sections: [['Before breakfast', ['Before breakfast']], ['After eating', ['After eating']], ['Breathing and straining', ['Breathing and straining']]],
-  objectives: [
-    'Describe how a meal changes portal flow, portal pressure and liver stiffness',
-    'Explain why, in the model, a 1 L saline bolus raises the portal and IVC pressures together and leaves the gradients unchanged',
-    'Describe how respiration and a Valsalva maneuver change the portal vein pressure and the MAP',
-    'State why liver stiffness is measured fasting',
-  ],
+  objectives: ['Describe what a meal does to portal flow, pressure and stiffness, and why LSM is done fasting', 'Explain why a saline bolus raises portal and IVC pressures together and leaves the gradients alone', 'Describe how respiration and a Valsalva maneuver change the portal vein pressure and the MAP'],
   summary: 'What changes the portal pressure within hours: a meal, a 1 L saline bolus and deep breathing, in one man with CSPH, and why liver stiffness is measured fasting.',
   checks: [
     ['Why is liver stiffness measured fasting?', 'A meal raises portal flow and portal pressure, and so liver stiffness. Baveno VIII 1.4 says liver stiffness should always be measured under fasting conditions.'],

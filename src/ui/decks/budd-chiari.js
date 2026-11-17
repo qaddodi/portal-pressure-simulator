@@ -22,12 +22,7 @@ const HVS = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 export const BUDD_CHIARI = {
   id: 'budd-chiari', level: 'advanced', title: 'Budd–Chiari syndrome, step by step', minutes: 11,
   sections: [['What it is', ['What it is']], ['Stepwise management', ['Stepwise management']], ['Response and risks', ['Response and risks']]],
-  objectives: [
-    'Describe how Budd–Chiari syndrome (BCS) is diagnosed, and why biopsy is rarely needed',
-    'Name the four steps of management in order',
-    'Choose the anticoagulant, and name when a DOAC is avoided',
-    'Assess response, and manage acute liver failure',
-  ],
+  objectives: ['Describe how Budd–Chiari syndrome is diagnosed, and why biopsy is rarely needed', 'Name the four steps of management in order, and choose the anticoagulant', 'Assess response, and manage acute liver failure'],
   checks: [
     ['A young man has tender hepatomegaly and new ascites. When is BCS considered, and how is it diagnosed?', 'In any acute, acute-on-chronic or chronic liver disease. Imaging shows hepatic venous outflow obstruction, or hepatic vein collaterals with no patent hepatic vein; biopsy is not needed (Baveno VIII 8.24 to 8.26).'],
     ['Name the four steps of management for BCS, in order.', 'Anticoagulation, recanalization with or without a stent, TIPS, and liver transplant (Baveno VIII 8.31).'],

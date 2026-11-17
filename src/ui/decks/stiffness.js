@@ -10,12 +10,7 @@ export const STIFFNESS = {
   id: 'stiffness', level: 'core', title: 'Stiffness, platelets and the first visit', minutes: 15,
   sections: [['The measurements', ['Liver stiffness', 'The spleen and the platelets', 'Spleen stiffness']], ['The first visit', ['The rules', 'Case 1', 'Case 2', 'Case 3', 'Case 4', 'Case 5']],
     ['Where LSM misleads', ['Where LSM misleads']]],
-  objectives: [
-    'Explain what liver stiffness measurement (LSM) by VCTE measures, and why splenomegaly and thrombocytopenia point to portal hypertension',
-    'Rule CSPH in or out from the LSM and the platelet count, and name the next step in the indeterminate zone',
-    'Decide who needs screening endoscopy and who starts carvedilol',
-    'Recognize when the rules mislead: hepatic congestion, a BMI ≥30, a low LSM with portal hypertension',
-  ],
+  objectives: ['Explain what VCTE liver stiffness measures, and why splenomegaly and low platelets matter', 'Rule CSPH in or out from the LSM and platelets, and handle the indeterminate zone', 'Decide who needs screening endoscopy and who starts carvedilol, and when the rules mislead'],
   checks: [
     ['LSM is 13 kPa and platelets are 180,000/µL. Is CSPH present, and is screening endoscopy needed?', 'CSPH is ruled out (LSM ≤15 kPa with platelets ≥150,000/µL), so no carvedilol and no screening endoscopy. Repeat LSM and platelets in 12 months.'],
     ['What LSM rules CSPH in at a first visit, and in whom does that rule not apply?', '≥25 kPa, in viral and alcohol-related cirrhosis and in MASLD with a BMI <30. At a BMI ≥30, ANTICIPATE-NASH decides.'],

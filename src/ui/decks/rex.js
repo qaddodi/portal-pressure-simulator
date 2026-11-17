@@ -15,12 +15,7 @@ const SHUNTS_CAM = [580, 340, 1000, 700];
 
 export const MESO_REX = {
   id: 'meso-rex', level: 'advanced', title: 'Children with portal vein thrombosis', minutes: 10,
-  objectives: [
-    'Explain why a child with portal vein thrombosis (PVT) has a normal HVPG and a high PPG',
-    'State what a meso-Rex bypass requires: a patent left portal vein and surgical expertise',
-    'Contrast the bypass with a distal splenorenal (DSRS) or mesocaval shunt in hepatic portal perfusion',
-    'Name the options when a meso-Rex bypass is not feasible',
-  ],
+  objectives: ['Explain why a child with portal vein thrombosis has a normal HVPG and a high PPG', 'State what a meso-Rex bypass requires, and how it differs from a DSRS or mesocaval shunt', 'Name the options when a meso-Rex bypass is not feasible'],
   checks: [
     ['Why is the HVPG normal in a child with PVT?', 'The thrombus is prehepatic, so the WHVP reflects normal sinusoidal pressure. The PPG, measured from the portal vein, shows the resistance.'],
     ['What gives a meso-Rex bypass a success rate >90%?', 'A patent intrahepatic portal venous system and surgical expertise in the operation (Baveno VIII 9.31).'],

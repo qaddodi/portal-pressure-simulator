@@ -12,12 +12,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 
 export const HYPERDYNAMIC = {
   id: 'hyperdynamic', level: 'foundation', title: 'The circulation in cirrhosis', minutes: 8,
-  objectives: [
-    'Describe the hyperdynamic circulation: a higher cardiac output, a faster heart and a lower arterial pressure than in health',
-    'Explain how splanchnic vasodilation adds inflow to the portal system',
-    'Link arterial underfilling to sodium and water retention',
-    'Explain what a 1 L blood loss, and overtransfusion, do to the arterial and the portal pressure',
-  ],
+  objectives: ['Describe the hyperdynamic circulation: higher cardiac output, faster heart, lower arterial pressure', 'Explain how splanchnic vasodilation adds portal inflow and drives sodium and water retention', 'Explain what blood loss and overtransfusion do to the arterial and the portal pressure'],
   checks: [
     ['Why does the mean arterial pressure fall in cirrhosis although the cardiac output rises?', 'The systemic vascular resistance falls by more: nitric oxide and other vasodilators dilate the arteries.'],
     ['How does splanchnic vasodilation raise the portal pressure?', 'Dilated splanchnic arteries increase portal venous inflow, and a higher inflow through a high resistance keeps the pressure high.'],
