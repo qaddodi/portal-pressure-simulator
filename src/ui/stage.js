@@ -6,6 +6,8 @@ import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
+import { geomOf as stentGeomOf, kindOf as stentKindOf } from '../engine/stent-geom.js';
+import { stentWaist } from './stent-waist.js';
 import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, caudateFocus, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
@@ -729,7 +731,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const stenosisAt = (id, p) => (isStent(EDGES[EI[id]]) ? STENT_SITES[stentSite(p, id)] : 0.5);
   // Lumen radius factor along a stenosed vessel: the diameter narrows by the stenosis fraction
   // (the model's resistance scales as 1/(1−s)⁴), with a smooth waist about 2.5 diameters long.
+  // A stent's narrowing is the geometry's profile (stent-geom.js profileAt, smoothed: stent-waist.js): the waist as long as the stent's card
+  // sets it, its ends abrupt or tapered, in the stent's drawn length, which never changes with it.
+  const geomScratch = { len: 0, waist: 0, trans: 0 };   // (read at once by waist)
   function waist(id, v, len, w, p) {
+    const e = EDGES[EI[id]], kind = isStent(e) ? stentKindOf(e) : null;
+    if (kind) return stentWaist(id, stentGeomOf(p, id, kind, geomScratch), v, STENT_SITES[stentSite(p, id)], w, len);
     const u0 = stenosisAt(id, p);
     const sig = Math.max(9, w * 1.25) / Math.max(1, len);
     return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
@@ -3283,6 +3290,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
     resZigs: () => [...resMade.values()].flatMap((g) => { const p = g.cur?.pts ? Array.from(g.cur.pts) : [], out = []; for (let i = 0, o = 0; i < g.lens.length; o += g.lens[i], i++) out.push({ pts: p.slice(o, o + g.lens[i]), band: g._bandPx || 0 }); return out; }),   // (for tests: each zigzag, world, and its half band in px)
     labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)), zones: (live.zoneRects || []).map((r) => [r.x0, r.y0, r.x1, r.y1]) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
+    /** For the node tests of a stent's drawn waist and pressure colour (tests/stent-waist-figure.test.js): the stent's radius factor along its path (n + 1 samples),
+     *  its local losses as the along curve reads them, and the shade version (it moves when what is drawn changes). Reads what the last frame set; draws nothing. */
+    stentDrawn: (id, n = 64) => { const x = E[id]; return x?.stenF ? { k: Array.from({ length: n + 1 }, (_, i) => x.stenF(i / n)), loss: { jet: x.lsJ, ends: x.lsE, at: x.lsAt, dir: x.lsDir }, ver: x.shadeVer | 0, len: geo[id]?.len || 0 } : null; },   // alloc-rare: a test's read, never a frame's
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     /** For ?lap's restore drill: whether the GPU figure is up and how many times its screen was copied onto the canvas (the frame end's one write; it counts on across a restore). */
     figureShows: () => ({ gl: wrap.classList.contains('gl-on'), lost: !!veins?.lost, shows: veins?.screenShows ?? 0 }),
