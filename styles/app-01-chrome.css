@@ -349,7 +349,7 @@ html:root :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var(--su
 
 /* Contextual cards floating over the figure (they are label-layout obstacles) */
 .tool-card {
-  position: absolute; left: 12px; bottom: 12px; z-index: var(--z-hud); width: min(300px, calc(100% - 24px)); padding: 12px 12px 12px 16px;
+  position: absolute; left: 12px; bottom: calc(var(--vdock-top, 0px) + 12px);   /* (above the transport bar and the vitals dock, not under them: the shunt help ran over the play buttons, V10) */ z-index: var(--z-hud); width: min(300px, calc(100% - 24px)); padding: 12px 12px 12px 16px;
   background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline);
   font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; animation: fade-rise var(--d-small) var(--ease);
 }

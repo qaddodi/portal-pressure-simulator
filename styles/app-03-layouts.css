@@ -78,7 +78,7 @@
   .stage-clock { display: block; position: absolute; left: 10px; bottom: calc(var(--vdock-top, 0px) + 8px); z-index: var(--z-hud); font-size: var(--fs-12); font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; pointer-events: none; }
   .toolbar { justify-self: end; padding: 4px; gap: 2px; }
   .tb-sep { display: none; }
-  .tool-card { left: 8px; bottom: 8px; width: calc(100% - 16px); }
+  .tool-card { left: 8px; bottom: calc(var(--vdock-top, 0px) + 8px); width: calc(100% - 16px); }
   .stage-bar .lg-note { display: none; }
 
   .readouts { border-top: 1px solid var(--hairline); }

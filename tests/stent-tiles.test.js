@@ -115,3 +115,10 @@ test('the Dye button keeps the room of "Injecting", so the buttons beside it do 
   const { appCss } = await import('./split-src.js');
   assert.match(appCss(), /\.ac-dye \.ac-bl \{[^}]*min-width: 4\.9em/);
 });
+
+test('the tool card (the shunt help) stands above the transport bar and the dock (play-test V10)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const css = appCss();
+  assert.match(css, /\.tool-card \{\s*position: absolute; left: 12px; bottom: calc\(var\(--vdock-top, 0px\) \+ 12px\)/);
+  assert.match(css, /\.tool-card \{ left: 8px; bottom: calc\(var\(--vdock-top, 0px\) \+ 8px\)/);
+});
