@@ -442,6 +442,8 @@ export function createLabelSolve(st, live) {
             return false;
           })) return;
         }
+        // (A clear spot on a leader keeps its leader out of the cards too: a leader from the right sinusoids ran through a card's corner to its label, play-test round 2. The last passes, which take any spot, do not ask it.)
+        if (ps.leader && ps.clear && !it.point && Number.isFinite(it.ax)) { const le = leaderEnd(r, it.ax, it.ay); if (obstacles.some((o) => !o.zone && !(it.ax >= o.x0 && it.ax <= o.x1 && it.ay >= o.y0 && it.ay <= o.y1) && segHitsBox({ x0: it.ax, y0: it.ay, x1: le.x, y1: le.y }, o, 0))) return; }
         const om = ps.strict ? 10 : 0;
         if ((ps.inView && !inside) || ((ps.inView || ps.strict) && obstacles.some((o) => !(o.zone && ps.strict) && !(it.point && o.probe) && hits(r, { x0: o.x0 - om, y0: o.y0 - om, x1: o.x1 + om, y1: o.y1 + om })))) return;   // (in the free space: inside the stage, 10 px from any card, the margin a hidden label needs to show again)
         let onLine = 0;

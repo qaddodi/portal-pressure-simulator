@@ -60,7 +60,7 @@ function check(text, r, id) {
   if (/\bsmall varices/i.test(v)) need(m.varix.grade.label === 'Small', `small varices, shown ${m.varix.grade.label} (${m.varix.d.toFixed(1)} mm)`);
   if (/\blarge varices/i.test(v)) need(m.varix.grade.label === 'Large', `large varices, shown ${m.varix.grade.label} (${m.varix.d.toFixed(1)} mm)`);
   const asc = m.ascites.volume ?? m.ascites.L ?? 0;
-  const noAsc = /(?:no ascites|ascites (?:is )?rare)/i.test(t);
+  const noAsc = /(?:no ascites|ascites (?:is )?rare|ascites (?:clears|cleared|resolves|resolved|is gone))/i.test(t)   // ("the ascites clears": the TIPS preset says there is none to show, and the reading is held to it below);
   if (noAsc) need(asc < 500, `no ascites, shown ${Math.round(asc)} mL`);
   if (/massive ascites/i.test(t)) need(asc > 3000, `massive ascites, shown ${Math.round(asc)} mL`);
   if (!noAsc && /ascites/i.test(t) && !/massive/i.test(t)) need(asc >= 500, `ascites, shown ${Math.round(asc)} mL`);
