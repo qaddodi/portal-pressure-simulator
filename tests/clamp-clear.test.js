@@ -18,3 +18,14 @@ for (const o of [{ size: 'mac', view: 'circuit' }, { size: 'mac', view: 'anatomy
     assert.deepEqual(r.lap, []);
   });
 }
+
+// A card opening over the words (all of them, or half): they move off it or fade out whole; they never stand cut by the card's edge (finding 23,
+// 17 Nov 2026: "D…", "W…" beside the stent, under the Tests card).
+for (const card of [true, 'half']) {
+  test(`a narrowing's words under a card move off it or fade out whole: ${card}`, { timeout: 320000 }, () => {
+    const r = run({ size: 'mac', view: 'anatomy', card });
+    const [x0, y0, x1, y1] = r.card, b = r.cl[0].box;
+    const under = b[0] < x1 && b[2] > x0 && b[1] < y1 && b[3] > y0;
+    assert.ok(!under || r.op[0] < 0.05, `words at ${b} under the card ${r.card} with opacity ${r.op[0]}`);
+  });
+}
