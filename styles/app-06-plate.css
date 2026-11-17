@@ -451,9 +451,15 @@
 .ir-figs .gl-stage { flex: none; width: min(100%, 520px); }
 .ir-figs .gl-stage[hidden] { display: none; }
 .ir-sub { align-self: flex-start; }
-.ir-tips[data-sub="compare"] > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
+.ir-tips:is([data-sub="compare"], [data-sub="curves"]) > .ir-inside { display: none; }   /* (one sub-view at a time; the one that comes in fades up, ir-tips.js setSub) */
 .ir-tips:not([data-sub="compare"]) > .ir-compare { display: none; }
-.ir-compare { display: flex; flex-direction: column; gap: 8px; }
+.ir-tips:not([data-sub="curves"]) > .ir-curves { display: none; }
+.ir-compare, .ir-curves { display: flex; flex-direction: column; gap: 8px; }
+/* The curves (ir-curves.js): the deck's own chart, given a height here (its deck sizes come from the slide card); the note about a stent with no narrowing fades, never pops. */
+.ir-chart .pz-curve { --cv-h: 250px; --pz-fit: 1; }
+.ir-sweep { align-self: flex-start; flex-wrap: wrap; }
+.ir-warn { margin: 0; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.ir-curves[data-flat="1"] .ir-warn { opacity: 1; }
 .ir-note { margin: 0; }
 .hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
 .hvpg-bar .btn { flex: none; }
