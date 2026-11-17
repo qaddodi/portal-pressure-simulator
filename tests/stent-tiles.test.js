@@ -122,3 +122,9 @@ test('the tool card (the shunt help) stands above the transport bar and the dock
   assert.match(css, /\.tool-card \{\s*position: absolute; left: 12px; bottom: calc\(var\(--vdock-top, 0px\) \+ 12px\)/);
   assert.match(css, /\.tool-card \{ left: 8px; bottom: calc\(var\(--vdock-top, 0px\) \+ 8px\)/);
 });
+
+test('the Hepatic artery label opens the hepatic artery\'s own card, not the liver\'s (play-test V9)', async () => {
+  await import('./dom-shim.js');
+  const { normalizeSel } = await import('../src/ui/actions.js');
+  assert.deepEqual(normalizeSel({ type: 'node', id: 'HA' }), { type: 'edge', id: 'A_HEP' });
+});
