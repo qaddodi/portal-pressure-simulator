@@ -169,7 +169,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
   // card's still cut, the one motion (app.css .ac-in, .ac-leaving). The plate is kept across rebuilds (it is the first child).
   sheetParts(el);
   // alloc-rare: the card opens afresh: its class for the entrance's length, once for each open
-  const endIn = () => el.classList.remove('ac-in');
+  const endIn = () => { el.classList.remove('ac-in'); if (isDocked()) reveal(); };   // (entered: its rest size known, bring the vessel above it)
   let inTimer = 0;
   const opening = () => { switchIn(el); el.classList.add('ac-in'); clearTimeout(inTimer); inTimer = setTimeout(endIn, D_SMALL + 60); };
   const sizes = { h: 0 };
@@ -780,6 +780,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
 
   // The floating pieces moved (the layout changed between a phone and a wider screen, the dock grew): stand the card in its place again.
   addEventListener('pps:occ', () => { position(); if (isDocked()) reveal(); });
+  addEventListener('pps:reframed', () => { if (isDocked() && model) reveal(); });   // (the camera moved by itself: judged again from where it is going)
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('colorMode', () => update());

@@ -35,6 +35,8 @@ export const STENT = {
   // the Doppler's three points: a tick, the number under it, and a band behind the slide's own third
   'stent.gate.tick': { base: { fill: 'none', stroke: tok('text-2'), width: 1.5, cap: 'round' } },
   'stent.gate.band': { base: { fill: mix('srgb', tok('accent'), 14, 'transparent') } },
+  // the colour key's strip (a gradient of its own)
+  'stent.key.bar': { base: { stroke: mix('srgb', tok('text-3'), 50, 'transparent'), width: 0.8 } },
   'stent.num': { base: { fill: tok('text'), weight: 700, halo, baseline: 'central' } },
   'stent.word': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.cap': { base: { fill: tok('text-3'), weight: 500, halo, baseline: 'central' } },
