@@ -226,7 +226,7 @@ export function createClamps(st, live) {
       const c = clampA.get(id);
       if (!c) { el.remove(); continue; }
       c.on = false;
-      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
+      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-span', 'clamp-span-out'); el.classList.replace('clamp-label', 'clamp-label-out');
       (el._c ? clampWOut : ov.clampsOut).append(el);
     }
     for (const id of want) {
@@ -261,8 +261,10 @@ export function createClamps(st, live) {
       lab._txt = (E[id].e && narrowedText(E[id].e, p, v)) || `${Math.round(v * 100)}% narrowed`;   // (a stent's reads its lumen and its waist's length, stent-waist.js; any other vessel's its percentage)   // (a number alone says nothing: every figure label carries a word or a unit)
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
+      // (A stent's waist also draws its length: a hairline bracket along it, one of the clamp's own marks (same id, same fade in and out, same GPU read as the arrows), the words being the label's.)
+      const span = E[id].e?.kind === 'shunt' ? stentBracket(id, p) : null;
+      if (span) ov.clamps.append(span);
       clampShade(id);
-      if (E[id].e?.kind === 'shunt') stentBracket(id, p);   // (its bracket and the diameter at each section)
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
