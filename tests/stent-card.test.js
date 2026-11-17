@@ -12,7 +12,7 @@ import { EDGES } from '../src/engine/topology.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
-import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE, sideLayout } from '../src/ui/tool-stent.js';
+import { stentOutline, VW, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE, sideLayout } from '../src/ui/tool-stent.js';
 import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
 import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
 
@@ -59,19 +59,6 @@ test('everything lies inside the picture, for every stent size, length and text 
     assert.ok(S.keyY + fs * 0.6 <= S.h && S.labY - fs * 0.6 >= -1, 'the first and last rows are inside the picture');
     assert.ok(S.h <= 130, `no tall blank band (${S.h.toFixed(0)} at words ${fs})`);
   }
-  assert.ok(BAR.keyY[1] + 7 <= BAR.h);
-});
-
-test('a part\'s number is on its segment once it fits it, at any size of words, and is never left half faded where it fits', () => {
-  for (const fs of [9, 11, 12.5, 14]) for (const chars of [3, 4]) {
-    const need = 0.62 * fs * chars + 3;
-    assert.equal(numberOn(need + 1, chars, fs), 1, `full once it fits (${fs} units, ${chars} characters)`);
-    assert.equal(numberOn(need - 3, chars, fs), 0);
-    let prev = 0;
-    for (let w = 0; w < 60; w += 0.5) { const o = numberOn(w, chars, fs); assert.ok(o >= prev - 1e-12 && o >= 0 && o <= 1); prev = o; }
-  }
-  // the segment the phone's screenshot showed ghosted: 1.3 mmHg on the 16 mmHg bar, drawn in words of 9.4 units
-  assert.equal(numberOn((1.3 * BAR.w) / 16, 3, 9.4), 1);
 });
 
 test('the narrowing is where the profile says: the waist is s narrower, the open stent the full diameter, and a longer waist draws more of it', () => {
@@ -168,6 +155,9 @@ test('every look the card names is in the table, and every look resolves in ever
   }
 });
 
+/** The key's "In and out" number as the card prints it (the staircase's third column: Outside, Tract, In and out, Friction, Jet). */
+const inOutOf = (card) => { const v = [...card.el.querySelectorAll('[data-look="stent.lab"]')].map((p) => p._t); return parseFloat(v[2]); };
+
 // The card made and driven in jsdom (no GL there: the pictures are drawn only in a browser; the model they are drawn from is real).
 async function made() {
   const { JSDOM } = await import('jsdom');
@@ -212,7 +202,8 @@ test('the made card: every piece has a look, its outline keeps its point count t
     assert.deepEqual(counts(), first, 'the same points, only moved');
   }
   const words = pieces.filter((p) => p._t != null).map((p) => p._t).join(' | ');
-  assert.match(words, /Stent \d/); assert.match(words, /PPG \d/); assert.match(words, /Along the length/); assert.match(words, /Outside the stent/);
+  assert.match(words, /PPG \d/); assert.match(words, /Across the stent \d/); assert.match(words, /In and out/); assert.match(words, /Friction/); assert.match(words, /Tract/); assert.match(words, /Outside/);
+  assert.doesNotMatch(words, /Along the length|Local/, 'the old grouping is gone');
   assert.doesNotMatch(words, /HVPG|wedge/i);
   card.pin({ tipsFlow: null });   // (the stent comes out: it fades, its outline stays, "No stent" is the word)
   assert.deepEqual(counts(), first);
@@ -285,11 +276,10 @@ test('the bar prints the stent\'s own entry and exit loss, never 0.0 for a patie
     store.set({ params: { ...e.params } });
     card.pin(fp); card.configure({ vessel: 'TIPS', show: ['loss'], to: 'ppg' });
     await new Promise((r) => setTimeout(r, 1500));
-    const word = [...card.el.querySelectorAll('[data-look="stent.key.text"]')].map((p) => p._t).find((t) => /^In and out/.test(t));
-    assert.ok(word, 'the key names it');
+    assert.ok([...card.el.querySelectorAll('[data-look="stent.key.text"]')].some((p) => p._t === 'In and out'), 'the key names it');
     const want = m.tips.parts.entry * (m.tips.dp / (m.tips.parts.tract + m.tips.parts.wall + m.tips.parts.entry + m.tips.parts.jet + m.tips.parts.inlet));
     assert.ok(want > 0.05, `this patient has an entry loss (${want})`);
-    assert.ok(Math.abs(parseFloat(word.replace(/^In and out /, '')) - want) <= 0.11, `${word} for ${want.toFixed(2)} at ${d} mm and ${s}`);
+    assert.ok(Math.abs(inOutOf(card) - want) <= 0.11, `${inOutOf(card)} for ${want.toFixed(2)} at ${d} mm and ${s}`);
   }
   assert.ok(![...card.el.querySelectorAll('[data-look="stent.key.text"]')].some((p) => /^Ends/.test(p._t)), 'no part is called Ends');
   card.dispose();
@@ -341,8 +331,7 @@ test('a live frame (the Tests dock\'s, the metrics untouched) prints the in-and-
     card.configure({ vessel: 'TIPS', show: ['lumen', 'loss'], to: 'ppg' });
     card.update({ metrics: m });
     await new Promise((r) => setTimeout(r, 1500));
-    const words = [...card.el.querySelectorAll('[data-look="stent.key.text"]')].map((p) => p._t);
-    const inOut = words.find((t) => /^In and out/.test(t)), val = parseFloat(inOut.replace(/^In and out /, ''));
+    const val = inOutOf(card), inOut = `In and out ${val}`;
     assert.ok(val >= 0.2 && val <= 0.4, `${inOut} (the engine has ${m.tips.parts.entry.toFixed(2)}) with ends ${trans ? 'tapered' : 'abrupt'}`);
   }
   card.dispose();
