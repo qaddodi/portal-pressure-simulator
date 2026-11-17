@@ -1,7 +1,7 @@
 // The TIPS and DIPS vessel card's body (17 Nov 2026, Mohammad approved the mock tips-cards-elegant.html: "Do it exactly like this please"): the stent drawn to
 // scale (tips-figure.js, the stent alone, coloured by the scanner's velocity), one line of numbers (the PPG, the flow, the fastest gate), and the three rows that
-// edit it (stent-editor.js). No pressure bar and no tiles: the card's own name row says what it is and its state, the line says the three numbers that matter.
-// The rows' panel grows over the rows and the card's actions under them (Doppler, Dye, Remove), never over the stent, which shows each change as it is made.
+// edit it (stent-editor.js, three tiles). No pressure bar and no number tiles: the card's own name row says what it is and its state, the line says the three numbers that matter.
+// An open tile's tray unrolls under the tiles and the card's actions (Doppler, Dye, Remove) fold away while it is open (option A); never over the stent, which shows each change as it is made.
 // The numbers follow the store's frame (the figure glides a jump); a word is written only when the number it prints changes.
 
 import { h, fmt } from './util.js';
