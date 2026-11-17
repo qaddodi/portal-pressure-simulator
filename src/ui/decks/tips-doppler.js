@@ -122,7 +122,7 @@ export const TIPS_DOPPLER = {
       tool: { kind: 'curve', param: 'stenosis.TIPS', from: 0, to: 0.8, step: 0.05, lines: ['ppg', 'pvVel'], cuts: [12] },
       kicker: 'Summary', title: 'Progressive TIPS stenosis raises the PPG and lowers portal vein velocity',
       line: 'The PPG exceeds 12 mmHg at about 40% stenosis, and main portal vein velocity drops {<30 cm/s} at about 50%. At 65% stenosis the PPG is {ppg}.',
-      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The PPG exceeds the 12 mmHg target at about 40% stenosis, and portal vein velocity drops <30 cm/s at about 50%, one of the Doppler signs of stenosis. The ring is the 65% stenosis of the preceding slides. After TIPS, a PPG <12 mmHg means a beta-blocker is no longer needed (AASLD 2024). The velocities are the model\'s means. (AASLD 2024; McNaughton and Abu-Yousef 2011.)',
+      notes: 'Each point is the same patient with slightly more stenosis, the PPG and mean main portal vein velocity plotted against the degree of stenosis. The PPG exceeds the 12 mmHg target at about 40% stenosis, and portal vein velocity drops <30 cm/s at about 50%, one of the Doppler signs of stenosis. The ring is the 65% stenosis of the preceding slides. After a TIPS for gastric varices, AASLD 2024 does not require a beta-blocker once the gradient is under 12 mmHg. The velocities are the model\'s means. (AASLD 2024; McNaughton and Abu-Yousef 2011.)',
       ask: ['In a patient with a TIPS, ascites recurs and main portal vein velocity has fallen to 25 cm/s. What do you suspect?', 'TIPS stenosis: the gradient rises as the stent narrows, and portal vein velocity falls with it.'],
     },
     {
