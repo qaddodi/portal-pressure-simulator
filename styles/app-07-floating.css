@@ -252,6 +252,12 @@
   --se-d: 12px;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
   mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
+/* A card's face, and its details, fade 28 px at the foot while there is more below them (17 Nov 2026, play-test: the words under "Why this value?" were cut mid-line with no sign
+   that they scroll). One rule for every card, here and on a phone: the mask is on the scrolling element and shows only while it scrolls (scroll-edges.js). */
+.action-card > .ac-body.se, .ad-scroll.se {
+  --se-d: 28px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
 /* (The list's edge fade is taken at once as it reaches or leaves an end: a mask eased by its variables repainted the whole list on
    every frame of the ease. A menu's veils still ease, by their own opacity, the compositor's.) */
 .um-hi { width: var(--ic-s); height: var(--ic-s); color: var(--text-2); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

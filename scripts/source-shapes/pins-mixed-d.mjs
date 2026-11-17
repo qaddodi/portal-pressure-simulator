@@ -292,6 +292,7 @@ export default [
   { file: 'styles/app-*.css', need: [/\.menu\.se::before \{[^}]*opacity: var\(--sedge-t\)/, 'Soft edges on lists that scroll (1 Nov 2026): (a menu is its own glass: a veil, not a mask)'] },
   { file: 'styles/app-*.css', need: [/\.menu\.se::after \{[^}]*opacity: var\(--sedge-b\)/, 'Soft edges on lists that scroll (1 Nov 2026):'] },
   { file: 'src/ui/scroll-edges.js', need: [/\.menu:not\(\.tl-history\)/, 'Soft edges on lists that scroll (1 Nov 2026):'] },
+  { file: 'src/ui/scroll-edges.js', need: [/\.tc-body, \.action-card > \.ac-body, \.ad-scroll, \.menu:not/, 'Soft edges on lists that scroll (1 Nov 2026): (every card face and its details\' scroller fades at its foot while there is more below, 17 Nov 2026)'] },
   { file: 'src/ui/scroll-edges.js', forbid: [/pal-list/, 'Soft edges on lists that scroll (1 Nov 2026):'] },
   // splenorenal-route
   { file: 'src/ui/stage*', need: [/\['S_DSR', 'SV_MID'\]/, 'The splenorenal shunts (spontaneous and Warren) leave the splenic vein midway between the spleen and the IMV j'] },

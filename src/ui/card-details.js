@@ -32,7 +32,21 @@ const ABOUT_EDGE = {
     PRE_R: 'Presinusoidal segment: portal venules in the portal tract. Resistance rises here in schistosomiasis and other non-cirrhotic portal hypertension.',
     SIN_RR: 'Sinusoids: normally low-resistance, fenestrated and compliant. In cirrhosis, collagen in the space of Disse, stellate-cell contraction and capillarization raise their resistance.',
 };
-const aboutEdge = (e) => ABOUT_EDGE[e.id] || ABOUT_EDGE[e.id.replace(/_L$|L$/, '')] || `${e.label}. Connects ${NODES[NI[e.from]].label} → ${NODES[NI[e.to]].label} (physiological flow direction).`;   // alloc-rare: the About card is made when a vessel is selected
+// (17 Nov 2026, play-test: "Portal vein (where the coronary vein joins it) → Portal vein (hilum)". A node's own label is its figure label; where a vessel is cut into segments,
+// two ends carry the same vessel name, so a station is named by its place along the vessel. Every other node keeps its label. tests/card-details.test.js: no segment's two ends read alike.)
+const STATION = {
+  SMV_R: 'Mesenteric veins, at the retroperitoneal exit', SVD: 'Splenic vein, midway', SV: 'Splenic vein, near the confluence',
+  CONF: 'Portal vein, at the confluence', PVT_L: 'Portal vein, at the coronary vein', PVH: 'Portal vein, at the hilum',
+  RPV_A: 'Right portal vein, at the arterioportal shunt', RPV_T: 'Right portal vein, at the TIPS origin', RPV: 'Right portal vein, at the liver',
+  LPV_A: 'Left portal vein, at the arterioportal shunt', LPV: 'Left portal vein, at the liver',
+  RHV: 'Right hepatic vein, near the central veins', RHV_T: 'Right hepatic vein, at the TIPS outflow',
+  IVCI: 'IVC, infrahepatic', IVC_D: 'IVC, at the DIPS outflow', IVCS: 'IVC, suprahepatic',
+  SVC_E: 'Superior vena cava, at the epigastric veins', ILI_R: 'Common iliac veins, at the retroperitoneal veins', LRV_S: 'Left intrarenal veins, at the splenorenal shunts',
+};
+/** The place a vessel's end stands, in words: its own label, or its place along a vessel that is cut into segments. */
+export const stationName = (id) => STATION[id] || NODES[NI[id]].label;
+
+const aboutEdge = (e) => ABOUT_EDGE[e.id] || ABOUT_EDGE[e.id.replace(/_L$|L$/, '')] || `${e.label}. Connects ${stationName(e.from)} → ${stationName(e.to)} (physiological flow direction).`;   // alloc-rare: the About card is made when a vessel is selected
 
 
 // What an organ is, in words, and the one or two numbers its card does not carry. (The card's own: the liver's sinusoid pressure, HVPG and inflows; the heart's
@@ -64,7 +78,7 @@ export function detailsPlan(m) {
   if (!edge) return { kicker: organ[0], between: null, stats: ORGAN_STATS[m.sel.id] || [], about: organ[1], why: m.why || null };
   const k = EI[edge.id], iFrom = NI[edge.from], iTo = NI[edge.to];
   return {
-    kicker: kickerOfEdge(edge), between: `${NODES[iFrom].label} → ${NODES[iTo].label}`, about: aboutEdge(edge), why: m.why || null,
+    kicker: kickerOfEdge(edge), between: `${stationName(edge.from)} → ${stationName(edge.to)}`, about: aboutEdge(edge), why: m.why || null,
     stats: [
       ['Resistance', (f, c) => { const q = Qof(f)[k]; return Math.abs(q) > 1e-3 ? numText(c, (Pof(f)[iFrom] - Pof(f)[iTo]) / (q * 0.06), 2, ' WU') : '∞'; }],
       // (A collateral: how far it has opened. A shunt: nothing, a healthy patient has none, so its healthy flow is always nought. Any other vessel: its flow in a healthy patient.)

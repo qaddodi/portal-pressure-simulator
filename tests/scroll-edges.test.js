@@ -22,3 +22,11 @@ test('main.js loads it, and the stylesheet eases the two depths on the motion sc
   assert.ok(i > css.indexOf('.um-col.more, .um-cols.more {'), 'after the .more fades it takes over from');
 });
 
+
+test('a card\'s face and its details fade at their foot while there is more below them, from the same edge state the lists use', () => {
+  const m = css.match(/\.action-card > \.ac-body\.se, \.ad-scroll\.se \{([^}]*)\}/);
+  assert.ok(m, 'one rule for every card face and its details');
+  assert.match(m[1], /--se-d: 28px/);
+  assert.match(m[1], /mask-image: linear-gradient\(to bottom, transparent, #000 calc\(var\(--sedge-t\) \* var\(--se-d\)\), #000 calc\(100% - var\(--sedge-b\) \* var\(--se-d\)\), transparent\)/, 'only the ends with more beyond them fade');
+  assert.deepEqual(edgeState(0, 520, 400), [0, 1], 'a card face at its top with more below: foot fade only');
+});
