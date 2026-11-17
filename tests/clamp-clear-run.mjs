@@ -15,7 +15,7 @@ const core = createCore((m) => { if (m.type === 'frame') q.push(m); });
 await core.handle({ type: 'init' });
 await core.handle({ type: 'preset', id: 'cirr-decomp' });
 const P = JSON.parse(JSON.stringify(core.engine().params));
-Object.assign(P, { tips: { on: true, d: 8 }, stenosis: { TIPS: o.s ?? 0.6 }, stentGeom: { TIPS: { waist: o.waist ?? 1 } } });
+Object.assign(P, { tips: { on: true, d: 8 }, stenosis: { TIPS: o.s ?? 0.6 }, stentGeom: { TIPS: { waist: o.waist ?? 1, ...(o.red ? { red: o.red } : {}) } } });
 await core.handle({ type: 'setParams', params: P, settle: true });
 await core.handle({ type: 'run', running: true });
 let lastF = null;
