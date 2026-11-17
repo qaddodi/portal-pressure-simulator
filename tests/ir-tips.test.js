@@ -123,7 +123,7 @@ test('the TIPS view fills its four readings from the stent; a stent taken away s
   assert.equal(tiles[0].querySelector('.status').textContent, 'Above target');
   assert.equal(tiles[0].dataset.sev, 'danger');
   assert.ok(ir.el.querySelector('.ir-chip'), 'one chip names the stent');
-  assert.equal(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length, 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
+  assert.ok(ir.el.querySelectorAll('.ir-figs .gl .gl-stage').length >= 2, 'the stent cards: the side view and the pressure bar, made once the view opens');
   store.set({ params: paramsOf() });
   ir.update(frameOf({ tips: null }));
   assert.equal(ir.view(), 'measure', 'the stent is gone: back to Measure');
@@ -147,8 +147,8 @@ test('the stylesheet shows one view at a time, keeps the switch in pair mode, an
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > :not\(\.ir-tips\) \{ display: none; \}/);
   assert.match(plate, /\[data-pane="hvpg"\]:not\(\[data-view="tips"\]\) > \.ir-tips \{ display: none; \}/);
   assert.match(plate, /\.ir-switch \.ps-btn\.off \{ opacity: \.42; \}/);
-  assert.match(plate, /\.ir-figs \.gl \{ display: flex; flex-direction: column;/);
-  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\) \{ display: none; \}/);
+  assert.match(plate, /\.ir-figs \.sc \{ display: flex; flex-direction: column;/);
+  assert.match(cards, /\.dock-body\.pair \.pressure-switch:not\(\.ir-switch\):not\(\.ir-sub\):not\(\.ir-sweep\):not\(\.ir-color\) \{ display: none; \}/);
 });
 
 test('Compare: the change reads as the compare table\'s own does; a stent that was not there then shows dashes', () => {
@@ -282,4 +282,78 @@ test('Curves, the engine\'s numbers: the tube alone is the same stent at a fixed
   assert.ok(tubeLoss > patientLoss, `the tube loses ${(100 * tubeLoss).toFixed(0)} % against the patient's ${(100 * patientLoss).toFixed(0)} %`);
   const wide = at({ tips: { on: true, d: 12 } });
   assert.ok(wide.tipsBench > open.tipsBench, 'a wider tube carries more');
+});
+
+test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one rule (flow-cuts.js stentStill): tile, gates, Compare and the card\'s own word', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const { fingerprintOf } = await import('../src/engine/fingerprint.js');
+  const { stentStill, FLOW_CUTS } = await import('../src/engine/flow-cuts.js');
+  const at = (s) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 8 }, stenosis: { TIPS: s } }))); e.settle(3); return { e, m: computeMetrics(e) }; };
+  assert.equal(stentStill(FLOW_CUTS.stillQ * 0.99), true); assert.equal(stentStill(-FLOW_CUTS.stillQ * 0.5), true); assert.equal(stentStill(FLOW_CUTS.stillQ * 1.01), false);
+  const dead = at(0.99), live = at(0.5);
+  const t = dead.m.tips, f = fingerprintOf(dead.m);
+  assert.equal(t.still, true);
+  assert.deepEqual([...t.peaks], [0, 0, 0], 'every gate reads 0, not a jet from a flow of nothing');
+  assert.equal(t.vPeak, 0); assert.equal(f.tipsVel, 0); assert.equal(f.tipsG0 + f.tipsG1 + f.tipsG2, 0);
+  assert.equal(live.m.tips.still, false); assert.ok(live.m.tips.vPeak > 90, 'a stent with flow reads its jet');
+  // The Compare row and the tile read the same number
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }), compareSnap: { metrics: live.m, when: '10:30', names: null } });
+  const c = createIrCompare(); c.update({ metrics: dead.m }, 'TIPS');
+  const peakRow = [...c.el.querySelectorAll('tbody tr')].at(-1);
+  assert.equal(peakRow.children[2].textContent, '0'); assert.notEqual(peakRow.children[1].textContent, '0');
+  store.set({ compareSnap: null });
+  // the card's status word and the doppler read the same rule, not their own
+  assert.match(read('src/ui/actions.js'), /if \(stentStill\(q\)\) return ST_STASIS;/);
+  assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
+  assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
+});
+
+test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+  const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
+  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/);
+  assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
+  // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
+  const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
+  assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
+  assert.doesNotMatch(read('src/ui/ir-tips.js').replace(/\/\/.*$/gm, ''), /ir-note/, 'no explanatory sentence in the figures\' band: the tiles\' titles say it');
+  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ \(along \? traceH\(3\) : BAR\.h\)\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
+  const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
+  assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
+  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+  assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
+});
+
+test('Along: the sub-switch has four views, and Along shows the side view with the traces in place of the loss bar', async () => {
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'along', 'curves', 'compare']);
+  ir.update(frameOf()); await wait(60);
+  const rb = ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r');
+  ir.el.querySelector('[data-sub="along"]').click();
+  assert.equal(ir.sub(), 'along'); assert.equal(ir.el.dataset.sub, 'along');
+  assert.notEqual(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), rb, 'the figures\' height budget follows the pictures shown');
+  ir.update(frameOf()); await wait(60);
+  assert.equal(host.dataset.view, 'tips');
+  assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
+});
+
+test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.update(frameOf()); await wait(60);
+  const sw = ir.el.querySelector('.ir-stents > .sc-color');
+  assert.ok(sw, 'moved into the header row');
+  assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
+  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
+  assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
 });

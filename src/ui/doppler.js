@@ -13,6 +13,7 @@ import { DOPPLER_MODES, THETA } from './dopplerColor.js';
 import { readFrameFor, noteDraw, paceMs, restGapFor, restPark, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow, PROBE_NORMAL } from './velNormal.js';
+import { stentStill } from '../engine/flow-cuts.js';
 import { calloutCell } from './trace-callouts.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP, pulsatility, riForms } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
@@ -467,15 +468,18 @@ export function createDoppler({ onProbe, pickGate = true }) {
     return clamp(Math.round(d / 2), 2, 15);
   };
   // A stent's proximal, mid and distal velocities from the open stent's velocity v: the narrowed segment runs faster.
-  const stentReads = (v) => {
-    return stentReadsOf(store.get().params, probe, v, STENT_OUT);   // (its narrowing, site and geometry: a long waist jets at every gate inside it)
+  // (A stent that has almost stopped reads 0 at every gate, as its tiles and its card do, flow-cuts.js stentStill; `unit` asks for the gates' factors, which are no reading.)
+  const stentReads = (v, unit = false) => {
+    const r = stentReadsOf(store.get().params, probe, v, STENT_OUT);   // (its narrowing, site and geometry: a long waist jets at every gate inside it)
+    if (!unit && frame?.D && stentStill(frame.Qf ? frame.Qf[EI[probe]] : frame.Q?.[EI[probe]])) { r[0] = 0; r[1] = 0; r[2] = 0; }
+    return r;
   };
   // The gated segment of a stent, and how much faster it runs than the open stent (1 elsewhere, and on any other vessel).
   const isStentProbe = () => meta().kind === 'tips';
   const gateOf = () => stentGate(store.get().dopGate, store.get().params, probe);
   let gf = 1;
   const gateIndex = () => { const g = gateOf(); for (let i = 0; i < SEGS.length; i++) if (SEGS[i][0] === g) return i; return -1; };
-  const gateFactor = () => (isStentProbe() ? stentReads(1)[gateIndex()] || 1 : 1);
+  const gateFactor = () => (isStentProbe() ? stentReads(1, true)[gateIndex()] || 1 : 1);
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
   const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
