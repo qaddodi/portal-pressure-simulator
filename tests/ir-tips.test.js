@@ -478,3 +478,13 @@ test('Curves life: a hidden card cancels the work, is fed nothing, and picks up 
   assert.equal(typeof ir.setActive, 'function');
   assert.match(read('src/ui/hvpg-proc.js'), /shown: \(on\) => tips\.setActive\(on\)/);
 });
+
+test('After a TIPS the PPG is a reference line, never a target: no "Target met" anywhere, and tipsGoal says Below/Above 12 mmHg', async () => {
+  const { tipsGoal } = await import('../src/ui/table-marks.js');
+  assert.deepEqual(tipsGoal(9), ['ok', 'Below 12 mmHg reference']); assert.deepEqual(tipsGoal(14), ['hi', 'Above 12 mmHg reference']);
+  assert.equal(tipsGoal(9, true)[1], 'Below 12 mmHg');
+  const { execSync } = await import('node:child_process');
+  const hits = execSync("grep -rIl \"Target met\" src styles scripts docs guides 2>/dev/null || true", { encoding: 'utf8', cwd: new URL('..', import.meta.url).pathname }).trim();
+  assert.equal(hits, '', `"Target met" still appears in: ${hits}`);
+  assert.doesNotMatch(read('src/ui/table-marks.js').replace(/\/\/.*$/gm, ''), /PPG[^\n]*\btarget\b/i);
+});
