@@ -47,8 +47,11 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   assert.ok(b.k[0] > 0.97 && b.k.at(-1) > 0.97, 'open at both ends');
 
   // 1b. The callout reads the lumen and the waist's length, and a bracket along the waist is as long as the waist is of the stent.
-  const text = () => page.document.querySelector('.clamp-label[data-id="TIPS~waist"]')?._txt;
-  assert.equal(text(), 'Waist 10.0 to 4.0 mm × 4.0 cm', 'the callout: the 10 mm stent\'s waist at 60 %, 4 cm long');
+  // (The stent's words are its one figure label (stage-label-items.js geomItem, tests/waist-label.test.js), built from these facts: the open diameter, the waist's lumen and length.)
+  const { stentFacts } = await import('../src/ui/stent-waist.js');
+  const facts = () => { const g = stentFacts({ id: 'TIPS', shunt: 'tips' }, lastF.viewParams || store.get().params); return `${g.d.toFixed(1)} ${g.waist?.toFixed(1)} ${g.wLen.toFixed(1)}`; };
+  assert.equal(facts(), '10.0 4.0 4.0', 'the 10 mm stent\'s waist at 60 %, 4 cm long');
+  assert.equal(page.document.querySelectorAll('.clamp-label').length, 0, 'no clamp has words of its own: the label is the stent\'s');
   const bracketLen = () => {
     const d = page.document.querySelector('.clamp-span[data-id="TIPS~waist"]')?.getAttribute('d');
     if (!d) return 0;
@@ -59,16 +62,16 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   const ratio = bracketLen() / b.len;
   assert.ok(Math.abs(ratio - 0.5) < 0.06, `the bracket spans the waist's share of the stent, ${ratio}`);
   // The bracket is one of the waist's own marks, beside its arrows in the clamp group (one fade, one exit): no hand-placed words (the label is the solver's), no mark of its own in the stent group.
-  assert.equal(page.document.querySelectorAll('.clamp[data-id="TIPS~waist"]').length, 2, 'the arrows');
-  assert.equal(page.document.querySelectorAll('.clamp-span[data-id="TIPS~waist"]').length, 1, 'and the one bracket, beside them');
-  assert.equal(page.document.querySelector('.clamp-span[data-id="TIPS~waist"]').parentNode, page.document.querySelector('.clamp[data-id="TIPS~waist"]').parentNode);
+  assert.equal(page.document.querySelectorAll('.clamp[data-id="TIPS~waist"]').length, 0, 'no arrowheads: the bracket alone marks the waist (Mohammad, 17 Nov)');
+  assert.equal(page.document.querySelectorAll('.clamp-span[data-id="TIPS~waist"]').length, 1, 'the one bracket');
+  assert.equal(page.document.querySelector('.clamp-span[data-id="TIPS~waist"]').parentNode, page.document.querySelector('#stageOver .clamp-span').parentNode, 'in the clamp group');
   assert.equal(page.document.querySelectorAll('[data-mk^="brk:"], .dim-text, .dim-halo').length, 0, 'no mark of its own and no words');
   await set({ stentGeom: { TIPS: { len: 8, waist: 0, trans: 0, red: 0.6 } } }, true);
   await frames(80);
   assert.equal(bracketLen(), 0, 'a waist of no length has no bracket');
   await set({ stentGeom: { TIPS: { len: 8, waist: 1.5, trans: 0, red: 0.6 } } }, true);
   await frames(80);
-  assert.equal(text(), 'Waist 10.0 to 4.0 mm × 1.5 cm', 'the callout follows the waist length');
+  assert.equal(facts(), '10.0 4.0 1.5', 'the label follows the waist length');
   assert.ok(Math.abs(bracketLen() / b.len - 1.5 / 8) < 0.05, `and the bracket ${bracketLen() / b.len}`);
   await set({ stentGeom: { TIPS: { len: 8, waist: 4, trans: 0, red: 0.6 } } }, true);
   await frames(80);
@@ -120,6 +123,7 @@ test('the TIPS in the figure: waist length, ends and the pressure colour follow 
   assert.ok(both.loss.jet > 0.01 && both.loss.jet2 > 0.01, `two jets: ${both.loss.jet}, ${both.loss.jet2}`);
   assert.ok(Math.abs(both.loss.at2 - (both.loss.dir > 0 ? 0.625 : 0.375)) < 0.01, `the waist's jet leaves it mid stent, ${both.loss.at2}`);
   assert.ok(both.loss.dir > 0 ? both.loss.at > 0.85 : both.loss.at > 0.7, `the stenosis's at the hepatic vein end, ${both.loss.at}`);
-  assert.equal(text(), 'Waist 10.0 to 6.0 mm × 2.0 cm');
-  assert.equal(page.document.querySelector('.clamp-label[data-id="TIPS"]')?._txt, 'Distal stenosis 10.0 to 5.0 mm');
+  { const g = stentFacts({ id: 'TIPS', shunt: 'tips' }, lastF.viewParams || store.get().params); assert.equal(`${g.waist.toFixed(1)} ${g.wLen.toFixed(1)} ${g.sten.toFixed(1)} ${g.end}`, '6.0 2.0 5.0 distal'); }
+  assert.equal(page.document.querySelectorAll('.clamp[data-id="TIPS"]').length, 2, 'the end stenosis keeps its arrowheads');
+  assert.equal(page.document.querySelectorAll('.clamp-label').length, 0);
 });

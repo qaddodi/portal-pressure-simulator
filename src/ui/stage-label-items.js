@@ -1,6 +1,7 @@
 // What a label says and where it attaches: change references, pressure runs, node, velocity and scan items, blockers and the label anchor.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES, dopplerK, stentReadsOf, tiedOff } from '../engine/topology.js';
+import { stentFacts } from './stent-waist.js';
 import { ABBR, ATLAS_LABELS, LABEL_VESSEL, SHORT } from './anatomy.js';
 import { oxygenFor } from './blood.js';
 import { flowColor, heatColor, oxygenColor, pressureColor, velColorOf, velocityColor } from './colormap.js';
@@ -273,11 +274,29 @@ const unitNow = () => !!store.get().presenting;
     const fixed = at && Math.abs(edgeVel(at, k)) * dopplerK(EDGES[k]);
     return Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + id, now, 6);
   }
+  // A TIPS or DIPS shunt's own label says what the stent is, not how fast the blood goes through it (Mohammad, 17 Nov: "no need to show the velocity; show the
+  // diameter and the waist and length"): "TIPS 10 mm", under it its waist "waist 6.3 mm × 3.0 cm" and its end stenosis "distal stenosis 5.0 mm" where it has them,
+  // one label for all of it, a line each (the waist's bracket on the figure carries no words, and no clamp of the stent has any). The points a slide reads in cm/s are the Doppler's.
+  const MM = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  function geomItem(it, sid, f) {
+    const x = E[sid], p = f.viewParams || store.get().params, g = x?.e && stentFacts(x.e, p), head = it.lines[0][0];
+    const num = (v, gap = 4, size = 14) => ({ t: v, size, weight: 650, cls: 'lb-val', gap, pad: 3 }), unit = (v, gap = 2.5) => ({ size: 10, weight: 500, cls: 'lb-unit', gap, t: v });
+    // (The stent on a line of its own, then what narrows it: one label, as tall as the narrowings it has, never one very wide line the stage has no room for.)
+    const lines = [[{ ...head, t: sid }, num(g ? MM(g.d) : ''), unit('mm')]];
+    let say = `${sid}: ${g ? MM(g.d) : ''} millimeters`;
+    if (g?.waist != null) { lines.push([{ ...head, t: 'waist' }, num(MM(g.waist), 4, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
+    if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
+    it.lines = lines;
+    it.key = `n:${sid}`; it.src = ['vel', sid, null]; it.node = undefined; it.sel = false; it.swatch = null;
+    it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0); it.label = say;
+    return it;
+  }
   // A TIPS or DIPS shunt's callout: the velocity through it (cm/s), as Doppler reads it (its own mean while it is on that shunt).
   // point: one of the stent's three points ('proximal' | 'mid' | 'distal'), on a slide that calls out all three (dop.all); each
   // reads what the Doppler's tile for that point reads, and the sampled one is named in the Doppler's green.
   function velItem(sid, f, point = null) {
     const it = nodeItem('RPV', f, 'inline', stageBox().width < 700);
+    if (!point) return geomItem(it, sid, f);
     const dop = shownVel.get(sid), at = pinned()?.at, now = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);
     const fixed = at && Math.abs(edgeVel(at, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // (the slide's own velocity, as its tiles read the slide)
     const live = Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + sid, now, 6);
