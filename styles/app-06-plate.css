@@ -468,6 +468,7 @@
 .stent-editor .se-name { flex: none; padding: 0 2px; border: 0; background: none; color: var(--text-2); cursor: pointer; font: 650 12px var(--font-ui); }
 .stent-editor .se-range { flex: 1 1 0; min-width: 72px; height: 30px; }
 .stent-editor .se-val { flex: none; min-width: 4.6em; text-align: right; font: 500 12px var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stent-editor .se-sub { color: var(--text-3); }
 .stent-editor .se-seg { flex: none; display: flex; }
 .stent-editor .se-seg button { padding: 4px 8px; font-size: 11.5px; }
 .stent-editor .se-done { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); cursor: pointer; font: 650 12px var(--font-ui); }
@@ -477,6 +478,7 @@
   .stent-editor .se-chip-n { font-size: 10px; }
   .stent-editor .se-name { display: none; }   /* (a phone: the chip just tapped names it; the slider keeps its accessible name) */
   .stent-editor .se-val { min-width: 0; font-size: 11px; }
+  .stent-editor .se-sub { display: none; }
   .stent-editor .se-seg button { padding: 4px 5px; font-size: 11px; }
   .stent-editor .se-done { padding: 0 8px; }
 }
@@ -714,3 +716,5 @@
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
+/* A stent's vessel card holds the same editor as the TIPS view (actions.js STENT_PANEL, card.js panel): one row, its own container so the chips take their narrow form. */
+.ac-panel { container-type: inline-size; min-width: 0; margin-top: 6px; }

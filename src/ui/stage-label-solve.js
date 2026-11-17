@@ -38,7 +38,7 @@ export function createLabelSolve(st, live) {
   const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
   // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
   // One label at a time, so the context is kept and the box is a kept record.)
-  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, view: null };
+  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, blk: [], prev: [], view: null };
   const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const PROBE_BUF = [], CLAMP_SEEN = new Set();
   const PROBE_STEPS = [];
@@ -52,7 +52,7 @@ export function createLabelSolve(st, live) {
     r.x0 = base.x0 + bx - CLB.ox; r.y0 = base.y0 + by - CLB.oy; r.x1 = base.x1 + bx - CLB.ox; r.y1 = base.y1 + by - CLB.oy;
     return r;
   }
-  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; return false; }
+  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; const bl = CLB.blk; for (let i = 0; i < bl.length; i++) if (hits(b, bl[i])) return true; const pv = CLB.prev; for (let i = 0; i < pv.length; i++) if (hits(b, pv[i])) return true; return false; }   // (the probe, and the cards (blockers): a narrowing's words never stand half under a card, cut there: 17 Nov 2026)
   const CLB_G = { x0: 0, y0: 0, x1: 0, y1: 0 }, grow = (b, m) => (b ? ((CLB_G.x0 = b.x0 - m), (CLB_G.y0 = b.y0 - m), (CLB_G.x1 = b.x1 + m), (CLB_G.y1 = b.y1 + m), CLB_G) : b);
   function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
   // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
@@ -222,7 +222,7 @@ export function createLabelSolve(st, live) {
           worldToLocalInto(SB_A, bb.x, bb.y); worldToLocalInto(SB_B, bb.x + bb.width, bb.y + bb.height);
           const r = CLAMP_R;
           r.x0 = Math.min(SB_A[0], SB_B[0]); r.y0 = Math.min(SB_A[1], SB_B[1]); r.x1 = Math.max(SB_A[0], SB_B[0]); r.y1 = Math.max(SB_A[1], SB_B[1]);
-          const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (inLaneBox(lane, r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
+          const n = lineHits(r, 8, col) + (within(r, view) ? 0 : 1e3) + (creditBox && hits(r, creditBox) ? 100 : 0) + (blockers.some((o) => hits(r, o)) ? 100 : 0) + (inLaneBox(lane, r) ? 0.5 : 0);   // (its 3.5 px halo and 2 px of air past it, and a pixel and a half to spare)
           if (n < 1 && hasBest && best.n < 1) clampAlts.push({ d: el._d, t: el._t, el });
           if (!hasBest || n < best.n) { hasBest = true; best.n = n; best.d = el._d; best.t = el._t; }
         }
@@ -272,6 +272,9 @@ export function createLabelSolve(st, live) {
       probe.length = 0; seen.clear();
       if (dpr.on && dpr.box) { probe.push(dpr.box); const pm = dpr.marks; for (let i = 0; i < pm.length; i++) probe.push(pm[i]); }
       const cws2 = clampW.children;
+      // (Each one's words keep off those placed before it, in the page's order, which is the stent's own: a stent's end stenosis and its waist
+      // ("Distal stenosis …", "Waist …") stand as a pair, each held where it is, and never swap: 17 Nov 2026.)
+      const prev = CLB.prev; prev.length = 0;
       for (let wi = 0; wi < cws2.length; wi++) {
         const el = cws2[wi];
         if (!el.classList.contains('clamp-label')) continue;
@@ -284,7 +287,7 @@ export function createLabelSolve(st, live) {
         const base = boxOfElInto(CLB_BASE, el, 5);
         worldToLocalInto(SB_B, c.x, c.y);
         el._d = el._t = undefined;
-        CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = id; CLB.credit = creditBox; CLB.probe = probe; CLB.view = view;
+        CLB.c = c; CLB.base = base; CLB.ox = SB_B[0]; CLB.oy = SB_B[1]; CLB.id = id; CLB.credit = creditBox; CLB.probe = probe; CLB.blk = blockers; CLB.view = view;
         // (Its usual spot is left for the nearest free one when the probe, a vessel other than its own, the stage's edge or the credit is there:
         // 17 Nov 2026, play-test at 1024, "Narrowed 3.2 mm × 1.0 cm" over the hepatic vessel by HA. One that stood off comes back only with 4 px
         // to spare, so a vessel easing at its edge cannot send it out and back.)
@@ -304,6 +307,7 @@ export function createLabelSolve(st, live) {
         }
         clampStep(id, want);
         clampLabelAt(el);
+        { const w = want || null, bb = w ? clBoxAt(w.d, w.t) : clBoxAt(16, 0); if (bb) prev.push({ x0: bb.x0, y0: bb.y0, x1: bb.x1, y1: bb.y1 }); }   // alloc-rare: one box per narrowing, per solve
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
@@ -313,7 +317,10 @@ export function createLabelSolve(st, live) {
       const el = cwl[wi];
       if (!el.classList.contains('clamp-label')) continue;
       const b = boxOfElInto(BOX_TMP, el, 6);
-      if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); clampLabs.push(bx); if (!dry) el._box = bx; }   // (el._box: the live figure's, read by the probe and the slide's mark)
+      if (b) { const bx = { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, lab: true }; placed.push(bx); clampLabs.push(bx); if (!dry) el._box = bx; }
+      // (Words a card still covers where they had to stay fade out whole; they come back 10 px clear of it, so a card easing at their edge
+      // cannot flick them.)
+      if (!dry && el._c) { const was = !!el._cov, m = was ? 10 : 0, g = b && { x0: b.x0 - m, y0: b.y0 - m, x1: b.x1 + m, y1: b.y1 + m }; el._cov = !!g && blockers.some((o) => hits(g, o)); live.clampCover?.(el._c.id, el._cov); }   // (el._box: the live figure's, read by the probe and the slide's mark)
     }
     // (The column's narrowing arrows, for the slide's mark: its leader keeps 6 px off them, as drawn (their triangles, not their
     // boxes, so a leader straight up between them still passes): Review 16 Oct.)

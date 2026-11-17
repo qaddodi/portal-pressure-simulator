@@ -40,10 +40,16 @@ export function createStentEditor({ id = 'TIPS' } = {}) {
 
   function sliderCtl(v) {
     const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': v.label, 'data-def': v.def ?? null });
-    const val = h('span', { class: 'se-val' });
+    const main = h('span', { class: 'se-val-m' }), sub = h('span', { class: 'se-sub' });
+    const val = h('span', { class: 'se-val' }, main, sub);
     const cell = h('div', { class: 'range-wrap se-range', 'data-ctl': v.id }, input);
     const r = { v, cells: [cell, val], input, val, kind: 1, shown: NaN, pend: false, x: 0, fresh: true, hist: false, raf: 0, dim: null };
-    r.paint = (x) => { r.shown = x; const t = v.format(x); val.textContent = t; attrSoon(input, 'aria-valuetext', t); paintRange(input, (x - v.min) / (v.max - v.min)); };
+    r.paint = (x) => {
+      r.shown = x;
+      const t = v.format(x), [a, b] = splitValue(t);
+      main.textContent = a; sub.textContent = b ? ` · ${b}` : '';   // (the millimetres first; a narrow card leaves the percentage out)
+      attrSoon(input, 'aria-valuetext', t); paintRange(input, (x - v.min) / (v.max - v.min));
+    };
     const send = () => {
       if (!r.pend) return;
       r.pend = false;

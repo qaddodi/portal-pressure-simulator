@@ -3,7 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { viewBoxAt, viewXfCameraInto, viewXfDetach } from './view-xf.js';
 import { caught } from './caught.js';
-import { figureShift, panInto, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
+import { figureShift, panInto, revealDelta, roomiest, squeezeBottom, topOverColumn, uprightFitOf } from './card-clear.js';
 import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
@@ -155,6 +155,9 @@ export function createFit(st, live) {
   // The pan a card's opening or closing asks of a view the learner placed (a fitted one is framed again by refit, which pans the same way): from the
   // place the view had before the last pan of ours (cardBase), so closing the card brings it back, unless the learner has moved it since.
   let cardBase = null;
+  // The camera moved by itself (a card's pan, a refit): a vessel card on a phone brings its vessel above itself again, from where the view is now going (card.js).
+  const REFRAMED = new Event('pps:reframed');
+  const reframed = () => dispatchEvent(REFRAMED);
   function cardsMoved() {
     if (live.lobuleOn) return;
     snapFresh();
@@ -165,7 +168,7 @@ export function createFit(st, live) {
     const base = cardBase && sameView(cur, cardBase.at) ? { k: cur.k, x: cur.x - cardBase.dx, y: cur.y - cardBase.dy } : cur;
     const to = circuit ? cardPanVT(base, circVB(), artBox()) : cardPanVT(base, VB_ANAT, anatBox());
     cardBase = { at: to, dx: to.x - base.x, dy: to.y - base.y };
-    if (!sameView(to, cur)) animateVT(to, 420, { steady: true });
+    if (!sameView(to, cur)) { animateVT(to, 420, { steady: true }); reframed(); }
   }
   function safeInsetsFrom(list, exact = false, skip = null) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
@@ -405,7 +408,7 @@ export function createFit(st, live) {
     live.fitted = true;
     // (Mid-measurement the catheter's camera keeps the view: its trip back ends on the new fit instead of the old one.)
     if (live.cath.saved) { live.cath.saved = to; return; }
-    if (!sameView(to, live.vtGliding ? live.vtTarget : live.vt)) animateVT(to, 420, { steady: true });
+    if (!sameView(to, live.vtGliding ? live.vtTarget : live.vt)) { animateVT(to, 420, { steady: true }); reframed(); }
   }
   // The Tests card closed. A fitted view (see fitted) is fitted again to the space the card leaves, whatever the tools did
   // with the camera meanwhile; a view the learner zoomed or panned stays where it is, and the home framing is let go so the
@@ -484,26 +487,28 @@ export function createFit(st, live) {
   // when the sheet closes, unless the learner has moved the figure since.
   let revealFrom = null, revealTo = null;
   const sameView = (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+  // What was last asked and what came of it (pps.revealLast: a play-test reads it when a vessel is not brought above its card).
+  const note = (o) => { (globalThis.pps ||= {}).revealLast = o; };
   function reveal(sel, insetBottom) {
     if (!sel || live.lobuleOn || live.lz?.isOpen()) return;
     const a = anchorFor(sel);
-    if (!a) return;
+    if (!a) { note({ why: 'no anchor', sel }); return; }
+    // The vessel is judged where the view is GOING, not where it is: a glide of the camera's own (a refit, the home look, a card's pan) may be
+    // running as the card opens, and a pan worked out from the view that glide is leaving was thrown away by it (F9, iPhone).
+    const goal = live.vtGliding && live.vtTarget ? live.vtTarget : live.vt, s = live.vbScale();
+    const at = Math.abs(goal.k - live.vt.k) < 0.001 ? goal : live.vt;   // (a glide that also zooms is judged from where the view stands)
+    const ox = (at.x - live.vt.x) * s, oy = (at.y - live.vt.y) * s;
     const ins = safeInsets();
     const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
-    if (bottom - top < 80) return;
-    // A vessel is kept wholly in view when it fits; one too long for that keeps at least its middle in view.
-    let x0 = a.x, x1 = a.x, y0 = a.y, y1 = a.y;
-    if (a.r != null) for (const [px, py] of a.path) { x0 = Math.min(x0, px - a.r); x1 = Math.max(x1, px + a.r); y0 = Math.min(y0, py - a.r); y1 = Math.max(y1, py + a.r); }
-    if (x1 - x0 > W - 2 * side) { x0 = x1 = a.x; }
-    if (y1 - y0 > bottom - top) { y0 = y1 = a.y; }
-    const inside = y0 >= top && y1 <= bottom && x0 >= side && x1 <= W - side;
-    if (inside) return;
-    const s = live.vbScale();
-    const dx = x0 < side ? side - x0 : x1 > W - side ? W - side - x1 : 0;
-    const dy = y0 < top ? top - y0 : y1 > bottom ? bottom - y1 : 0;
-    if (revealTo && !sameView(live.vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
-    if (!revealFrom) revealFrom = { ...live.vt };
-    revealTo = { k: live.vt.k, x: live.vt.x + dx / s, y: live.vt.y + dy / s };
+    if (bottom - top < 80) { note({ why: 'no room', top, bottom, H, insetBottom, insB: ins.b }); return; }
+    let x0 = a.x + ox, x1 = x0, y0 = a.y + oy, y1 = y0;
+    if (a.r != null) for (const [px, py] of a.path) { x0 = Math.min(x0, px + ox - a.r); x1 = Math.max(x1, px + ox + a.r); y0 = Math.min(y0, py + oy - a.r); y1 = Math.max(y1, py + oy + a.r); }
+    const { dx, dy } = revealDelta({ x0, y0, x1, y1 }, { x: a.x + ox, y: a.y + oy }, { top, bottom, left: side, right: W - side });
+    note({ why: dx || dy ? 'pan' : 'inside', dx, dy, top, bottom, H, W, insetBottom, insB: ins.b, y0, y1, x0, x1, gliding: !!live.vtGliding });
+    if (!dx && !dy) return;
+    if (revealTo && !sameView(at, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
+    if (!revealFrom) revealFrom = { ...at };
+    revealTo = { k: at.k, x: at.x + dx / s, y: at.y + dy / s };
     animateVT(revealTo, CAM_MS_MAX, { scale: true });
   }
   function unreveal() {
