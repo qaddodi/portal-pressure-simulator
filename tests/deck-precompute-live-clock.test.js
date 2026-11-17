@@ -1,4 +1,4 @@
-// A deck's slides are computed in a second engine (presenter-visuals.js makeCalc: its own worker, or its own core on the main thread
+// A deck's slides are computed in a second engine (calc-client.js makeCalc: its own worker, or its own core on the main thread
 // when workers are unavailable), so the live figure's clock keeps ticking while a presentation is prepared (review B3, 15 Nov 2026).
 // Any generator job calls stop() on the core that runs it (worker-core.js drain), so a 'sequence' sent to the LIVE core would freeze it:
 // the first test shows the second core leaves the live one running, the second shows what the live core does when given the same job,

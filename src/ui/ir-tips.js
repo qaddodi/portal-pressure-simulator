@@ -13,7 +13,8 @@
 // Push A was the switch, the stent chip and four readings. Push B puts the stent cards under them (tool-stent.js createStent, built by the instrument-cards
 // thread): the side view and the bar of where the pressure goes, one picture each, fed the dock's live frame (update(f), never pin). They are made the first
 // time the view opens, so a person who never opens it pays nothing. Push C adds the sub-switch Inside the stent | Compare (ir-compare.js: Then, Now, Change against
-// the app's own pin). The curves and the trace come on top of this (plan §8).
+// the app's own pin). Push D adds Tube vs patient (ir-curves.js: the stent's flow against one setting, in the patient and as a tube on a bench, each point settled on
+// a calculation worker of its own). The trace comes on top of this (plan §8).
 
 import { h, fmt, clamp, countTo, swapText, toast } from './util.js';
 import { store, hiddenNow } from './store.js';
@@ -24,6 +25,7 @@ import { fillQ } from './shown.js';
 import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { createStent } from './tool-stent.js';
 import { createIrCompare } from './ir-compare.js';
+import { createIrCurves } from './ir-curves.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
@@ -74,13 +76,15 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   const figs = h('div', { class: 'ir-figs' });
   let stent = null, sub = 'inside';   // (the stent cards are made the first time the view opens)
   const note = h('p', { class: 'ctl-sub ir-note' }, 'Across stent is the drop between the stent\'s two ends; the PPG runs on from the portal vein to the IVC. After a TIPS, a PPG under 12 mmHg is the target.');
-  const cmp = createIrCompare();
+  const cmp = createIrCompare(), crv = createIrCurves();
   const btnI = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'inside', 'aria-pressed': 'true' }, 'Inside the stent');
+  const btnV = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'curves', 'aria-pressed': 'false' }, 'Tube vs patient');
   const btnC = h('button', { type: 'button', class: 'ps-btn', 'data-sub': 'compare', 'aria-pressed': 'false' }, 'Compare');
-  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnC);
-  btnI.addEventListener('click', () => setSub('inside')); btnC.addEventListener('click', () => setSub('compare'));
+  const subSwitch = h('div', { class: 'pressure-switch ir-sub', role: 'group', 'aria-label': 'TIPS view' }, btnI, btnV, btnC);
+  btnI.addEventListener('click', () => setSub('inside')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
+  const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);
   const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, cmp.el);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -90,7 +94,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     // The view that comes in fades up where the other was (display flips at once; its parts rise from nothing, as Scope's second view does).
     const parts = v === 'tips' ? [el] : [...host.children].filter((c) => c !== el);
     for (const c of parts) c.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });
-    if (v === 'tips') showStent();
+    if (v === 'tips') showStent(); else crv.stop();
     onChange();
     if (frame) update(frame);
   }
@@ -98,8 +102,9 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     if (v === sub) return;
     sub = v;
     el.dataset.sub = v;
-    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
-    (v === 'compare' ? cmp.el : inside).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
+    attrSoon(btnI, 'aria-pressed', v === 'inside' ? 'true' : 'false'); attrSoon(btnV, 'aria-pressed', v === 'curves' ? 'true' : 'false'); attrSoon(btnC, 'aria-pressed', v === 'compare' ? 'true' : 'false');
+    if (v !== 'curves') crv.stop();
+    subEl(v).animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE });   // (the view that comes in fades up where the other was)
     onChange();
     if (frame) update(frame);
   }
@@ -138,6 +143,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const m = f?.metrics;
     if (!m) return;
     if (sub === 'compare') { cmp.update(f, which); return; }
+    if (sub === 'curves') { crv.update(f, which); return; }
     showStent();
     stent.update(f);
     const st = which === 'DIPS' ? m.dips : m.tips, hidden = hiddenNow(st0);

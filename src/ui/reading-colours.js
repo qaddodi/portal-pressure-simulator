@@ -22,7 +22,7 @@ export const READING_COLOUR = {
   // flows and the blood
   pvFlow: '--tr-hv', pvVel: '--tr-var', liver: '--tr-pv', co: '--tr-hv', shunt: '--tr-cav',
   // (the stents' readings, table-marks.js: the flow wears the flows' colour, the pressure across the stent the PPG's, the velocity the velocity's)
-  tipsFlow: '--tr-hv', dipsFlow: '--tr-hv', tipsDp: '--tr-ppg', dipsDp: '--tr-ppg', tipsVel: '--tr-var', dipsVel: '--tr-var', tipsLumen: '--tr-cav', dipsLumen: '--tr-cav', tipsLocalPct: '--tr-sin', dipsLocalPct: '--tr-sin',
+  tipsFlow: '--tr-hv', dipsFlow: '--tr-hv', tipsBench: '--tr-hv', dipsBench: '--tr-hv', tipsDp: '--tr-ppg', dipsDp: '--tr-ppg', tipsVel: '--tr-var', dipsVel: '--tr-var', tipsLumen: '--tr-cav', dipsLumen: '--tr-cav', tipsLocalPct: '--tr-sin', dipsLocalPct: '--tr-sin',
   // (the change-from-healthy chart, tool-shift.js: the SVR and the blood volume share its upper panel with the cardiac output and the MAP, the splanchnic
   // inflow its lower one with the portal pressure; no token is free of all five, so each takes one its own panel's partners do not wear)
   svr: '--tr-hvpg', bv: '--tr-var', spl: '--tr-ivc',
