@@ -111,3 +111,35 @@ export function revealDelta(box, mid, room) {
   const dy = y0 < room.top ? room.top - y0 : y1 > room.bottom ? room.bottom - y1 : 0;
   return { dx, dy };
 }
+
+// The pan that keeps a slide's subject (a vessel's drawn run, world units) in the room a phone's cards leave (17 Nov 2026, F49: on an iPhone the stent of
+// the stenosis slide stood behind the words' card, only its callouts above it). The slide's frame is fitted into the room the bars and cards leave, but
+// that room is squeezed (squeezeBottom: a sheet never takes the figure below 35 % of the height) and so reaches under the cards' real edge; the subject is
+// judged against the real one. `vt` is the view { k, x, y } the frame was fitted to, `geo` the stage { rw, rh } and the plate's view box `vb` [x, y, w, h];
+// `room` { top, bottom, left, right } is the free room in stage px. The same rule as a vessel card's reveal (revealDelta above): the vessel whole when it
+// fits that room along an axis, its middle in when it is longer. Gives { dx, dy } to add to the view's x and y (the plate's units), { 0, 0 } when it is in.
+export function subjectDelta(run, vt, geo, room) {
+  if (!run || run.length < 2 || !(room.bottom - room.top >= 80) || !(room.right - room.left >= 80)) return { dx: 0, dy: 0 };
+  const { rw, rh, vb } = geo, s0 = Math.min(rw / vb[2], rh / vb[3]);
+  const ox = (rw - vb[2] * s0) / 2 - vb[0] * s0, oy = (rh - vb[3] * s0) / 2 - vb[1] * s0;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, run0 = 0, mx = 0, my = 0;
+  for (const [wx, wy] of run) {
+    const x = ox + s0 * (vt.x + vt.k * wx), y = oy + s0 * (vt.y + vt.k * wy);
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  // (the run's middle by its length)
+  let total = 0;
+  for (let i = 1; i < run.length; i++) total += Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]);
+  for (let i = 1; i < run.length; i++) {
+    const seg = Math.hypot(run[i][0] - run[i - 1][0], run[i][1] - run[i - 1][1]);
+    if (run0 + seg >= total / 2 && seg > 0) {
+      const u = (total / 2 - run0) / seg;
+      mx = run[i - 1][0] + (run[i][0] - run[i - 1][0]) * u; my = run[i - 1][1] + (run[i][1] - run[i - 1][1]) * u;
+      break;
+    }
+    run0 += seg;
+  }
+  const mid = { x: ox + s0 * (vt.x + vt.k * mx), y: oy + s0 * (vt.y + vt.k * my) };
+  const d = revealDelta({ x0, y0, x1, y1 }, mid, room);
+  return { dx: d.dx / s0, dy: d.dy / s0 };
+}

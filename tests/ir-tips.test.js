@@ -324,17 +324,18 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.match(read('src/engine/engine.js'), /o\.still = stentStillHeld\(q, o\.still === true\);/);
 });
 
-test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+test('The TIPS view fits the card without scrolling: it fills the pane, the readings are one line, the figures take the height left and are never wider than it allows', async () => {
   const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
   assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
-  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-tips \.ir-tiles\.rp-tiles \{ display: flex; flex-wrap: wrap; align-items: baseline;/, 'the four readings are one line of text, wrapping between readings (Mohammad, 17 Nov: no big tiles)');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, \.ir-tips \.ir-tiles \.tr, \.ir-tips \.ir-tiles \.cmp \{ display: none; \}/);
   // Width first (17 Nov 2026, play-test findings 22 and 25): the pictures fill the card's width up to 520 px; the height left may only shrink them to a readable 340 px, and the view scrolls before the text gets smaller.
   assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: calc\(min\(100cqw, var\(--fig-min, 340px\)\) \/ var\(--fig-r, 1\.35\) \+ 6px\); container-type: size; overflow: clip; \}/, 'nothing the figures draw reaches the switch above them');
   assert.match(plate, /\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/);
   assert.match(plate, /\.ir-inside \{ flex: 1 0 auto;/, 'the readings and the smallest readable picture are never squeezed');
   assert.match(plate, /\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, 'the last resort is a scroll down, never sideways (overflow-y alone makes x scroll too: F-sideways, 17 Nov)');
-  assert.match(plate, /\.ir-tiles \.rb \{ display: none; \}/, 'the readings are numbers and words; the bar went to the picture\'s room');
+  assert.match(plate, /\.ir-tips \.ir-tiles \.rb, /, 'the readings are numbers and words; the bar went to the picture\'s room');
   // The deck's own rule for the same stage (app-11-deck-visuals.css) has two classes' weight; the Tests card's must outweigh it, or the stages take the card's width again
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
   assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
@@ -343,7 +344,8 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   assert.match(src, /show: \['card'\]/, 'one stent drawing, one lens switch');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
-  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+  assert.ok(ir.el.querySelector('.ir-stents > .ir-sub'), 'two rows of controls: the chip with the three views, then the editor');
+  assert.equal(ir.el.querySelector('.ir-editor').previousElementSibling.className, 'ir-stents');
   assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
@@ -430,12 +432,12 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
 });
 
-test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in a thin row over the pictures, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   ir.update(frameOf()); await wait(60);
-  const sw = ir.el.querySelector('.ir-stents > .sc-lens');
+  const sw = ir.el.querySelector('.ir-lensrow > .sc-lens');
   assert.ok(sw, 'moved into the header row');
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
   assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-lens'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
@@ -450,6 +452,7 @@ const lifeKit = (over = {}) => {
   const calc = () => ({ sequence: async () => ({}) });
   return { log, c: createIrCurves({ request, calc, chart, delay: 5, ...over.opts }) };
 };
+const until = async (ok, ms = 2000) => { const t0 = Date.now(); while (!ok() && Date.now() - t0 < ms) await wait(10); };   // (waits for a state, not a time: the quiet period runs on the rest-pass scheduler, slower on a busy machine)
 const frameWith = (flow, day) => ({ clock: day == null ? undefined : 'disease', day, metrics: { ppg: 9, tips: { s: 0.4, flow, bench: 3 }, dips: null } });
 
 test('Curves life: a change that settles asks once; further frames of the same stent ask nothing and only move the ring', async () => {
@@ -475,12 +478,12 @@ test('Curves life: leaving before the quiet time ends cancels the sweep, and com
 test('Curves life: leaving while the snapshot is being asked for draws nothing from the answer that comes late', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30);
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading');
   assert.equal(c.phase(), 'loading'); c.stop(); assert.equal(c.phase(), 'idle');
   for (const go of log.pending.splice(0)) go();
   await wait(20);
   assert.equal(log.configured.length, 0, 'the late answer is dropped');
-  c.update(frameWith(1.5)); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  c.update(frameWith(1.5)); await until(() => log.pending.length > 0); for (const go of log.pending.splice(0)) go(); await until(() => log.configured.length === 1);
   assert.equal(log.configured.length, 1, 'and the next visit draws');
 });
 
@@ -500,7 +503,7 @@ test('Curves life: a sweep that is drawn is kept on leaving and returning unchan
 test('Curves life: an edit while the answer is loading is the sweep that is drawn, not the one before it', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30); assert.equal(c.phase(), 'loading');
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading'); assert.equal(c.phase(), 'loading');
   store.set({ params: paramsOf({ tips: { on: true, d: 9 } }) }); c.update(frameWith(1.4)); assert.equal(c.phase(), 'waiting');
   for (const go of log.pending.splice(0)) go(); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
   assert.equal(log.configured.length, 1); assert.equal(log.configured[0].ctx.params.tips.d, 9);
@@ -543,12 +546,12 @@ test('the stent peak tile reads a deliberate reduction\'s jet as intended, and a
   assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
 });
 
-test('The readings never break inside a word, and in a narrow card (375 px phone) each is its name over its number (F37)', async () => {
+test('The readings never break inside a word, and are one line of small text, not tiles (F37, and Mohammad 17 Nov)', async () => {
   const plate = read('styles/app-06-plate.css'), tests = read('styles/app-09-tests.css');
-  const narrow = plate.match(/@container \(max-width: 399\.9px\) \{ \.ir-tips \.ir-tiles \.metric \{[^}]*\}[^@]*?\}\n/)?.[0] || '';
-  assert.match(narrow, /grid-template-areas: "k" "v" "s"/, 'name above number above word, one column');
-  assert.match(narrow, /overflow-wrap: normal; word-break: normal; hyphens: none/);
-  assert.doesNotMatch(narrow, /grid-template-columns: minmax\(0, 1fr\) auto/, 'no name squeezed beside its number');
+  const metric = plate.match(/\.ir-tips \.ir-tiles \.metric \{[^}]*\}/)?.[0] || '';
+  assert.match(metric, /display: inline-flex;/); assert.match(metric, /flex-wrap: nowrap;/, 'a reading\'s name, number and word stay together');
+  assert.match(plate.match(/\.ir-tips \.ir-tiles \.metric \.k \{[^}]*\}/)?.[0] || '', /white-space: nowrap;/, 'a name is never broken inside a word');
+  assert.match(metric, /background: none; box-shadow: none;/, 'no box round a reading');
   assert.match(tests, /\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/);
   for (const [name, css] of [['app-01', read('styles/app-01-chrome.css')], ['app-06', plate], ['app-08', read('styles/app-08-cards.css')], ['app-09', tests]]) {
     const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
@@ -594,4 +597,44 @@ test('No Tests pane scrolls sideways: the pane and the TIPS view clip x and take
   const plate = read('styles/app-06-plate.css');
   assert.match(plate, /\.instrument-workspace \.dock-pane \{[^}]*overflow: hidden auto; touch-action: pan-y;/, 'every Tests pane');
   for (const rule of plate.match(/\.ir-[\w-]*[^{}]*\{[^}]*overflow-y: (?:auto|scroll)[^}]*\}/g) || []) assert.match(rule, /overflow: hidden (?:auto|scroll)/, `a vertical scroller that also clips x: ${rule.slice(0, 60)}`);
+});
+
+test('Curves, working state (F42): while the points are worked out the chart rests faded with a line saying so and how far; when they are drawn it fades up', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  let release; const gate = new Promise((r) => { release = r; });
+  const request = async (type) => (type === 'snapshot' ? { snap: { s: 1 } } : { result: {} });
+  const calc = () => ({ sequence: async (steps, from, cb) => { cb({ i: 0, snap: {}, fp: {} }); await gate; steps.forEach((_s, i) => i && cb({ i, snap: {}, fp: {} })); return {}; } });
+  const chart = () => ({ el: document.createElement('div'), configure: (_t, ctx) => { ctx.run([1, 2, 3, 4]); }, pin() {} });
+  const c = createIrCurves({ request, calc, chart, delay: 5 });
+  c.update(frameWith(1.5)); assert.equal(c.el.dataset.state, undefined, 'set between frames');
+  await wait(60);
+  assert.equal(c.phase(), 'drawn');
+  assert.match(c.el.querySelector('.ir-work').textContent, /Working out the curves for this patient… 1 of 4/);
+  await wait(30);
+  assert.equal(c.el.dataset.state, 'working');
+  release(); await wait(40);
+  assert.equal(c.el.dataset.state, 'ready');
+  const css = read('styles/app-06-plate.css');
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-chart \{ opacity: \.25; \}/);
+  assert.match(css, /\.ir-curves\[data-state="working"\] \.ir-work \{ opacity: 1; \}/);
+});
+
+test('Curves, the dashed line has somewhere to stand (F43): an unset waist or length is filled from the stent\'s own geometry', async () => {
+  store.set({ params: paramsOf({ tips: { on: true, d: 8 } }) });
+  const { log, c } = lifeKit();
+  c.setSweep('waist');
+  c.update({ metrics: { ppg: 9, tips: { s: 0.4, red: 0.4, flow: 0.2, bench: 1, geom: { len: 8, waist: 2.4, trans: 0 } }, dips: null } });
+  await wait(60);
+  const lp = log.configured.at(-1).ctx.liveParams();
+  assert.equal(lp.stentGeom.TIPS.waist, 2.4);
+  assert.equal(log.configured.at(-1).ctx.liveParams(), lp, 'the same object while nothing changes');
+  assert.equal(log.configured.at(-1).t.param, 'stentGeom.TIPS.waist');
+});
+
+test('Compare says how to pin a moment before there is one, in one line (F44)', () => {
+  const c = createIrCompare();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }), compareSnap: null });
+  c.update(frameOf());
+  assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
+  assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
 });
