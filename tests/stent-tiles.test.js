@@ -104,3 +104,9 @@ test('a stent is picked over the sinusoids it crosses, and its hit strip is a th
   const pk = createVesselPick((visit) => { visit('SIN', 5, 6, sin); visit('TIPS', 1 + 1e6, 10, stent); });
   assert.equal(pk.pick(50, 0, 1, 0), 'TIPS');
 });
+
+test('the figure draws a stent to scale with its lumen: 12 mm twice 6 mm (play-test R2-2)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const tub = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
+  assert.match(tub, /if \(isStent\(e\) && e\.kind === 'shunt'\) wA = vesselPx\(8\) \* Math\.max\(0\.5, D\) \/ 8;/);
+});

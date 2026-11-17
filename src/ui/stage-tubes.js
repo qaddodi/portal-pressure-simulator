@@ -295,7 +295,9 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const e = x.e, k = EI[e.id], D = f.D[k];
     // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
     // as on a transit map, so the lines stay even and legible.
-    const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    let wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    // (A stent is drawn to scale with its own lumen, 8 mm as the vein's compressed width and the others in proportion: a 12 mm stent is twice a 6 mm one, not 1.65 times, R2-2.)
+    if (isStent(e) && e.kind === 'shunt') wA = vesselPx(8) * Math.max(0.5, D) / 8;
     const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
     let w = lerp(wA, wC, t);
     // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
