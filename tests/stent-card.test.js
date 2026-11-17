@@ -13,6 +13,7 @@ import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { stentOutline, numberOn, VW, BAR, printedParts, readStent, createFollowN, openVelocity, localVelocity, stentTitle, N_PROFILE, SIDE } from '../src/ui/tool-stent.js';
+import { deepMerge, sanitizeParams } from '../src/engine/scenario.js';
 import { geomFix, profileAt, waistSpan } from '../src/engine/stent-geom.js';
 
 function settled(setup) {
@@ -256,5 +257,26 @@ test('the trace card: fixed curves that start at the PPG and end at zero, five s
   assert.deepEqual(lines.map((p) => p._pts.n), nPts);
   assert.equal(card.el.querySelectorAll('[data-look^="stent.tr.line."]').length, 3);
   assert.equal(lines[2]._g.opacity, 1); assert.equal(lines[0]._g.opacity, 0);
+  card.dispose();
+});
+
+test('the bar prints the stent\'s own entry and exit loss, never 0.0 for a patient that has it, under a name that is not the Ends control\'s', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  for (const [d, s] of [[8, 0.25], [8, 0.6], [10, 0.6]]) {
+    const e = new Engine(); e.loadPreset('cirr-decomp');
+    e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d }, stenosis: { TIPS: s }, pulsatile: false, respiration: false })));
+    e.settle(3);
+    const m = computeMetrics(e), fp = fingerprintOf(m, { params: e.params });
+    store.set({ params: { ...e.params } });
+    card.pin(fp); card.configure({ vessel: 'TIPS', show: ['loss'], to: 'ppg' });
+    await new Promise((r) => setTimeout(r, 1500));
+    const word = [...card.el.querySelectorAll('[data-look="stent.key.text"]')].map((p) => p._t).find((t) => /^In and out/.test(t));
+    assert.ok(word, 'the key names it');
+    const want = m.tips.parts.entry * (m.tips.dp / (m.tips.parts.tract + m.tips.parts.wall + m.tips.parts.entry + m.tips.parts.jet + m.tips.parts.inlet));
+    assert.ok(want > 0.05, `this patient has an entry loss (${want})`);
+    assert.ok(Math.abs(parseFloat(word.replace(/^In and out /, '')) - want) <= 0.11, `${word} for ${want.toFixed(2)} at ${d} mm and ${s}`);
+  }
+  assert.ok(![...card.el.querySelectorAll('[data-look="stent.key.text"]')].some((p) => /^Ends/.test(p._t)), 'no part is called Ends');
   card.dispose();
 });
