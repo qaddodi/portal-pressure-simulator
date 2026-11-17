@@ -569,7 +569,10 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   lead.setShown(true); await wait(20);
   assert.equal(card.el.getAttribute('data-fold'), 'true', 'the lead on screen: the card folds');
   assert.equal(card.el.querySelector('.se-chips').inert, true);
-  assert.equal(card.el.querySelector('.se-summary').textContent, '10.0 mm · stenosis 5.0 mm · Distal · waist 6.0 mm × 2.0 cm · edited in Tests › IR');
+  // (No diameter: the card's row above reads it. No "edited in Tests" note: the line itself is the way in.)
+  assert.equal(card.el.querySelector('.se-summary .se-sum-t').textContent, 'Stenosis 5.0 mm · Distal · Waist 6.0 mm × 2.0 cm');
+  assert.equal(card.el.querySelector('.se-summary').tagName, 'BUTTON');
+  assert.equal(card.el.querySelector('.se-summary').inert, false, 'folded: the line is the live control');
   assert.equal(lead.el.getAttribute('data-fold'), 'false', 'the lead never folds');
   lead.setStent('TIPS'); await wait(20);
   assert.equal(card.el.getAttribute('data-fold'), 'false', 'the lead on another stent: the card keeps its chips');
@@ -591,6 +594,45 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   // Closing the dock tells every pane it is out of sight (dock.js close): else the Tests view's editor stayed "shown" with the dock shut and a vessel card
   // folded to a line with no editor on screen (the play-test, iPad, 17 Nov).
   assert.match(read('src/ui/dock.js'), /onClose\(\);\n(?:\s*\/\/.*\n)*\s*for \(const p of panes\) p\.shown\?\.\(false\);/);
+});
+
+test('The vessel card\'s mode is decided before its first paint (no flash of the chips), and its folded line and IR action open Tests › IR › TIPS', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  store.set({ params: paramsOf({ dips: { on: true, d: 10 } }) });
+  const lead = createStentEditor({ id: 'DIPS', lead: true, compact: true });
+  // Tests not on screen: the card is born with its chips.
+  const a = createStentEditor({ id: 'DIPS' });
+  assert.equal(a.el.getAttribute('data-fold'), 'false'); assert.equal(a.el.querySelector('.se-chips').inert, false); assert.equal(a.el.querySelector('.se-summary').inert, true);
+  // Tests on screen on this stent: born folded, read at once with no wait, so the first paint is the last (no chips for a frame, then the line).
+  lead.setShown(true);
+  const b = createStentEditor({ id: 'DIPS' });
+  assert.equal(b.el.getAttribute('data-fold'), 'true', 'born folded: data-fold is set at creation, not a frame later');
+  assert.equal(b.el.querySelector('.se-chips').inert, true); assert.equal(b.el.querySelector('.se-summary').inert, false);
+  // (A card for a stent the view is not on is not folded by it: the views the tests above mount lead the TIPS, so only the DIPS is asserted here.)
+  const c = createStentEditor({ id: 'TIPS' });
+  await wait(20);
+  assert.equal(b.el.getAttribute('data-fold'), 'true', 'and it stays so once the frame has run');
+  // A later switch is the stylesheet's crossfade, never a display flip.
+  lead.setShown(false); await wait(20);
+  assert.equal(b.el.getAttribute('data-fold'), 'false');
+  const plate = read('styles/app-06-plate.css');
+  assert.match(plate, /\.stent-editor \.se-layer \{[^}]*transition: opacity var\(--d-small\)/, 'chips and line crossfade');
+  // The line opens Tests on that stent.
+  const seen = [];
+  const d = createStentEditor({ id: 'DIPS', onOpen: (id) => seen.push(id) });
+  d.el.querySelector('.se-summary').click();
+  assert.deepEqual(seen, ['DIPS']);
+  for (const e of [a, b, c, d, lead]) e.destroy();
+  // The wiring: an IR action beside Doppler and Dye on the TIPS and DIPS cards only, the pane api and the ctx that open the view.
+  const act = read('src/ui/actions.js');
+  assert.match(act, /id === 'TIPS' \|\| id === 'DIPS'\) verbs\.splice\(verbs\.indexOf\(dye\) \+ 1, 0, \{ type: 'button', id: 'ir'.*quiet: true, run: \(\) => CTX\.openIr\(id\)/);
+  assert.match(act, /onOpen: id === 'TIPS' \|\| id === 'DIPS' \? \(\) => CTX\.openIr\(id\) : null/);
+  assert.match(read('src/ui/main.js'), /openIr: \(id\) => \{ dock\.pane\('hvpg'\)\?\.openStent\?\.\(id\); dock\.show\('hvpg', \{ reveal: true \}\); \}/);
+  assert.match(read('src/ui/hvpg-proc.js'), /openStent: \(id\) => tips\.openStent\(id\)/);
+  const ir = createIrTips({ host: document.createElement('div') });
+  assert.equal(typeof ir.openStent, 'function');
+  assert.equal(ir.openStent('TIPS'), false, 'no TIPS in this patient: nothing opens');
+  assert.equal(ir.view(), 'measure');
 });
 
 test('No Tests pane scrolls sideways: the pane and the TIPS view clip x and take vertical pans only', async () => {

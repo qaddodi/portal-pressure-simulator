@@ -175,6 +175,14 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
       if (!on && view === 'tips') setView('measure');
     }
   }
+  /** Open the view on a stent (a vessel card's IR shortcut, a folded card's line): the chip, the editor and the view follow, then the TIPS view shows. */
+  function openStent(id) {
+    if (!id || !ids.includes(id)) return false;
+    which = id; editor.setStent(id); syncChips();
+    setView('tips');
+    if (frame) update(frame);
+    return true;
+  }
   function syncChips() { for (const c of chips.children) c.setAttribute('aria-pressed', String(c.dataset.id === which)); }
 
   // The peak velocity tile's two cut-off ticks and its title follow the stent's own diameter (peakBand): written when the range changes, never per frame.
@@ -236,5 +244,5 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
     if (on && frame) update(frame);
   }
   host.append(el);
-  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, curves: crv };
+  return { head, el, update, view: () => view, setView, sub: () => sub, setSub, which: () => which, setActive, openStent, curves: crv };
 }

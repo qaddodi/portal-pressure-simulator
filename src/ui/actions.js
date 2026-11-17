@@ -207,7 +207,7 @@ export function stentControls(id) {
 
 /** A stent's card holds its controls as the Tests card's TIPS view does (17 Nov 2026, play-test finding 9: the phone's card covered the stent it edits):
  *  one slim row of value chips, Diameter, Stenosis, Waist and Length, each opening its slider in the same row (stent-editor.js, from stentControls). */
-const STENT_PANEL = (id) => ({ type: 'panel', id: 'stent', label: 'Edit stent', make: () => createStentEditor({ id }) });   // alloc-rare: made once per card built (a pick)
+const STENT_PANEL = (id) => ({ type: 'panel', id: 'stent', label: 'Edit stent', make: () => createStentEditor({ id, onOpen: id === 'TIPS' || id === 'DIPS' ? () => CTX.openIr(id) : null }) });   // alloc-rare: made once per card built (a pick)
 
 const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
 function buildEdgeCard(e) {
@@ -288,6 +288,8 @@ function buildEdgeCard(e) {
     const dye = { type: 'dye', id: 'dye', label: 'Inject dye', short: 'Dye', icon: 'drop', run: (o) => CTX.injectDye(id, o), release: () => CTX.releaseDye(), busy: () => CTX.dyeInjecting(), showIf: () => !!CTX.injectDye && CTX.canDye?.() !== false };
     const at = verbs.indexOf(doppler);
     if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
+    // The TIPS and the DIPS open their own test, beside Doppler and Dye: Tests › IR › TIPS on this stent (a quiet word; the card's folded line is the same way in).
+    if (id === 'TIPS' || id === 'DIPS') verbs.splice(verbs.indexOf(dye) + 1, 0, { type: 'button', id: 'ir', label: `Test ${id} in IR`, short: 'IR', icon: 'catheter', quiet: true, run: () => CTX.openIr(id) });   // alloc-rare: a click handler of the open card
   }
   // (What a vessel is, in words, is in Details: the card shows numbers and verbs only.)
   return {
@@ -614,7 +616,7 @@ const LOBULE_CARD = buildLobuleCards(), HEP_CARD = buildHepCards();
 
 /**
  * The action-card model for a selection.
- * ctx: { action, showPane, probe, startShunt, canShunt, select, zoomLobule, paneApi }
+ * ctx: { action, showPane, probe, startShunt, canShunt, select, zoomLobule, paneApi, openIr }
  * (The model is kept and handed back each time; card.js only reads it.)
  */
 export function cardFor(selIn, ctx) {

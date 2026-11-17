@@ -461,8 +461,12 @@
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"], .stent-editor[data-open="waist"] .se-strip[data-strip="waist"],
 .stent-editor[data-open="len"] .se-strip[data-strip="len"], .stent-editor[data-open="ends"] .se-strip[data-strip="ends"], .stent-editor[data-fold="true"] .se-summary { position: static; }
 /* (Folded, play-test F39: the Tests view's editor is on screen, so a vessel card shows the stent's numbers in one line where its chips were.) */
-.stent-editor[data-fold="true"] .se-summary { opacity: 1; }
-.stent-editor .se-summary { min-height: 0; padding: 6px 2px; font-size: var(--fs-14); line-height: 1.35; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.stent-editor[data-fold="true"] .se-summary { opacity: 1; pointer-events: auto; }
+/* (The folded line is a button: the way into Tests › IR › TIPS for this stent. Its chevron says so; the line crossfades with the chips, never pops.) */
+.stent-editor .se-summary { min-height: 44px; padding: 6px 2px; border: 0; background: none; text-align: left; cursor: pointer; font: 500 var(--fs-14)/1.35 var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.stent-editor .se-sum-t { min-width: 0; }
+.stent-editor .se-sum-ic { flex: none; width: 14px; height: 14px; color: var(--text-3); }
+.stent-editor .se-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 6px; }
 .stent-editor[data-open="dia"] .se-strip[data-strip="dia"], .stent-editor[data-open="end"] .se-strip[data-strip="end"],
 .stent-editor[data-open="waist"] .se-strip[data-strip="waist"], .stent-editor[data-open="len"] .se-strip[data-strip="len"],
 .stent-editor[data-open="ends"] .se-strip[data-strip="ends"] { opacity: 1; pointer-events: auto; }

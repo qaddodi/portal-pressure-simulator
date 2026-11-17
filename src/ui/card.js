@@ -71,7 +71,7 @@ const P_CTLTOP = { class: 'ctl-top' }, P_CTLNAME = { class: 'ctl-name' }, P_CTLV
 const P_RANGEWRAP = { class: 'range-wrap' }, P_TICKS = { class: 'ac-ticks', 'aria-hidden': 'true' }, P_TICK = { class: 'ac-tick', style: '' };
 const P_METER = { class: 'ac-meter', 'aria-hidden': 'true' }, P_METER_FILL = { class: 'ac-meter-fill' }, P_METER_ROW = { class: 'ac-c ac-meter-row', role: 'meter', 'aria-label': '', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' };
 const P_SWITCHVIS = { class: 'switch-vis', 'aria-hidden': 'true' };
-const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' };
+const P_BL = { class: 'ac-bl' }, P_BTN = { class: 'ac-btn', 'aria-label': '', title: '' }, P_BTN_DANGER = { class: 'ac-btn danger', 'aria-label': '', title: '' }, P_BTN_QUIET = { class: 'ac-btn quiet', 'aria-label': '', title: '' };
 const P_DYE = { class: 'ac-btn ac-dye', 'aria-label': 'Inject dye', title: 'Tap to inject for a few seconds; hold to go on longer' };
 // Props that vary a little, rewritten in place just before the call that reads them (the key order is the order the attributes are made in).
 const P_LINKB = { class: 'ac-btn ac-link', 'aria-label': '', onclick: null };
@@ -745,7 +745,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       return h('div', P_PANEL, x.el);
     }
     if (v.type === 'button') {
-      const b = actBtn(v.danger ? P_BTN_DANGER : P_BTN, v);
+      const b = actBtn(v.danger ? P_BTN_DANGER : v.quiet ? P_BTN_QUIET : P_BTN, v);
       b._acV = v;
       b.addEventListener('click', onBtnClick);   // (the card rebuilds between frames, never as a timer task inside one)
       b._acRun = 1; actionable.push(b);
