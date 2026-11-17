@@ -376,6 +376,8 @@ export function createCard({ view, stage, ctx, onDetails }) {
   }
   function syncOne(e, p) {
     if (e._acSk === 1) { if (document.activeElement !== e) paintSlider(e, e._acV.get(p)); }
+    else if (e._acSk === 3) attrSoon(e, 'aria-pressed', e._acV.get() === e._acVal ? 'true' : 'false');   // (a choice another card or a slide set: the stent's End, its Ends)
+    else if (e._acSk === 4) e.classList.toggle('ac-dim', !!e._acV.dimIf(p));   // (a control that does nothing now, dimmed and still there: the waist's length with no waist)
     else attrSoon(e, 'aria-checked', e._acV.get(p) ? 'true' : 'false');
   }
   // What a number key or trigger() does with an actionable element, and where its focus goes.
@@ -629,6 +631,14 @@ export function createCard({ view, stage, ctx, onDetails }) {
     return b;
   }
 
+  // A control with dimIf(p) (true: it does nothing now) is dimmed and stays where it is, never hidden: nothing on the card moves.
+  function dimmable(row, v, p0) {
+    if (!v.dimIf) return row;
+    row.classList.toggle('ac-dim', !!v.dimIf(p0));
+    const d = { _acSk: 4, _acV: v, classList: row.classList };
+    syncs.push(d);
+    return row;
+  }
   function verbEl(v, p0) {
     if (v.type === 'read' || v.type === 'stat') {
       // A reading named by its unit (`read`), or by its name where the unit would not say it (a lobule part's `stat`).
@@ -656,12 +666,13 @@ export function createCard({ view, stage, ctx, onDetails }) {
         const b = h('button', P_PRESSED, o[1]);
         b._acV = v; b._acVal = o[0];
         b.addEventListener('click', onSegClick);
+        b._acSk = 3; syncs.push(b);
         kidsBuf.push(b);
       }
       P_SEG['aria-label'] = v.label || 'Options';
       const seg = h('div', P_SEG, kidsBuf);
       kidsBuf.length = 0;
-      return h('div', P_SEGROW, v.label ? h('div', P_CTLTOP, h('span', P_CTLNAME, v.label)) : null, seg);
+      return dimmable(h('div', P_SEGROW, v.label ? h('div', P_CTLTOP, h('span', P_CTLNAME, v.label)) : null, seg), v, p0);
     }
     if (v.type === 'slider') {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
@@ -689,7 +700,7 @@ export function createCard({ view, stage, ctx, onDetails }) {
       paintSlider(input, v.get(p0));
       input._acSk = 1; syncs.push(input);
       row._acRun = 3; row._acF = input; actionable.push(row);
-      return row;
+      return dimmable(row, v, p0);
     }
     if (v.type === 'meter') {
       const val = h('span', P_CTLVAL), fill = h('i', P_METER_FILL);

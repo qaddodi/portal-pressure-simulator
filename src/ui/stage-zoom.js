@@ -64,6 +64,7 @@ export function createZoom(st, live) {
     if (live.drawCam && (Math.abs(live.drawCam[0] - S) > 1e-4 || Math.abs(live.drawCam[4] - tx) > 0.01 || Math.abs(live.drawCam[5] - ty) > 0.01)) zoomSharp(false);   // (the zoom moved: the rest picture carried again)
     if (!live.drawCam) live.veins?.setScene?.(S, tx * sx, ty * sy);
     for (const l of live.zoomLayers) l.el.style.transform = `matrix(${S.toFixed(5)},0,0,${S.toFixed(5)},${((S - 1) * (l.left - live.wrapRect.left) + tx).toFixed(2)},${((S - 1) * (l.top - live.wrapRect.top) + ty).toFixed(2)})`;
+    live.zoomAff = zoomAff; live.glassCut?.again();   // (the cut under the cards, carried back through the zoom: glass-cut.js)
     if (live.rideCTM) rideNow();   // (draws every label from the one ride matrix, card ∘ (the view now over the view they were laid out under): the stations' at C(their points), the rest carried)
     else live.labelGL?.pinDraw();
   }
@@ -91,7 +92,7 @@ export function createZoom(st, live) {
     if (live.drawCam) { live.drawCam = null; live.veinsDirty = true; live.CTM = null; refreshCTM(); drawVeins(true, 'zoom-end'); }   // (landed sharp: drawn for the rest view again before the camera is let go)
     live.veins?.setScene?.(1, 0, 0);
     for (const l of live.zoomLayers || []) { l.el.style.transform = ''; l.el.style.transformOrigin = ''; l.el.style.transition = ''; }
-    live.zoomLayers = null;
+    live.zoomLayers = null; live.zoomAff = null; live.glassCut?.again();
     for (const g of zoomGlass) zoomRide.drop(g);
     for (const h of zoomHid) { h.el.style.opacity = h.was; h.el.style.transition = h.tr; }
     zoomGlass.length = 0; zoomHid.length = 0;

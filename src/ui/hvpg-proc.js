@@ -94,7 +94,7 @@ export function createHvpgProcedure() {
   const side = h('div', { class: 'chart-side' }, stepsEl, caption, procRow, note);
   const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, ir.panel, side);
   // The stent's own test beside this one (Tests › IR › TIPS, ir-tips.js): a switch in the pane's head row, and a view that holds the pane's place while it shows.
-  const tips = createIrTips({ host: el, onChange: () => paintSide(), onEdit: (id) => store.set({ selection: { type: 'edge', id } }) });
+  const tips = createIrTips({ host: el, onChange: () => paintSide() });
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
   const phase = () => (t0 == null && !result ? 'idle' : blocked ? (t < TB.abort ? 'enter' : 'abort') : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -313,7 +313,7 @@ export function createHvpgProcedure() {
   store.on('hvpgMeasured', (v) => { if (!v && (result || t0 != null || proc)) reset(); });
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
-  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start };
+  return { id: 'hvpg', label: 'Interventional radiology', el, head: tips.head, update, start, shown: (on) => tips.setActive(on) };
 }
 
 // The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's
