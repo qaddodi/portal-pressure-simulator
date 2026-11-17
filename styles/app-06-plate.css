@@ -505,7 +505,7 @@
 .ir-tips .ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }   /* (four readings two by two in a narrow card, in one row from 400 px: below) */
 .ir-tiles .metric { padding: 4px 8px; }
 .ir-tiles .rb { display: none; }   /* (the reading's bar is the deck's; here the number and its word are the reading, and the room goes to the picture) */
-.ir-tiles .metric .k { font-size: 11.5px; line-height: 1.2; }
+.ir-tiles .metric .k { font-size: var(--fs-12); line-height: 1.2; }
 .ir-tiles .metric .v { font-size: calc(var(--fs-20) * .9); }
 .ir-tiles .metric .s { min-height: 0; }
 /* In a narrow card each reading is its name over its number, the name on one or two lines and never broken inside a word, the number under it, its word under that (17 Nov 2026, F37: side by side, the name got

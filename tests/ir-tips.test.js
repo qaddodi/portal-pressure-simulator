@@ -450,6 +450,7 @@ const lifeKit = (over = {}) => {
   const calc = () => ({ sequence: async () => ({}) });
   return { log, c: createIrCurves({ request, calc, chart, delay: 5, ...over.opts }) };
 };
+const until = async (ok, ms = 2000) => { const t0 = Date.now(); while (!ok() && Date.now() - t0 < ms) await wait(10); };   // (waits for a state, not a time: the quiet period runs on the rest-pass scheduler, slower on a busy machine)
 const frameWith = (flow, day) => ({ clock: day == null ? undefined : 'disease', day, metrics: { ppg: 9, tips: { s: 0.4, flow, bench: 3 }, dips: null } });
 
 test('Curves life: a change that settles asks once; further frames of the same stent ask nothing and only move the ring', async () => {
@@ -475,12 +476,12 @@ test('Curves life: leaving before the quiet time ends cancels the sweep, and com
 test('Curves life: leaving while the snapshot is being asked for draws nothing from the answer that comes late', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30);
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading');
   assert.equal(c.phase(), 'loading'); c.stop(); assert.equal(c.phase(), 'idle');
   for (const go of log.pending.splice(0)) go();
   await wait(20);
   assert.equal(log.configured.length, 0, 'the late answer is dropped');
-  c.update(frameWith(1.5)); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
+  c.update(frameWith(1.5)); await until(() => log.pending.length > 0); for (const go of log.pending.splice(0)) go(); await until(() => log.configured.length === 1);
   assert.equal(log.configured.length, 1, 'and the next visit draws');
 });
 
@@ -500,7 +501,7 @@ test('Curves life: a sweep that is drawn is kept on leaving and returning unchan
 test('Curves life: an edit while the answer is loading is the sweep that is drawn, not the one before it', async () => {
   store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
   const { log, c } = lifeKit({ hold: true });
-  c.update(frameWith(1.5)); await wait(30); assert.equal(c.phase(), 'loading');
+  c.update(frameWith(1.5)); await until(() => c.phase() === 'loading'); assert.equal(c.phase(), 'loading');
   store.set({ params: paramsOf({ tips: { on: true, d: 9 } }) }); c.update(frameWith(1.4)); assert.equal(c.phase(), 'waiting');
   for (const go of log.pending.splice(0)) go(); await wait(30); for (const go of log.pending.splice(0)) go(); await wait(20);
   assert.equal(log.configured.length, 1); assert.equal(log.configured[0].ctx.params.tips.d, 9);
