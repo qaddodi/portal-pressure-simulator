@@ -145,3 +145,52 @@ export function stentLookD(f, A, bare = A, k = 1) {
   if (ts + 3.4 * u <= e) out.tab = `M${P(f(ts - 3.4 * u, Math.sin(0.32)))} L${P(f(ts + 3.4 * u, Math.sin(0.32)))}`;
   return out;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// The stent in a CUT view (Mohammad, 17 Nov 2026, from the mock stent-tiles-three-ways.html: "the stent itself in the side view doesn't cover the lumen because it's a
+// cut view and we only see the outside of the stent"). The tube is cut along its axis and the front half taken away, so what is left to see is the wall on each side:
+// a thin cover band hugging the lumen over the covered stretch, the rings as a zig-zag running along each wall (crowns touching in the bare stretch's open cells), a gold
+// mark where the cover starts. Nothing is drawn across the lumen, so its colour (velocity or pressure) and a narrowing of it (an end stenosis, a waist) show whole.
+// The wall follows the lumen's edge, so a narrowing pinches the stent exactly as it pinches the lumen. Pure path data, like stentLookD, with the same piece names so the
+// figure's looks serve both (the pieces a cut view has no use for are '').
+
+/**
+ * f(a, v): the lumen's edge at arc length a along the stent, v = +1 on one wall, -1 on the other (the same frame stentLookD takes: only its two edges are read).
+ * A: the stent's length; bare: the open stretch from the start (A or more: all bare); opts: t the wall's thickness, step the zig-zag's period (both in the
+ * frame's units), ampB / ampC how far the bare and covered rings reach in from their wall.
+ * Returns { wall, backBare, backCov, frontBare, frontCov, glint, band, tab, graft: [] } (path data; '' where there is none): wall is the cover's two bands (filled), the
+ * rest are strokes.
+ */
+export function stentCutD(f, A, bare = A, opts = {}) {
+  const out = { wall: '', backBare: '', backCov: '', frontBare: '', frontCov: '', glint: '', band: '', tab: '', graft: [] };
+  if (!(A > 0.5)) return out;
+  const t = opts.t > 0 ? opts.t : 1.6, step = Math.max(2, opts.step > 0 ? opts.step : 6), ampB = opts.ampB ?? 3, ampC = opts.ampC ?? 2;
+  const covered = bare > 0.5 && bare < A - 2 * step, SB = covered ? bare : A;
+  const P = (q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`;
+  // a point `off` outside the lumen's edge on wall v (outside: away from the other wall)
+  const at = (a, v, off) => {
+    const p = f(a, v), q = f(a, -v), dx = p[0] - q[0], dy = p[1] - q[1], l = Math.hypot(dx, dy) || 1;
+    return [p[0] + (dx / l) * off, p[1] + (dy / l) * off];
+  };
+  // the open cells of the bare stretch: two zig-zags a half period apart along each wall, so the crowns touch and close the cells
+  const zig = (a0, a1, v, off, amp, phase) => {
+    let d = '', i = phase;
+    for (let a = a0; a <= a1 + 1e-6; a += step / 2) d += (d ? ' L' : 'M') + P(at(Math.min(a, A), v, off - ((i++ & 1) ? amp : 0)));
+    return d + ' ';
+  };
+  for (const v of [-1, 1]) {
+    for (const ph of [0, 1]) out.frontBare += zig(0, SB, v, 0.4, ampB, ph);
+    if (covered) out.frontCov += zig(SB, A, v, t, ampC, 0);
+  }
+  if (!covered) return out;
+  // the cover: a band of thickness t outside each wall's lumen edge, from where it starts to the stent's end (sampled finely: an abrupt pinch stays abrupt)
+  const n = Math.max(24, Math.min(400, Math.round((A - SB) / 1.5)));
+  for (const v of [-1, 1]) {
+    const inner = [], outer = [];
+    for (let i = 0; i <= n; i++) { const a = SB + ((A - SB) * i) / n; inner.push(P(at(a, v, 0))); outer.push(P(at(a, v, t))); }
+    out.wall += 'M' + inner.join(' L') + ' L' + outer.reverse().join(' L') + ' Z ';
+  }
+  // the gold mark where the cover starts: a short bar across each wall
+  for (const v of [-1, 1]) out.band += `M${P(at(SB, v, -t))} L${P(at(SB, v, 2.2 * t))} `;
+  return out;
+}
