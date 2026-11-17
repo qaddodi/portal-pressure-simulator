@@ -52,8 +52,9 @@ test('a vessel\'s details name the two stations its bar reads and leave out what
     for (const [name] of plan.stats) assert.ok(!SAID.test(name), `${id}: "${name}" is on the card already`);
     if (m.edge) {
       assert.match(plan.between, / → /, `${id}: between two stations`);
-      assert.ok(plan.stats.length === 2 && plan.stats[0][0] === 'Resistance', `${id}: resistance, then healthy flow or recruitment`);
-      assert.equal(plan.stats[1][0], EDGES.find((e) => e.id === id).kind === 'collateral' ? 'Recruited' : 'Healthy flow', id);
+      const kind = EDGES.find((e) => e.id === id).kind;
+      assert.equal(plan.stats[0][0], 'Resistance', `${id}: resistance first`);
+      assert.deepEqual(plan.stats.slice(1).map((x) => x[0]), kind === 'collateral' ? ['Recruited'] : kind === 'shunt' ? [] : ['Healthy flow'], `${id}: how far a collateral has opened, nothing for a shunt (a healthy patient has none), else the healthy flow`);
     } else assert.equal(plan.between, null, `${id}: an organ has no two ends`);
   }
 });
