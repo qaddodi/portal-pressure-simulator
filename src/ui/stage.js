@@ -2424,7 +2424,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const el of document.querySelectorAll('.clamp-label')) {
       if (!el.getClientRects().length || !(el._txt ?? el.textContent)) continue;
-      const r = box(el, (parseFloat(getComputedStyle(el).strokeWidth) || 0) * (CTM.sc || 1) / 2), n = near(r, el._c?.id);
+      const r = box(el, (parseFloat(getComputedStyle(el).strokeWidth) || 0) * (CTM.sc || 1) / 2), n = near(r, el._c?.vessel || el._c?.id);
       out.push({ key: `60%:${el._c?.id}`, shown: true, box: [r.x0, r.y0, r.x1, r.y1].map((v) => +v.toFixed(1)), clear: +n.d.toFixed(2), vessel: n.id, level: null });
     }
     return out;
@@ -3290,7 +3290,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
     resZigs: () => [...resMade.values()].flatMap((g) => { const p = g.cur?.pts ? Array.from(g.cur.pts) : [], out = []; for (let i = 0, o = 0; i < g.lens.length; o += g.lens[i], i++) out.push({ pts: p.slice(o, o + g.lens[i]), band: g._bandPx || 0 }); return out; }),   // (for tests: each zigzag, world, and its half band in px)
-    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)), zones: (live.zoneRects || []).map((r) => [r.x0, r.y0, r.x1, r.y1]) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
+    labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, text: it.lines ? it.lines.map((l) => l.map((r) => r.t).join(' ')).join(' / ') : '', box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)), zones: (live.zoneRects || []).map((r) => [r.x0, r.y0, r.x1, r.y1]), clampLeads: [...leadEls].filter(([k, el]) => k.startsWith('cl:') && !el._gone).map(([k, el]) => ({ id: k.slice(3), d: el._a?.d ?? el.getAttribute('d') })) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
     /** For the node tests of a stent's drawn waist and pressure colour (tests/stent-waist-figure.test.js): the stent's radius factor along its path (n + 1 samples),
      *  its local losses as the along curve reads them, and the shade version (it moves when what is drawn changes). Reads what the last frame set; draws nothing. */
     stentDrawn: (id, n = 64) => { const x = E[id]; return x?.stenF ? { k: Array.from({ length: n + 1 }, (_, i) => x.stenF(i / n)), loss: { jet: x.lsJ, ends: x.lsE, at: x.lsAt, dir: x.lsDir, jet2: x.lsJ2 || 0, at2: x.lsAt2 || 0 }, ver: x.shadeVer | 0, len: geo[id]?.len || 0 } : null; },   // alloc-rare: a test's read, never a frame's

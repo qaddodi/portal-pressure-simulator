@@ -67,7 +67,16 @@ const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 1,
 const TEN = Array.from({ length: 1000 }, (_, i) => (i / 10).toFixed(1));
 const INT = Array.from({ length: 1000 }, (_, i) => `${i}`);
 export const ten = (v) => TEN[clamp(Math.round(v * 10), 0, 999)];
-const int = (v) => INT[clamp(Math.round(v), 0, 999)];
+// (Whole numbers past 999, a tight stenosis's jet, are made once each as they first show: the gate prints the number the tile prints, never a cap the tile
+// does not have, play-test F41: a 2 mm stenosis read 1248 on the tile and 999 at its gate.)
+const INT_BIG = new Map();
+export const int = (v) => {
+  const k = Math.max(0, Math.round(v));
+  if (k < 1000) return INT[k];
+  let w = INT_BIG.get(k);
+  if (w === undefined) { if (INT_BIG.size > 4000) INT_BIG.clear(); w = String(k); INT_BIG.set(k, w); }   // alloc-rare: a number past 999, made the first time it shows
+  return w;
+};
 
 /** The pressure each part takes, in whole tenths of a mmHg that add up to the stent's own drop as it prints (the tile's "Across stent"): the largest remainder, so the
  *  parts a card prints never sum to a different number than the total beside them. Writes into out (the parts' count of numbers), returns the total in tenths. */
