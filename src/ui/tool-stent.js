@@ -28,7 +28,7 @@ import { easeArrive } from './ease.js';
 import { FOLLOW_JUMP, FOLLOW_LONE, FOLLOW_STREAM_MS, FOLLOW_MIN_MS, FOLLOW_MAX_MS, FOLLOW_GAP0, FOLLOW_GLIDE_MS } from './tool-lumen.js';
 import { velocityColor, pressureColor } from './colormap.js';
 import { stentNormal } from './velNormal.js';
-import { geomFix, geomOf, profileAt, waistSpan, endSpan } from '../engine/stent-geom.js';
+import { geomFix, geomOf, profileAt, waistSpan, endSpan, lumenShown } from '../engine/stent-geom.js';
 import { STENT_SITES, STENT_SPANS, stentGate, stentSite, dopplerK, edgeById } from '../engine/topology.js';
 import { smooth01 } from './num.js';
 import { createTracePic, traceFor, gateIndex, xAt, PANELS } from './stent-trace-pic.js';
@@ -465,7 +465,7 @@ export function createStent() {
     const lx = clamp((xa + xb) / 2, x0 + 24, x1 - 24);
     setGeo(dimTxt, 'x', lx); setGeo(lenTxt, 'x', lx);
     setGeo(dimTxt, 'opacity', ex * k); setGeo(lenTxt, 'opacity', ex * (1 - k));
-    setWords(dimTxt, `${ten(d * (1 - sMax))} mm`); setWords(lenTxt, `${ten(sh.len)} cm`);
+    setWords(dimTxt, `${ten(lumenShown(d * (1 - sMax)))} mm`); setWords(lenTxt, `${ten(sh.len)} cm`);   // (the narrowest lumen on its 0.5 mm step, a glide's too)
     // the flow's arrow, its size following the flow
     const ak = clamp(0.55 + v[CH.flow] * SCALE[CH.flow] / 3, 0.55, 1.35), ax = Math.max(15, x0 / 2), P = arrowBuf;
     const AR = [-9, -3, 1, -3, 1, -7, 10, 0, 1, 7, 1, 3, -9, 3];
