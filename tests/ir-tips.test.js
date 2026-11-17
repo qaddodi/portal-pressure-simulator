@@ -587,7 +587,7 @@ test('One stent editor on screen at a time (play-test F39): while the TIPS view\
   card.destroy();
   assert.equal(card.panel.isConnected, false, 'its panel goes with it');
   const src = read('src/ui/ir-tips.js');
-  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone \}\)/);
+  assert.match(src, /createStentEditor\(\{ id: which, lead: true, zone, reveal \}\)/);
   assert.match(src, /editor\.setShown\(active && v === 'tips'\);/); assert.match(src, /editor\.setShown\(on && view === 'tips' && sub === 'inside'\);/);
   const plate = read('styles/app-06-plate.css');
   assert.match(plate, /\.stent-editor\[data-fold="true"\] \.se-rows \{ display: none; \}/);
@@ -730,6 +730,46 @@ test('A row opens by growing its nine pieces, and Done, its name and Escape each
   } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
 });
 
+test('Tests › IR › TIPS: an opened row grows under the chart, never over it, and the view scrolls down only as far as the panel needs (17 Nov, Mohammad: "I wanna see the graph while editing")', async () => {
+  quiet();
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  ir.update(frameOf()); await wait(60);
+  const L = ir.figure().layout(), top = ir.el.querySelector('.ir-zone').style.getPropertyValue('--se-top');
+  assert.equal(top, `${Math.round(L.h)}px`, 'the panel starts where the chart ends');
+  assert.ok(L.h > L.heroH + 100, 'under the stent and the chart both');
+  const panel = ir.el.querySelector('.ir-zone > .se-panel'), seen = [];
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 500, bottom: 760, width: 300, height: 260 });
+  ir.el.getBoundingClientRect = () => ({ left: 0, right: 300, top: 0, bottom: 700, width: 300, height: 700 });
+  ir.el.scrollBy = (o) => seen.push(o);
+  ir.editor.open('waist');
+  assert.equal(seen.length, 1); assert.equal(seen[0].top, 68, 'down by what the panel overruns, and a little room');
+  ir.editor.close();
+  panel.getBoundingClientRect = () => ({ left: 0, right: 300, top: 400, bottom: 600, width: 300, height: 200 });
+  ir.editor.open('dia');
+  assert.equal(seen.length, 1, 'a panel already in sight scrolls nothing');
+  ir.editor.close();
+  ir.setActive(false);
+});
+
+test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad), from none to 6 cm', async () => {
+  quiet();
+  const { createTipsVessel } = await import('../src/ui/tips-vessel.js');
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }), frame: frameOf() });
+  const v = createTipsVessel({ id: 'TIPS' });
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4, waist: 1 } } }));
+  for (const [name, root] of [['vessel card', v.el], ['Tests', ir.el]]) {
+    const len = root.querySelector('.se-panel [data-ctl="waist"] input') || (() => { root.querySelector('.se-row[data-row="waist"]').click(); return root.querySelector('.se-panel [data-ctl="waist"] input'); })();
+    assert.ok(len, `${name}: the length slider`);
+    assert.equal(len.step, '0.5', `${name}: 0.5 cm a step`);
+    assert.equal(len.min, '0'); assert.equal(len.max, '6');
+  }
+  const { stentControls } = await import('../src/ui/actions.js');
+  for (const id of ['TIPS', 'DIPS']) assert.equal(stentControls(id).find((c) => c.id === 'waist').step, 0.5, `${id}: the one list both editors read`);
+  v.destroy(); ir.setActive(false);
+});
+
 test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the waist\'s lumen and length, or None', async () => {
   const { rowValue } = await import('../src/ui/stent-editor.js');
   const p = paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { red: 0.37, waist: 3 } } });
@@ -786,4 +826,44 @@ test('Compare says how to pin a moment before there is one, in one line (F44)', 
   c.update(frameOf());
   assert.match(c.el.querySelector('.ir-note').textContent, /Tap Compare from here on the timeline \(or press P\)/);
   assert.equal(c.el.firstElementChild.className, 'ctl-sub ir-note', 'the sentence comes first');
+});
+
+test('A closing row lands exactly on the row, word on word, and its raised surface is gone by then: nothing jumps when the panel goes (17 Nov, Mohammad: "it scales back to where it was but then not exactly and then snaps")', async () => {
+  const { createStentEditor } = await import('../src/ui/stent-editor.js');
+  quiet();
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const made = [];
+  const proto = window.Element.prototype, oldA = proto.animate, oldR = proto.getBoundingClientRect;
+  proto.animate = function (kf, o) { let res; const a = { el: this, kf, o, finished: new Promise((r) => { res = r; }), cancel() {}, finish() { res(); } }; made.push(a); return a; };
+  // a laid-out card: the panel over the zone, the waist row 100 px down; the panel's name button 44 px tall with its words 12 px into it, 2 px in
+  const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top });
+  const BOX = { 'se-panel': box(0, 0, 300, 220), 'se-row': box(0, 100, 300, 46), 'se-row-n': box(2, 113, 40, 20), 'se-row-v': box(150, 113, 110, 20), 'se-ph-n': box(12, 1, 44, 44), 'se-ph-nt': box(14, 13, 40, 20), 'se-ph-v': box(130, 13, 110, 20) };
+  proto.getBoundingClientRect = function () { const k = Object.keys(BOX).find((c) => this.classList?.contains(c)); return k ? BOX[k] : box(0, 0, 300, 220); };
+  try {
+    const zone = document.createElement('div');
+    document.body.append(zone);
+    const ed = createStentEditor({ id: 'TIPS', zone });
+    zone.prepend(ed.el);
+    for (const row of ['waist', 'end', 'dia']) {
+      ed.el.querySelector(`.se-row[data-row="${row}"]`).click();
+      for (const a of made) a.finish();
+      made.length = 0;
+      ed.panel.querySelector('.se-done').click();
+      const name = made.find((a) => a.el.classList.contains('se-ph-n')), val = made.find((a) => a.el.classList.contains('se-ph-tr'));
+      // the name's words (14, 13) onto the row's (2, 113); the value's right edge (240) onto the row's (260), its top 13 onto 113
+      assert.equal(name.kf.at(-1).transform, 'translate(-12.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the name lands on the row's name`);
+      assert.equal(val.kf.at(-1).transform, 'translate(20.0px, 100.0px) scale(1.0000, 1.0000)', `${row}: the value lands on the row's value`);
+      const surf = made.find((a) => a.el.classList.contains('se-surf'));
+      assert.ok(surf, `${row}: the surface fades`);
+      assert.equal(surf.kf.at(-1).opacity, 0, `${row}: gone when it lands, so the panel leaving shows nothing new`);
+      assert.equal(surf.o.duration, made.find((a) => a.el.classList.contains('se-s-tl')).o.duration, 'over the same time as the shrink');
+      assert.equal(surf.o.fill, 'forwards');
+      for (const a of made) a.finish();
+      made.length = 0;
+      await wait(0);
+      assert.equal(ed.panel.dataset.open, '', `${row} closed`);
+      assert.equal(ed.panel.querySelector('.se-ph-n').textContent, '', 'and its name cleared');
+    }
+    ed.destroy();
+  } finally { proto.animate = oldA; proto.getBoundingClientRect = oldR; }
 });

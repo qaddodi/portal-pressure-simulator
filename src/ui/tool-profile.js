@@ -626,7 +626,10 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = [
   // still clear keeps it, so the brackets stay put while the numbers change (Mohammad, 19 Oct: "HVPG and PPG keep jumping up and
   // down"); one that must move takes the clear row nearest its old one.)
   if (prev) {
-    const has = (r) => ys[r].some((v) => Math.abs(v - prev[r]) < 0.01), keep = [has(0), has(1)];
+    // (A row stays put while its place is clear to within a pixel of the pad: a state a hair different moves a line by a fraction of a pixel,
+    // and a bracket that stepped one pixel for it would read as a wiggle, the thing this keeps from happening.)
+    const soft = (r, yy) => { const b = bracketBox(G, r, yy); return place.cost([b[0] + 1, b[1] - 1, b[2] + 1, b[3] - 1]) === 0; };
+    const has = (r) => ys[r].some((v) => Math.abs(v - prev[r]) < 0.01) || soft(r, prev[r]), keep = [has(0), has(1)];
     if (keep[0] && keep[1] && apart(prev[0], prev[1])) return prev.slice();
     const near = (r, ok) => ys[r].filter(ok).reduce((a, v) => (a == null || Math.abs(v - prev[r]) < Math.abs(a - prev[r]) ? v : a), null);
     if (keep[1]) { const p = near(0, (v) => apart(v, prev[1])); if (p != null) return [p, prev[1]]; }

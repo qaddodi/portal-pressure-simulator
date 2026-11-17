@@ -69,10 +69,10 @@ const hubSync = () => { for (const c of CARDS) c.fold([...LEADS].some((l) => l.s
 const PIECES = ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'];
 const PIECE_CLASS = ['se-s se-s-tl', 'se-s se-s-tc', 'se-s se-s-tr', 'se-s se-s-ml', 'se-s se-s-mc', 'se-s se-s-mr', 'se-s se-s-bl', 'se-s se-s-bc', 'se-s se-s-br'];   // (written out: the stylesheet's check finds each)
 
-/** createStentEditor({ id, lead, onOpen, zone }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
+/** createStentEditor({ id, lead, onOpen, zone, reveal }): { el, panel, update(frame), setStent(id), setShown(on), open(rowId), close(), opened(), destroy() }.
  *  `id` the stent ('TIPS', 'DIPS'); `lead` the Tests view's own (a vessel card's folds while it is shown); `onOpen(id)` what the folded line does (opens
  *  Tests › IR › TIPS on that stent); `zone` the element the panel grows to fill (the card's room: it must be the panel's offset parent), else the editor itself. */
-export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null } = {}) {
+export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zone = null, reveal = null } = {}) {
   const born = !lead && [...LEADS].some((l) => l.shown && l.sid() === id);
   const el = h('div', { class: 'stent-editor', role: 'group', 'aria-label': 'Edit stent', 'data-open': '', 'data-fold': born ? 'true' : 'false' });
   const rowsEl = h('div', { class: 'se-rows' });
@@ -84,7 +84,10 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   // the panel: its surface, its top line (the row's name and value, and Done) and its body (the open row's controls)
   const surf = h('div', { class: 'se-surf', 'aria-hidden': 'true' }, PIECE_CLASS.map((c) => h('i', { class: c })));
   const surfEls = [...surf.children];   // alloc-rare: once per editor
-  const pName = h('button', { type: 'button', class: 'se-ph-n', tabindex: '-1' }), pVal = h('span', { class: 'se-ph-v' });
+  // (The name's words are a span of their own: the button is 44 px tall round them, so its box is not where they are. The glide moves the words onto the
+  // row's words, measured word to word; measured from the button they landed 12 px low and 2 px right, then jumped home when the panel went: 17 Nov.)
+  const pNameT = h('span', { class: 'se-ph-nt' });
+  const pName = h('button', { type: 'button', class: 'se-ph-n', tabindex: '-1' }, pNameT), pVal = h('span', { class: 'se-ph-v' });
   const done = h('button', { type: 'button', class: 'se-done' }, 'Done');
   const pTrail = h('span', { class: 'se-ph-tr' }, pVal, done);
   const head = h('div', { class: 'se-ph' }, pName, pTrail);
@@ -154,7 +157,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     if (reduced() || !surf.animate) return null;
     const pb = readBox(panel), rb = readBox(row);
     if (!pb || !rb || !(pb.width > 2 * R) || !(pb.height > 2 * R) || !(rb.width > 2 * R)) return null;
-    const rn = readBox(row.querySelector('.se-row-n')), rv = readBox(row.querySelector('.se-row-v')), hn = readBox(pName), hv = readBox(pVal);
+    const rn = readBox(row.querySelector('.se-row-n')), rv = readBox(row.querySelector('.se-row-v')), hn = readBox(pNameT), hv = readBox(pVal);
     const sx = rb.left - pb.left, sy = rb.top - pb.top, sw = rb.width, shh = Math.max(2 * R, rb.height), PW = pb.width, PH = pb.height;
     const kx = (sw - 2 * R) / (PW - 2 * R), ky = (shh - 2 * R) / (PH - 2 * R);
     const T = (x, y, a = 1, b = 1) => `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${a.toFixed(4)}, ${b.toFixed(4)})`;
@@ -164,6 +167,9 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     for (let i = 0; i < surfEls.length; i++) run(surfEls[i], from[PIECES[i]]);   // (an array: an HTMLCollection has no forEach, which threw here and left every panel open, 17 Nov)
     if (rn && hn) run(pName, T(rn.left - hn.left, rn.top - hn.top));
     if (rv && hv) run(pTrail, T(rv.right - hv.right, rv.top - hv.top));
+    // The surface is the row's own raised fill only while it moves: it comes up as it leaves the row and is gone by the time it lands back on it, so the
+    // panel going away at the end of a close changes nothing on screen (17 Nov, Mohammad: a closing row "snaps" back into place).
+    anims.push(surf.animate(opening ? [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: D_SURFACE, easing: 'linear', fill: opening ? 'none' : 'forwards' }));
     const fade = { duration: opening ? D_SMALL : D_SMALL * 0.6, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.5 : 0, fill: 'both' };
     anims.push(body.animate(opening ? [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }] : [{ opacity: 1 }, { opacity: 0 }], fade));
     anims.push(done.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: opening ? D_SMALL * 0.4 : 0, fill: 'both' }));
@@ -173,7 +179,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   function show(rowId) {
     const r = rows.find((x) => x.id === rowId);
     body.replaceChildren(...(r ? r.ctls.map((c) => c.cell) : []));
-    pName.textContent = r ? r.name : ''; pName.setAttribute('aria-label', r ? `Close ${r.name}` : 'Close');
+    pNameT.textContent = r ? r.name : ''; pName.setAttribute('aria-label', r ? `Close ${r.name}` : 'Close');
     done.setAttribute('aria-label', r ? `Done with ${r.name}` : 'Done');
     pVal.textContent = r ? r.text : '';
     panel.dataset.row = rowId || '';
@@ -190,6 +196,8 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       panel.dataset.open = rowId; el.dataset.open = rowId;
       panel.inert = false; panel.setAttribute('aria-hidden', 'false'); rowsEl.inert = true;
       grow(to.btn, true);
+      // (`reveal(panel)`: the holder brings an opened panel into sight, Tests › IR, whose panel opens under the chart.)
+      reveal?.(panel);
       const first = to.ctls[0];
       (first?.input || first?.btns?.find((b) => b.getAttribute('aria-pressed') === 'true') || done).focus({ preventScroll: true });
     } else {

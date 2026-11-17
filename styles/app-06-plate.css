@@ -347,24 +347,24 @@
    --label-halo under the words), with a 1 px leader to the vein. Its glass is only that leader (callout.js bare), never frosted (stage.js). */
 .cath-label.site.split::before { display: none; }
 .cath-label.site.split small { display: none; }
-.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; line-height: 1.2; color: var(--text); }
+.cath-label.site.split b, .app.presenting .cath-label.site.split b { display: flex; flex-direction: column; gap: 2px; font-size: calc(11.5px * min(var(--label-scale, 1), 1.7)); line-height: 1.2; color: var(--text); }
 .cath-label.site.split .sp-h { width: 12.6em; font-weight: 700; display: flex; align-items: baseline; }
 .cath-label.site.split em { font-style: normal; }
-.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 25px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 1.5em; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
 .cath-label.site.split .sp-n { color: var(--sp-t); transition: none; }
 .cath-label.site.split .sp-pc { color: var(--sp-t); -webkit-text-stroke: 4px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-w { margin-left: 6px; font-size: 13.5px; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
-.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 8px; font-size: 11.5px; font-weight: 600; }
-.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2.5px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-w { margin-left: 4px; font-size: 1em; font-weight: 500; color: var(--text-2); -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
+.cath-label.site.split .sp-cap { display: flex; align-items: baseline; gap: 6px; font-size: .88em; font-weight: 600; }
+.cath-label.site.split .sp-k { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); -webkit-text-stroke: 2px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; }
 .cath-label.site.split .sp-lt { color: var(--tr-pv); } .cath-label.site.split .sp-st { display: none; }
-.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 96px; margin: 1px 0 0; }
+.cath-label.site.split .sp-bar { display: flex; gap: 2px; height: 2px; width: 6.4em; margin: 1px 0 0; }
 .cath-label.site.split .sp-bar i { border-radius: 1px; flex-basis: 0; flex-shrink: 1; }
 .cath-label.site.split .sp-l { flex-grow: var(--sp-lf, .5); min-width: var(--sp-lm, 4px); background: var(--tr-pv); }
 .cath-label.site.split .sp-s { flex-grow: var(--sp-sf, .5); min-width: var(--sp-sm, 4px); background: var(--sp-c); transition: none; }
 .cath-label.site.split b + span { display: none; }
-@media (max-width: 600px) { .cath-label.site.split .sp-n, .cath-label.site.split .sp-pc { font-size: 22px; } .cath-label.site.split .sp-w { font-size: 12.5px; } }
-/* The bare callout's glass: its leader line only, no tint and no outline round a card (the callouts' base and the no-glass fallbacks fill every glass). */
-.cl-glass.cl-bare, :root:root .cl-glass.cl-bare:not([data-gl]) { background: none; box-shadow: none; }
+/* The bare callout's leader (callout.js bare): a child that only carries the line's picture, over nothing: never a .cl-glass, so no tint, fill or
+   frost rule of the glass reaches it, and it has no background of its own. It fades with the words (--lo, every callout child's opacity). */
+.cl-leader { position: absolute; z-index: -1; pointer-events: none; background: none; }
 /* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
 .cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; border: 0; box-shadow: none;
   translate: -50% calc(-100% - 12px); }   /* (no CSS halo: the figure's words are outlined one way, by the GPU label path; review CSS-16, owner 15 Nov 2026) */
@@ -458,8 +458,7 @@
 .ir-chips[data-n="0"] .ir-chip, .ir-chips[data-n="1"] .ir-chip { padding: 0; background: none; color: var(--text); pointer-events: none; }   /* (one stent: its name is the title) */
 .ir-chip:focus-visible, .ir-more:focus-visible, .ir-mi:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-status { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); white-space: nowrap; }
-.ir-status .ir-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
-.ir-status[data-sev="caution"] .ir-dot { background: var(--caution); }
+.ir-status[data-sev="caution"] { color: var(--caution-ink); }   /* (no status dot, 15 Oct: the state shows in the colour of its own words) */
 .ir-lens { margin: 0 0 0 auto; flex: none; transition: opacity var(--d-small) var(--ease); }
 .ir-tips:not([data-sub="inside"]) .ir-lens { opacity: 0; pointer-events: none; }   /* (it colours the stent: no stent drawn, no switch; faded, never popped) */
 .ir-more { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin-right: -8px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
@@ -477,7 +476,7 @@
 .ir-kv b { margin: 0 3px; font: 500 var(--fs-16) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
 .ir-kv u { text-decoration: none; }
 .ir-zone { flex: none; }
-.ir-zone > .se-panel { top: var(--se-top, 0px); min-height: calc(100% - var(--se-top, 0px)); }   /* (the panel grows over the chart and the rows, never over the stent) */
+.ir-zone > .se-panel { top: var(--se-top, 0px); min-height: calc(100% - var(--se-top, 0px)); }   /* (the panel grows over the rows under the chart: the stent and its chart stay in sight while it is edited, 17 Nov) */
 .tf { min-width: 0; }
 /* The TIPS and DIPS vessel card (tips-vessel.js): the stent to scale, one line of numbers, the three rows. The rows' panel grows over the rows and the actions
    under them (the card's Doppler, Dye and Remove), so the panel's card piece sits above the actions that follow it; never over the stent. */
@@ -486,9 +485,8 @@
 .tv-keys { padding: 0 2px; column-gap: 12px; }
 .tv-keys .ir-kv b { font-size: var(--fs-14); }   /* (the three on one line in a 240 px card) */
 .ac-panel:has(> .tv) { position: relative; z-index: 4; }
-.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: nowrap; column-gap: 12px; min-height: 48px; border-top: 1px solid var(--hairline); }
+.ac-panel:has(> .tv) + .ac-as { transition: opacity var(--d-small) var(--ease); flex-wrap: wrap; gap: 0 12px; align-content: center; min-height: 48px; border-top: 1px solid var(--hairline); }
 :is(.ac-body, .ac-ghost) > .ac-panel:has(> .tv) + .ac-as { margin-top: 6px; }   /* (right under the rows, whatever the card's height: the panel's 54 px reach depends on it) */
-.ac-panel:has(> .tv) + .ac-as .ac-btn.quiet .ac-bl { display: none; }   /* (the mock's one line of actions: IR is its icon, named for a screen reader; Remove at the end) */
 .tv .ir-keys { margin-bottom: 2px; }
 .tv-zone > .se-panel { min-height: calc(100% + 54px); }   /* (the mock: the panel fills the rows and the line of actions under them, 6 + 48 px, so no empty band is left where they faded) */
 .ac-panel:has(> .tv .se-panel:not([data-open=""])) + .ac-as { opacity: 0; pointer-events: none; }   /* (the open panel covers the actions: they fade under it, none peeks out below) */

@@ -138,7 +138,7 @@ const merge = (a, b) => {
 const cross = (axes) => Object.entries(axes).reduce((acc, [k, vals]) => acc.flatMap((o) => vals.map((v) => ({ ...o, [k]: v }))), [{}]);
 
 // The levels the shipped library tries for a family of one, two or three lesions; the worker's fit moves off them continuously.
-const LEVELS = { 1: [0.15, 0.3, 0.4, 0.55, 0.75, 1], 2: [0.25, 0.4, 0.6, 0.9], 3: [0.3, 0.8] };
+const LEVELS = { 1: [0.15, 0.3, 0.4, 0.55, 0.65, 0.75, 1], 2: [0.25, 0.4, 0.6, 0.9], 3: [0.3, 0.8] };
 
 /** Every mix of one to three lesions with no two in one slot (one heart lesion, one venous block). */
 function familiesOf() {

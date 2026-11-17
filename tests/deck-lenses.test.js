@@ -27,7 +27,9 @@ function run(deckId, upTo) {
   throw new Error(`no slide ${deckId}/${upTo}`);
 }
 const NI = new Map(NODES.map((n, i) => [n.id, i]));
-const drop = (e, id) => { const x = EDGES[e.ei[id]]; return Math.abs(e.P[NI.get(x.from)] - e.P[NI.get(x.to)]); };
+// (A vein cut by a shunt's junction is one vein: its drop is its pieces' together. Since the TIPS joins the cava past the right hepatic vein
+// (17 Nov), the piece that keeps the vein's id is the short one at the cava, and a clot's whole drop stands on the longer piece before it.)
+const drop = (e, id) => EDGES.filter((x) => (x.part || x.id) === id).reduce((a, x) => a + Math.abs(e.P[NI.get(x.from)] - e.P[NI.get(x.to)]), 0);
 const origin = (e, id) => { const o = originFractions(EDGES, NODES, e.Q, e.P), k = e.ei[id]; return { smv: o[k * 4], imv: o[k * 4 + 1], spleen: o[k * 4 + 2], artery: o[k * 4 + 3] }; };
 
 test('every slide lens and lens button names a lens the presenter knows', () => {

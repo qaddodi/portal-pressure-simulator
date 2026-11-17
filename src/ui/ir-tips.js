@@ -27,6 +27,8 @@ import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
 import { createStentEditor } from './stent-editor.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { readBox } from './layout-snap.js';
+import { reduced } from './motion.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
 export const stentIds = (p, out = []) => { out.length = 0; if (p?.tips?.on) out.push('TIPS'); if (p?.dips?.on) out.push('DIPS'); return out; };
@@ -66,7 +68,7 @@ export const SUBS = [['inside', 'Inside the stent'], ['curves', 'Tube vs patient
  * Returns { head, el, update(frame), view(), setView(v), sub(), setSub(v), which(), setActive(on), openStent(id), lens(), setLens(k), figure, editor, curves }.
  * The TIPS view (17 Nov 2026, the approved mock tips-cards-elegant.html): its title (the stent, its state, Velocity | Pressure and a menu for the other two
  * views), one line of numbers, the stent drawn to scale with its chart under it on the same x (tips-figure.js), and the three rows that edit it
- * (stent-editor.js), whose panel grows over the chart and the rows: one room, the card never taller for it.
+ * (stent-editor.js), whose panel grows over the rows under the chart, so the stent and its chart stay in sight while it is edited.
  */
 export function createIrTips({ host, onChange = () => {} } = {}) {
   let view = 'measure', which = 'TIPS', key = '', lastWord = 'TIPS', frame = null, statusT = '';
@@ -79,7 +81,7 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
 
   // ── the title row: the stent (a choice when there are two), its state, the lens, the menu ──
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent', 'data-n': '0' });
-  const status = h('span', { class: 'ir-status', 'data-sev': 'none' }, h('i', { class: 'ir-dot', 'aria-hidden': 'true' }), h('span', { class: 'ir-status-t' }, 'Patent'));
+  const status = h('span', { class: 'ir-status', 'data-sev': 'none' }, h('span', { class: 'ir-status-t' }, 'Patent'));
   const lensV = h('button', { type: 'button', class: 'ps-btn', 'data-lens': 'velocity', 'aria-pressed': 'true' }, 'Velocity');
   const lensP = h('button', { type: 'button', class: 'ps-btn', 'data-lens': 'pressure', 'aria-pressed': 'false' }, 'Pressure');
   const lensSw = h('div', { class: 'pressure-switch ir-lens', role: 'group', 'aria-label': 'What the stent shows' }, lensV, lensP);
@@ -96,7 +98,9 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   const keyLine = h('div', { class: 'ir-keys' }, keys.map((x) => x.e));
   // ── the stent and its chart, and the rows that edit it, in one room ──
   const zone = h('div', { class: 'se-zone ir-zone' });
-  const editor = createStentEditor({ id: which, lead: true, zone });   // (the lead: a vessel card's editor folds to a line while this one is shown)
+  // (An opened panel under the chart may reach past the pane's foot on a phone: the view scrolls down only as far as the panel's foot needs, so the chart stays as far in sight as it can.)
+  const reveal = (panel) => { const a = readBox(panel), b = readBox(el); if (!a || !b) return; const over = a.bottom - b.bottom; if (over > 1) el.scrollBy?.({ top: over + 8, behavior: reduced() ? 'auto' : 'smooth' }); };
+  const editor = createStentEditor({ id: which, lead: true, zone, reveal });   // (the lead: a vessel card's editor folds to a line while this one is shown)
   zone.append(editor.el, editor.panel);
   let fig = null;
   const figure = () => { if (!fig) { fig = createTipsFigure({ id: which, labels: true, chart: true }); fig.setLens(lens); zone.prepend(fig.el); } return fig; };   // alloc-rare: once, when the view first shows
@@ -104,9 +108,10 @@ export function createIrTips({ host, onChange = () => {} } = {}) {
   const cmp = createIrCompare(), crv = createIrCurves();
   let sub = 'inside', lens = 'velocity';
   const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, top, inside, crv.el, cmp.el);
-  // The panel grows over the chart and the rows, never over the stent: its top is the chart's (the figure's rows, written when its width changes).
+  // The panel grows over the rows, never over the stent or its chart (written when the figure's width changes).
   let seTop = '';
-  const placePanel = () => { const L = figure().layout(), t = `${Math.round(L.heroH + 2)}px`; if (t !== seTop) { seTop = t; zone.style.setProperty('--se-top', t); } };
+  // (Its top is the rows', under the chart too (17 Nov, Mohammad: "I wanna see the graph while editing"): the stent and its chart stay in sight and follow each drag.)
+  const placePanel = () => { const L = figure().layout(), t = `${Math.round(L.h)}px`; if (t !== seTop) { seTop = t; zone.style.setProperty('--se-top', t); } };
 
   function setMenu(on) {
     on = !!on;

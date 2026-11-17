@@ -199,7 +199,7 @@ test('every family is one to three real lesions, one to a slot, each charged for
     const { patch, days, volume } = patientOf(f.id, f.grid[0]);
     assert.ok(patch && days > 0 && volume >= 0, f.id);
     assert.ok(settingsOf(f.id, f.grid[0]).every((x) => x.label && x.text), f.id);
-    assert.equal(f.grid.length, { 1: 6, 2: 16, 3: 8 }[f.axes.length], f.id);
+    assert.equal(f.grid.length, { 1: 7, 2: 16, 3: 8 }[f.axes.length], f.id);
   }
   // Occam: a lesion costs something just by being there, and more the further it is pushed, and a second lesion adds to the first.
   assert.ok(costOf('sinus', { sinus: 0.2 }) >= LESION_COST);

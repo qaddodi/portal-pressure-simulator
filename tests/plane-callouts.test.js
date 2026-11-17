@@ -47,7 +47,9 @@ test('HVPG against PPG: no key, every zone named, names beside their points and 
       const gapOf = (a, b) => Math.hypot(Math.max(a[0] - b[2], b[0] - a[2], 0), Math.max(a[1] - b[3], b[1] - a[3], 0));
       for (const [i, [an, ab]] of items.entries()) for (const [bn, bb] of items.slice(i + 1)) assert.ok(gapOf(ab, bb) >= pl.nameGap - 0.01, `${where}: ${an} and ${bn} keep ${pl.nameGap} px apart`);
       for (const [i, n] of names.entries()) if (!n.lead) assert.ok(Math.hypot(Math.max(n.box[0] - pts[i].x, 0, pts[i].x - n.box[2]), Math.max(n.box[1] - pts[i].y, 0, pts[i].y - n.box[3])) <= 24, `${where}: ${pts[i].name} sits beside its dot`);
-      assert.ok(names.filter((n) => n.lead).length <= 1, `${where}: at most one name goes out on a line`);
+      // (An iPhone's plot, 345 px wide: the clot and Schistosomiasis stand 22 px apart since the decks read the bedside state (16 Nov), a 0 to 5 mmHg column
+      // holds neither name and the zone's own words take the room over them, so both go out on a thin line, never across one another or a word. Wider plots keep one.)
+      assert.ok(names.filter((n) => n.lead).length <= (phone ? 2 : 1), `${where}: at most ${phone ? 'two names go' : 'one name goes'} out on a line`);
     }
     // (2 Nov: the cut-offs' numbers are set down before the names and the zones' words, so no axis name or low point takes one away.)
     for (const v of ['5', '10', '6', '12']) assert.ok(nums.some((n) => n.text === v), `${where}: the cut-off ${v} is numbered`);
