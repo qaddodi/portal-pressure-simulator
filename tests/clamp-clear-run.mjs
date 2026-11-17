@@ -15,7 +15,8 @@ const core = createCore((m) => { if (m.type === 'frame') q.push(m); });
 await core.handle({ type: 'init' });
 await core.handle({ type: 'preset', id: 'cirr-decomp' });
 const P = JSON.parse(JSON.stringify(core.engine().params));
-Object.assign(P, { tips: { on: true, d: 8 }, stenosis: { TIPS: o.s ?? 0.6 }, stentGeom: { TIPS: { waist: o.waist ?? 1, ...(o.red ? { red: o.red } : {}) } } });
+// (A narrowed vessel that is not a stent, the portal trunk: the TIPS's and the DIPS's words are their own figure label, not a clamp's, 17 Nov 2026.)
+Object.assign(P, { tips: { on: true, d: 8 }, stenosis: { [o.vessel || 'PV_TRUNK']: o.s ?? 0.6 } });
 await core.handle({ type: 'setParams', params: P, settle: true });
 await core.handle({ type: 'run', running: true });
 let lastF = null;
