@@ -66,6 +66,8 @@ export function createFit(st, live) {
       // (A card playing its way out no longer counts: the camera frames for what stays.)
       if (el.hidden || el.closest('[hidden]') || el.classList.contains('card-leaving') || el.classList.contains('leaving') || el.classList.contains('ac-leaving') || el.classList.contains('vd-out')) continue;
       if (unseenCard(el)) continue;
+      // (The Compare bar floats over the figure's top on a wide screen and takes no room: the figure holds still when Compare starts, Mohammad 17 Nov 2026, "hold still is ok". A phone keeps it clear.)
+      if (el.id === 'stageCenter' && insWrap().width >= 768) continue;
       const parts = el.dataset.safeParts && landPhoneMQ.matches && !store.get().presenting ? el.querySelectorAll(el.dataset.safeParts) : null;
       for (const pc of parts || [el]) {
         const q = slideRest(pc, pc.getBoundingClientRect());

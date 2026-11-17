@@ -148,3 +148,15 @@ test('the view pill keeps Circuit and Anatomy in the Sinusoid view, and Circuit 
   assert.doesNotMatch(appCss(), /#app\.sin-focus :is\([^)]*data-view="(anatomic|circuit)"/);
   assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /b\.dataset\.view === 'circuit' && store\.get\(\)\.sinusoid \? circuitFromSinusoid\(\)/);
 });
+
+test('Compare: the figure holds still when the bar comes on a wide screen (Mohammad 17 Nov 2026)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const fit = readFileSync(new URL('../src/ui/stage-fit.js', import.meta.url), 'utf8');
+  assert.match(fit, /el\.id === 'stageCenter' && insWrap\(\)\.width >= 768\) continue;/);
+});
+
+test('A stent’s ends keep their own opacity where they leave the portal vein: every stent drawing, not only the surgical shunts (Mohammad 17 Nov 2026)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sv = readFileSync(new URL('../src/ui/stage-vessels.js', import.meta.url), 'utf8');
+  assert.match(sv, /SURGICAL_SHUNTS\.has\(x\.e\.shunt\) \|\| isStent\(x\.e\)\) \? JOIN_F_NOFADE : 0/);
+});
