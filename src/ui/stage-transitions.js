@@ -328,7 +328,8 @@ export function createTransitions(st, live) {
     const g = stentGeomOf(p, id, kind, brkG);
     if (!(g.red > 0.004) || g.waist < 0.25) { live.dimBoxes.delete(id); return null; }   // (no waist, no bracket)
     const w = waistSpan(g, brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
-    const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), off = sg * (x.width / 2 + (x.wallPx || 1) + 11);
+    // (Beside the waist as it is drawn: the narrowed stent's own half-width there, not the open stent's, which left the bracket floating a stent's width off a narrowed one: Mohammad's iPhone shot, 17 Nov.)
+    const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), hw = meshR(id, p)((d0 + d1) / 2), off = sg * (hw + (x.wallPx || 1) + 4);
     const f1 = (n) => n.toFixed(1);
     let d = '';
     for (let k = 0; k <= 12; k++) { const q = frameAt(id, d0 + ((d1 - d0) * k) / 12); d += `${k ? ' L' : 'M'}${f1(q.x + q.nx * off)} ${f1(q.y + q.ny * off)}`; }

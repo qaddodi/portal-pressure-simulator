@@ -172,6 +172,12 @@ const unitNow = () => !!store.get().presenting;
   // and change badge (keeping "Azygos 6.7"), then keeps the name alone (see placeMulti and the overlap pass). it.short: 1 trimmed,
   // 2 the name alone. (abbr false: the trimming steps only, as the circuit's one unit rule takes them.)
   function shortenItem(it, abbr = true) {
+    // A stent's geometry label gives up its lines from the last: the end stenosis, then the waist, then stands as "TIPS 8 mm", the one line that is always the stent's own. Never a line cut to its numbers ("6 2.0", Mohammad, 17 Nov).
+    if (it.geom) {
+      if (it.lines.length < 2) return false;
+      it.lines = it.lines.slice(0, -1); it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0); it.short = (it.short || 0) + 1;
+      return true;
+    }
     if (abbr && abbrevName(it)) return true;
     if (it.short === 2 || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
     // (The reversal icon stays through every step: a label may lose its unit, change and number, never the news that the flow turned.)
@@ -287,7 +293,7 @@ const unitNow = () => !!store.get().presenting;
     if (g?.waist != null) { lines.push([{ ...head, t: 'waist' }, num(MM(g.waist), 4, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
     if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
     it.lines = lines;
-    it.canShort = false;   // (nodeItem's shortening keeps only a second line's numbers, "6 2.0" for "waist 6 mm × 2.0 cm": Mohammad's screenshot, 17 Nov; this label shows whole or not at all)
+    it.canShort = lines.length > 1; it.geom = true; it.short = 0;   // (shortened by whole lines, shortenItem: never to a line's bare numbers, "6 2.0" for "waist 6 mm × 2.0 cm", and never to nothing: Mohammad, 17 Nov)
     it.key = `n:${sid}`; it.src = ['vel', sid, null]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0); it.label = say;
     return it;

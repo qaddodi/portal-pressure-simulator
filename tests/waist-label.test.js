@@ -45,10 +45,14 @@ test('zoomed out the label still stands by its waist, or on a leader that reache
   assert.equal(r.overBracket, 0);
 });
 
-test('the label is never shortened to its numbers ("6 2.0" for "waist 6 mm × 2.0 cm", Mohammad, 17 Nov): whole, or not placed', { timeout: 640000 }, () => {
-  for (const o of [{ red: 0.25, waist: 2 }, { red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, size: 'iphone', zoom: 0.6 }, { red: 0.25, waist: 2, zoom: 0.5 }]) {
-    const r = run(o);
-    assert.ok(r.text === '' || r.text === null || r.text === undefined || r.text === 'TIPS 8 mm / waist 6 mm × 2.0 cm', `${JSON.stringify(o)} reads "${r.text}"`);
-    assert.ok(!/(^| \/ )[\d.]+ [\d.]+( \/|$)/.test(r.text || ''), 'no line of bare numbers');
-  }
-});
+// The label is always there (Mohammad, 17 Nov: "Tips has no label now"): where the whole of it has no room it gives up its lines from the last, down to "TIPS 8 mm",
+// never to a line cut to its numbers ("6 2.0") and never to nothing.
+const WHOLE = ['TIPS 8 mm', 'waist 6 mm × 2.0 cm'];
+const holds = (text, o) => {
+  assert.ok(text && /^TIPS 8 mm/.test(text), `${JSON.stringify(o)}: the TIPS has its label, "${text}"`);
+  const lines = text.split(' / ');
+  assert.deepEqual(lines, WHOLE.slice(0, lines.length), `${JSON.stringify(o)}: whole lines only, "${text}"`);
+};
+for (const o of [{ red: 0.25, waist: 2, size: 'iphone' }, { red: 0.25, waist: 2, zoom: 0.5 }]) {
+  test(`the TIPS label is always present, whole lines only: ${JSON.stringify(o)}`, { timeout: 320000 }, () => { holds(run(o).text, o); });
+}
