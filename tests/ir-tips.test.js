@@ -309,3 +309,18 @@ test('Stasis: a stent that has almost stopped reads 0 cm/s everywhere, from one 
   assert.match(read('src/ui/doppler.js'), /stentStill\(frame\.Qf \? frame\.Qf\[EI\[probe\]\] : frame\.Q\?\.\[EI\[probe\]\]\)/);
   assert.match(read('src/engine/engine.js'), /o\.still = stentStill\(q\);/);
 });
+
+test('The TIPS view fits the card without scrolling: it fills the pane, the tiles are one row from 400 px, the figures take the height left and are never wider than it allows', async () => {
+  const plate = read('styles/app-06-plate.css'), src = read('src/ui/ir-tips.js');
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] \{ flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;/);
+  assert.match(plate, /\[data-pane="hvpg"\]\[data-view="tips"\] > \.ir-tips \{ flex: 1 1 0; min-height: 0; \}/);
+  assert.match(plate, /@container \(min-width: 400px\) \{ \.ir-tips \.ir-tiles\.rp-tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(plate, /\.ir-figs \{ flex: 1 1 0; min-height: 96px; container-type: size; \}/);
+  assert.match(plate, /\.ir-figs \.gl-stage \{ flex: none; width: min\(100cqw, 520px, calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\); \}/);
+  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ BAR\.h\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
+  const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
+  assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
+  assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
+});
