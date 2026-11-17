@@ -83,6 +83,7 @@ const NCH = 21;
 const SCALE = [1, 1, 10, 10, 10, 1, 12, 6, 400, 400, 400, 16, 16, 16, 16, 16, 12, 1, 1, 600, 24];
 const N_STOPS = 33;
 const IDS = { TIPS: 'tips', DIPS: 'dips' };
+const FADED = (...xs) => xs.flat();   // alloc-rare: once per figure made
 const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
 
 /**
@@ -136,6 +137,9 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     sv('defs', {}, grad, gradP), pvR, hvR, pvQ, hvQ, lumV, lumP, grf, ...wires, ...(labels ? heroWords : []), ...(chart ? [...grid, ...velKids, ...preKids] : []));
   const stage = h('div', { class: 'gl-stage tf-stage' }, pic);
   const el = h('div', { class: `tf${chart ? ' tf-chart' : ''}${labels ? '' : ' tf-bare'}` }, stage);
+  // Every piece whose strength the figure writes holds one from the start: the look reads a piece's opacity live only when it was there as the look was made
+  // (chart-looks/resolve.js '@opacity'), else the two lenses' words were drawn on top of each other (the preview, 17 Nov).
+  for (const e of FADED(pvQ, hvQ, lumV, lumP, grf, wires, heroWords, grid, velKids, preKids)) setGeo(e, 'opacity', 0);
   const gl = createSvgGL(stage);
 
   // ── what it follows ──

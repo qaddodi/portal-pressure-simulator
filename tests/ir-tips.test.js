@@ -628,6 +628,12 @@ test('The vessel card\'s mode is decided before its first paint (no flash of the
   assert.equal(typeof ir.openStent, 'function');
   assert.equal(ir.openStent('TIPS'), false, 'no TIPS in this patient: nothing opens');
   assert.equal(ir.view(), 'measure');
+  // A pane never fed a frame (the dock not opened yet): a card's IR opens the TIPS view all the same (the preview, 17 Nov: it opened Measure).
+  store.set({ params: paramsOf({ tips: { on: true, d: 10 } }) });
+  const fresh = createIrTips({ host: document.createElement('div') });
+  assert.equal(fresh.openStent('TIPS'), true);
+  assert.equal(fresh.view(), 'tips');
+  fresh.setActive(false);
 });
 
 test('The TIPS and DIPS vessel card (the approved mock): the stent to scale, one line of numbers and the three rows; no PV to IVC bar and no tiles', async () => {
@@ -666,6 +672,17 @@ test('The figure\'s geometry: 8 cm of stent fill the same span at every length, 
   assert.equal(Ls.chH, 0); assert.ok(Ls.h < L.heroH, 'the vessel card\'s stent alone is shorter than the test card\'s labelled stent');
   assert.equal(vTop(100), 150); assert.equal(vTop(271), 300); assert.equal(vTop(10000), 4500);
   assert.equal(pTop(15.6), 18); assert.equal(pTop(3), 12);
+});
+
+test('Every piece the figure fades holds its strength from the start, so the two lenses\' words never draw on top of each other (the preview, 17 Nov)', async () => {
+  const { createTipsFigure } = await import('../src/ui/tips-figure.js');
+  const fig = createTipsFigure({ id: 'TIPS', labels: true, chart: true });
+  const texts = [...fig.el.querySelectorAll('text')];
+  assert.ok(texts.length > 20);
+  assert.deepEqual(texts.filter((t) => t.getAttribute('opacity') == null), [], 'every word the figure prints fades with its lens or its stent');
+  const paths = [...fig.el.querySelectorAll('path, circle')];
+  assert.deepEqual(paths.filter((t) => t.getAttribute('opacity') == null).map((t) => t.getAttribute('data-look')), [], 'and every line, bracket and dot');
+  fig.dispose();
 });
 
 test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the waist\'s lumen and length, or None', async () => {
