@@ -282,7 +282,7 @@ const unitNow = () => !!store.get().presenting;
     return Number.isFinite(fixed) && Math.abs(now - fixed) < Math.max(4, fixed * 0.12) ? fixed : beatMean('v:' + id, now, 6);
   }
   // A TIPS or DIPS shunt's own label says what the stent is, not how fast the blood goes through it (Mohammad, 17 Nov: "no need to show the velocity; show the
-  // diameter and the waist and length"): "TIPS 10 mm", under it its waist "waist 6.3 mm × 3.0 cm" and its end stenosis "distal stenosis 5.0 mm" where it has them,
+  // diameter and the waist and length"): "TIPS 10 mm", under it its waist "6.3 mm × 3.0 cm" and its end stenosis "distal stenosis 5.0 mm" where it has them,
   // one label for all of it, a line each (the waist's bracket on the figure carries no words, and no clamp of the stent has any). The points a slide reads in cm/s are the Doppler's.
   const MM = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
   function geomItem(it, sid, f) {
@@ -291,12 +291,11 @@ const unitNow = () => !!store.get().presenting;
     // (The stent on a line of its own, then what narrows it: one label, as tall as the narrowings it has, never one very wide line the stage has no room for.)
     const lines = [[{ ...head, t: sid }, num(g ? MM(g.d) : ''), unit('mm')]];
     let say = `${sid}: ${g ? MM(g.d) : ''} millimeters`;
-    if (g?.waist != null) { lines.push([{ ...head, t: 'waist' }, num(MM(g.waist), 4, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
+    if (g?.waist != null) { lines.push([num(MM(g.waist), 0, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
     if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
     it.lines = lines;
-    // (Its forms, one step each, never more than two: the whole; the waist's word dropped ("4.4 mm × 3.0 cm") and the end stenosis let go; the stent's line alone.)
-    const bare = lines.length > 1 && g?.waist != null ? [lines[0], lines[1].slice(1)] : null;
-    it.geomSets = [lines, ...(lines.length > 1 ? [bare || lines.slice(0, 1)] : []), ...(bare ? [lines.slice(0, 1)] : [])];
+    // (Its forms, one step each, never more than two: the whole; the end stenosis let go; the stent's line alone. The waist's line is its numbers only, "6 mm × 4 cm": Mohammad, 17 Nov.)
+    it.geomSets = [lines, ...(lines.length > 2 ? [lines.slice(0, 2)] : []), ...(lines.length > 1 ? [lines.slice(0, 1)] : [])];
     it.canShort = it.geomSets.length > 1; it.geom = true; it.short = 0;   // (shortened by whole lines, shortenItem: never to a line's bare numbers, "6 2.0" for "waist 6 mm × 2.0 cm", and never to nothing: Mohammad, 17 Nov)
     it.key = `n:${sid}`; it.src = ['vel', sid, null]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0); it.label = say;

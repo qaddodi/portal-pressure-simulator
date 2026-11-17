@@ -76,6 +76,10 @@ test('the drawn stent: waist diameter, length, mid position and ends in the radi
   assert.ok(steep(tapered.a) < steep(abrupt.a) * 0.6, `tapered ends are gentler: ${steep(tapered.a).toFixed(3)} against ${steep(abrupt.a).toFixed(3)}`);
   assert.ok(steep(tapered.m) < steep(abrupt.m) * 0.6, `in the mesh too: ${steep(tapered.m).toFixed(3)} against ${steep(abrupt.m).toFixed(3)}`);
   assert.ok(narrowShare(tapered.a, 0.95) > narrowShare(abrupt.a, 0.95) + 0.1, 'the taper is longer');
+  // The bracket covers the tapers too (Mohammad, 17 Nov, "Taper too"): a 2 cm waist with 1.5 cm cones is 5 cm of the 8 cm stent; abrupt, 2 cm.
+  assert.ok(Math.abs(bracketRatio(tapered.d.len) - 5 / 8) < 0.07, `tapered: the bracket spans the cones too, ${bracketRatio(tapered.d.len)}`);
+  await waistCase(2, 0, 0.6);
+  assert.ok(Math.abs(bracketRatio(abrupt.d.len) - 2 / 8) < 0.06, `abrupt: the waist alone, ${bracketRatio(abrupt.d.len)}`);
   // 4. An end stenosis at the hepatic vein end narrows only that end, in the tube and in the mesh.
   await set({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { len: 8, waist: 0, trans: 0, red: 0 } } });
   await frames(120);
