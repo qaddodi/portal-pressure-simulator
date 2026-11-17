@@ -142,7 +142,7 @@ export const rowReason = (t, fit) => (fit.verdict === 'no' ? whyNot(fit) || reas
 const treatArm = (t) => (t.arms || []).find((a) => a.side === 'treat') || t.arms?.[0];
 const others = (t) => (t.arms || []).filter((a) => a !== treatArm(t));
 /** "Beta-blocker vs placebo". */
-export const comparisonOf = (t) => (t.arms || []).map((a, i) => (i ? a.label.charAt(0).toLowerCase() + a.label.slice(1) : a.label)).join(' vs ');
+export const comparisonOf = (t) => (t.arms || []).map((a, i) => (i ? lcFirst(a.label) : a.label)).join(' vs ');
 /** The row's numbers in words (TC-L2, A5): ["16%", " vs 27% decompensated"]; a trial with no per-arm result reads its outcome word alone. */
 export function ratesOf(t) {
   const tr = treatArm(t);

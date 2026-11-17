@@ -1,5 +1,6 @@
 // The question card, the held answer and the cards that stay
 // (moved out of presenter.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { lcFirst } from '../engine/lc-first.js';
 import { SAAG_PORTAL, TP_HIGH, saagPortal, tpHigh } from '../engine/ascites-cuts.js';
 import { NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { cardBack, cardChangedWhy, cardSnap, dataPlan, keepData, keepText, textPlan } from './card-keep.js';
@@ -526,7 +527,7 @@ export function createQuestion(st, live) {
     const vsRow = (r) => rows.find((x) => x.key === r.vs || (x.i >= 0 && live.slides[x.i]?.id === r.vs));
     const refOfRow = (r) => (r.vs ? vsRow(r)?.f ?? fpOf(r.vs) : first);
     // (Lower-cased mid-sentence, but an acronym such as CSPH or TIPS stays as it is.)
-    const lc = (t) => (/^[A-Z]{2}/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
+    const lc = lcFirst;
     const vsName = (r) => { const t = vsRow(r); return lc(t?.title || live.slides.find((x) => x.id === r.vs)?.title || ''); };
     // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
     const isRef = (r, n) => !!r.ref || (rel && !r.vs && n === 0);

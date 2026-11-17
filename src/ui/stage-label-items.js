@@ -291,7 +291,7 @@ const unitNow = () => !!store.get().presenting;
     // (The stent on a line of its own, then what narrows it: one label, as tall as the narrowings it has, never one very wide line the stage has no room for.)
     const lines = [[{ ...head, t: sid }, num(g ? MM(g.d) : ''), unit('mm')]];
     let say = `${sid}: ${g ? MM(g.d) : ''} millimeters`;
-    if (g?.waist != null) { lines.push([num(MM(g.waist), 0, 12), unit('mm'), unit('×', 4), num(g.wLen.toFixed(1), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${g.wLen.toFixed(1)} centimeters`; }
+    if (g?.waist != null) { lines.push([num(MM(g.waist), 0, 12), unit('mm'), unit('×', 4), num(MM(g.wLen), 3, 12), unit('cm')]); say += `, waist ${MM(g.waist)} millimeters by ${MM(g.wLen)} centimeters`; }
     if (g?.sten != null) { lines.push([{ ...head, t: `${g.end} stenosis` }, num(MM(g.sten), 4, 12), unit('mm')]); say += `, ${g.end} stenosis ${MM(g.sten)} millimeters`; }
     it.lines = lines;
     // (Its forms, one step each, never more than two: the whole; the end stenosis let go; the stent's line alone. The waist's line is its numbers only, "6 mm × 4 cm": Mohammad, 17 Nov.)

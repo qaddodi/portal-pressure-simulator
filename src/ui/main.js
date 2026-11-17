@@ -2,6 +2,8 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import './test-boot.js';   // (very first: ?testclock puts the page's clocks on the test clock before any other module reads the time)
+import { lcFirst } from '../engine/lc-first.js';
+import { shortName, COMPACT } from './scenario-names.js';
 import { motionBudget } from './motion-budget.js';   // (first: counts from the start when ?perf or ?budget=1 asks)
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
@@ -402,10 +404,8 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { const off = !store.get().layers.chips; if (app.classList.contains('chips-off') !== off) { app.classList.toggle('chips-off', off); themeChanged(); } syncBloodBtn(); redraw(); });
   // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
-  const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
   // The compact form, for the narrowest room (a phone held sideways, 84 px): the short form where two lines of it fit, else a
   // shorter name (a soft hyphen breaks Schistosomiasis across the two lines with a hyphen if it must).
-  const COMPACT = { 'Acute portal vein thrombosis': 'Acute PVT', 'Schistosomiasis / NCPH': 'Schisto\u00ADsomiasis', 'Cirrhosis with gastrorenal shunt': 'Gastrorenal shunt', 'Sinusoidal obstruction syndrome': 'SOS' };
   // (A name is one of the presets' labels or "Custom", so each one's forms are made once here, not when the name changes.)
   const nameOf = new Map(), shortOf = new Map();
   for (const p of presets) if (!nameOf.has(p.id)) nameOf.set(p.id, p.label || 'Custom');
@@ -2343,7 +2343,7 @@ function wireKeyboard() {
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
-      store.set({ colorMode: next }); toast(`Colored by ${LENSES[next][0].toLowerCase()}. ${LENSES[next][1]}.`); return;
+      store.set({ colorMode: next }); toast(`Colored by ${lcFirst(LENSES[next][0])}. ${LENSES[next][1]}.`); return;
     }
     if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(presenter.active() ? 'present' : undefined); return; }

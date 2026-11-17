@@ -2,6 +2,7 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
+import { lcFirst } from './lc-first.js';
 import { Engine } from './engine.js';
 import { computeMetrics } from './metrics.js';
 import { defaultParams, DRUGS } from './scenario.js';
@@ -59,7 +60,7 @@ function factors(eng, metricId) {
   const p = eng.params, d = defaultParams(), s = eng.slow;
   const out = [];
   const add = (label, say, revert, kind = 'param') => out.push({ label, say, revert, kind });
-  const lc = (l) => l.charAt(0).toLowerCase() + l.slice(1);
+  const lc = lcFirst;
   if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)}%`, 'the cirrhosis', (e) => { e.params.cirrhosis = 0; });
   for (const lobe of ['R', 'L']) for (const z of ['pre', 'sin', 'post']) {
     if ((p.fibrosis[lobe][z] ?? 1) !== 1) {

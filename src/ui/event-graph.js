@@ -23,6 +23,7 @@
 //    open"), the seconds after it empty. Going back before the step clears what was drawn; coming back to the slide played through shows it
 //    whole again.
 // Drawn on the GPU (svg-gl.js), never painted by the browser; no list or string is made in a frame (the points live in one typed array).
+import { lcFirst } from '../engine/lc-first.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { plotPanel } from './plot-look.js';
@@ -277,7 +278,7 @@ export function createEventGraph() {
     if (Math.abs(ls[0].hy - ls[1].hy) < 1.4 * G.f) setGeo(ls[0].val, 'y', fix1(ls[0].hy + 1.5 * G.f));
     if (printed) {
       // alloc-rare: only when a printed number changed
-      let label = `${LINE[spec.lines[0]][0]} and ${LINE[spec.lines[1]][0].toLowerCase()}, ${on ? `${fmtN(Math.round(t))} s after` : 'before'} ${spec.word.toLowerCase()}: `;
+      let label = `${LINE[spec.lines[0]][0]} and ${lcFirst(LINE[spec.lines[1]][0])}, ${on ? `${fmtN(Math.round(t))} s after` : 'before'} ${lcFirst(spec.word)}: `;
       for (let j = 0; j < ls.length; j++) label += `${j ? ', ' : ''}${LINE[spec.lines[j]][0]} ${on ? `${withUnit(before[j], ls[j].d, ls[j].unit)} to ` : ''}${ls[j].txt}`;
       attrSoon(parts.svg, 'aria-label', label);
     }

@@ -11,6 +11,7 @@
 // forestLayout and armsLayout are pure: the same trials at the same width and type size always give the same drawing. meas(text, font) → px
 // (glyph-measure.js). createForest draws forestLayout's pieces, again only when its width or what it shows changes.
 
+import { lcFirst } from '../engine/lc-first.js';
 import { h } from './util.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { fittedType } from './chart-ctx.js';
@@ -167,7 +168,7 @@ export function forestLayout(trials, W, f, meas, opts = {}) {
     y += f * 0.45;
     const rt = ratesText(sel);
     for (const dl of wrapWords(`${sel.short ?? sel.name}${rt ? `: ${rt}` : ''}`, W - 2 * ip, f, 600, meas, Infinity)) { say(ip, y + f, dl, 'forest.dt'); y += lh; }
-    const fu = sel.followUp ? `, ${sel.followUp.charAt(0).toLowerCase()}${sel.followUp.slice(1)}` : '';
+    const fu = sel.followUp ? `, ${lcFirst(sel.followUp)}` : '';
     const note = notes?.[sel.id];
     for (const s of wrapWords(`${sel.endpoint || ''}${fu}.${note ? ` ${note}` : ''}`, W - 2 * ip, fs, 500, meas, Infinity)) { say(ip, y + fs, s, 'forest.dx'); y += fs * 1.4; }
   }

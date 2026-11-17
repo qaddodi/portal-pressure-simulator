@@ -7,10 +7,11 @@
 //   tool: { kind: 'course', reading: 'asc', from, event, wait, after, then }   one reading over the days after an event, on the rating's zones, a line per
 //         treatment from the same day (tool-course.js)
 
+import { lcFirst } from '../engine/lc-first.js';
 import { createCurve, warmCurve, curveLines, lineMeta, axisMeta } from './tool-curve.js';
 import { createCourse, warmCourse, courseOf } from './tool-course.js';
 
-const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
+const lc = lcFirst;
 // (A chart whose lines are different readings of one kind, the fundal and the esophageal varix, goes by the slide's `reading`.)
 const names = (t) => (typeof t.reading === 'string' && t.reading ? [t.reading] : curveLines(t).map((k, j) => (j ? lc(lineMeta(k).name) : lineMeta(k).name)));
 
