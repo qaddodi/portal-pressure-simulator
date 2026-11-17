@@ -339,28 +339,24 @@ test('The TIPS view fits the card without scrolling: it fills the pane, the tile
   const spec = (sel) => [...sel.matchAll(/\.[\w-]+|\[[^\]]+\]/g)].length;
   assert.ok(spec('.ir-figs .sc > .sc-stage') > spec('.sc > .sc-stage'));
   assert.doesNotMatch(read('src/ui/ir-tips.js').replace(/\/\/.*$/gm, ''), /ir-note/, 'no explanatory sentence in the figures\' band: the tiles\' titles say it');
-  assert.match(src, /figs\.style\.setProperty\('--fig-r', \(VW \/ \(SIDE\.h \+ \(along \? traceH\(3\) : BAR\.h\)\)\)\.toFixed\(4\)\)/, 'the ratio comes from the pictures\' own sizes, never a copy');
-  const { VW, SIDE, BAR } = await import('../src/ui/tool-stent.js');
-  assert.ok(Math.abs(VW / (SIDE.h + BAR.h) - 1.35) < 0.25, 'the fallback ratio is near the real one');
+  assert.match(src, /const r = stent\.ratio\(\);/, 'the ratio is the card\'s own (stent.ratio()), never a copy of its sizes');
+  assert.match(src, /show: \['card'\]/, 'one stent drawing, one lens switch');
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   assert.ok(ir.el.querySelector(':scope > .ir-editor'), 'a slot for the stent editor sits above the sub-switch');
   assert.ok(ir.el.querySelector('.ir-editor').nextElementSibling.classList.contains('ir-sub'));
   assert.match(plate, /\.ir-sub \{ align-self: flex-start; position: relative; z-index: 1;/);
 });
 
-test('Along: the sub-switch has four views, and Along shows the side view with the traces in place of the loss bar', async () => {
+test('The sub-switch has three views: Inside (the stent card), Tube vs patient and Compare; the old Along is the card\'s own chart now', async () => {
   const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
-  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'along', 'curves', 'compare']);
+  assert.deepEqual([...ir.el.querySelectorAll('.ir-sub .ps-btn')].map((b) => b.dataset.sub), ['inside', 'curves', 'compare']);
   ir.update(frameOf()); await wait(60);
-  const rb = ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r');
-  ir.el.querySelector('[data-sub="along"]').click();
-  assert.equal(ir.sub(), 'along'); assert.equal(ir.el.dataset.sub, 'along');
-  assert.notEqual(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), rb, 'the figures\' height budget follows the pictures shown');
+  assert.ok(ir.el.querySelector('.ir-figs').style.getPropertyValue('--fig-r'), 'the width-first ratio is set from the card');
+  ir.el.querySelector('[data-sub="compare"]').click(); assert.equal(ir.sub(), 'compare');
   ir.update(frameOf()); await wait(60);
   assert.equal(host.dataset.view, 'tips');
-  assert.match(read('styles/app-06-plate.css'), /\[data-sub="along"\] > \.ir-inside > :is\(\.ir-tiles, \.ir-note\) \{ display: none; \}/);
 });
 
 test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open the card"): one row of value chips, a chip opens its slider in the same row, and a change reaches the params', async () => {
@@ -409,15 +405,15 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
 });
 
-test('The card\'s Velocity | Pressure switch sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
+test('The card\'s one lens switch (Velocity | Pressure | Where it goes) sits in the view\'s header row, in the switches\' look, not between the pictures', async () => {
   const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
   ir.update(frameOf()); await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();
   ir.update(frameOf()); await wait(60);
-  const sw = ir.el.querySelector('.ir-stents > .sc-color');
+  const sw = ir.el.querySelector('.ir-stents > .sc-lens');
   assert.ok(sw, 'moved into the header row');
   assert.ok(sw.classList.contains('pressure-switch') && sw.classList.contains('ir-color'));
-  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-color'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
+  assert.equal(ir.el.querySelector('.ir-figs .sc > .sc-lens'), null, 'no loose row between the figures: the band\'s height is the pictures\' alone');
   assert.match(read('styles/app-06-plate.css'), /\.ir-tips:is\(\[data-sub="compare"\], \[data-sub="curves"\]\) \.ir-color \{ opacity: 0; pointer-events: none; \}/);
 });
 

@@ -61,3 +61,10 @@ test('Ascites on the side card: the gauge, belly and Drain block are sized by th
   // the Drain controls grow with the belly, and the phone keeps its own sizes
   assert.match(css, /#app:not\(\.thumb\) \.instrument-workspace\.side \.ab-dp :is\(\.ab-dp-vol, \.ab-dp-alb, \.ab-drain\) \{ height: clamp\(32px, calc\(var\(--ab-bw\) \* \.15\), 42px\); \}/);
 });
+
+test('The side card takes the room there is, up to 760 px, one height for every test (17 Nov 2026, F31: it stopped at 560 px with the screen empty below)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../styles/app-07-floating.css', import.meta.url), 'utf8');
+  assert.match(css, /\.instrument-workspace\.side:not\(\[data-state="peek"\]\) \{ --ws-h: min\(var\(--ws-max, 760px\), calc\(100% - var\(--top-safe\)/);
+  assert.doesNotMatch(css, /--ws-h: min\(560px/, 'no 560 px cap left');
+});
