@@ -16,7 +16,7 @@
 //  • Each scale is fixed before anything is drawn, from the state it starts at and the state it ends at, so nothing moves while the line runs:
 //    a pressure from zero to the next 5 over its highest value; the other from the tile's own scale start. The tiles' own cut-offs are drawn
 //    as tints on the side that is worse (table-marks SCALE and RATE: the sinusoidal flow's 55% and 75%, red and amber, as its tile's bar), a
-//    pressure with its red cut-off only; after a TIPS the PPG's goal, below 12 mmHg (pressure-cuts.js), is a green band named "Target <12".
+//    pressure with its red cut-off only; after a TIPS the PPG's goal, below 12 mmHg (pressure-cuts.js), is a green band named "Variceal <12" (AASLD 2024's reference for a variceal indication, not a target: TIPS deck review, 17 Nov 2026).
 //  • BRTO and BATO (Gastric varices): the fundal varix closes at once as the shunt does, and the PPG creeps up over the seconds after (16.9 to
 //    about 18 mmHg), the price the slide names.
 //  • It draws nothing until the change: before it the line stops at 0 with its value, the word for the event over a dashed line ("Stent
@@ -125,7 +125,7 @@ export function endMix(t, secs) {
   return k * k * (3 - 2 * k);
 }
 
-/** Where the goal's name ("Target <12") goes in its band: [x, anchor, baseline y]. Under the band's edge at the left, where the lines run flat at their starting
+/** Where the goal's name ("Variceal <12") goes in its band: [x, anchor, baseline y]. Under the band's edge at the left, where the lines run flat at their starting
  *  levels, else at the right, where they end, else low in the band (if it is tall enough): the first spot no line stands in. starts and ends: the y of each
  *  line's level there. Play-test B12, 16 Nov 2026: it sat on the varix's line. o: { w, start, end }, the name's width and the boxes [x0, x1, y0, y1] the lines'
  *  printed values stand in at the start and at the end ("2.9 mm" over the head of its line): a spot they would touch is passed over, so the name is never
@@ -209,8 +209,8 @@ export function createEventGraph() {
         if (tgt && zoneH >= 1.25 * f) {
           const tag = (hx, v, q) => { const tw = cw(withUnit(v, q.d, q.unit), f * 1.1, 1), hy = q.Y(v); return [hx - tw - 0.6 * f, hx + tw + 0.6 * f, hy - 1.8 * f, hy - 0.4 * f]; };   // (where a head's printed value can stand: over its line, either side of the head; paint, headLeft)
           const at = goalSpot(L, R, f, y, l.Y(sc.min), lines.map((q) => q.Y(before[q.j])), endv ? lines.map((q) => q.Y(endv[q.j])) : undefined,
-            { w: cw(`Target <${fmtN(c.v)}`, f), start: lines.map((q) => tag(X(0), before[q.j], q)), end: lines.map((q) => tag(R, (endv || before)[q.j], q)) });
-          marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: at[0], y: at[2], 'text-anchor': at[1] }, `Target <${fmtN(c.v)}`));
+            { w: cw(`Variceal <${fmtN(c.v)}`, f), start: lines.map((q) => tag(X(0), before[q.j], q)), end: lines.map((q) => tag(R, (endv || before)[q.j], q)) });
+          marks.push(sv('text', { class: 'pev-goal', 'data-look': 'cv.zone.t', x: at[0], y: at[2], 'text-anchor': at[1] }, `Variceal <${fmtN(c.v)}`));
         }
         else if (room(y)) { taken.push(y); marks.push(sv('text', { 'data-look': 'cv.tc', 'data-tc': c.rate === 'ok' ? '' : c.rate, x, y: y + 0.35 * f, 'text-anchor': anchor }, fmtN(c.v))); }
       }
