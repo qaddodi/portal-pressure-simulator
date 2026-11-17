@@ -6,4 +6,5 @@ export default [
   { file: 'styles/app-09-tests.css', need: [/\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/, `${W} a reading's name wraps between words, never inside one (F37)`] },
   { file: 'styles/app-06-plate.css', need: [/\.ir-tips \{[^}]*overflow: hidden auto;[^}]*touch-action: pan-y;/, `${W} the TIPS view scrolls down at most, never sideways (overflow-y alone made x scroll)`] },
   { file: 'styles/app-06-plate.css', need: [/\.ir-figs \.sc > \.sc-stage \{ flex: none; width: min\(100cqw, 520px, max\(min\(100cqw, var\(--fig-min, 340px\)\), calc\(\(100cqh - 6px\) \* var\(--fig-r, 1\.35\)\)\)\); \}/, `${W} the pictures size width first, never below a readable 340 px (F22, F25)`] },
+  { file: 'src/ui/monitor.js', need: [/monitorNote\(ctx, note\[0\], L \+ 3 \+ Math\.ceil\(ctx\.measureText\(tick\(ymax\)\)\.width\) \+ 8,/, `${W} a monitor's idle note starts clear of the axis numbers' ink, so "10" never reads "1(" (F48)`] },
 ];
