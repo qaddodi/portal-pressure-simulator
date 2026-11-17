@@ -5,7 +5,8 @@
 // a compare button or the days of anticoagulation, easing from one state to the next.
 
 import { h, clamp } from './util.js';
-import { EDGES, stentSite } from '../engine/topology.js';
+import { EDGES, STENT_SITES as SITE_U, edgeById, tightSite } from '../engine/topology.js';
+import { endSiteOf, geomOf, kindOf, profileAt } from '../engine/stent-geom.js';
 import { store } from './store.js';
 import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
 import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';
@@ -77,9 +78,18 @@ const LABEL = { PV_TRUNK: 'Portal vein', PVH_R: 'Right PV', PVH_L: 'Left PV', SV
   SMV_CONF: 'SMV', RHV_IVC: 'Right HV', MHV_IVC: 'Middle HV', LHV_IVC: 'Left HV', IVCS_RA: 'IVC', IVCI: 'IVC', IVCS: 'IVC' };
 withPieces(LABEL);
 export const STENT_SITES = ['proximal', 'mid', 'distal'];
-/** Where along a stent the section is cut: the slide's tool.site, else the segment its narrowing sits in
- *  (params.stenosisSite, distal if unset, as scenario.js and the Doppler take it). */
-export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : stentSite(params, id);   // (topology.js stentSite: a waist set along the stent is mid stent)
+/** Where along a stent the section is cut: the slide's tool.site, else the segment its tightest narrowing sits in (topology.js tightSite: the
+ *  end stenosis's end, or mid stent when the waist is the narrower). */
+export const lumenSite = (params, id, site) => STENT_SITES.includes(site) ? site : tightSite(params, id);
+const CUT_G = { len: 0, waist: 0, trans: 0, red: 0 };   // (read at once by stentCut)
+/** A stent's narrowing where it is cut at `site` (0 to 1 of the diameter): the end stenosis there if it is at that end, the waist there if
+ *  mid stent (stent-geom.js profileAt, the one profile every picture of the stent reads), none in an open segment. */
+export function stentCut(params, id, site) {
+  const kind = kindOf(edgeById(id));
+  if (!kind) return clamp(+params?.stenosis?.[id] || 0, 0, 1);
+  const g = geomOf(params, id, kind, CUT_G), s = clamp(+params?.stenosis?.[id] || 0, 0, 1);
+  return 1 - profileAt(g, s, SITE_U[endSiteOf(params, id)], SITE_U[site] ?? 0.5);
+}
 export const lumenLabel = (id, name, site = 'distal') => (typeof name === 'string' && name.trim())
   || (STENTS.has(id) ? `${site[0].toUpperCase()}${site.slice(1)} ${id}` : LABEL[id]) || (([c, ...r]) => c.toUpperCase() + r.join(''))(lumenName(id));
 
@@ -269,8 +279,8 @@ export function createLumen() {
     const prm = store.get().params, L = lumenOf(prm, id), site = lumenSite(prm, id, tool?.site);
     const was = wordsOf(inName);
     set(inName, lumenLabel(id, tool?.name, site));
-    // A stent cut away from its narrowed segment shows an open stent there (a clot fills the whole stent).
-    if (L.stent && site !== lumenSite(prm, id)) L.stenosis = 0;
+    // A stent shows its lumen where it is cut: its end stenosis at that end, its waist mid stent, open elsewhere (a clot fills the whole stent).
+    if (L.stent) L.stenosis = stentCut(prm, id, site);
     if (!hasShown || reduce?.matches || !el.isConnected) {
       fol.snap(L.stenosis, L.thrombus); hasShown = true;
       if (raf) { cancelFrame(raf); raf = 0; }

@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  stentParts, geomOf, geomFix, geomDefault, benchFlow, profileAt, waistSpan, coneFactor, kExp, coneAngle,
+  stentParts, geomOf, geomFix, geomDefault, benchFlow, profileAt, waistSpan, endSpan, coneFactor, kExp, coneAngle,
   C_WALL, KIN, K_ENTRY, K_C, PINCH, TAPER_CM,
 } from '../src/engine/stent-geom.js';
 import { stenosisFactor } from '../src/engine/physiology.js';
@@ -27,7 +27,9 @@ const OLD = (() => {
 })();
 const KINDS = ['tips', 'dips', 'custom'];
 const G = (kind, g = {}) => geomFix({ ...geomDefault(kind), ...g }, kind);
-const R = (kind, d, q, s, g, visc = 1) => stentParts(kind, d, q, visc, s, g ? G(kind, g) : geomOf({}, 'X', kind));
+// (A narrowing s with a geometry g is the stent's waist, g.red = s, over g's length and ends; with none, its end stenosis, the short focal pinch the
+// model always had. Since 17 Nov 2026 the two are separate on the card: stent-geom.js.)
+const R = (kind, d, q, s, g, visc = 1) => (g ? stentParts(kind, d, q, visc, 0, G(kind, { ...g, red: s })) : stentParts(kind, d, q, visc, s, geomOf({}, 'X', kind)));
 const settled = (patch, preset = 'cirr-decomp') => {
   const e = new Engine(); e.loadPreset(preset);
   e.setParams(sanitizeParams(deepMerge(e.params, patch))); e.settle(3);
@@ -79,7 +81,7 @@ test('reviewer 3: a longer narrowed segment adds more friction at the same diame
     }
   }
   // …and in the patient the PPG rises with it (the coupled circulation sets how far).
-  const ppg = [0, 1, 4].map((waist) => computeMetrics(settled({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: { waist } } })).ppg);
+  const ppg = [0, 1, 4].map((waist) => computeMetrics(settled({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { waist, red: 0.4 } } })).ppg);
   assert.ok(ppg[0] < ppg[1] && ppg[1] < ppg[2], `PPG ${ppg}`);
   // A longer uniform conduit carries less at the same gradient, and in the patient the PPG is higher (reviewer §1).
   assert.ok(benchFlow('tips', 6, 1, 0, G('tips', { len: 8 }), 7) < benchFlow('tips', 6, 1, 0, G('tips', { len: 4 }), 7));
@@ -118,7 +120,7 @@ test('reviewer 5 and 6: no gradient, no flow; the flow follows the gradient, on 
 
 test('reviewer 7: mass balance closes at every node, whatever the stent’s geometry', () => {
   for (const g of [{ waist: 0 }, { waist: 4, trans: 1 }, { len: 4 }, { len: 10, waist: 6 }]) {
-    const e = settled({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: g }, pulsatile: false, respiration: false });
+    const e = settled({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { ...g, red: 0.4 } }, pulsatile: false, respiration: false });
     const V0 = Float64Array.from(e.V), bv0 = e.bloodVolume();
     e.step(0.01);
     for (let i = 0; i < e.N; i++) assert.ok(Math.abs(e.V[i] - V0[i]) / 0.01 < 1e-6, `${JSON.stringify(g)}: node ${e.nodes[i].id} gains ${(e.V[i] - V0[i]) / 0.01} mL/s at rest`);
@@ -131,11 +133,11 @@ test('reviewer 7: mass balance closes at every node, whatever the stent’s geom
 
 test('reviewer 8: the closed form is what a finer and finer profile converges to', () => {
   for (const [s, g] of [[0.4, { waist: 1, trans: 1 }], [0.6, { waist: 3, trans: 0.5 }], [0.2, { waist: 0, trans: 2 }], [0.5, { len: 4, waist: 1, trans: 1.5 }]]) {
-    const gg = G('tips', g), d = 10, exact = stentParts('tips', d, 0, 1, s, gg).wall;
+    const gg = G('tips', { ...g, red: s }), d = 10, exact = stentParts('tips', d, 0, 1, 0, gg).wall;
     let prev = Infinity;
     for (const N of [10, 100, 1000, 10000, 100000]) {
       let sum = 0;
-      for (let i = 0; i < N; i++) { const f = profileAt(gg, s, STENT_SITES.mid, (i + 0.5) / N); sum += Math.pow(10 / (d * f), 4); }
+      for (let i = 0; i < N; i++) { const f = profileAt(gg, 0, STENT_SITES.distal, (i + 0.5) / N); sum += Math.pow(10 / (d * f), 4); }
       const err = Math.abs(C_WALL * gg.len * sum / N - exact) / exact;
       assert.ok(err <= prev + 1e-12, `${JSON.stringify(g)} N ${N}: ${err}`); prev = err;
     }
@@ -168,7 +170,7 @@ test('reviewer 10: units stay consistent', () => {
   const poiseuille = (128 * 3.5e-3 * 0.01) / (Math.PI * Math.pow(0.01, 4)) / 133.322 / 1e6;
   assert.ok(Math.abs(C_WALL / poiseuille - 4.7) < 0.1, `C_WALL is ${(C_WALL / poiseuille).toFixed(2)}× Poiseuille`);
   // The engine's readings: the parts × Q are the pressure across the stent (mmHg), flow in L/min, velocity in cm/s.
-  const e = settled({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stentGeom: { TIPS: { waist: 4 } } }), m = computeMetrics(e), t = m.tips;
+  const e = settled({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { waist: 4, red: 0.4 } } }), m = computeMetrics(e), t = m.tips;
   assert.ok(Math.abs(t.parts.total - t.dp) < 0.02, `parts ${t.parts.total} against ΔP ${t.dp}`);
   assert.ok(Math.abs(t.flow - t.q * 0.06) < 1e-12 && t.flow > 0.5 && t.flow < 3);
   assert.ok(Math.abs(t.vWaist - t.vOpen / 0.36) < 1e-9 && t.vWaist > 40 && t.vWaist < 200, `waist ${t.vWaist} cm/s`);
@@ -184,20 +186,25 @@ test('the tapered end’s loss falls with the cone’s angle, and is the abrupt 
   assert.ok(R('tips', 10, 15, 0.4, { trans: 1 }).jet < R('tips', 10, 15, 0.4, { trans: 0 }).jet);
 });
 
-test('the waist and its ends always fit inside the stent, centred on their site unless that would run them off its end', () => {
+test('the waist and its ends always fit inside the stent, mid stent; the end stenosis sits on its end', () => {
   const g = geomFix({ len: 4, waist: 6, trans: 2 }, 'tips');
   assert.ok(g.waist + 2 * g.trans <= g.len + 1e-12 && g.trans === 2 && g.waist === 0, JSON.stringify(g));
-  for (const site of Object.values(STENT_SITES)) for (const gg of [G('tips'), G('tips', { waist: 5, trans: 1 })]) {
-    const w = waistSpan(gg, site);
+  for (const gg of [G('tips'), G('tips', { waist: 5, trans: 1 }), G('tips', { len: 4, waist: 4 })]) {
+    const w = waistSpan(gg);
     assert.ok(w.a0 >= -1e-12 && w.b0 <= 1 + 1e-12 && w.a1 - w.a0 >= 0 && w.b0 - w.b1 >= 0);
+    assert.equal(w.c, 0.5, 'the waist is always mid stent');
   }
-  assert.equal(waistSpan(G('tips'), STENT_SITES.proximal).c, STENT_SITES.proximal, 'a short waist sits on its site');
-  assert.ok(waistSpan(G('tips', { waist: 5 }), STENT_SITES.distal).c < STENT_SITES.distal, 'a long one slides inward');
+  for (const site of [STENT_SITES.proximal, STENT_SITES.distal]) {
+    const e = endSpan(G('tips'), site);
+    assert.equal(e.c, site, 'the end stenosis sits on its end');
+    assert.ok(Math.abs(e.b1 - e.a1 - PINCH) < 1e-12 && e.a0 === e.a1 && e.b0 === e.b1, 'short (PINCH of the stent) and abrupt');
+  }
+  assert.ok(endSpan(G('tips'), 0).a0 >= 0 && endSpan(G('tips'), 1).b0 <= 1, 'slid inward at the very ends');
 });
 
 test('a stent’s geometry is sanitized, kept by links and dropped for a vessel that is not a stent', () => {
   const { params, repairs } = sanitizeParamsReport({ stentGeom: { TIPS: { len: 30, waist: -1 }, PV_TRUNK: { len: 5 }, DIPS: 'long' } });
-  assert.deepEqual(params.stentGeom, { TIPS: { len: 10, waist: 0, trans: 0 } });
+  assert.deepEqual(params.stentGeom, { TIPS: { len: 10, waist: 0, trans: 0, red: 0 } });
   assert.ok(repairs.some((r) => r.path === 'stentGeom.TIPS.len') && repairs.some((r) => r.path === 'stentGeom.PV_TRUNK') && repairs.some((r) => r.path === 'stentGeom.DIPS'));
   const p = sanitizeParams({ stentGeom: { TIPS: { len: 6, waist: 2.5, trans: 1 } } });
   assert.deepEqual(sanitizeParams(JSON.parse(JSON.stringify(p))).stentGeom, p.stentGeom, 'a link’s round trip keeps it');
@@ -220,61 +227,78 @@ test('a stent given a geometry for the first time eases from its defaults, not f
   assert.ok(lo >= q1 * 0.98, `a shorter stent never carries less on its way (${q1} → ${lo})`);
 });
 
-test('the Doppler gates read the lumen where they sit: a long waist jets at every gate inside it', () => {
+test('the Doppler gates read the lumen where they sit: the end stenosis at its end, a long waist at every gate inside it', () => {
   // The default geometry reads as the short pinch always did.
-  for (const site of ['proximal', 'mid', 'distal']) for (const s of [0, 0.2, 0.6]) {
+  for (const site of ['proximal', 'distal']) for (const s of [0, 0.2, 0.6]) {
     assert.deepEqual(stentSegments(100, s, site, null, G('tips')), stentSegments(100, s, site), `${site} ${s}`);
     assert.deepEqual(stentReadsOf({ stenosis: { TIPS: s }, stenosisSite: { TIPS: site } }, 'TIPS', 100), stentSegments(100, s, site));
   }
   // A 6 cm waist mid stent (1 to 7 cm) holds all three gates (at 1.3, 4 and 6.7 cm); a 5 cm one (1.5 to 6.5 cm) only the middle one.
-  const long = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 6 } } }, 'TIPS', 100);
+  const long = stentReadsOf({ stentGeom: { TIPS: { waist: 6, red: 0.5 } } }, 'TIPS', 100);
   assert.ok(long[1] === 400 && long[0] === 400 && long[2] === 400, `${long}`);
-  const five = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 5 } } }, 'TIPS', 100);
-  assert.deepEqual(five, [100, 400, 100]);
-  const four = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { waist: 4 } } }, 'TIPS', 100);
-  assert.deepEqual(four, [100, 400, 100], 'a 4 cm waist is mid stent (2 to 6 cm) even when Distal was picked');
-  const taper = stentReadsOf({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 0.5, trans: 2 } } }, 'TIPS', 100);
+  assert.deepEqual(stentReadsOf({ stentGeom: { TIPS: { waist: 5, red: 0.5 } } }, 'TIPS', 100), [100, 400, 100]);
+  const taper = stentReadsOf({ stentGeom: { TIPS: { waist: 0.5, trans: 2, red: 0.5 } } }, 'TIPS', 100);
   assert.ok(taper[1] === 400 && taper[0] > 90 && taper[0] < 400, `a gate on the cone reads in between: ${taper}`);
+  // Both at once: a 4 cm waist (2 to 6 cm) jets mid stent and a distal stenosis at the hepatic vein end, each at its own gate; the portal end reads open.
+  const both = stentReadsOf({ stenosis: { TIPS: 0.6 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { waist: 4, red: 0.5 } } }, 'TIPS', 100);
+  const near = (a, b) => a.every((x, i) => Math.abs(x - b[i]) < 1e-9);
+  assert.ok(near(both, [100, 400, 625]), `${both}`);
+  const prox = stentReadsOf({ stenosis: { TIPS: 0.6 }, stenosisSite: { TIPS: 'proximal' }, stentGeom: { TIPS: { waist: 4, red: 0.5 } } }, 'TIPS', 100);
+  assert.ok(near(prox, [625, 400, 100]), `${prox}`);
 });
 
 test('the default waist is PINCH of the stent: 1 cm of a TIPS or DIPS, 1.25 cm of a drawn stent', () => {
-  assert.deepEqual(geomDefault('tips'), { len: 8, waist: 8 * PINCH, trans: 0 });
-  assert.deepEqual(geomDefault('dips'), { len: 8, waist: 1, trans: 0 });
-  assert.deepEqual(geomDefault('custom'), { len: 10, waist: 1.25, trans: 0 });
+  assert.deepEqual(geomDefault('tips'), { len: 8, waist: 8 * PINCH, trans: 0, red: 0 });
+  assert.deepEqual(geomDefault('dips'), { len: 8, waist: 1, trans: 0, red: 0 });
+  assert.deepEqual(geomDefault('custom'), { len: 10, waist: 1.25, trans: 0, red: 0 });
 });
 
-test('a waist set along the stent is always mid stent; proximal and distal stay a short focal stenosis (17 Nov 2026)', async () => {
-  const { stentSite } = await import('../src/engine/topology.js');
-  // A focal stenosis keeps its own site; a long or tapered waist is mid, whatever stenosisSite says, for every kind of stent.
+test('a stenosis sits at an end and the waist mid stent: two narrowings, and neither moves the other (17 Nov 2026)', async () => {
+  const { stentSite, tightSite, stentGate } = await import('../src/engine/topology.js');
   for (const [id, kind] of [['TIPS', 'tips'], ['DIPS', 'dips'], ['X_SMV_RHV', 'custom']]) {
-    for (const site of ['proximal', 'mid', 'distal']) {
-      assert.equal(stentSite({ stenosisSite: { [id]: site } }, id), site, `${id} focal at ${site}`);
-      assert.equal(stentSite({ stenosisSite: { [id]: site }, stentGeom: { [id]: geomDefault(kind) } }, id), site, `${id}: the default geometry is focal`);
-      for (const g of [{ waist: 4 }, { waist: 0 }, { trans: 1 }]) {
-        const p = { stenosisSite: { [id]: site }, stentGeom: { [id]: g } };
-        assert.equal(stentSite(p, id), 'mid', `${id} ${JSON.stringify(g)} at ${site}`);
-      }
+    for (const site of ['proximal', 'distal']) {
+      assert.equal(stentSite({ stenosisSite: { [id]: site } }, id), site, `${id} at ${site}`);
+      // A waist, however long or tapered, leaves the stenosis where it is.
+      for (const g of [{ waist: 4, red: 0.3 }, { waist: 0, red: 0.3 }, { trans: 1, red: 0.3 }]) assert.equal(stentSite({ stenosis: { [id]: 0.5 }, stenosisSite: { [id]: site }, stentGeom: { [id]: g } }, id), site, `${id} ${JSON.stringify(g)}`);
     }
+    assert.equal(stentSite({ stentGeom: { [id]: geomDefault(kind) } }, id), 'distal', `${id}: unset, the hepatic vein end`);
   }
-  assert.equal(stentSite({}, 'TIPS'), 'distal', 'unset: the hepatic vein end');
-  // The Doppler gates and the waist's place follow: a 4 cm waist set at Distal jets mid stent, not at the hepatic vein end.
-  const p = { stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { waist: 4 } } };
-  const v = stentReadsOf(p, 'TIPS', 100);
-  assert.ok(v[1] === 400 && v[0] === 100 && v[2] === 100, `a 4 cm waist mid stent (2 to 6 cm): ${v}`);
-  assert.equal(waistSpan(geomOf(p, 'TIPS', 'tips'), STENT_SITES[stentSite(p, 'TIPS')]).c, 0.5);
+  // The Doppler gate that follows "the narrowing" samples the tightest one.
+  assert.equal(tightSite({ stenosis: { TIPS: 0.3 }, stenosisSite: { TIPS: 'proximal' }, stentGeom: { TIPS: { red: 0.5 } } }, 'TIPS'), 'mid');
+  assert.equal(tightSite({ stenosis: { TIPS: 0.6 }, stenosisSite: { TIPS: 'proximal' }, stentGeom: { TIPS: { red: 0.5 } } }, 'TIPS'), 'proximal');
+  assert.equal(stentGate('site', { stentGeom: { TIPS: { red: 0.4 } } }, 'TIPS'), 'mid', 'a waist alone is sampled mid stent');
+  assert.equal(stentGate('site', { stenosis: { TIPS: 0.4 } }, 'TIPS'), 'distal');
+  // Both add up: each costs pressure on its own, and together more than either.
+  const d = 10, q = 15, g0 = G('tips'), gw = G('tips', { waist: 3, red: 0.4 });
+  const none = stentParts('tips', d, q, 1, 0, g0).total, end = stentParts('tips', d, q, 1, 0.4, g0).total, waist = stentParts('tips', d, q, 1, 0, gw).total, both = stentParts('tips', d, q, 1, 0.4, gw);
+  assert.ok(end > none && waist > none && both.total > end && both.total > waist);
+  assert.ok(Math.abs(both.total - none - (end - none) - (waist - none)) < 1e-12, 'in series: the two narrowings\' costs add');
+  assert.ok(Math.abs(both.jetEnd + both.jetWaist - both.jet - both.inlet) < 1e-15 && Math.abs(both.wallEnd + both.wallWaist - both.waistWall) < 1e-15, 'each part is split between them');
+  // The lumen is the narrower of the two wherever they are, and open between them.
+  const at = (u) => profileAt(gw, 0.4, STENT_SITES.distal, u);
+  assert.equal(at(0.5), 0.6); assert.equal(at(STENT_SITES.distal), 0.6); assert.equal(at(0.02), 1); assert.equal(at(0.75), 1);
 });
 
-test('the stent card keeps Where, Waist length and Ends telling the same story', async () => {
-  const { withWaist, withSite } = await import('../src/engine/stent-geom.js');
-  const { stentSite } = await import('../src/engine/topology.js');
-  let p = withWaist({ stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'distal' } }, 'TIPS', 'tips', 'waist', 4);
-  assert.equal(p.stenosisSite.TIPS, 'mid', 'setting Waist length moves the narrowing to Mid');
-  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 4, trans: 0 });
+test('the stent card: Waist, Waist length and Ends set the waist and leave the stenosis alone; End moves the stenosis and leaves the waist alone', async () => {
+  const { withWaist, withEnd } = await import('../src/engine/stent-geom.js');
+  let p = withWaist({ stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'proximal' } }, 'TIPS', 'tips', 'red', 0.3);
+  p = withWaist(p, 'TIPS', 'tips', 'waist', 4);
   p = withWaist(p, 'TIPS', 'tips', 'trans', TAPER_CM);
-  assert.equal(stentSite(p, 'TIPS'), 'mid');
-  p = withSite(p, 'TIPS', 'tips', 'distal');
-  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 1, trans: 0 }, 'Distal puts back the short focal waist');
-  assert.equal(stentSite(p, 'TIPS'), 'distal');
-  assert.equal(withSite({ stenosisSite: {} }, 'TIPS', 'tips', 'proximal').stentGeom, undefined, 'a stent with no geometry gets none');
-  assert.deepEqual(withSite(withWaist({}, 'TIPS', 'tips', 'waist', 3), 'TIPS', 'tips', 'mid').stentGeom.TIPS.waist, 3, 'Mid keeps the waist');
+  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 4, trans: TAPER_CM, red: 0.3 });
+  assert.deepEqual([p.stenosis.TIPS, p.stenosisSite.TIPS], [0.4, 'proximal'], 'the stenosis stays where it was');
+  p = withEnd(p, 'TIPS', 'distal');
+  assert.equal(p.stenosisSite.TIPS, 'distal');
+  assert.deepEqual(p.stentGeom.TIPS, { len: 8, waist: 4, trans: TAPER_CM, red: 0.3 }, 'and the waist where it was');
+  assert.equal(withEnd({}, 'TIPS', 'mid').stenosisSite.TIPS, 'distal', 'a stenosis is at an end: anything else is the hepatic vein end');
+});
+
+test('a saved state from before 17 Nov 2026 with a stenosis mid stent opens as the same narrowing, a waist', () => {
+  const { params, repairs } = sanitizeParamsReport({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.65 }, stenosisSite: { TIPS: 'mid' }, stentGeom: { TIPS: { waist: 4 } } });
+  assert.equal(params.stenosis.TIPS, undefined); assert.equal(params.stenosisSite.TIPS, undefined);
+  assert.deepEqual(params.stentGeom.TIPS, { len: 8, waist: 4, trans: 0, red: 0.65 });
+  assert.ok(repairs.some((r) => r.path === 'stenosisSite.TIPS'));
+  // The same hydraulics: the old mid stenosis over the waist is the waist now (the old model's narrowing was its waist).
+  const old = stentParts('tips', 10, 15, 1, 0.65, G('tips', { waist: 4, red: 0 })), now = stentParts('tips', 10, 15, 1, 0, G('tips', { waist: 4, red: 0.65 }));
+  assert.ok(Math.abs(old.total - now.total) < 1e-15 || old.total < now.total, 'a waist of 4 cm costs at least the focal stenosis');
+  assert.equal(sanitizeParams({ stenosisSite: { PV_TRUNK: 'mid' } }).stenosisSite.PV_TRUNK, 'mid', 'a vein that is not a stent keeps its site');
 });

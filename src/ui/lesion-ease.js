@@ -8,8 +8,8 @@
 //   const p = lesions.view(rawParams, dt, quiet);    // the params with the lesions as drawn now (rawParams itself when they rest)
 //   lesions.differs(rawParams);                      // whether they are still on their way
 import { D_SMALL } from './ease.js';
-import { EDGES, STENT_SITES, stentSite } from '../engine/topology.js';
-import { geomDefault, geomFix, kindOf } from '../engine/stent-geom.js';
+import { EDGES, STENT_SITES } from '../engine/topology.js';
+import { endSiteOf, geomDefault, geomFix, kindOf } from '../engine/stent-geom.js';
 
 /** The time constant of the follow (s): about 90 % of the way in D_SMALL. */
 export const LESION_TAU = D_SMALL / 2400;
@@ -18,7 +18,7 @@ export const LESION_SNAP = 0.004;
 
 /** Within this of a stent geometry's number (cm) it lands. */
 export const GEOM_SNAP = 0.005;
-const GEOM_FIELDS = ['len', 'waist', 'trans'];
+const GEOM_FIELDS = ['len', 'waist', 'trans', 'red'];   // (red: the waist's share of the diameter, eased like the lengths so a waist closes and opens smoothly)
 const STENT_KIND = new Map(EDGES.filter((e) => kindOf(e)).map((e) => [e.id, kindOf(e)]));
 
 const step = (cur, goal, dt, snap = LESION_SNAP) => {
@@ -76,10 +76,10 @@ export function lesionEase() {
     }
     return false;
   };
-  // Where a stent's narrowing sits eases too (Proximal, Mid, Distal, and a waist set along the stent moving the narrowing to mid stent: topology.js stentSite),
-  // so the waist, its bracket and the clamp's arrows glide along the stent instead of jumping from one third to another. A narrowing that comes stands where it is
+  // Where a stent's end stenosis sits eases too (Proximal to Distal: stent-geom.js endSiteOf; the waist is always mid stent),
+  // so the stenosis and the clamp's arrows glide along the stent instead of jumping from one end to the other. A narrowing that comes stands where it is
   // set at once. The drawn site is kept as the fraction of the path, by stent, and handed on as params.stentSiteU while it is on its way.
-  const siteGoal = (p, id) => STENT_SITES[stentSite(p, id)];
+  const siteGoal = (p, id) => STENT_SITES[endSiteOf(p, id)];
   const siteFollow = (p, dt) => {
     let moving = false;
     const next = {};

@@ -112,16 +112,20 @@ test('a narrowing is never a diameter: the range follows the open stent, so a 10
   assert.deepEqual([...stentNormal('TIPS', 6)], [90, 338]);
 });
 
-test('the summary tiles, the presenter bar and the IR tile rate the stent peak against the stent\'s own diameter, the fingerprint carrying it', () => {
+test('the summary tiles and the presenter bar read the stent peak against the stent\'s own diameter, the fingerprint carrying it; a scaled band is a model band, never a verdict', () => {
   const fp = (d, id = 'tips') => fingerprintOf(computeMetrics(settled({ [id]: { on: true, d } })));
   for (const [id, key] of [['tips', 'tipsVel'], ['dips', 'dipsVel']]) {
     assert.equal(fp(6, id)[`${id}D`], 6); assert.equal(fp(10, id)[`${id}D`], 10);
-    assert.equal(rateOf(key, { [key]: 215, [`${id}D`]: 6 })[1], 'Normal', `${key}: 215 cm/s in a 6 mm stent`);
-    assert.equal(rateOf(key, { [key]: 215, [`${id}D`]: 10 })[1], 'High', `${key}: 215 cm/s in a 10 mm stent`);
-    assert.equal(rateOf(key, { [key]: 215 })[1], 'High', `${key}: no diameter, the reference range as before`);
-    assert.equal(rateOf(key, { [key]: 350, [`${id}D`]: 6 })[1], 'High');
-    assert.equal(rateOf(key, { [key]: 70, [`${id}D`]: 12 })[1], 'Normal', `${key}: 70 cm/s in a 12 mm stent`);
-    assert.equal(rateOf(key, { [key]: 70, [`${id}D`]: 10 })[1], 'Low');
+    // 8 to 10 mm (and no diameter): the reported range, with its clinical words and tones as before
+    assert.deepEqual(rateOf(key, { [key]: 215, [`${id}D`]: 10 }), ['mid', 'High'], `${key}: 215 cm/s in a 10 mm stent`);
+    assert.deepEqual(rateOf(key, { [key]: 215 }), ['mid', 'High'], `${key}: no diameter, the reference range as before`);
+    assert.deepEqual(rateOf(key, { [key]: 70, [`${id}D`]: 10 }), ['mid', 'Low']);
+    assert.deepEqual(rateOf(key, { [key]: 130, [`${id}D`]: 9 }), ['ok', 'Normal']);
+    // another diameter: the app's own scaled band, in the neutral tone and words that are not a verdict, never Normal, Low or High
+    for (const [v, d, word] of [[215, 6, 'Within model band'], [350, 6, 'Above model band'], [70, 12, 'Within model band'], [50, 12, 'Below model band'], [70, 6, 'Below model band']]) {
+      const r = rateOf(key, { [key]: v, [`${id}D`]: d });
+      assert.deepEqual([...r], ['info', word], `${key}: ${v} cm/s in a ${d} mm stent`);
+    }
   }
   assert.equal(fingerprintOf(computeMetrics(settled({}))).tipsD, null, 'no stent, no diameter');
   assert.deepEqual([...STENT_RANGE], [90, 190]);
@@ -145,6 +149,13 @@ test('no file but the three that hold the reference writes the stent range out, 
   assert.ok(!/p\.normal\[/.test(dop) && !/\.rangeNote\b/.test(dop), 'the Doppler card judges a stent by its probe\'s fixed range');
   assert.match(dop, /p\.kind === 'tips'\) && frame\?\.D \? velNormal\(EI\[p\.id\], frame\)/);
   assert.match(dop, /rangeNoteOf\(p, normal, frame\?\.D\?\.\[EI\[p\.id\]\]\)/);
+  // a scaled band is never worded or toned as a clinical verdict on the card: no "Patent", "High velocity", "suggest stenosis" or amber out-of-range for it
+  assert.match(dop, /'Within model band'/); assert.match(dop, /'Above model band'/); assert.match(dop, /'Below model band'/);
+  const note = dop.slice(dop.indexOf('function rangeNoteOf'), dop.indexOf('const PROBES_BY_ID'));
+  assert.match(note, /scaled \? `Model band for a[^`]*Provisional[^`]*not a surveillance threshold\.`/);
+  assert.ok(!/suggest stenosis/.test(note.split(': `Stent velocities')[0]), 'the scaled band\'s note does not call a velocity outside it a sign of stenosis');
+  assert.match(dop, /sn === p\.normal && \(v < sn\[0\]/);
+  assert.match(dop, /!\(p\.kind === 'tips' && normal !== p\.normal\) && \(mean < n0/);
   // the stent card's lumen colours, the figure's, the tiles' and the IR tile's
   assert.ok(!/PROBE_NORMAL/.test(read('src/ui/tool-stent.js')) && /stentNormal\(id, d\)/.test(read('src/ui/tool-stent.js')));
   assert.ok(!/v < STENT_RANGE|v > STENT_RANGE/.test(read('src/ui/table-marks.js')), 'the tiles\' rating reads stentCuts');
