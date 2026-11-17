@@ -100,7 +100,7 @@ const KEYWORDS = { hvpg: 'HVPG', eus: 'EUS-PPG', ppg: 'PPG', pv: 'portal pressur
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'mean arterial pressure|MAP|blood pressure', rpp: 'abdominal perfusion pressure|APP', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', hbTo: 'hemoglobin to come', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume', he: 'encephalopathy risk|HE risk',
-  tipsFlow: 'TIPS flow|stent flow', tipsDp: 'pressure across the stent|across the stent', tipsVel: 'peak velocity', tipsLumen: 'narrowest lumen', tipsLocalPct: 'local losses',
+  tipsBench: 'tube alone', dipsBench: 'tube alone', tipsFlow: 'TIPS flow|stent flow', tipsDp: 'pressure across the stent|across the stent', tipsVel: 'peak velocity', tipsLumen: 'narrowest lumen', tipsLocalPct: 'local losses',
   dipsFlow: 'DIPS flow|stent flow', dipsDp: 'pressure across the stent|across the stent', dipsVel: 'peak velocity', dipsLumen: 'narrowest lumen', dipsLocalPct: 'local losses' };
 // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

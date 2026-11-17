@@ -8,7 +8,7 @@
 //   const p = lesions.view(rawParams, dt, quiet);    // the params with the lesions as drawn now (rawParams itself when they rest)
 //   lesions.differs(rawParams);                      // whether they are still on their way
 import { D_SMALL } from './ease.js';
-import { EDGES } from '../engine/topology.js';
+import { EDGES, STENT_SITES, stentSite } from '../engine/topology.js';
 import { geomDefault, geomFix, kindOf } from '../engine/stent-geom.js';
 
 /** The time constant of the follow (s): about 90 % of the way in D_SMALL. */
@@ -31,7 +31,7 @@ const step = (cur, goal, dt, snap = LESION_SNAP) => {
 const geomGoal = (p, id) => { const k = STENT_KIND.get(id); return k ? geomFix(p?.[id], k) : null; };   // alloc-rare: the lesions' own follow, run when a geometry is still on its way
 
 export function lesionEase() {
-  let sten = null, thr = null, geo = null, geoRaw, geoRest = false;   // the amounts as drawn, by vessel (null: nothing drawn yet); the stents' geometry as drawn, by stent
+  let sten = null, thr = null, geo = null, geoRaw, geoRest = false, siteU = null, siteKey = [null, null, null], siteRest = false;   // the amounts as drawn, by vessel (null: nothing drawn yet); the stents' geometry as drawn, by stent
   const goals = (m, drawn) => {
     const out = new Map();
     for (const id of Object.keys(m || {})) out.set(id, m[id] || 0);
@@ -76,6 +76,22 @@ export function lesionEase() {
     }
     return false;
   };
+  // Where a stent's narrowing sits eases too (Proximal, Mid, Distal, and a waist set along the stent moving the narrowing to mid stent: topology.js stentSite),
+  // so the waist, its bracket and the clamp's arrows glide along the stent instead of jumping from one third to another. A narrowing that comes stands where it is
+  // set at once. The drawn site is kept as the fraction of the path, by stent, and handed on as params.stentSiteU while it is on its way.
+  const siteGoal = (p, id) => STENT_SITES[stentSite(p, id)];
+  const siteFollow = (p, dt) => {
+    let moving = false;
+    const next = {};
+    for (const id of Object.keys(p.stenosis || {})) {
+      if (!STENT_KIND.has(id) || !(p.stenosis[id] > 0)) continue;
+      const goal = siteGoal(p, id), v = step(siteU?.[id] ?? goal, goal, dt, 0.002);
+      if (v !== goal) moving = true;
+      next[id] = v;
+    }
+    return { next, moving };
+  };
+  const siteSame = (p) => p.stenosisSite === siteKey[0] && p.stenosis === siteKey[1] && p.stentGeom === siteKey[2];
   return {
     /**
      * The params with their narrowings and clots as drawn after `dt` seconds more (the same object when both rest on the params'
@@ -83,19 +99,24 @@ export function lesionEase() {
      */
     view(p, dt = 0, quiet = false) {
       if (!p) return p;
-      if (sten === null || quiet) { sten = { ...(p.stenosis || {}) }; thr = { ...(p.thrombus || {}) }; geo = { ...(p.stentGeom || {}) }; geoRaw = p.stentGeom; geoRest = true; return p; }
+      if (sten === null || quiet) { sten = { ...(p.stenosis || {}) }; thr = { ...(p.thrombus || {}) }; geo = { ...(p.stentGeom || {}) }; geoRaw = p.stentGeom; geoRest = true; siteU = siteFollow(p, 0).next; siteKey[0] = p.stenosisSite; siteKey[1] = p.stenosis; siteKey[2] = p.stentGeom; siteRest = true; return p; }
       const a = follow(sten, p.stenosis, dt), b = follow(thr, p.thrombus, dt);
       let gm = false;
       if (!(p.stentGeom === geoRaw && geoRest)) { const c = geoFollow(geo, p.stentGeom, dt); geo = c.next; geoRaw = p.stentGeom; geoRest = !c.moving; gm = c.moving; }
       sten = a.next; thr = b.next;
-      return a.moving || b.moving || gm ? { ...p, stenosis: { ...sten }, thrombus: { ...thr }, stentGeom: gm ? { ...geo } : p.stentGeom } : p;
+      // (The narrowings the clots and sliders just changed are in `p`; the site follows them. At rest on the same records it is nothing to do.)
+      let sm = false;
+      if (!(siteRest && siteSame(p) && !a.moving)) { const c = siteFollow(p, dt); siteU = c.next; sm = c.moving; siteKey[0] = p.stenosisSite; siteKey[1] = p.stenosis; siteKey[2] = p.stentGeom; siteRest = !sm; }
+      return a.moving || b.moving || gm || sm ? { ...p, stenosis: { ...sten }, thrombus: { ...thr }, stentGeom: gm ? { ...geo } : p.stentGeom, stentSiteU: sm ? { ...siteU } : undefined } : p;
     },
     /** Whether the lesions as drawn are still on their way to the params'. */
     differs(p) {
       if (sten === null || !p) return false;
       for (const [id, goal] of goals(p.stenosis, sten)) if ((sten[id] ?? 0) !== goal) return true;
       for (const [id, goal] of goals(p.thrombus, thr)) if ((thr[id] ?? 0) !== goal) return true;
-      return geoDiffers(p.stentGeom, geo);
+      if (geoDiffers(p.stentGeom, geo)) return true;
+      for (const id of Object.keys(p.stenosis || {})) if (STENT_KIND.has(id) && p.stenosis[id] > 0 && (siteU?.[id] ?? siteGoal(p, id)) !== siteGoal(p, id)) return true;
+      return false;
     },
   };
 }

@@ -240,12 +240,12 @@ export const TIPS_COMPLETE = {
     },
     {
       // (Budd–Chiari's own talk teaches the DIPS in four steps; this is its slide with the TIPS beside it.)
-      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' },
+      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' },
       compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60, title: 'A TIPS cannot decompress the liver when no hepatic vein can be recanalized', line: 'A TIPS starts in a hepatic vein, and none can be used, so the portal pressure stays at {pv}.' }, { label: 'DIPS', own: true }],
       tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'],
       vignette: 'A 31-year-old woman with Budd–Chiari syndrome has worsening symptoms despite anticoagulation. Imaging shows no hepatic vein that can be recanalized.',
       kicker: 'Other shunts', site: 'post', title: 'When no hepatic vein can be used, a DIPS from the IVC decompresses the liver',
-      line: 'A TIPS needs a hepatic vein, and none can be used. A DIPS runs from the IVC through the [caudate lobe](caudateLobe) to the portal vein, lowering the pressure to {pv}.',
+      line: 'A TIPS needs a hepatic vein, and none can be used. A DIPS runs from the IVC through the caudate lobe to the portal vein, lowering the pressure to {pv}.',
       notes: 'Source: Baveno VIII 8.34. When medical management alone is insufficient and recanalization is not an option or has failed, TIPS is the recommended next step. A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are occluded the stent runs from the IVC through the caudate lobe to the portal vein, a direct intrahepatic portosystemic shunt (DIPS). AASLD 2020: a TIPS or DIPS with PTFE-covered stents is the treatment of choice when medical therapy or angioplasty fail or are not feasible, and in more than 40% of patients a direct puncture from the IVC to the right portal vein is needed. EASL 2025: placement belongs in experienced referral centers, and dysfunction is managed by angioplasty or additional stenting with close follow-up. None of the five guidelines gives a DIPS recommendation outside hepatic vein outflow obstruction. The buttons compare the TIPS and the DIPS in the same patient.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are occluded?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead (a DIPS).'],
     },

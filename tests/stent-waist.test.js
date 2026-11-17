@@ -151,3 +151,30 @@ test('the profile the figure draws is the engine\'s profile: the same waist, the
   for (let i = 0; i <= 200; i++) worst = Math.max(worst, Math.abs(f(i / 200) - profileAt(g, S, site, i / 200)));
   assert.ok(worst < 0.06, `the figure follows profileAt to ${worst}`);
 });
+
+test('a stent\'s site eases between the thirds, and a narrowing that comes stands where it is set', () => {
+  const l = lesionEase(), mk = (site, geom = {}) => ({ stenosis: { TIPS: 0.6 }, thrombus: {}, stenosisSite: { TIPS: site }, stentGeom: geom });
+  const a = mk('mid');
+  assert.equal(l.view(a, 0), a);
+  assert.equal(l.differs(a), false);
+  const b = mk('distal');
+  assert.ok(l.differs(b));
+  const seen = [];
+  for (let i = 0; i < 200 && l.differs(b); i++) seen.push(l.view(b, 1 / 60).stentSiteU?.TIPS ?? STENT_SITES.distal);
+  assert.ok(seen.length > 8 && seen.length < 80, `${seen.length} frames`);
+  assert.ok(seen[0] > STENT_SITES.mid && seen[0] < STENT_SITES.distal, 'the first frame is a step on the way');
+  for (let i = 1; i < seen.length; i++) assert.ok(seen[i] >= seen[i - 1] && seen[i] - seen[i - 1] < 0.2, 'forward, in steps');
+  assert.equal(l.view(b, 1 / 60), b, 'at rest the params themselves come back');
+  // A waist set along the stent puts the narrowing mid stent (topology.js stentSite): from the distal third it eases there, with the waist's length on the same clock.
+  const c = mk('distal', { TIPS: { len: 8, waist: 4, trans: 0 } });
+  const first = l.view(c, 1 / 60);
+  assert.ok(first.stentSiteU.TIPS < STENT_SITES.distal && first.stentSiteU.TIPS > STENT_SITES.mid, 'the site is on its way');
+  assert.ok(first.stentGeom.TIPS.waist > 1 && first.stentGeom.TIPS.waist < 4, 'and so is the waist');
+  for (let i = 0; i < 200 && l.differs(c); i++) l.view(c, 1 / 60);
+  assert.equal(l.differs(c), false);
+  // A narrowing that comes stands at its site at once.
+  const fresh = lesionEase();
+  fresh.view({ stenosis: {}, thrombus: {} }, 0);
+  const d = fresh.view(mk('proximal'), 1 / 60);
+  assert.ok(!d.stentSiteU || d.stentSiteU.TIPS === STENT_SITES.proximal);
+});
