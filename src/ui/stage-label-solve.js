@@ -35,26 +35,9 @@ export function createLabelSolve(st, live) {
   CLAMP_STEPS.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
   // lineW of a line with every figure run read as "000" (the widest a reading's figures can be).
   function lineW000(line) { let w = 0; for (let i = 0; i < line.length; i++) { const r = line[i]; w = w + textW(r.cls === 'lb-val' ? '000' : r.t, fontPx(r.size), r.weight, r.track || 0) + (i ? (r.gap ?? 3) * live.labelK : 0); } return w; }
-  const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
-  // (The "60 %" the probe would cover: its box moved by d out and t along the vessel, judged against the probe's boxes, the view and the credit.
-  // One label at a time, so the context is kept and the box is a kept record.)
-  const CLB = { c: null, base: null, ox: 0, oy: 0, id: '', credit: null, probe: null, blk: [], prev: [], view: null };
-  const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, CLB_R = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const { pointAtLocal, segBoxes, colSideScore, focusMarkOn, laneFor, dimObstacles, CLB, PROBE_STEPS, clBoxAt, clFree, grow } = createLabelCol({ geo, pointAt, worldToLocalInto, lineHits, stenosisAt, live, E });
+  const CLB_BASE = { x0: 0, y0: 0, x1: 0, y1: 0 }, BOX_TMP = { x0: 0, y0: 0, x1: 0, y1: 0 };
   const PROBE_BUF = [], CLAMP_SEEN = new Set();
-  const PROBE_STEPS = [];
-  for (let px = 0; px <= 80; px += 8) for (let tp = -88; tp <= 88; tp += 8) if (px || tp) PROBE_STEPS.push([px, tp]);
-  PROBE_STEPS.sort((u, v) => Math.hypot(...u) - Math.hypot(...v));
-  function clBoxAt(d, t) {
-    const c = CLB.c, base = CLB.base;
-    worldToLocalInto(SB_A, c.x + c.nx * (d - 16) - c.ny * t, c.y + c.ny * (d - 16) + c.nx * t);
-    if (!base) return base;
-    const bx = SB_A[0], by = SB_A[1], r = CLB_R;
-    r.x0 = base.x0 + bx - CLB.ox; r.y0 = base.y0 + by - CLB.oy; r.x1 = base.x1 + bx - CLB.ox; r.y1 = base.y1 + by - CLB.oy;
-    return r;
-  }
-  function clProbeHit(b) { const pr = CLB.probe; for (let i = 0; i < pr.length; i++) if (hits(b, pr[i])) return true; const bl = CLB.blk; for (let i = 0; i < bl.length; i++) if (hits(b, bl[i])) return true; const pv = CLB.prev; for (let i = 0; i < pv.length; i++) if (hits(b, pv[i])) return true; return false; }   // (the probe, and the cards (blockers): a narrowing's words never stand half under a card, cut there: 17 Nov 2026)
-  const CLB_G = { x0: 0, y0: 0, x1: 0, y1: 0 }, grow = (b, m) => (b ? ((CLB_G.x0 = b.x0 - m), (CLB_G.y0 = b.y0 - m), (CLB_G.x1 = b.x1 + m), (CLB_G.y1 = b.y1 + m), CLB_G) : b);
-  function clFree(b) { return b && !clProbeHit(b) && within(b, CLB.view) && lineHits(b, 6, CLB.id) < 1 && !(CLB.credit && hits(b, CLB.credit)); }
   // An element's box in stage px, `m` px grown, written into `out` (or null when it has none).
   function boxOfElInto(out, el, m = 2) {
     const b = el._txt != null ? clampTextBox(el) : elBoxInto(el, EBOX, clampTextBox);
@@ -307,7 +290,7 @@ export function createLabelSolve(st, live) {
         }
         clampStep(id, want);
         clampLabelAt(el);
-        { const w = want || null, bb = w ? clBoxAt(w.d, w.t) : clBoxAt(16, 0); if (bb) prev.push({ x0: bb.x0, y0: bb.y0, x1: bb.x1, y1: bb.y1 }); }   // alloc-rare: one box per narrowing, per solve
+        { const w = want || null, bb = w ? clBoxAt(w.d, w.t) : clBoxAt(16, 0); if (bb) prev.push({ x0: bb.x0 - 10, y0: bb.y0 - 10, x1: bb.x1 + 10, y1: bb.y1 + 10 }); }   // (10 px of air between two narrowings' words)   // alloc-rare: one box per narrowing, per solve
       }
       for (const [id, m] of clampMv) if (!seen.has(id) && !m.busy) clampMv.delete(id);
     }
@@ -426,6 +409,8 @@ export function createLabelSolve(st, live) {
         // (A long leader may not run through another label: only boxes clear of its own station count, by 8 px, so a clamp's arrows at
         // the station do not.)
         if (ps.uncrossed && placed.some((p) => !(it.point && p.probe) && (p.lab || !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8)) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
+        // (No leader runs through a narrowing's words, in any pass: F20, 17 Nov 2026, the right sinusoids' leader across "Waist …".)
+        if (clampLabs.length && clampLabs.some((p) => !(it.ax >= p.x0 - 8 && it.ax <= p.x1 + 8 && it.ay >= p.y0 - 8 && it.ay <= p.y1 + 8) && crosses(it.ax, it.ay, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, p))) return;
         // (...nor, the slide's mark's, pass within 18 px of another of the stent's dots: Review 15 Oct.)
         if (markDots && /^focus/.test(it.key) && !ps.loose) {
           const le = leaderEnd(r, it.ax, it.ay), ex = le.x - it.ax, ey = le.y - it.ay, L2 = ex * ex + ey * ey || 1;
