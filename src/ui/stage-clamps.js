@@ -262,7 +262,7 @@ export function createClamps(st, live) {
       lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
       clampShade(id);
-      if (E[id].e?.kind === 'shunt') stentBracket(id, p);
+      if (E[id].e?.kind === 'shunt') stentBracket(id, p);   // (its bracket and the diameter at each section)
     }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
