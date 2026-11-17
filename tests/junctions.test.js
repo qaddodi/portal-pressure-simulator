@@ -62,7 +62,12 @@ test('the engine solves the lumped graph it always did: the lead piece is its ve
   for (const host of Object.keys(JUNCTION_PIECES)) {
     const pieces = JUNCTION_PIECES[host].map((id) => edge(id));
     assert.equal(pieces.filter((p) => !p.virtual).length, 1, `${host}: one piece is the engine's own vessel`);
-    assert.equal(pieces.find((p) => !p.virtual).id, host, `${host}: it is the one that keeps the vein's id`);
+    // (it keeps the vein's id, unless a shunt on the vein has a hydraulic end of its own past the junction (the TIPS joins the cava past the right hepatic
+    // vein, topology.js eto, 17 Nov 2026): then it is the piece at the vein's other end, and the one keeping the id is filled after each step)
+    const own = EDGES.some((s) => s.junction && JUNCTION_CHAINS.find((c) => c.host === host)?.nodes.includes(s.junction) && (s.eto || s.efrom));
+    const ch = JUNCTION_CHAINS.find((c) => c.host === host);
+    assert.equal(pieces.find((p) => !p.virtual).id, own ? ch.ids[ch.lead] : host, `${host}: it is the one that keeps the vein's id`);
+    if (own) assert.notEqual(ch.ids[ch.lead], host, `${host}: the piece solved is the one before the junction`);
     for (const p of pieces) {
       assert.equal(e.edgeF[e.ei[p.id]], e.ni[JUNCTION_HOST_ENDS[host][0]], `${p.id}: the engine reads the vein's own ends`);
       assert.equal(e.edgeT[e.ei[p.id]], e.ni[JUNCTION_HOST_ENDS[host][1]]);
@@ -251,16 +256,17 @@ test('a TIPS in decompensated cirrhosis: the left portal vein\'s mean flow runs 
   }
 });
 
-test('a stretch of a cut vein that is all but still is stagnant, not reversed: the peripheral hepatic vein beside a TIPS reads teal, the portal vein beyond the stent still reverses', async () => {
+test('the peripheral hepatic vein beside a TIPS drains forward, the portal vein beyond the stent still reverses, and a junction\'s shown pressure follows the shown flow', async () => {
   const { flowReversed } = await import('../src/ui/velNormal.js');
   const { throughFlow } = await import('../src/ui/part-names.js');
   const reversed = (e, id) => flowReversed(e.Qf[e.ei[id]], 1, throughFlow(id, e.Qf, e.ei));
   const at = (d) => { const e = run('cirr-decomp', { tips: { on: true, d } }); for (let i = 0; i < 400; i++) e.step(0.05); return e; };
   const e8 = at(8), e10 = at(10);
-  assert.ok(e8.Qf[e8.ei.RHV_IVC_1] < -0.12, 'its mean does run backwards at 8 mm (a quarter of a mL/s)');
-  assert.equal(reversed(e8, 'RHV_IVC_1'), false, 'but beside the stent\'s 25 mL/s it is stagnant');
+  // (17 Nov 2026: the peripheral right hepatic vein ran backwards beside a TIPS only because the stent's flow ran through the whole vein's resistance in
+  // the model; joined to the cava past it (topology.js eto), it drains the right lobe forward at both sizes, as it does after a working TIPS.)
+  assert.ok(e8.Qf[e8.ei.RHV_IVC_1] > 0.5 && e10.Qf[e10.ei.RHV_IVC_1] > 0.5, 'the peripheral right hepatic vein runs forward at 8 and 10 mm');
+  assert.equal(reversed(e8, 'RHV_IVC_1'), false); assert.equal(reversed(e10, 'RHV_IVC_1'), false);
   assert.equal(reversed(e8, 'PVH_R_2'), true);
-  assert.equal(reversed(e10, 'RHV_IVC_1'), true, 'at 10 mm it runs backwards for real');
   assert.equal(throughFlow('SV_CONF', e8.Qf, e8.ei), 0, 'a vein that is whole has no pieces to compare');
   // the shown pressure beside a junction agrees with the shown flow's direction (the lenses visit nodes by pressure, and the shown flow decides each vessel's direction)
   for (const e of [e8, e10]) for (const c of JUNCTION_CHAINS) {

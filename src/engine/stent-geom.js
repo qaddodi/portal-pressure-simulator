@@ -14,7 +14,7 @@
 //
 // The pressure across it, ΔP = R_lin·Q + B·Q|Q| (the engine solves it as a conductance with B lagged on |Q|), is made of five parts, each
 // counted once and each with its reference velocity named:
-//   tract    a fixed series term for the vein ends of the circuit (TIPS 0.12, DIPS 0.07, a drawn stent none), PRU × viscosity. It does not
+//   tract    a fixed series term for the vein ends of the circuit (TIPS 0.18, DIPS 0.07, a drawn stent none), PRU × viscosity. It does not
 //            follow the stent's length: it is what makes wide stents plateau, not the stent's lumen.
 //   wall     distributed friction, C_WALL·visc·∫(10/D(x))⁴dx (D in mm, x in cm): the open stent, the waist and both cones, integrated in
 //            closed form. C_WALL is 0.005 PRU per cm at 10 mm, about 4.7 times ideal Poiseuille for blood at 3.5 cP: an effective value,
@@ -51,7 +51,7 @@ export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0,
 export const WAIST_MAX = 0.8;
 // The fixed series term (PRU) and whether the device has its own entrance and exit loss, by kind of stent.
 const KIND = {
-  tips: { tract: 0.12, entry: true, len: 8 },
+  tips: { tract: 0.18, entry: true, len: 8 },   // (0.12 until 17 Nov 2026, when the TIPS stopped draining through the whole right hepatic vein's resistance (topology.js TIPS eto): its outlet stretch is here now, docs/tips-stent-model.md)
   dips: { tract: 0.07, entry: true, len: 8 },   // (its shorter caudate tract is in `tract`; its wall keeps the 8 cm it always had: plan, decision D3)
   custom: { tract: 0, entry: false, len: 10 },  // (a drawn stent: 0.05·(10/d)⁴ as it always was, the same 0.005 per cm over 10 cm)
 };
