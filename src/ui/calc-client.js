@@ -6,7 +6,7 @@
 // states, so the live figure keeps running while a presentation is prepared.
 export function makeCalc() {
   const pending = new Map();
-  let seq = 1, post = null, kill = () => {}, broken = false;
+  let seq = 1, post = null, kill = () => {}, broken = false, dead = false;
   // Every waiting request settles with an error: a page left open across an update can no longer load the engine (its
   // stamped files are gone from the cache and the server), and the presenter says so instead of waiting for ever.
   const fail = (message) => { broken = true; for (const [reqId, p] of pending) p.done({ type: 'error', reqId, message }); pending.clear(); };
@@ -30,6 +30,7 @@ export function makeCalc() {
       });
       w.onmessage = (e) => onMsg(e.data); w.onerror = (e) => { e.preventDefault?.(); fail('the engine stopped'); };
       post = (m) => w.postMessage(m); kill = () => w.terminate();
+      if (dead) kill();   // (stopped while it was starting)
     } catch {
       if (w) { w.onmessage = w.onerror = null; w.terminate(); }   // (a worker that never said hello: not left running beside the page's own engine)
       try {
@@ -37,6 +38,7 @@ export function makeCalc() {
         const core = createCore((m) => setTimeout(() => onMsg(m), 0));
         core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
         post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
+        if (dead) kill();
       } catch { fail('the engine could not load'); }
     }
   })();
@@ -48,7 +50,8 @@ export function makeCalc() {
   return {
     request: (type, payload = {}) => new Promise((done) => send({ type, reqId: seq++, ...payload }, { done })),
     sequence: (steps, base, step) => new Promise((done) => send({ type: 'sequence', reqId: seq++, steps, base }, { done, step })),
-    kill: () => kill(),
+    // (A killed engine settles every request still waiting with an error: a stopped sequence never leaves its caller waiting for ever.)
+    kill: () => { dead = true; kill(); if (!broken) fail('the engine was stopped'); },
     get broken() { return broken; },
   };
 }

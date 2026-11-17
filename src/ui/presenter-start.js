@@ -24,7 +24,7 @@ import { h, icon, setCanvasBoost, themeChanged, toast } from './util.js';
 import { animRunning } from './glass-clock.js';   // (a fade held on the glass's clock is still under way)
 
 export function createStart(st, live) {
-  const { patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
+  const { claimLane, patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle } = st;
   // ── Start and stop ──
   function build() {
     const tiles = bigTiles();
@@ -249,6 +249,7 @@ export function createStart(st, live) {
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (aliased ? DECK_ALIAS[id] : id));
     if (!d && typeof id === 'string' && id.startsWith('test-') && !live.TESTING.length && !opts?.waited) return testingLoad.then(() => start(id, at, { ...opts, waited: true }));   // (a ?script= link to the preview's test deck, asked before it loaded)
     if (!d?.slides?.length) { toast('That presentation could not be found.', 'bad'); return; }
+    claimLane(d.mine ? '@mine' : d.id);   // (the deck being opened keeps the lane its states are computed on: no row the pointer crosses meanwhile queues another deck's before it, solve-lane.js)
     // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
     // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
     const up = Promise.all([coverUp(d.title), fontsIn()]);
@@ -257,6 +258,7 @@ export function createStart(st, live) {
     await up;
     if (startMine !== startGen) return;
     if (live.deck) stopNow(false);
+    claimLane(d.mine ? '@mine' : d.id);   // (stopNow let the lane go with the old talk)
     live.lastAt = -1;
     live.saved = before;
     if (live.saved && !live.saved.cards) live.saved.cards = stashCards?.();
@@ -305,6 +307,7 @@ export function createStart(st, live) {
   function stopNow(restore = true) {
     live.leaving = null;
     if (!live.deck) return;
+    claimLane(null);
     live.ink?.dispose(); live.ink = null;
     pview.end();
     live.sess?.dispose(); live.sess = null; live.colT = live.refitT = live.reframeT = live.turnT = live.glassT = 0; live.swapNow = false;   // (R03: this talk's timers stop with it, none left to act on the next)

@@ -54,6 +54,7 @@ import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwPinned, throwRelease, throwLanded, throwFade, RAIL_GAP, RAIL_MS, throwReach } from './card-throw.js';
 import { readAnims, readBox, readMetric, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { calmFrames, cardsLanded, createFrameGates } from './cover-lift.js';
+import { createSolveLane } from './solve-lane.js';
 import { caught } from './caught.js';
 import { createInk } from './ink-gl.js';
 const nextFrame = frameFor('presenter');
@@ -238,7 +239,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
-  const cache = new Map();   // deck id → computed states, reused the next time it is presented
+  const cache = new Map();   // deck id → { states, done }: computed states, reused the next time it is presented
+  // (The lane a deck's states are computed on, solve-lane.js: one deck at a time, the one being opened first, never the engine the cards' instruments ask.)
+  const lane = createSolveLane({ makeCalc, cache });
+  const LANE_MINE = '@mine';   // (a script the person imported: not cached, but it keeps the lane while it is opened)
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
   // `gen` counts redraws asked of the slide in place: a transition under way for an older one starts over.
   let want = 0, shown = null, shownState = -1, busy = false, playing = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
@@ -299,10 +303,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Computes a deck's states into `mine`; the cache has it from the start, so a start while it runs joins it (prepare adopts the same array, and the waiters it leaves are
   // settled here as each state arrives). A deck that is not the one on show only fills the cache. A failure settles the talk's waiters with nothing and ends it with a word.
   async function solve(d, sl, mine, pl) {
-    const key = d.mine ? null : d.id, c = getCalc(); if (key) cache.set(key, { states: mine });
+    const key = d.mine ? null : d.id, c = lane.begin(key ?? LANE_MINE); if (key) cache.set(key, { states: mine, done: false });
     const failed = () => {
+      lane.end(key ?? LANE_MINE);
+      if (mine.cancelled) return;   // (a warm another row's rest called off, solve-lane.js: nobody waits for it)
       if (key && cache.get(key)?.states === mine) cache.delete(key);
-      if (c.broken) { c.kill(); if (calc === c) calc = null; }
+      if (c.broken) lane.broken(c);
       if (states !== mine || deck?.id !== d.id) return;
       for (const w of waiters) w.res(null);
       waiters = []; stop(); toast('This presentation could not be prepared. Reload the page to present it.', 'bad');
@@ -321,15 +327,19 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         waiters = waiters.filter((x) => x.i !== m.i);
       });
       // (Only the working set, the slide shown and its neighbours, warms its data-card charts now; the rest are warmed by the slide preparation as the talk reaches them: recs-production-120hz §16, B16.)
-      if (end?.type !== 'error') { if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) <= 2) safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); }); return; }
+      if (end?.type !== 'error') { lane.end(key ?? LANE_MINE); if (key && cache.get(key)?.states === mine) cache.get(key).done = true; if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) <= 2) safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); }); return; }
       failed();   // (the slides could not be computed, most often a page left open across an update: the next try starts a fresh engine)
     } catch (err) { console.error(err); failed(); }
   }
   // A deck's states computed ahead, behind the Present menu (the row the pointer or focus is on): the 3 to 8 s wait after the press was the first slide's patient being
   // worked out. Only a deck whose first slide names its patient (the calc needs nothing of the viewer's own), with no talk on, once.
+  // (Only once the pointer has rested on the row, and one deck at a time: solve-lane.js. A row crossed in passing queued a whole deck's states each, and a deck opened then waited for all of them.)
   function warm(id) {
-    const d = typeof id === 'string' && !deck && !cache.has(id) ? DECKS.find((x) => x.id === id) : null, sl = d?.slides?.length ? withOverview(d).slides.map(oneLadder).map(zoneCam).map(instrumentOf) : null;
-    if (sl?.[0]?.preset) solve(d, sl, [], solvePlan(sl));
+    if (typeof id !== 'string' || deck || cache.has(id)) return;
+    lane.warm(id, () => {
+      const d = !deck && !cache.has(id) ? DECKS.find((x) => x.id === id) : null, sl = d?.slides?.length ? withOverview(d).slides.map(oneLadder).map(zoneCam).map(instrumentOf) : null;
+      if (sl?.[0]?.preset) solve(d, sl, [], solvePlan(sl));
+    });
   }
   // Each slide's numbers for the printed notes (handout.js): the deck computed as presenting it computes it, or the states
   // it was last presented with, so the values in the handout's words are the ones its slides show.
@@ -2186,7 +2196,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return hs;
   }
 
-  const { start, stop: stop$ } = createStart({ patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
+  const { start, stop: stop$ } = createStart({ claimLane: (k) => lane.claim(k), patientHistory, restartTraces, NO_KEEP, PW_K, abSlow, all, app, camFollow, camFollowOk, caseShut, cathStop, cellReady, cellTap, closeHome, coverDown, deckTab, dock, dockHalt, dockTo, dockTouch, evDrop, fitDone, foldTouch, go, host, inkOf, insets, layout, loadPreset, measureUnder, nextFrame, onFonts, onHidden, onResize, paintZoom, placeLip, prepare, procStop, projectorOff, projectorOn, pview, reframe, riseShift, setLabels, sizeNow, slidePrep, slideUnder, slip, splitSheet, stage, stashCards, stopLapse, stopUnder, strainStop, testingLoad, toggleBlack, underU, until, view, viewSettled, wait, waitCut, wake, wideSheet, wrap, zoneCam, zoomBehind, zoomCredit, zoomFolds, zoomOn, zoomReady, zoomSettled, zoomToggle }, live);
   function stop(...a) { return stop$(...a); }   // <stage-split stub>
   async function coverDown(now = false) {
     if (!now) {
