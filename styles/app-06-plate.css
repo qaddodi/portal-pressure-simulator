@@ -466,15 +466,15 @@
    wrapped and never cut: a token is never narrower than its words (F45), and a row too narrow wraps whole tokens. */
 .stent-editor .se-chips { gap: 0; transition: opacity var(--d-small) var(--ease); }
 .stent-editor:not([data-open=""]) .se-chips, .stent-editor[data-fold="true"] .se-chips { opacity: 0; pointer-events: none; }
-.stent-editor .se-chip { flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 4px 12px; border: 0; border-left: 1px solid var(--hairline); border-radius: 0; background: none; color: var(--text); cursor: pointer; white-space: nowrap; text-align: left; font: inherit; transition: background-color var(--d-flip) var(--ease), opacity var(--d-small) var(--ease); -webkit-tap-highlight-color: transparent; }
+.stent-editor .se-chip { flex: 1 1 0; min-height: 48px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 4px 12px; border: 0; border-left: 1px solid var(--hairline); border-radius: 0; background: none; color: var(--text); cursor: pointer; white-space: nowrap; text-align: left; font: inherit; transition: opacity var(--d-small) var(--ease); -webkit-tap-highlight-color: transparent; }
 .stent-editor .se-chip:first-child { border-left-color: transparent; padding-left: 0; }
 @media (hover: hover) { .stent-editor .se-chip:hover .se-chip-num, .stent-editor .se-chip:hover .se-chip-n { color: var(--accent); } }
 .stent-editor .se-chip:active { opacity: .6; transition-duration: 0s; }
 .stent-editor .se-chip:focus-visible, .stent-editor .se-done:focus-visible, .stent-editor .se-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
-.stent-editor .se-chip-n { display: flex; align-items: center; gap: 3px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); transition: color var(--d-flip) var(--ease); }
+.stent-editor .se-chip-n { display: flex; align-items: center; gap: 3px; font: 500 var(--fs-12)/16px var(--font-ui); color: var(--text-3); }
 .stent-editor .se-chip-n::after { content: ''; width: 5px; height: 5px; margin-top: -2px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .7; }   /* (a small chevron: the token opens) */
 .stent-editor .se-chip-w { font: 500 var(--fs-16)/20px var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text); }
-.stent-editor .se-chip-num { font-weight: 600; transition: color var(--d-flip) var(--ease); }
+.stent-editor .se-chip-num { font-weight: 600; }
 .stent-editor .se-chip-u, .stent-editor .se-chip-c { color: var(--text-3); font-weight: 500; }
 .stent-editor .se-chip.se-dim { opacity: .45; }
 /* The open row: its surface is the pill (three pieces that grow from the chip, stent-editor.js grow), its controls rise into it once it is there. */
@@ -497,9 +497,9 @@
 .stent-editor .se-val { flex: none; text-align: right; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stent-editor .se-sub { font-weight: 500; color: var(--text-3); }
 .stent-editor .se-seg { flex: none; display: flex; padding: 2px; gap: 2px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
-.stent-editor .se-seg button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; transition: background-color var(--d-flip) var(--ease), color var(--d-flip) var(--ease); }
+.stent-editor .se-seg button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
 .stent-editor .se-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px color-mix(in srgb, #000 18%, transparent); }
-.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-contrast, #fff); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease), filter var(--d-flip) var(--ease); }
+.stent-editor .se-done { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-contrast, #fff); cursor: pointer; font: 650 var(--fs-14) var(--font-ui); transition: transform var(--d-flip) var(--ease); }
 .stent-editor .se-done:active { transform: scale(.96); }
 .stent-editor .se-ctl { flex: 1 1 160px; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .stent-editor .se-ctl-seg { flex: 0 0 auto; }
