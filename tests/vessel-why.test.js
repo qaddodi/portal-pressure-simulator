@@ -61,7 +61,7 @@ test('every compartment\'s Why is its own pressure', () => {
 
 test('the vessel card and its details take their Why from explain-ids.js, with no other metric picked per kind of vessel', () => {
   const det = read('src/ui/card-details.js'), act = read('src/ui/actions.js');
-  assert.match(det, /onWhy\(m\.why, /, 'the details ask the card model\'s own Why');
+  assert.match(det, /onWhy\(plan\.why, /, 'the details ask the card model\'s own Why');
   assert.doesNotMatch(det, /onWhy\('/, 'the details name no metric of their own');
   const from = act.indexOf('function buildEdgeCard'), card = act.slice(from, act.indexOf('\nfunction ', from + 10));
   assert.match(card, /why: edgeWhy\(id\)/, 'the vessel card asks the vessel');
