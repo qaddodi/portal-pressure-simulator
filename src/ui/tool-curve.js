@@ -93,6 +93,7 @@ const MAX_PTS = 41;
 export const PARAM = {
   'thrombus.PV_TRUNK': ['Portal vein thrombus', '%', 0, 100], 'stenosis.TIPS': ['TIPS stenosis', '%', 0, 100], habrStrength: ['Hepatic arterial buffer', '%', 0, 100],
   'tips.d': ['TIPS diameter', 'mm', 0], 'dips.d': ['DIPS diameter', 'mm', 0],
+  'stentGeom.TIPS.red': ['TIPS waist reduction', '%', 0, 100], 'stenosis.DIPS': ['DIPS stenosis', '%', 0, 100], 'stentGeom.DIPS.red': ['DIPS waist reduction', '%', 0, 100], 'stentGeom.DIPS.waist': ['DIPS waist length', 'cm', 1],
   'stentGeom.TIPS.waist': ['TIPS waist length', 'cm', 1], 'stentGeom.TIPS.len': ['TIPS length', 'cm', 0], 'stentGeom.TIPS.trans': ['TIPS taper', 'cm', 1],
   cirrhosis: ['Cirrhosis', '%', 0, 100], gestation: ['Weeks pregnant', 'weeks', 0], albumin: ['Serum albumin', 'g/dL', 1],
   splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['RV contractility', '×', 2],

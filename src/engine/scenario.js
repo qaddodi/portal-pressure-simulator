@@ -193,7 +193,7 @@ const RANGES = {
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
   apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
-const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'distal'], SWITCHED = ['tips', 'dips'];
+const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 // A switch is a real boolean or nothing: `!!'false'` is true, and a hand-edited link or an imported scenario must never turn a procedure or a drug on
 // because a non-empty string, an array or a 1 arrived (R07, external production review, 15 Nov 2026). Anything else takes the parameter's own default.

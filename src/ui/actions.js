@@ -9,7 +9,7 @@
 
 import { edgeWhy } from '../engine/explain-ids.js';
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgeById, edgePresent, isStent } from '../engine/topology.js';
-import { GEOM_RANGE, TAPER_CM, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
+import { GEOM_RANGE, TAPER_CM, WAIST_MAX, endSiteOf, geomDefault, geomOf, kindOf, withEnd, withWaist } from '../engine/stent-geom.js';
 import { throughFlow } from './part-names.js';
 import { dopplerVel, flowReversed } from './velNormal.js';
 import { store, updateParams, hiddenNow } from './store.js';
@@ -188,7 +188,7 @@ export function stentControls(id) {
     { type: 'seg', id: 'site', label: 'End', small: true, options: [['proximal', 'Proximal'], ['distal', 'Distal']], dimIf: noSten,
       get: () => endSiteOf(store.get().params, id),
       set: (val) => updateParams((p) => withEnd(p, id, val), { label: `${e.label} stenosis: ${val}` }) },   // alloc-rare: a tap's handler, never in a frame
-    { type: 'slider', id: 'waistD', key: 'stentGeom', label: 'Waist', icon: 'pinch', min: 0, max: GEOM_RANGE.red[1], step: 0.01, def: 0,
+    { type: 'slider', id: 'waistD', key: 'stentGeom', label: 'Waist', icon: 'pinch', min: 0, max: WAIST_MAX, step: 0.01, def: 0,
       format: (v) => (v > 0 ? `${mm(v)} mm · ${pct(v)}` : 'None'),   // alloc-rare: the slider's number label, made on the slider's own input event
       get: (p) => geo(p).red, set: (p, v) => withWaist(p, id, kind, 'red', v <= 0.004 ? 0 : +v.toFixed(2)), hist: `${e.label} waist`,
       info: 'A reduction made on purpose, always mid stent (a constrained or underdilated stent, a waist placed against encephalopathy): its diameter, shown in mm, with its own length and ends. Model values, not validated.' },

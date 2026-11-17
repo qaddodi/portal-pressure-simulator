@@ -1,6 +1,7 @@
 // The TIPS view of Tests › IR (16 Nov 2026; plan /mnt/project-files/tips-geometry/tips-test-card-plan.md): the stent's own test, beside the
 // Measure view the HVPG tab always was. A two-way switch (Measure | TIPS, the same control as Pressure's and Scope's) sits in the pane's head row,
-// and this file builds it and the TIPS view. The view is a read-only test: the stent is changed on its vessel card (Details) or in Treat, never here.
+// and this file builds it and the TIPS view. The stent is edited here too (17 Nov 2026, Mohammad: "even from the test card should be able to edit"; this
+// replaces the read-only decision T1): the stent editor (stent-editor.js) sits under the chips, the same controls as the vessel card's, from one list.
 //
 // Rules this keeps (Mohammad, 16 Nov 2026 and earlier):
 //   - Nothing pops in or out. The TIPS segment is always there; with no stent it dims (opacity) and a tap says why, as a procedure button that cannot
@@ -26,6 +27,7 @@ import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
 import { createStent } from './tool-stent.js';
 import { createIrCompare } from './ir-compare.js';
 import { createIrCurves } from './ir-curves.js';
+import { createStentEditor } from './stent-editor.js';
 import { D_SMALL, EASE_ARRIVE } from './ease.js';
 
 /** The stents the Tests view reads, in the order it names them: the TIPS, then the DIPS. (A drawn stent has no metrics yet: plan §8.) */
@@ -33,8 +35,15 @@ export const stentIds = (p, out = []) => { out.length = 0; if (p?.tips?.on) out.
 /** The Doppler card's own range for a stent's peak velocity, cm/s (doppler.js, topology.js: 90 to 190; one copy, table-marks.js). */
 export const STENT_RANGE = RANGE;
 const mm = (x) => String(Math.round(x * 10) / 10);
-/** The line under the chip: the stent's width, and its narrowing when it has one. */
-export const stentLine = (st) => (!st ? 'No stent' : st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`);
+/** The line under the chip: the stent's width, then each of its two narrowings as the editor names them (the waist mid stent, the stenosis at its
+ *  end: stent-geom.js), or "open". A record with no split (before 17 Nov 2026) names its narrowest lumen. */
+export const stentLine = (st) => {
+  if (!st) return 'No stent';
+  if (st.red == null && st.end == null) return st.s > 0.0005 ? `${mm(st.d)} mm, narrowed to ${mm(st.dWaist)} mm` : `${mm(st.d)} mm, open`;
+  const w = st.red > 0.0005 ? `waist ${mm(st.d * (1 - st.red))} mm over ${mm(st.geom?.waist ?? 1)} cm` : '';
+  const e = st.end > 0.0005 ? `${st.site === 'proximal' ? 'proximal' : 'distal'} stenosis to ${mm(st.d * (1 - st.end))} mm` : '';
+  return `${mm(st.d)} mm, ${w && e ? `${w}, ${e}` : w || e || 'open'}`;
+};
 
 export const NO_STENT_WHY = 'There is no TIPS or DIPS in this patient. Place one from Treat, and this view fills in.';
 const PPG_TITLE = 'PPG = portal vein pressure − IVC pressure, read through the stent. After a TIPS it is the gradient to read; the target is under 12 mmHg.';
@@ -54,10 +63,10 @@ const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 
 /**
  * host: the pane's element, which holds the Measure view's own parts and, last, the TIPS view this makes (it sets host.dataset.view; the stylesheet shows one).
- * onChange(): the pane repaints. onEdit(id): open the stent's vessel card.
+ * onChange(): the pane repaints. (onEdit is no longer used: the stent is edited in the view itself.)
  * Returns { head, el, update(frame), view() }.
  */
-export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = {}) {
+export function createIrTips({ host, onChange = () => {} } = {}) {
   let view = 'measure', which = 'TIPS', key = '', lastWord = 'TIPS', frame = null, lineT = '';
   const btnM = h('button', { type: 'button', class: 'ps-btn', 'data-view': 'measure', 'aria-pressed': 'true' }, 'Measure');
   const btnT = h('button', { type: 'button', class: 'ps-btn', 'data-view': 'tips', 'aria-pressed': 'false', 'aria-disabled': 'true' }, h('span', {}, 'TIPS'));
@@ -68,7 +77,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
 
   const chips = h('div', { class: 'ir-chips', role: 'group', 'aria-label': 'Stent' });
   const line = h('span', { class: 'ir-line' });
-  const edit = h('button', { type: 'button', class: 'btn sm ir-edit', title: 'Opens the stent\'s vessel card, where its diameter, narrowing and ends are set. This view only reads.', onclick: () => onEdit(which) }, 'Edit stent');
+  const editor = createStentEditor({ id: which });
   const tiles = TILES.map((t) => {
     const x = tileEl({ id: 'ir-' + t.id, k: t.k, u: t.u, d: t.d, scale: t.scale, ticks: t.ticks, title: t.title }, { inert: true, names: false, width: true });
     return { t, ...x, sev: null, fillL: null, fillW: null, aria: '' };
@@ -84,7 +93,7 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
   btnI.addEventListener('click', () => setSub('inside')); btnV.addEventListener('click', () => setSub('curves')); btnC.addEventListener('click', () => setSub('compare'));
   const subEl = (v) => (v === 'compare' ? cmp.el : v === 'curves' ? crv.el : inside);
   const inside = h('div', { class: 'ir-inside' }, h('div', { class: 'ir-tiles rp-tiles' }, tiles.map((x) => x.el)), figs, note);
-  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line, edit), subSwitch, inside, crv.el, cmp.el);
+  const el = h('div', { class: 'ir-tips', 'data-pane-view': 'tips', 'data-sub': 'inside' }, h('div', { class: 'ir-stents' }, chips, line), editor.el, subSwitch, inside, crv.el, cmp.el);
 
   function setView(v) {
     if (v === view) return;
@@ -123,12 +132,12 @@ export function createIrTips({ host, onChange = () => {}, onEdit = () => {} } = 
     const k = ids.join();
     if (k !== key) {
       key = k;
-      if (!ids.includes(which) && ids.length) which = ids[0];
+      if (!ids.includes(which) && ids.length) { which = ids[0]; editor.setStent(which); }
       const word = ids.length ? (ids.includes('TIPS') ? 'TIPS' : ids[0]) : 'TIPS';
       if (word !== lastWord) { lastWord = word; swapText(btnT.firstChild, word); }
       const on = ids.length > 0;
       classSoon(btnT, 'off', !on); attrSoon(btnT, 'aria-disabled', on ? 'false' : 'true');
-      chips.replaceChildren(...ids.map((id) => h('button', { type: 'button', class: 'ir-chip', 'data-id': id, 'aria-pressed': String(id === which), onclick: () => { which = id; syncChips(); if (frame) update(frame); } }, id)));   // alloc-rare: when the set of stents changes, never in a frame
+      chips.replaceChildren(...ids.map((id) => h('button', { type: 'button', class: 'ir-chip', 'data-id': id, 'aria-pressed': String(id === which), onclick: () => { which = id; editor.setStent(id); syncChips(); if (frame) update(frame); } }, id)));   // alloc-rare: when the set of stents changes, never in a frame
       // (A stent taken away with the view open: back to Measure, which fades up. Nothing is held, nothing is left blank.)
       if (!on && view === 'tips') setView('measure');
     }

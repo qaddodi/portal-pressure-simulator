@@ -443,7 +443,14 @@
 .ir-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .ir-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .ir-line { flex: 1 1 140px; min-width: 0; font-size: var(--fs-12); color: var(--text-3); }
-.ir-edit { margin-left: auto; flex: none; }
+/* The stent editor (stent-editor.js): Diameter across, then its two narrowings side by side in labelled groups (one above the other where the card is narrow).
+   A control that does nothing now dims (.ac-dim, app-03-layouts.css), never hidden. */
+.stent-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 18px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-tile, 10px); background: var(--surface-2); }
+.stent-editor .se-dia { grid-column: 1 / -1; }
+.stent-editor .se-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stent-editor .se-title { margin: 0; font: 650 var(--fs-12) var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); }
+.stent-editor .se-title em { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.stent-editor .se-ctls { display: flex; flex-direction: column; gap: 10px; }
 .ir-tiles.rp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four readings, two by two: the card is 500 px on a Mac and an iPad, narrower on a phone) */
 /* The stent cards under the tiles (ir-tips.js, tool-stent.js): the side view and the bar of where the pressure goes, each a wide picture drawn on the GPU over a box
    of its own shape (the aspect ratio is on the box), one above the other, as wide as the card allows (the same as the deck's, app-11-deck-visuals.css). */

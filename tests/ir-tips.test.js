@@ -78,6 +78,11 @@ test('the line under the chip names the width and the narrowing', () => {
   assert.equal(stentLine(null), 'No stent');
   assert.equal(stentLine({ d: 10, s: 0, dWaist: 10 }), '10 mm, open');
   assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6 }), '10 mm, narrowed to 6 mm');
+  // The two narrowings named apart (17 Nov 2026): the waist mid stent, the stenosis at its end.
+  assert.equal(stentLine({ d: 10, s: 0.4, dWaist: 6, red: 0.4, end: 0, site: 'distal', geom: { waist: 4 } }), '10 mm, waist 6 mm over 4 cm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0, end: 0.5, site: 'proximal', geom: { waist: 1 } }), '10 mm, proximal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 10, s: 0.5, dWaist: 5, red: 0.3, end: 0.5, site: 'distal', geom: { waist: 2 } }), '10 mm, waist 7 mm over 2 cm, distal stenosis to 5 mm');
+  assert.equal(stentLine({ d: 8, s: 0, dWaist: 8, red: 0, end: 0, site: 'distal', geom: { waist: 1 } }), '8 mm, open');
 });
 
 test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hidden; a stent lights it without moving anything', () => {
@@ -105,7 +110,7 @@ test('no stent: the TIPS segment is in the switch, dimmed and disabled, never hi
 });
 
 test('the TIPS view fills its four readings from the stent; a stent taken away sends the view back to Measure', async () => {
-  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.4 }, stenosisSite: { TIPS: 'mid' } }));
+  const { host, ir } = mount(paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.4 } } }));
   ir.update(frameOf());
   await wait(60);
   ir.head.querySelector('[data-view="tips"]').click();

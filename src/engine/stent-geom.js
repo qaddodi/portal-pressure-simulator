@@ -46,7 +46,9 @@ export const PINCH = 0.125;
 /** Tapered ends, cm each side (the card's "Tapered"). */
 export const TAPER_CM = 1;
 /** Ranges (cm). The waist and both transitions always fit inside the stent (geomOf). */
-export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0, 0.8] };
+export const GEOM_RANGE = { len: [4, 10], waist: [0, 6], trans: [0, 2], red: [0, 0.95] };
+/** The waist the stent card offers: up to 80 % of the diameter (the model takes up to GEOM_RANGE.red, as a stenosis's 95 %). */
+export const WAIST_MAX = 0.8;
 // The fixed series term (PRU) and whether the device has its own entrance and exit loss, by kind of stent.
 const KIND = {
   tips: { tract: 0.12, entry: true, len: 8 },

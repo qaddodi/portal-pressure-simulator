@@ -249,22 +249,22 @@ export function createClamps(st, live) {
     // imaging too, and is never inserted or taken out whole. Clots keep their own key, so while it holds the clots standing are wanted again as
     // they are: the marks each build wants are the ones that stay. Mohammad, 16 Nov 2026: nothing pops.)
     if (!clots) for (const id of clotIds) markA.want(`clot:${id}`, { host: ov.thrombi, vessel: id, anatOnly: false, t: live.ovT });
-    const clampAt = (key, id, u, v, txt) => {
-      const [x, y, dx, dy] = pointAt(geo[id].cur, u);
+    const clampAt = (id, vessel, u, v, txt) => {   // (id: the clamp's key, the vessel's own id or `<stent>~waist`)
+      const [x, y, dx, dy] = pointAt(geo[vessel].cur, u);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
-      const off = (E[id].width / 2) * (1 - v) + 3;
+      const off = (E[vessel].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
         const bx = x + nx * sgn * (off + 8), by = y + ny * sgn * (off + 8);
         const tx = x + nx * sgn * off, ty = y + ny * sgn * off;
         const ux = dx / n * 4.5, uy = dy / n * 4.5;
-        ov.clamps.append(s('path', { class: 'clamp', 'data-id': key, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
+        ov.clamps.append(s('path', { class: 'clamp', 'data-id': id, d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
       // (A group of two outline paths, the halo and the glyphs, drawn by the overlay painter: words are not its own, clampGlyphs.)
-      const lab = s('g', { class: 'clamp-label', 'data-id': key });
+      const lab = s('g', { class: 'clamp-label', 'data-id': id });
       lab._txt = txt;
-      lab._c = { id: key, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
+      lab._c = { id, x, y, nx, ny, off }; clampLabelAt(lab); clampFontAt(lab);
       clampW.append(lab);
-      clampShade(key);
+      clampShade(id);
     };
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (!want.has(id)) continue;
