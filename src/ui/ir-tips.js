@@ -24,7 +24,7 @@ import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { PPG_CUTS } from '../engine/pressure-cuts.js';
 import { fillQ } from './shown.js';
 import { tipsGoal, STENT_RANGE as RANGE } from './table-marks.js';
-import { stentBand } from '../engine/stent-geom.js';
+import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
 import { createStent, SIDE, BAR, VW } from './tool-stent.js';
 import { traceH } from './stent-trace-pic.js';
 import { createIrCompare } from './ir-compare.js';
@@ -39,6 +39,9 @@ export const STENT_RANGE = RANGE;
 const PEAK_BAND = [0, 0];   // alloc-rare: made once (peakBand's range for a stent of another diameter, read at once)
 /** The range for this stent's own diameter (stent-geom.js stentBand: the reference range for 8 to 10 mm, scaled and provisional for another). */
 export const peakBand = (st) => stentBand(st?.d, STENT_RANGE, PEAK_BAND);
+/** Whether the gates over `hi` read only the deliberate reduction's jet (stent-geom.js reductionJet): then the tile says so, in the neutral tone, not Out of range. */
+export const reductionJetIn = (st, hi) => !!st?.peaks && st.red > 0.004 && reductionJet(st.peaks, gateKindsOf(st.end, st.red, st.site, JET_KINDS), hi);
+const JET_KINDS = [null, null, null];   // alloc-rare: made once (read at once)
 const mm = (x) => String(Math.round(x * 10) / 10);
 /** The line under the chip: the stent's width, then each of its two narrowings as the editor names them (the waist mid stent, the stenosis at its
  *  end: stent-geom.js), or "open". A record with no split (before 17 Nov 2026) names its narrowest lumen. */
@@ -64,8 +67,8 @@ const TILES = [
   { id: 'peak', k: 'Stent peak velocity', u: 'cm/s', d: 0, scale: [0, 400], ticks: STENT_RANGE, hide: 'model', title: 'The fastest of the three Doppler gates, as the Doppler card prints it. A working 8 to 10 mm stent reads 90 to 190 cm/s; another diameter shows a provisional model band.',
     v: (m, st) => st?.vPeak ?? null,
     // (An 8 to 10 mm stent: the reported range, "In range" / "Out of range". Another diameter: a model band the app scaled, provisional, in words and tone that are not a verdict.)
-    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
-    sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
+    word: (v, st) => { const r = peakBand(st), inside = v >= r[0] && v <= r[1]; return st?.still ? 'No flow' : v > r[1] && reductionJetIn(st, r[1]) ? 'Reduction jet' : r === STENT_RANGE ? (inside ? 'In range' : 'Out of range') : inside ? 'Within model band' : v < r[0] ? 'Below model band' : 'Above model band'; },
+    sev: (v, st) => { const r = peakBand(st); return st?.still || r === STENT_RANGE && !(v > r[1] && reductionJetIn(st, r[1])) && !(v >= r[0] && v <= r[1]) ? 'caution' : 'none'; } },
 ];
 const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1);
 

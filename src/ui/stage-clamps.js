@@ -230,7 +230,7 @@ export function createClamps(st, live) {
       const c = clampA.get(id);
       if (!c) { el.remove(); continue; }
       c.on = false;
-      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-label', 'clamp-label-out');
+      el.classList.replace('clamp', 'clamp-out'); el.classList.replace('clamp-span', 'clamp-span-out'); el.classList.replace('clamp-label', 'clamp-label-out');
       (el._c ? clampWOut : ov.clampsOut).append(el);
     }
     for (const id of want) {
@@ -272,8 +272,14 @@ export function createClamps(st, live) {
       clampAt(id, id, stenosisAt(id, p), v, (E[id].e?.kind === 'shunt' && stenosisText(E[id].e, p)) || `${Math.round(v * 100)}% narrowed`);
     }
     for (const [id, red] of waists) clampAt(`${id}${WAIST_KEY}`, id, 0.5, red, waistText(E[id].e, p) || `${Math.round(red * 100)}% waist`);
-    // (Each narrowed stent's bracket and the diameter at each of its sections, once, whichever of its narrowings it has.)
-    for (const key of want) { const id = key.endsWith(WAIST_KEY) ? key.slice(0, -WAIST_KEY.length) : key; if (E[id].e?.kind === 'shunt' && (key === id || !want.has(id))) stentBracket(id, p); }
+    // (A stent's waist also draws its length: a hairline bracket along it, one of the waist clamp's own marks (its id, so the same fade in and out and the same
+    // GPU read as its arrows); the words are the waist's label, which the label solver places.)
+    for (const [id] of waists) {
+      const span = stentBracket(id, p);
+      if (!span) continue;
+      const key = `${id}${WAIST_KEY}`;
+      span.setAttribute('data-id', key); ov.clamps.append(span); clampShade(key);
+    }
     placeClampLabels();
     // Thrombus: a lumpy clot lying against one wall of the lumen, drawn as soft stacked layers of one
     // deep red (see clotLayers) so it is darkest where thickest and fades into the vessel at its edges.

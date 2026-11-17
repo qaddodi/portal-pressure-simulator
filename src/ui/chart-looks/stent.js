@@ -35,6 +35,8 @@ export const STENT = {
   // the Doppler's three points: a tick, the number under it, and a band behind the slide's own third
   'stent.gate.tick': { base: { fill: 'none', stroke: tok('text-2'), width: 1.5, cap: 'round' } },
   'stent.gate.band': { base: { fill: mix('srgb', tok('accent'), 14, 'transparent') } },
+  // the colour key's strip (a gradient of its own)
+  'stent.key.bar': { base: { stroke: mix('srgb', tok('text-3'), 50, 'transparent'), width: 0.8 } },
   'stent.num': { base: { fill: tok('text'), weight: 700, halo, baseline: 'central' } },
   'stent.word': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.cap': { base: { fill: tok('text-3'), weight: 500, halo, baseline: 'central' } },
@@ -66,7 +68,8 @@ export const STENT = {
   'stent.tr.site': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1, dash: [2.4, 2.8], cap: 'butt' } },
   'stent.tr.badge': { base: { fill: tok('text'), stroke: tok('surface'), width: 1.2 } },
   'stent.tr.badgeNum': { base: { fill: tok('surface'), weight: 700, baseline: 'central' } },
-  'stent.tr.axis': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 55, 'transparent'), width: 1 } },
+  'stent.tr.axis': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 28, 'transparent'), width: 1 } },
+  'stent.tr.zero': { base: { fill: 'none', stroke: mix('srgb', tok('text-3'), 70, 'transparent'), width: 1.2 } },
   'stent.tr.title': { base: { fill: tok('text-2'), weight: 600, halo, baseline: 'central' } },
   'stent.tr.area.pressure': area('accent'), 'stent.tr.area.energy': area('flow-reversed'), 'stent.tr.area.velocity': area('ramp-violet'),
   'stent.tr.line.pressure': line('accent'), 'stent.tr.line.energy': line('flow-reversed'), 'stent.tr.line.velocity': line('ramp-violet'),

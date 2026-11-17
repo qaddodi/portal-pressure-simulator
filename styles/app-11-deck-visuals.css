@@ -177,6 +177,8 @@
 .sc { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
 .sc > .sc-stage { flex: none; width: min(100%, 520px); }   /* (a slide's card and the Tests dock's TIPS view alike) */
 .sc > .sc-stage[hidden] { display: none; }
+.sc > .sc-color, .sc > .sc-tracesw, .sc > .sc-lens { display: flex; gap: 2px; flex: none; align-self: center; padding: 2px; border-radius: 9px; background: var(--surface-2); }   /* (the stent card's Velocity | Pressure and Pressure | Energy | Velocity switches, in the Tests dock's switch look; the TIPS view moves the colour one into its header) */
+.sc > .sc-tracesw[hidden], .sc > .sc-lens[hidden] { display: none; }
 
 /* V27, the fluid balance (src/ui/tool-fluid.js): the lymph made flowing into what the lymphatics carry, what the belly takes
    back and what stays as ascites, each band as thick as its flow, named beside its node; the forces across the sinusoid wall as two arrows. */

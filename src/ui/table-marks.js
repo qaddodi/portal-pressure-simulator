@@ -9,7 +9,7 @@ import { KIDNEY_CUTS } from '../engine/kidney-cuts.js';
 import { SAAG_PORTAL, TP_HIGH, TP_SBP } from '../engine/ascites-cuts.js';
 import { LSM_CUTS, lsmContext } from '../engine/lsm-cuts.js';
 import { TRANSFUSE } from '../engine/transfusion-cuts.js';
-import { stentBand } from '../engine/stent-geom.js';
+import { stentBand, gateKindsOf, reductionJet } from '../engine/stent-geom.js';
 
 export const NO_ASC = 150;
 export const ASC_G2 = 1500;   // mL: grade 2, the moderate belly, starts here   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
@@ -182,8 +182,16 @@ const STENT_CUTS = { tips: [0, 0], dips: [0, 0] };
 export const stentCuts = (k, f) => stentBand(f?.[`${k}D`], STENT_RANGE, STENT_CUTS[k]);
 const T_info_Within = tup('info', 'Within model band'), T_info_Below = tup('info', 'Below model band'), T_info_Above = tup('info', 'Above model band');
 /** The stent peak velocity's rating: the reference range's own words for 8 to 10 mm; for a scaled (provisional) band, where it sits against the model band, in the neutral tone. */
+const T_info_Reduction = tup('info', 'Reduction jet'), KINDS = [null, null, null], GATES = [0, 0, 0];   // alloc-rare: made once (read at once)
+/** Whether the fastest reading is the deliberate reduction's jet (stent-geom.js reductionJet: every gate over the range sits on the reduction), from the fingerprint's gates. */
+export function reductionJetOf(k, f, hi) {
+  if (!(f?.[`${k}Red`] > 0.004)) return false;
+  GATES[0] = f[`${k}G0`]; GATES[1] = f[`${k}G1`]; GATES[2] = f[`${k}G2`];
+  return reductionJet(GATES, gateKindsOf(f[`${k}Stn`], f[`${k}Red`], f[`${k}StnSite`], KINDS), hi);
+}
 export function stentVelRate(v, k, f) {
   const r = stentCuts(k, f);
+  if (v > r[1] && reductionJetOf(k, f, r[1])) return T_info_Reduction;   // (a deliberate reduction's jet reads as intended, in the neutral tone, on any band)
   if (r === STENT_RANGE) return v < r[0] ? T_mid_Low : v > r[1] ? T_mid_High : T_ok_Normal;
   return v < r[0] ? T_info_Below : v > r[1] ? T_info_Above : T_info_Within;
 }

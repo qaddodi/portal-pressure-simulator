@@ -302,3 +302,43 @@ test('a saved state from before 17 Nov 2026 with a stenosis mid stent opens as t
   assert.ok(Math.abs(old.total - now.total) < 1e-15 || old.total < now.total, 'a waist of 4 cm costs at least the focal stenosis');
   assert.equal(sanitizeParams({ stenosisSite: { PV_TRUNK: 'mid' } }).stenosisSite.PV_TRUNK, 'mid', 'a vein that is not a stent keeps its site');
 });
+
+test('stentState names the lesion kinds: an end stenosis is dysfunction, the waist an intentional reduction, and each Doppler gate says whose jet it reads', async () => {
+  const { Engine } = await import('../src/engine/engine.js');
+  const { deepMerge, sanitizeParams } = await import('../src/engine/scenario.js');
+  const st = (patch) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, ...patch }))); e.settle(2); return e.stentState('TIPS'); };
+  let o = st({});
+  assert.equal(o.lesion, 'none'); assert.deepEqual([...o.gateKind], [null, null, null]);
+  o = st({ stentGeom: { TIPS: { red: 0.4 } } });
+  assert.equal(o.lesion, 'reduction'); assert.deepEqual([...o.gateKind], [null, 'reduction', null]);
+  o = st({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'proximal' } });
+  assert.equal(o.lesion, 'stenosis'); assert.deepEqual([...o.gateKind], ['stenosis', null, null]);
+  o = st({ stenosis: { TIPS: 0.5 }, stenosisSite: { TIPS: 'distal' }, stentGeom: { TIPS: { red: 0.3 } } });
+  assert.equal(o.lesion, 'both'); assert.deepEqual([...o.gateKind], [null, 'reduction', 'stenosis']);
+});
+
+test('a long waist over the end stenosis is one lumen, counted once: the friction is the combined profile integrated once, and the stenosis jets into the waist', async () => {
+  const { stentParts: SP, profileAt: PA, geomFix: GF, END_U: EU, waistSpan: WS, endSpan: ES } = await import('../src/engine/stent-geom.js');
+  const open = SP('tips', 10, 5, 1, 0, GF({ len: 8, waist: 1, trans: 0, red: 0 }, 'tips')).wall;
+  const combined = (g, s, site) => { let a = 0; const n = 40000; for (let i = 0; i < n; i++) { const r = PA(g, s, site, (i + 0.5) / n); a += 1 / r ** 4 - 1; } return (open * a) / n; };
+  for (const [g, s] of [[GF({ len: 8, waist: 6, trans: 0, red: 0.3 }, 'tips'), 0.5], [GF({ len: 8, waist: 5, trans: 1, red: 0.25 }, 'tips'), 0.6], [GF({ len: 8, waist: 6, trans: 0, red: 0.5 }, 'tips'), 0.3]]) {
+    const site = EU.distal, e = ES(g, site), w = WS(g);
+    assert.ok(e.a0 < w.b0 && w.a0 < e.b0, 'the two overlap');
+    const p = SP('tips', 10, 5, 1, s, g, null, site), want = combined(g, s, site);
+    assert.ok(Math.abs(p.waistWall - want) / want < 0.01, `friction ${p.waistWall} vs the combined profile's ${want}`);
+    assert.ok(Math.abs(p.wallEnd + p.wallWaist - p.waistWall) < 1e-12, 'the parts add up');
+    assert.ok(p.wallEnd >= 0 && p.wallWaist >= 0);
+  }
+  // A stenosis no tighter than the waist around it adds nothing: no jet, no friction beyond the waist's (this one ends in the waist's cone, still tighter).
+  const g = GF({ len: 8, waist: 6, trans: 1, red: 0.5 }, 'tips');
+  const both = SP('tips', 10, 5, 1, 0.3, g, null, EU.distal), alone = SP('tips', 10, 5, 1, 0, g, null, EU.distal);
+  assert.equal(both.jetEnd, 0);
+  assert.ok(Math.abs(both.total - alone.total) / alone.total < 0.002, `${both.total} vs ${alone.total}`);
+  // A tighter one jets into the waist's lumen: less than into the open stent.
+  const tight = SP('tips', 10, 5, 1, 0.7, g, null, EU.distal), short = SP('tips', 10, 5, 1, 0.7, GF({ len: 8, waist: 1, trans: 0, red: 0.5 }, 'tips'), null, EU.distal);
+  assert.ok(tight.jetEnd > 0 && tight.jetEnd < short.jetEnd, `${tight.jetEnd} into the waist vs ${short.jetEnd} into the open stent`);
+  // Apart (a short waist), each is counted as it was, to the bit.
+  const g1 = GF({ len: 8, waist: 2, trans: 0, red: 0.4 }, 'tips'), sep = SP('tips', 10, 5, 1, 0.5, g1, null, EU.distal);
+  const e0 = SP('tips', 10, 5, 1, 0.5, GF({ len: 8, waist: 2, trans: 0, red: 0 }, 'tips'), null, EU.distal), w0 = SP('tips', 10, 5, 1, 0, g1, null, EU.distal);
+  assert.equal(sep.wallEnd, e0.wallEnd); assert.equal(sep.wallWaist, w0.wallWaist); assert.equal(sep.jetEnd, e0.jetEnd);
+});
