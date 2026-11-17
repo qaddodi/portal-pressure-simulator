@@ -234,3 +234,26 @@ export function withEnd(p, id, site) {
   p.stenosisSite = { ...(p.stenosisSite || {}), [id]: site === 'proximal' ? 'proximal' : 'distal' };   // alloc-rare: a card's setter, run on its own tap, never in a frame
   return p;
 }
+
+// ── Whose jet a Doppler gate reads (17 Nov 2026, external review: "a deliberate reduction's jet should read as intended, not as stenosis") ──
+// The waist (params.stentGeom[id].red) is a reduction made on purpose, always mid stent; the end stenosis (stenosis × thrombus, at stenosisSite proximal or distal) is
+// dysfunction. A gate over the stent's range that sits on the reduction reads the reduction's jet; a stent can have both. engine.stentState names the same kinds
+// (gateKind: tests/stent-band.test.js keeps the two equal); the readers that hold only numbers (the fingerprint's tipsStn, tipsRed, tipsStnSite) use these.
+/** The kind of lesion at each Doppler gate [proximal, mid, distal]: 'stenosis', 'reduction' or null, from the end stenosis `end` (0 to 1) at `site` and the waist `red`. */
+export function gateKindsOf(end, red, site, out = null) {
+  const o = out || [null, null, null];   // alloc-rare: only a caller that brings no list (a test); the drawn paths pass one
+  o[0] = end > 0.004 && site === 'proximal' ? 'stenosis' : null;
+  o[1] = red > 0.004 ? 'reduction' : null;
+  o[2] = end > 0.004 && site !== 'proximal' ? 'stenosis' : null;
+  return o;
+}
+/** The kinds for stent `id` of `kind` in params (the same as gateKindsOf from its end stenosis, waist and site). */
+export const gateKindsFromParams = (params, id, kind, out = null) => gateKindsOf(endOf(params, id), kind ? geomOf(params, id, kind, KIND_GEOM).red : 0, endSiteOf(params, id), out);
+const KIND_GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (gateKindsFromParams reads its red at once)
+/** Whether the gates over `hi` (cm/s) read only the deliberate reduction's jet: at least one gate is over, and every gate that is over sits on the reduction.
+ *  A gate over its range anywhere else (an end stenosis, or fast flow with no lesion) is read as it always was. `peaks`: the three gate velocities. */
+export function reductionJet(peaks, kinds, hi) {
+  let over = false;
+  for (let i = 0; i < 3; i++) if (peaks[i] > hi) { if (kinds[i] !== 'reduction') return false; over = true; }
+  return over;
+}
