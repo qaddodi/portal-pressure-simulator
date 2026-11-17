@@ -334,7 +334,13 @@ export function createTransitions(st, live) {
     if (deg) { const c = Math.cos((-deg * Math.PI) / 180), sn = Math.sin((-deg * Math.PI) / 180); for (const q of tp) for (let k = 0; k < q.pts.length; k += 2) { const dx = q.pts[k] - ax, dy = q.pts[k + 1] - ay; q.pts[k] = ax + dx * c - dy * sn; q.pts[k + 1] = ay + dx * sn + dy * c; } }
     const d = polysD(tp);
     out.push(s('path', { class: 'dim-halo', d, 'stroke-width': (size * 0.42).toFixed(2) }), s('path', { class: 'dim-text', d }));
+    // (Its box as drawn, the halo included, in world units: the figure's labels, the slide's callouts and the Doppler probe keep off it, stage-label-solve.js.)
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of tp) for (let k = 0; k < q.pts.length; k += 2) { const px = q.pts[k], py = q.pts[k + 1]; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+    const hp = size * 0.21;
+    if (x1 >= x0) dimBoxes.push([x0 - hp, y0 - hp, x1 + hp, y1 + hp, 1]);   // (1: words)
   }
+  let dimBoxes = [];   // (the stent being drawn's dimension boxes, world units: live.dimBoxes holds each stent's)
   function stentBracket(id, p) {
     const x = E[id], kind = stentKindOf(x?.e), L = geo[id]?.len;
     if (!kind || !(L > 0)) return;
@@ -342,12 +348,18 @@ export function createTransitions(st, live) {
     const w = waistSpan(g, site, brkS), d0 = w.a1 * L, d1 = w.b1 * L, mid = frameAt(id, (d0 + d1) / 2);
     const sg = Math.abs(mid.nx) > 0.05 ? (mid.nx > 0 ? -1 : 1) : (mid.ny > 0 ? -1 : 1), wall = x.width / 2 + (x.wallPx || 1);
     const f1 = (n) => n.toFixed(1), els = [];
+    dimBoxes = [];
     if (g.waist >= 0.25) {
       const off = sg * (wall + 11);
       let d = '';
       for (let k = 0; k <= 12; k++) { const q = frameAt(id, d0 + ((d1 - d0) * k) / 12); d += `${k ? ' L' : 'M'}${f1(q.x + q.nx * off)} ${f1(q.y + q.ny * off)}`; }
       for (const dd of [d0, d1]) { const q = frameAt(id, dd); d += ` M${f1(q.x + q.nx * (off - sg * 3.5))} ${f1(q.y + q.ny * (off - sg * 3.5))} L${f1(q.x + q.nx * (off + sg * 3.5))} ${f1(q.y + q.ny * (off + sg * 3.5))}`; }
       els.push(s('path', { class: 'dim-line', d }));
+      // (The bracket's hairline too, a box for each of its runs, its ticks' reach either side.)
+      for (let k = 0; k < 12; k++) {
+        const a = frameAt(id, d0 + ((d1 - d0) * k) / 12), b = frameAt(id, d0 + ((d1 - d0) * (k + 1)) / 12), ax = a.x + a.nx * off, ay = a.y + a.ny * off, bx = b.x + b.nx * off, by = b.y + b.ny * off;
+        dimBoxes.push([Math.min(ax, bx) - 3.5, Math.min(ay, by) - 3.5, Math.max(ax, bx) + 3.5, Math.max(ay, by) + 3.5, 0]);
+      }
     }
     if (!glyphsReady()) { if (!dimGlyphAsk) { dimGlyphAsk = true; loadGlyphs().then(() => { live.overlayKey = null; }); } }
     else {
@@ -370,6 +382,7 @@ export function createTransitions(st, live) {
       }
     }
     if (els.length) putMark(ov.stents, `brk:${id}`, id, els);
+    if (dimBoxes.length) live.dimBoxes.set(id, dimBoxes); else live.dimBoxes.delete(id);
   }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
