@@ -3,7 +3,7 @@
 import { EDGE_TONE, SITE_NODE, TARGETS, VAL_TONE, rateTone, slideTargets } from './presenter-words.js';
 import { expandIds, figureHooks, markLabel } from './slide-ext.js';
 import { store } from './store.js';
-import { spansOf } from './tool-profile.js';
+import { hasStent, spansOf, spansStented } from './tool-profile.js';
 
 export function createOverlays(st, live) {
   const { app, clotMarks, ctxOf, markFocus, stage, stentedOf } = st;
@@ -27,7 +27,7 @@ export function createOverlays(st, live) {
       live.markBase = { i: to, marks };
       marks = clotMarks(marks, st?.params || store.get().params);
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
-        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentGrads: s.tool?.kind === 'profile' ? spansOf(s.tool.spans).map(([k]) => k).join() : null, presentFp: st?.fp || null,
+        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentGrads: s.tool?.kind === 'profile' ? (hasStent(st?.fp) ? spansStented(spansOf(s.tool.spans)) : spansOf(s.tool.spans)).map(([k]) => k).join() : null, presentFp: st?.fp || null,
         focus: markFocus(marks), stented: stentedOf(s), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       // (The glows and outlines are the figure's decoration: one that cannot be drawn, as on a device without WebGL2 once, leaves the slide
       // without it rather than half-changed with its cards never in.)

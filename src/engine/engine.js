@@ -1318,12 +1318,15 @@ export class Engine {
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
-  collateralD(e) {
+  // (P: the pressures the route's excess is read at. The physics step reads the instant's (this.P); a shown diameter (diameter(id, Pf)) reads the shown means,
+  // so a collateral that opens with the gradient (the acute clot's, which opens on a span of a few mmHg) holds still at rest instead of swinging with the beat:
+  // the acute PVT's C1a/C1b shown diameters swung 8% every 7 s, so the worker posted 6 states a second for ever, 17 Nov 2026.)
+  collateralD(e, P = this.P) {
     let d = this.slow.d[e.id];
     if (e.spontaneous) d = e.dMax;
     else if (this.refP) {
       const dMin = dMinOf(e);
-      const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
+      const frac = clamp((this.routeExcess(e.route, P) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const acute = e.acute ?? (this.params.thrombus.PV_TRUNK > 0.5 ? COLLATERAL.acuteClot : COLLATERAL.acute);
       d = Math.max(d, dMin + (e.dMax - dMin) * acute * Math.sqrt(frac));
     }
@@ -1333,7 +1336,7 @@ export class Engine {
       const g = EDGES[this.ei.C5], gMin = dMinOf(g), gd = Math.max(this.slow.d.C5, (this.slow.dEff || {}).C5 ?? 0);
       d = Math.max(d, dMinOf(e) + (e.dMax - dMinOf(e)) * clamp((gd - gMin) / (g.dMax - gMin), 0, 1));
     }
-    (this.slow.dEff ||= {})[e.id] = d;
+    if (P === this.P) (this.slow.dEff ||= {})[e.id] = d;   // (what the C2 feeder reads: the step's own, not a shown reading's)
     return d;
   }
 
@@ -1502,7 +1505,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(P[f] - ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(P[t] - ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
-      return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
+      return present && !isOccluded(this.params, e.id) ? this.collateralD(e, P) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;
@@ -1530,7 +1533,7 @@ export class Engine {
     if (!(d > 0)) return null;
     const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
     const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
-    const g = geomOf(p, id, kind, o.geom), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts, su);
+    const g = geomOf(p, id, kind, o.geom || (o.geom = {})), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts || (o.parts = {}), su);   // alloc-rare: a record brought without them, once
     for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q;
     const A = Math.PI * (d / 10) * (d / 10) / 4;
     // (Its two narrowings, stent-geom.js: the end stenosis `end` at its end `site`, the waist `red` mid stent. s, dWaist and vWaist are the
@@ -1559,6 +1562,11 @@ export class Engine {
       for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] = 0;
     }
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
+    // (The record is one descriptor of one moment, for a card to pin whole (external review, 17 Nov 2026): its geometry (geom, d, end, red, site), its
+    // readings, the direction of its flow (dir: 1 portal to systemic, −1 reversed, 0 stopped; the parts are signed with the flow, so a reversed
+    // stent's parts and dp are both negative), the raw residual of its pressure split (resid: dp less the parts' sum, mmHg, signed; the smoothed
+    // pressures and flow are not one instant, so it is small but not 0 while the patient moves, and 0 once settled) and the patient's revision.)
+    o.dir = o.still ? 0 : q < 0 ? -1 : 1; o.resid = o.still ? 0 : o.dp - r.total; o.rev = this.paramsRev | 0;
     // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
     o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP, su) * 0.06;
     return o;

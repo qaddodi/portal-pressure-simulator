@@ -35,6 +35,8 @@ export const PROFILE = {
   },
   // 7125 .ppf-lname, 7131 .ppf-name (7132 .liv italic: the picture never drew it)
   'prof.name': { base: { weight: 500, size: em(1), fill: tok('text-2') } },
+  // the chip a line's name stands on (tool-profile.js: the card's own colour, 90 %), so the name reads over the zone tints and the fill
+  'prof.name.chip': { base: { fill: mix('srgb', tok('surface'), 90, 'transparent') } },
   // 7127 .ppf-fill (the gradient is the piece's fill attribute)
   'prof.fill': { base: { opacity: 0.16 } },
   // 7128, 2275 .ppf-line (the gradient is the piece's stroke attribute)

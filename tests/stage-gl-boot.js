@@ -78,7 +78,7 @@ function mediaFor(w, h, coarse) {
 
 // (w, h, dpr, coarse: the screen; a phone held upright is { w: 395, h: 859, dpr: 3, coarse: true }, whose media queries are answered for it
 // (mediaFor); a desktop keeps the page stub's.)
-export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse = false, gl = true, params = null, preset = null } = {}) {
+export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse = false, gl = true, params = null, preset = null, onBootFrame = null } = {}) {
   await (await import('../src/ui/text-gl.js')).loadGlyphs();
   const glMod = await import('../scripts/warm/gl-stub.mjs');
   const { installPage } = await import('../scripts/warm/dom.mjs');
@@ -118,6 +118,6 @@ export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse
   let fi = 0;
   // (One frame of the playing model: its next engine frame, 16.7 ms, the tasks between frames.)
   const frame = async () => { st.update(frames[fi++ % frames.length]); pump(16.7); await tasks(); await tasks(); };
-  for (let i = 0; i < 120; i++) await frame();
+  for (let i = 0; i < 120; i++) { await frame(); if (onBootFrame) await onBootFrame(i, st); }   // (onBootFrame: a test's look at each of the first frames)
   return { st, page, frame, params: presetParams };
 }

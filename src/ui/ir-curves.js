@@ -19,13 +19,14 @@ import { GEOM_RANGE, BENCH_DP } from '../engine/stent-geom.js';
 export const SWEEPS = ['diameter', 'end', 'waist', 'length'];
 const LABEL = { diameter: 'Diameter', end: 'End narrowing', waist: 'Waist length', length: 'Stent length (idealized)' };
 export const NO_WAIST = 'This stent has no waist, so a waist length changes nothing. Give it a waist in the stent editor above, then come back.';
+export const WORKING = 'Working out the curves for this patient…';
 const SETTLE_MS = 450;   // (a drag on the stent's card ends before the sweep starts: one sweep, not thirty)
 
 /** The curve tool for a stent and a setting: the sweep's x axis, the two lines (the patient's flow, the bench's), their words. */
 export function curveToolOf(which, sweep) {
   const id = which === 'DIPS' ? 'DIPS' : 'TIPS', k = id === 'DIPS' ? 'dips' : 'tips';
-  const s = sweep === 'end' ? { param: `stenosis.${id}`, from: 0, to: 0.8, step: 0.05, unit: '%' }
-    : sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: 0.5, unit: 'cm' }
+  const s = sweep === 'end' ? { param: `stenosis.${id}`, from: 0, to: 0.8, step: 0.1, unit: '%' }
+    : sweep === 'waist' ? { param: `stentGeom.${id}.waist`, from: GEOM_RANGE.waist[0], to: GEOM_RANGE.waist[1], step: 1, unit: 'cm' }
     : sweep === 'length' ? { param: `stentGeom.${id}.len`, from: GEOM_RANGE.len[0], to: GEOM_RANGE.len[1], step: 1, unit: 'cm' }
     : { param: `${k}.d`, from: 6, to: 12, step: 1, unit: 'mm' };
   return { kind: 'curve', ...s, label: LABEL[sweep] || LABEL.diameter, lines: [`${k}Flow`, `${k}Bench`], oneScale: true, cuts: false, names: { [`${k}Flow`]: 'In the patient', [`${k}Bench`]: `Tube alone, ${BENCH_DP} mmHg` } };
@@ -42,14 +43,33 @@ export const sweepMatters = (sweep, st) => sweep !== 'waist' || (st?.red ?? 0) >
  */
 export function createIrCurves({ request = (type) => host.request(type), calc = sharedCalc, chart = createCurve, delay = SETTLE_MS } = {}) {
   let sweep = 'diameter', which = 'TIPS', timer = 0, token = 0, frame = null, shownMatters = true, active = true;
-  let phase = 'idle', want = null, drawn = null, ringKey = '';   // (want: the key and parameters asked for; drawn: those the chart now shows)
+  let phase = 'idle', want = null, drawn = null, ringKey = '', running = false, shownState = '';   // (want: the key and parameters asked for; drawn: those the chart now shows)
   const curve = chart();
   const btns = SWEEPS.map((k) => h('button', { type: 'button', class: 'ps-btn', 'data-sweep': k, 'aria-pressed': String(k === sweep), onclick: () => setSweep(k) }, LABEL[k]));
   const sw = h('div', { class: 'pressure-switch ir-sweep', role: 'group', 'aria-label': 'Setting to vary' }, btns);
-  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same stent as a tube on a bench with ${BENCH_DP} mmHg across it. The lines are worked out for the patient as they stand when this view opens, and again when the patient, the stent or the day changes; the ring follows the stent as it stands now.`);
+  const note = h('p', { class: 'ctl-sub ir-note' }, `Solid: the stent in this patient, each point settled. Dashed: the same shunt on a bench (the stent with its tract into the veins), with a fixed ${BENCH_DP} mmHg from its portal end to its hepatic end and no circulation to answer. The lines are worked out for the patient as they stand when this view opens, and again when the patient, the stent or the day changes; the dashed line stands at the stent as it is now, and moves as you edit it.`);
+  const work = h('p', { class: 'ctl-sub ir-note ir-work', 'aria-live': 'polite' }, WORKING);   // (always laid out, faded in while the lines are being worked out)
   const warn = h('p', { class: 'ctl-sub ir-note ir-warn' }, NO_WAIST);   // (always laid out, faded in and out by its owner's data-flat: nothing pops, nothing shifts)
-  const el = h('div', { class: 'ir-curves', 'data-flat': '' }, sw, h('div', { class: 'ir-chart' }, curve.el), warn, note);
+  const el = h('div', { class: 'ir-curves', 'data-flat': '' }, sw, h('div', { class: 'ir-chart' }, curve.el), work, warn, note);
 
+  // What the person sees while the lines are being worked out: the chart faded and a line saying so, then the lines fade up (nothing pops; F42, 17 Nov 2026).
+  function mark() {
+    const state = !frame || (phase === 'drawn' && !running) ? 'ready' : phase === 'idle' ? 'idle' : 'working';
+    if (state !== shownState) { shownState = state; dataSoon(el, 'state', state); }
+  }
+  // The sweep's own setting as the stent stands now, filled from the engine's geometry where the parameters leave it unset (a stent with no waist length of its own has the default's),
+  // so the dashed line has somewhere to stand. Made again only when the parameters, the stent or the setting change.
+  let liveFor = null, liveOut = null;
+  const GEOM_AT = { waist: 'waist', length: 'len' };
+  function liveParams() {
+    const p = store.get().params, st = frame?.metrics ? (which === 'DIPS' ? frame.metrics.dips : frame.metrics.tips) : null, g = GEOM_AT[sweep], id = which === 'DIPS' ? 'DIPS' : 'TIPS';
+    const v = g && st?.geom ? st.geom[g] : null, key = `${sweep}|${id}|${v}`;
+    if (liveFor === p && liveOut?.key === key) return liveOut.params;
+    let out = p;
+    if (g && Number.isFinite(v) && !Number.isFinite(p.stentGeom?.[id]?.[g])) out = { ...p, stentGeom: { ...p.stentGeom, [id]: { ...p.stentGeom?.[id], [g]: v } } };
+    liveFor = p; liveOut = { key, params: out };
+    return out;
+  }
   function setSweep(k) {
     if (k === sweep) return;
     sweep = k;
@@ -66,10 +86,16 @@ export function createIrCurves({ request = (type) => host.request(type), calc = 
     if (!snap || !fp) { phase = 'idle'; want = null; return; }
     const c = calc(), params = store.get().params, deck = {};   // (a new deck object each time: the chart keeps its points per deck, so a changed patient is never answered from the one before)
     const ctx = {
-      slide: { id: `ir-${my}` }, index: 0, deck, snap, params, fp, liveParams: () => store.get().params, fpOf: () => null, shown: () => true,
-      run: (steps, from = snap) => { const out = []; return c.sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
+      slide: { id: `ir-${my}` }, index: 0, deck, snap, params, fp, liveParams, fpOf: () => null, shown: () => true,
+      run: (steps, from = snap) => {
+        const out = []; let n = 0;
+        running = true; work.textContent = WORKING; mark();
+        const finish = () => { if (drawn === mine) { running = false; mark(); } };
+        return c.sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, base: m.base, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; if (drawn === mine) work.textContent = `${WORKING} ${++n} of ${steps.length}`; }).then((end) => { finish(); return end?.type === 'error' ? null : out; }, (e) => { finish(); throw e; });
+      },
     };
     drawn = mine; phase = 'drawn'; ringKey = '';
+    mark();
     curve.configure(curveToolOf(mine.which, mine.sweep), ctx);
   }
   // The ring: the stent as it stands now, on the lines worked out for the sweep's moment (the chart's own pin; the lines are not worked out again).
@@ -84,6 +110,7 @@ export function createIrCurves({ request = (type) => host.request(type), calc = 
   function update(f, w = 'TIPS') {
     frame = f;
     if (!active) return;
+    which = w;
     const st = store.get(), p = st.params, m = f?.metrics, stent = m ? (w === 'DIPS' ? m.dips : m.tips) : null;
     const matters = sweepMatters(sweep, stent);
     if (matters !== shownMatters) { shownMatters = matters; dataSoon(el, 'flat', matters ? '' : '1'); }
@@ -93,14 +120,13 @@ export function createIrCurves({ request = (type) => host.request(type), calc = 
     const key = `${w}|${sweep}|${day}`;
     if (drawn && drawn.key === key && drawn.p === p) { ring(stent, w); return; }
     if (want && want.key === key && want.p === p && phase !== 'idle') return;   // (already asked for: waiting or loading)
-    which = w;
     clearTimeout(timer);
     const my = ++token, mine = { key, p, which: w, sweep };
-    want = mine; phase = 'waiting';
+    want = mine; phase = 'waiting'; running = false; mark();
     timer = setTimeout(() => restPass(() => { if (my === token) start(my, mine); }), delay);
   }
   /** Leaving the view: work not finished is cancelled and forgotten (a sweep already drawn stays). */
-  const stop = () => { clearTimeout(timer); token++; if (phase !== 'drawn') { phase = 'idle'; want = null; } };
+  const stop = () => { clearTimeout(timer); token++; if (phase !== 'drawn') { phase = 'idle'; want = null; } mark(); };
   /** The card is shown or hidden (dock.js pane.shown): hidden, nothing is prepared and nothing is asked of the worker. */
   const setActive = (on) => { on = !!on; if (on === active) return; active = on; if (!on) stop(); else if (frame) update(frame, which); };
   return { el, update, stop, setActive, sweep: () => sweep, setSweep, chart: curve, phase: () => phase };
