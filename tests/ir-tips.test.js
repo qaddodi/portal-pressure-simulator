@@ -400,6 +400,12 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   assert.equal(p.stenosisSite.TIPS, 'proximal');
   assert.ok(Math.abs(p.stentGeom.TIPS.red - 0.4) < 1e-9, 'the waist stays mid stent');
   assert.equal(row('end').querySelector('.se-row-v').textContent, 'Proximal 5.0 mm');
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '0', 'the thumb sits under the pressed choice');
+  panel.querySelector('[data-ctl="site"] .se-seg button:last-of-type').click();
+  await wait(30);
+  assert.equal(panel.querySelector('[data-ctl="site"] .se-seg').dataset.at, '1', 'and slides to the other');
+  assert.match(read('styles/app-06-plate.css'), /\.se-panel \.se-seg\[data-at="1"\] \.se-thumb \{ transform: translateX\(100%\); \}/, 'by a transform');
   panel.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(20);
   assert.equal(panel.dataset.open, '', 'Escape gives the rows back');
@@ -411,7 +417,7 @@ test('The stent is edited in the TIPS view itself: three rows, a tap grows the r
   const plate = read('styles/app-06-plate.css');
   const rules = plate.split('\n').filter((l) => /\.stent-editor|\.se-panel|\.se-zone/.test(l)).join('\n');
   assert.match(rules, /\.stent-editor \.se-row \{[^}]*min-height: 46px;/, 'the mock\'s rows');
-  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -6px 0; \}/, 'a 32 px choice to see, 44 px to tap');
+  assert.match(rules, /\.se-panel \.se-seg button::after \{ content: ''; position: absolute; inset: -8px 0; \}/, 'a 28 px choice to see, 44 px to tap');
   for (const sel of ['.se-done', '.se-ph-n']) assert.match(rules, new RegExp(`\\.se-panel ${sel.replace('.', '\\.')} \\{[^}]*min-height: (4[4-9]|5\\d)px`), `${sel}: 44 px or more`);
   assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no value is cut short');
   for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);

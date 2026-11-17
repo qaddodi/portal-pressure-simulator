@@ -16,7 +16,7 @@
 import { h, svgIcon, paintRange } from './util.js';
 import { store, updateParams } from './store.js';
 import { frameFor } from './frame.js';
-import { runSoon, propSoon, attrSoon } from './class-soon.js';
+import { runSoon, propSoon, attrSoon, dataSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
 import { readBox } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
@@ -142,9 +142,9 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
       b._val = o[0];
       return b;
     });
-    const seg = h('div', { class: 'se-seg', role: 'group', 'aria-label': CAPTION[v.id] || v.label }, btns);
+    const seg = h('div', { class: 'se-seg', role: 'group', 'aria-label': CAPTION[v.id] || v.label, 'data-at': '0' }, h('i', { class: 'se-thumb', 'aria-hidden': 'true' }), btns);   // (the thumb slides under the pressed choice, as the mock's: a transform)
     const cell = h('div', { class: 'se-ctl se-ctl-seg', 'data-ctl': v.id }, h('span', { class: 'se-cap' }, h('span', {}, CAPTION[v.id] || v.label)), seg);
-    return { v, cell, btns, kind: 2, shown: null, dim: null };
+    return { v, cell, seg, btns, kind: 2, shown: null, dim: null };
   }
 
   // ── the grow: the surface's nine pieces from the row's box to the panel's, the top line's two ends from the row's words to their own ──
@@ -236,7 +236,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
         if (r.lum && r.d !== d) { r.d = d; r.lo = +(d * (1 - r.v.max)).toFixed(1); r.hi = d; propSoon(r.input, 'min', String(r.lo)); propSoon(r.input, 'max', String(r.hi)); force = true; }
         const x = r.v.get(p);
         if ((force || x !== r.shown) && document.activeElement !== r.input) { propSoon(r.input, 'value', String(r.toIn(x))); r.paint(x); }
-      } else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); } }
+      } else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); dataSoon(r.seg, 'at', String(Math.max(0, r.btns.findIndex((b) => b._val === cur)))); } }
       const dim = !!r.v.dimIf?.(p);
       if (dim !== r.dim) { r.dim = dim; r.cell.classList.toggle('se-dim', dim); }
     }
