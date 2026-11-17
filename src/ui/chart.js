@@ -150,12 +150,12 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }), (p) => p.tips.on),
-      // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      placed(proc('stent', 'dips', 'right portal vein → intrahepatic IVC', () => {
+      // A DIPS is always portal vein → the intrahepatic IVC, so it is placed at once too.
+      placed(proc('stent', 'dips', 'portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
-        toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
+        toast(on ? 'The DIPS is already in place.' : 'DIPS placed: portal vein → IVC, through the caudate lobe.');
       }), (p) => p.dips.on),
       // The surgical shunts, each its own order (surgical-shunts.js: the same parameters the talks' slides set). A tap makes the shunt and
       // shows its vessel, whose card takes it down. The Meso-Rex bypass is always listed: for a patient without a clotted trunk the tap

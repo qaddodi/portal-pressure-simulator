@@ -91,14 +91,14 @@ test('the figure draws the stent as a cut view: its cover is two bands outside t
   fig.dispose(); fig.el.remove();
 });
 
-test('the veins at the stent\'s ends are named on every card\'s picture: RPV and RHV (the DIPS: RPV and IVC), with and without the figure\'s other words', async () => {
+test('the veins at the stent\'s ends are named on every card\'s picture: RPV and RHV (the DIPS: PV and IVC), with and without the figure\'s other words', async () => {
   const { wordsOf, geoOf } = await import('../src/ui/svg-gl.js');
   for (const labels of [true, false]) {
-    for (const [id, far] of [['TIPS', 'RHV'], ['DIPS', 'IVC']]) {
+    for (const [id, near, far] of [['TIPS', 'RPV', 'RHV'], ['DIPS', 'PV', 'IVC']]) {
       const fig = await mountFigure(id, labels, P());
       const L = fig.layout(); 
       const names = [...fig.el.querySelectorAll('[data-look="tf.vein.name"]')];
-      assert.deepEqual(names.map(wordsOf).sort(), ['RPV', far].sort(), `${id} labels=${labels}`);
+      assert.deepEqual(names.map(wordsOf).sort(), [near, far].sort(), `${id} labels=${labels}`);
       for (const n of names) {
         assert.ok(+geoOf(n, 'opacity') > 0.99, 'shown with the stent');
         assert.equal(+geoOf(n, 'y'), L.cy, 'in the vein, level with the stent\'s axis');

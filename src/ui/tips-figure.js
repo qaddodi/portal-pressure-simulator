@@ -111,7 +111,7 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
   // the words on the stent: the waist's bracket and its lumen and length, the end stenosis's lumen, the veins' names, the gates and their unit
   const wBuf = new Float64Array(8), wBr = sv('path', { 'data-look': 'stent.dim' }), wT = sv('text', { 'data-look': 'tf.word', 'text-anchor': 'middle', 'font-size': 12 });
   const eBuf = new Float64Array(8), eBr = sv('path', { 'data-look': 'stent.dim' }), eT = sv('text', { 'data-look': 'tf.word', 'text-anchor': 'middle', 'font-size': 12 });
-  // (the veins' names sit in the veins, at the stent's two ends, and show on every card's picture, the vessel card's too: RPV and RHV, the DIPS's far end the IVC)
+  // (the veins' names sit in the veins, at the stent's two ends, and show on every card's picture, the vessel card's too: RPV and RHV for the TIPS, PV and IVC for the DIPS)
   const pvT = sv('text', { 'data-look': 'tf.vein.name', 'text-anchor': 'start', 'font-size': 11 }), hvT = sv('text', { 'data-look': 'tf.vein.name', 'text-anchor': 'end', 'font-size': 11 });
   const tBuf = [0, 1, 2].map(() => new Float64Array(4)), ticks = tBuf.map(() => sv('path', { 'data-look': 'stent.gate.tick' }));
   const numsV = [0, 1, 2].map(() => sv('text', { 'data-look': 'tf.num', 'text-anchor': 'middle', 'font-size': 12 }));
@@ -234,9 +234,9 @@ export function createTipsFigure({ id: id0 = 'TIPS', labels = true, chart = fals
     gl.paint();
   }
 
-  // The veins' names, inside the veins at the stent's two ends (a stub is 1.3 cm of the picture: RPV, RHV, the DIPS's far end the IVC), fading with the stent.
+  // The veins' names, inside the veins at the stent's two ends (a stub is 1.3 cm of the picture: RPV and RHV for the TIPS, PV and IVC for the DIPS), fading with the stent.
   function paintVeinNames(ex) {
-    setWords(pvT, 'RPV'); setWords(hvT, id === 'DIPS' ? 'IVC' : 'RHV');
+    setWords(pvT, id === 'DIPS' ? 'PV' : 'RPV'); setWords(hvT, id === 'DIPS' ? 'IVC' : 'RHV');
     setGeo(pvT, 'x', 4); setGeo(pvT, 'y', L.cy); setGeo(hvT, 'x', L.W - 4); setGeo(hvT, 'y', L.cy);
     setGeo(pvT, 'opacity', ex); setGeo(hvT, 'opacity', ex);
   }

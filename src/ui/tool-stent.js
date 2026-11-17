@@ -218,7 +218,7 @@ export function createStent() {
   const lumQ = sv('path', { 'data-look': 'stent.lumen', fill: `url(#${gid}p)` });   // (the same outline coloured by the pressure along it: it fades in over the velocity colours)
   const grfP = sv('path', { 'data-look': 'tf.wall' });   // the cover's two thin bands, one over each wall of the cut stent (never across the lumen)
   // the device as the figure draws it, a cut view (stent-mesh.js stentCutD: only the wall on each side, the cover's bands, the rings along them, the gold mark), over the lumen's edge
-  // The veins' names, in the veins at the stent's two ends (the TIPS figure's too: tips-figure.js): RPV and RHV, the DIPS's far end the IVC.
+  // The veins' names, in the veins at the stent's two ends (the TIPS figure's too: tips-figure.js): RPV and RHV for the TIPS, PV and IVC for the DIPS.
   const pvName = sv('text', { 'data-look': 'tf.vein.name', x: 4, y: S.nameY, 'text-anchor': 'start', 'font-size': 11, opacity: 0 }), hvName = sv('text', { 'data-look': 'tf.vein.name', x: VW - 4, y: S.nameY, 'text-anchor': 'end', 'font-size': 11, opacity: 0 });
   const WIRES = ['backBare', 'backCov', 'frontBare', 'frontCov', 'glint', 'band', 'tab'];
   const wires = WIRES.map((k) => sv('path', { 'data-look': `stent.wire.${k}` }));
@@ -404,7 +404,7 @@ export function createStent() {
     setPts(veinP, veinLine(vb[0], 0, x0, cy, vh), 5, false);
     setPts(veinH, veinLine(vb[1], x1, VW, cy, vh), 5, false);
     for (const e of [lumP, grfP, ...wires, dimP, dimTxt, arrowP, ...ticks, pvName, hvName]) setGeo(e, 'opacity', ex);
-    setWords(pvName, 'RPV'); setWords(hvName, id === 'DIPS' ? 'IVC' : 'RHV');
+    setWords(pvName, id === 'DIPS' ? 'PV' : 'RPV'); setWords(hvName, id === 'DIPS' ? 'IVC' : 'RHV');
     for (const e of [ghostP, none]) setGeo(e, 'opacity', 1 - ex);
     const cm = clamp(v[CH.cm], 0, 1);
     setGeo(lumQ, 'opacity', ex * cm);
