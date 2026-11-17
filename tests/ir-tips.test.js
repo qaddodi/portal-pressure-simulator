@@ -489,3 +489,19 @@ test('Curves life: a hidden card cancels the work, is fed nothing, and picks up 
   assert.equal(typeof ir.setActive, 'function');
   assert.match(read('src/ui/hvpg-proc.js'), /shown: \(on\) => tips\.setActive\(on\)/);
 });
+
+test('the stent peak tile reads a deliberate reduction\'s jet as intended, and an end stenosis\' jet as out of range', async () => {
+  const { ir } = mount(paramsOf({ tips: { on: true, d: 10 } }));
+  ir.update(frameOf()); await wait(60);
+  ir.head.querySelector('[data-view="tips"]').click();
+  const peak = () => [...ir.el.querySelectorAll('.metric')].find((t) => t.dataset.id === 'ir-peak');
+  const at = (over) => ir.update(frameOf({ tips: { ...frameOf().metrics.tips, d: 10, ...over } }));
+  at({ vPeak: 400, peaks: [100, 400, 100], red: 0.4, end: 0, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Reduction jet');
+  assert.equal(peak().dataset.sev, 'none');
+  at({ vPeak: 400, peaks: [100, 150, 400], red: 0.4, end: 0.5, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range');
+  assert.equal(peak().dataset.sev, 'caution');
+  at({ vPeak: 400, peaks: [100, 400, 100], red: 0, end: 0, site: 'distal' }); await wait(60);
+  assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
+});

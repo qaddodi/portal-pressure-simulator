@@ -345,6 +345,7 @@ function tipShow(el, text, side, tip) {
   // this button's side, not from the previous tip's: the transition starts when .show is added.)
   const L = layoutTip(words, key, innerWidth);
   const tr = { width: L.w, height: L.h };
+  tip.classList.toggle('one-line', L.lines.length === 1);   // (a one-line tip never wraps in the page's own words: they are a hair wider than the layout's advances, and "Zoom out" broke to "Zoom / out")
   if (covers(words) && (!key || covers(key))) tipDraw(tip, L); else { tipUndrawn(tip); tip.style.width = ''; tip.style.height = ''; }
   // A side that would run off the window takes the opposite one (a top-bar button's tip had sat on its own button when
   // 'top' ran off; a timeline tip clipped at a short window's foot), and the tip rises from the side it came from.
