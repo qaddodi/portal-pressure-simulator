@@ -9,7 +9,7 @@ import {
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
 import { STENT_CLOSED_D } from './stent-ease.js';
-import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf } from './stent-geom.js';
+import { stentParts, geomOf, geomDefault, kindOf, benchFlow, BENCH_DP, endSiteOf, END_U } from './stent-geom.js';
 import { stentStill } from './flow-cuts.js';
 import { LYMPH, tissueP, sinusoidPull, hepLymphOf } from './lymph.js';
 import { DisplayMean, holdAt } from './display-mean.js';
@@ -48,7 +48,7 @@ const congestedRise = (rise) => { const x = Math.min(1, Math.max(0, (rise - CONG
 // inlet; the one calculation the Doppler, the figure and the cards read too). With no geometry set it is the stent the model always had.
 const PARTS = { tract: 0, wall: 0, waistWall: 0, entry: 0, jet: 0, inlet: 0, jetEnd: 0, jetWaist: 0, wallEnd: 0, wallWaist: 0, total: 0 };   // alloc-rare: made once (computeG's parts, read at once)
 const GEOM = { len: 0, waist: 0, trans: 0, red: 0 };   // alloc-rare: made once (computeG's geometry, read at once)
-const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS).total;
+const stentConductance = (kind, d, q, visc, s, p, id) => 1 / stentParts(kind, d, q, visc, s, geomOf(p, id, kind, GEOM), PARTS, END_U[endSiteOf(p, id)]).total;
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 // How long the volumes a hidden relaxation moved take to come across to the live model (s): the worker's tick.
 const CARRY_S = 0.033;
@@ -1530,7 +1530,7 @@ export class Engine {
     if (!(d > 0)) return null;
     const o = out || { parts: {}, geom: {} };   // alloc-rare: a reader that brings no record (a test, the compare request); the tick brings its own
     const q = this.Qf ? this.Qf[k] : this.Q[k], P = this.Pf || this.P, s = this.occlusion(id);
-    const g = geomOf(p, id, kind, o.geom), r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts);
+    const g = geomOf(p, id, kind, o.geom), su = END_U[endSiteOf(p, id)], r = stentParts(kind, d, q, this.viscosity(), s, g, o.parts, su);
     for (const f of ['tract', 'wall', 'waistWall', 'entry', 'jet', 'inlet', 'jetEnd', 'jetWaist', 'wallEnd', 'wallWaist', 'total']) r[f] *= q;
     const A = Math.PI * (d / 10) * (d / 10) / 4;
     // (Its two narrowings, stent-geom.js: the end stenosis `end` at its end `site`, the waist `red` mid stent. s, dWaist and vWaist are the
@@ -1554,7 +1554,7 @@ export class Engine {
     if (o.still) { peaks[0] = 0; peaks[1] = 0; peaks[2] = 0; }
     o.vPeak = Math.max(peaks[0], peaks[1], peaks[2]);
     // The same stent on a bench: the flow (L/min) it would carry with a fixed BENCH_DP across it and no patient behind it (the tube-alone line of the Tests card's curves).
-    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP) * 0.06;
+    o.bench = benchFlow(kind, d, this.viscosity(), s, g, BENCH_DP, su) * 0.06;
     return o;
   }
 

@@ -261,7 +261,7 @@ test('Curves: the series carries the patient\'s line and the tube\'s from the wo
 });
 
 test('Curves: no engine key the view needs is missing: the engine\'s stent state carries .bench and the fingerprint passes it on', () => {
-  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP\) \* 0\.06;/);
+  assert.match(read('src/engine/engine.js'), /o\.bench = benchFlow\(kind, d, this\.viscosity\(\), s, g, BENCH_DP, su\) \* 0\.06;/);
   assert.match(read('src/engine/fingerprint.js'), /\[`\$\{k\}Bench`\]: t \? t\.bench : null/);
   assert.doesNotMatch(read('src/ui/ir-curves.js').replace(/\/\/.*$/gm, ''), /HVPG/i);
 });
