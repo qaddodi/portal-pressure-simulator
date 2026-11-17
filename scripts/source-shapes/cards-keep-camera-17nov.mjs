@@ -31,4 +31,6 @@ export default [
   { file: 'styles/app-07-floating.css', need: [/\.zoom-pill \.ib, \.zoom-pill \.stage-fit, \.zoom-pill \.stage-rotate \{[^}]*position: relative;/, `${W} static put the hover tint (inset 0) over the whole pill: hovering − hid +`] },
   { file: 'src/ui/util.js', need: [/tip\.classList\.toggle\('one-line', L\.lines\.length === 1\);/, `${W} a one-line tooltip never wraps`] },
   { file: 'styles/app-02-controls.css', need: [/\.tooltip\.one-line \{ white-space: nowrap; \}/, `${W} a one-line tooltip never wraps`] },
+  { file: 'src/ui/dock.js', between: ['const sizePass = () => {', "addEventListener('resize', () => { if (!sizeAsk)"], need: [/handOver\(placed, isSide\(\) \? 'side' : 'sheet'/, `${W} a turn of the device scrolls the Tests card back to its top (F35)`] },
+  { file: 'src/ui/card.js', between: ['function position() {', "addEventListener('pps:occ', () => { position(); reveal(); });"], need: [/handOver\(placed, isDocked\(\) \? 'sheet' : 'shelf'/, `${W} and the vessel's card (F35)`] },
 ];
