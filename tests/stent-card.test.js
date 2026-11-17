@@ -315,3 +315,22 @@ test('the lumen is coloured by velocity or by pressure: the switch fades one ove
   assert.equal([...b.card.el.querySelectorAll('[data-look="stent.lumen"]')][1]._g.opacity, 1, 'a slide can ask for pressure');
   b.card.dispose();
 });
+
+test('a live frame (the Tests dock\'s, the metrics untouched) prints the in-and-out loss: 0.3 at a 60 % abrupt waist, never 0.0', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  for (const trans of [0, 1]) {
+    const e = new Engine(); e.loadPreset('cirr-decomp');
+    e.setParams(sanitizeParams(deepMerge(e.params, { tips: { on: true, d: 10 }, stenosis: { TIPS: 0.6 }, stentGeom: { TIPS: { len: 8, waist: 1, trans } }, pulsatile: false, respiration: false })));
+    e.settle(3);
+    const m = computeMetrics(e);
+    store.set({ params: { ...e.params } });
+    card.configure({ vessel: 'TIPS', show: ['lumen', 'loss'], to: 'ppg' });
+    card.update({ metrics: m });
+    await new Promise((r) => setTimeout(r, 1500));
+    const words = [...card.el.querySelectorAll('[data-look="stent.key.text"]')].map((p) => p._t);
+    const inOut = words.find((t) => /^In and out/.test(t)), val = parseFloat(inOut.replace(/^In and out /, ''));
+    assert.ok(val >= 0.2 && val <= 0.4, `${inOut} (the engine has ${m.tips.parts.entry.toFixed(2)}) with ends ${trans ? 'tapered' : 'abrupt'}`);
+  }
+  card.dispose();
+});

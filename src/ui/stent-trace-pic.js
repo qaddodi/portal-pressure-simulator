@@ -9,7 +9,7 @@ import { clamp } from './util.js';
 import { profileAt } from '../engine/stent-geom.js';
 import { stentTrace, makeTrace, TRACE_N } from '../engine/stent-trace.js';
 
-export const TR = { x0: 26, x1: 314, cy: 33, pxMm: 1.9, badgeY: 9, badgeR: 7.5, py0: 62, pitch: 54, ph: 38, veinCm: 3 };
+export const TR = { x0: 8, x1: 312, cy: 33, pxMm: 1.9, badgeY: 9, badgeR: 7.5, py0: 62, pitch: 54, ph: 38, veinCm: 3 };
 export const PANELS = ['pressure', 'energy', 'velocity'];
 const TITLES = { pressure: 'Static pressure, mmHg', energy: 'Energy lost so far, mmHg', velocity: 'Mean velocity, cm/s' };
 const KEY = '1 Portal  2 Inlet  3 Waist  4 Outlet  5 IVC';
@@ -17,6 +17,8 @@ const NOTE = 'Schematic: where each part of the drop happens';
 const N = TRACE_N, NS = 33;
 const LAB = Array.from({ length: 700 }, (_, i) => `${i - 100}`);
 const lab = (v) => LAB[clamp(Math.round(v) + 100, 0, 699)];
+const RANGES = new Map();   // alloc-rare: a range's words, made when first met (a few: the ranges step in round numbers)
+const rangeWords = (lo, hi) => { const k = Math.round(lo) * 1000 + Math.round(hi); let w = RANGES.get(k); if (!w) { w = `${lab(lo)} to ${lab(hi)}`; RANGES.set(k, w); } return w; };
 
 /** The picture's height in units for n panels, and the viewBox text for it (made once each). */
 export const traceH = (n) => TR.py0 + TR.pitch * (Math.max(1, n) - 1) + TR.ph + 40;
@@ -49,15 +51,15 @@ export function createTracePic(sv, gid, colourOf) {
     line: sv('path', { 'data-look': `stent.tr.line.${name}` }), lineBuf: new Float64Array(2 * (N + 1)),
     dots: siteBuf.map(() => sv('circle', { 'data-look': `stent.tr.dot.${name}`, r: 3.2 })),
     title: sv('text', { 'data-look': 'stent.tr.title', x: TR.x0, 'text-anchor': 'start' }),
-    hi: sv('text', { 'data-look': 'stent.cap', x: TR.x0 - 4, 'text-anchor': 'end' }), lo: sv('text', { 'data-look': 'stent.cap', x: TR.x0 - 4, 'text-anchor': 'end' }),
+    rng: sv('text', { 'data-look': 'stent.cap', x: TR.x1, 'text-anchor': 'end' }),
     on: 1, slot: k, lo_: 0, hi_: 1,
   }));
   pan.forEach((p) => setWords(p.title, TITLES[p.name]));
   const key = sv('text', { 'data-look': 'stent.cap', x: 160, 'text-anchor': 'middle' }), note = sv('text', { 'data-look': 'stent.cap', x: 160, 'text-anchor': 'middle' });
   setWords(key, KEY); setWords(note, NOTE);
-  const kids = [strip, ...siteL, ...badge, ...badgeN, ...pan.flatMap((p) => [p.base, p.area, p.line, ...p.dots, p.title, p.hi, p.lo]), key, note];
+  const kids = [strip, ...siteL, ...badge, ...badgeN, ...pan.flatMap((p) => [p.base, p.area, p.line, ...p.dots, p.title, p.rng]), key, note];
   const svg = sv('svg', { class: 'gl-pic', viewBox: VB[3], role: 'img' }, sv('defs', {}, grad), ...kids);
-  const words = [...badgeN, ...pan.flatMap((p) => [p.title, p.hi, p.lo]), key, note];
+  const words = [...badgeN, ...pan.flatMap((p) => [p.title, p.rng]), key, note];
   let nOn = 3;
 
   /** Which panels show (in their fixed order), at the slots from the top; the pictures' size follows. */
@@ -113,14 +115,21 @@ export function createTracePic(sv, gid, colourOf) {
       setPts(p.line, lb, N + 1, false); setPts(p.area, ab, N + 3, true);
       p.baseBuf[0] = TR.x0; p.baseBuf[1] = yz; p.baseBuf[2] = TR.x1; p.baseBuf[3] = yz; setPts(p.base, p.baseBuf, 2, false);
       for (let k = 0; k < 5; k++) { setGeo(p.dots[k], 'cx', X(o.sites[k])); setGeo(p.dots[k], 'cy', yOf(ys[o.i[k]])); setGeo(p.dots[k], 'opacity', a); }
-      setGeo(p.title, 'y', top - 9); setGeo(p.hi, 'y', top + 1); setGeo(p.lo, 'y', base);
-      setWords(p.hi, lab(hi)); setWords(p.lo, lab(lo));
-      for (const e of [p.base, p.area, p.line, p.title, p.hi, p.lo]) setGeo(e, 'opacity', a);
+      setGeo(p.title, 'y', top - 9); setGeo(p.rng, 'y', top - 9);
+      setWords(p.rng, rangeWords(lo, hi));
+      for (const e of [p.base, p.area, p.line, p.title, p.rng]) setGeo(e, 'opacity', a);
     }
     const yk = last + 12, yn = last + 24;
     setGeo(key, 'y', yk); setGeo(note, 'y', yn); setGeo(key, 'opacity', ex); setGeo(note, 'opacity', ex);
     return o;
   }
 
-  return { svg, words, fit, paint, layout };
+  /** Sizes the words: fs (the card's size in these units), but a long line is held to what fits the picture's width. */
+  function fitWords(fs) {
+    for (const e of words) e.setAttribute('font-size', fs);
+    const fitTo = (e, chars) => e.setAttribute('font-size', Math.min(fs, 300 / (chars * 0.6)));
+    fitTo(key, KEY.length); fitTo(note, NOTE.length);
+    for (const p of pan) fitTo(p.title, TITLES[p.name].length + 11);
+  }
+  return { svg, words, fit, paint, layout, fitWords };
 }
