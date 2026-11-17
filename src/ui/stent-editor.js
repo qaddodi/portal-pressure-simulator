@@ -16,6 +16,7 @@ import { store, updateParams } from './store.js';
 import { frameFor } from './frame.js';
 import { runSoon, propSoon, attrSoon, dataSoon } from './class-soon.js';
 import { stentControls } from './actions.js';
+import { LUMEN_STEP, lumenShown, shareFor, waistShown } from '../engine/stent-geom.js';
 import { readBox } from './layout-snap.js';
 import { D_SURFACE, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { reduced } from './motion.js';
@@ -44,6 +45,8 @@ export function splitValue(t) {
   return b.endsWith('mm') && !a.endsWith('mm') ? [b, a] : [a, b];
 }
 const mm1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+/** A lumen slider's narrowest end (mm): the narrowest the control allows, up to its 0.5 mm step, so every stop is on the step (a 10 mm stent's waist 2.0 to 10). */
+const lumLo = (d, max) => Math.ceil(d * (1 - max) / LUMEN_STEP - 1e-9) * LUMEN_STEP;
 /** A row's value, from the params (the words the row and the open panel's top line both show). */
 export function rowValue(rowId, id, p) {
   const ctl = new Map(stentControls(id).map((v) => [v.id, v]));
@@ -53,11 +56,11 @@ export function rowValue(rowId, id, p) {
     const s = ctl.get('narrow')?.get(p) || 0;
     if (!(s > 0.004)) return 'None';
     const at = ctl.get('site')?.get();
-    return `${at === 'proximal' ? 'Proximal' : 'Distal'} ${mm1(d * (1 - s))} mm`;
+    return `${at === 'proximal' ? 'Proximal' : 'Distal'} ${mm1(lumenShown(d * (1 - s)))} mm`;
   }
   const red = ctl.get('waistD')?.get(p) || 0;
   if (!(red > 0.004)) return 'None';
-  return `${mm1(d * (1 - red))} mm × ${mm1(ctl.get('waist')?.get(p) ?? 1)} cm`;
+  return `${mm1(lumenShown(d * (1 - red)))} mm × ${mm1(waistShown(ctl.get('waist')?.get(p) ?? 1))} cm`;
 }
 
 /** A tile's words (option A, Mohammad 17 Nov): its number, its unit and one small line under them (8.0 mm / Whole stent, 5.0 mm / Distal, 6.0 mm / × 3.5 cm, None / Uniform). */
@@ -68,11 +71,11 @@ export function tileWords(rowId, id, p) {
   if (rowId === 'end') {
     const s = ctl.get('narrow')?.get(p) || 0;
     if (!(s > 0.004)) return ['None', '', 'Ends clear'];
-    return [mm1(d * (1 - s)), 'mm', ctl.get('site')?.get() === 'proximal' ? 'Proximal' : 'Distal'];
+    return [mm1(lumenShown(d * (1 - s))), 'mm', ctl.get('site')?.get() === 'proximal' ? 'Proximal' : 'Distal'];
   }
   const red = ctl.get('waistD')?.get(p) || 0;
   if (!(red > 0.004)) return ['None', '', 'Uniform'];
-  return [mm1(d * (1 - red)), 'mm', `× ${mm1(ctl.get('waist')?.get(p) ?? 1)} cm`];
+  return [mm1(lumenShown(d * (1 - red))), 'mm', `× ${mm1(waistShown(ctl.get('waist')?.get(p) ?? 1))} cm`];
 }
 
 // One editor on screen at a time (play-test F39): the TIPS view's leads; while it is shown a vessel card's editor for the same stent folds to one line.
@@ -113,13 +116,13 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
   function sliderCtl(v, d) {
     const lum = LUMEN.has(v.id);
     // (a lumen: the slider runs from the narrowest the control allows to the open stent, in mm; the params keep the share narrowed)
-    const lo = lum ? +(d * (1 - v.max)).toFixed(1) : v.min, hi = lum ? d : v.max, step = lum ? 0.1 : v.step;
+    const lo = lum ? lumLo(d, v.max) : v.min, hi = lum ? d : v.max, step = lum ? LUMEN_STEP : v.step;
     const input = h('input', { type: 'range', min: lo, max: hi, step, 'aria-label': v.id === 'diameter' ? `${v.label}` : `${CAPTION[v.id] || v.label}` });
     const val = h('b', { class: 'se-cv' });
     const cap = h('div', { class: 'se-cap' }, h('span', {}, v.id === 'diameter' ? 'Diameter' : CAPTION[v.id] || v.label), val);
     const cell = h('div', { class: 'se-ctl range-wrap', 'data-ctl': v.id }, cap, input);
     const r = { v, cell, input, val, kind: 1, shown: NaN, pend: false, x: 0, fresh: true, hist: false, raf: 0, dim: null, lum, d, lo, hi };
-    const toIn = (x) => (lum ? +(r.d * (1 - x)).toFixed(1) : x), fromIn = (y) => (lum ? (y >= r.d - 0.05 ? 0 : Math.max(0, Math.min(v.max, 1 - y / r.d))) : y);
+    const toIn = (x) => (lum ? Math.max(r.lo, lumenShown(r.d * (1 - x))) : x), fromIn = (y) => (lum ? Math.min(v.max, shareFor(lumenShown(y), r.d)) : y);
     r.toIn = toIn;
     r.paint = (x) => {
       r.shown = x;
@@ -274,7 +277,7 @@ export function createStentEditor({ id = 'TIPS', lead = false, onOpen = null, zo
     const d = stentControls(sid).find((v) => v.id === 'diameter')?.get(p) || 10;
     for (const r of ctls) {
       if (r.kind === 1) {
-        if (r.lum && r.d !== d) { r.d = d; r.lo = +(d * (1 - r.v.max)).toFixed(1); r.hi = d; propSoon(r.input, 'min', String(r.lo)); propSoon(r.input, 'max', String(r.hi)); force = true; }
+        if (r.lum && r.d !== d) { r.d = d; r.lo = lumLo(d, r.v.max); r.hi = d; propSoon(r.input, 'min', String(r.lo)); propSoon(r.input, 'max', String(r.hi)); force = true; }
         const x = r.v.get(p);
         if ((force || x !== r.shown) && document.activeElement !== r.input) { propSoon(r.input, 'value', String(r.toIn(x))); r.paint(x); }
       } else { const cur = r.v.get(); if (force || cur !== r.shown) { r.shown = cur; for (const b of r.btns) attrSoon(b, 'aria-pressed', b._val === cur ? 'true' : 'false'); dataSoon(r.seg, 'at', String(Math.max(0, r.btns.findIndex((b) => b._val === cur)))); } }

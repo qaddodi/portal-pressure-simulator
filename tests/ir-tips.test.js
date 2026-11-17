@@ -767,6 +767,57 @@ test('Tests › IR › TIPS: an opened tile\'s tray unrolls under the chart, nev
   ir.setActive(false);
 });
 
+test('The lumens step by 0.5 mm: the waist\'s and the end stenosis\'s, in both cards, every number on the step (17 Nov, Mohammad: "0.5 mm steps too / For lumen")', async () => {
+  quiet();
+  const { createTipsVessel } = await import('../src/ui/tips-vessel.js');
+  const { enhanceRanges } = await import('../src/ui/util.js');
+  const finger = (type, x) => { const e = new window.Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { pointerType: 'touch', pointerId: 7, clientX: x }); return e; };
+  const onStep = (mm) => Math.abs(mm * 2 - Math.round(mm * 2)) < 1e-4;
+  // (A 10 mm stent and an 8.5 mm one: the step holds whatever the diameter, and an off-grid share set before, 0.37 of 10 = 6.3 mm, prints on the step.)
+  for (const d of [10, 8.5]) {
+    store.set({ params: paramsOf({ tips: { on: true, d }, stenosis: { TIPS: 0.37 }, stentGeom: { TIPS: { red: 0.37, waist: 1 } } }), frame: frameOf() });
+    const v = createTipsVessel({ id: 'TIPS' });
+    enhanceRanges(v.el);
+    await wait(80);
+    for (const [row, ctl, read] of [['waist', 'waistD', (p) => p.stentGeom.TIPS.red], ['end', 'narrow', (p) => p.stenosis.TIPS || 0]]) {
+      const tile = v.el.querySelector(`.se-row[data-row="${row}"]`), num = () => tile.querySelector('.se-row-v b').textContent;
+      assert.ok(onStep(parseFloat(num())), `${d} mm, ${row}: an off-grid share shows on the step (${num()})`);
+      tile.click();
+      const input = v.el.querySelector(`.se-panel [data-ctl="${ctl}"] input`);
+      assert.ok(input, `${d} mm, ${row}: the lumen slider`);
+      assert.equal(input.step, '0.5', `${d} mm, ${row}: 0.5 mm a step`);
+      assert.ok(onStep(+input.min) && +input.max === d, `${d} mm, ${row}: from ${input.min} to ${input.max} mm, both on the step`);
+      input.getBoundingClientRect = () => ({ left: 0, top: 0, right: 228, bottom: 32, width: 228, height: 32, x: 0, y: 0 });
+      input.setPointerCapture = () => {};
+      const seen = new Set();
+      for (let x = 0; x <= 228; x += 6) {
+        input.dispatchEvent(finger('pointerdown', x)); input.dispatchEvent(finger('pointerup', x));
+        await wait(30); await until(() => Math.abs(+input.value - d * (1 - read(store.get().params))) < 1e-3, 1500);
+        const mm = d * (1 - read(store.get().params));
+        assert.ok(onStep(mm), `${d} mm, ${row}, a finger at ${x} px: the model's lumen ${mm} mm is on the step`);
+        assert.ok(onStep(+input.value), 'the slider stands on the step');
+        const cv = input.closest('[data-ctl]').querySelector('.se-cv').textContent;
+        assert.ok(cv === 'Open' || cv === 'No waist' || cv === `${mm.toFixed(1)} mm`, `${d} mm, ${row}: the caption ${cv} is the lumen`);
+        if (mm < d - 1e-6) assert.equal(parseFloat(num()), +mm.toFixed(1), `${d} mm, ${row}: the tile reads the lumen`);
+        seen.add(+mm.toFixed(1));
+      }
+      assert.ok(seen.size >= 10, `${d} mm, ${row}: the lumens reached (${[...seen].sort((a, b) => a - b).join(', ')})`);
+      tile.click();
+      await wait(40);
+    }
+    v.destroy();
+  }
+  // Every other number that prints a lumen prints it on the step, a glide's too: the anatomy figure's label, the IR stent's, the deck stent card's.
+  const { stentFacts, waistText, stenosisText } = await import('../src/ui/stent-waist.js');
+  const { edgeById } = await import('../src/engine/topology.js');
+  const fx = stentFacts(edgeById('TIPS'), paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.37 }, stentGeom: { TIPS: { red: 0.43, waist: 1 } } }));
+  assert.equal(fx.waist, 5.5); assert.equal(fx.sten, 6.5);
+  assert.match(waistText(edgeById('TIPS'), paramsOf({ tips: { on: true, d: 10 }, stentGeom: { TIPS: { red: 0.43, waist: 1 } } })), /to 5\.5 mm/);
+  assert.match(stenosisText(edgeById('TIPS'), paramsOf({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0.37 } })), /to 6\.5 mm/);
+  assert.match(read('src/ui/tips-figure.js'), /setWords\(eT, mmWord\(lumenShown\(d \* \(1 - T\.s\)\)\)\);/, 'the IR stent\'s end stenosis label');
+  assert.match(read('src/ui/tool-stent.js'), /setWords\(dimTxt, `\$\{ten\(lumenShown\(d \* \(1 - sMax\)\)\)\} mm`\)/, 'the deck stent card\'s narrowest lumen');
+});
+
 test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad), from none to 6 cm', async () => {
   quiet();
   const { createTipsVessel } = await import('../src/ui/tips-vessel.js');
@@ -803,7 +854,7 @@ test('The waist length steps by 0.5 cm in both cards\' editors (17 Nov, Mohammad
     assert.equal(v.el.querySelector('.se-row[data-row="waist"] .se-ts').textContent, `× ${cm.toFixed(1)} cm`);
     seen.add(cm);
   }
-  assert.match(read('src/ui/tips-figure.js'), /setWords\(wT, waistWord\(d \* \(1 - red\), waistShown\(sh\.waist\)\)\);/, 'the IR stent\'s waist label prints its length on the step while the stent glides');
+  assert.match(read('src/ui/tips-figure.js'), /setWords\(wT, waistWord\(lumenShown\(d \* \(1 - red\)\), waistShown\(sh\.waist\)\)\);/, 'the IR stent\'s waist label prints its length on the step while the stent glides');
   assert.ok(seen.size >= 12, `every half centimetre from none to 6 cm is reached (${[...seen].sort((a, b) => a - b).join(', ')})`);
   len.getBoundingClientRect = R0;
   v.destroy(); ir.setActive(false);
@@ -815,7 +866,7 @@ test('A row\'s words (rowValue): the diameter, the stenosis\' end and lumen, the
   store.set({ params: p });
   assert.equal(rowValue('dia', 'TIPS', p), '10.0 mm');
   assert.equal(rowValue('end', 'TIPS', p), 'Distal 5.0 mm');
-  assert.equal(rowValue('waist', 'TIPS', p), '6.3 mm × 3.0 cm');
+  assert.equal(rowValue('waist', 'TIPS', p), '6.5 mm × 3.0 cm', 'a share of 0.37 (6.3 mm) reads on the 0.5 mm step');
   const q = paramsOf({ tips: { on: true, d: 8 } });
   store.set({ params: q });
   assert.equal(rowValue('end', 'TIPS', q), 'None'); assert.equal(rowValue('waist', 'TIPS', q), 'None');
