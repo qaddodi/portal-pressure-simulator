@@ -22,7 +22,7 @@ const STENT = { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' };
 // A waist experiment's whole geometry: an 8 cm, 10 mm stent with a waist in the middle (red: the share of its diameter the waist takes away, 0.4 = 6 mm
 // left), `waist` cm long, with `trans` cm of taper at each end, and no stenosis at either end. Every button gives all of it, so what it shows never depends on
 // the button pressed before it. `red` 0 is the open stent.
-const waistCfg = (waist, trans, red = 0.4) => ({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0 }, stentGeom: { TIPS: { len: 8, red, waist, trans } } });
+const waistCfg = (waist, trans, red) => ({ tips: { on: true, d: 10 }, stenosis: { TIPS: 0 }, stentGeom: { TIPS: { len: 8, red: red, waist: waist, trans: trans } } });
 const WIDTH = { label: 'Stent diameter', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' };
 // The TIPS Doppler talk's patient: a 10 mm stent, a hyperdynamic splanchnic bed (so the stent reads 90 to 190 cm/s at each point).
 const DOPPLER = { cirrhosis: 0.92, tips: { on: true, d: 10 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5 };
@@ -187,11 +187,11 @@ export const TIPS_COMPLETE = {
       ask: ['What does the flow through a stent depend on?', 'Friction along its length, the local losses at its ends and at any narrowing, and the way the portal and systemic pressures respond.'],
     },
     {
-      id: 'waist', question: 'The narrowest point stays the same. Does the length of the narrowed segment matter?', lens: 'velocity', params: waistCfg(1, 0), cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
+      id: 'waist', question: 'The narrowest point stays the same. Does the length of the narrowed segment matter?', lens: 'velocity', params: waistCfg(1, 0, 0.4), cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['tipsFlow', 'tipsDp'], key: ['tipsDp'],
       // (Each button is the whole geometry, never a change to the one before it: tests/tips-complete-waist.test.js presses every ordered pair.)
-      compare: [{ label: 'Short, 1 cm', short: '1 cm', own: true, params: waistCfg(1, 0) },
-        { label: 'Long, 4 cm', short: '4 cm', params: waistCfg(4, 0), line: '10 mm stent, 6 mm waist 4 cm long, abrupt ends. The same lumen over a longer segment adds friction: {tipsFlow} crosses with {tipsDp} across the device.' },
-        { label: 'Short, tapered', short: 'Taper', params: waistCfg(1, 1), title: 'Same minimum diameter, tapered ends', line: '10 mm stent, 6 mm waist 1 cm long, tapered ends. Gradual ends cut the modeled expansion loss and add friction along the cones: {tipsFlow}, {tipsDp} across the device.' }],
+      compare: [{ label: 'Short, 1 cm', short: '1 cm', own: true, params: waistCfg(1, 0, 0.4) },
+        { label: 'Long, 4 cm', short: '4 cm', params: waistCfg(4, 0, 0.4), line: '10 mm stent, 6 mm waist 4 cm long, abrupt ends. The same lumen over a longer segment adds friction: {tipsFlow} crosses with {tipsDp} across the device.' },
+        { label: 'Short, tapered', short: 'Taper', params: waistCfg(1, 1, 0.4), title: 'Same minimum diameter, tapered ends', line: '10 mm stent, 6 mm waist 1 cm long, tapered ends. Gradual ends cut the modeled expansion loss and add friction along the cones: {tipsFlow}, {tipsDp} across the device.' }],
       kicker: 'The stent as a tube', site: 'sin', title: 'Same minimum diameter, different waist length',
       line: '10 mm stent, 6 mm waist 1 cm long, abrupt ends. A short waist is a focal restriction: {tipsFlow} crosses the device with {tipsDp} across it.',
       notes: 'A 10 mm stent narrowed to 6 mm in the middle. The minimum diameter sets the jet, and the length of the narrowed segment adds friction along it; where the stent narrows or widens, an abrupt step loses more at the step and a taper trades that for friction along the cones, so which wins depends on the whole geometry. The minimum diameter matters, but the length of the narrowed segment also changes the resistance, and the resulting flow depends on the rest of the portal circulation: the portal pressure rises and pushes harder, so in the patient the flow falls by less than it would in the tube alone. A longer narrow segment adds friction; the circulation determines how pressure and flow respond. This is the model\'s mechanism, not a prediction: its coefficients are provisional, and no clinical data gives a pressure change for a given length. Each button is a whole geometry (an 8 cm stent, narrowed in the middle), so the order in which they are pressed makes no difference; the drawn stent does not stretch.',
@@ -209,10 +209,10 @@ export const TIPS_COMPLETE = {
       ask: ['When is the TIPS reduced for hepatic encephalopathy?', 'Only when it persists or recurs despite removing the precipitant and giving lactulose and rifaximin.'],
     },
     {
-      id: 'reduce', lens: 'flow', params: waistCfg(1, 0), days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
+      id: 'reduce', lens: 'flow', params: waistCfg(1, 0, 0.4), days: 30, cam: { on: ['RHV_IVC', 'TIPS'] }, mark: STENT, tool: TUBE, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
       // (An intentional reduction is a focal waist in the middle of the original 10 mm conduit, as the waist slide draws one: not a uniform 6 mm stent. Whole geometry in each button.)
       compare: [{ label: '10 mm, open', short: 'Open', params: waistCfg(1, 0, 0), title: 'Before the reduction the stent is open at 10 mm', line: 'The open 10 mm stent lets {shunt} of the portal blood bypass the liver, and sinusoidal flow is {liver} of normal, with a PPG of {ppg}.' },
-        { label: 'Reduced to 6 mm', short: '6 mm', own: true, params: waistCfg(1, 0) }],
+        { label: 'Reduced to 6 mm', short: '6 mm', own: true, params: waistCfg(1, 0, 0.4) }],
       kicker: 'After the stent', site: 'sin', title: 'When encephalopathy persists, a reduction narrows the stent in the middle and gives some portal blood back to the liver',
       line: 'A 6 mm waist inside the 10 mm stent lifts sinusoidal flow to {liver} of normal, and the PPG rises to {ppg}. Baveno VIII makes reduction a weak recommendation.',
       notes: 'Encephalopathy that persists after a TIPS despite lactulose and rifaximin can be treated by reducing the stent, with a smaller stent placed coaxially inside it, or by occluding the stent (Baveno VIII 6.17, weak recommendation). Here the reduction is drawn as a focal 6 mm waist in the middle of the original 10 mm conduit, the experiment of the previous section, not as a uniform 6 mm stent: the two are different shapes with different resistance, and a coaxial device is a longer narrowing than this short one. Either way, part of the portal hypertension that the TIPS was placed to treat returns, so the ascites or the variceal bleeding can recur. The buttons compare the same patient with the stent open and with the waist. The model sets no end point for the reduction: no guideline gives a gradient or a flow that a reduction should reach.',

@@ -7,4 +7,11 @@ export default [
   { file: 'styles/app-08-cards.css', need: [/html\.pz-covered :is\([^)]*\.pz-shade[^)]*\) \{ visibility: hidden; \}/, 'While the loading cover is up the slide\'s cards are unseen: no card words under "Preparing the slides"'] },
   { file: 'src/ui/presenter-start.js', need: [/classList\.add\('pz-covered'\)/, 'The cover puts the page in its covered state'] },
   { file: 'src/ui/presenter.js', need: [/classList\.remove\('pz-covered'\)/, 'and the cover\'s lift takes it off, so the cards fade up with the cover'] },
+  // The TIPS reading's monitor names the 12 mmHg line a reference, never a target (17 Nov 2026: no guideline in the deck sets a post-TIPS gradient target).
+  { file: 'src/ui/tool-reading.js', need: [/targetWord: `reference </, 'The post-TIPS reading says "reference <12", not a target'] },
+  { file: 'src/ui/tool-reading.js', forbid: [/targetWord: `target/, 'no "target <12" on the post-TIPS reading'] },
+  // The pressure ladder's line names stand on a chip, which moves with the name (F28, 17 Nov 2026).
+  { file: 'src/ui/tool-profile.js', need: [/M\.nameChip\[c\] = sv\('rect', \{ class: `ppf-lchip \$\{c\}`, 'data-look': 'prof\.name\.chip'/, 'Each line name has a chip behind it'] },
+  { file: 'src/ui/tool-profile.js', need: [/setGeo\(chip, 'opacity', 1\); setGeo\(chip, 'width', cw\)/, 'and the chip is set where the name is'] },
+  { file: 'src/ui/tool-profile.js', need: [/setSpans\(spansWant, fp\)/, 'the brackets follow the patient: no HVPG once a stent is in'] },
 ];
