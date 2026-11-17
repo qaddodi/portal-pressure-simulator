@@ -942,7 +942,9 @@ function buildHud() {
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
   // (The view's own button pressed again fits the figure to the screen, always the Fit button's framing: view-tap.js, stage-fit.js fitAgain.)
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
+  // Circuit from the sinusoid view (the pill keeps every view there, Mohammad 17 Nov 2026): out to the anatomy in the one glide first, then the turn to the circuit once the lobule is gone.
+  const circuitFromSinusoid = () => { const stop = store.on('lobule', () => { if (!store.get().lobule) { stop(); setViewKey('circuit'); } }); stage.exitSinusoid(); };
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (viewTapAgain(b.dataset.view, store.get()) ? stage.fitAgain() : b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : b.dataset.view === 'circuit' && store.get().sinusoid ? circuitFromSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
   $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });

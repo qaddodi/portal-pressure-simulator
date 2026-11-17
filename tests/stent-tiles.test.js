@@ -141,3 +141,10 @@ test('the chart\'s PPG words keep off the pressure trace (play-test F10)', async
   assert.match(src, /const hitsTrace = \(y\) =>/);
   assert.match(src, /setGeo\(pT, 'y', ppgY\)/);
 });
+
+test('the view pill keeps Circuit and Anatomy in the Sinusoid view, and Circuit goes out through the anatomy (Mohammad 17 Nov, V20)', async () => {
+  const { appCss } = await import('./split-src.js');
+  const { readFileSync } = await import('node:fs');
+  assert.doesNotMatch(appCss(), /#app\.sin-focus :is\([^)]*data-view="(anatomic|circuit)"/);
+  assert.match(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /b\.dataset\.view === 'circuit' && store\.get\(\)\.sinusoid \? circuitFromSinusoid\(\)/);
+});
