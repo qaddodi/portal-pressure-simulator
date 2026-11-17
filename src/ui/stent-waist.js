@@ -59,12 +59,13 @@ export function lossShares(parts, g, site, dir, out) {
 export const stentDiameter = (p, id, kind) => (kind === 'tips' ? p?.tips?.d : kind === 'dips' ? p?.dips?.d : p?.customShunts?.[id]) || 0;
 
 const GS = { len: 0, waist: 0, trans: 0 };   // (read at once by narrowedText)
-/** A stent's figure callout: "Narrowed 6.0 mm × 1.5 cm", the lumen at the waist and the waist's length (the card's Stenosis and Waist length), as the mock reads. Null for a vessel that is not a stent. */
+/** A stent's figure callout: "Narrowed 8.0 to 6.0 mm × 1.5 cm", the open stent's diameter, the lumen at the waist and the waist's length (the card's Diameter, Stenosis and
+ *  Waist length), in the one label the solver places like every other (the mock reads "Narrowed 6.0 mm × 4.0 cm"). Null for a vessel that is not a stent. */
 export function narrowedText(e, p, s) {
   const kind = kindOf(e);
   if (!kind) return null;
   const g = geomOf(p, e.id, kind, GS), d = stentDiameter(p, e.id, kind);
-  return `Narrowed ${(d * (1 - s)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm`;
+  return `Narrowed ${d.toFixed(1)} to ${(d * (1 - s)).toFixed(1)} mm × ${g.waist.toFixed(1)} cm`;
 }
 
 /** Where along the stent's drawn path its narrowing sits now (0 to 1): the site as it is eased to (lesion-ease.js, params.stentSiteU), else the site params name
