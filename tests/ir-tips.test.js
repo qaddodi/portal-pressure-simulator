@@ -365,11 +365,21 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.ok(ed, 'the editor is mounted in the view, above the sub-switch');
   assert.equal(ir.el.querySelector('.ir-edit'), null, 'no Edit stent button: nothing opens the vessel card');
   const chip = (id) => ed.querySelector(`.se-chip[data-chip="${id}"]`);
-  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist', 'len'], 'four chips: the stent, its end stenosis, its waist and the waist\'s length');
+  assert.deepEqual([...ed.querySelectorAll('.se-chip')].map((c) => c.dataset.chip), ['dia', 'end', 'waist', 'len', 'ends'], 'five chips: the stent, its end stenosis, its waist, the waist\'s length and its ends');
+  assert.equal(chip('len').querySelector('.se-chip-w').textContent, '1.0 cm', 'the length whole, its ends a chip of their own (F36)');
+  assert.equal(chip('ends').querySelector('.se-chip-w').textContent, 'Abrupt');
   assert.equal(chip('dia').textContent, 'Diameter10.0 mm');
   assert.equal(chip('end').querySelector('.se-chip-v').textContent, 'None');
   const plate = read('styles/app-06-plate.css');
-  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*height: 30px;/, 'the chips and each strip share one cell, one slim height: nothing below moves');
+  assert.match(plate, /\.stent-editor \.se-layer \{ grid-area: 1 \/ 1;[^}]*min-height: 44px;/, 'the chips and each strip share one cell: opening a chip moves nothing below');
+  // Play-test F33 (iPad): every chip and every control in the row is a 44 px tap target at the app's label size, and nothing is cut short (the row wraps).
+  const rules = plate.split('\n').filter((l) => l.includes('.stent-editor')).join('\n');
+  for (const sel of ['.se-chip', '.se-name', '.se-seg button', '.se-done']) assert.match(rules, new RegExp(`\\.stent-editor ${sel.replace('.', '\\.')} \\{[^}]*min-height: 44px`), `${sel}: 44 px`);
+  assert.match(rules, /\.stent-editor \.se-range \{[^}]*height: 44px/);
+  assert.match(rules, /\.stent-editor \.se-chip \{[^}]*font: 500 var\(--fs-14\)/, 'the chip at the label size');
+  assert.doesNotMatch(rules, /text-overflow: ellipsis/, 'no chip or value is cut short');
+  assert.match(rules, /\.stent-editor \.se-layer \{[^}]*flex-wrap: wrap;/, 'a row too narrow for the four wraps');
+  for (const m of rules.matchAll(/font(?:-size)?: (?:\d+ )?(\d+(?:\.\d+)?)px/g)) assert.fail(`a fixed small size in the editor: ${m[0]}`);
   assert.match(plate, /\.stent-editor \{[^}]*animation: crossfade/, 'it fades in, never pops');
   assert.ok(chip('len').classList.contains('se-dim'), 'no waist: its length dims');
   // A tap opens the waist's slider in the row; the chips go inert, the strip takes the hand.
@@ -399,7 +409,8 @@ test('The stent is edited in the TIPS view itself (17 Nov 2026, "no need to open
   assert.equal(p.stenosis.TIPS, 0.5);
   assert.equal(p.stenosisSite.TIPS, 'proximal');
   assert.equal(p.stentGeom.TIPS.red, 0.4, 'the waist stays mid stent');
-  assert.equal(chip('end').querySelector('.se-chip-v').textContent, '5.0 mm · Proximal');
+  assert.equal(chip('end').querySelector('.se-chip-w').textContent, '5.0 mm · Proximal');
+  assert.equal(chip('end').querySelector('.se-chip-c').textContent, ' · Proximal', 'the end apart, which a phone leaves to the open row');
   ed.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(20);
   assert.equal(ed.getAttribute('data-open'), '', 'Escape gives the chips back');
@@ -516,4 +527,17 @@ test('the stent peak tile reads a deliberate reduction\'s jet as intended, and a
   assert.equal(peak().dataset.sev, 'caution');
   at({ vPeak: 400, peaks: [100, 400, 100], red: 0, end: 0, site: 'distal' }); await wait(60);
   assert.equal(peak().querySelector('.status').textContent, 'Out of range', 'a fast stent with no reduction is as before');
+});
+
+test('The readings never break inside a word, and in a narrow card (375 px phone) each is its name over its number (F37)', async () => {
+  const plate = read('styles/app-06-plate.css'), tests = read('styles/app-09-tests.css');
+  const narrow = plate.match(/@container \(max-width: 399\.9px\) \{ \.ir-tips \.ir-tiles \.metric \{[^}]*\}[^@]*?\}\n/)?.[0] || '';
+  assert.match(narrow, /grid-template-areas: "k" "v" "s"/, 'name above number above word, one column');
+  assert.match(narrow, /overflow-wrap: normal; word-break: normal; hyphens: none/);
+  assert.doesNotMatch(narrow, /grid-template-columns: minmax\(0, 1fr\) auto/, 'no name squeezed beside its number');
+  assert.match(tests, /\.rp-tiles \.metric \.k \{[^}]*overflow-wrap: normal; word-break: normal; hyphens: none;/);
+  for (const [name, css] of [['app-01', read('styles/app-01-chrome.css')], ['app-06', plate], ['app-08', read('styles/app-08-cards.css')], ['app-09', tests]]) {
+    const bad = [...css.matchAll(/\.metric[^{}]*\.k[^{}]*\{[^}]*(overflow-wrap: (?:break-word|anywhere)|word-break: (?:break-all|break-word))[^}]*\}/g)].map((m) => m[0].slice(0, 80));
+    assert.deepEqual(bad, [], `${name}: a reading's name must not break inside a word`);
+  }
 });

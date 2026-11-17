@@ -98,7 +98,7 @@ const RAMP_TOP = 30;
 // The cut colour of a gradient (HVPG, PPG) as a class: ok, caution, danger.
 const CUT_CLS = { ok: 'ac-cut ok', caution: 'ac-cut caution', danger: 'ac-cut danger' };
 // What each kind of control takes of the card (a segmented choice is two cells); a card with more than SMALL_CELLS is the tall size.
-const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 3 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
+const CELLS = { slider: 1, toggle: 1, meter: 1, seg: 2, panel: 2 };   // (a panel: a component of its own, a stent's editor, stent-editor.js)
 const SMALL_CELLS = 2;
 const CTL = new Set(['slider', 'toggle', 'meter', 'seg']), ACT = new Set(['button', 'dye', 'link']), READ = new Set(['read', 'stat']);
 
@@ -158,7 +158,7 @@ export function cardShape(m, p) {
     else if (CTL.has(v.type)) { c++; if (v.type === 'seg') seg++; }
     else if (ACT.has(v.type)) { if (v.danger) d++; else a++; }
     else if (v.type === 'about') about = 1;
-    else if (v.type === 'panel') { c += 3; seg++; }   // (a panel's one row: its height as a choice's)
+    else if (v.type === 'panel') { c++; seg++; }   // (a panel's one row: its height as a choice's)
   }
   return `${m.span ? 'b' : 'v'}${r}${about}.${c}${seg}.${a}${d}.${Math.min(3, Math.floor(m.title.length / 16))}`;
 }
