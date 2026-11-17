@@ -391,6 +391,26 @@ test('the gate prints the number the tile prints, past 999 too (play-test F41: a
   assert.equal(int(t.vPeak), int(t.peaks[2]), `the tile's ${t.vPeak} is the distal gate's ${t.peaks[2]}`);
 });
 
+test('the device\'s mesh is made from the geometry only: a lens switch leaves its wires as they were, a geometry change makes them again', async () => {
+  const { card, store, doc } = await made();
+  doc.body.append(card.el);
+  const { e, fp } = settled((x) => { x.params.stenosis.TIPS = 0.5; });
+  store.set({ params: e.params });
+  card.configure({ vessel: 'TIPS', show: ['card'], to: 'ppg' });
+  card.pin(fp);
+  await new Promise((r) => setTimeout(r, 1500));
+  const wires = () => [...card.el.querySelectorAll('[data-look^="stent.wire"]')];
+  const before = wires().map((w) => w._polys);
+  assert.ok(before.length > 0 && before.some((p) => p && p.length), 'the wires are drawn');
+  [...card.el.querySelectorAll('.sc-lens button')][1].click();
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(wires().every((w, i) => w._polys === before[i]), 'a lens switch did not rebuild the mesh');
+  card.pin({ ...fp, tipsLen: (fp.tipsLen || 8) + 3 });
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(wires().some((w, i) => w._polys !== before[i]), 'a longer stent did');
+  card.dispose();
+});
+
 test('one zero: the pressure lens\'s gate labels and the chart under them read the same absolute mmHg at each station, and the velocity chart is scaled to its data', async () => {
   const { card, store, doc } = await made();
   doc.body.append(card.el);
