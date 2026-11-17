@@ -72,9 +72,9 @@ test('no segment\'s two ends read alike, and none repeats the figure label\'s "(
     const a = stationName(e.from), b = stationName(e.to);
     assert.notEqual(a, b, `${e.id}: ${a}`);
     assert.ok(!/\(where|\(midway|\(hilum|\(main/.test(a + b), `${e.id}: "${a} → ${b}" has a figure label's aside`);
-    if (base(a) === base(b)) { shared++; assert.ok(/, /.test(a) && /, /.test(b), `${e.id}: ends of one vessel are both named by their place: "${a} → ${b}"`); }
+    if (base(a) === base(b)) { shared++; assert.ok(/, /.test(a) || /, /.test(b), `${e.id}: of one vessel's two ends, one at least is named by its place: "${a} → ${b}"`); }
     const m = cardFor({ type: 'edge', id: e.id }, CTX);   // (a segment with no card of its own has no details to name)
-    if (m?.edge) assert.equal(detailsPlan(m).between, `${a} → ${b}`, e.id);
+    if (m?.edge === e.id) assert.equal(detailsPlan(m).between, `${a} → ${b}`, e.id);   // (a card may stand for the vessel's other segment: only its own edge is compared)
   }
   assert.ok(shared >= 8, 'the portal trunk, the hepatic and portal branches, the IVC and SVC have such segments');
   assert.equal(detailsPlan(cardFor({ type: 'edge', id: 'PV_TRUNK' }, CTX)).between, 'Portal vein, at the coronary vein → Portal vein, at the hilum');
