@@ -3,6 +3,7 @@
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
+import { cavStrand, trunkFrame } from './cavernoma-strand.js';
 import { viewBoxAt } from './view-xf.js';
 import { chordPointInto, peelAt, reverses } from './flow-peel.js';
 import { easeMove } from './motion.js';
@@ -167,8 +168,28 @@ export function createFrame(st, live) {
   }
   // Strands fan out from the shared ends (or from where the trunk breaks up) and fold back
   // onto the lane in the circuit.
+  // The clotted trunk's drawn course at t, the frame the cavernoma's channels are drawn in (cavernoma-strand.js): its two pieces end to end, kept for the t it was made at
+  // (the anatomy's from the kept samples; between the views the pieces as vesselAt moves them, made once for each t).
+  const CAV_TRUNK = ['PV_TRUNK_1', 'PV_TRUNK'];
+  let cavF = null, cavT = NaN, cavA = null, cavX = null;
+  function cavFrame(t) {
+    const g1 = geo.PV_TRUNK_1;
+    if (cavF && cavT === t && cavA === g1.A) return cavF;
+    let p1 = g1.A, p2 = geo.PV_TRUNK.A;
+    if (t > 0) {
+      cavX ||= CAV_TRUNK.map((id) => EV.find((y) => y.e.id === id));
+      // (vesselAt writes its answer into one kept record that the caller is still reading: put it back as it was.)
+      const k0 = vesOut.pts, k1 = vesOut.base, k2 = vesOut.u0;
+      p1 = vesselAt(cavX[0], t).pts; p2 = vesselAt(cavX[1], t).pts;
+      vesOut.pts = k0; vesOut.base = k1; vesOut.u0 = k2;
+    }
+    cavF = trunkFrame([p1, p2]); cavT = t; cavA = g1.A;   // alloc-rare: made when the change between the views moves (or the course is made again)
+    return cavF;
+  }
   function strandAt(x, sd, t, { pts, base, u0 }) {
     const g = geo[x.e.id];
+    // (The cavernoma's channels: each in the frame of the trunk, folding onto the main channel's lane as the circuit comes in.)
+    if (sd.cav) return cavStrand(cavFrame(t < 1 ? t : 0), sd.cav, pts.length, t, pts);   // alloc-rare: as braid's own list, made when the course changes
     // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
     const fan = sd.off * (1 - t) * (g.spr ?? 1);
     // (A plateau strand: its offset, off the chord's one normal, follows the main channel's own plateau, read by how far along the chord each sample

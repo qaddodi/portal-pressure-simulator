@@ -19,6 +19,7 @@ import { lossShares, siteU } from './stent-waist.js';
 import { lumOf } from './luma.js';
 import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { cavGrow } from './cavernoma-strand.js';
 import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
 import { store } from './store.js';
@@ -241,6 +242,9 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const vx = f.metrics?.varix;
       sd.wale = e.id === 'C1a' && layerMode() === 'pressure' ? Math.round(varixWale(!!vx?.redWale, vx?.ratioMean ?? vx?.ratio, varixSNow.VAR) * (1 - t) * 100) / 100 : 0;
       sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : 1;
+      // The cavernoma's channels grow in whole, joined at both ends (a free end in the air was rejected, 17 Nov 2026): each from the recruitment it begins at (CAV_CHANNELS r0), over CAV_GROW of it, in
+      // its width (sd.k, the share of the main channel's it reaches, read by the tube's radius and the blood's split) and, over its first quarter, in its opacity (sd.live).
+      if (sd.cav) { const grow = cavGrow(recruitFrac(e.id, f), sd.cav.r0); sd.k = sd.k0 * grow; sd.live = clamp(grow * 4, 0, 1); }
     }
     // (The gastrorenal shunt is one vein, not a plexus, so it is beaded itself: renderTube reads this into its radii.)
     if (e.id === 'C5') x.bead = Math.round(varixBead(f.metrics?.gastricVarix?.d) * (1 - t) * 100) / 100;
