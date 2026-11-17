@@ -16,7 +16,7 @@ globalThis.addEventListener ??= () => {};
 test("a narrowing's clamp and label fade out from their own group, which the label layout never reads", () => {
   const stage = stageSource(), css = appCss();
   assert.match(stage, /clamps: s\('g'\), clampsOut: s\('g'\)/);
-  assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
+  assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-span', 'clamp-span-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);
   // (The GPU draws the arrows: their fade rides on the draw's alpha, never on a baked SVG opacity.)
   assert.match(stage, /d\.fade \? olFaded\(d\) : d/);
