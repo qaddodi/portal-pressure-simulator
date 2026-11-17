@@ -11,6 +11,7 @@ import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragShe
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 import { restPass } from './rest-pass.js';
+import { testsHalfPx } from './stack-plan.js';
 import { classSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
@@ -47,6 +48,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const TESTS_HALF_PX = 520;   // (13 Nov 2026, the Tests card on a phone: one fixed height at rest, as the laptop's card is one fixed 560 px)
   const thumb = () => app.classList.contains('thumb') && isPhone();
+  const vesselCard = () => thumb() && document.documentElement.classList.contains('vessel-card');   // (card.js: the vessel's card is up over the foot of the screen)
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
@@ -56,11 +58,12 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (!thumb()) return SIZES;
     if (!tabletMQ.matches) {
       if (!grow) return THUMB;
-      PHN_NOW[0] = Math.min(0.9, TESTS_HALF_PX / (room() || readMetric(app, 'clientHeight')));
+      const R = room() || readMetric(app, 'clientHeight');
+      PHN_NOW[0] = Math.min(0.9, testsHalfPx(R, TESTS_HALF_PX, vesselCard()) / R);   // (a vessel's card above leaves the figure its band: stack-plan.js)
       return PHN_NOW;
     }
     const H = readMetric(app, 'clientHeight'), R = room() || H;
-    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (TABLET[i] * H) / R);
+    for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (i ? TABLET[i] * H : testsHalfPx(R, TABLET[i] * H, vesselCard())) / R);
     return TAB_NOW;
   };
   const half = () => stops().length - 2;
@@ -277,6 +280,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   let retakeT = 0;
   const retake = () => { if (!start && isPhone()) apply(); };   // (measured between frames, rest-pass.js)
   addEventListener('resize', () => { clearTimeout(retakeT); retakeT = setTimeout(() => restPass(retake), 220); });
+  addEventListener('pps:vessel-card', () => restPass(() => { if (!start && isPhone() && active()) apply(true, drawnHeight()); }));   // (the vessel's card came or went: the sheet's Half gives way to its strip, or takes the room back, gliding)
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; const h0 = drawnHeight(); remap(); size = (size + 1) % stops().length; apply(true, h0); });
   let start = null, swallow = 0;
   // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
