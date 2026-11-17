@@ -1537,6 +1537,12 @@ export class Engine {
     // narrowest lumen of the two, as the Narrowest lumen tile and the jet read it.)
     const n = Math.max(s, g.red || 0);
     o.kind = kind; o.d = d; o.end = s; o.red = g.red || 0; o.site = endSiteOf(p, id); o.s = n; o.dWaist = d * (1 - n); o.q = q; o.flow = q * 0.06;
+    // The lesion kinds (17 Nov 2026, the external review's "intentional reduction"): the waist is a reduction made on purpose (against encephalopathy, a
+    // constrained stent), the end stenosis is dysfunction. o.lesion names what the stent has ('none', 'stenosis', 'reduction' or 'both'); o.gateKind
+    // what each Doppler gate (proximal, mid, distal) reads a jet from ('stenosis', 'reduction' or null), so a deliberate reduction's jet reads as intended.
+    const hasS = s > 0.004, hasR = o.red > 0.004, gk = o.gateKind || (o.gateKind = [null, null, null]);   // alloc-rare: made with the record
+    o.lesion = hasS && hasR ? 'both' : hasR ? 'reduction' : hasS ? 'stenosis' : 'none';
+    gk[0] = hasS && o.site === 'proximal' ? 'stenosis' : null; gk[1] = hasR ? 'reduction' : null; gk[2] = hasS && o.site === 'distal' ? 'stenosis' : null;
     o.dp = P[this.edgeF[k]] - P[this.edgeT[k]];
     o.vOpen = q / A; o.vWaist = n > 0 ? q / (A * (1 - n) * (1 - n)) : q / A;
     // The three Doppler points as the scanner reads them (the card's own numbers, stentReadsOf: the open stent's mean × dopplerK at each gate, the
