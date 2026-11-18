@@ -398,10 +398,13 @@ export function createHvpgMonitor() {
     if (mode && el.isConnected) { const now = performance.now(); if (!raf) last = now; cancelFrame(raf); raf = 0; step(now); }
   }
   // (A new size redraws it; the animation loop paints while it runs.)
-  new ResizeObserver(() => { if (!raf && (mode || waiting)) draw(); }).observe(cv);
+  const ro = new ResizeObserver(() => { if (!raf && (mode || waiting)) draw(); });
+  ro.observe(cv);
   /** The catheter has not reached the hepatic vein: the monitor stands empty (a trace already begun is left alone). Returns whether it is empty now. */
   function hold() { if (mode) return false; waiting = true; if (!raf) draw(); return true; }
-  return { el, set, balloon, hold, started: () => !!mode };
+  /** The monitor is let go (a presentation over): its frame, its words' timer and size observer stop, and the tracing's GPU context is given back. */
+  function dispose() { cancelFrame(raf); raf = 0; clearTimeout(sayT); sayT = 0; ro.disconnect(); gpu?.dispose(); }
+  return { el, set, balloon, hold, started: () => !!mode, dispose };
 }
 
 // ── The tracing: the one monitor (monitor.js), dark in both themes, on the HVPG catheter's script ──
