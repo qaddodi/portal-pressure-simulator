@@ -5,7 +5,7 @@
 // tests/stop-tokens.test.js fails when the style rules these read change, until this is made again.
 
 /** The hash of the style rules and tokens the stops are computed from (scripts/stop-inputs.mjs). */
-export const STOP_HASH = "ae7f1e31ec3f";
+export const STOP_HASH = "8055730762e8";
 /** The looks that compute differently (each other look is one of these: STOP_LOOK). */
 export const STOP_COLS = ["light","soft","dark","navy"];
 /** Every look (Light, Soft, Dark, Navy, Black, and System as the device's light or dark) → its column. */
@@ -33,8 +33,8 @@ export const STOPS = {
   "|stop-color:var(--og-eso-2)||": ["rgb(213, 156, 136)",1,"rgb(150, 88, 59)",1,"rgb(126, 77, 61)",1,"rgb(82, 53, 68)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gb-1)||": ["rgb(202, 216, 164)",1,"rgb(136, 161, 106)",1,"rgb(111, 122, 66)",1,"rgb(86, 112, 74)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-gb-2)||": ["rgb(152, 177, 109)",1,"rgb(96, 123, 58)",1,"rgb(76, 94, 27)",1,"rgb(58, 76, 58)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(210, 189, 178)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
-  "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(188, 154, 137)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-1)||": ["rgb(244, 207, 193)",1,"rgb(207, 174, 159)",1,"rgb(150, 113, 100)",1,"rgb(127, 91, 98)",1],   // colour-exempt: computed from styles/tokens.css
+  "|stop-color:var(--og-gut-2)||": ["rgb(229, 168, 147)",1,"rgb(181, 136, 115)",1,"rgb(140, 88, 71)",1,"rgb(86, 62, 74)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-heart-1)||": ["rgb(233, 172, 161)",1,"rgb(183, 131, 115)",1,"rgb(141, 79, 71)",1,"rgb(142, 74, 82)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-heart-2)||": ["rgb(202, 119, 104)",1,"rgb(152, 92, 73)",1,"rgb(113, 40, 32)",1,"rgb(94, 46, 60)",1],   // colour-exempt: computed from styles/tokens.css
   "|stop-color:var(--og-kidney-1)||": ["rgb(217, 164, 188)",1,"rgb(179, 121, 150)",1,"rgb(125, 72, 100)",1,"rgb(122, 71, 102)",1],   // colour-exempt: computed from styles/tokens.css

@@ -934,7 +934,7 @@
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
 :root[data-theme="soft"] {
   --ramp-pressure: #8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
-  --gut-a: .62;
+  --gut-a: .70;
   --organ-a: .52;
   --bg: #DDD0B9;
   --flow-reversed-ink: color-mix(in srgb, var(--flow-reversed) 50%, var(--text));
@@ -1013,9 +1013,9 @@
   --og-gb-1: #88a16a;
   --og-gb-2: #607b3a;
   --og-gb-3: #3c511c;
-  --og-gut-1: #d2bdb2;
-  --og-gut-2: #bc9a89;
-  --og-gut-3: #8a6856;
+  --og-gut-1: #cfae9f;
+  --og-gut-2: #b58873;
+  --og-gut-3: #825844;
   --og-heart-1: #b78373;
   --og-heart-2: #985c49;
   --og-heart-3: #66392b;

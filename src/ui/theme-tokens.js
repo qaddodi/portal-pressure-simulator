@@ -215,7 +215,7 @@ export const TOKENS = {
     // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
     'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
     // Oat (6 Nov, picked from the Soft mocks): a deeper, warmer cream, frosted cards, firmer organs, trace lines at 3:1 on the card
-    'gut-a': '.62',
+    'gut-a': '.70',
     'organ-a': '.52',
     'bg': '#DDD0B9',
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
@@ -270,7 +270,7 @@ export const TOKENS = {
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
     // Deep clay, softened (18 Nov 2026; Mohammad: "less red, the intestine like it was before, tone the rest down a bit"): the organs keep Soft's warm hues, richer than
     // before (OKLab L .645/.525/.385, chroma about 1.4x, hue turned toward clay and away from red) and the organ layer a little firmer (.72, kidney .88:
-    // styles/app-06-plate.css). The heart and right atrium are toned down (chroma x.68, hue +6; Mohammad). The gut is quieter than Soft's old one (chroma x.74, --gut-a .62; Mohammad: the intestines still too bold). First version of Deep clay: 6405d100.
+    // styles/app-06-plate.css). The heart and right atrium are toned down (chroma x.68, hue +6; Mohammad). The gut sits in the stomach's clay hue (46) but paler than the organs: L .775/.665/.50, chroma .044/.064/.064, --gut-a .70 (Mohammad 18 Nov: not too bold, not washed out; first quieter try cb337653 was too faint). First version of Deep clay: 6405d100.
     // (Before Deep clay:) the organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
     'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
@@ -282,7 +282,7 @@ export const TOKENS = {
     'og-panc-1': '#b49651', 'og-panc-2': '#93700d', 'og-panc-3': '#5f4807',
     'og-kidney-1': '#b37996', 'og-kidney-2': '#964f75', 'og-kidney-3': '#642f4c',
     'og-gb-1': '#88a16a', 'og-gb-2': '#607b3a', 'og-gb-3': '#3c511c',
-    'og-gut-1': '#d2bdb2', 'og-gut-2': '#bc9a89', 'og-gut-3': '#8a6856',
+    'og-gut-1': '#cfae9f', 'og-gut-2': '#b58873', 'og-gut-3': '#825844',
     'og-heart-1': '#b78373', 'og-heart-2': '#985c49', 'og-heart-3': '#66392b',
     'og-ra-1': '#ba8272', 'og-ra-2': '#9a5a49', 'og-ra-3': '#68372a',
     'organ-body': '#cec6b7', 'organ-body-line': '#b5a791',
