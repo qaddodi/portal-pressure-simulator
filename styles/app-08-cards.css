@@ -21,7 +21,7 @@
 .tl-pop.tl-history { width: min(360px, calc(100vw - 24px)); padding: 10px 2px; overscroll-behavior: contain;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent);
   mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
-.menu.as-sheet .tl-pop.tl-history { max-height: calc(75dvh - 24px); overflow: auto; }
+.menu.as-sheet .tl-pop.tl-history { max-height: calc(100dvh - var(--top-safe, 64px) - 12px - 24px); overflow: auto; }
 .tl-history .tl-pop-row { position: relative; padding: 7px 6px 8px; border-bottom: 0; border-radius: var(--r-control); }
 .tl-history .tl-pop-row::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: var(--border-strong); }
 .tl-history .tl-pop-row:first-child::before { top: 19px; }
