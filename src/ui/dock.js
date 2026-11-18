@@ -874,12 +874,26 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     layout();
     tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
-  function paneOut(el, top) {
+  // The panes now on show, each with its scroll and, when two stand together (the Pressure tab's chart over the Scope, or a pair side by side), the place it stands in the
+  // body: a pane that goes out fades where it stood, so a pair going out is two ghosts in their two places, never one pane over the other's place. (17 Nov 2026, the
+  // tester's finding: Pressure to IR left the card empty for its first frames, the old pair gone at once and the new tab fading in from nothing.)
+  let heldLeavers = null;   // (read before the pane that was built lands in the grid beside them: stageIn's go)
+  const takeLeavers = () => { const l = heldLeavers || leavers(); heldLeavers = null; return l; };
+  function leavers() {
+    const pair = open.length > 1, b = pair ? readBox(body) : null, ct = pair ? readMetric(body, 'clientTop') || 0 : 0, cl = pair ? readMetric(body, 'clientLeft') || 0 : 0;
+    // alloc-rare: a tab pick, once per switch
+    const wasPair = isPair();
+    return open.map((id) => { const el = byId[id].el, r = pair ? readBox(el) : null; return { el, pair: wasPair, top: readMetric(el, 'scrollTop') || 0, box: r && b ? { x: r.left - b.left - cl, y: r.top - b.top - ct, w: r.width, h: r.height } : null }; });
+  }
+  function paneOut(el, top, box = null, pair = false) {
     for (const a of readAnims(el)) if (a.id === 'pane-out') a.cancel();
     el.classList.add('pane-out'); el.scrollTop = top;
+    if (pair) el.classList.add('pane-pair');   // (the pane keeps the look it had in the pair as it fades: app-08-cards.css)
+    if (box) el.style.cssText += `inset:auto;left:${box.x.toFixed(1)}px;top:${box.y.toFixed(1)}px;width:${box.w.toFixed(1)}px;height:${box.h.toFixed(1)}px;`;   // alloc-rare: once per pane that goes out
+    const clear = () => { el.classList.remove('pane-out', 'pane-pair'); if (box) for (const k of ['inset', 'left', 'top', 'width', 'height']) el.style.removeProperty(k); };
     const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { id: 'pane-out', duration: D_FLIP, easing: EASE_IN, fill: 'forwards' });
-    const done = () => { if (readAnims(el).includes(a)) a.cancel(); el.classList.remove('pane-out'); };
-    a.finished.then(done, () => el.classList.remove('pane-out'));
+    const done = () => { if (readAnims(el).includes(a)) a.cancel(); clear(); };
+    a.finished.then(done, clear);
   }
   function pick(id, swiped = false) {
     if (!afterLoad(id, () => pickNow(id, swiped))) pickNow(id, swiped);
@@ -892,14 +906,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function pickCommit(id, swiped) {
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
-    const was = open.length === 1 ? byId[open[0]].el : null, top = readMetric(was, 'scrollTop') || 0;
+    const was = takeLeavers();
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
     // A tapped tab crossfades: the pane it leaves stays where it was and fades out over the new one, already drawn beneath it (P13). A pane
     // swiped into place (.landed) has already slid the old one away.
-    const now = byId[open[0]].el;
-    if (was && now !== was && !was.classList.contains('active') && !swiped && was.animate) paneOut(was, top);
+    if (!swiped) for (const w of was) if (!w.el.classList.contains('active') && w.el.animate) paneOut(w.el, w.top, w.box, w.pair);
     for (const p of workspace.querySelectorAll('.dock-pane.landed:not(.active)')) p.classList.remove('landed');
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
   }
@@ -922,7 +935,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     classSoon(s.p.el, 'staging', false);
     if (!open.includes(s.p.id)) { classSoon(s.p.el, 'active', false); s.p.shown?.(false); }
   }
-  const canStage = (target) => open.length === 1 && open[0] !== target && state === 'open' && !picking && isVisible() && isDisplayed() && !!frame && !sw?.on && !!byId[target] && !byId[target].need?.();
+  const canStage = (target) => open.length >= 1 && !open.includes(target) && state === 'open' && !picking && isVisible() && isDisplayed() && !!frame && !sw?.on && !!byId[target] && !byId[target].need?.();
   function stageIn(target, commit) {
     cancelStage();
     if (!canStage(target)) { commit(); return; }
@@ -935,6 +948,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const go = () => {
       if (stage !== s) return;
       clearTimeout(s.timer); stage = null;
+      heldLeavers = open.length > 1 ? leavers() : null;   // (a pair is read where it stands, before the new pane takes a place in the grid)
       el.classList.add('landed');   // (it is already drawn: no entrance of its own, the old pane fades out over it)
       el.classList.remove('staging');
       commit();
@@ -959,22 +973,21 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function showNow(id, opts = {}) {
     endPick();
-    if (!opts.alongside && open.length === 1 && !open.includes(id)) stageIn(id, () => showCommit(id, opts));
+    if (!opts.alongside && !open.includes(id)) stageIn(id, () => showCommit(id, opts));
     else { cancelStage(); showCommit(id, opts); }
   }
   function showCommit(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     endPick();
     // (The pane it leaves fades out over the new one, as a tapped tab's does (pickCommit): opened from the menu, Search or a slide, the
     // old pane was hidden in the same frame. Owner, 15 Nov 2026: nothing pops.)
-    const was = open.length === 1 && isVisible() && state !== 'peek' ? byId[open[0]].el : null, top = readMetric(was, 'scrollTop') || 0;
+    const was = isVisible() && state !== 'peek' ? takeLeavers() : (heldLeavers = null, []);
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
     if (reveal) onReveal?.(reveal);
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
-    const now = byId[open[0]]?.el;
-    if (was && now && now !== was && !was.classList.contains('active') && was.animate) paneOut(was, top);
+    for (const w of was) if (!w.el.classList.contains('active') && w.el.animate) paneOut(w.el, w.top, w.box, w.pair);
     queueRefresh();
   }
   function close() {

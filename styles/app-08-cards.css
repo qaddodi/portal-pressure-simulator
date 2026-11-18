@@ -355,13 +355,13 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .instrument-workspace .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 auto; height: auto; min-height: 240px; }
   /* Paired with Over time, each pane has half the card: the charts shrink to fit their half, so the tilted
      station names and the trace chips stay inside their pane instead of running under the next one. */
-  .instrument-workspace .dock-body.pair .dock-pane:is([data-pane="profile"], [data-pane="scope"]) { overflow: hidden; }
-  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 0; min-height: 140px; }
-  .instrument-workspace .dock-body.pair .instrument-view.pt .pt-box { min-height: 120px; }
+  .instrument-workspace .dock-body.pair .dock-pane:is([data-pane="profile"], [data-pane="scope"]), .instrument-workspace .dock-pane.pane-pair:is([data-pane="profile"], [data-pane="scope"]) { overflow: hidden; }
+  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .instrument-view .chart-box, .instrument-workspace .dock-pane.pane-pair[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 0; min-height: 140px; }
+  .instrument-workspace .dock-body.pair .instrument-view.pt .pt-box, .instrument-workspace .dock-pane.pane-pair .instrument-view.pt .pt-box { min-height: 120px; }
 }
 /* On a short desktop screen the paired Pressure pane drops its three-line caption, so the chart keeps its height. */
 @media (min-width: 1024px) and (pointer: fine) and (max-height: 999px) {
-  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .chart-side .sub { display: none; }
+  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .chart-side .sub, .instrument-workspace .dock-pane.pane-pair[data-pane="profile"] .chart-side .sub { display: none; }
 }
 
 /* Phone: while the figure is panned or zoomed (and three seconds after), the top bar's second row (view, colour legend) slides away
@@ -394,7 +394,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 }
 
 /* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
-.dock-body.pair .pressure-switch:not(.ir-switch):not(.ir-lens):not(.ir-sweep) { display: none; }   /* (IR's Measure | TIPS switch is not a pair's: it stays) */
+.dock-body.pair .pressure-switch:not(.ir-switch):not(.ir-lens):not(.ir-sweep), .dock-pane.pane-pair .pressure-switch:not(.ir-switch):not(.ir-lens):not(.ir-sweep) { display: none; }   /* (IR's Measure | TIPS switch is not a pair's: it stays) */
 .pressure-switch { display: flex; gap: 2px; flex: none; align-self: flex-start; padding: 2px; border-radius: 9px; background: var(--surface-2); }
 .ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: none; }
 @media (hover: hover) { .ps-btn:hover { color: var(--text); } }
