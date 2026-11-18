@@ -8,6 +8,11 @@ const SEL_TYPES = new Set(['edge', 'organ', 'node', 'lobule']);
 const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
+/** The #s= code of a payload (base64url JSON): the one writer, main.js's share link and the bug packet's state link (packet/state.js) both use it. */
+export function encodeShare(payload) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 /** The payload of a #s= link (base64url JSON), or null if it cannot be read. */
 export function parseShare(code) {
   if (typeof code !== 'string' || !code) return null;
