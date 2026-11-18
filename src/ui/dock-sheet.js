@@ -44,6 +44,16 @@ function releaseFrame(el) {
 }
 
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
+/** The height a sheet is given at one of its stops, as a CSS value (pure, tests/sheet-height.test.js). stops: the shares of the room, half: the index of Half, area: the px those shares are of, room: the thumb room
+ *  in px (0: none, the stops are shares of the screen), need: the height of the sheet's words (Infinity: not asked), page: a page is open in it (Treat's Changes on a phone, treat-page.js). A sheet is at least
+ *  as tall as its words need up to its Full (18 Nov 2026, the tester at 390 px: it stood at Half with 726 px of words and 270 px of room), and Full while a page stands. */
+export function sheetHeight({ size, half, stops, room, area, need, page }) {
+  const last = stops[stops.length - 1], halfPx = stops[half] * area, fullPx = last * area;
+  if (page && size === half) return room ? `${Math.round(last * room)}px` : `${Math.round(last * 100)}%`;
+  if (need < halfPx) return `${Math.ceil(need)}px`;
+  if (need !== Infinity && size === half) return `${Math.ceil(Math.min(need, fullPx))}px`;
+  return room ? `${Math.round(stops[size] * room)}px` : `${Math.round(stops[size] * 100)}%`;
+}
 export function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false, grow = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
   const TESTS_HALF_PX = 520;   // (13 Nov 2026, the Tests card on a phone: one fixed height at rest, as the laptop's card is one fixed 560 px)
@@ -244,16 +254,10 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     remap();
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
-    // (A page open in the sheet (Treat's Changes on a phone, treat-page.js) is a Full sheet while it stands: its list has the whole room.)
-    if (el.hasAttribute('data-page') && size === half()) return r ? `${Math.round(S[S.length - 1] * r)}px` : `${Math.round(S[S.length - 1] * 100)}%`;
-    const need = size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
-    const R = r || readMetric(app, 'clientHeight'), halfPx = S[half()] * R, fullPx = S[S.length - 1] * R;
+    const page = el.hasAttribute('data-page');
+    const need = !page && size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
     // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
-    if (need < halfPx) return `${Math.ceil(need)}px`;
-    // (18 Nov 2026, the tester, 390 x 844, Treat's Procedures and Fluids: the sheet stood at Half, 405 px, with 726 px of words and free room above it, so it scrolled and cut its rows. A sheet whose words
-    // are taller than Half is as tall as they are, up to its Full, and scrolls only past that: Half is the least a sheet is, not the most.)
-    if (need !== Infinity && size === half()) return `${Math.ceil(Math.min(need, fullPx))}px`;
-    return r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
+    return sheetHeight({ size, half: half(), stops: S, room: r, area: r || readMetric(app, 'clientHeight'), need, page });
   };
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
