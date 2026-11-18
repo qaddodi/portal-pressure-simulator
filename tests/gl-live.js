@@ -58,3 +58,12 @@ export function diff(a, b) {
   for (const k of Object.keys(b)) if (k !== 'made' && k !== 'freed' && b[k] !== a[k]) d[k] = b[k] - a[k];
   return d;
 }
+
+/** What is live now on the contexts the page still holds: as snapshot(), leaving out what a context the page gave up (WEBGL_lose_context) held,
+ *  since a lost context's objects go with it. `contexts` is the contexts made and not lost. */
+export function snapshotLive() {
+  const out = { bytes: 0 };
+  for (const [kind, set] of live) { out[kind] = 0; for (const o of set) if (!o.__gl?.__lost) { out[kind]++; out.bytes += bytesOf(o); } }
+  out.contexts = ctxs.filter((c) => !c.__lost).length;
+  return out;
+}

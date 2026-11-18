@@ -148,6 +148,6 @@ export function createHvpgCard() {
       if (pending) { const how = pending; pending = null; start(how); return; }
       follow();
     },
-    dispose() { token++; cancelFrame(raf); raf = 0; },
+    dispose() { token++; cancelFrame(raf); raf = 0; mon.dispose(); },
   };
 }
