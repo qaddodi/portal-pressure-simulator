@@ -148,6 +148,12 @@ Every push message that touches the app says what to test: run `npm run gallery:
 and one Sweep link; `Tools > Sweep` on a device runs the fit rules over them and copies one report). A new catalog family needs its modules in
 `scripts/gallery-affected.mjs` (`FAMILY_ENTRY`); its test fails until it has them.
 
+## Bug packets ("What's wrong here?", preview only)
+
+When Mohammad pastes a block starting `PPS BUG PACKET`, do not ask him for a screenshot: read it, replay it (`node scripts/packet.mjs replay <file>`, Node; `--env headless` for layout, GL draws stubbed, no picture),
+fix at the root, prove it with `compare`, and make the test (`node scripts/packet.mjs test`). The loop, the commands and what each verdict means are in `docs/bug-packet.md`. A bug no self-check named
+needs its rule first (`src/ui/selfcheck/`, with a case that must not fire). The packet sits on `pps.screen()` (`docs/screen-report.md`) and the `?watch` recorder (`docs/watch.md`).
+
 ## Tester guides
 
 `guides/beta-start-guide.pdf` (Letter) and `guides/beta-start-guide-iphone.pdf` (iPhone) are the beta testers'

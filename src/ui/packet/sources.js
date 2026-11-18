@@ -4,6 +4,7 @@
 
 import { captureState, stateLink, baseOf } from './state.js';
 import { buildPacket } from './packet.js';
+import { replayHistory } from '../watch/replay.js';
 import { RELEASE } from '../../version.js';
 
 const last = (s) => String(s || '').trim().split(/\s+/).pop() || '';
@@ -31,12 +32,10 @@ export function healthInfo(pps) {
   return h;
 }
 
-/** The recorder's frames as the series rules take them (oldest first): a list, or the recorder's object with its frames or samples. */
-export const framesOf = (h) => (Array.isArray(h) ? h : h?.frames || h?.samples || null);
-
 /**
- * The packet for the screen as it is now: the screen report with its findings (pps.screen runs the state rules; with the recorder's history it runs the series rules too),
- * the recorder's last 10 s when `?watch` is on, the state link, the device. note: what the person wrote. Without a part, the packet says it lacks it (packet.js `missing`).
+ * The packet for the screen as it is now: the screen report with its findings (pps.screen runs the state rules), the recorder's last 10 s when `?watch` is on and what the
+ * motion rules say of them (the recorder's own findings, and the same rules run again over the exported history, which is what a replay will do), the state link, the device.
+ * note: what the person wrote. Without a part, the packet says it lacks it (packet.js `missing`).
  */
 export async function packetNow(pps, { note = '', win = window, doc = document } = {}) {
   const state = captureState(pps, { doc, win });
@@ -44,10 +43,10 @@ export async function packetNow(pps, { note = '', win = window, doc = document }
   let screen = null, screenText = '', history = null, findings = null, watchFindings = [];
   try { if (typeof pps.watch?.history === 'function') history = await pps.watch.history({ seconds: 10 }); } catch { /* (the recorder is off) */ }
   try { if (typeof pps.watch?.findings === 'function') watchFindings = (await pps.watch.findings()) || []; } catch { /* (the recorder is off) */ }
+  if (history) { try { watchFindings = [...watchFindings, ...replayHistory(history)]; } catch (e) { watchFindings.push({ rule: 'history-failed', what: 'The recorded motion could not be judged', where: String(e?.message || e), at: '0 s' }); } }
   try {
     if (typeof pps.screen === 'function') {
-      const frames = framesOf(history);
-      const full = await pps.screen(frames ? { history: frames } : {});
+      const full = await pps.screen();
       screenText = typeof pps.screen.text === 'function' ? await pps.screen.text(full) : '';
       const { findings: f, ...rest } = full;
       findings = f || [];

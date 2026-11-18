@@ -4,6 +4,11 @@
 //
 //   makeFixture(packet, { name, rules, expect, note })   -> fixture (what `node scripts/packet.mjs test` writes)
 //   runFixture(fixture, env)                              -> { ok, failures: [string], findings }   (env as replay.js's)
+//
+// Two kinds of hold. A finding about the STATE on the screen is held clean: the fixture replays the state and fails when the finding is back (the test of a fixed bug).
+// A finding about the last seconds of MOTION cannot be repeated from a state, so the fixture carries the recorded history and holds the rule's catch: it fails when the
+// motion rules no longer name that recorded bug (the test of a rule written from a packet). A motion bug is proved fixed by repeating the move on a device with ?watch
+// and `compare`, not by a fixture.
 //   getPath(report, 'labels[Splenic vein].alpha')        a value of a report by the same paths the diff prints
 
 import { findingKey, hash32, splitFindings } from './packet.js';
@@ -35,23 +40,33 @@ export function getPath(report, path) {
  */
 export function makeFixture(packet, { name, rules, expect = [], note = '' } = {}) {
   if (!packet?.state) throw new Error('the packet carries no state to rebuild');
-  const { state: states } = splitFindings(packet.findings);
-  const pick = rules?.length ? states.filter((f) => rules.includes(f.rule) || rules.includes(findingKey(f))) : states;
-  if (!pick.length && !expect.length) throw new Error(states.length ? `none of the packet's findings match ${JSON.stringify(rules)}` : 'the packet has no state findings to hold clean: add the rule that would have caught it first, or pass --expect path=value');
-  const hold = pick.map((f) => ({ rule: f.rule, what: f.what }));
-  return {
-    kind: 'pps-packet-test', v: FIXTURE_V, name: name || fixtureName(packet, pick[0]), from: packet.id || null, madeAt: packet.build?.commit || null,
-    note: note || packet.note || '', was: pick.map((f) => ({ rule: f.rule, what: f.what, where: f.where, owner: f.owner })), hold, expect, state: packet.state,
+  const { state: states, motion } = splitFindings(packet.findings);
+  const want = (f) => !rules?.length || rules.includes(f.rule) || rules.includes(findingKey(f));
+  const pick = states.filter(want);
+  const fires = packet.history ? motion.filter(want) : [];
+  if (!pick.length && !fires.length && !expect.length) throw new Error(states.length || motion.length ? `none of the packet's findings match ${JSON.stringify(rules)}${motion.length && !packet.history ? ' (its motion findings need the recorded history, which this packet does not carry)' : ''}` : 'the packet has no findings to hold: add the rule that would have caught it first, or pass --expect path=value');
+  const pair = (f) => ({ rule: f.rule, what: f.what });
+  const fx = {
+    kind: 'pps-packet-test', v: FIXTURE_V, name: name || fixtureName(packet, pick[0] || fires[0]), from: packet.id || null, madeAt: packet.build?.commit || null,
+    note: note || packet.note || '', was: [...pick, ...fires].map((f) => ({ rule: f.rule, what: f.what, where: f.where, owner: f.owner })), hold: pick.map(pair), expect, state: packet.state,
   };
+  if (fires.length) { fx.fires = fires.map(pair); fx.history = packet.history; }
+  return fx;
 }
 
 /** Replays the fixture's state and judges it. env: replay.js's (apply, settle, screen, rules). */
 export async function runFixture(fx, env) {
   const failures = [];
+  if (fx.fires?.length) {
+    const got = splitFindings((await env.judgeHistory?.(fx.history)) || []).motion, have = new Set(got.map(findingKey));
+    if (!env.judgeHistory) failures.push(`${env.name}: cannot judge a recorded history`);
+    for (const h of fx.fires) if (env.judgeHistory && !have.has(findingKey(h))) failures.push(`${h.rule}: ${h.what}: the motion rules no longer name the bug recorded in packet ${fx.from || fx.name}`);
+  }
+  if (!(fx.hold?.length || fx.expect?.length)) return { ok: !failures.length, failures, findings: [] };
   const ap = await env.apply(fx.state);
   await env.settle();
   const report = await env.screen();
-  if (!report) return { ok: false, failures: [`${env.name}: no screen report, so nothing was judged`], findings: [] };
+  if (!report) return { ok: false, failures: [...failures, `${env.name}: no screen report, so nothing was judged`], findings: [] };
   const found = splitFindings((await (env.rules ? env.rules(report) : report.findings)) || []).state;
   const keys = new Set(found.map(findingKey));
   for (const h of fx.hold || []) if (keys.has(findingKey(h))) { const f = found.find((x) => findingKey(x) === findingKey(h)); failures.push(`${h.rule}: ${h.what}${f.where ? `, ${f.where}` : ''}${f.owner ? ` [${f.owner}]` : ''}: the bug of packet ${fx.from || fx.name} is back`); }

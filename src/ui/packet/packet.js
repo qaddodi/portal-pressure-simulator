@@ -15,10 +15,12 @@
 //   findings   the rules' findings over the screen report                      device         { ua, screen, dpr, renderer, quality, look }
 //   build      { release, badge, commit }                                      health         { errors, gpuMB, peakMB, slowFrame }
 
+import { packSamples, unpackSamples } from '../watch/history.js';
+
 export const PACKET_V = 1;
 export const BEGIN = '-----BEGIN PACKET JSON-----';
 export const END = '-----END PACKET JSON-----';
-export const MAX_JSON = 48 * 1024;   // (bytes of the JSON line: a paste stays something a thread can read)
+export const MAX_JSON = 64 * 1024;   // (bytes of the JSON line: a paste stays something a thread can read)
 
 /** The identity of a finding: its rule and what it is about. Where and when it happened are not part of it (a fix may move or shrink them). */
 export const findingKey = (f) => `${f.rule}|${String(f.what || '').replace(/\s+/g, ' ').trim()}`;
@@ -41,15 +43,16 @@ export function hash32(s) {
   return h.toString(16).padStart(8, '0');
 }
 
-/** Thins a history so its JSON fits `maxBytes`: keeps the first and last samples and every n-th between (events are kept whole). */
-export function thinHistory(h, maxBytes = 20 * 1024) {
+/** Thins a recorder history (watch/history.js: v 1, samples with an unchanged part left out) so its JSON fits `maxBytes`: every n-th sample, the first and last kept, events and traces whole. */
+export function thinHistory(h, maxBytes = 24 * 1024) {
   if (!h || !Array.isArray(h.samples)) return h || null;
   const size = (x) => JSON.stringify(x).length;
   if (size(h) <= maxBytes) return h;
-  let step = 2, out = h;
-  while (step <= h.samples.length && size(out) > maxBytes) {
-    out = { ...h, samples: h.samples.filter((_, i) => i === 0 || i === h.samples.length - 1 || i % step === 0), thinned: step };
-    step *= 2;
+  const whole = unpackSamples(h.samples);
+  let n = 2, out = h;
+  while (n <= whole.length && size(out) > maxBytes) {
+    out = { ...h, samples: packSamples(whole.filter((_, i) => i % n === 0 || i === whole.length - 1)), step: (h.step || 1) * n };
+    n *= 2;
   }
   return out;
 }
@@ -77,7 +80,7 @@ export function buildPacket(src, { note = '', now = () => new Date() } = {}) {
 function trimToFit(p) {
   const size = () => JSON.stringify(p).length;
   const cut = [];
-  if (size() > MAX_JSON && p.history) { p.history = thinHistory(p.history, 6 * 1024); cut.push('motion history thinned'); }
+  if (size() > MAX_JSON && p.history) { p.history = thinHistory(p.history, 8 * 1024); cut.push('motion history thinned'); }
   if (size() > MAX_JSON && p.screen?.json) { p.screen = { text: p.screen.text, json: null }; cut.push('screen JSON left out (the replay rebuilds it from the link)'); }
   if (size() > MAX_JSON && p.history) { p.history = null; cut.push('motion history left out'); }
   if (cut.length) p.missing = [...p.missing, ...cut];
@@ -103,7 +106,7 @@ export function packetText(p) {
   L.push(p.findings.length ? `FINDINGS (${p.findings.length})` : 'FINDINGS (none: no self-check named this; the first job is the rule that would have)');
   p.findings.forEach((f, i) => L.push(`${i + 1}. ${f.rule}: ${f.what}${f.where ? `, ${f.where}` : ''}.${f.why ? ` Why: ${f.why}.` : ''}${f.owner ? ` Owner: ${f.owner}.` : ''}${f.at ? ` At ${f.at}.` : ''}`));
   if (p.screen?.text) { L.push(''); L.push('SCREEN'); L.push(p.screen.text); }
-  if (p.history) { L.push(''); L.push(`MOTION: last ${p.history.seconds ?? '?'} s, ${p.history.samples?.length ?? 0} samples, ${p.history.events?.length ?? 0} events${p.history.thinned ? ' (thinned)' : ''}.`); }
+  if (p.history) { L.push(''); L.push(`MOTION: last ${p.history.seconds ?? '?'} s, ${p.history.samples?.length ?? 0} samples${p.history.step > 1 ? ` (every ${p.history.step}th)` : ''}, ${p.history.events?.length ?? 0} events, ${p.history.traces?.length ?? 0} camera runs.`); }
   if (p.missing?.length) { L.push(''); L.push(`NOT IN THIS PACKET: ${p.missing.join('; ')}.`); }
   L.push('');
   L.push(BEGIN);

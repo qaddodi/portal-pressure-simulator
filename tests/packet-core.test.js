@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { captureState, stateLink, readStateLink, cleanExtras, diffParams, changedFrom, applyExtras } from '../src/ui/packet/state.js';
 import { buildPacket, packetText, parsePacket, findingKey, splitFindings, thinHistory, BEGIN, END, MAX_JSON } from '../src/ui/packet/packet.js';
+import { unpackSamples } from '../src/ui/watch/history.js';
 import { diffScreens, compareFindings } from '../src/ui/packet/diff.js';
 import { replayPacket, comparePackets, resultLines } from '../src/ui/packet/replay.js';
 import { makeFixture, runFixture, getPath } from '../src/ui/packet/test-from-packet.js';
@@ -101,14 +102,16 @@ test('packet: no findings says the first job is the rule; missing parts are list
 });
 
 test('packet: an over-large packet loses its detail first and keeps findings, state and link', () => {
-  const big = { seconds: 10, samples: Array.from({ length: 4000 }, (_, i) => ({ t: i, a: i * 1.5, b: i % 7, c: 'x'.repeat(8) })), events: [] };
+  const big = { v: 1, seconds: 10, step: 1, samples: Array.from({ length: 4000 }, (_, i) => ({ t: i, c: [1 + i * 1e-5, i, -i], L: [[`l${i % 5}`, i, i, 1, 0, 0, 0]], K: null })), events: [{ t: 5, type: 'view' }], traces: [] };
   const fat = { ...REPORT, filler: 'y'.repeat(60 * 1024) };
   const p = buildPacket(sources({ history: big, screen: fat }), { now: NOW });
   assert.ok(JSON.stringify(p).length <= MAX_JSON + 400, 'inside the limit (the check sum and the notes are the margin)');
   assert.equal(p.findings.length, 1); assert.ok(p.state && p.link);
   assert.ok(p.missing.some((m) => /left out|thinned/.test(m)));
   assert.equal(parsePacket(packetText(p)).ok, true);
-  assert.ok(thinHistory(big, 4000).samples.length < big.samples.length);
+  const th = thinHistory(big, 4000);
+  assert.ok(th.samples.length < big.samples.length && th.step > 1 && th.events.length === 1, 'thinned by decoding first: a part left out as unchanged is not lost');
+  assert.equal(unpackSamples(th.samples).at(-1).t, 3999);
 });
 
 test('findings: a state finding and a motion finding are told apart, identity ignores where and when', () => {
@@ -175,7 +178,7 @@ test('test-from-packet: the fixture holds the bug clean and checks values; it fa
   assert.equal(bad.ok, false); assert.match(bad.failures[0], /label-under-card: Label "Splenic vein".*the bug of packet/); assert.match(bad.failures[1], /expected 0\.65/);
   const good = await runFixture(fx, envOf({ ...REPORT, labels: [{ id: 'sv', alpha: 0.65 }] }, hasLabel));
   assert.deepEqual(good, { ok: true, failures: [], findings: [] });
-  assert.throws(() => makeFixture(buildPacket(sources({ findings: [] }), { now: NOW })), /no state findings to hold clean/);
+  assert.throws(() => makeFixture(buildPacket(sources({ findings: [] }), { now: NOW })), /no findings to hold/);
   assert.throws(() => makeFixture(p, { rules: ['nope'] }), /none of the packet's findings match/);
   assert.equal(getPath(REPORT, 'labels[pv].alpha'), 1); assert.equal(getPath(REPORT, 'labels[2].alpha'), undefined); assert.equal(getPath(REPORT, 'a.b'), undefined);
 });

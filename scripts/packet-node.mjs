@@ -58,11 +58,7 @@ export async function makeEnv({ packet } = {}) {
     name: 'node', apply,
     settle: () => run(6),
     screen: () => buildScreen({ pps, io, doc: page.document, win, history: undefined }),
-    async judgeHistory(history) {
-      const { runRules } = await import('../src/ui/selfcheck/rules.js');
-      const frames = Array.isArray(history) ? history : history?.frames || history?.samples;
-      return frames ? runRules(null, { kinds: ['series'], history: frames }) : null;
-    },
+    async judgeHistory(history) { return (await import('../src/ui/watch/replay.js')).replayHistory(history); },
     async close() { if (open) await open.close(); },
   };
 }

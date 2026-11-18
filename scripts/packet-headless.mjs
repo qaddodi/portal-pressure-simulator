@@ -44,11 +44,7 @@ export async function makeEnv({ packet, device = '', dir = '.', url = '' } = {})
     // (The model is paused first, as scripts/shoot.mjs does: a running beat keeps the Doppler's marks pulsing and nothing is ever quiet. The report is of the state at rest.)
     async settle() { await app.page.evaluate(() => window.pps.host.send({ type: 'run', running: false })); return app.page.evaluate(() => window.pps.packet.settled({ timeoutMs: 60000 })); },
     screen: () => app.page.evaluate(() => window.pps.screen?.()),
-    async judgeHistory(history) {
-      const { runRules } = await import('../src/ui/selfcheck/rules.js');
-      const frames = Array.isArray(history) ? history : history?.frames || history?.samples;
-      return frames ? runRules(null, { kinds: ['series'], history: frames }) : null;
-    },
+    async judgeHistory(history) { return (await import('../src/ui/watch/replay.js')).replayHistory(history); },
     errors: () => app?.errors || [],
     page: () => app.page,   // (for a debugging script)
     async close() { await app?.close().catch(() => {}); await browser.close().catch(() => {}); },

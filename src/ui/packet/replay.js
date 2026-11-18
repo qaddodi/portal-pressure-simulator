@@ -85,10 +85,10 @@ export function resultLines(r) {
   return L;
 }
 
-/** Normalises a packet or a replay result to { findings (state), screen, label }. */
+/** Normalises a packet or a replay result to { findings (state and motion), screen, label }. */
 function sideOf(x) {
-  if (x?.kind === 'pps-bug-packet') return { findings: splitFindings(x.findings).state, screen: x.screen?.json || null, label: `packet ${x.id}` };
-  if (x?.kind === 'pps-replay') return { findings: x.now?.state || [], screen: x.screen || null, label: `replay in ${x.env}` };
+  if (x?.kind === 'pps-bug-packet') return { findings: x.findings || [], screen: x.screen?.json || null, label: `packet ${x.id}` };
+  if (x?.kind === 'pps-replay') return { findings: [...(x.now?.state || []), ...(x.now?.motion || [])], screen: x.screen || null, label: `replay in ${x.env}` };
   throw new Error('compare takes a bug packet or a replay result');
 }
 

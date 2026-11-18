@@ -14,18 +14,20 @@ test('fixtures are well formed: a name that is the file\'s, a state, and somethi
   for (const f of files) {
     const fx = JSON.parse(readFileSync(join(DIR, f), 'utf8'));
     assert.equal(fx.kind, 'pps-packet-test', f); assert.equal(fx.v, FIXTURE_V, f); assert.equal(`${fx.name}.json`, f, `${f}: the name inside is the file's`);
-    assert.ok(fx.state?.share, `${f}: a state to rebuild`); assert.ok(fx.hold?.length || fx.expect?.length, `${f}: something to hold`);
+    assert.ok(fx.state?.share, `${f}: a state to rebuild`); assert.ok(fx.hold?.length || fx.expect?.length || fx.fires?.length, `${f}: something to hold`);
   }
 });
 
 if (files.length) {
-  let env;
+  let node = null;   // (the page's rig is made once, and only for a fixture that holds a state)
+  const judgeHistory = async (h) => (await import('../src/ui/watch/replay.js')).replayHistory(h);
   for (const f of files) {
     const fx = JSON.parse(readFileSync(join(DIR, f), 'utf8'));
-    test(`packet ${fx.name} stays fixed`, { timeout: 300000 }, async () => {
-      env ??= await (await import('../scripts/packet-node.mjs')).makeEnv({ packet: fx });
+    test(`packet ${fx.name} stays ${fx.fires?.length && !fx.hold?.length ? 'caught' : 'fixed'}`, { timeout: 300000 }, async () => {
+      let env = { name: 'node', judgeHistory };
+      if (fx.hold?.length || fx.expect?.length) { node ??= await (await import('../scripts/packet-node.mjs')).makeEnv({ packet: fx }); env = node; }
       const r = await runFixture(fx, env);
-      assert.deepEqual(r.failures, [], `the bug of packet ${fx.from || fx.name} is back (${fx.note || 'no note'}):\n${r.failures.join('\n')}`);
+      assert.deepEqual(r.failures, [], `packet ${fx.from || fx.name} (${fx.note || 'no note'}):\n${r.failures.join('\n')}`);
     });
   }
 }
