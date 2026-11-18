@@ -21,9 +21,9 @@ test('a #s= link the app cannot read opens the healthy patient and says so; a re
 
 test('a dive into or out of the sinusoid stops when a newer one has begun', () => {
   const s = stageSource();
-  const exit = s.slice(s.indexOf('async exitSinusoid()'), s.indexOf('sinusoidOpen: () =>'));
+  const exit = s.slice(s.indexOf('async exitSinusoid('), s.indexOf('sinusoidOpen: () =>'));
   assert.equal((exit.match(/if \(me !== sinMoveGen \|\| store\.get\(\)\.sinusoid\) return;/g) || []).length, 2, 'checked after each wait');
-  assert.ok(exit.lastIndexOf("setViewKey('anatomy')") > exit.lastIndexOf('me !== sinMoveGen'), 'the lobule is left only after the last check');
+  assert.ok(exit.lastIndexOf('setViewKey(view)') > exit.lastIndexOf('me !== sinMoveGen'), 'the lobule is left only after the last check');
 });
 
 

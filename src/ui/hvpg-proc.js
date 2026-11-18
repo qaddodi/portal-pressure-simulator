@@ -12,7 +12,7 @@ import { h, fmt, icon, toast, swapText, foldHidden, hasBox } from './util.js';
 import { glWords } from './gl-words.js';
 import { hvpgSev, hvBlocked, NOT_SHOWN, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { pressureColor } from './colormap.js';
-import { store, logAction, hiddenNow, updateParams, setViewKey } from './store.js';
+import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
 import { T, ease, cruise, k01, balloonAt, timeOfBalloon, levelAt, dampAt, pressureAt, newWave, syncWave } from './hvpg-clock.js';
@@ -26,6 +26,7 @@ import { reduceMotionMQ } from './motion.js';
 import { createIrPpg } from './ir-ppg.js';
 import { createIrTips } from './ir-tips.js';
 import { createSwap } from './monitor-takeover.js';
+import { leaveFor } from './leave-for-shot.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -111,7 +112,7 @@ export function createHvpgProcedure() {
   function start() {
     if ((t0 != null && t < tEnd()) || proc || procRunning()) return;
     const st = store.get();
-    if (st.lobule || st.view !== 'anatomic') setViewKey('anatomy');   // (one legal write: the lobule and the sinusoid close and the view is the anatomy, R08)
+    leaveFor(stageRef, { shot: 'route', route: 'hvpg', opt: SHOT_NEAR });
     ir.hide();
     result = null; t0 = performance.now(); t = 0; cam = ''; blocked = hvBlocked(st.params); snap = now()?.metrics ? { ...live() } : null;   // alloc-rare: once as a measurement starts (a copy, kept for the run)
     loop();
@@ -126,7 +127,7 @@ export function createHvpgProcedure() {
     playT = performance.now();
     const st = store.get(), why = procBlocked(kind, st.params, now()?.metrics);
     if (why) { toast(why); return; }
-    if (st.lobule || st.view !== 'anatomic') setViewKey('anatomy');   // (one legal write: the lobule and the sinusoid close and the view is the anatomy, R08)
+    leaveFor(stageRef, kind);
     procKind = kind; procStep = 0;
     // (Each step names the vessel it works on with the figure's own callout, as a slide's mark; whatever was called out before
     // comes back when it ends. Here it plays through by itself, holding a moment at each step.)

@@ -445,7 +445,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stage.lobuleHold?.(true);
       if (stage.riseReady && !booting) { await until(() => cut() || stage.riseReady(), RISE_READY_MS); if (cut()) return; }
       if (next && !reduce.matches && !booting) riseOn(next);
-      if (to === 'circuit') stage.circuitEarly?.(true);
       stage.exitSinusoid(to);
       await waitCut(60, cut);
       if (to === 'circuit') { await until(() => cut() || (!store.get().lobule && !store.get().sinusoid && stage.morphTargetNow?.() === 1), 9000); return; }
@@ -465,7 +464,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Circulation 9 to 10).)
     if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
     if (next && !reduce.matches && !booting) riseOn(next);
-    if (to === 'circuit') { stage.circuitEarly?.(true); setViewKey('circuit'); await until(() => cut() || stage.morphTargetNow?.() === 1, 6000); return; }
+    if (to === 'circuit') { setViewKey('circuit'); await until(() => cut() || stage.morphTargetNow?.() === 1, 6000); return; }
     setViewKey('anatomy');
     await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
@@ -1140,7 +1139,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const keepAt = s.cathKeep && !ct ? to : -1, cathGone = cathAside ? cathOut(false, cut, keepAt) : null;
     if (!cathAside && cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut, keepAt); if (cut()) return; }
     tx?.phase('to-anatomy');
-    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : ct ? cathRise(ct, cathInstant(to, lastAt), lastAt) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
+    // (A Circuit slide on a new patient leaves the lobule into the Circuit in the same move, and asks the running change for the slide's region at once: the cards' last fitting is a small refit
+    // after, as for an anatomy slide, see riseFor.)
+    const circNew = outNow && !ct && !!cam && !LOBULE_CAM.test(cam) && s.view === 'circuit' && store.get().lobule && !reduce.matches && !booting;
+    if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : ct ? cathRise(ct, cathInstant(to, lastAt), lastAt) : null, cut, circNew ? 'circuit' : 'anatomy'); if (cut()) return; if (circNew) frameTo(cam, fv, 1500, SLIDE_OPT); slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : stimer(() => { if (!cut()) loading(true); }, 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)

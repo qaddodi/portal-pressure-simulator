@@ -944,7 +944,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // shows on it, so Tab would have walked dozens of stops it could not show; setKeyStops.)
   let keyStops = true;
   // (circWait: the Circuit asked for while the lobule or the sinusoid is still covering the anatomy; the rise begins the change once it has landed, circGo.)
-  let circWait = false, circEarly = false;   // (circEarly: the slide that asked for the Circuit lets it begin as the rise nears its end, RISE_CIRC_T)
+  let circWait = false;
   let lobAsk = 0, lobSelf = false;   // (a Circuit's way to the lobule: diveToLobule; any other view asked for ends it)
   store.on('view', () => { if (!lobSelf) lobAsk++; });
   let sinMoveGen = 0;   // (the newest dive into or out of the sinusoid view: an older one, still waiting on its zoom, stops there rather than finishing over it)
@@ -1416,7 +1416,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wasDiving !== diveT > 0) for (const g of cardGLs) g.redraw();   // (the cards' glass: drawn in the figure's canvas, or only leaving its place out of the labels, the dive's turn)
     // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
     try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
-    if (e !== to) { lobAnim = nextFrame(lobuleStep); if (circWait && !on && circEarly && e <= RISE_CIRC_T) nextFrame(circGo); }
+    if (e !== to) { lobAnim = nextFrame(lobuleStep); if (circWait && !on && e <= RISE_CIRC_T) nextFrame(circGo); }
     // the anatomy's raster, held back during the dive, catches up under the lobule (once the slide's cards have come in: frame.js holdMotion)
     else if (on) stageScope.timer(lobuleRasterSoon, 600);
     else if (!on) {
@@ -1438,19 +1438,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let lobEnd = 0;
   // (The lobule, or a dive or a rise of it, still stands over the anatomy: the Circuit's change waits for the anatomy to be the whole view.)
   // (RISE_CIRC_T: a rise out of the lobule that is this far from the anatomy, of its way, no longer holds the Circuit's change back: the last of the zoom out and the first of the turn are
-  // one move. The anatomy is whole under the field by then and the lobule layer is gone (lobU is 0 below 0.48). Mohammad, 18 Nov 2026, in slides: "I'm ok with things
-  // happening at once, to decrease transition times". A tap on the Circuit's button keeps the wait for the rise's landing, as before: only a slide asks for it, see presenter toAnatomy.)
+  // one move, for a slide's Circuit and the Circuit button alike. The anatomy is whole under the field by then and the lobule layer is gone (lobU is 0 below 0.48).
+  // Mohammad, 18 Nov 2026: "I'm ok with things happening at once, to decrease transition times", and yes to the button as well.)
   const RISE_CIRC_T = 0.3;
-  const lobuleCovers = () => lobuleOn || lobU > 0 || diveT > (diveOut && circEarly ? RISE_CIRC_T : 0) || !!lz?.isOpen();
+  const lobuleCovers = () => lobuleOn || lobU > 0 || diveT > (diveOut ? RISE_CIRC_T : 0) || !!lz?.isOpen();
   let circT = 0;
   function circGo() {
     if (!circWait) return;
     if (store.get().view !== 'circuit') { circWait = false; return; }
     if (lobuleCovers()) return;
     circWait = false; stageScope.clear(circT);
-    try { setViewTo('circuit'); } finally { circEarly = false; }
+    setViewTo('circuit');
   }
-  function circForce() { if (!circWait) return; circWait = false; circEarly = false; if (store.get().view === 'circuit') setViewTo('circuit', true); }
+  function circForce() { if (!circWait) return; circWait = false; if (store.get().view === 'circuit') setViewTo('circuit', true); }
   function liverBox() {
     if (!liverBB && organEls.liver) { const b = elBoxInto(organEls.liver, EBOX); if (b?.width) { liverBBox.x = b.x; liverBBox.y = b.y; liverBBox.w = b.width; liverBBox.h = b.height; liverBB = liverBBox; } }   // (in script: elBox)
     return liverBB;
@@ -2960,14 +2960,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setViewTo(v, force = false) {
     const target = v === 'circuit' ? 1 : 0;
-    if (target === 0) { circWait = false; circEarly = false; }   // (a view asked for after the Circuit's wait ends it: the anatomy is where the lobule is rising to)
+    if (target === 0) circWait = false;   // (a view asked for after the Circuit's wait ends it: the anatomy is where the lobule is rising to)
     if (target === morphTarget) return;
     // One hop at a time (view-switch hand-off, 16 Nov 2026): the lobule or the sinusoid is a zoom over the anatomy, and the Circuit is the anatomy turned, so out of
     // either the figure first rises to the anatomy in view (its own continuous zoom, its names riding the figure) and the change to the Circuit begins as that
     // lands (circGo), the one move it always was. Begun together, the rise's cover and the morph's ghosts were on screen at once: the lobule cut out in a frame,
     // then the Circuit stood on a faded anatomy with its captions.
     if (target === 1 && !force && lobuleCovers()) { circWait = true; stageScope.clear(circT); circT = stageScope.timer(circForce, 6000); return; }   // (the backstop: a rise that never lands must not leave the Circuit unasked for)
-    circEarly = false;   // (asked for once: a tap later waits for the landing)
     // (The dive into the lobule never moves the anatomy's own framing.)
     const fromLobule = lobuleOn || lobU > 0, at = vt;
     morphTarget = target; handed = false;
@@ -3282,8 +3281,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The change between Anatomy and Circuit is still under way (the figure morphing, or its landing not yet done): a slide's next step waits for it to land. */
     /** Where the change between Anatomy and Circuit is headed now (0 Anatomy, 1 Circuit): the Circuit's wait behind a rising lobule has not set it yet. For the checks. */
     morphTargetNow: () => morphTarget,
-    /** The next change to the Circuit, asked for over a rising lobule, may begin as the rise nears its end (a slide's, in one move): it need not wait for the landing. */
-    circuitEarly(on = true) { circEarly = !!on; },
     viewChanging: () => !!viewXf || morph !== morphTarget || circWait,   // (circWait: the Circuit's change is still to begin, behind the rise out of the lobule)
     /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
     drifting: () => drifting,
