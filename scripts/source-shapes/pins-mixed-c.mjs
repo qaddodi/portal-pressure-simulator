@@ -326,7 +326,7 @@ export default [
   { file: 'src/ui/stage*', forbid: [/(?:live\.)?veinsRows\.clear\(\)/, 'Shape apart from colour in the vessel layer (veins-gl.js): (never cleared before a draw has shown them)'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/if \((?:live\.)?veins\.drawRows\(T, (?:live\.)?vLook, (?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/, 'Shape apart from colour in the vessel layer (veins-gl.js):'] },   // (was a slice of the file)
   { file: 'src/ui/stage*', need: [/const rows = (?:live\.)?veinsDirty \? null : pending \|\| NO_ROWS;/, 'Shape apart from colour in the vessel layer (veins-gl.js):'] },   // (was a slice of the file)
-  { file: 'src/ui/lobule-zoom*', need: [/if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/, 'Shape apart from colour in the vessel layer (veins-gl.js):'] },
+  { file: 'src/ui/lobule-zoom*', need: [/if \(!framePart\('lz\.vessels: rows draw', vesRows\)\) \{ framePart\('lz\.vessels: whole draw \(rows refused\)', vesWhole\); tLast \^= 1; \}/, 'Shape apart from colour in the vessel layer (veins-gl.js):'] },
   // venous-stent
   { file: 'src/ui/stage*', need: [/function meshPaths\(id, p, d0, d1, k = 1, ends = true, bare = 0\)/, 'A vein a slide shows stented (slide field `stented`): (one mesh for the TIPS and the veins)'] },
   { file: 'src/ui/stage-venous.js', need: [/stentFade\(`vst:\$\{id\}`, a\)/, 'A vein a slide shows stented (slide field `stented`): (the whole stent at one strength, by its key (the GPU lays it on the draws))'] },   // (was a slice of the file)

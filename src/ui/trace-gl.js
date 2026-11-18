@@ -53,9 +53,13 @@ const pools = [];
 // (P2, perf review 4 Nov 2026: the pool hands over its WHOLE buffer per chart, so a layer over a quarter of the screen, like the lobule's leaders once did,
 // slows every chart. It is noted once in pps.caught() and the ?perf paste, to find the next one.)
 let bigNoted = false;
+// (Never a picture that fits the screen's card floor (poolFloor): on a 390 px phone a card's chart is 1000 to 1200 px wide at three device px to the CSS px, over a quarter of that small screen,
+// and each was drawn in a buffer of its own size, the shared one cut back and grown again around it; the tester, 17 Nov 2026: 1 to 11 resizes after the first pick, svg-gl begin stalls 122 to 758 ms.)
 const bigLayer = (Wd, Hd) => {
   const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
-  return px > 0 && Wd * Hd > px / 4;
+  if (!(px > 0 && Wd * Hd > px / 4)) return false;
+  const f = screenFloor();
+  return !(Wd <= f.w && Hd <= f.h);
 };
 // (Pictures handed over by who drew them, in the last second, with the size of the last one: the ?perf readout's charts line names the busiest. Cleared by the readout.)
 export const transfersBy = new Map();
@@ -881,7 +885,9 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         const floor = screenFloor();
         let fitW = Math.max(floor.w, askW), fitH = Math.max(floor.h, askH);
         if (big) shared.bigAt = t;
-        if (big || askW * askH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        // (The floor's own area is never waste: it is held whatever is drawn in it, and a chart that fits it draws there, however small beside the window's biggest.)
+        const inFloor = askW <= floor.w && askH <= floor.h;
+        if (big || (!inFloor && askW * askH > ownW * ownH + WASTE_PX)) { fitW = ownW; fitH = ownH; }
         // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),
         // a small chart between two of its frames draws in the buffer as it is, when it fits there and that costs at most WASTE_PX beyond its
         // own: cut back to the window's size and grown again for every small picture, the buffer was made again 14 times a second beside 34

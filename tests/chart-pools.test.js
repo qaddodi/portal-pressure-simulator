@@ -188,3 +188,19 @@ test("the shared buffer's floor is this screen's card pictures: a phone's three-
     for (const c of cs) c.dispose();
   } finally { [globalThis.innerWidth, globalThis.innerHeight, globalThis.devicePixelRatio] = was; if (was[0] === undefined) { delete globalThis.innerWidth; delete globalThis.innerHeight; delete globalThis.devicePixelRatio; } }
 });
+
+test("on a phone a card's chart is not a big layer, and a small chart beside it draws in the floor: no buffer of its own size, no resize (the tester, 390 px: 1 to 11 resizes after the first pick)", () => {
+  const was = { w: globalThis.innerWidth, h: globalThis.innerHeight, d: globalThis.devicePixelRatio, s: globalThis.screen };
+  globalThis.innerWidth = 390; globalThis.innerHeight = 844; globalThis.devicePixelRatio = 3; globalThis.screen = { width: 390, height: 844 };
+  try {
+    const card = createTraceGL(host()), small = createTraceGL(host());
+    clock += 5000;
+    for (let i = 0; i < 6; i++) { clock += 16; draw(card, 358, 330, 3); draw(small, 80, 30, 3); }
+    const r0 = sharedStats.resizes;
+    for (let i = 0; i < 300; i++) { clock += 16; if (i % 40 === 0) draw(card, 358, 330, 3); draw(small, 80, 30, 3); if (i % 97 === 0) clock += 1500; }
+    assert.equal(sharedStats.resizes - r0, 0, `resizes: ${sharedStats.resizes - r0}`);
+    card.dispose(); small.dispose();
+  } finally {
+    for (const [k, v] of [['innerWidth', was.w], ['innerHeight', was.h], ['devicePixelRatio', was.d], ['screen', was.s]]) { if (v === undefined) delete globalThis[k]; else globalThis[k] = v; }
+  }
+});

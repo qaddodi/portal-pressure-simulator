@@ -1958,6 +1958,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
 
   let sVer = NaN, sDark = null, sCw = 0, sCh = 0, sK = 0;
   let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akBile = false, akBileInk = '', bileRaw = null, bileRGB = null, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '', akRad = -1; const MOUTH_W = [0, 0, 0];
+  // (The vessel layer's calls, each a named part of the frame, so a long drawGL says which call it was (17 Nov 2026, the tester: lz.drawGL 52 to 153 ms for 15 to 27 frames after a pick, and nothing under it named).
+  // What a call reads is written into one record and the functions are made once, so a frame makes no closure.)
+  const ves = { g: null, T: null, look: null, blood: null, rows: null };
+  const vesSet = (g, T, look, blood, rows) => { ves.g = g; ves.T = T; ves.look = look; ves.blood = blood; ves.rows = rows; };
+  const vesWhole = () => ves.g.draw(ves.T, ves.look, ves.blood, ves.rows);
+  const vesRows = () => ves.g.drawRows(ves.T, ves.look, ves.blood, ves.rows);
+  const vesComposite = () => ves.g.composite(ves.look, ves.blood);
+  const vesFlow = () => ves.g.setFlow(flowData);
+  const vesTubes = () => ves.g.setTubes(tubeData);
+  const vesGeo = (bins) => ves.g.setGeometry(bins);
   function drawGL(W, H, dpr, dark, cs, dt) {
     const g = gl, G = geo, m = model;
     const res = g.software ? 0.5 : 1, k = dpr * res;
@@ -2019,7 +2029,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           bins = binVeins(tubeSet.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), G.joins.filter((j) => j.members.every((id) => ids.has(id))));   // alloc-rare: same branch, bins not cached
           binCache.set(bk, bins);
         }
-        g.setGeometry(bins);
+        vesSet(g, null, null, null, null); framePart('lz.vessels: geometry send', vesGeo, bins);
         glDirty = true;
       }
       // Attributes, re-sent when they change (pressures in half-mmHg steps).
@@ -2085,7 +2095,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           tubeData[o + 20] = 0; tubeData[o + 21] = 1; tubeData[o + 22] = t.len; tubeData[o + 23] = 0;
           if (edge) { put3(o + 24, edge); tubeData[o + 27] = 0; }
         }
-        g.setTubes(tubeData);
+        vesSet(g, null, null, null, null); framePart('lz.vessels: attributes send', vesTubes);
         // The pulse moves only some vessels' colours: those vessels alone are drawn again (see the draw below).
         if (!tubeShown) { tubeShown = tubeData.slice(); glDirty = true; }   // alloc-once: the first attribute pass of this renderer; the copy is kept and written in place after
         else for (let o = 0, RW = TUBE_TEXELS * 4; o < tubeData.length; o += RW) {
@@ -2159,7 +2169,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         putOrigin(o, EI[oe]);
       }
     }
-    if (!flowSame) { g.setFlow(flowData); flowG = g; flowAt = flowA; }
+    if (!flowSame) { vesSet(g, null, null, null, null); framePart('lz.vessels: flow send', vesFlow); flowG = g; flowAt = flowA; }
     // (The look comes only from the styles: built and written out once per copy of them, the stage's kept copy changing
     // only with a class, the theme or a system setting, not on every frame.)
     if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
@@ -2174,11 +2184,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (glDirty || !dSame || lsig !== glLook) {
       // (Moved with only some vessels' attributes changed: those are named, so the drawn layer is moved, not drawn whole.)
       const rows = glDirty || lsig !== glLook ? null : rowsOf();
-      glDirty = false; noteDrawn(cw, ch, T); glLook = lsig; glRows.clear(); g.draw(T, look, blood, rows); tLast ^= 1;
+      glDirty = false; noteDrawn(cw, ch, T); glLook = lsig; glRows.clear(); vesSet(g, T, look, blood, rows); framePart('lz.vessels: whole draw', vesWhole); tLast ^= 1;
     }
     // (A refused partial draw hands its rows on to the whole draw that stands in for it.)
-    else if (glRows.size) { const rows = rowsOf(); glRows.clear(); if (!g.drawRows(T, look, blood, rows)) { g.draw(T, look, blood, rows); tLast ^= 1; } }
-    else g.composite(look, blood);
+    else if (glRows.size) { const rows = rowsOf(); glRows.clear(); vesSet(g, T, look, blood, rows); if (!framePart('lz.vessels: rows draw', vesRows)) { framePart('lz.vessels: whole draw (rows refused)', vesWhole); tLast ^= 1; } }
+    else { vesSet(g, T, look, blood, null); framePart('lz.vessels: composite', vesComposite); }
     if (gpuProbe.on) gpuProbe.note(COUNTED.lobulePicture);
   }
   let lookCs = null, lookNow = null, lookSig = '';

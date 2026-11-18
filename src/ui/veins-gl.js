@@ -42,6 +42,8 @@ import { LIFT_EASE_SHARE, LIFT_EASE_MAX } from './highlight-math.js';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
 import { CELL, ENT_W, binVeins, splitRows, splitCells, cellsOfJoinEntries } from './veins-bin.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
+// (A named part of the frame while frames are watched (frame.js framePart, set on gpuProbe): the rows' redraw says which of its steps held a frame, 17 Nov 2026, the tester, lz.drawGL 52 to 153 ms.)
+const part = (tag, fn, a, b, c) => (gpuProbe.part ? gpuProbe.part(tag, fn, a, b, c) : fn(a, b, c));
 import { changedRows } from './flow-rows.js';
 import { leftAlone, whenQuiet } from './quiet.js';
 import { uniformCache } from './uniform-cache.js';
@@ -4271,10 +4273,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       rowsStatus = 'drawn';
       tubesNew = false; clearMarks();
       if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
-      meshCellsPass(m, look, mark);
+      part('veins: rows cells pass', meshCellsPass, m, look, mark);
       partCells += k;
       drawnNow();
-      if (k) uploadPart(mark);
+      if (k) part('veins: rows cell list', uploadPart, mark);
       this.composite(look, blood, full, k);
       return true;
     },
