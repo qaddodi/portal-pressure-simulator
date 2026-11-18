@@ -4,6 +4,8 @@
 //   ?testclock          the page starts on the test clock (rate 1 until the figure is up, then the rate below)
 //   ?testclock=8        the same, at most 8 times real pace (default 5; 1 is real pace, immune to a throttled pane)
 //   await pps.testClock(true)    await pps.testClock({ rate: 10 })    await pps.testClock(false)    pps.testClock() → the state
+//   await pps.testClock({ speed: 0.25 })   slow motion: app time at a quarter of real pace (0 holds it, 1 is real pace); the engine follows, the gallery's slow-motion bench
+//   await pps.testClock({ step: 3 })       with the clock held (speed 0): three frames of app time, run at once
 // The engine runs in a worker with clocks of its own: every 16 ms of app time it is sent the time (worker.js runs its timers up to it) and
 // the loop waits when the worker is more than a few ticks behind, so the model's time and the page's stay together.
 import { createTestClock } from '../test-clock.js';
@@ -14,7 +16,7 @@ const DEFAULT_RATE = 5, BEAT_MS = 16, LAG_TICKS = 4, LAG_REAL_MS = 1500;
 let clock = null, stopBeat = null, sent = 0, acked = 0, ackAt = 0, linked = false, wantRate = DEFAULT_RATE;
 
 const engineKind = () => document.querySelector('[data-engine]')?.dataset.engine;
-const state = () => ({ on: !!clock?.on, rate: clock?.rate ?? 0, engine: linked ? 'worker on the test clock' : engineKind() || 'not up yet', ...(clock ? { ...clock.stats(), offset: Math.round(clock.offset) } : {}) });
+const state = () => ({ on: !!clock?.on, rate: clock?.rate ?? 0, speed: clock?.speed ?? 1, engine: linked ? 'worker on the test clock' : engineKind() || 'not up yet', ...(clock ? { ...clock.stats(), offset: Math.round(clock.offset) } : {}) });
 
 function beat() {
   if (engineKind() === 'worker') {
@@ -46,6 +48,8 @@ export async function testClock(arg) {
     return state();
   }
   if (rate) wantRate = rate;
+  const speed = arg && typeof arg === 'object' && Number.isFinite(+arg.speed) ? +arg.speed : null;
+  const step = arg && typeof arg === 'object' && arg.step >= 1 ? Math.floor(arg.step) : 0;
   if (!clock) {
     const boot = window.ppsTestClock;   // (the clock ?testclock made at boot: test-boot.js)
     if (boot?.on) { clock = boot; wantRate = rate || boot.wanted || wantRate; }
@@ -53,6 +57,8 @@ export async function testClock(arg) {
     link();
   }
   clock.rate = wantRate;
+  if (speed != null) clock.setSpeed(speed);
+  if (step) clock.stepFrames(step);
   return state();
 }
 

@@ -27,6 +27,17 @@
     "src/ui/text-gl.js → ./glyph-metrics.js": "NOT YET: loadMetrics fetches it where a paragraph is laid out, and no app code calls loadMetrics yet (only the tests); whoever wires layoutParagraph in must call it at boot or idle, never on a tap",
     "src/ui/main.js → ./cam-gate.js": "the console's camera gate only (pps.cameraGate, a measuring aid typed in the console); no tap reaches it",
     "src/ui/main.js → ./decks.js": "the console's camera gate only (pps.cameraGate), and the presenter has read the decks in long before (main.js warmUp)",
-    "src/ui/main.js → ./test-mode.js": "pps.testClock, the camera gate and ?testclock only (play-tests, a console call; no person reaches it from a tap)"
+    "src/ui/main.js → ./test-mode.js": "pps.testClock, the camera gate and ?testclock only (play-tests, a console call; no person reaches it from a tap)",
+    "src/ui/gallery/benches/index.js → ./camera-grid.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./slow-motion.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./procedures.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./memory-loop.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./flags.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./looks-table.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./words-dump.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./model-table.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/index.js → ./glyph-atlas.js": "the card gallery page only (?gallery on the preview copy): read in when its bench is opened from the page's rail; the live app never loads the gallery",
+    "src/ui/gallery/benches/glyph-atlas.js → ../../glyph-data.js": "the card gallery page only (?gallery on the preview copy): read in when its bench opens, on a tap in the debug page; the live app never loads the gallery",
+    "src/ui/gallery/benches/memory-loop.js → ../../report.js": "the card gallery page only (?gallery on the preview copy): read in when its bench opens, on a tap in the debug page; the live app never loads the gallery"
   }
 }
