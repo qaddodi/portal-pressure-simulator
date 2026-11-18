@@ -294,18 +294,18 @@ export const EDGE_PATH = {
 // curved", "connect in different locations proximally and distally", recruitment = how many vessels and how wide). In the frame of the trunk's drawn course (cavernoma-strand.js): `v` the
 // offset from its centreline (+ the patient's right, - the hepatic artery's side), `amp`/`cyc`/`ph` the wave about it (amplitude, cycles along the channel, phase; neighbours take opposite
 // phases so a pair draws together and parts, a braid, and none crosses another), `a` and `z` where it leaves the trunk, units above the confluence, and where it rejoins it, units
-// below the hilum (each its own, so the joins are spread along both stumps: on each side the farther channel leaves and rejoins the trunk nearer its node than the one inside it, so they nest and never cross; the strands' ends are kept out of the node's own join, vein-joins.js, and lie on the trunk's course), `ramp` the units over which it rises to its offset and falls back (a farther one over more, so its elbows are as gentle), `k` its caliber as a share of the main channel's, `r0` the recruitment it begins to appear at (it grows in, whole and joined
+// below the hilum (each its own, so the joins are spread along both stumps: on each side the farther channel leaves and rejoins the trunk nearer its node than the one inside it, so they nest and never cross; the strands' ends are kept out of the node's own join, vein-joins.js, and lie on the trunk's course; every end lies on the patent vein beyond the clot, which spans 0.18 to 0.82 of the trunk at full occlusion (clotSpan), so no end is nearer its node than 9 or farther than 24.6, and tests/cavernoma-plexus.test.js keeps them 2.2 apart), `ramp` the units over which it rises to its offset and falls back (a farther one over more, so its elbows are as gentle), `k` its caliber as a share of the main channel's, `r0` the recruitment it begins to appear at (it grows in, whole and joined
 // at both ends, over CAV_GROW of the recruitment: first the main channel, then the lane beside the artery, then the rest).
 // The channels on the artery's side beyond the artery (v < -12) cross it where they leave and rejoin the trunk; the fine one nearest the trunk stays in the lane between the clot and the artery.
 export const CAV_GROW = 0.28;
 export const CAV_CHANNELS = {
   C8: [
-    { v: -6.5, amp: 0, cyc: 0, ph: 0, a: 20.2, z: 24.5, k: 0.5, r0: 0.04, ramp: 17 },
-    { v: 21, amp: 3.2, cyc: 1.9, ph: 0, a: 18.5, z: 20, k: 0.78, r0: 0.1, ramp: 26 },
-    { v: -22, amp: 3, cyc: 1.7, ph: Math.PI, a: 16.7, z: 18.5, k: 0.68, r0: 0.22, ramp: 27 },
-    { v: 31, amp: 3.2, cyc: 1.9, ph: Math.PI, a: 15, z: 16.5, k: 0.66, r0: 0.35, ramp: 33 },
-    { v: -31.5, amp: 3, cyc: 1.7, ph: 0, a: 13.2, z: 14.5, k: 0.57, r0: 0.52, ramp: 33 },
-    { v: 41, amp: 3, cyc: 1.9, ph: 0, a: 11.5, z: 13, k: 0.57, r0: 0.6, ramp: 40 },
+    { v: -6.5, amp: 0, cyc: 0, ph: 0, a: 24.4, z: 24.4, k: 0.5, r0: 0.04, ramp: 17 },
+    { v: 21, amp: 3.2, cyc: 1.9, ph: 0, a: 19.4, z: 17, k: 0.78, r0: 0.1, ramp: 26 },
+    { v: -22, amp: 3, cyc: 1.7, ph: Math.PI, a: 16.8, z: 19.6, k: 0.68, r0: 0.22, ramp: 27 },
+    { v: 31, amp: 3.2, cyc: 1.9, ph: Math.PI, a: 14.2, z: 12.2, k: 0.66, r0: 0.35, ramp: 33 },
+    { v: -31.5, amp: 3, cyc: 1.7, ph: 0, a: 11.6, z: 14.4, k: 0.57, r0: 0.52, ramp: 33 },
+    { v: 41, amp: 3, cyc: 1.9, ph: 0, a: 9, z: 9, k: 0.57, r0: 0.6, ramp: 40 },
   ],
 };
 // Collateral plexuses: a collateral is rarely one clean vein. The periportal collateral of a

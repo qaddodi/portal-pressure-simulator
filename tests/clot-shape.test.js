@@ -66,3 +66,14 @@ test('the clot is soft layers of one red that fade at the edges, with a hairline
   for (const t of ['--thrombus', '--thrombus-edge']) assert.ok(tokens.includes(`${t}:`), t);
   assert.ok(!/--thrombus-(rim|sheen|speck|channel)/.test(css + tokens), 'old cartoon tokens are gone');
 });
+
+import { clotStretch } from '../src/ui/clot-shape.js';
+test('a vein cut in pieces has one clot over its whole length: the stretch is a share of the vein, not of the piece that carries its name', () => {
+  const line = (x0, x1, n) => Array.from({ length: n }, (_, i) => [x0 + ((x1 - x0) * i) / (n - 1), 0]), lit = (P) => P.map(() => [0, 1, 0]);
+  const a = line(0, 40, 41), b = line(40, 100, 61);   // (two pieces sharing their joint at 40: a vein 100 long)
+  const c = clotStretch([{ pts: a, lit: lit(a) }, { pts: b, lit: lit(b) }], 1);
+  assert.equal(c.L, 100);
+  assert.ok(Math.abs(c.pts[0][0] - 18) <= 1 && Math.abs(c.pts.at(-1)[0] - 82) <= 1, `the clot runs from ${c.pts[0][0]} to ${c.pts.at(-1)[0]}, 0.18 to 0.82 of the vein`);
+  assert.equal(c.pts.length, c.lit.length);
+  assert.ok(c.pts.some((p) => p[0] < 40) && c.pts.some((p) => p[0] > 40), 'it crosses the joint');
+});

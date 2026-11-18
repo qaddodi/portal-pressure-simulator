@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CAV_CHANNELS, CAV_GROW, EDGE_PATH, END_HOSTS, JOIN_REFUSED, NODE_POS, STRANDS, STRAND_PLATEAU, STRAND_WAVE, WIG_CAP } from '../src/ui/anatomy.js';
+import { clotStretch } from '../src/ui/clot-shape.js';
 import { CAV_MAIN_FROM, cavGrow, cavOffset, cavStrand, frameAt, trunkFrame } from '../src/ui/cavernoma-strand.js';
 // (stage-paths.js reaches the page's helpers, which look for the browser's globals when they load.)
 globalThis.ResizeObserver ??= class { observe() {} };
@@ -83,19 +84,19 @@ test('the channels grow in one after another, on alternate sides: the main chann
   assert.ok(defs.every((c) => c.k > 0 && c.k <= 1), 'a channel is never wider than the main one');
 });
 
-test('every channel is one whole vessel, on the trunk\'s centreline at both ends, each end at its own place on the stump, and none within 10 of the confluence or the hilum nodes', () => {
+test('every channel is one whole vessel, on the trunk\'s centreline at both ends, each end at its own place on the stump, and none within 8 of the confluence or the hilum nodes', () => {
   const ends = [];
   for (const [k, S] of channels.entries()) for (const [i, name] of [[0, 'CONF'], [N - 1, 'PVH']]) {
     const p = S[i];
     assert.ok(Math.abs(side(p)) < 0.6, `channel ${k} ends ${side(p).toFixed(2)} off the trunk's centreline`);
-    assert.ok(Math.hypot(p[0] - NODE_POS[name][0][0], p[1] - NODE_POS[name][0][1]) > 10, `channel ${k} ends within 10 of ${name}`);
+    assert.ok(Math.hypot(p[0] - NODE_POS[name][0][0], p[1] - NODE_POS[name][0][1]) > 8, `channel ${k} ends within 8 of ${name}`);
     ends.push({ k, name, u: name === 'CONF' ? arcAt(p) : F.L - arcAt(p) });
   }
-  // (Spread along each stump, 2 apart at least so no two ends are one blob, and over 10 units or more: "connected at different places proximally and distally".)
+  // (Spread along each stump, 2.2 apart at least so no two ends are one blob, and over 14 units or more: "connected at different places proximally and distally".)
   for (const name of ['CONF', 'PVH']) {
     const us = ends.filter((e) => e.name === name).map((e) => e.u).sort((a, b) => a - b);
-    assert.ok(us.at(-1) - us[0] >= 10, `the ends at ${name} lie within ${(us.at(-1) - us[0]).toFixed(1)} of each other (spread them)`);
-    for (let i = 1; i < us.length; i++) assert.ok(us[i] - us[i - 1] >= 1.4, `two ends at ${name} lie ${(us[i] - us[i - 1]).toFixed(1)} apart`);
+    assert.ok(us.at(-1) - us[0] >= 14, `the ends at ${name} lie within ${(us.at(-1) - us[0]).toFixed(1)} of each other (spread them)`);
+    for (let i = 1; i < us.length; i++) assert.ok(us[i] - us[i - 1] >= 2.2, `two ends at ${name} lie ${(us[i] - us[i - 1]).toFixed(1)} apart`);
   }
   // (They nest: on each side the farther channel leaves the trunk, and rejoins it, nearer its node than the one inside it, so none crosses another.)
   for (const sgn of [1, -1]) {
@@ -176,4 +177,20 @@ test('a channel grows in whole with the recruitment: none before it begins, all 
   let was = 0;
   for (let r = 0; r <= 1.0001; r += 0.05) { const n = defs.filter((c) => cavGrow(r, c.r0) > 0.02).length; assert.ok(n >= was, `fewer channels at ${r.toFixed(2)}`); was = n; }
   assert.equal(was, defs.length, 'all of them at full recruitment');
+});
+
+test('every channel is anchored on the patent vein beyond the clot, never inside it, each at its own point: no two share an anchor (the stumps, and the clot over the whole trunk at every occlusion)', () => {
+  const lit = (P) => P.map(() => [0, 0, 0]);
+  const anchors = [];
+  for (const [k, S] of channels.entries()) anchors.push({ k, end: 'CONF', u: arcAt(S[0]) }, { k, end: 'PVH', u: arcAt(S[N - 1]) });
+  for (const v of [0.3, 0.6, 1]) {
+    const c = clotStretch(pv.map((pts) => ({ pts, lit: lit(pts) })), v);
+    assert.ok(Math.abs(c.L - F.L) < 0.5, 'the clot is laid over the whole trunk, both pieces');
+    for (const a of anchors) assert.ok(a.u < c.from - 2 || a.u > c.to + 2, `channel ${a.k}'s ${a.end} anchor (${a.u.toFixed(1)}) lies in the clot (${c.from.toFixed(1)} to ${c.to.toFixed(1)}) at occlusion ${v}`);
+  }
+  for (const end of ['CONF', 'PVH']) {
+    const us = anchors.filter((a) => a.end === end).map((a) => a.u).sort((a, b) => a - b);
+    assert.equal(us.length, channels.length);
+    for (let i = 1; i < us.length; i++) assert.ok(us[i] - us[i - 1] >= 2, `two channels share the ${end} anchor (${us[i - 1].toFixed(1)}, ${us[i].toFixed(1)})`);
+  }
 });
