@@ -189,17 +189,17 @@ export function createCard({ view, stage, ctx, onWhy }) {
   // The card opens when its widgets are up (18 Nov 2026, Mohammad, the iPhone: "half-rendered: a default background, sliders not in their final render, then it switches to the real look"). Built hidden (ac-prep: its box is laid
   // out, so its pictures are drawn), then its plate, glass, paper and words all begin together, in the same frame, on the final render. At most PREP_MAX_MS; widget-ready.js says when waiting is pointless.
   const PREP_MAX_MS = 250;   // motion-scale: not a move (the longest a card waits for its widgets before it opens)
-  let prepOn = false, prepT = 0, prepAt = 0;
+  let prepOn = false, prepT = 0, prepAt = 0, prepFilled = false;
   function prepEnd() { prepOn = false; clearTimeout(prepT); el.classList.remove('ac-prep'); }
   function prepBegin() {
-    prepOn = true; prepAt = performance.now(); el.classList.add('ac-prep');
+    prepOn = true; prepFilled = false; prepAt = performance.now(); el.classList.add('ac-prep');
     let framesSeen = 0, warmed = false;
     // (Two frames of the page's own: its observers have reported and every fit that follows a width (the stent picture's height, tips-figure.js) has landed before the card is shown, so nothing in it changes size after it appears.)
     nextFrame(() => nextFrame(() => { framesSeen = 2; }));
     const poll = () => {
       if (!prepOn) return;
       if (!warmed && !el.hidden) { warmed = true; warmSliders(el); }   // (laid out now: its sliders' pictures are made and drawn at once, not when their boxes are first seen)
-      const up = framesSeen >= 2 && !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
+      const up = framesSeen >= 2 && prepFilled && !widgetsPending(el) && document.fonts?.status !== 'loading', late = performance.now() - prepAt >= PREP_MAX_MS;
       if (!up && !late) { prepT = setTimeout(poll, 24); return; }
       if (!up) widgetState.misses++;
       prepEnd(); opening(); backIn(null); reveal();
@@ -704,7 +704,9 @@ export function createCard({ view, stage, ctx, onWhy }) {
     // Number keys trigger the verbs in order; show the number beside each.
     for (let i = 0; i < actionable.length && i < 9; i++) actionable[i].dataset.key = KEYS[i];
     position();
-    update();
+    // (A card being built has its readings put in a rest pass of its own, still before it is shown (prepBegin waits for it): the number's picture and the direction word cost 10 to 20 ms between them, and a
+    // tap's own frame is not the place for that. The tester, 390 px: 22 to 110 ms of script in the first frame after the tap.)
+    if (prepOn && !prepFilled) restPass(() => { prepFilled = true; update(); }); else update();
     if (focusedIdx >= 0 && actionable[focusedIdx] && !keepDet) focusAction(actionable[focusedIdx]);
     relayoutSoon();
     reveal();
