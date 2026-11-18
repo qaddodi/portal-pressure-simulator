@@ -2,6 +2,5 @@
 // One line per module, in this file only, so threads adding a part touch one line each. Imported by page.js, never by the live app.
 //
 import './fit-rules-panel.js';   // the Check button (shared fit rules)
-// import './benches/index.js';     // the debug benches
 import './benches/index.js';   // the debug benches (camera, slow motion, procedures, memory loop, flags, looks, words, model, glyphs)
 export {};
