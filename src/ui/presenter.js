@@ -1126,8 +1126,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // which sets off with the press, and is waited for before the cards come in. 16 Nov 2026, his Mac: Carvedilol 5 to 4 started 3 s after the
     // press. A tracing card's own catheter (beside) waits for this one to have gone, as before.)
     const cathAside = cath.on && !ct && !beside(s) && !(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)));
-    const cathGone = cathAside ? cathOut(false, cut) : null;
-    if (!cathAside && cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut); if (cut()) return; }
+    const keepAt = s.cathKeep && !ct ? to : -1, cathGone = cathAside ? cathOut(false, cut, keepAt) : null;
+    if (!cathAside && cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut, keepAt); if (cut()) return; }
     tx?.phase('to-anatomy');
     if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
@@ -1255,7 +1255,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // A way out of the lobule or sinusoid onto the plate (same patient): the cards come in first, then the camera zooms out (camera() expects them in); they used to wait for the whole 2 to 6 s way out. 16 Nov 2026 play-test, Circulation 6 to 7.
     if (bare && !!ui && !ct && !swap && !caseCard && !!cam && !LOBULE_CAM.test(cam) && (store.get().lobule || store.get().sinusoid)) { stage.lobuleHold?.(true); await unseen(cut); if (cut()) return; if (!await ui.tools.ready(900)) degrade('window'); await caseEnd(cut); if (cut()) return; const at = { i: to, gen: g }; bare = false; cardsIn(at); tx?.phase('cards-in'); await waitCut(60, cut); await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     tx?.phase('cath-in');
-    if (ct) await cathTo(ct, st.fp, cut, cathInstant(to, lastAt));
+    if (ct) await cathTo(ct, st.fp, cut, cathInstant(to, lastAt), lastAt);
     else if (lead) await lead;
     else if (cam) { if (prepWith) { prep ||= unseenFit(cut); if (!await prep) return; } await camera(cam, fv, cut, plate ? CARDS_AT : 0); }
     insetsGo();   // (no glide set off after all, a lobule's or a held one: the room is written now)

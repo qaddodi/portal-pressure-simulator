@@ -72,7 +72,7 @@ export function createProc(st, live) {
   // the jugular route with the camera following, the tip close up, the balloon up and the still column, the
   // readings; each step eases on from wherever the last one left it, and it slides out with its slides.
   const CC = { free: 'var(--mon-free)', wedge: 'var(--mon-wedge)', bad: 'var(--mon-alarm)' };   // the procedure's own colours
-  const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false };
+  const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false, hold: false };
   // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
   // column of still blood, not as one more pressure on the map.
   // (Read through the token cache, which a theme change clears: read afresh, it made every catheter frame restyle the page.)
@@ -130,13 +130,13 @@ export function createProc(st, live) {
     stage.setCatheter(st);   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     live.mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
     live.ui?.tools.balloon(v.balloon);   // (and the data card's tracing, on a slide whose tool follows the catheter)
-    live.ui?.tools.reach(v.u >= 0.999 && cath.show.length > 0);   // (which starts only once the tip is parked in the vein: Mohammad, 12 Nov 2026)
+    live.ui?.tools.reach(v.u >= 0.999 && cath.show.length > 0 && !cath.hold);   // (hold: the catheter is back in place and the subtraction has not begun: the monitor waits for it)   // (which starts only once the tip is parked in the vein: Mohammad, 12 Nov 2026)
     cath.raf = nextFrame(cathFrame);
   }
   function cathStop() {
     cancelFrame(cath.raf);
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
-    Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false });
+    Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false, hold: false });
   }
   // (procParked: the run standing at its last stop since Back landed on the slide done, proc-anim.js park: it only shows the scope where the play-through left it and fades it when the slide moves on;
   // it is not a run to step through, so Back from it leaves the slide as it did before, and a swipe back turns the slide.)

@@ -39,8 +39,13 @@ export function createLapse(st, live) {
         list ? h('span', { class: 'pz-proc-line' }, ` ${st0[8]}`) : null)]).filter(Boolean));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
-  async function cathOut(fading, cut) {
+  // (keepAt: the index of a slide whose own words keep the catheter (cathKeep: the sinusoid dive between the wedge and the HVPG): it goes out under the dive as always, but the step
+  // it had reached is remembered, so the slide after it brings it back in place, balloon up, and not down the whole route again. Mohammad, 18 Nov 2026, HVPG slide 6: "the whole
+  // animation of the catheter replays, instead of the catheter being in place still".)
+  let parked = null, lastMode = '';
+  async function cathOut(fading, cut, keepAt = -1) {
     if (!cath.on) return;
+    parked = keepAt >= 0 && !cath.beside && (lastMode === 'wedge' || lastMode === 'result') ? { at: keepAt, mode: lastMode } : null;
     cath.beside = false;   // (the tracing no longer sets the balloon: it goes down with the catheter)
     if (!fading) {
       cath.show = []; cath.ring = null; cath.follow = false; cath.probeT0 = 0;
@@ -69,11 +74,32 @@ export function createLapse(st, live) {
   }
   // (What the tools hand a tracing card of a slide that has the catheter beside it: the card's balloon moves the figure's, and a card stood up starts the catheter.)
   const besideHook = { move: (v) => { if (cath.beside) cathBeside(v); }, start: (v) => { if (cath.beside || !cath.on) cathBeside(v); } };
-  async function cathTo(mode, fp, cut, instant = false) {
+  async function cathTo(mode, fp, cut, instant = false, from = -1) {
+    // (The catheter this slide's predecessor parked (cathOut keepAt): taken once, only by the slide that follows it, and only for a step that has the balloon up.)
+    const back = parked; parked = null;
+    const resume = !instant && !!back && back.at === from && (mode === 'wedge' || mode === 'result');
+    lastMode = mode;
     await toAnatomy(null, cut);
     if (store.get().view !== 'anatomic') { setViewKey('anatomy'); await viewSettled(cut, stage); }
     if (cut()) return;
     cath.beside = false; cath.keep = false;   // (a catheter kept from a tracing card's slide is this slide's own now)
+    if (resume) {
+      // The way back out of the lobule: the view is on the figure again, the catheter fades in where it was, balloon up and the still column filled, its two readings on;
+      // the camera glides to the tip, and only then, on the HVPG slide, the readings go into the subtraction (the monitor's tracing goes on to its result at the same moment).
+      const ms = (m) => (reduce.matches ? 0 : m);
+      cath.tr = {}; Object.assign(cath.v, { u: 1, balloon: 1, column: 1, opacity: cath.on ? cath.v.opacity : 0 });
+      cath.show = ['f', 'w']; cath.ring = CC.wedge; cath.follow = false; cath.fp = fp; cath.hold = mode === 'result';
+      if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = false; cathFrame(); }
+      if (cath.v.opacity < 1) cathTrack('opacity', 1, 650);
+      const at = ms(1500);
+      stage.cathFocus('tip', at, { both: true }); cath.cam = 'tip';
+      await waitCut(at, cut); if (cut()) return;
+      if (mode === 'result') {
+        await waitCut(ms(700), cut); if (cut()) return;
+        cath.hold = false; cath.show = ['sum']; cath.ring = null;
+      }
+      return;
+    }
     // (Not arrived at by Next: it stands where the journey would leave it, fading in where it was gone, and the camera makes the one glide, cath-arrival.js.)
     if (instant) {
       const end = CATH_END[mode] || CATH_END.route, was = cath.on && cath.v.opacity > 0.5;
