@@ -49,6 +49,11 @@ test('a pick of a card of another shape while one is open is the old words fadin
   assert.equal(ghost, first, 'the old words stay, as a ghost, until they have faded');
   assert.ok(made.some((a) => a.el === ghost), 'the ghost fades');
   assert.ok(made.some((a) => a.el === card.el.querySelector(':scope > .ac-body')), 'the new words fade in');
+  // (The words cross one for one: out and in on one clock, so the two opacities always make 1; the tester, 17 Nov 2026: the words dipped to half for 100 ms on every pick.)
+  const out = made.find((a) => a.el === ghost), inn = made.find((a) => a.el === card.el.querySelector(':scope > .ac-body'));
+  assert.equal(out.o.duration, inn.o.duration, 'the same length');
+  assert.ok(!inn.o.delay, 'the new words start with the old ones go');
+  assert.equal(out.o.easing, 'linear'); assert.equal(inn.o.easing, 'linear');
   assert.equal(ghost.style.bottom, 'auto', 'the ghost keeps its own height rather than filling the new box');
   assert.equal(ghost.style.height, `${BODY}px`);
 });
