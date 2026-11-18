@@ -196,7 +196,7 @@ export default {
       h('div', { class: 'gb-row' }, picker, h('button', { type: 'button', onclick: () => { draw(); say.set('Read again.', 'ok'); } }, 'Read live again'), h('button', { type: 'button', onclick: () => load(selected) }, 'Load this patient')),
       summary, detailNote,
       h('table', null, h('thead', null, h('tr', null, ['Number', 'Unit', 'Snapshot', 'Live', 'Difference', 'Allowed', 'Drift'].map((c) => h('th', null, c)))), detailBody),
-      h('div', { class: 'gb-row' }, copyButton('Copy as text', () => lastText, (m, t) => say.set(m, t), ctx)),
+      h('div', { class: 'gb-row' }, copyButton('Copy table', () => lastText, (m, t) => say.set(m, t), ctx)),
     );
     draw();
     return () => { gone = true; clear(); };

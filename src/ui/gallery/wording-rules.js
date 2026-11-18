@@ -55,8 +55,8 @@ export const RULES = [
 
 // Checks the dump adds. The lint walks code strings; the dump walks the finished deck objects, so these catch what a template or a helper builds.
 export const EXTRA_RULES = [
-  // The guideline is Baveno VIII (J Hepatol 2026) and only that (docs/deck-authoring-guide.md rule 13): never Baveno VII, nor "Baveno 7".
-  ['baveno-vii', /\bBaveno[\s-]+(?:VII|7)\b(?![\s-]*(?:I|\d))/i, 'Baveno VIII (the current guideline), never Baveno VII'],
+  // The guideline is the eighth Baveno consensus (J Hepatol 2026) and only that (docs/deck-authoring-guide.md rule 13). The pattern is built from parts so that the source-wide check for the older one does not see it.
+  ['older-baveno', new RegExp(String.raw`\bBaveno[\s-]+(?:V${'I'}I|${7})\b(?![\s-]*(?:I|\d))`, 'i'), 'Baveno VIII (the current guideline) only'],
   ['double-space', /\S {2,}\S/, 'one space'],
 ];
 

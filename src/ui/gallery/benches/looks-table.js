@@ -226,7 +226,7 @@ export default {
     host.append(wear, say, warnBox,
       h('h3', null, 'Colour tokens'), h('div', { class: 'gb-row' }, q, h('label', null, onlyDiff, ' only differing'), h('label', null, onlyCol, ' only colours')), tokNote, tokTable,
       h('h3', null, 'Chart looks'), h('div', { class: 'gb-row' }, chartHost, chartGroup, chartQ, h('label', null, chartDiff, ' only differing')), chartNote, chartTable,
-      h('div', { class: 'gb-row' }, copyButton('Copy as text', copyAll, (m, t) => say.set(m, t), ctx)));
+      h('div', { class: 'gb-row' }, copyButton('Copy table', copyAll, (m, t) => say.set(m, t), ctx)));
     return () => { charts = null; };   // (no timers and no listeners outside the host's own controls; the page removes the host)
   },
 };

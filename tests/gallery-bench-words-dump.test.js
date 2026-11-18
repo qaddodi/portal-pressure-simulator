@@ -64,7 +64,7 @@ test('wordingFlags finds Baveno VII, American spelling and double spaces, and le
   const r = [mk('Baveno VII says so'), mk('Baveno VIII says so'), mk('Baveno 7 says'), mk('Her oedema and haemorrhage'), mk('Two  spaces'), mk('Plain text.'), mk('MAP less the IAP')];
   const f = wordingFlags(r);
   assert.deepEqual(f.map((x) => x.text), ['Baveno VII says so', 'Baveno 7 says', 'Her oedema and haemorrhage', 'Two  spaces', 'MAP less the IAP']);
-  assert.equal(f[0].flags[0].rule, 'baveno-vii');
+  assert.equal(f[0].flags[0].rule, 'older-baveno');
   assert.ok(f[2].flags.some((x) => x.rule === 'british'));
   assert.deepEqual(checkWording('paracentesis, ascitic fluid, and the portal vein'), []);
 });
