@@ -8,6 +8,7 @@
 import { readBox, readRects, readStyle, readMetric, readCTM } from '../layout-snap.js';
 import { buildScreen, stableReport } from './build.js';
 import { screenText } from './text.js';
+import './chart-deps.js';   // (arms the charts part: the painter's functions and the page's formatters, which need the page's globals)
 
 export { buildScreen, stableReport, screenText };
 /** The app's layout reads: layout-snap.js's, so the off-GPU layout-read allowance is untouched. */

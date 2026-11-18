@@ -283,8 +283,8 @@ export function rich(t, s = {}, fp = null, tips = false, cuts = null) {
   const flush = (to) => { for (; cuts && ci < cuts.length && cuts[ci] <= to; ci++) out.push(CL_CUT); };
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
-  const pill = (v, stop, cls = '', tone = null, rate = null) => { glue();
-    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, 'data-rate': PILL_TONE[rate] ? rate : null, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  const pill = (v, stop, cls = '', tone = null, rate = null, k = null) => { glue();
+    pills++; return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, 'data-rate': PILL_TONE[rate] ? rate : null, 'data-k': k, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
   // A figure's numbered marker ({#2}, the glow step of that number, V10) in the words: the figure's own black circle and light
   // numeral, sized to the line (styles/app.css .pz-step). It keeps the word before it and the stop after it on its line.
   const stepMark = (n, stop) => { glue(); return h('span', { class: stop ? 'pz-nw pz-stop' : 'pz-nw' }, h('span', { class: 'pz-step', role: 'img', 'aria-label': `Step ${n}` }, String(n)), stop || ''); };
@@ -302,8 +302,8 @@ export function rich(t, s = {}, fp = null, tips = false, cuts = null) {
     else if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
     else if (mk && /^#\d+$/.test(mk)) out.push(stepMark(+mk.slice(1), mkStop));
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips)));
-    else if (mk && wholeRe.test(mk) && TILE[mk.match(wholeRe)[1]]) { const k = mk.match(wholeRe)[1]; out.push(pill(liveVal(k, s, fp, true), mkStop, '', valTone(k, fp, tips), pillRate(k, fp, tips))); }
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp, tips), pillRate(mk, fp, tips), mk));
+    else if (mk && wholeRe.test(mk) && TILE[mk.match(wholeRe)[1]]) { const k = mk.match(wholeRe)[1]; out.push(pill(liveVal(k, s, fp, true), mkStop, '', valTone(k, fp, tips), pillRate(k, fp, tips), k)); }
     else if (mk && atRe.test(mk) && TILE[mk.match(atRe)[1]]) { const [, k, id] = mk.match(atRe), f = fpAt(id); out.push(pill(liveVal(k, s, f), mkStop, '', valTone(k, f), pillRate(k, f))); }
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(cutText(mk), mkStop, ' cut'));   // (a cut-off keeps its sign, "≥10 mmHg": a comparison is a symbol, never "at or above", Mohammad 26 Oct)
     else if (mk) out.push(pill(mk, mkStop, ' cut'));   // (a number typed in braces, {6 to 8 g}: a rule, outlined; only a live value is the patient)
