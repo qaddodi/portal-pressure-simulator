@@ -53,7 +53,7 @@ test('a result is compared with its baseline: boxes, words, problems, and a spec
 });
 
 test('a run is diffed with the baseline over what it covered only', () => {
-  const baseline = { results: { 'a/x@mac': res(), 'a/x@iphone': res(), 'b/y@mac': res(), 'gone/z@mac': res() } };
+  const baseline = { results: { 'a/x@mac': res(), 'a/x@iphone': res(), 'b/y@mac': res(), 'gone/z@mac': res(), 'b/y#lifted@mac': res() } };
   const report = { devices: ['mac'], catalogIds: ['a/x', 'b/y', 'c/new'], results: { 'a/x@mac': res({ boxes: { '.pz-data': [0, 0, 300, 260] } }), 'c/new@mac': res() } };
   const d = diffReports(baseline, report);
   assert.deepEqual(d.added, ['c/new@mac']);

@@ -3,8 +3,8 @@
 // device calls it with layout-snap.js's reads and scripts/fit-io.mjs sends `fn.toString()` into headless Chromium with plain DOM reads.
 // io = { box(el), rects(el), style(el), metric(el, key), ctm(el) }. No DOM import at top level: a unit test loads this in node.
 
-/** The roots the readers look in: the presenter's three cards, an open structure card, the Tests card, a toast. */
-export const WORD_ROOTS = ['.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
+/** The roots the readers look in: a case or question card held in front of the slide, the presenter's three cards, an open structure card, the Tests card, a toast. */
+export const WORD_ROOTS = ['.pz-case', '.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
 
 /**
  * The words on the screen, per card. Only elements that would show (nothing hidden, faded out or parked), text kept whole (an element with words of its own, or with no
@@ -14,7 +14,7 @@ export const WORD_ROOTS = ['.pz-text', '.pz-data', '.pz-panel', '.action-card', 
  * Returns { vw, vh, cards: { '<selector>': ['words', ...] } }; a root that is not up is left out.
  */
 export function readWords(io, env) {
-  const roots = (env && env.roots) || ['.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
+  const roots = (env && env.roots) || ['.pz-case', '.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
   const vw = io.metric(window, 'innerWidth'), vh = io.metric(window, 'innerHeight');
   const memo = new Map();
   const st = (el) => { let s = memo.get(el); if (!s) { s = io.style(el); memo.set(el, s); } return s; };
@@ -50,7 +50,7 @@ export function readWords(io, env) {
  * Returns { vw, vh, boxes: { '<selector>': [left, top, right, bottom] } }; a card that is not up (absent, hidden, no size) is left out.
  */
 export function readBoxes(io, env) {
-  const roots = (env && env.roots) || ['.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
+  const roots = (env && env.roots) || ['.pz-case', '.pz-text', '.pz-data', '.pz-panel', '.action-card', '#dock', '.toast'];
   const vw = io.metric(window, 'innerWidth'), vh = io.metric(window, 'innerHeight');
   const r2 = (v) => Math.round(v / 2) * 2;
   const boxes = {};

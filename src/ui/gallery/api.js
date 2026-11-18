@@ -52,9 +52,11 @@ export function parseSweepAddress(search, lookIds = ['light', 'soft', 'dark', 'n
  */
 export function probeBusy(pps, doc = document, anims = () => []) {
   try {
-    if (pps?.presenter?.busy?.()) return true;
+    // (A case or question card holds the talk until a tap lifts it: the presenter is busy by design while it stands, and the card standing whole is the landing.)
+    const held = !!doc.querySelector('.pz-case.on');   // (the slide's own cards are fitted unseen behind it, pz-prep: also the card standing, not motion)
+    if (pps?.presenter?.busy?.() && !held) return true;
     if (pps?.stage?.viewChanging?.() || pps?.stage?.gliding?.()) return true;
-    if (doc.querySelector('.pz-load.on, .pz-cover, .pz.pz-prep, .pz-text[aria-busy="true"], .pz-data[aria-busy="true"], .action-card.ac-prep')) return true;
+    if (doc.querySelector(held ? '.pz-load.on, .pz-cover, .action-card.ac-prep' : '.pz-load.on, .pz-cover, .pz.pz-prep, .pz-text[aria-busy="true"], .pz-data[aria-busy="true"], .action-card.ac-prep')) return true;
     if (doc.fonts && doc.fonts.status === 'loading') return true;
     const running = anims(doc)?.some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getTiming?.().iterations) && !a.effect?.target?.closest?.('[data-gallery]'));
     if (running) return true;

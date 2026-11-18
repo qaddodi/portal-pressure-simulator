@@ -156,6 +156,10 @@ test('probeBusy asks the presenter, the camera, the cards and the animations; er
   doc.querySelector('.pz').classList.remove('pz-prep');
   doc.body.insertAdjacentHTML('beforeend', '<section class="pz-data" aria-busy="true"></section>');
   assert.equal(probeBusy({}, doc), true);
+  // (A case card up holds the presenter busy until it is tapped: that is the card standing, not motion to wait for.)
+  const held = new JSDOM('<!doctype html><body><div class="pz pz-prep"></div><section class="pz-case on"></section></body>').window.document;
+  assert.equal(probeBusy({ presenter: { busy: () => true } }, held), false, 'a case card held for a tap is landed');
+  assert.equal(probeBusy({ presenter: { busy: () => true }, stage: { gliding: () => true } }, held), true, 'but the camera still gliding is not');
   const fin = { playState: 'running', effect: { getTiming: () => ({ iterations: 1 }), target: null } }, loop = { playState: 'running', effect: { getTiming: () => ({ iterations: Infinity }), target: null } };
   const calm = new JSDOM('<!doctype html><body></body>').window.document;
   assert.equal(probeBusy({}, calm, () => [loop]), false, 'a loop that never ends is not motion to wait for');

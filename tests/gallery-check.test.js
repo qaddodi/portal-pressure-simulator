@@ -30,7 +30,7 @@ const set = (html) => { document.body.innerHTML = html; };
 test('Check names the element each problem is about, for the slide and for the open structure card', () => {
   set(`<div id="app"><div class="pz"><section class="pz-text" data-box="10,40,380,300"><h1 class="pz-h" style="font-size:20px" data-box="20,50,300,80">Title</h1><p class="pz-line" style="font-size:18px" data-box="20,90,300,120">Words</p></section>
     <section class="pz-data" data-box="10,320,380,800"><span class="lab" style="font-size:10px" data-box="20,330,120,350">tiny label</span></section></div>
-    <section class="action-card ac-scroll" data-box="10,500,380,800"><div class="ac-body" style="overflow-y:hidden">words</div></section></div>`);
+    <section class="action-card docked ac-scroll" data-box="10,500,380,800"><div class="ac-body" style="overflow-y:hidden">words</div></section></div>`);
   const card = document.querySelector('.action-card');
   const r = runCheck({ io: IO, pps: { card: { el: card }, presenter: { busy: () => true } } });
   assert.equal(r.busy, true);

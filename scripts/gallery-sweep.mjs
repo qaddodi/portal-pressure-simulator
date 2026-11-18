@@ -28,7 +28,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { CHROMIUM_ARGS, openApp } from './shoot.mjs';
 import { serve } from './serve.mjs';
-import { CATALOG, LOOK_IDS } from '../src/ui/gallery/catalog.js';
+import { CATALOG, LOOK_IDS, sid } from '../src/ui/gallery/catalog.js';
+import { galleryDeck } from '../src/ui/gallery/deck.js';
 import { SIZES, unitsFor, keyOf, normBoxes, normWords, normProblems, diffReports, newTrouble, summaryText, makeBaseline, pickIds } from './gallery-sweep-lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -58,27 +59,36 @@ const STUB = `(() => { for (const C of [window.WebGL2RenderingContext]) { if (!C
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const withTimeout = (p, ms, what) => { let t; return Promise.race([p, new Promise((_, no) => { t = setTimeout(() => no(new Error(`${what} took more than ${Math.round(ms / 1000)} s`)), ms); })]).finally(() => clearTimeout(t)); };
 
-/** Runs in the page: opens one specimen and reads it until two reads agree (a card still gliding reads differently 250 ms later). */
-async function probeInPage({ id, look, timeoutMs, extraLooks }) {
-  const g = window.pps.gallery, nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
-  const opened = await g.open(id, { look, timeoutMs });
-  const read = () => ({ boxes: g.boxes(), words: g.words(), check: g.check() });
-  const same = (a, b) => JSON.stringify(a.boxes?.boxes ?? a.boxes) === JSON.stringify(b.boxes?.boxes ?? b.boxes);
-  let a = read(), stable = false;
+/**
+ * Opens one specimen and reads it until two reads agree (a card still gliding reads differently 250 ms later). The waits are real time, here in node: the page's own
+ * timers run on the test clock (`--rate` times as fast), and the page's timeoutMs is in its time, so it is given the real limit times the rate.
+ */
+async function probe(page, { id, look, extraLooks }) {
+  const pageTimeout = TIMEOUT_MS * RATE;
+  const read = () => page.evaluate(() => { const g = window.pps.gallery; return { boxes: g.boxes(), words: g.words(), check: g.check() }; });
+  const opened = await page.evaluate(({ id, look, t }) => window.pps.gallery.open(id, { look, timeoutMs: t }), { id, look, t: pageTimeout });
+  let a = await read(), stable = false;
   for (let k = 0; k < 6; k++) {
-    await nap(250);
-    const b = read();
-    if (same(a, b)) { stable = true; a = { ...b, check: { ...b.check, problems: (b.check?.problems || []).filter((p) => (a.check?.problems || []).some((q) => q.kind === p.kind && q.text === p.text)) } }; break; }
+    await sleep(250);
+    const b = await read();
+    if (JSON.stringify(a.boxes?.boxes) === JSON.stringify(b.boxes?.boxes)) { stable = true; a = { ...b, check: { ...b.check, problems: (b.check?.problems || []).filter((p) => (a.check?.problems || []).some((q) => q.kind === p.kind && q.text === p.text)) } }; break; }
     a = b;
+  }
+  // (A case or question card holds the talk in front of the slide until it is tapped: what was read is that card standing. Lifted, the slide's own cards come in and are read too.)
+  let lifted = null;
+  if (opened.ok !== false && await page.evaluate(() => { const c = document.querySelector('.pz-case.on'); if (c) c.click(); return !!c; })) {
+    const s = await page.evaluate((t) => window.pps.gallery.settled({ timeoutMs: t }), pageTimeout);
+    await sleep(400);
+    lifted = { settled: s.settled, ...(await read()) };
   }
   const looks = {};
   for (const l of extraLooks) {
-    window.pps.lookNow?.(l);
-    await nap(200);
-    looks[l] = g.boxes();
+    await page.evaluate((l) => window.pps.lookNow?.(l), l);
+    await sleep(250);
+    looks[l] = await page.evaluate(() => window.pps.gallery.boxes());
   }
-  if (extraLooks.length) { window.pps.lookNow?.(look); }
-  return { opened, stable, boxes: a.boxes, words: a.words, check: a.check, looks };
+  if (extraLooks.length) await page.evaluate((l) => window.pps.lookNow?.(l), look);
+  return { opened, stable, boxes: a.boxes, words: a.words, check: a.check, looks, lifted };
 }
 
 /** A box map's differences between two looks, in words (a look changes colour, not layout). */
@@ -97,7 +107,10 @@ const browser = await chromium.launch({ args: CHROMIUM_ARGS, ...(EXE ? { executa
 const T0 = Date.now();
 
 const catalog = CATALOG.map(({ id, family, section, kind }) => ({ id, family, section, kind }));
-const IDS = pickIds(catalog, { family: list('family'), section: list('section'), kind: list('kind'), ids: list('ids'), shard: [SHARD_I, SHARD_N] });
+// In the gallery deck's own order, then the rest: a jump from one end of the deck to the other costs the presenter about 45 s (it builds every state between), a step to the next slide 2 to 4.
+const deckAt = Object.fromEntries(galleryDeck().slides.map((s, i) => [s.id, i]));
+const IDS = pickIds(catalog, { family: list('family'), section: list('section'), kind: list('kind'), ids: list('ids'), shard: [SHARD_I, SHARD_N] })
+  .map((id, i) => [id, sid(id) in deckAt ? deckAt[sid(id)] : 1e6 + i]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
 if (!IDS.length) { console.error('no specimen matches'); await browser.close(); server.close(); process.exit(2); }
 
 const results = {};
@@ -124,7 +137,7 @@ async function runUnit(unit) {
         const key = keyOf(id, device), t0 = Date.now();
         let rec;
         try {
-          const r = await withTimeout(app.page.evaluate(`(${probeInPage.toString()})(${JSON.stringify({ id, look: LOOKS[0], timeoutMs: TIMEOUT_MS, extraLooks: LOOKS.slice(1) })})`), TIMEOUT_MS + 15000, `${id} on ${device}`);
+          const r = await withTimeout(probe(app.page, { id, look: LOOKS[0], extraLooks: LOOKS.slice(1) }), TIMEOUT_MS * 2 + 30000, `${id} on ${device}`);
           const errors = app.errors.slice(seenErrors); seenErrors = app.errors.length;
           const base = normBoxes(r.boxes);
           const looks = {};
@@ -133,6 +146,7 @@ async function runUnit(unit) {
             id, device, ok: r.opened?.ok !== false, settled: r.opened?.settled !== false, ms: r.opened?.ms ?? Date.now() - t0, stable: r.stable,
             problems: normProblems(r.check), boxes: base, words: normWords(r.words),
             ...(Object.keys(looks).length ? { looks } : {}), ...(errors.length ? { errors: errors.slice(0, 3).map((e) => e.slice(0, 200)) } : {}),
+            ...(r.lifted ? { lifted: r.lifted } : {}),
             ...(r.opened?.ok === false ? { error: String(r.opened.error || 'did not open') } : {}),
           };
         } catch (e) {
@@ -142,6 +156,10 @@ async function runUnit(unit) {
           await sleep(300);
         }
         results[key] = rec;
+        if (rec.ok !== false && rec.lifted) {
+          const L = rec.lifted; delete rec.lifted;
+          results[keyOf(`${id}#lifted`, device)] = { id: `${id}#lifted`, device, ok: true, settled: L.settled !== false, stable: true, ms: 0, problems: normProblems(L.check), boxes: normBoxes(L.boxes), words: normWords(L.words) };
+        }
         n++;
         if (VERBOSE || rec.ok === false || rec.problems.length) console.log(`${unit.name} ${device} ${n}/${ids.length} ${id}: ${rec.ok === false ? `DID NOT OPEN (${rec.error})` : `${rec.problems.length} problems${rec.settled && rec.stable ? '' : ' (not settled)'}, ${Object.keys(rec.boxes).length} boxes, ${rec.ms} ms`}`);
         if (rec.ok !== false) for (const p of rec.problems) console.log(`    ${p.kind}: ${p.text}`);

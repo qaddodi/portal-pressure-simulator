@@ -6,7 +6,7 @@
 //     looks?: { navy: ['<selector> ...'] }, errors?: [string], error?: string }
 // `boxes` are the page's own rounded reads (pps.gallery.boxes(), 2 px steps), so a change of 2 px or less is the rounding, not the layout.
 
-/** The key of a result in a report and a baseline. */
+/** The key of a result in a report and a baseline. A specimen held behind a case or question card has a second result, `<id>#lifted`: the slide once the card was tapped away. */
 export const keyOf = (id, device) => `${id}@${device}`;
 export const splitKey = (key) => { const i = key.lastIndexOf('@'); return { id: key.slice(0, i), device: key.slice(i + 1) }; };
 
@@ -119,7 +119,7 @@ export function diffReports(baseline, report, opts = {}) {
     for (const c of d) changes.push({ key, id, device, ...c });
   }
   // (Gone: the specimen is no longer in the catalog and its size was swept. A specimen this run left out is not gone.)
-  for (const key of Object.keys(b).sort()) { const { id, device } = splitKey(key); if (!r[key] && report.catalogIds && !report.catalogIds.includes(id) && (!report.devices || report.devices.includes(device))) removed.push(key); }
+  for (const key of Object.keys(b).sort()) { const { id, device } = splitKey(key); if (!r[key] && report.catalogIds && !report.catalogIds.includes(id.replace(/#lifted$/, '')) && (!report.devices || report.devices.includes(device))) removed.push(key); }
   return { changes, added, removed, same };
 }
 

@@ -202,6 +202,11 @@ export function readStructureCard(io, card, env) {
   const top = kids.length ? io.metric(body, 'offsetTop') + Math.min(...kids.map((e) => io.metric(e, 'offsetTop'))) : 0;
   const bot = kids.length ? io.metric(body, 'offsetTop') + Math.max(...kids.map((e) => io.metric(e, 'offsetTop') + io.metric(e, 'offsetHeight'))) : 0;
   const max = parseFloat(st(c).maxHeight) || Infinity;
+  // (Only a phone's docked card is held to "never scrolls while its words fit": a wide screen's card keeps `overflow-y: auto` always, its scrollbar hidden (app-03-layouts.css), and while the
+  // details are open card.js sets ac-scroll by the details' own scroller (.ad-scroll), not by the face under it, so that is the one asked.)
+  const docked = c.classList.contains('docked');
+  const dscroll = c.querySelector(':scope > .ac-details > .ad-scroll');
+  const detFits = !!dscroll && io.metric(dscroll, 'scrollHeight') <= io.metric(dscroll, 'clientHeight') + 1;
   const name = (el) => `${el.tagName.toLowerCase()}.${String(el.className?.baseVal ?? el.className).split(' ').slice(0, 3).join('.')}`;
   const small = [], sideways = [], styled = [];
   const px = (el) => { let k = 1; for (let a = el; a; a = a.parentElement) k *= parseFloat(st(a).zoom) || 1; return (parseFloat(st(el).fontSize) || 0) * k; };
@@ -222,7 +227,7 @@ export function readStructureCard(io, card, env) {
   seen('card', c);
   return {
     h: H, gapTop: Math.round(top), gapBot: Math.round(H - bot), cut: Math.round(bot - H), scroll: c.classList.contains('ac-scroll'),
-    ovf: body ? st(body).overflowY : 'hidden', atMax: H >= max - 1, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled,
+    ovf: body ? st(body).overflowY : 'hidden', atMax: H >= max - 1, docked, detail: !!dscroll, detFits, small: small.slice(0, 12).map((s) => s[1]), sideways: sideways.slice(0, 12), styled,
   };
 }
 
@@ -271,7 +276,9 @@ export function judgeStructureCard(m, opts = {}) {
   const out = [];
   if (m.gapTop > BLANK_MAX || m.gapBot > BLANK_MAX) out.push(P('blank', `${m.gapTop}px above, ${m.gapBot}px below (card ${m.h}px)`));
   if (m.cut > 1) out.push(P('cut', `a line runs ${m.cut}px past the card`));
-  if (!m.atMax && (m.scroll || m.ovf !== 'hidden')) out.push(P('tall', `scrolls (ac-scroll ${m.scroll}, overflow ${m.ovf}) though it fits the space`));
+  // (`docked` and `detail` are absent from a read made before they existed: judged as a docked face then, as it always was.)
+  const tallNow = m.detail ? m.scroll && m.detFits : m.scroll || m.ovf !== 'hidden';
+  if (m.docked !== false && !m.atMax && tallNow) out.push(P('tall', `scrolls (ac-scroll ${m.scroll}, overflow ${m.ovf}) though it fits the space`));
   if (!opts.oldRules) {
     for (const t of m.small || []) out.push(P('small', t));
     for (const t of m.sideways || []) out.push(P('sideways', t));
