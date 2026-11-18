@@ -43,6 +43,7 @@ import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile, fadeShown } from './util.js';
 import { enterWhenReady } from './widget-ready.js';
+import { toastFoot } from './toast-foot.js';
 import { changesPage } from './treat-page.js';
 import { warmGlWords } from './gl-words.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
@@ -1923,8 +1924,10 @@ function wireFloating() {
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
     // (A preset's note rests above the dock and the view pill, 8 px clear: on a thumb dock the pill is 42 px over the dock's top edge, 8 px up, and steps aside when a sheet is open.
     // A vessel's card open there stands in that place, so a note that comes while it is up stacks above it: B, 13 Nov 2026.)
-    const ac = card?.el, acUp = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') + 8 : 0;
-    const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8 + acUp);
+    const ac = card?.el, acH = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') : 0;
+    // (Treat and History rest on the same dock, and a note stands above them too: toast-foot.js.)
+    const tcH = thumb && !tc.hidden && !tc.classList.contains('card-leaving') ? readMetric(tc, 'offsetHeight') : thumb && !hc.hidden && !hc.classList.contains('card-leaving') ? readMetric(hc, 'offsetHeight') : 0;
+    const foot = px(toastFoot({ thumb, tabOcc, sheet, bot, sheetsH: [acH, tcH], ah, tbH }));
     if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
     // (While a talk plays, the deck's own controls fill the foot of the screen (the slide pill and Exit, under the card on a phone): the toasts it lets through, errors
     // and cards with buttons, come down from the top bars instead, never over a control or the card's words (B20, 16 Nov 2026). --toast-top: the top bar's foot.)
