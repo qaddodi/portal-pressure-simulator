@@ -63,7 +63,7 @@ function boot(cost = { joins: 0, set: 0, prep: 0 }) {
     F: {}, morph: 0, morphTarget: 0, lobuleOn: false, rotU: 0, rotTarget: 0, coilEasing: false, veins, using: null,
     easeInOut: (t) => t, glStraight: null, glRadDirty: null, glStore: null, vBinReach: new Map(), binShown: null, bendShown: null, lenOfArc: null,
     smoothRunOn: () => new Map(),
-    sweepBin: (msg) => { log.sweeps.push(msg.tubes[0].path[0][0][0]); return Promise.resolve({ rows: 2, entRows: 1, posBase: 1, joinBase: 1, t0: msg.tubes[0].path[0][0][0] }); },
+    sweepBin: (msg) => { log.sweeps.push(msg.tubes[0].flat[0]); return Promise.resolve({ rows: 2, entRows: 1, posBase: 1, joinBase: 1, t0: msg.tubes[0].flat[0] }); },
   };
   const st = {
     BLOOD_PAD: 2, EV, GL_ROWS: 2, N_SAMPLES, cavaAsOne: (items) => items, cbAt: () => [], geo, itemRadii: () => [0, () => 1], reachOf: () => 12, strandAt: () => [],

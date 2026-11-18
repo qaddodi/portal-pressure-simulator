@@ -7,6 +7,7 @@ import { lerp } from './util.js';
 import { newJoinStore } from './vein-joins.js';
 import { ENT_W } from './veins-bin.js';
 import { sweptRowBoxes } from './tube-cull.js';
+import { flatPath } from './veins-sweep.js';
 
 export function createMorph(st, live) {
   const { BLOOD_PAD, EV, GL_ROWS, N_SAMPLES, cavaAsOne, cbAt, edgeVisible, geo, itemRadii, reachOf, strandAt, veinJoins, veinJoinsStep: joinsStep, vesselAt, wrap } = st;
@@ -468,7 +469,8 @@ export function createMorph(st, live) {
     pc.jof = U.map((u) => u.j);
     pc.jpath = U.map((u) => u.path);
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
-    const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
+    // (Each vessel's moments sent as one typed array, not nested pairs: the clone of those ran 44.4 ms of the Compare stop's 'send' unit on the main thread. veins-sweep.js tubesFromFlat.)
+    const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row), path = pc.path.get(it.row); return { id: it.row, flat: flatPath(path), np: path.length, n: path[0].length, reach: r, core: r - 18 + BLOOD_PAD }; });
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
     return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
   }
