@@ -262,14 +262,17 @@ test('the classes of an open card or sheet change no overlay look: no rule on th
   assert.equal('app dock-open panel-open stage-view'.replace(OVER_CARD_RE, ''), 'app stage-view');
   assert.equal('vessel-card'.replace(OVER_CARD_RE, ''), '');
   assert.equal('app not-dock-open dock-opened'.replace(OVER_CARD_RE, ''), 'app not-dock-open dock-opened', 'whole class names only');
-  const dir = new URL('../styles/', import.meta.url), chrome = /\.(panel|panel-scrim|action-card|dock|vdock|instrument-workspace|stage-credit|treat-card|nb-views|readouts)\b|#dock\b|#treatCard\b/, bad = [];
+  const dir = new URL('../styles/', import.meta.url), chrome = /\.(panel|panel-scrim|action-card|dock|vdock|instrument-workspace|stage-credit|treat-card|nb-views|readouts|topbar|toolbar|stage-bar|zoom-pill|projector-exit|big-overlay|cmp-badge|stage-clock|hover-tip|cath-label|lz|lz-lab|lz-zone|lb-alert|pz-shade|pz|pz-[a-z-]+|toast-wrap)\b|\[data-lit[*~]?="lobule:|#(dock|treatCard|zoomPill|toolHint|stageCenter|labels)\b/, bad = [];
+  // (Rules on the stage's own box that set no look a group's reading holds: the box's layer, its touch action and its fade (the HTML overlay div is not the SVG overlays), and the
+  // slide's dimming of the stage's children, an opacity on the SVG's root, which no group's reading holds.)
+  const boxRule = /^\.app\.presenting #stageView(\.pz-out:not\(\.unframed\) > :not\(#veins\)| > #overlay)?$|^\.app\.presenting \.stage-view$/;
   for (const f of readdirSync(dir).filter((n) => n.endsWith('.css'))) {
     const css = readFileSync(new URL(f, dir), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const m of css.matchAll(/([^{}]+)\{/g)) {
       for (const part of m[1].split(',')) {
         if (!OVER_CARD_CLASSES.some((c) => new RegExp(`\\.${c}\\b(?![-\\w])`).test(part))) continue;
         // (what the rule sets: the part after the last class of a card or sheet state; it must be chrome, or the state's own :has() test of it)
-        if (!chrome.test(part)) bad.push(`${f}: ${part.trim().slice(0, 140)}`);
+        if (!chrome.test(part) && !boxRule.test(part.trim().replace(/\s+/g, ' '))) bad.push(`${f}: ${part.trim().slice(0, 140)}`);
       }
     }
   }

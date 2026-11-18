@@ -22,7 +22,7 @@ test('a zoom (a card pick frames the vessel with one) reads the overlays\' group
   const doc = globalThis.document, app = doc.querySelector('#app, .app');
   globalThis.getComputedStyle = (el, p) => { groups++; return was(el, p); };
   try {
-    doc.documentElement.classList.add('vessel-card'); app?.classList.add('dock-open', 'panel-open');
+    doc.documentElement.classList.add('vessel-card', 'pz-covered'); app?.classList.add('dock-open', 'panel-open', 'presenting', 'pz-hush', 'pz-held');
     for (let i = 0; i < 30; i++) await frame();
   } finally { globalThis.getComputedStyle = was; }
   assert.equal(early() - e0, 0, "the overlays are read again for none of a card's classes (a full read of every group before: one 46 to 63 ms frame at each pick)");
