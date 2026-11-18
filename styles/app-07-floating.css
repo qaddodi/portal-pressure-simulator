@@ -98,10 +98,13 @@
 /* Treat: one card with the drugs, fluids and procedures, under its button. */
 .treat-card {
   position: absolute; z-index: var(--z-panel); top: calc(var(--top-safe) + 4px + var(--cmp-occ, 0px)); right: calc(env(safe-area-inset-right) + var(--gap));
-  width: min(400px, calc(100vw - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - var(--vdock-h) - 2 * var(--gap) - 12px);
+  width: min(400px, calc(100vw - 2 * var(--gap))); max-height: calc(100% - var(--top-safe) - 4px - var(--cmp-occ, 0px) - var(--vdock-edge, var(--vdock-h)) - var(--gap));
+  /* (18 Nov 2026, the tester, Mac 1440 x 900, Procedures with a TIPS placed and Changes open: the card stopped at 698 px, 78 px above the dock, with 699 px of words in a 594 px body, so it scrolled and cut the TIPS row and its Undo. The room is what lies between the top bar and the dock's own top edge (--vdock-edge, main.js), less one gap, as the card stands at the right of the screen and the view switch in the middle of it.) */
+  /* (A narrower window: the view switch reaches under the card, which keeps clear of it as before: the rule just below.) */
   display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   animation: scale-settle var(--d-flip) var(--ease);
 }
+@media (max-width: 1100px) { .treat-card { max-height: calc(100% - var(--top-safe) - var(--cmp-occ, 0px) - var(--vdock-h) - 2 * var(--gap) - 12px); } }
 .tc-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 8px 6px 16px; }
 .tc-head h2 { margin: 0; font-size: var(--fs-16); font-weight: 600; flex: 1; display: flex; align-items: center; gap: 8px; }
 .tc-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }

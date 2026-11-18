@@ -1875,7 +1875,8 @@ function wireFloating() {
     const pn = $('#panel'), lift = isPhone() && panelShown() && readMetric(pn, 'offsetParent') ? readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - readMetric(pn, 'offsetTop') + 8 : 0;
     const tall = !!readMetric(pn, 'offsetParent') && lift > 0 && readMetric(readMetric(pn, 'offsetParent'), 'clientHeight') - lift < tbH + 48;
     const vars = {
-      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0),
+      '--top-safe': px(tbH), '--vdock-h': px(vdock), '--vdock-top': px(readMetric(vd, 'offsetHeight') ? vdTop : 0), '--vdock-edge': px(vdH ? vdTop - nbvH : 0),   // (--vdock-edge: the dock's own top edge from the bottom, without the view switch's reach above it)
+     
       '--panel-occ': px(panelOcc), '--instr-occ': px(instrOcc), '--right-occ': px(panelOcc + instrOcc + treatOcc), '--bot-occ': px(bot), '--dock-occ': px(vdock + gap),   // (--dock-occ: the bottom bar alone, with no card's sheet above it: the lobule is sized in this room and panned for the cards, lobule-zoom.js)
 
       '--panel-h': px(tall || !lift ? 0 : lift + 4), '--panel-cover': tall ? '1' : '0',
