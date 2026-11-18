@@ -215,7 +215,7 @@ export const TOKENS = {
     // (COL-1: the two low stops, where a healthy hepatic vein, the cava and the central vein sit (3 to 5 mmHg), were 1.25:1 and 1.22:1 on Oat's ground; as dark against Oat's ground as Linen's are against Linen's: 1.37:1 and 1.81:1, where Linen's are 1.28 and 1.79)
     'ramp-pressure': '#8DB8E2 0, #6A9FDE 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
     // Oat (6 Nov, picked from the Soft mocks): a deeper, warmer cream, frosted cards, firmer organs, trace lines at 3:1 on the card
-    'gut-a': '.80',
+    'gut-a': '.86',
     'organ-a': '.52',
     'bg': '#DDD0B9',
     'flow-reversed-ink': 'color-mix(in srgb, var(--flow-reversed) 50%, var(--text))',   // (Oat's ground is darker: 4.7:1 at half. ST-3)
@@ -268,20 +268,23 @@ export const TOKENS = {
       // a mid straw, between the old deep amber and Light's faint wash: visible against the beige ground, still translucent
     // status inks deepened for cream (the light theme's are tuned for white); the figure's label halo matches the paper
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
-    // The organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
+    // Deep clay (18 Nov 2026, picked from the Soft palette mocks, /mnt/project-files/soft-palette-mocks/): the organs keep Soft's warm hues but are far richer
+    // (OKLab L .62/.49/.35, chroma about 1.7x; the gut quieter so it stays clear of the orange reversed-flow vessels), and the organ layer is firmer (.78, kidney .92, gut .86:
+    // styles/app-06-plate.css). Replaces the Oat-era tones re-derived from Linen's (C3, 8 Nov).
+    // (Before Deep clay:) the organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
     'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
     'leader': 'rgba(40, 42, 52, .42)', 'og-dark': 'rgba(60, 22, 18, .22)',
-    'og-liver-1': '#c89e8e', 'og-liver-2': '#ab6955', 'og-liver-3': '#7d3a28',
-    'og-stomach-1': '#d2b4a8', 'og-stomach-2': '#be8773', 'og-stomach-3': '#8a513d',
-    'og-eso-1': '#cfad9e', 'og-eso-2': '#ba836f', 'og-eso-3': '#885444',
-    'og-spleen-1': '#ba9baf', 'og-spleen-2': '#8d607e', 'og-spleen-3': '#5e3651',
-    'og-panc-1': '#cfbb8b', 'og-panc-2': '#ba9955', 'og-panc-3': '#87671e',
-    'og-kidney-1': '#c08ca4', 'og-kidney-2': '#8c486e', 'og-kidney-3': '#531c3f',
-    'og-gb-1': '#afbc89', 'og-gb-2': '#7f9754', 'og-gb-3': '#4b6528',
-    'og-gut-1': '#d9b6a6', 'og-gut-2': '#c98f7a', 'og-gut-3': '#965c47',
-    'og-heart-1': '#ce9288', 'og-heart-2': '#af5e50', 'og-heart-3': '#7a3127',
-    'og-ra-1': '#c68076', 'og-ra-2': '#a54b3f', 'og-ra-3': '#6f251d',
+    'og-liver-1': '#ba7059', 'og-liver-2': '#9b4124', 'og-liver-3': '#662108',
+    'og-stomach-1': '#b17560', 'og-stomach-2': '#92482d', 'og-stomach-3': '#612610',
+    'og-eso-1': '#b1755f', 'og-eso-2': '#92482c', 'og-eso-3': '#602710',
+    'og-spleen-1': '#a67495', 'og-spleen-2': '#854872', 'og-spleen-3': '#562748',
+    'og-panc-1': '#b18c3f', 'og-panc-2': '#896505', 'og-panc-3': '#563e01',
+    'og-kidney-1': '#b06e90', 'og-kidney-2': '#90406c', 'og-kidney-3': '#5c2243',
+    'og-gb-1': '#7e9a5a', 'og-gb-2': '#547124', 'og-gb-3': '#314802',
+    'og-gut-1': '#ae8473', 'og-gut-2': '#8d5b45', 'og-gut-3': '#5b3424',
+    'og-heart-1': '#c3695b', 'og-heart-2': '#a1382b', 'og-heart-3': '#6a1911',
+    'og-ra-1': '#c86459', 'og-ra-2': '#a5342b', 'og-ra-3': '#6c1612',
     'organ-body': '#cec6b7', 'organ-body-line': '#b5a791',
     'organ-liver': '#774433', 'organ-spleen': '#634962', 'organ-gut': '#956a57', 'organ-stomach': '#8d6255', 'organ-heart': '#834046', 'organ-kidney': '#724963', 'organ-pancreas': '#8f7c4f', 'organ-gb': '#627054', 'organ-aorta': '#978580',
     'diaphragm': '#8E7566',
